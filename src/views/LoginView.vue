@@ -8,20 +8,31 @@ const { callApi, error: apiError, loading } = useApi()
 const username = ref('')
 const password = ref('')
 const error = ref('')
+const showChangePassword = ref(false)
+const newPassword = ref('')
+const confirmPassword = ref('')
+const successMessage = ref('')  // Add this line
 
 const login = async () => {
   try {
+    if (!username.value || !password.value) {
+      error.value = 'Please enter both username and password'
+      return
+    }
+
     // Get user and verify credentials
     const result = await callApi({
       query: `SELECT u.id, u.username, u.role_id, u.password, r.role_name 
               FROM users u 
               JOIN roles r ON u.role_id = r.id 
               WHERE u.username = ?`,
-      params: [username.value]
+      params: [username.value],
     })
+    console.log('User query result:', result)
     
     if (result.success && result.data.length > 0) {
       const user = result.data[0]
+      console.log('User data:', user)
 
       // Verify password
       const verifyResult = await callApi({
@@ -29,24 +40,25 @@ const login = async () => {
         password: password.value,
         hash: user.password,
       })
+      console.log('Password verification result:', verifyResult)
 
-      if (verifyResult.success) {
+      if (verifyResult.success) {  // Changed this line to only check success
         // Get user permissions
         const permissionsResult = await callApi({
           query: `SELECT p.permission_name, p.description 
                   FROM permissions p 
                   JOIN role_permissions rp ON p.id = rp.permission_id 
                   WHERE rp.role_id = ?`,
-          params: [user.role_id]
+          params: [user.role_id],
         })
-        
+
         // Store user data without the password hash
         const { password: _, ...userData } = user
         const userInfo = {
           ...userData,
-          permissions: permissionsResult.success ? permissionsResult.data : []
+          permissions: permissionsResult.success ? permissionsResult.data : [],
         }
-        
+
         localStorage.setItem('user', JSON.stringify(userInfo))
         router.push('/dashboard')
       } else {
@@ -60,20 +72,125 @@ const login = async () => {
     console.error(err)
   }
 }
+
+// Update the changePassword function verification check as well
+const changePassword = async () => {
+  try {
+    if (!username.value || !password.value) {
+      error.value = 'Please enter your current username and password'
+      return
+    }
+
+    if (!newPassword.value || !confirmPassword.value) {
+      error.value = 'Please enter and confirm your new password'
+      return
+    }
+
+    if (newPassword.value !== confirmPassword.value) {
+      error.value = 'Passwords do not match'
+      return
+    }
+
+    // First verify current credentials
+    const result = await callApi({
+      query: `SELECT u.id, u.username, u.role_id, u.password, r.role_name 
+              FROM users u 
+              JOIN roles r ON u.role_id = r.id 
+              WHERE u.username = ?`,
+      params: [username.value],
+    })
+
+    if (!result.success || !result.data.length) {
+      error.value = 'User not found'
+      return
+    }
+
+    const user = result.data[0]
+
+    // Verify current password
+    const verifyResult = await callApi({
+      action: 'verify_password',
+      password: password.value,
+      hash: user.password,
+    })
+
+    if (!verifyResult.success) {
+      error.value = 'Current password is incorrect'
+      return
+    }
+
+    // Update password with proper hashing
+    const updateResult = await callApi({
+      query: `UPDATE users SET password = ? WHERE username = ?`,
+      params: [newPassword.value, username.value],
+      action: 'hash_password'  // This tells the API to hash the password before updating
+    })
+
+    if (updateResult.success) {
+      successMessage.value = 'Password changed successfully'
+      showChangePassword.value = false
+      newPassword.value = ''
+      confirmPassword.value = ''
+      password.value = ''
+    } else {
+      error.value = 'Failed to change password'
+    }
+  } catch (err) {
+    error.value = 'An error occurred while changing password'
+    console.error(err)
+  }
+}
 </script>
 
 <template>
   <div class="login-container">
-    <form @submit.prevent="login" class="login-form">
-      <h2>Login</h2>
+    <form @submit.prevent="showChangePassword ? changePassword() : login()" class="login-form">
+      <h2>{{ showChangePassword ? 'Change Password' : 'Login' }}</h2>
       <div class="form-group">
-        <input type="text" v-model="username" placeholder="Username" required />
+        <input type="text" v-model="username" placeholder="Username" required :disabled="loading" />
       </div>
       <div class="form-group">
-        <input type="password" v-model="password" placeholder="Password" required />
+        <input
+          type="password"
+          v-model="password"
+          placeholder="Current Password"
+          required
+          :disabled="loading"
+        />
       </div>
+      <template v-if="showChangePassword">
+        <div class="form-group">
+          <input
+            type="password"
+            v-model="newPassword"
+            placeholder="New Password"
+            required
+            :disabled="loading"
+          />
+        </div>
+        <div class="form-group">
+          <input
+            type="password"
+            v-model="confirmPassword"
+            placeholder="Confirm New Password"
+            required
+            :disabled="loading"
+          />
+        </div>
+      </template>
       <div v-if="error" class="error">{{ error }}</div>
-      <button type="submit">Login</button>
+      <div v-if="successMessage" class="success">{{ successMessage }}</div>
+      <button type="submit" :disabled="loading">
+        {{ loading ? 'Processing...' : showChangePassword ? 'Change Password' : 'Login' }}
+      </button>
+      <button
+        type="button"
+        class="secondary-btn"
+        @click="showChangePassword = !showChangePassword"
+        :disabled="loading"
+      >
+        {{ showChangePassword ? 'Back to Login' : 'Change Password' }}
+      </button>
     </form>
   </div>
 </template>
@@ -122,5 +239,26 @@ button:hover {
   color: red;
   margin-bottom: 10px;
   text-align: center;
+}
+
+.success {
+  color: #4caf50;
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+.secondary-btn {
+  width: 100%;
+  padding: 10px;
+  background-color: #757575;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+.secondary-btn:hover {
+  background-color: #616161;
 }
 </style>

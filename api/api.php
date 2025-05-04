@@ -75,17 +75,43 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 // Get POST data
 $postData = json_decode(file_get_contents('php://input'), true);
 
-// Check if this is a password verification request
-if (isset($postData['action']) && $postData['action'] === 'verify_password') {
-    if (!isset($postData['password']) || !isset($postData['hash'])) {
-        http_response_code(400);
-        echo json_encode(['success' => false, 'error' => 'Missing password or hash']);
-        exit;
+// Check if this is a special action request
+if (isset($postData['action'])) {
+    switch($postData['action']) {
+        case 'verify_password':
+            if (!isset($postData['password']) || !isset($postData['hash'])) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Missing password or hash']);
+                exit;
+            }
+            
+            $isValid = password_verify($postData['password'], $postData['hash']);
+            echo json_encode(['success' => $isValid]);
+            exit;
+
+        case 'hash_password':
+            if (!isset($postData['query']) || !isset($postData['params']) || count($postData['params']) !== 2) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Invalid parameters for password update']);
+                exit;
+            }
+
+            // Hash the password (first parameter)
+            $hashedPassword = password_hash($postData['params'][0], PASSWORD_DEFAULT);
+            
+            // Replace the plain password with hashed password in params
+            $postData['params'][0] = $hashedPassword;
+            
+            // Execute the update query with hashed password
+            $result = executeQuery($postData['query'], $postData['params']);
+            echo json_encode($result);
+            exit;
+
+        default:
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'Invalid action']);
+            exit;
     }
-    
-    $isValid = password_verify($postData['password'], $postData['hash']);
-    echo json_encode(['success' => true, 'data' => [['valid' => $isValid]]]);
-    exit;
 }
 
 // Regular query handling
