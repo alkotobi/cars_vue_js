@@ -1,50 +1,53 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useApi } from '../composables/useApi'
 
 const router = useRouter()
+const { callApi, error: apiError, loading } = useApi()
 const username = ref('')
 const password = ref('')
 const error = ref('')
 
 const login = async () => {
   try {
-    const response = await fetch('http://localhost:8000/api.php', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        query: 'SELECT id, username, role_id, password FROM users WHERE username = ?',
-        params: [username.value],
-      }),
+    // Get user and verify credentials
+    const result = await callApi({
+      query: `SELECT u.id, u.username, u.role_id, u.password, r.role_name 
+              FROM users u 
+              JOIN roles r ON u.role_id = r.id 
+              WHERE u.username = ?`,
+      params: [username.value]
     })
-
-    const result = await response.json()
-
+    
     if (result.success && result.data.length > 0) {
       const user = result.data[0]
 
-      // Verify password using PHP endpoint
-      const verifyResponse = await fetch('http://localhost:8000/api.php', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'verify_password',
-          password: password.value,
-          hash: user.password,
-        }),
+      // Verify password
+      const verifyResult = await callApi({
+        action: 'verify_password',
+        password: password.value,
+        hash: user.password,
       })
 
-      const verifyResult = await verifyResponse.json()
-      console.log(verifyResult);
-
       if (verifyResult.success) {
+        // Get user permissions
+        const permissionsResult = await callApi({
+          query: `SELECT p.permission_name, p.description 
+                  FROM permissions p 
+                  JOIN role_permissions rp ON p.id = rp.permission_id 
+                  WHERE rp.role_id = ?`,
+          params: [user.role_id]
+        })
+        
         // Store user data without the password hash
         const { password: _, ...userData } = user
-        localStorage.setItem('user', JSON.stringify(userData))
+        const userInfo = {
+          ...userData,
+          permissions: permissionsResult.success ? permissionsResult.data : []
+        }
+        
+        localStorage.setItem('user', JSON.stringify(userInfo))
         router.push('/dashboard')
       } else {
         error.value = 'Invalid username or password'
