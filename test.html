@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API Test</title>
+</head>
+<body>
+    <h1>hello</h1>
+    <div id="result"></div>
+    <script>
+        alert('hello');
+        fetch('http://localhost:8000/api.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                query: 'SELECT * FROM users',
+                params: []
+            })
+        })
+        .then(response => {
+            console.log('Response:', response);
+            return response.json();
+        })
+        .then(data => {
+            console.log('Data:', data);
+            document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('result').textContent = 'Error: ' + error.message;
+        });
+    </script>
+</body>
+</html>

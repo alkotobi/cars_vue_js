@@ -75,7 +75,20 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 // Get POST data
 $postData = json_decode(file_get_contents('php://input'), true);
 
-// Validate input
+// Check if this is a password verification request
+if (isset($postData['action']) && $postData['action'] === 'verify_password') {
+    if (!isset($postData['password']) || !isset($postData['hash'])) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Missing password or hash']);
+        exit;
+    }
+    
+    $isValid = password_verify($postData['password'], $postData['hash']);
+    echo json_encode(['success' => true, 'data' => [['valid' => $isValid]]]);
+    exit;
+}
+
+// Regular query handling
 if (!isset($postData['query']) || empty($postData['query'])) {
     http_response_code(400);
     echo json_encode(['success' => false, 'error' => 'Query is required']);
