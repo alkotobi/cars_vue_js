@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, watch, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useApi } from '../composables/useApi'
 
@@ -11,7 +11,26 @@ const error = ref('')
 const showChangePassword = ref(false)
 const newPassword = ref('')
 const confirmPassword = ref('')
-const successMessage = ref('')  // Add this line
+const successMessage = ref('')
+const messageTimeout = ref(null)
+
+// Clear messages after a delay
+const clearMessages = () => {
+  if (messageTimeout.value) {
+    clearTimeout(messageTimeout.value)
+  }
+  messageTimeout.value = setTimeout(() => {
+    error.value = ''
+    successMessage.value = ''
+  }, 3000) // Messages will disappear after 3 seconds
+}
+
+// Watch for changes in error or success messages
+watch([error, successMessage], () => {
+  if (error.value || successMessage.value) {
+    clearMessages()
+  }
+})
 
 const login = async () => {
   try {
@@ -140,6 +159,13 @@ const changePassword = async () => {
     console.error(err)
   }
 }
+
+// Clean up timeout when component is unmounted
+onUnmounted(() => {
+  if (messageTimeout.value) {
+    clearTimeout(messageTimeout.value)
+  }
+})
 </script>
 
 <template>
