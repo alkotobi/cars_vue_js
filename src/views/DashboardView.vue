@@ -1,10 +1,19 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import LogoutButton from '../components/LogoutButton.vue'
 
 const router = useRouter()
 const user = ref(null)
+
+const canManageUsers = computed(() => {
+  console.log(user.value);
+  if (!user.value) return false
+  // Admin role (role_id = 1) can do everything
+  if (user.value.role_id === 1) return true
+  // Check for specific permission
+  return user.value.permissions?.some(p => p.permission_name === 'can_manage_users')
+})
 
 onMounted(() => {
   const userStr = localStorage.getItem('user')
@@ -14,6 +23,10 @@ onMounted(() => {
   }
   user.value = JSON.parse(userStr)
 })
+
+const navigateToUsers = () => {
+  router.push('/users')
+}
 </script>
 
 <template>
@@ -25,6 +38,15 @@ onMounted(() => {
       </div>
     </div>
     <LogoutButton />
+    <div class="actions-section">
+      <button 
+        v-if="canManageUsers" 
+        @click="navigateToUsers" 
+        class="action-btn users-btn"
+      >
+        Users
+      </button>
+    </div>
     <div class="permissions-section" v-if="user?.permissions?.length">
       <h2>Your Permissions:</h2>
       <ul class="permissions-list">
@@ -101,5 +123,28 @@ onMounted(() => {
   color: #666;
   margin: 0;
   font-size: 0.9em;
+}
+
+.actions-section {
+  margin: 20px 0;
+}
+
+.action-btn {
+  padding: 10px 20px;
+  margin: 5px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1em;
+  transition: background-color 0.3s;
+}
+
+.users-btn {
+  background-color: #2196F3;
+  color: white;
+}
+
+.users-btn:hover {
+  background-color: #1976D2;
 }
 </style>

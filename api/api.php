@@ -10,13 +10,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-// Database configuration
-$db_config = [
-    'host' => 'localhost',
-    'user' => 'root',
-    'pass' => 'nooo',
-    'dbname' => 'merhab_cars'
-];
+// Include database configuration
+require_once 'config.php';
 
 // Function to establish database connection
 function getConnection($config) {
@@ -107,6 +102,24 @@ if (isset($postData['action'])) {
             echo json_encode($result);
             exit;
 
+            case 'insert_user':
+                if (!isset($postData['query']) ||!isset($postData['params']) || count($postData['params'])!== 4) {
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'error' => 'Invalid parameters for password update']);
+                    exit;
+                }
+
+                // Hash the password (first parameter)
+                $hashedPassword = password_hash($postData['params'][2], PASSWORD_DEFAULT);
+                
+                // Replace the plain password with hashed password in params
+                $postData['params'][2] = $hashedPassword;
+                
+                // Execute the update query with hashed password
+                $result = executeQuery($postData['query'], $postData['params']);
+                echo json_encode($result);
+                exit;
+    
         default:
             http_response_code(400);
             echo json_encode(['success' => false, 'error' => 'Invalid action']);

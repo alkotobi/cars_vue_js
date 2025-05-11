@@ -120,7 +120,7 @@ const changePassword = async () => {
     })
 
     if (!result.success || !result.data.length) {
-      error.value = 'User not found'
+      error.value = 'User not found ' + username.value +' '+result.success+' '+result.data.length+' '+result.error
       return
     }
 
