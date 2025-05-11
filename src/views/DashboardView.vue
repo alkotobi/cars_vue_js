@@ -15,6 +15,21 @@ const canManageUsers = computed(() => {
   return user.value.permissions?.some(p => p.permission_name === 'can_manage_users')
 })
 
+const canAccessTransfers = computed(() => {
+  if (!user.value) return false
+  // Admin role (role_id = 1) can do everything
+  if (user.value.role_id === 1) return true
+  // Check for exchange permissions
+  return user.value.permissions?.some(p => 
+    p.permission_name === 'is_exchange_sender' || 
+    p.permission_name === 'is_exchange_receiver'
+  )
+})
+
+const navigateToTransfers = () => {
+  router.push('/transfers')
+}
+
 onMounted(() => {
   const userStr = localStorage.getItem('user')
   if (!userStr) {
@@ -45,6 +60,13 @@ const navigateToUsers = () => {
         class="action-btn users-btn"
       >
         Users
+      </button>
+      <button 
+        v-if="canAccessTransfers" 
+        @click="navigateToTransfers" 
+        class="action-btn transfers-btn"
+      >
+        Transfers
       </button>
     </div>
     <div class="permissions-section" v-if="user?.permissions?.length">
@@ -146,5 +168,14 @@ const navigateToUsers = () => {
 
 .users-btn:hover {
   background-color: #1976D2;
+}
+
+.transfers-btn {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.transfers-btn:hover {
+  background-color: #388E3C;
 }
 </style>

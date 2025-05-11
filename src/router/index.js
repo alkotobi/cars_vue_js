@@ -28,6 +28,11 @@ const router = createRouter({
       path: '/roles',
       name: 'roles',
       component: () => import('../views/RolesView.vue')
+    },
+    {
+      path: '/transfers',
+      name: 'transfers',
+      component: () => import('../views/TransfersView.vue')
     }
   ]
 })
