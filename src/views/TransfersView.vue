@@ -87,18 +87,18 @@ onMounted(() => {
 <template>
   <div class="transfers-page">
     <div class="sidebar">
-      <router-link to="/transfers" class="dashboard-btn">← Return to Dashboard</router-link>
+      <router-link to="/dashboard" class="dashboard-btn">← Return to Dashboard</router-link>
       <div class="nav-buttons">
         <router-link 
           v-if="canSendTransfer" 
-          to="/transfers/send" 
+          to="/send" 
           class="nav-btn"
         >
           Send Transfer
         </router-link>
         <router-link 
           v-if="canReceiveTransfer" 
-          to="/transfers/receive" 
+          to="/receive" 
           class="nav-btn"
         >
           Receive Transfer

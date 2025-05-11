@@ -59,6 +59,7 @@ try {
         date_receive DATETIME,
         details_transfer JSON,
         notes TEXT,
+        receiver_notes TEXT,
         FOREIGN KEY (id_user_do_transfer) REFERENCES users(id)
     )");
 
