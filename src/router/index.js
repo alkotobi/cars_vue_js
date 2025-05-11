@@ -32,7 +32,19 @@ const router = createRouter({
     {
       path: '/transfers',
       name: 'transfers',
-      component: () => import('../views/TransfersView.vue')
+      component: () => import('../views/TransfersView.vue'),
+      children: [
+        {
+          path: 'send',
+          name: 'send-transfer',
+          component: () => import('../views/SenderView.vue')
+        },
+        {
+          path: 'receive',
+          name: 'receive-transfer',
+          component: () => import('../views/ReceiverView.vue')
+        }
+      ]
     }
   ]
 })

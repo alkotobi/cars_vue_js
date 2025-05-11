@@ -47,6 +47,21 @@ try {
         FOREIGN KEY (permission_id) REFERENCES permissions(id) ON DELETE CASCADE
     )");
 
+    // Create transfers table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS transfers (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        id_user_do_transfer INT NOT NULL,
+        date_do_transfer DATETIME NOT NULL,
+        amount_sending_da DECIMAL(10,2) NOT NULL,
+        rate DECIMAL(10,2) NOT NULL,
+        id_user_receive_transfer INT ,
+        amount_received_usd DECIMAL(10,2) default 0.00,
+        date_receive DATETIME,
+        details_transfer JSON,
+        notes TEXT,
+        FOREIGN KEY (id_user_do_transfer) REFERENCES users(id)
+    )");
+
     // Insert default roles if not exist
     $stmt = $pdo->prepare("INSERT IGNORE INTO roles (role_name, description) VALUES 
         ('admin', 'Administrator with full access'),
