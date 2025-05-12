@@ -3,6 +3,8 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import CarsStock from './CarsStock.vue'
 import ClientsView from './ClientsView.vue'
+import BrokersView from './BrokersView.vue'
+import SuppliersView from './SuppliersView.vue'
 
 const router = useRouter()
 const activeView = ref(null)
@@ -39,6 +41,20 @@ const returnToDashboard = () => {
       >
         Clients
       </button>
+      <button 
+        @click="navigateTo('brokers')"
+        :class="{ active: activeView === 'brokers' }"
+        class="sidebar-btn"
+      >
+        Brokers
+      </button>
+      <button 
+        @click="navigateTo('suppliers')"
+        :class="{ active: activeView === 'suppliers' }"
+        class="sidebar-btn"
+      >
+        Suppliers
+      </button>
     </div>
     <div class="main-content">
       <h1>Cars Management</h1>
@@ -48,6 +64,8 @@ const returnToDashboard = () => {
         </div>
         <CarsStock v-if="activeView === 'stock'" />
         <ClientsView v-if="activeView === 'clients'" />
+        <BrokersView v-if="activeView === 'brokers'" />
+        <SuppliersView v-if="activeView === 'suppliers'" />
       </div>
     </div>
   </div>

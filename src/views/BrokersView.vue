@@ -29,7 +29,7 @@ const newClient = ref({
 const fetchClients = async () => {
   const result = await callApi({
     query: `
-      SELECT * FROM clients where is_broker = 0
+      SELECT * FROM clients where is_broker = 1
       ORDER BY name ASC
     `,
     params: []
@@ -48,7 +48,7 @@ const addClient = async () => {
   const result = await callApi({
     query: `
       INSERT INTO clients (name, address, email, mobiles, id_no, is_broker)
-      VALUES (?, ?, ?, ?, ?, 0)
+      VALUES (?, ?, ?, ?, ?, 1)
     `,
     params: [
       newClient.value.name,
@@ -90,7 +90,7 @@ const updateClient = async () => {
   const result = await callApi({
     query: `
       UPDATE clients 
-      SET name = ?, address = ?, email = ?, mobiles = ?, id_no = ?, is_broker = 0
+      SET name = ?, address = ?, email = ?, mobiles = ?, id_no = ?, is_broker = 1
       WHERE id = ?
     `,
     params: [
@@ -139,7 +139,7 @@ onMounted(() => {
 <template>
   <div class="clients-view">
     <div class="header">
-      <h2>Clients Management</h2>
+      <h2>Brokers Management</h2>
       <button @click="showAddDialog = true" class="add-btn">Add Client</button>
     </div>
     <div class="content">
