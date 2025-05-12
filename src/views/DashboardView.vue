@@ -42,6 +42,18 @@ onMounted(() => {
 const navigateToUsers = () => {
   router.push('/users')
 }
+
+const canManageCars = computed(() => {
+  if (!user.value) return false
+  // Admin role (role_id = 1) can do everything
+  if (user.value.role_id === 1) return true
+  // Check for specific permission
+  return user.value.permissions?.some(p => p.permission_name === 'can_manage_cars')
+})
+
+const navigateToCars = () => {
+  router.push('/cars')
+}
 </script>
 
 <template>
@@ -66,8 +78,16 @@ const navigateToUsers = () => {
         @click="navigateToTransfers" 
         class="action-btn transfers-btn"
       >
-        Transfers
+        Transfers 
       </button>
+      <button 
+        v-if="canManageCars"
+        @click="navigateToCars" 
+        class="action-btn cars-btn"
+      >
+        Cars
+      </button>
+
     </div>
     <div class="permissions-section" v-if="user?.permissions?.length">
       <h2>Your Permissions:</h2>
@@ -177,5 +197,14 @@ const navigateToUsers = () => {
 
 .transfers-btn:hover {
   background-color: #388E3C;
+}
+
+.cars-btn {
+  background-color: #9C27B0;
+  color: white;
+}
+
+.cars-btn:hover {
+  background-color: #7B1FA2;
 }
 </style>

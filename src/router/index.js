@@ -43,6 +43,23 @@ const router = createRouter({
       path: '/receive',
       name: 'receive-transfer',
       component: () => import('../views/ReceiverView.vue')
+    },
+    // Add new route
+    {
+      path: '/transfers-list',
+      name: 'transfers-list',
+      component: () => import('../views/TransfersListView.vue'),
+      meta: { requiresAdmin: true }
+    },
+    {
+      path: '/cars',
+      name: 'cars',
+      component: () => import('../views/CarsView.vue')
+    },
+    {
+      path: '/cars/stock',
+      name: 'cars-stock',
+      component: () => import('../views/CarsStock.vue')
     }
   ]
 })

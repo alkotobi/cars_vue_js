@@ -76,7 +76,8 @@ try {
         ('can_manage_roles', 'Can create, edit, and delete roles'),
         ('can_manage_permissions', 'Can manage role permissions'),
         ('is_exchange_sender', 'Can send exchange requests'),
-        ('is_exchange_receiver', 'Can receive exchange requests')
+        ('is_exchange_receiver', 'Can receive exchange requests'),
+        ('can_manage_cars', 'Can manage cars inventory')
     ");
     $stmt->execute();
 
@@ -95,6 +96,98 @@ try {
         WHERE r.role_name = 'admin'
     ");
     $stmt->execute();
+
+    // Create brands table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS brands (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        brand VARCHAR(255) DEFAULT NULL,
+        UNIQUE KEY brand (brand)
+    )");
+
+    // Create colors table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS colors (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        color VARCHAR(255) DEFAULT NULL,
+        UNIQUE KEY color (color)
+    )");
+
+    // Create discharge ports table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS discharge_ports (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        discharge_port VARCHAR(255) DEFAULT NULL,
+        UNIQUE KEY discharge_port (discharge_port)
+    )");
+
+    // Create loading ports table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS loading_ports (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        loading_port VARCHAR(255) DEFAULT NULL,
+        UNIQUE KEY loading_port (loading_port)
+    )");
+
+    // Create clients table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS clients (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        name VARCHAR(255) NOT NULL,
+        address VARCHAR(255) DEFAULT NULL,
+        email VARCHAR(255) DEFAULT NULL,
+        mobiles VARCHAR(255) NOT NULL,
+        id_copy_path VARCHAR(255) DEFAULT NULL,
+        id_no VARCHAR(255) DEFAULT NULL,
+        is_broker TINYINT(1) DEFAULT 0
+    )");
+
+    // Create suppliers table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS suppliers (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        name VARCHAR(255) DEFAULT NULL,
+        contact_info TEXT DEFAULT NULL,
+        notes TEXT DEFAULT NULL
+    )");
+
+    // Create cars_names table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS cars_names (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        car_name VARCHAR(255) DEFAULT NULL,
+        notes TEXT DEFAULT NULL,
+        UNIQUE KEY car_name (car_name)
+    )");
+
+    // Create cars_stock table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS cars_stock (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        id_car_name INT NOT NULL,
+        notes TEXT DEFAULT NULL,
+        id_brand INT DEFAULT NULL,
+        id_color INT NOT NULL,
+        id_supplier INT NOT NULL,
+        date_buy DATETIME NOT NULL,
+        price_buy DECIMAL(10,2) NOT NULL,
+        date_sell DATETIME DEFAULT NULL,
+        id_client INT DEFAULT NULL,
+        price_cell DECIMAL(10,2) DEFAULT NULL,
+        id_port_loading INT DEFAULT NULL,
+        id_port_discharge INT DEFAULT NULL,
+        vin VARCHAR(255) DEFAULT NULL,
+        path_documents VARCHAR(255) DEFAULT NULL,
+        date_loding DATETIME DEFAULT NULL,
+        date_send_documents DATETIME DEFAULT NULL,
+        deposit DECIMAL(10,2) DEFAULT NULL,
+        balance DECIMAL(10,2) DEFAULT NULL,
+        date_balance DATETIME DEFAULT NULL,
+        hidden TINYINT(1) DEFAULT 0,
+        id_buy_pi INT DEFAULT NULL,
+        id_sell_pi VARCHAR(255) DEFAULT NULL,
+        sell_pi_path VARCHAR(255) DEFAULT NULL,
+        buy_pi_path VARCHAR(255) DEFAULT NULL,
+        FOREIGN KEY (id_car_name) REFERENCES cars_names(id),
+        FOREIGN KEY (id_brand) REFERENCES brands(id),
+        FOREIGN KEY (id_color) REFERENCES colors(id),
+        FOREIGN KEY (id_supplier) REFERENCES suppliers(id),
+        FOREIGN KEY (id_client) REFERENCES clients(id),
+        FOREIGN KEY (id_port_loading) REFERENCES loading_ports(id),
+        FOREIGN KEY (id_port_discharge) REFERENCES discharge_ports(id)
+    )");
 
     echo json_encode([
         'success' => true,

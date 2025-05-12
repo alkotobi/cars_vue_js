@@ -20,6 +20,10 @@ const canReceiveTransfer = computed(() => {
   return user.value.permissions?.some(p => p.permission_name === 'is_exchange_receiver')
 })
 
+const canViewTransfersList = computed(() => {
+  return user.value?.role_id === 1
+})
+
 // Statistics computations
 const statistics = computed(() => {
   if (!transfers.value.length) return {
@@ -89,6 +93,13 @@ onMounted(() => {
     <div class="sidebar">
       <router-link to="/dashboard" class="dashboard-btn">← Return to Dashboard</router-link>
       <div class="nav-buttons">
+        <router-link 
+          v-if="canViewTransfersList" 
+          to="/transfers-list" 
+          class="nav-btn"
+        >
+          Transfers List
+        </router-link>
         <router-link 
           v-if="canSendTransfer" 
           to="/send" 
