@@ -5,6 +5,11 @@ import CarsStock from './CarsStock.vue'
 import ClientsView from './ClientsView.vue'
 import BrokersView from './BrokersView.vue'
 import SuppliersView from './SuppliersView.vue'
+import CarModelsView from './CarModelsView.vue'
+import ColorsView from './ColorsView.vue'
+import DischargePortsView from './DischargePortsView.vue'
+import LoadingPortsView from './LoadingPortsView.vue'
+import BuyView from './BuyView.vue'
 
 const router = useRouter()
 const activeView = ref(null)
@@ -21,40 +26,81 @@ const returnToDashboard = () => {
 <template>
   <div class="cars-view">
     <div class="sidebar">
-      <button 
-        @click="returnToDashboard"
-        class="sidebar-btn return-btn"
-      >
-        Return to Dashboard
-      </button>
-      <button 
-        @click="navigateTo('stock')"
-        :class="{ active: activeView === 'stock' }"
-        class="sidebar-btn"
-      >
-        Cars Stock
-      </button>
-      <button 
-        @click="navigateTo('clients')"
-        :class="{ active: activeView === 'clients' }"
-        class="sidebar-btn"
-      >
-        Clients
-      </button>
-      <button 
-        @click="navigateTo('brokers')"
-        :class="{ active: activeView === 'brokers' }"
-        class="sidebar-btn"
-      >
-        Brokers
-      </button>
-      <button 
-        @click="navigateTo('suppliers')"
-        :class="{ active: activeView === 'suppliers' }"
-        class="sidebar-btn"
-      >
-        Suppliers
-      </button>
+      <div class="sidebar-top">
+        <button 
+          @click="returnToDashboard"
+          class="sidebar-btn return-btn"
+        >
+          Return to Dashboard
+        </button>
+        <button 
+          @click="navigateTo('buy')"
+          :class="{ active: activeView === 'buy' }"
+          class="sidebar-btn buy-btn"
+        >
+          Buy
+        </button>
+        <button 
+          @click="navigateTo('stock')"
+          :class="{ active: activeView === 'stock' }"
+          class="sidebar-btn stock-btn"
+        >
+          Cars Stock
+        </button>
+      </div>
+
+      <div class="sidebar-bottom">
+        <div class="sidebar-section-title">Settings</div>
+        <button 
+          @click="navigateTo('models')"
+          :class="{ active: activeView === 'models' }"
+          class="sidebar-btn"
+        >
+          Car Models
+        </button>
+        <button 
+          @click="navigateTo('colors')"
+          :class="{ active: activeView === 'colors' }"
+          class="sidebar-btn"
+        >
+          Colors
+        </button>
+        <button 
+          @click="navigateTo('discharge-ports')"
+          :class="{ active: activeView === 'discharge-ports' }"
+          class="sidebar-btn"
+        >
+          Discharge Ports
+        </button>
+        <button 
+          @click="navigateTo('loading-ports')"
+          :class="{ active: activeView === 'loading-ports' }"
+          class="sidebar-btn"
+        >
+          Loading Ports
+        </button>
+        <button 
+          @click="navigateTo('clients')"
+          :class="{ active: activeView === 'clients' }"
+          class="sidebar-btn"
+        >
+          Clients
+        </button>
+        <button 
+          @click="navigateTo('brokers')"
+          :class="{ active: activeView === 'brokers' }"
+          class="sidebar-btn"
+        >
+          Brokers
+        </button>
+        <button 
+          @click="navigateTo('suppliers')"
+          :class="{ active: activeView === 'suppliers' }"
+          class="sidebar-btn"
+        >
+          Suppliers
+        </button>
+      </div>
     </div>
     <div class="main-content">
       <h1>Cars Management</h1>
@@ -62,7 +108,12 @@ const returnToDashboard = () => {
         <div v-if="!activeView" class="empty-state">
           Please select an option from the sidebar
         </div>
+        <BuyView v-if="activeView === 'buy'" />
         <CarsStock v-if="activeView === 'stock'" />
+        <CarModelsView v-if="activeView === 'models'" />
+        <ColorsView v-if="activeView === 'colors'" />
+        <DischargePortsView v-if="activeView === 'discharge-ports'" />
+        <LoadingPortsView v-if="activeView === 'loading-ports'" />
         <ClientsView v-if="activeView === 'clients'" />
         <BrokersView v-if="activeView === 'brokers'" />
         <SuppliersView v-if="activeView === 'suppliers'" />
@@ -82,11 +133,26 @@ const returnToDashboard = () => {
   background-color: #2c3e50;
   padding: 20px;
   color: white;
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
 }
 
-.main-content {
+.sidebar-top {
+  border-bottom: 2px solid #34495e;
+  padding-bottom: 20px;
+}
+
+.sidebar-bottom {
   flex: 1;
-  padding: 20px;
+}
+
+.sidebar-section-title {
+  font-size: 0.9em;
+  text-transform: uppercase;
+  color: #94a3b8;
+  margin-bottom: 10px;
+  padding-left: 10px;
 }
 
 .sidebar-btn {
@@ -100,6 +166,35 @@ const returnToDashboard = () => {
   cursor: pointer;
   border-radius: 4px;
   transition: background-color 0.3s;
+}
+
+.buy-btn {
+  background-color: #10b981;
+}
+
+.buy-btn:hover {
+  background-color: #059669;
+}
+
+.buy-btn.active {
+  background-color: #047857;
+}
+
+.stock-btn {
+  background-color: #3b82f6;
+}
+
+.stock-btn:hover {
+  background-color: #2563eb;
+}
+
+.stock-btn.active {
+  background-color: #1d4ed8;
+}
+
+.main-content {
+  flex: 1;
+  padding: 20px;
 }
 
 .sidebar-btn:hover {
@@ -141,5 +236,18 @@ h2 {
 
 .return-btn:hover {
   background-color: #475569;
+}
+
+.buy-btn {
+  background-color: #10b981;
+  margin-bottom: 20px;
+}
+
+.buy-btn:hover {
+  background-color: #059669;
+}
+
+.buy-btn.active {
+  background-color: #047857;
 }
 </style>

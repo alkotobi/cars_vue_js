@@ -156,13 +156,8 @@ try {
     // Create cars_stock table
     $pdo->exec("CREATE TABLE IF NOT EXISTS cars_stock (
         id INT PRIMARY KEY AUTO_INCREMENT,
-        id_car_name INT NOT NULL,
         notes TEXT DEFAULT NULL,
-        id_brand INT DEFAULT NULL,
-        id_color INT NOT NULL,
-        id_supplier INT NOT NULL,
-        date_buy DATETIME NOT NULL,
-        price_buy DECIMAL(10,2) NOT NULL,
+        id_buy_details INT DEFAULT NULL,
         date_sell DATETIME DEFAULT NULL,
         id_client INT DEFAULT NULL,
         price_cell DECIMAL(10,2) DEFAULT NULL,
@@ -180,13 +175,49 @@ try {
         id_sell_pi VARCHAR(255) DEFAULT NULL,
         sell_pi_path VARCHAR(255) DEFAULT NULL,
         buy_pi_path VARCHAR(255) DEFAULT NULL,
-        FOREIGN KEY (id_car_name) REFERENCES cars_names(id),
-        FOREIGN KEY (id_brand) REFERENCES brands(id),
-        FOREIGN KEY (id_color) REFERENCES colors(id),
-        FOREIGN KEY (id_supplier) REFERENCES suppliers(id),
+        id_sell INT DEFAULT NULL,
         FOREIGN KEY (id_client) REFERENCES clients(id),
         FOREIGN KEY (id_port_loading) REFERENCES loading_ports(id),
-        FOREIGN KEY (id_port_discharge) REFERENCES discharge_ports(id)
+        FOREIGN KEY (id_port_discharge) REFERENCES discharge_ports(id),
+        FOREIGN KEY (id_buy_details) REFERENCES buy_details(id)
+    )");
+
+    // Create buy_bill table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS buy_bill (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        id_supplier INT DEFAULT NULL,
+        date_buy DATETIME DEFAULT NULL,
+        amount DECIMAL(10,2) DEFAULT NULL,
+        payed DECIMAL(10,2) DEFAULT NULL,
+        pi_path VARCHAR(255) DEFAULT NULL,
+        FOREIGN KEY (id_supplier) REFERENCES suppliers(id)
+    )");
+
+    // Create buy_details table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS buy_details (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        id_car_name INT DEFAULT NULL,
+        id_color INT DEFAULT NULL,
+        amount DECIMAL(10,2) DEFAULT NULL,
+        notes TEXT DEFAULT NULL,
+        QTY INT DEFAULT NULL,
+        year INT DEFAULT NULL,
+        month INT DEFAULT NULL,
+        is_used_car TINYINT(1) DEFAULT 0,
+        id_buy_bill INT DEFAULT NULL,
+        FOREIGN KEY (id_car_name) REFERENCES cars_names(id),
+        FOREIGN KEY (id_color) REFERENCES colors(id),
+        FOREIGN KEY (id_buy_bill) REFERENCES buy_bill(id)
+    )");
+
+    // Create buy_payments table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS buy_payments (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        id_buy_bill INT DEFAULT NULL,
+        date_payment DATETIME DEFAULT NULL,
+        amount DECIMAL(10,2) DEFAULT NULL,
+        swift_path VARCHAR(255) DEFAULT NULL,
+        FOREIGN KEY (id_buy_bill) REFERENCES buy_bill(id)
     )");
 
     echo json_encode([
