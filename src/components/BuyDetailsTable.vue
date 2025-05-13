@@ -1,5 +1,8 @@
 <script setup>
 import { defineProps, defineEmits, ref } from 'vue'
+import { useApi } from '../composables/useApi'
+
+const { callApi, error, loading } = useApi()
 
 const props = defineProps({
   buyDetails: {
@@ -37,15 +40,67 @@ const handleEditSubmit = () => {
   showEditDialog.value = false
   editingDetail.value = null
 }
+
+const showStockAlert = async () => {
+  if (!props.buyDetails.length) {
+    alert('No details to process')
+    return
+  }
+
+  if (confirm('Are you sure you want to update the stock? This action cannot be undone.')) {
+    // Process each detail
+    for (const detail of props.buyDetails) {
+      // Create stock entries based on quantity
+      for (let i = 0; i < detail.QTY; i++) {
+        const result = await callApi({
+          query: `
+            INSERT INTO cars_stock 
+            (id_buy_details,price_cell)
+            VALUES (?,?)
+          `,
+          params: [detail.id,detail.price_sell]
+        })
+        
+        if (!result.success) {
+          alert('Error creating stock entry')
+          console.error('Error creating stock entry:', result.error)
+          return
+        }
+      }
+    }
+
+    // Update the is_stock_updated flag in buy_bill
+    const result = await callApi({
+      query: 'UPDATE buy_bill SET is_stock_updated = 1 WHERE id = ?',
+      params: [props.buyDetails[0].id_buy_bill]
+    })
+
+    if (result.success) {
+      alert('Stock has been successfully updated')
+      emit('update-detail', props.buyDetails[0]) // Trigger refresh of parent component
+    } else {
+      alert('Error updating stock status')
+    }
+  }
+}
 </script>
 
 <template>
   <div class="detail-section">
     <div class="detail-header">
       <h3>Purchase Details</h3>
-      <button @click="$emit('add-detail')" class="add-btn">
-        Add Detail
-      </button>
+      <div class="button-group">
+        <button 
+          @click="showStockAlert" 
+          class="stock-btn"
+          :class="{ 'disabled': buyDetails[0]?.is_stock_updated }"
+          :disabled="buyDetails[0]?.is_stock_updated"
+          :title="buyDetails[0]?.is_stock_updated ? 'Stock has already been updated' : 'Update stock'"
+        >
+          In Stock
+        </button>
+        <button @click="$emit('add-detail')" class="add-btn">Add Detail</button>
+      </div>
     </div>
     <table class="data-table">
       <thead>
@@ -56,7 +111,8 @@ const handleEditSubmit = () => {
           <th>Amount</th>
           <th>Year</th>
           <th>Month</th>
-          <th v-if="isAdmin">Actions</th>
+          <th>Price Sell</th>
+          <th>Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -67,7 +123,8 @@ const handleEditSubmit = () => {
           <td>{{ detail.amount }}</td>
           <td>{{ detail.year }}</td>
           <td>{{ detail.month }}</td>
-          <td v-if="isAdmin" class="actions-cell">
+          <td>{{ detail.price_sell }}</td>
+          <td class="actions">
             <button 
               @click="openEditDialog(detail)"
               class="edit-btn"
@@ -90,83 +147,94 @@ const handleEditSubmit = () => {
         </tr>
       </tbody>
     </table>
-
-    <!-- Edit Dialog -->
-    <div v-if="showEditDialog && editingDetail" class="dialog-overlay">
-      <div class="dialog">
-        <h3>Edit Purchase Detail</h3>
-        <form @submit.prevent="handleEditSubmit">
-          <div class="form-group">
-            <label for="edit-qty">Quantity</label>
-            <input 
-              type="number" 
-              id="edit-qty"
-              v-model="editingDetail.QTY" 
-              min="1" 
-              required
-            >
-          </div>
-          
-          <div class="form-group">
-            <label for="edit-amount">Amount</label>
-            <input 
-              type="number" 
-              id="edit-amount"
-              v-model="editingDetail.amount" 
-              step="0.01" 
-              required
-            >
-          </div>
-          
-          <div class="form-row">
-            <div class="form-group half">
-              <label for="edit-year">Year</label>
-              <input 
-                type="number" 
-                id="edit-year"
-                v-model="editingDetail.year" 
-                required
-              >
-            </div>
-            
-            <div class="form-group half">
-              <label for="edit-month">Month</label>
-              <input 
-                type="number" 
-                id="edit-month"
-                v-model="editingDetail.month" 
-                min="1" 
-                max="12" 
-                required
-              >
-            </div>
-          </div>
-          
-          <div class="form-group">
-            <label for="edit-notes">Notes</label>
-            <textarea 
-              id="edit-notes"
-              v-model="editingDetail.notes" 
-              rows="3"
-            ></textarea>
-          </div>
-          
-          <div class="dialog-buttons">
-            <button 
-              type="button" 
-              @click="showEditDialog = false" 
-              class="cancel-btn"
-            >
-              Cancel
-            </button>
-            <button type="submit" class="submit-btn">
-              Save Changes
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
   </div>
+  <!-- Edit Dialog -->
+<div v-if="showEditDialog && editingDetail" class="dialog-overlay">
+  <div class="dialog">
+    <h3>Edit Purchase Detail</h3>
+    <form @submit.prevent="handleEditSubmit">
+      <div class="form-group">
+        <label for="edit-qty">Quantity</label>
+        <input 
+          type="number" 
+          id="edit-qty"
+          v-model="editingDetail.QTY" 
+          min="1" 
+          required
+        >
+      </div>
+      
+      <div class="form-group">
+        <label for="edit-amount">Amount</label>
+        <input 
+          type="number" 
+          id="edit-amount"
+          v-model="editingDetail.amount" 
+          step="0.01" 
+          required
+        >
+      </div>
+      
+      <div class="form-row">
+        <div class="form-group half">
+          <label for="edit-year">Year</label>
+          <input 
+            type="number" 
+            id="edit-year"
+            v-model="editingDetail.year" 
+            required
+          >
+        </div>
+        
+        <div class="form-group half">
+          <label for="edit-month">Month</label>
+          <input 
+            type="number" 
+            id="edit-month"
+            v-model="editingDetail.month" 
+            min="1" 
+            max="12" 
+            required
+          >
+        </div>
+      </div>
+      
+      <!-- Add price_sell field -->
+      <div class="form-group">
+        <label for="edit-price-sell">Price Sell</label>
+        <input 
+          type="number" 
+          id="edit-price-sell"
+          v-model="editingDetail.price_sell"
+          step="0.01" 
+          required
+        >
+      </div>
+      
+      <div class="form-group">
+        <label for="edit-notes">Notes</label>
+        <textarea 
+          id="edit-notes"
+          v-model="editingDetail.notes" 
+          rows="3"
+        ></textarea>
+      </div>
+      
+      <div class="dialog-buttons">
+        <button 
+          type="button" 
+          @click="showEditDialog = false" 
+          class="cancel-btn"
+        >
+          Cancel
+        </button>
+        <button type="submit" class="submit-btn">
+          Save Changes
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
 </template>
 
 <style scoped>
@@ -342,4 +410,33 @@ const handleEditSubmit = () => {
 .submit-btn:hover {
   background-color: #059669;
 }
+
+.button-group {
+  display: flex;
+  gap: 12px;
+}
+
+.stock-btn {
+  padding: 8px 16px;
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.stock-btn:hover {
+  background-color: #2563eb;
+}
+
+.stock-btn.disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.stock-btn.disabled:hover {
+  background-color: #9ca3af;
+}
+
 </style>

@@ -205,6 +205,7 @@ try {
         month INT DEFAULT NULL,
         is_used_car TINYINT(1) DEFAULT 0,
         id_buy_bill INT DEFAULT NULL,
+        price_sell DECIMAL(10,2) DEFAULT NULL,
         FOREIGN KEY (id_car_name) REFERENCES cars_names(id),
         FOREIGN KEY (id_color) REFERENCES colors(id),
         FOREIGN KEY (id_buy_bill) REFERENCES buy_bill(id)

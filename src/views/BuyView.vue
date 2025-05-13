@@ -148,8 +148,8 @@ const addDetail = async () => {
   const result = await callApi({
     query: `
       INSERT INTO buy_details 
-      (id_car_name, id_color, amount, notes, QTY, year, month, is_used_car, id_buy_bill)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (id_car_name, id_color, amount, notes, QTY, year, month, is_used_car, id_buy_bill, price_sell)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
     params: [
       newDetail.value.id_car_name,
@@ -159,8 +159,9 @@ const addDetail = async () => {
       newDetail.value.QTY,
       newDetail.value.year,
       newDetail.value.month,
-      newDetail.value.is_used_car ? 1 : 0,  // Convert boolean to 1 or 0
-      selectedBill.value.id
+      newDetail.value.is_used_car ? 1 : 0,
+      selectedBill.value.id,
+      newDetail.value.price_sell  // Add this
     ]
   })
   
@@ -219,7 +220,7 @@ const handleUpdateDetail = async (updatedDetail) => {
   const result = await callApi({
     query: `
       UPDATE buy_details 
-      SET QTY = ?, amount = ?, year = ?, month = ?, notes = ?
+      SET QTY = ?, amount = ?, year = ?, month = ?, notes = ?, price_sell = ?
       WHERE id = ?
     `,
     params: [
@@ -228,6 +229,7 @@ const handleUpdateDetail = async (updatedDetail) => {
       updatedDetail.year,
       updatedDetail.month,
       updatedDetail.notes,
+      updatedDetail.price_sell,  // Add this
       updatedDetail.id
     ]
   })
@@ -387,6 +389,14 @@ const handleUpdateDetail = async (updatedDetail) => {
                      max="12" 
                      required>
             </div>
+          </div>
+          
+          <div class="form-group">
+            <label>Price Sell</label>
+            <input type="number" 
+                   v-model="newDetail.price_sell"
+                   step="0.01"
+                   required>
           </div>
           
           <div class="form-group">
