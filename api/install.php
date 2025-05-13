@@ -171,7 +171,7 @@ try {
         balance DECIMAL(10,2) DEFAULT NULL,
         date_balance DATETIME DEFAULT NULL,
         hidden TINYINT(1) DEFAULT 0,
-        id_buy_pi INT DEFAULT NULL,
+        id_buy_pi VARCHAR(11) DEFAULT NULL,  // Changed from INT to VARCHAR(11)
         id_sell_pi VARCHAR(255) DEFAULT NULL,
         sell_pi_path VARCHAR(255) DEFAULT NULL,
         buy_pi_path VARCHAR(255) DEFAULT NULL,
