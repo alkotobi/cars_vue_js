@@ -11,8 +11,8 @@ try {
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
     // Create database if not exists
-    // $pdo->exec("CREATE DATABASE IF NOT EXISTS $db_name");
-    // $pdo->exec("USE $db_name");
+    $pdo->exec("CREATE DATABASE IF NOT EXISTS $db_name");
+    $pdo->exec("USE $db_name");
 
     // Create roles table
     $pdo->exec("CREATE TABLE IF NOT EXISTS roles (
@@ -153,35 +153,6 @@ try {
         UNIQUE KEY car_name (car_name)
     )");
 
-    // Create cars_stock table
-    $pdo->exec("CREATE TABLE IF NOT EXISTS cars_stock (
-        id INT PRIMARY KEY AUTO_INCREMENT,
-        notes TEXT DEFAULT NULL,
-        id_buy_details INT DEFAULT NULL,
-        date_sell DATETIME DEFAULT NULL,
-        id_client INT DEFAULT NULL,
-        price_cell DECIMAL(10,2) DEFAULT NULL,
-        id_port_loading INT DEFAULT NULL,
-        id_port_discharge INT DEFAULT NULL,
-        vin VARCHAR(255) DEFAULT NULL,
-        path_documents VARCHAR(255) DEFAULT NULL,
-        date_loding DATETIME DEFAULT NULL,
-        date_send_documents DATETIME DEFAULT NULL,
-        deposit DECIMAL(10,2) DEFAULT NULL,
-        balance DECIMAL(10,2) DEFAULT NULL,
-        date_balance DATETIME DEFAULT NULL,
-        hidden TINYINT(1) DEFAULT 0,
-        id_buy_pi VARCHAR(11) DEFAULT NULL,  // Changed from INT to VARCHAR(11)
-        id_sell_pi VARCHAR(255) DEFAULT NULL,
-        sell_pi_path VARCHAR(255) DEFAULT NULL,
-        buy_pi_path VARCHAR(255) DEFAULT NULL,
-        id_sell INT DEFAULT NULL,
-        FOREIGN KEY (id_client) REFERENCES clients(id),
-        FOREIGN KEY (id_port_loading) REFERENCES loading_ports(id),
-        FOREIGN KEY (id_port_discharge) REFERENCES discharge_ports(id),
-        FOREIGN KEY (id_buy_details) REFERENCES buy_details(id)
-    )");
-
     // Create buy_bill table
     $pdo->exec("CREATE TABLE IF NOT EXISTS buy_bill (
         id INT PRIMARY KEY AUTO_INCREMENT,
@@ -209,6 +180,35 @@ try {
         FOREIGN KEY (id_car_name) REFERENCES cars_names(id),
         FOREIGN KEY (id_color) REFERENCES colors(id),
         FOREIGN KEY (id_buy_bill) REFERENCES buy_bill(id)
+    )");
+
+    // Create cars_stock table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS cars_stock (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        notes TEXT DEFAULT NULL,
+        id_buy_details INT DEFAULT NULL,
+        date_sell DATETIME DEFAULT NULL,
+        id_client INT DEFAULT NULL,
+        price_cell DECIMAL(10,2) DEFAULT NULL,
+        id_port_loading INT DEFAULT NULL,
+        id_port_discharge INT DEFAULT NULL,
+        vin VARCHAR(255) DEFAULT NULL,
+        path_documents VARCHAR(255) DEFAULT NULL,
+        date_loding DATETIME DEFAULT NULL,
+        date_send_documents DATETIME DEFAULT NULL,
+        deposit DECIMAL(10,2) DEFAULT NULL,
+        balance DECIMAL(10,2) DEFAULT NULL,
+        date_balance DATETIME DEFAULT NULL,
+        hidden TINYINT(1) DEFAULT 0,
+        id_buy_pi VARCHAR(11) DEFAULT NULL,  -- Changed from INT to VARCHAR(11)
+        id_sell_pi VARCHAR(255) DEFAULT NULL,
+        sell_pi_path VARCHAR(255) DEFAULT NULL,
+        buy_pi_path VARCHAR(255) DEFAULT NULL,
+        id_sell INT DEFAULT NULL,
+        FOREIGN KEY (id_client) REFERENCES clients(id),
+        FOREIGN KEY (id_port_loading) REFERENCES loading_ports(id),
+        FOREIGN KEY (id_port_discharge) REFERENCES discharge_ports(id),
+        FOREIGN KEY (id_buy_details) REFERENCES buy_details(id)
     )");
 
     // Create buy_payments table
