@@ -149,10 +149,12 @@ try {
     $pdo->exec("CREATE TABLE IF NOT EXISTS cars_names (
         id INT NOT NULL AUTO_INCREMENT,
         car_name VARCHAR(255) DEFAULT NULL,
+        id_brand INT DEFAULT NULL,
         notes TEXT,
         is_big_car TINYINT(1) DEFAULT '0',
         PRIMARY KEY (id),
-        UNIQUE KEY car_name (car_name)
+        UNIQUE KEY car_name (car_name),
+        FOREIGN KEY (id_brand) REFERENCES brands(id)
     )");
 
     // Create buy_bill table
