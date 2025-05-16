@@ -54,6 +54,8 @@ const addBrand = async () => {
     showAddBrandDialog.value = false
     newBrand.value = { brand: '' }
     await fetchBrands()
+  }else{
+    console.log(result.error)
   }
 }
 
@@ -66,6 +68,9 @@ const addCarName = async () => {
     showAddCarNameDialog.value = false
     newCarName.value = { car_name: '', notes: '', is_big_car: false }
     await fetchCarNames()
+  }
+  else{
+    console.log(result.error)
   }
 }
 
@@ -89,6 +94,9 @@ const updateBrand = async () => {
     editingBrand.value = null
     await fetchBrands()
   }
+  else{
+    console.log(result.error)
+  }
 }
 
 const updateCarName = async () => {
@@ -105,6 +113,9 @@ const updateCarName = async () => {
     showEditCarNameDialog.value = false
     editingCarName.value = null
     await fetchCarNames()
+  }
+  else{
+    console.log(result.error)
   }
 }
 

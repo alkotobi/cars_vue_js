@@ -147,9 +147,11 @@ try {
 
     // Create cars_names table
     $pdo->exec("CREATE TABLE IF NOT EXISTS cars_names (
-        id INT PRIMARY KEY AUTO_INCREMENT,
+        id INT NOT NULL AUTO_INCREMENT,
         car_name VARCHAR(255) DEFAULT NULL,
-        notes TEXT DEFAULT NULL,
+        notes TEXT,
+        is_big_car TINYINT(1) DEFAULT '0',
+        PRIMARY KEY (id),
         UNIQUE KEY car_name (car_name)
     )");
 
