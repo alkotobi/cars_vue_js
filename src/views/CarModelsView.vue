@@ -22,7 +22,8 @@ const newBrand = ref({
 const newCarName = ref({
   car_name: '',
   notes: '',
-  is_big_car: false
+  is_big_car: false,
+  id_brand: null
 })
 
 const fetchBrands = async () => {
@@ -37,7 +38,12 @@ const fetchBrands = async () => {
 
 const fetchCarNames = async () => {
   const result = await callApi({
-    query: 'SELECT * FROM cars_names ORDER BY car_name ASC',
+    query: `
+      SELECT cn.*, b.brand 
+      FROM cars_names cn
+      LEFT JOIN brands b ON cn.id_brand = b.id 
+      ORDER BY cn.car_name ASC
+    `,
     params: []
   })
   if (result.success) {
@@ -61,12 +67,17 @@ const addBrand = async () => {
 
 const addCarName = async () => {
   const result = await callApi({
-    query: 'INSERT INTO cars_names (car_name, notes, is_big_car) VALUES (?, ?, ?)',
-    params: [newCarName.value.car_name, newCarName.value.notes, newCarName.value.is_big_car ? 1 : 0]
+    query: 'INSERT INTO cars_names (car_name, notes, is_big_car, id_brand) VALUES (?, ?, ?, ?)',
+    params: [
+      newCarName.value.car_name,
+      newCarName.value.notes,
+      newCarName.value.is_big_car ? 1 : 0,
+      newCarName.value.id_brand
+    ]
   })
   if (result.success) {
     showAddCarNameDialog.value = false
-    newCarName.value = { car_name: '', notes: '', is_big_car: false }
+    newCarName.value = { car_name: '', notes: '', is_big_car: false, id_brand: null }
     await fetchCarNames()
   }
   else{
@@ -101,11 +112,12 @@ const updateBrand = async () => {
 
 const updateCarName = async () => {
   const result = await callApi({
-    query: 'UPDATE cars_names SET car_name = ?, notes = ?, is_big_car = ? WHERE id = ?',
+    query: 'UPDATE cars_names SET car_name = ?, notes = ?, is_big_car = ?, id_brand = ? WHERE id = ?',
     params: [
       editingCarName.value.car_name,
       editingCarName.value.notes,
       editingCarName.value.is_big_car ? 1 : 0,
+      editingCarName.value.id_brand,
       editingCarName.value.id
     ]
   })
@@ -192,6 +204,7 @@ onMounted(() => {
         <thead>
           <tr>
             <th>Car Name</th>
+            <th>Brand</th>
             <th>Notes</th>
             <th>Big Car</th>
             <th>Actions</th>
@@ -200,6 +213,7 @@ onMounted(() => {
         <tbody>
           <tr v-for="carName in carNames" :key="carName.id">
             <td>{{ carName.car_name }}</td>
+            <td>{{ carName.brand }}</td>
             <td>{{ carName.notes }}</td>
             <td>{{ carName.is_big_car ? 'Yes' : 'No' }}</td>
             <td>
@@ -258,24 +272,32 @@ onMounted(() => {
         <div class="form-group">
           <input 
             v-model="newCarName.car_name" 
-            placeholder="Car Name" 
-            class="input-field"
-          />
-          <textarea 
+            placeholder="Car Name"
+          >
+        </div>
+        <div class="form-group">
+          <select v-model="newCarName.id_brand">
+            <option value="">Select Brand</option>
+            <option v-for="brand in brands" :key="brand.id" :value="brand.id">
+              {{ brand.brand }}
+            </option>
+          </select>
+        </div>
+        <div class="form-group">
+          <input 
             v-model="newCarName.notes" 
-            placeholder="Notes" 
-            class="input-field textarea"
-          ></textarea>
-          <div class="checkbox-field">
+            placeholder="Notes"
+          >
+        </div>
+        <div class="form-group">
+          <label>
             <input 
               type="checkbox" 
-              id="newIsBigCar" 
               v-model="newCarName.is_big_car"
-            />
-            <label for="newIsBigCar">Is Big Car</label>
-          </div>
+            > Big Car
+          </label>
         </div>
-        <div class="dialog-actions">
+        <div class="dialog-buttons">
           <button @click="addCarName" class="btn save-btn">Save</button>
           <button @click="showAddCarNameDialog = false" class="btn cancel-btn">Cancel</button>
         </div>
@@ -289,24 +311,32 @@ onMounted(() => {
         <div class="form-group">
           <input 
             v-model="editingCarName.car_name" 
-            placeholder="Car Name" 
-            class="input-field"
-          />
-          <textarea 
+            placeholder="Car Name"
+          >
+        </div>
+        <div class="form-group">
+          <select v-model="editingCarName.id_brand">
+            <option value="">Select Brand</option>
+            <option v-for="brand in brands" :key="brand.id" :value="brand.id">
+              {{ brand.brand }}
+            </option>
+          </select>
+        </div>
+        <div class="form-group">
+          <input 
             v-model="editingCarName.notes" 
-            placeholder="Notes" 
-            class="input-field textarea"
-          ></textarea>
-          <div class="checkbox-field">
+            placeholder="Notes"
+          >
+        </div>
+        <div class="form-group">
+          <label>
             <input 
               type="checkbox" 
-              id="editIsBigCar" 
               v-model="editingCarName.is_big_car"
-            />
-            <label for="editIsBigCar">Is Big Car</label>
-          </div>
+            > Big Car
+          </label>
         </div>
-        <div class="dialog-actions">
+        <div class="dialog-buttons">
           <button @click="updateCarName" class="btn save-btn">Save</button>
           <button @click="showEditCarNameDialog = false" class="btn cancel-btn">Cancel</button>
         </div>
