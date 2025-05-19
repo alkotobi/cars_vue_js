@@ -28,7 +28,10 @@ const editingSellBill = ref({
   notes: ''
 })
 
-// Add new refs for the add dialog
+// Add new refs for car edit dialog
+const showCarEditDialog = ref(false)
+const editingCar = ref(null)
+
 const newSellBill = ref({
   id_broker: null,
   date_sell: new Date().toISOString().split('T')[0], // Today's date in YYYY-MM-DD format
@@ -470,6 +473,50 @@ onMounted(async () => {
   await fetchDischargePorts()
   await fetchClients()
 })
+
+// Add function to edit car
+const editCar = (car) => {
+  editingCar.value = { ...car }
+  showCarEditDialog.value = true
+}
+
+// Add function to update car
+const updateCar = async () => {
+  if (!editingCar.value) return
+  
+  try {
+    const result = await callApi({
+      query: `
+        UPDATE cars_stock 
+        SET id_client = ?,
+            vin = ?,
+            id_port_loading = ?,
+            id_port_discharge = ?,
+            price_cell = ?,
+            notes = ?
+        WHERE id = ?
+      `,
+      params: [
+        editingCar.value.id_client,
+        editingCar.value.vin,
+        editingCar.value.id_port_loading,
+        editingCar.value.id_port_discharge,
+        editingCar.value.price_cell,
+        editingCar.value.notes,
+        editingCar.value.id
+      ]
+    })
+    
+    if (result.success) {
+      showCarEditDialog.value = false
+      await fetchCarStock(selectedBillId.value)
+    } else {
+      error.value = result.error || 'Failed to update car'
+    }
+  } catch (err) {
+    error.value = err.message || 'An error occurred'
+  }
+}
 </script>
 
 <template>
@@ -560,6 +607,7 @@ onMounted(async () => {
                 <td>${{ car.price_cell || 0 }}</td>
                 <td>${{ (car.price_cell - car.buy_price) || 0 }}</td>
                 <td>
+                  <button @click="editCar(car)" class="edit-btn">Edit</button>
                   <button @click="unassignCar(car.id)" class="unassign-btn">Unassign</button>
                 </td>
               </tr>
@@ -588,6 +636,8 @@ onMounted(async () => {
                 <td>{{ car.color || 'N/A' }}</td>
                 <td>{{ car.vin || 'N/A' }}</td>
                 <td>${{ car.buy_price || 0 }}</td>
+                <td>${{ car.price_cell || 0 }}</td>
+                <td>${{ (car.price_cell - car.buy_price) || 0 }}</td>
                 <td>
                   <button @click="openAssignDialog(car)" class="assign-btn">Assign to Bill</button>
                 </td>
@@ -599,6 +649,127 @@ onMounted(async () => {
     </div>
     
     <!-- Add Assignment Dialog -->
+    <div class="dialog-overlay" v-if="showAssignDialog">
+      <div class="dialog">
+        <h2>Assign Car to Bill</h2>
+        <div class="form-group">
+          <label for="client">Client: <span class="required">*</span></label>
+          <select id="client" v-model="carToAssign.id_client" required>
+            <option value="">Select Client</option>
+            <option v-for="client in clients" :key="client.id" :value="client.id">{{ client.name }}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="vin">VIN:</label>
+          <input type="text" id="vin" v-model="carToAssign.vin">
+        </div>
+        <div class="form-group">
+          <label for="loading-port">Loading Port:</label>
+          <select id="loading-port" v-model="carToAssign.id_port_loading">
+            <option value="">Select Loading Port</option>
+            <option v-for="port in loadingPorts" :key="port.id" :value="port.id">{{ port.loading_port }}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="discharge-port">Discharge Port: <span class="required">*</span></label>
+          <select id="discharge-port" v-model="carToAssign.id_port_discharge" required>
+            <option value="">Select Discharge Port</option>
+            <option v-for="port in dischargePorts" :key="port.id" :value="port.id">{{ port.discharge_port }}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="sell-price">Sell Price: <span class="required">*</span></label>
+          <input type="number" id="sell-price" v-model="carToAssign.price_cell" required>
+        </div>
+        <div class="dialog-buttons">
+          <button @click="assignCarToBill" class="primary">Assign</button>
+          <button @click="showAssignDialog = false">Cancel</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Add Sell Bill Dialog -->
+    <div v-if="showAddDialog" class="dialog-overlay">
+      <div class="dialog">
+        <h3>Add New Sell Bill</h3>
+        
+        <div class="form-group">
+          <label for="broker">Broker:</label>
+          <select id="broker" v-model="newSellBill.id_broker">
+            <option value="">Select Broker</option>
+            <option v-for="broker in brokers" :key="broker.id" :value="broker.id">
+              {{ broker.name }}
+            </option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label for="date">Date:</label>
+          <input type="date" id="date" v-model="newSellBill.date_sell">
+        </div>
+        
+        <div class="form-group">
+          <label for="notes">Notes:</label>
+          <textarea id="notes" v-model="newSellBill.notes"></textarea>
+        </div>
+        
+        <div class="dialog-buttons">
+          <button @click="showAddDialog = false">Cancel</button>
+          <button @click="addSellBill" class="primary">Add</button>
+        </div>
+      </div>
+    </div>
+    <!-- Car Edit Dialog -->
+    <div v-if="showCarEditDialog" class="dialog-overlay">
+      <div class="dialog">
+        <h3>Edit Car Details</h3>
+        <div class="form-group">
+          <label for="edit-car-client">Client:</label>
+          <select id="edit-car-client" v-model="editingCar.id_client">
+            <option value="">Select Client</option>
+            <option v-for="client in clients" :key="client.id" :value="client.id">
+              {{ client.name }}
+            </option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="edit-car-vin">VIN:</label>
+          <input type="text" id="edit-car-vin" v-model="editingCar.vin">
+        </div>
+        <div class="form-group">
+          <label for="edit-car-loading-port">Loading Port:</label>
+          <select id="edit-car-loading-port" v-model="editingCar.id_port_loading">
+            <option value="">Select Loading Port</option>
+            <option v-for="port in loadingPorts" :key="port.id" :value="port.id">
+              {{ port.loading_port }}
+            </option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="edit-car-discharge-port">Discharge Port:</label>
+          <select id="edit-car-discharge-port" v-model="editingCar.id_port_discharge">
+            <option value="">Select Discharge Port</option>
+            <option v-for="port in dischargePorts" :key="port.id" :value="port.id">
+              {{ port.discharge_port }}
+            </option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="edit-car-price">Selling Price:</label>
+          <input type="number" id="edit-car-price" v-model="editingCar.price_cell">
+        </div>
+        <div class="form-group">
+          <label for="edit-car-notes">Notes:</label>
+          <textarea id="edit-car-notes" v-model="editingCar.notes"></textarea>
+        </div>
+        <div class="dialog-buttons">
+          <button @click="updateCar" class="primary">Update</button>
+          <button @click="showCarEditDialog = false">Cancel</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Assign Car Dialog -->
     <div class="dialog-overlay" v-if="showAssignDialog">
       <div class="dialog">
         <h2>Assign Car to Bill</h2>
@@ -900,4 +1071,6 @@ tr.selected {
 .unassign-btn:hover {
   background-color: #f50303;
 }
+
+
 </style>
