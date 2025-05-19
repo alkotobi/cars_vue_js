@@ -79,7 +79,8 @@ const showStockAlert = async () => {
       alert('Stock has been successfully updated')
       emit('update-detail', props.buyDetails[0]) // Trigger refresh of parent component
     } else {
-      alert('Error updating stock status')
+      console.error('Error updating is_stock_updated flag:', result.error)
+      alert('Error updating stock')
     }
   }
 }

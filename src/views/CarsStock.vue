@@ -20,9 +20,11 @@ const fetchCarsStock = async () => {
           cs.price_cell,
           cs.date_loding,
           cs.date_sell,
-          cs.deposit,
-          cs.balance,
           cs.notes,
+          cs.freight,
+          cs.path_documents,
+          cs.sell_pi_path,
+          cs.buy_pi_path,
           c.name as client_name,
           cn.car_name,
           clr.color,
@@ -77,11 +79,12 @@ onMounted(fetchCarsStock)
             <th>VIN</th>
             <th>Loading Port</th>
             <th>Discharge Port</th>
-            <th>Buy Price</th>
-            <th>Sell Price</th>
+            <th>Freight</th>
+            <th>Price Cell</th>
             <th>Loading Date</th>
             <th>Status</th>
             <th>Client</th>
+            <th>Documents</th>
           </tr>
         </thead>
         <tbody>
@@ -92,13 +95,20 @@ onMounted(fetchCarsStock)
             <td>{{ car.vin || 'N/A' }}</td>
             <td>{{ car.loading_port || 'N/A' }}</td>
             <td>{{ car.discharge_port || 'N/A' }}</td>
-            <td>{{ car.buy_price ? '$' + car.buy_price : 'N/A' }}</td>
+            <td>{{ car.freight ? '$' + car.freight : 'N/A' }}</td>
             <td>{{ car.price_cell ? '$' + car.price_cell : 'N/A' }}</td>
             <td>{{ car.date_loding ? new Date(car.date_loding).toLocaleDateString() : 'N/A' }}</td>
             <td :class="car.date_sell ? 'status-sold' : 'status-available'">
               {{ car.date_sell ? 'Sold' : 'Available' }}
             </td>
             <td>{{ car.client_name || 'N/A' }}</td>
+            <td>
+              <div class="document-links">
+                <a v-if="car.path_documents" :href="car.path_documents" target="_blank">Documents</a>
+                <a v-if="car.sell_pi_path" :href="car.sell_pi_path" target="_blank">Sell PI</a>
+                <a v-if="car.buy_pi_path" :href="car.buy_pi_path" target="_blank">Buy PI</a>
+              </div>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -163,5 +173,21 @@ onMounted(fetchCarsStock)
 .status-sold {
   color: #ef4444;
   font-weight: 500;
+}
+
+.document-links {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.document-links a {
+  color: #3b82f6;
+  text-decoration: none;
+  font-size: 0.9em;
+}
+
+.document-links a:hover {
+  text-decoration: underline;
 }
 </style>

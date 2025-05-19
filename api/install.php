@@ -194,21 +194,23 @@ try {
         date_sell DATETIME DEFAULT NULL,
         id_client INT DEFAULT NULL,
         price_cell DECIMAL(10,2) DEFAULT NULL,
+        freight DECIMAL(10,2) DEFAULT NULL,
         id_port_loading INT DEFAULT NULL,
         id_port_discharge INT DEFAULT NULL,
         vin VARCHAR(255) DEFAULT NULL,
         path_documents VARCHAR(255) DEFAULT NULL,
         date_loding DATETIME DEFAULT NULL,
         date_send_documents DATETIME DEFAULT NULL,
-        deposit DECIMAL(10,2) DEFAULT NULL,
-        balance DECIMAL(10,2) DEFAULT NULL,
-        date_balance DATETIME DEFAULT NULL,
         hidden TINYINT(1) DEFAULT 0,
-        id_buy_pi VARCHAR(11) DEFAULT NULL,  -- Changed from INT to VARCHAR(11)
         id_sell_pi VARCHAR(255) DEFAULT NULL,
         sell_pi_path VARCHAR(255) DEFAULT NULL,
         buy_pi_path VARCHAR(255) DEFAULT NULL,
         id_sell INT DEFAULT NULL,
+        PRIMARY KEY (id),
+        KEY id_client (id_client),
+        KEY id_port_loading (id_port_loading),
+        KEY id_port_discharge (id_port_discharge),
+        KEY id_buy_details (id_buy_details),
         FOREIGN KEY (id_client) REFERENCES clients(id),
         FOREIGN KEY (id_port_loading) REFERENCES loading_ports(id),
         FOREIGN KEY (id_port_discharge) REFERENCES discharge_ports(id),
@@ -225,19 +227,29 @@ try {
         FOREIGN KEY (id_buy_bill) REFERENCES buy_bill(id)
     )");
 
-    echo json_encode([
-        'success' => true,
-        'message' => 'Database initialized successfully',
-        'default_credentials' => [
-            'username' => 'admin',
-            'password' => 'admin123'
-        ]
-    ]);
+    // Create sell_bill table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS sell_bill (
+        id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+        id_broker INT DEFAULT NULL,
+        date_sell DATE DEFAULT NULL,
+        notes TEXT COLLATE utf8mb4_general_ci,
+        PRIMARY KEY (id)
+    )");
 
+    // Create sell_payments table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS sell_payments (
+        id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+        id_sell_bill INT DEFAULT NULL,
+        `amount-usd` DECIMAL(10,2) DEFAULT NULL,
+        amount_da DECIMAL(10,2) DEFAULT NULL,
+        rate DECIMAL(10,2) DEFAULT NULL,
+        date DATE DEFAULT NULL,
+        path_swift VARCHAR(255) COLLATE utf8mb4_general_ci DEFAULT NULL,
+        id_user INT DEFAULT NULL,
+        PRIMARY KEY (id)
+    )");
+
+    echo json_encode(['success' => true, 'message' => 'Database setup completed successfully']);
 } catch (PDOException $e) {
-    http_response_code(500);
-    echo json_encode([
-        'success' => false,
-        'error' => $e->getMessage()
-    ]);
+    echo json_encode(['success' => false, 'error' => $e->getMessage()]);
 }

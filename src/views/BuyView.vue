@@ -113,6 +113,9 @@ const fetchBuyDetails = async (billId) => {
   if (result.success) {
     buyDetails.value = result.data
   }
+  else{
+    console.error('Error fetching details:', result.error);
+  }
 }
 
 const selectBill = (bill) => {
