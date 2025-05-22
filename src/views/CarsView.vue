@@ -11,6 +11,7 @@ import DischargePortsView from './DischargePortsView.vue'
 import LoadingPortsView from './LoadingPortsView.vue'
 import BuyView from './BuyView.vue'
 import SellView from './SellView.vue'
+import SellBillsView from './SellBillsView.vue'  // Add this import
 
 const router = useRouter()
 const activeView = ref(null)
@@ -47,6 +48,13 @@ const returnToDashboard = () => {
           class="sidebar-btn sell-btn"
         >
           Sell
+        </button>
+        <button 
+          @click="navigateTo('sell-bills')"
+          :class="{ active: activeView === 'sell-bills' }"
+          class="sidebar-btn sell-bills-btn"
+        >
+          Sell Bills
         </button>
         <button 
           @click="navigateTo('stock')"
@@ -118,6 +126,7 @@ const returnToDashboard = () => {
         </div>
         <BuyView v-if="activeView === 'buy'" />
         <SellView v-if="activeView === 'sell'" />
+        <SellBillsView v-if="activeView === 'sell-bills'" />  <!-- Add this line -->
         <CarsStock v-if="activeView === 'stock'" />
         <CarModelsView v-if="activeView === 'models'" />
         <ColorsView v-if="activeView === 'colors'" />
@@ -271,5 +280,17 @@ h2 {
 
 .sell-btn.active {
   background-color: #b91c1c;
+}
+
+.sell-bills-btn {
+  background-color: #f59e0b;
+}
+
+.sell-bills-btn:hover {
+  background-color: #d97706;
+}
+
+.sell-bills-btn.active {
+  background-color: #b45309;
 }
 </style>

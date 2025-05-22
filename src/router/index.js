@@ -44,7 +44,11 @@ const router = createRouter({
       name: 'receive-transfer',
       component: () => import('../views/ReceiverView.vue')
     },
-    // Add new route
+    {
+      path: '/sell-bills',
+      name: 'sell-bills',
+      component: () => import('../views/SellBillsView.vue')
+    },
     {
       path: '/transfers-list',
       name: 'transfers-list',
