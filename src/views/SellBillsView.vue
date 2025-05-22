@@ -5,6 +5,7 @@ import SellBillsTable from '../components/sells/SellBillsTable.vue'
 import SellBillForm from '../components/sells/SellBillForm.vue'
 import SellBillCarsTable from '../components/sells/SellBillCarsTable.vue'
 import UnassignedCarsTable from '../components/sells/UnassignedCarsTable.vue'
+import SellBillPrint from '../components/sells/SellBillPrint.vue'
 
 const { callApi } = useApi()
 const showAddDialog = ref(false)
@@ -90,13 +91,27 @@ const handleCarsTableRefresh = async () => {
     await sellBillCarsTableRef.value.fetchCarsByBillId(selectedBillId.value)
   }
 }
+
+const showPrintDialog = ref(false)
+
+const handlePrintBill = () => {
+  if (!selectedBillId.value) {
+    alert('Please select a sell bill to print')
+    return
+  }
+  
+  showPrintDialog.value = true
+}
 </script>
 
 <template>
   <div class="sell-bills-view">
     <div class="header">
       <h2>Sell Bills Management</h2>
-      <button @click="openAddDialog" class="add-btn">Add Sell Bill</button>
+      <div class="header-actions">
+        <button @click="handlePrintBill" class="print-btn" :disabled="!selectedBillId">Print Bill</button>
+        <button @click="openAddDialog" class="add-btn">Add Sell Bill</button>
+      </div>
     </div>
     
     <div class="content">
@@ -145,6 +160,13 @@ const handleCarsTableRefresh = async () => {
         />
       </div>
     </div>
+    
+    <!-- Print Dialog -->
+    <SellBillPrint
+      :billId="selectedBillId"
+      :visible="showPrintDialog"
+      @close="showPrintDialog = false"
+    />
   </div>
 </template>
 
@@ -167,6 +189,25 @@ const handleCarsTableRefresh = async () => {
   border-radius: 4px;
   padding: 8px 16px;
   cursor: pointer;
+}
+
+.header-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.print-btn {
+  background-color: #6366f1;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  cursor: pointer;
+}
+
+.print-btn:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
 }
 
 .content {
