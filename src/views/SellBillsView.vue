@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useApi } from '../composables/useApi'
 import SellBillsTable from '../components/sells/SellBillsTable.vue'
 import SellBillForm from '../components/sells/SellBillForm.vue'
@@ -14,7 +14,19 @@ const selectedBillId = ref(null)
 const editingBill = ref(null)
 const sellBillsTableRef = ref(null)
 const unassignedCarsTableRef = ref(null)
-const sellBillCarsTableRef = ref(null)  // Add this line
+const sellBillCarsTableRef = ref(null)
+
+// Add user and isAdmin
+const user = ref(null)
+const isAdmin = computed(() => user.value?.role_id === 1)
+
+onMounted(() => {
+  const userStr = localStorage.getItem('user')
+  if (userStr) {
+    user.value = JSON.parse(userStr)
+  }
+  // Remove the duplicate declarations of userStr
+})
 
 const handleSelectBill = (billId) => {
   selectedBillId.value = billId
@@ -40,6 +52,10 @@ const handleEditBill = (bill) => {
 }
 
 const handleDeleteBill = async (id) => {
+  if (!isAdmin.value) {
+    alert('Only admins can delete sell bills.')
+    return
+  }
   if (!confirm('Are you sure you want to delete this sell bill?')) {
     return
   }
@@ -121,6 +137,7 @@ const handlePrintBill = () => {
         :onDelete="handleDeleteBill"
         :onSelect="handleSelectBill"
         @select-bill="handleSelectBill"
+        :isAdmin="isAdmin" 
       />
       
       <!-- Update to add ref for SellBillCarsTable -->

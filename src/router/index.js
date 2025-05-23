@@ -64,6 +64,12 @@ const router = createRouter({
       path: '/cars/stock',
       name: 'cars-stock',
       component: () => import('../views/CarsStock.vue')
+    },
+    // Add this new route
+    {
+      path: '/warehouses',
+      name: 'warehouses',
+      component: () => import('../views/WarehousesView.vue')
     }
   ]
 })

@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, watch, defineProps } from 'vue'
 import { useApi } from '../../composables/useApi'
+import logo from '../../assets/logo.png' // Import the logo
 
 const props = defineProps({
   billId: {
@@ -21,11 +22,11 @@ const error = ref(null)
 const billData = ref(null)
 const billCars = ref([])
 const companyInfo = ref({
-  name: 'Your Company Name',
-  address: 'Your Company Address',
-  phone: 'Your Company Phone',
-  email: 'your@email.com',
-  logo: '/logo.png' // Path to your company logo
+  name: 'GROUP MERHAB LIMITED',
+  address: 'GUANGZHOU, CHINA',
+  phone: '+86 123 456 7890',
+  email: 'merhab@merhab.com',
+  logo: logo // Use the imported logo
 })
 
 // Fetch bill data and associated cars

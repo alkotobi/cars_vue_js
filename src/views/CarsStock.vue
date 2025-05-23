@@ -1,62 +1,45 @@
 <script setup>
-import { ref, onMounted } from 'vue'
-import { useApi } from '../composables/useApi'
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+import CarStockTable from '../components/car-stock/CarStockTable.vue'
+import CarStockForm from '../components/car-stock/CarStockForm.vue'
+import CarStockFilter from '../components/car-stock/CarStockFilter.vue'
 
-const { callApi } = useApi()
-const cars = ref([])
-const loading = ref(true)
-const error = ref(null)
+const router = useRouter()
+const showEditDialog = ref(false)
+const editingCar = ref(null)
+const carStockTableRef = ref(null)
+const filters = ref({
+  basic: '',
+  advanced: null
+})
 
-const fetchCarsStock = async () => {
-  loading.value = true
-  error.value = null
+const handleEditCar = (car) => {
+  editingCar.value = { ...car }
+  showEditDialog.value = true
+}
+
+const handleSave = () => {
+  showEditDialog.value = false
   
-  try {
-    const result = await callApi({
-      query: `
-        SELECT 
-          cs.id,
-          cs.vin,
-          cs.price_cell,
-          cs.date_loding,
-          cs.date_sell,
-          cs.notes,
-          cs.freight,
-          cs.path_documents,
-          cs.sell_pi_path,
-          cs.buy_pi_path,
-          c.name as client_name,
-          cn.car_name,
-          clr.color,
-          lp.loading_port,
-          dp.discharge_port,
-          bd.price_sell as buy_price
-        FROM cars_stock cs
-        LEFT JOIN clients c ON cs.id_client = c.id
-        LEFT JOIN buy_details bd ON cs.id_buy_details = bd.id
-        LEFT JOIN cars_names cn ON bd.id_car_name = cn.id
-        LEFT JOIN colors clr ON bd.id_color = clr.id
-        LEFT JOIN loading_ports lp ON cs.id_port_loading = lp.id
-        LEFT JOIN discharge_ports dp ON cs.id_port_discharge = dp.id
-        WHERE cs.hidden = 0
-        ORDER BY cs.id DESC
-      `,
-      params: []
-    })
-    
-    if (result.success) {
-      cars.value = result.data
-    } else {
-      error.value = result.error || 'Failed to fetch cars stock'
-    }
-  } catch (err) {
-    error.value = err.message || 'An error occurred'
-  } finally {
-    loading.value = false
+  // Refresh the table
+  if (carStockTableRef.value) {
+    carStockTableRef.value.fetchCarsStock()
   }
 }
 
-onMounted(fetchCarsStock)
+const handleFilter = (filterData) => {
+  filters.value = filterData
+  
+  // Refresh the table with the new filters
+  if (carStockTableRef.value) {
+    carStockTableRef.value.fetchCarsStock()
+  }
+}
+
+const navigateToWarehouses = () => {
+  router.push('/warehouses')
+}
 </script>
 
 <template>
@@ -66,52 +49,32 @@ onMounted(fetchCarsStock)
     </div>
     
     <div class="content">
-      <div v-if="loading" class="loading">Loading...</div>
-      <div v-else-if="error" class="error">{{ error }}</div>
-      <div v-else-if="cars.length === 0" class="empty-state">No cars in stock</div>
+      <!-- Add the filter component -->
+      <CarStockFilter @filter="handleFilter" />
       
-      <table v-else class="cars-table">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Car</th>
-            <th>Color</th>
-            <th>VIN</th>
-            <th>Loading Port</th>
-            <th>Discharge Port</th>
-            <th>Freight</th>
-            <th>Price Cell</th>
-            <th>Loading Date</th>
-            <th>Status</th>
-            <th>Client</th>
-            <th>Documents</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="car in cars" :key="car.id">
-            <td>{{ car.id }}</td>
-            <td>{{ car.car_name || 'N/A' }}</td>
-            <td>{{ car.color || 'N/A' }}</td>
-            <td>{{ car.vin || 'N/A' }}</td>
-            <td>{{ car.loading_port || 'N/A' }}</td>
-            <td>{{ car.discharge_port || 'N/A' }}</td>
-            <td>{{ car.freight ? '$' + car.freight : 'N/A' }}</td>
-            <td>{{ car.price_cell ? '$' + car.price_cell : 'N/A' }}</td>
-            <td>{{ car.date_loding ? new Date(car.date_loding).toLocaleDateString() : 'N/A' }}</td>
-            <td :class="car.date_sell ? 'status-sold' : 'status-available'">
-              {{ car.date_sell ? 'Sold' : 'Available' }}
-            </td>
-            <td>{{ car.client_name || 'N/A' }}</td>
-            <td>
-              <div class="document-links">
-                <a v-if="car.path_documents" :href="car.path_documents" target="_blank">Documents</a>
-                <a v-if="car.sell_pi_path" :href="car.sell_pi_path" target="_blank">Sell PI</a>
-                <a v-if="car.buy_pi_path" :href="car.buy_pi_path" target="_blank">Buy PI</a>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <CarStockTable 
+        ref="carStockTableRef"
+        :onEdit="handleEditCar"
+        :filters="filters"
+      />
+      
+      <!-- Add Warehouses Button at the bottom -->
+      <div class="warehouses-button-container">
+        <button @click="navigateToWarehouses" class="warehouses-btn">
+          Manage Warehouses
+        </button>
+      </div>
+    </div>
+    
+    <!-- Edit Dialog -->
+    <div v-if="showEditDialog" class="dialog-overlay">
+      <div class="dialog">
+        <CarStockForm
+          :carData="editingCar"
+          @save="handleSave"
+          @cancel="showEditDialog = false"
+        />
+      </div>
     </div>
   </div>
 </template>
@@ -135,59 +98,49 @@ onMounted(fetchCarsStock)
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.loading, .error, .empty-state {
-  padding: 20px;
+.dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.dialog {
+  background-color: white;
+  border-radius: 8px;
+  padding: 24px;
+  width: 90%;
+  max-width: 1200px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Add these styles for the warehouses button */
+.warehouses-button-container {
+  margin-top: 20px;
   text-align: center;
 }
 
-.error {
-  color: #ef4444;
-}
-
-.cars-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.cars-table th,
-.cars-table td {
-  padding: 12px;
-  text-align: left;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.cars-table th {
-  background-color: #f8f9fa;
-  font-weight: 600;
-}
-
-.cars-table tbody tr:hover {
-  background-color: #f5f5f5;
-}
-
-.status-available {
-  color: #10b981;
+.warehouses-btn {
+  background-color: #4CAF50;
+  color: white;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
   font-weight: 500;
+  transition: background-color 0.3s;
 }
 
-.status-sold {
-  color: #ef4444;
-  font-weight: 500;
-}
-
-.document-links {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.document-links a {
-  color: #3b82f6;
-  text-decoration: none;
-  font-size: 0.9em;
-}
-
-.document-links a:hover {
-  text-decoration: underline;
+.warehouses-btn:hover {
+  background-color: #45a049;
 }
 </style>

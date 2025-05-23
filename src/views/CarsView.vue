@@ -11,7 +11,8 @@ import DischargePortsView from './DischargePortsView.vue'
 import LoadingPortsView from './LoadingPortsView.vue'
 import BuyView from './BuyView.vue'
 import SellView from './SellView.vue'
-import SellBillsView from './SellBillsView.vue'  // Add this import
+import SellBillsView from './SellBillsView.vue'
+import WarehousesView from './WarehousesView.vue'  // Add this import
 
 const router = useRouter()
 const activeView = ref(null)
@@ -116,6 +117,14 @@ const returnToDashboard = () => {
         >
           Suppliers
         </button>
+        <!-- Add Warehouses button at the bottom of the sidebar -->
+        <button 
+          @click="navigateTo('warehouses')"
+          :class="{ active: activeView === 'warehouses' }"
+          class="sidebar-btn warehouses-btn"
+        >
+          Warehouses
+        </button>
       </div>
     </div>
     <div class="main-content">
@@ -126,7 +135,7 @@ const returnToDashboard = () => {
         </div>
         <BuyView v-if="activeView === 'buy'" />
         <SellView v-if="activeView === 'sell'" />
-        <SellBillsView v-if="activeView === 'sell-bills'" />  <!-- Add this line -->
+        <SellBillsView v-if="activeView === 'sell-bills'" />
         <CarsStock v-if="activeView === 'stock'" />
         <CarModelsView v-if="activeView === 'models'" />
         <ColorsView v-if="activeView === 'colors'" />
@@ -135,6 +144,8 @@ const returnToDashboard = () => {
         <ClientsView v-if="activeView === 'clients'" />
         <BrokersView v-if="activeView === 'brokers'" />
         <SuppliersView v-if="activeView === 'suppliers'" />
+        <!-- Add conditional rendering for Warehouses view -->
+        <WarehousesView v-if="activeView === 'warehouses'" />
       </div>
     </div>
   </div>
@@ -292,5 +303,19 @@ h2 {
 
 .sell-bills-btn.active {
   background-color: #b45309;
+}
+
+/* Add styling for the warehouses button */
+.warehouses-btn {
+  background-color: #10b981;
+  margin-top: 10px;
+}
+
+.warehouses-btn:hover {
+  background-color: #059669;
+}
+
+.warehouses-btn.active {
+  background-color: #047857;
 }
 </style>
