@@ -18,6 +18,7 @@ const props = defineProps({
     })
   }
 })
+const user = ref(null);
 
 const emit = defineEmits(['save', 'cancel'])
 
@@ -79,13 +80,14 @@ const saveBill = async () => {
     if (props.mode === 'add') {
       result = await callApi({
         query: `
-          INSERT INTO sell_bill (id_broker, date_sell, notes)
-          VALUES (?, ?, ?)
+          INSERT INTO sell_bill (id_broker, date_sell, notes,id_user)
+          VALUES (?, ?, ?,?)
         `,
         params: [
           formData.value.id_broker || null,
           formData.value.date_sell,
-          formData.value.notes || ''
+          formData.value.notes || '',
+          user.value.id
         ]
       })
     } else {
@@ -117,7 +119,12 @@ const saveBill = async () => {
 }
 
 onMounted(() => {
-  fetchBrokers()
+  const userStr = localStorage.getItem('user')
+  if (userStr) {
+    user.value = JSON.parse(userStr)
+    fetchBrokers()
+  }
+  
 })
 </script>
 

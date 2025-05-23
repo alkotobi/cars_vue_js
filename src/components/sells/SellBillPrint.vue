@@ -150,6 +150,35 @@ watch(() => [props.billId, props.visible], ([newBillId, newVisible]) => {
     fetchBillData()
   }
 }, { immediate: true })
+
+// Add new refs for document selection
+const showDocumentDialog = ref(false)
+const selectedDocType = ref('invoice') // Default value
+const selectedCurrency = ref('usd') // Default value
+
+// Document type options
+const documentTypes = [
+  { value: 'proforma', label: 'Proforma Invoice' },
+  { value: 'invoice', label: 'Invoice' },
+  { value: 'contract', label: 'Sell Contract' }
+]
+
+const currencies = [
+  { value: 'usd', label: 'USD' },
+  { value: 'dza', label: 'DZA' }
+]
+
+// Handle print button click
+const handlePrintClick = () => {
+  showDocumentDialog.value = true
+}
+
+// Handle print confirmation
+const confirmPrint = () => {
+  showDocumentDialog.value = false
+  // Add logic to customize the print based on selectedDocType.value and selectedCurrency.value
+  window.print()
+}
 </script>
 
 <template>
@@ -257,6 +286,46 @@ watch(() => [props.billId, props.visible], ([newBillId, newVisible]) => {
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- Add the document selection dialog -->
+  <div v-if="showDocumentDialog" class="document-dialog">
+    <div class="dialog-content">
+      <h3>Select Document Type</h3>
+      
+      <div class="form-group">
+        <label>Document Type:</label>
+        <select v-model="selectedDocType">
+          <option v-for="type in documentTypes" :key="type.value" :value="type.value">
+            {{ type.label }}
+          </option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Currency:</label>
+        <select v-model="selectedCurrency">
+          <option v-for="currency in currencies" :key="currency.value" :value="currency.value">
+            {{ currency.label }}
+          </option>
+        </select>
+      </div>
+
+      <div class="dialog-actions">
+        <button @click="confirmPrint">Print</button>
+        <button @click="showDocumentDialog = false">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Replace the existing print button with this -->
+  <button @click="handlePrintClick" class="print-button">
+    Print Document
+  </button>
+
+  <!-- Add styles for different document types -->
+  <div :class="['print-content', selectedDocType]">
+    <!-- ... existing template content ... -->
   </div>
 </template>
 
@@ -488,5 +557,65 @@ watch(() => [props.billId, props.visible], ([newBillId, newVisible]) => {
   font-size: 1.1rem;
   color: #4b5563;
   margin-top: 30px;
+}
+
+.document-dialog {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.dialog-content {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  min-width: 300px;
+}
+
+.form-group {
+  margin: 15px 0;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+}
+
+.form-group select {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.dialog-actions {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.dialog-actions button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.dialog-actions button:first-child {
+  background: #4CAF50;
+  color: white;
+}
+
+.dialog-actions button:last-child {
+  background: #f44336;
+  color: white;
 }
 </style>

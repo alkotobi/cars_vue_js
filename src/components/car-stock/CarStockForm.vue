@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, watch, defineProps, defineEmits } from 'vue'
+import { ref, onMounted, watch, defineProps, defineEmits,computed } from 'vue'
 import { useApi } from '../../composables/useApi'
 
 const props = defineProps({
@@ -8,6 +8,39 @@ const props = defineProps({
     required: true
   }
 })
+
+const user = ref(null)
+const can_edit_vin = computed(() => {
+  if (!user.value) return false
+  if (user.value.role_id === 1) return true
+  return user.value.permissions?.some(p => p.permission_name === 'can_edit_vin')
+})
+
+const can_edit_car_client_name = computed(() => {
+  if (!user.value) return false
+  if (user.value.role_id === 1) return true
+  return user.value.permissions?.some(p => p.permission_name === 'can_edit_car_client_name')
+})
+
+const can_edit_cars_sell_price = computed(() => {
+  if (!user.value) return false
+  if (user.value.role_id === 1) return true
+  return user.value.permissions?.some(p => p.permission_name === 'can_edit_cars_sell_price')
+})
+
+const can_edit_cars_sell_rate = computed(() => {
+  if (!user.value) return false
+  if (user.value.role_id === 1) return true
+  return user.value.permissions?.some(p => p.permission_name === 'can_edit_cars_sell_rate')
+})
+
+const can_edit_cars_discharge_port = computed(() => {
+  if (!user.value) return false
+  if (user.value.role_id === 1) return true
+  return user.value.permissions?.some(p => p.permission_name === 'can_edit_cars_discharge_port')
+})
+
+
 
 const emit = defineEmits(['save', 'cancel'])
 
@@ -44,7 +77,8 @@ const formData = ref({
   id_warehouse: null,
   in_wharhouse_date: null,
   date_get_documents_from_supp: null,
-  date_get_keys_from_supp: null
+  date_get_keys_from_supp: null,
+  rate:null
 })
 
 // Watch for changes in carData prop
@@ -152,7 +186,8 @@ const saveCar = async () => {
           id_warehouse = ?,
           in_wharhouse_date = ?,
           date_get_documents_from_supp = ?,
-          date_get_keys_from_supp = ?
+          date_get_keys_from_supp = ?,
+          rate=?
         WHERE id = ?
       `,
       params: [
@@ -177,6 +212,7 @@ const saveCar = async () => {
         formData.value.in_wharhouse_date || null,
         formData.value.date_get_documents_from_supp || null,
         formData.value.date_get_keys_from_supp || null,
+        formData.value.rate|| null,
         formData.value.id
       ]
     })
@@ -194,7 +230,12 @@ const saveCar = async () => {
 }
 
 onMounted(() => {
-  fetchReferenceData()
+  const userStr = localStorage.getItem('user')
+  if (userStr) {
+    user.value = JSON.parse(userStr)
+      fetchReferenceData()
+  } 
+
 })
 </script>
 
@@ -212,7 +253,7 @@ onMounted(() => {
           
           <div class="form-group">
             <label for="vin">VIN:</label>
-            <input type="text" id="vin" v-model="formData.vin">
+            <input :disabled="!can_edit_vin" type="text" id="vin" v-model="formData.vin">
           </div>
           
           <div class="form-group">
@@ -237,18 +278,23 @@ onMounted(() => {
           
           <div class="form-group">
             <label for="price_cell">Price Cell:</label>
-            <input type="number" id="price_cell" v-model="formData.price_cell" step="0.01">
+            <input :disabled="!can_edit_cars_sell_price" type="number" id="price_cell" v-model="formData.price_cell" step="0.01">
           </div>
           
           <div class="form-group">
             <label for="freight">Freight:</label>
             <input type="number" id="freight" v-model="formData.freight" step="0.01">
           </div>
+
+          <div class="form-group">
+            <label for="rate">Rate:</label>
+            <input :disabled="!can_edit_cars_sell_rate" type="number" id="rate" v-model="formData.rate" step="0.01">
+          </div>
           
           <div class="form-group">
             <label for="id_client">Client:</label>
-            <select id="id_client" v-model="formData.id_client">
-              <option value="">Select Client</option>
+            <select :disabled="!can_edit_car_client_name" id="id_client" v-model="formData.id_client">
+              <option  value="">Select Client</option>
               <option v-for="client in clients" :key="client.id" :value="client.id">
                 {{ client.name }}
               </option>
@@ -277,7 +323,7 @@ onMounted(() => {
           
           <div class="form-group">
             <label for="id_port_discharge">Discharge Port:</label>
-            <select id="id_port_discharge" v-model="formData.id_port_discharge">
+            <select :disabled="!can_edit_cars_discharge_port" id="id_port_discharge" v-model="formData.id_port_discharge">
               <option value="">Select Discharge Port</option>
               <option v-for="port in dischargePorts" :key="port.id" :value="port.id">
                 {{ port.discharge_port }}

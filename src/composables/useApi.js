@@ -1,7 +1,7 @@
 import { ref } from 'vue'
 
-const API_URL = 'http://localhost:8000/api.php'
-
+// const API_URL = 'http://localhost:8000/api.php'
+const API_URL = 'https://www.merhab.com/api/api.php'
 export const useApi = () => {
   const error = ref(null)
   const loading = ref(false)

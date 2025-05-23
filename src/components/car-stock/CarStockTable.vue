@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, defineProps, defineEmits } from 'vue'
+import { ref, onMounted, defineProps, defineEmits,computed } from 'vue'
 import { useApi } from '../../composables/useApi'
 
 
@@ -18,6 +18,14 @@ const props = defineProps({
     })
   }
 })
+
+const user = ref(null)
+const can_edit_cars_prop = computed(() => {
+  if (!user.value) return false
+  if (user.value.role_id === 1) return true
+  return user.value.permissions?.some(p => p.permission_name === 'can_edit_cars_prop')
+})
+
 
 const emit = defineEmits(['refresh'])
 
@@ -226,7 +234,14 @@ const handleVINAction = (car) => {
   isDropdownOpen.value[car.id] = false;
 };
 
-onMounted(fetchCarsStock)
+onMounted(() => {
+  const userStr = localStorage.getItem('user')
+  if (userStr) {
+    user.value = JSON.parse(userStr)
+    fetchCarsStock()
+  }
+}
+)
 
 // Expose the fetchCarsStock method to parent components
 defineExpose({
@@ -283,7 +298,7 @@ defineExpose({
             </div>
           </td>
           <td>
-            <button @click="handleEdit(car)" class="edit-btn">Edit</button>
+            <button :disabled="!can_edit_cars_prop" @click="handleEdit(car)" class="edit-btn">Edit</button>
             <div class="dropdown">
             <button @click="toggleDropdown(car.id)" class="dropdown-toggle">Actions</button>
             <ul v-if="isDropdownOpen[car.id]" class="dropdown-menu">
@@ -300,6 +315,11 @@ defineExpose({
 </template>
 
 <style scoped>
+button:disabled {
+  background-color: #cccccc;
+  color: #666666;
+  cursor: not-allowed;
+}
 .cars-stock-table {
   width: 100%;
   overflow-x: auto;

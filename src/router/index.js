@@ -71,7 +71,19 @@ const router = createRouter({
       name: 'warehouses',
       component: () => import('../views/WarehousesView.vue')
     }
-  ]
+  ],
+  scrollBehavior() {
+    return { top: 0 }
+  }
+})
+
+// Add navigation guard to handle page reloads
+router.beforeEach((to, from, next) => {
+  if (to.matched.length === 0) {
+    next('/')
+  } else {
+    next()
+  }
 })
 
 // Navigation guard

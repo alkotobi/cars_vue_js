@@ -77,12 +77,18 @@ try {
         ('can_manage_permissions', 'Can manage role permissions'),
         ('is_exchange_sender', 'Can send exchange requests'),
         ('is_exchange_receiver', 'Can receive exchange requests'),
-        ('can_manage_cars', 'Can manage cars inventory')
+        ('can_manage_cars', 'Can manage cars inventory'),
+        ('can_edit_cars_prop',''),
+        ('can_edit_vin',''),
+        ('can_edit_car_client_name',''),
+        ('can_edit_cars_sell_price',''),
+        ('can_edit_cars_sell_rate',''),
+        ('can_edit_cars_discharge_port','')
     ");
     $stmt->execute();
 
     // Create default admin user if not exists
-    $defaultPassword = password_hash('admin123', PASSWORD_DEFAULT);
+    $defaultPassword = password_hash('123', PASSWORD_DEFAULT);
     $stmt = $pdo->prepare("INSERT IGNORE INTO users (username, email, password, role_id) VALUES 
         ('admin', 'admin@example.com', ?, (SELECT id FROM roles WHERE role_name = 'admin'))
     ");
@@ -247,6 +253,8 @@ try {
         id_broker INT DEFAULT NULL,
         date_sell DATE DEFAULT NULL,
         notes TEXT COLLATE utf8mb4_general_ci,
+        id_user INT UNSIGNED ,
+        path_pi VARCHAR(255) DEFAULT NULL,
         PRIMARY KEY (id)
     )");
 

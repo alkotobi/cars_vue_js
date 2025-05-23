@@ -43,7 +43,7 @@ const returnToDashboard = () => {
         >
           Buy
         </button>
-        <button 
+        <button v-if="false"
           @click="navigateTo('sell')"
           :class="{ active: activeView === 'sell' }"
           class="sidebar-btn sell-btn"
