@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, defineProps, defineEmits } from 'vue'
 import { useApi } from '../../composables/useApi'
+import SellBillPrintOption from './SellBillPrintOption.vue'
 
 const props = defineProps({
   onEdit: Function,
@@ -15,6 +16,8 @@ const sellBills = ref([])
 const loading = ref(true)
 const error = ref(null)
 const selectedBillId = ref(null)
+const showPrintOptions = ref(false)
+const selectedPrintBillId = ref(null)
 
 const fetchSellBills = async () => {
   loading.value = true
@@ -28,6 +31,7 @@ const fetchSellBills = async () => {
           sb.id_broker,
           sb.date_sell,
           sb.notes,
+          sb.bill_ref,
           c.name as broker_name
         FROM sell_bill sb
         LEFT JOIN clients c ON sb.id_broker = c.id AND c.is_broker = 1
@@ -58,6 +62,22 @@ const handleDelete = (id) => {
   if (props.onDelete) {
     props.onDelete(id)
   }
+}
+
+const handlePrint = (id) => {
+  selectedPrintBillId.value = id
+  showPrintOptions.value = true
+}
+
+const handlePrintClose = () => {
+  showPrintOptions.value = false
+  selectedPrintBillId.value = null
+}
+
+const handlePrintProceed = (options) => {
+  console.log('Print options:', options)
+  showPrintOptions.value = false
+  selectedPrintBillId.value = null
 }
 
 const selectBill = (bill) => {
@@ -91,6 +111,7 @@ onMounted(() => {
       <thead>
         <tr>
           <th>ID</th>
+          <th>Reference</th>
           <th>Date</th>
           <th>Broker</th>
           <th>Notes</th>
@@ -105,16 +126,24 @@ onMounted(() => {
           :class="{ 'selected': selectedBillId === bill.id }"
         >
           <td>{{ bill.id }}</td>
+          <td>{{ bill.bill_ref || 'N/A' }}</td>
           <td>{{ new Date(bill.date_sell).toLocaleDateString() }}</td>
           <td>{{ bill.broker_name || 'N/A' }}</td>
           <td>{{ bill.notes || 'N/A' }}</td>
           <td>
             <button @click.stop="handleEdit(bill)" class="edit-btn">Edit</button>
             <button @click.stop="handleDelete(bill.id)" class="delete-btn">Delete</button>
+            <button @click.stop="handlePrint(bill.id)" class="print-btn">Print</button>
           </td>
         </tr>
       </tbody>
     </table>
+    <SellBillPrintOption
+      :visible="showPrintOptions"
+      :billId="selectedPrintBillId"
+      @close="handlePrintClose"
+      @proceed="handlePrintProceed"
+    />
   </div>
 </template>
 
@@ -175,5 +204,19 @@ onMounted(() => {
   border-radius: 4px;
   padding: 5px 10px;
   cursor: pointer;
+}
+
+.print-btn {
+  background-color: #6366f1;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 5px 10px;
+  cursor: pointer;
+  margin-left: 5px;
+}
+
+.print-btn:hover {
+  background-color: #4f46e5;
 }
 </style>

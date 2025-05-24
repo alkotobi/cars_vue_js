@@ -3,15 +3,24 @@ import { ref, onMounted, computed } from 'vue'
 import { useApi } from '../composables/useApi'
 
 const clients = ref([])
-const { callApi, error } = useApi()
+const { callApi, uploadFile, getFileUrl, error } = useApi()
 const showAddDialog = ref(false)
 const showEditDialog = ref(false)
 const editingClient = ref(null)
 const user = ref(null)
 const validationError = ref('')
+const selectedFile = ref(null)
+const editSelectedFile = ref(null)
 
 // Check if user is admin by getting role from localStorage
 const isAdmin = computed(() => user.value?.role_id === 1)
+
+// Add helper function to check if file is an image
+const isImageFile = (path) => {
+  if (!path) return false
+  const extension = path.split('.').pop().toLowerCase()
+  return ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension)
+}
 
 const validateEmail = (email) => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -39,45 +48,87 @@ const fetchClients = async () => {
   }
 }
 
+const handleFileChange = (event, isEdit = false) => {
+  const file = event.target.files[0]
+  if (isEdit) {
+    editSelectedFile.value = file
+  } else {
+    selectedFile.value = file
+  }
+}
+
 const addClient = async () => {
   if (!validateEmail(newClient.value.email)) {
     validationError.value = 'Please enter a valid email address'
     return
   }
 
-  const result = await callApi({
-    query: `
-      INSERT INTO clients (name, address, email, mobiles, id_no, is_broker)
-      VALUES (?, ?, ?, ?, ?, 0)
-    `,
-    params: [
-      newClient.value.name,
-      newClient.value.address,
-      newClient.value.email,
-      newClient.value.mobiles,
-      newClient.value.id_no,
-    ]
-  })
-  if (result.success) {
-    showAddDialog.value = false
-    validationError.value = ''
-    newClient.value = {
-      name: '',
-      address: '',
-      email: '',
-      mobiles: '',
-      id_no: ''
+  try {
+    // First insert the client to get the ID
+    const result = await callApi({
+      query: `
+        INSERT INTO clients (name, address, email, mobiles, id_no, is_broker)
+        VALUES (?, ?, ?, ?, ?, 0)
+      `,
+      params: [
+        newClient.value.name,
+        newClient.value.address,
+        newClient.value.email,
+        newClient.value.mobiles,
+        newClient.value.id_no,
+      ]
+    })
+
+    if (result.success) {
+      const clientId = result.insertId
+
+      // If there's a file selected, upload it using the new uploadFile method
+      if (selectedFile.value) {
+        try {
+          const filename = `${clientId}.${selectedFile.value.name.split('.').pop()}`
+          const uploadResult = await uploadFile(
+            selectedFile.value,
+            'ids',
+            filename
+          )
+          
+          if (uploadResult.success) {
+            // Use the relative path returned from uploadFile
+            await callApi({
+              query: 'UPDATE clients SET id_copy_path = ? WHERE id = ?',
+              params: [uploadResult.relativePath, clientId]
+            })
+          }
+        } catch (err) {
+          console.error('Error uploading file:', err)
+          error.value = 'Client created but failed to upload ID document'
+        }
+      }
+
+      showAddDialog.value = false
+      validationError.value = ''
+      selectedFile.value = null
+      newClient.value = {
+        name: '',
+        address: '',
+        email: '',
+        mobiles: '',
+        id_no: ''
+      }
+      await fetchClients()
+    } else {
+      error.value = result.error
+      console.error('Error adding client:', result.error)
     }
-    await fetchClients()
-  }
-  else {
-    error.value = result.error
-    console.error('Error adding client:', result.error)
+  } catch (err) {
+    error.value = err.message
+    console.error('Error in add client process:', err)
   }
 }
 
 const editClient = (client) => {
   editingClient.value = { ...client }
+  editSelectedFile.value = null
   showEditDialog.value = true
 }
 
@@ -87,30 +138,60 @@ const updateClient = async () => {
     return
   }
 
-  const result = await callApi({
-    query: `
-      UPDATE clients 
-      SET name = ?, address = ?, email = ?, mobiles = ?, id_no = ?, is_broker = 0
-      WHERE id = ?
-    `,
-    params: [
-      editingClient.value.name,
-      editingClient.value.address,
-      editingClient.value.email,
-      editingClient.value.mobiles,
-      editingClient.value.id_no,
-      editingClient.value.id
-    ]
-  })
-  if (result.success) {
-    showEditDialog.value = false
-    editingClient.value = null
-    validationError.value = ''
-    await fetchClients()
-  }
-  else {
-    error.value = result.error
-    console.error('Error updating client:', result.error)
+  try {
+    // Update client basic info
+    const result = await callApi({
+      query: `
+        UPDATE clients 
+        SET name = ?, address = ?, email = ?, mobiles = ?, id_no = ?, is_broker = 0
+        WHERE id = ?
+      `,
+      params: [
+        editingClient.value.name,
+        editingClient.value.address,
+        editingClient.value.email,
+        editingClient.value.mobiles,
+        editingClient.value.id_no,
+        editingClient.value.id
+      ]
+    })
+
+    if (result.success) {
+      // If there's a new file selected, upload it using the new uploadFile method
+      if (editSelectedFile.value) {
+        try {
+          const filename = `${editingClient.value.id}.${editSelectedFile.value.name.split('.').pop()}`
+          const uploadResult = await uploadFile(
+            editSelectedFile.value,
+            'ids',
+            filename
+          )
+          
+          if (uploadResult.success) {
+            // Use the relative path returned from uploadFile
+            await callApi({
+              query: 'UPDATE clients SET id_copy_path = ? WHERE id = ?',
+              params: [uploadResult.relativePath, editingClient.value.id]
+            })
+          }
+        } catch (err) {
+          console.error('Error uploading file:', err)
+          error.value = 'Client updated but failed to upload new ID document'
+        }
+      }
+
+      showEditDialog.value = false
+      editingClient.value = null
+      editSelectedFile.value = null
+      validationError.value = ''
+      await fetchClients()
+    } else {
+      error.value = result.error
+      console.error('Error updating client:', result.error)
+    }
+  } catch (err) {
+    error.value = err.message
+    console.error('Error in update client process:', err)
   }
 }
 
@@ -126,14 +207,19 @@ const deleteClient = async (client) => {
   }
 }
 
+const handleImageClick = (path) => {
+  if (path) {
+    window.open(getFileUrl(path), '_blank')
+  }
+}
+
 onMounted(() => {
-    const userStr = localStorage.getItem('user')
+  const userStr = localStorage.getItem('user')
   if (userStr) {
     user.value = JSON.parse(userStr)
     fetchClients()
-}
-}
-)
+  }
+})
 </script>
 
 <template>
@@ -151,6 +237,7 @@ onMounted(() => {
             <th>Email</th>
             <th>Mobile</th>
             <th>ID No</th>
+            <th>ID Document</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -161,6 +248,23 @@ onMounted(() => {
             <td>{{ client.email }}</td>
             <td>{{ client.mobiles }}</td>
             <td>{{ client.id_no }}</td>
+            <td class="id-document-cell">
+              <div v-if="client.id_copy_path && isImageFile(client.id_copy_path)" 
+                   class="image-preview"
+                   @click="handleImageClick(client.id_copy_path)">
+                <img 
+                  :src="getFileUrl(client.id_copy_path)" 
+                  :alt="'ID for ' + client.name"
+                />
+              </div>
+              <a v-else-if="client.id_copy_path" 
+                 :href="getFileUrl(client.id_copy_path)" 
+                 target="_blank" 
+                 class="document-link">
+                View Document
+              </a>
+              <span v-else>No ID</span>
+            </td>
             <td>
               <button @click="editClient(client)" class="btn edit-btn">Edit</button>
               <button 
@@ -183,33 +287,38 @@ onMounted(() => {
             v-model="newClient.name" 
             placeholder="Name" 
             class="input-field"
-         
           />
           <input 
             v-model="newClient.address" 
             placeholder="Address" 
             class="input-field"
-            
           />
           <input 
             v-model="newClient.email" 
             placeholder="Email" 
             class="input-field"
             :class="{ 'error': validationError && newClient.email }"
-           
           />
           <input 
             v-model="newClient.mobiles" 
             placeholder="Mobile" 
             class="input-field"
-            
           />
           <input 
             v-model="newClient.id_no" 
             placeholder="ID No" 
             class="input-field"
-            
           />
+          <div class="file-upload">
+            <label for="id-document">ID Document:</label>
+            <input 
+              type="file" 
+              id="id-document" 
+              @change="handleFileChange($event)"
+              accept="image/*,.pdf"
+              class="file-input"
+            />
+          </div>
           <div v-if="validationError" class="error-message">{{ validationError }}</div>
         </div>
         <div class="dialog-actions">
@@ -234,27 +343,36 @@ onMounted(() => {
             v-model="editingClient.address" 
             placeholder="Address" 
             class="input-field"
-           
           />
           <input 
             v-model="editingClient.email" 
             placeholder="Email" 
             class="input-field"
             :class="{ 'error': validationError && editingClient.email }"
-           
           />
           <input 
             v-model="editingClient.mobiles" 
             placeholder="Mobile" 
             class="input-field"
-          
           />
           <input 
             v-model="editingClient.id_no" 
             placeholder="ID No" 
             class="input-field"
-           
           />
+          <div class="file-upload">
+            <label for="edit-id-document">ID Document:</label>
+            <div v-if="editingClient.id_copy_path" class="current-file">
+              Current: <a :href="editingClient.id_copy_path" target="_blank">View ID</a>
+            </div>
+            <input 
+              type="file" 
+              id="edit-id-document" 
+              @change="handleFileChange($event, true)"
+              accept="image/*,.pdf"
+              class="file-input"
+            />
+          </div>
           <div v-if="validationError" class="error-message">{{ validationError }}</div>
         </div>
         <div class="dialog-actions">
@@ -342,13 +460,6 @@ onMounted(() => {
   color: white;
 }
 
-.edit-input {
-  width: 100%;
-  padding: 4px 8px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-}
-
 .dialog-overlay {
   position: fixed;
   top: 0;
@@ -397,24 +508,78 @@ onMounted(() => {
   margin-top: 4px;
 }
 
-.checkbox-field {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.file-upload {
+  margin-top: 8px;
 }
 
-.checkbox-field input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-  cursor: pointer;
+.file-upload label {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 500;
 }
 
-.edit-input.checkbox {
-  width: auto;
+.file-input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: white;
+}
+
+.current-file {
+  margin-bottom: 8px;
+  color: #4b5563;
+}
+
+.current-file a {
+  color: #3b82f6;
+  text-decoration: none;
+}
+
+.current-file a:hover {
+  text-decoration: underline;
 }
 
 .input-field[readonly] {
   background-color: #f3f4f6;
   cursor: not-allowed;
+}
+
+.id-document-cell {
+  width: 120px;
+  text-align: center;
+}
+
+.image-preview {
+  width: 100px;
+  height: 60px;
+  margin: 0 auto;
+  cursor: pointer;
+  overflow: hidden;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+}
+
+.image-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.2s ease;
+}
+
+.image-preview:hover img {
+  transform: scale(1.1);
+}
+
+.document-link {
+  color: #3b82f6;
+  text-decoration: none;
+  font-size: 0.9em;
+  display: inline-block;
+  padding: 4px 8px;
+}
+
+.document-link:hover {
+  text-decoration: underline;
 }
 </style>

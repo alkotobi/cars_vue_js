@@ -118,6 +118,24 @@ const assignCar = async () => {
   error.value = null
   
   try {
+    // First get the bill_ref from the sell_bill
+    const billResult = await callApi({
+      query: `
+        SELECT bill_ref
+        FROM sell_bill
+        WHERE id = ?
+      `,
+      params: [props.sellBillId]
+    })
+    
+    if (!billResult.success || !billResult.data.length) {
+      error.value = 'Failed to get bill reference'
+      return
+    }
+    
+    const billRef = billResult.data[0].bill_ref
+    const currentDate = new Date().toISOString().split('T')[0]
+    
     const result = await callApi({
       query: `
         UPDATE cars_stock 
@@ -125,7 +143,9 @@ const assignCar = async () => {
             id_client = ?,
             id_port_discharge = ?,
             price_cell = ?,
-            freight = ?
+            freight = ?,
+            date_sell = ?,
+            id_sell_pi = ?
         WHERE id = ?
       `,
       params: [
@@ -134,6 +154,8 @@ const assignCar = async () => {
         formData.value.id_port_discharge,
         formData.value.price_cell,
         formData.value.freight || null,
+        currentDate,
+        billRef,
         props.carId
       ]
     })

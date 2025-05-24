@@ -5,7 +5,6 @@ import SellBillsTable from '../components/sells/SellBillsTable.vue'
 import SellBillForm from '../components/sells/SellBillForm.vue'
 import SellBillCarsTable from '../components/sells/SellBillCarsTable.vue'
 import UnassignedCarsTable from '../components/sells/UnassignedCarsTable.vue'
-import SellBillPrint from '../components/sells/SellBillPrint.vue'
 
 const { callApi } = useApi()
 const showAddDialog = ref(false)
@@ -25,7 +24,6 @@ onMounted(() => {
   if (userStr) {
     user.value = JSON.parse(userStr)
   }
-  // Remove the duplicate declarations of userStr
 })
 
 const handleSelectBill = (billId) => {
@@ -41,7 +39,8 @@ const openAddDialog = () => {
   editingBill.value = {
     id_broker: null,
     date_sell: new Date().toISOString().split('T')[0],
-    notes: ''
+    notes: '',
+    id_user: user.value?.id
   }
   showAddDialog.value = true
 }
@@ -56,11 +55,32 @@ const handleDeleteBill = async (id) => {
     alert('Only admins can delete sell bills.')
     return
   }
-  if (!confirm('Are you sure you want to delete this sell bill?')) {
+  if (!confirm('Are you sure you want to delete this sell bill? This will also unassign all cars from this bill.')) {
     return
   }
   
   try {
+    // First, unassign all cars from this bill
+    const unassignResult = await callApi({
+      query: `
+        UPDATE cars_stock 
+        SET id_sell = NULL,
+            id_client = NULL,
+            id_port_discharge = NULL,
+            freight = NULL,
+            id_sell_pi = NULL
+        WHERE id_sell = ?
+      `,
+      params: [id]
+    })
+    
+    if (!unassignResult.success) {
+      console.error('Failed to unassign cars:', unassignResult.error)
+      alert('Failed to unassign cars from bill: ' + unassignResult.error)
+      return
+    }
+    
+    // Then delete the bill
     const result = await callApi({
       query: 'DELETE FROM sell_bill WHERE id = ?',
       params: [id]
@@ -71,6 +91,14 @@ const handleDeleteBill = async (id) => {
       if (sellBillsTableRef.value) {
         sellBillsTableRef.value.fetchSellBills()
       }
+      
+      // If this was the selected bill, clear the selection
+      if (selectedBillId.value === id) {
+        selectedBillId.value = null
+      }
+      
+      // Refresh the cars tables
+      handleCarsTableRefresh()
     } else {
       console.error('Failed to delete sell bill:', result.error)
       alert('Failed to delete sell bill: ' + result.error)
@@ -82,12 +110,16 @@ const handleDeleteBill = async (id) => {
 }
 
 const handleSave = () => {
+  console.log('handleSave called')
   showAddDialog.value = false
   showEditDialog.value = false
   
   // Refresh the table
   if (sellBillsTableRef.value) {
+    console.log('Refreshing table')
     sellBillsTableRef.value.fetchSellBills()
+  } else {
+    console.warn('sellBillsTableRef is null')
   }
 }
 
@@ -107,17 +139,6 @@ const handleCarsTableRefresh = async () => {
     await sellBillCarsTableRef.value.fetchCarsByBillId(selectedBillId.value)
   }
 }
-
-const showPrintDialog = ref(false)
-
-const handlePrintBill = () => {
-  if (!selectedBillId.value) {
-    alert('Please select a sell bill to print')
-    return
-  }
-  
-  showPrintDialog.value = true
-}
 </script>
 
 <template>
@@ -125,7 +146,6 @@ const handlePrintBill = () => {
     <div class="header">
       <h2>Sell Bills Management</h2>
       <div class="header-actions">
-        <button @click="handlePrintBill" class="print-btn" :disabled="!selectedBillId">Print Bill</button>
         <button @click="openAddDialog" class="add-btn">Add Sell Bill</button>
       </div>
     </div>
@@ -140,14 +160,12 @@ const handlePrintBill = () => {
         :isAdmin="isAdmin" 
       />
       
-      <!-- Update to add ref for SellBillCarsTable -->
       <SellBillCarsTable 
         ref="sellBillCarsTableRef"
         :sellBillId="selectedBillId" 
         @refresh="handleCarsTableRefresh"
       />
       
-      <!-- Unassigned cars that can be added to the bill -->
       <UnassignedCarsTable 
         ref="unassignedCarsTableRef"
         @refresh="handleCarsTableRefresh"
@@ -177,13 +195,6 @@ const handlePrintBill = () => {
         />
       </div>
     </div>
-    
-    <!-- Print Dialog -->
-    <SellBillPrint
-      :billId="selectedBillId"
-      :visible="showPrintDialog"
-      @close="showPrintDialog = false"
-    />
   </div>
 </template>
 
@@ -211,20 +222,6 @@ const handlePrintBill = () => {
 .header-actions {
   display: flex;
   gap: 10px;
-}
-
-.print-btn {
-  background-color: #6366f1;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  padding: 8px 16px;
-  cursor: pointer;
-}
-
-.print-btn:disabled {
-  background-color: #9ca3af;
-  cursor: not-allowed;
 }
 
 .content {

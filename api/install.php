@@ -83,7 +83,8 @@ try {
         ('can_edit_car_client_name',''),
         ('can_edit_cars_sell_price',''),
         ('can_edit_cars_sell_rate',''),
-        ('can_edit_cars_discharge_port','')
+        ('can_edit_cars_discharge_port',''),
+        ('can_receive_car', 'Can mark cars as received in warehouse')
     ");
     $stmt->execute();
 
@@ -225,16 +226,20 @@ try {
        `in_wharhouse_date` date DEFAULT NULL, 
        `date_get_documents_from_supp` date DEFAULT NULL, 
        `date_get_keys_from_supp` date DEFAULT NULL, 
-        `rate` decimal(10,2) DEFAULT NULL,
+       `rate` decimal(10,0) DEFAULT NULL,
+       `date_pay_freight` date DEFAULT NULL,
+       `date_get_bl` date DEFAULT NULL,
        PRIMARY KEY (`id`), 
        KEY `id_client` (`id_client`), 
        KEY `id_port_loading` (`id_port_loading`), 
        KEY `id_port_discharge` (`id_port_discharge`), 
-       KEY `id_buy_details` (`id_buy_details`), 
+       KEY `id_buy_details` (`id_buy_details`),
+       KEY `id_warehouse` (`id_warehouse`),
        CONSTRAINT `cars_stock_ibfk_1` FOREIGN KEY (`id_client`) REFERENCES `clients` (`id`), 
        CONSTRAINT `cars_stock_ibfk_2` FOREIGN KEY (`id_port_loading`) REFERENCES `loading_ports` (`id`), 
        CONSTRAINT `cars_stock_ibfk_3` FOREIGN KEY (`id_port_discharge`) REFERENCES `discharge_ports` (`id`), 
-       CONSTRAINT `cars_stock_ibfk_4` FOREIGN KEY (`id_buy_details`) REFERENCES `buy_details` (`id`) 
+       CONSTRAINT `cars_stock_ibfk_4` FOREIGN KEY (`id_buy_details`) REFERENCES `buy_details` (`id`),
+       CONSTRAINT `cars_stock_ibfk_5` FOREIGN KEY (`id_warehouse`) REFERENCES `warehouses` (`id`)
      );"); 
 
     // Create buy_payments table
@@ -248,14 +253,15 @@ try {
     )");
 
     // Create sell_bill table
-    $pdo->exec("CREATE TABLE IF NOT EXISTS sell_bill (
-        id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-        id_broker INT DEFAULT NULL,
-        date_sell DATE DEFAULT NULL,
-        notes TEXT COLLATE utf8mb4_general_ci,
-        id_user INT UNSIGNED ,
-        path_pi VARCHAR(255) DEFAULT NULL,
-        PRIMARY KEY (id)
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `sell_bill` (
+        `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+        `id_broker` int(11) DEFAULT NULL,
+        `date_sell` date DEFAULT NULL,
+        `notes` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
+        `id_user` int(11) DEFAULT NULL,
+        `path_pi` varchar(255) DEFAULT NULL,
+        `bill_ref` varchar(255) DEFAULT NULL,
+        PRIMARY KEY (`id`)
     )");
 
     // Create sell_payments table
@@ -270,6 +276,24 @@ try {
         id_user INT DEFAULT NULL,
         PRIMARY KEY (id)
     )");
+
+    // Create banks table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS banks (
+        id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+        company_name VARCHAR(255) COLLATE latin1_general_ci DEFAULT NULL,
+        bank_name VARCHAR(255) COLLATE latin1_general_ci DEFAULT NULL,
+        swift_code VARCHAR(255) COLLATE latin1_general_ci DEFAULT NULL,
+        bank_account VARCHAR(255) COLLATE latin1_general_ci DEFAULT NULL,
+        bank_address VARCHAR(255) COLLATE latin1_general_ci DEFAULT NULL,
+        notes TEXT COLLATE latin1_general_ci,
+        PRIMARY KEY (id)
+    )");
+
+    // Insert a default bank
+    $stmt = $pdo->prepare("INSERT IGNORE INTO banks (company_name, bank_name, swift_code, bank_account, bank_address) VALUES 
+        ('GROUP MERHAB LIMITED', 'GROUP MERHAB BANK', 'MERHAB123', '123456789', 'GUANGZHOU, CHINA')
+    ");
+    $stmt->execute();
 
     echo json_encode(['success' => true, 'message' => 'Database setup completed successfully']);
 } catch (PDOException $e) {

@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import LoginView from '../views/LoginView.vue'
 import DashboardView from '../views/DashboardView.vue'
+import PrintPage from '../views/PrintPage.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -65,11 +66,15 @@ const router = createRouter({
       name: 'cars-stock',
       component: () => import('../views/CarsStock.vue')
     },
-    // Add this new route
     {
       path: '/warehouses',
       name: 'warehouses',
       component: () => import('../views/WarehousesView.vue')
+    },
+    {
+      path: '/print/:billId',
+      name: 'print',
+      component: PrintPage
     }
   ],
   scrollBehavior() {

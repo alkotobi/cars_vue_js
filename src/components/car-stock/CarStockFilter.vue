@@ -100,6 +100,11 @@ const fetchReferenceData = async () => {
 
 // Apply basic filter
 const applyBasicFilter = () => {
+  // If the basic filter is empty, reset all filters
+  if (!basicFilter.value.trim()) {
+    resetFilters()
+    return
+  }
   emit('filter', { basic: basicFilter.value, advanced: null })
 }
 
@@ -246,7 +251,7 @@ fetchReferenceData()
         </div>
 
         <!-- Freight Range Filter -->
-        <div class="filter-field">
+        <div class="filter-field range-field">
           <label>Freight Range</label>
           <div class="range-inputs">
             <input 
@@ -254,7 +259,6 @@ fetchReferenceData()
               v-model="advancedFilters.freight_min" 
               placeholder="Min"
             />
-            <span>to</span>
             <input 
               type="number" 
               v-model="advancedFilters.freight_max" 
@@ -264,7 +268,7 @@ fetchReferenceData()
         </div>
 
         <!-- Price Range Filter -->
-        <div class="filter-field">
+        <div class="filter-field range-field">
           <label>Price Range</label>
           <div class="range-inputs">
             <input 
@@ -272,7 +276,6 @@ fetchReferenceData()
               v-model="advancedFilters.price_min" 
               placeholder="Min"
             />
-            <span>to</span>
             <input 
               type="number" 
               v-model="advancedFilters.price_max" 
@@ -282,17 +285,16 @@ fetchReferenceData()
         </div>
 
         <!-- Loading Date Range Filter -->
-        <div class="filter-field">
+        <div class="filter-field range-field">
           <label>Loading Date Range</label>
-          <div class="date-inputs">
+          <div class="range-inputs">
             <input 
               type="date" 
-              v-model="advancedFilters.loading_date_from" 
+              v-model="advancedFilters.loading_date_from"
             />
-            <span>to</span>
             <input 
               type="date" 
-              v-model="advancedFilters.loading_date_to" 
+              v-model="advancedFilters.loading_date_to"
             />
           </div>
         </div>
@@ -345,11 +347,12 @@ fetchReferenceData()
             </option>
           </select>
         </div>
-      </div>
 
-      <div class="advanced-filter-actions">
-        <button @click="applyAdvancedFilters" class="apply-btn">Apply Filters</button>
-        <button @click="resetFilters" class="reset-btn">Reset All</button>
+        <!-- Add the Apply and Reset buttons at the bottom -->
+        <div class="advanced-filter-actions">
+          <button @click="applyAdvancedFilters" class="apply-btn">Apply Filters</button>
+          <button @click="resetFilters" class="reset-btn">Reset All</button>
+        </div>
       </div>
     </div>
   </div>
@@ -473,9 +476,28 @@ fetchReferenceData()
 }
 
 .advanced-filter-actions {
+  grid-column: 1 / -1;  /* Make it span all columns */
   display: flex;
   justify-content: flex-end;
   gap: 12px;
   margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.apply-btn {
+  background-color: #10b981;
+  color: white;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.apply-btn:hover {
+  background-color: #059669;
 }
 </style>

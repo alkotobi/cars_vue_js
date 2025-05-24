@@ -32,7 +32,8 @@ const unassignCar = async (carId) => {
         SET id_sell = NULL, 
             id_client = NULL, 
             id_port_discharge = NULL, 
-            freight = NULL 
+            freight = NULL,
+            id_sell_pi = NULL
         WHERE id = ?
       `,
       params: [carId]

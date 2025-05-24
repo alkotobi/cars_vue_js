@@ -78,18 +78,85 @@ const saveBill = async () => {
     let result
     
     if (props.mode === 'add') {
+      console.log('User data:', user.value)
+      
+      // First insert the bill to get the ID
       result = await callApi({
         query: `
-          INSERT INTO sell_bill (id_broker, date_sell, notes,id_user)
-          VALUES (?, ?, ?,?)
+          INSERT INTO sell_bill (id_broker, date_sell, notes, id_user)
+          VALUES (?, ?, ?, ?)
         `,
         params: [
           formData.value.id_broker || null,
           formData.value.date_sell,
           formData.value.notes || '',
-          user.value.id
+          user.value?.id || null
         ]
       })
+      
+      console.log('Insert result:', result)
+      console.log('Insert result:', result.success && result.lastInsertId)
+      if (result.success && result.lastInsertId) {
+        // Generate bill_ref
+        const username = user.value?.username?.substring(0, 3).toUpperCase() || 'USR'
+        const userId = (user.value?.id || 0).toString().padStart(3, '0')
+        const date = new Date(formData.value.date_sell)
+        const dateStr = date.toLocaleDateString('en-GB', {
+          day: '2-digit',
+          month: '2-digit',
+          year: '2-digit'
+        }).replace(/\//g, '')
+        const billId = result.lastInsertId.toString().padStart(3, '0')
+        const billRef = `${username}${userId}${dateStr}${billId}`
+        
+        console.log('Generated bill_ref:', billRef)
+        
+        // Update the bill with the generated bill_ref
+        const updateResult = await callApi({
+          query: `
+            UPDATE sell_bill 
+            SET bill_ref = ?
+            WHERE id = ?
+          `,
+          params: [billRef, result.lastInsertId]
+        })
+        
+        console.log('Update result:', updateResult)
+        
+        if (!updateResult.success) {
+          console.error('Failed to update bill_ref:', updateResult.error)
+          error.value = 'Failed to update bill reference'
+          return
+        }
+
+        // Get the complete bill data after update
+        const fetchResult = await callApi({
+          query: `
+            SELECT 
+              sb.id,
+              sb.id_broker,
+              sb.date_sell,
+              sb.notes,
+              sb.bill_ref,
+              c.name as broker_name
+            FROM sell_bill sb
+            LEFT JOIN clients c ON sb.id_broker = c.id AND c.is_broker = 1
+            WHERE sb.id = ?
+          `,
+          params: [result.lastInsertId]
+        })
+        
+        console.log('Fetch result:', fetchResult)
+
+        if (fetchResult.success && fetchResult.data.length > 0) {
+          emit('save', fetchResult.data[0])
+        } else {
+          error.value = 'Failed to fetch updated bill data'
+        }
+      } else {
+        console.log('Insert failed:', result.error)
+        error.value = result.error || 'Failed to create sell bill'
+      }
     } else {
       result = await callApi({
         query: `
@@ -104,14 +171,15 @@ const saveBill = async () => {
           formData.value.id
         ]
       })
-    }
-    
-    if (result.success) {
-      emit('save', result.data)
-    } else {
-      error.value = result.error || `Failed to ${props.mode} sell bill`
+      
+      if (result.success) {
+        emit('save', result.data)
+      } else {
+        error.value = result.error || `Failed to ${props.mode} sell bill`
+      }
     }
   } catch (err) {
+    console.error('Error in saveBill:', err)
     error.value = err.message || 'An error occurred'
   } finally {
     loading.value = false
@@ -120,11 +188,12 @@ const saveBill = async () => {
 
 onMounted(() => {
   const userStr = localStorage.getItem('user')
+  console.log('User from localStorage:', userStr) // Debug localStorage
   if (userStr) {
     user.value = JSON.parse(userStr)
+    console.log('Parsed user:', user.value) // Debug parsed user
     fetchBrokers()
   }
-  
 })
 </script>
 

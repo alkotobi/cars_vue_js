@@ -1,6 +1,21 @@
+# Handle PHP files in api directory
+<FilesMatch "\.php$">
+    SetHandler application/x-httpd-php
+</FilesMatch>
+
+# Allow direct access to api directory
+<LocationMatch "^/api/">
+    RewriteEngine Off
+</LocationMatch>
+
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
+  
+  # Allow direct access to api directory
+  RewriteRule ^api/ - [L]
+  
+  # Handle Vue.js routes
   RewriteRule ^index\.html$ - [L]
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
@@ -13,3 +28,8 @@
   Header set Pragma "no-cache"
   Header set Expires "0"
 </FilesMatch>
+
+# Enable CORS for API
+<IfModule mod_headers.c>
+    Header set Access-Control-Allow-Origin "*"
+</IfModule>
