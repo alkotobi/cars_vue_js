@@ -13,7 +13,7 @@ const props = defineProps({
   },
   billId: {
     type: Number,
-    required: true
+    default: null
   }
 })
 

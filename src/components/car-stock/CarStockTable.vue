@@ -672,40 +672,40 @@ defineExpose({
     
     <div v-else class="table-container">
       <table class="cars-table">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Car</th>
-            <th>Color</th>
-            <th>VIN</th>
-            <th>Loading Port</th>
-            <th>Discharge Port</th>
-            <th>Freight</th>
-            <th>Price Cell</th>
-            <th>Loading Date</th>
-            <th>Status</th>
-            <th>Client</th>
-            <th>Documents</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="car in cars" :key="car.id">
-            <td>{{ car.id }}</td>
-            <td>{{ car.car_name || 'N/A' }}</td>
-            <td>{{ car.color || 'N/A' }}</td>
-            <td>{{ car.vin || 'N/A' }}</td>
-            <td>{{ car.loading_port || 'N/A' }}</td>
-            <td>{{ car.discharge_port || 'N/A' }}</td>
-            <td>{{ car.freight ? '$' + car.freight : 'N/A' }}</td>
-            <td>{{ car.price_cell ? '$' + car.price_cell : 'N/A' }}</td>
-            <td>{{ car.date_loding ? new Date(car.date_loding).toLocaleDateString() : 'N/A' }}</td>
-            <td :class="car.date_sell || car.client_name ? 'status-sold' : 'status-available'">
-              {{ car.date_sell || car.client_name ? 'Sold' : 'Available' }}
-            </td>
-            <td>{{ car.client_name || 'N/A' }}</td>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Car</th>
+          <th>Color</th>
+          <th>VIN</th>
+          <th>Loading Port</th>
+          <th>Discharge Port</th>
+          <th>Freight</th>
+          <th>Price Cell</th>
+          <th>Loading Date</th>
+          <th>Status</th>
+          <th>Client</th>
+          <th>Documents</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="car in cars" :key="car.id">
+          <td>{{ car.id }}</td>
+          <td>{{ car.car_name || 'N/A' }}</td>
+          <td>{{ car.color || 'N/A' }}</td>
+          <td>{{ car.vin || 'N/A' }}</td>
+          <td>{{ car.loading_port || 'N/A' }}</td>
+          <td>{{ car.discharge_port || 'N/A' }}</td>
+          <td>{{ car.freight ? '$' + car.freight : 'N/A' }}</td>
+          <td>{{ car.price_cell ? '$' + car.price_cell : 'N/A' }}</td>
+          <td>{{ car.date_loding ? new Date(car.date_loding).toLocaleDateString() : 'N/A' }}</td>
+          <td :class="car.date_sell || car.client_name ? 'status-sold' : 'status-available'">
+            {{ car.date_sell || car.client_name ? 'Sold' : 'Available' }}
+          </td>
+          <td>{{ car.client_name || 'N/A' }}</td>
             <td class="documents-cell">
-              <div class="document-links">
+            <div class="document-links">
                 <a v-if="car.path_documents" 
                    :href="getFileUrl(car.path_documents)" 
                    target="_blank"
@@ -730,13 +730,13 @@ defineExpose({
                   <i class="fas fa-file-invoice"></i>
                   Buy PI
                 </a>
-              </div>
-            </td>
-            <td>
-              <button :disabled="!can_edit_cars_prop" @click="handleEdit(car)" class="edit-btn">Edit</button>
-              <div class="dropdown">
+            </div>
+          </td>
+          <td>
+            <button :disabled="!can_edit_cars_prop" @click="handleEdit(car)" class="edit-btn">Edit</button>
+            <div class="dropdown">
                 <button @click="toggleDropdown(car.id, $event)" class="dropdown-toggle">Actions</button>
-                <ul v-if="isDropdownOpen[car.id]" class="dropdown-menu">
+            <ul v-if="isDropdownOpen[car.id]" class="dropdown-menu">
                   <li>
                     <button 
                       @click="handleVINAction(car)"
@@ -801,13 +801,13 @@ defineExpose({
                       Load
                     </button>
                   </li>
-                </ul>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+            </ul>
+          </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
   </div>
 </template>
 

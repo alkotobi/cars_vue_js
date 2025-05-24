@@ -290,11 +290,11 @@ fetchReferenceData()
           <div class="range-inputs">
             <input 
               type="date" 
-              v-model="advancedFilters.loading_date_from"
+              v-model="advancedFilters.loading_date_from" 
             />
             <input 
               type="date" 
-              v-model="advancedFilters.loading_date_to"
+              v-model="advancedFilters.loading_date_to" 
             />
           </div>
         </div>
@@ -346,12 +346,12 @@ fetchReferenceData()
               {{ warehouse.name }}
             </option>
           </select>
-        </div>
+      </div>
 
         <!-- Add the Apply and Reset buttons at the bottom -->
-        <div class="advanced-filter-actions">
-          <button @click="applyAdvancedFilters" class="apply-btn">Apply Filters</button>
-          <button @click="resetFilters" class="reset-btn">Reset All</button>
+      <div class="advanced-filter-actions">
+        <button @click="applyAdvancedFilters" class="apply-btn">Apply Filters</button>
+        <button @click="resetFilters" class="reset-btn">Reset All</button>
         </div>
       </div>
     </div>

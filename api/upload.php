@@ -20,8 +20,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $requestedPath = $_GET['path'];
         
         // Remove any parent directory references for security
-        // $requestedPath = str_replace('..', '', $requestedPath);
-        // $requestedPath = str_replace('//', '/', $requestedPath);
+        $requestedPath = str_replace('..', '', $requestedPath);
+        $requestedPath = str_replace('//', '/', $requestedPath);
         
         // Construct the full file path
         $filePath = __DIR__ . '/../files/' . $requestedPath;

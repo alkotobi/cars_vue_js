@@ -1,14 +1,16 @@
 <script setup>
-import { ref, onMounted, defineProps, defineEmits } from 'vue'
+import { ref, onMounted, defineProps, defineEmits,computed } from 'vue'
 import { useApi } from '../../composables/useApi'
 import SellBillPrintOption from './SellBillPrintOption.vue'
 
 const props = defineProps({
   onEdit: Function,
   onDelete: Function,
-  onSelect: Function
-})
+  onSelect: Function,
 
+})
+const user = ref(null)
+const isAdmin = computed(() => user.value?.role_id === 1)
 const emit = defineEmits(['refresh', 'select-bill'])
 
 const { callApi } = useApi()
@@ -19,26 +21,43 @@ const selectedBillId = ref(null)
 const showPrintOptions = ref(false)
 const selectedPrintBillId = ref(null)
 
+onMounted(() => {
+  const userStr = localStorage.getItem('user')
+  if (userStr) {
+    user.value = JSON.parse(userStr)
+  }
+  fetchSellBills()
+})
+
 const fetchSellBills = async () => {
   loading.value = true
   error.value = null
   
   try {
-    const result = await callApi({
-      query: `
+    // Different query based on admin status
+    const query = isAdmin.value ? `
+      SELECT 
+        sb.*,
+        c.name as broker_name,
+        u.username as created_by
+      FROM sell_bill sb
+      LEFT JOIN clients c ON sb.id_broker = c.id AND c.is_broker = 1
+      LEFT JOIN users u ON sb.id_user = u.id
+      ORDER BY sb.date_sell DESC
+    ` : `
         SELECT 
-          sb.id,
-          sb.id_broker,
-          sb.date_sell,
-          sb.notes,
-          sb.bill_ref,
-          c.name as broker_name
+        sb.*,
+        c.name as broker_name,
+        u.username as created_by
         FROM sell_bill sb
         LEFT JOIN clients c ON sb.id_broker = c.id AND c.is_broker = 1
+      LEFT JOIN users u ON sb.id_user = u.id
+      WHERE sb.id_user = ?
         ORDER BY sb.date_sell DESC
-      `,
-      params: []
-    })
+    `
+
+    const params = isAdmin.value ? [] : [user.value?.id]
+    const result = await callApi({ query, params })
     
     if (result.success) {
       sellBills.value = result.data
@@ -93,15 +112,30 @@ const selectBill = (bill) => {
 
 // Expose the fetchSellBills method to parent component
 defineExpose({ fetchSellBills })
-
-onMounted(() => {
-  fetchSellBills()
-})
 </script>
 
 <template>
   <div class="sell-bills-table-component">
     <h3>Sell Bills</h3>
+    
+    <!-- Add toolbar -->
+    <div v-if="selectedBillId" class="toolbar">
+      <div class="selected-bill-info">
+        Selected Bill: <span class="bill-id">#{{ selectedBillId }}</span>
+      </div>
+      <div class="toolbar-actions">
+        <button @click="handleEdit(sellBills.find(b => b.id === selectedBillId))" class="edit-btn">
+          Edit Bill
+        </button>
+        <button @click="handleDelete(selectedBillId)" class="delete-btn">
+          Delete Bill
+        </button>
+        <button @click="handlePrint(selectedBillId)" class="print-btn">
+          Print Bill
+        </button>
+      </div>
+    </div>
+
     <div v-if="loading" class="loading">Loading...</div>
     <div v-else-if="error" class="error">{{ error }}</div>
     <div v-else-if="sellBills.length === 0" class="no-data">
@@ -114,8 +148,8 @@ onMounted(() => {
           <th>Reference</th>
           <th>Date</th>
           <th>Broker</th>
+          <th>Created By</th>
           <th>Notes</th>
-          <th>Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -129,12 +163,8 @@ onMounted(() => {
           <td>{{ bill.bill_ref || 'N/A' }}</td>
           <td>{{ new Date(bill.date_sell).toLocaleDateString() }}</td>
           <td>{{ bill.broker_name || 'N/A' }}</td>
+          <td>{{ bill.created_by || 'N/A' }}</td>
           <td>{{ bill.notes || 'N/A' }}</td>
-          <td>
-            <button @click.stop="handleEdit(bill)" class="edit-btn">Edit</button>
-            <button @click.stop="handleDelete(bill.id)" class="delete-btn">Delete</button>
-            <button @click.stop="handlePrint(bill.id)" class="print-btn">Print</button>
-          </td>
         </tr>
       </tbody>
     </table>
@@ -150,6 +180,31 @@ onMounted(() => {
 <style scoped>
 .sell-bills-table-component {
   margin-bottom: 20px;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #f8f9fa;
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.selected-bill-info {
+  font-size: 1rem;
+  color: #374151;
+}
+
+.bill-id {
+  font-weight: 600;
+  color: #3b82f6;
+}
+
+.toolbar-actions {
+  display: flex;
+  gap: 10px;
 }
 
 .sell-bills-table {
@@ -192,9 +247,11 @@ onMounted(() => {
   color: white;
   border: none;
   border-radius: 4px;
-  padding: 5px 10px;
-  margin-right: 5px;
+  padding: 8px 16px;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  font-weight: 500;
 }
 
 .delete-btn {
@@ -202,8 +259,11 @@ onMounted(() => {
   color: white;
   border: none;
   border-radius: 4px;
-  padding: 5px 10px;
+  padding: 8px 16px;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  font-weight: 500;
 }
 
 .print-btn {
@@ -211,9 +271,19 @@ onMounted(() => {
   color: white;
   border: none;
   border-radius: 4px;
-  padding: 5px 10px;
+  padding: 8px 16px;
   cursor: pointer;
-  margin-left: 5px;
+  display: flex;
+  align-items: center;
+  font-weight: 500;
+}
+
+.edit-btn:hover {
+  background-color: #2563eb;
+}
+
+.delete-btn:hover {
+  background-color: #dc2626;
 }
 
 .print-btn:hover {

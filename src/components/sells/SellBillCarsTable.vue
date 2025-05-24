@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, defineProps, defineEmits } from 'vue'
+import { ref, watch, defineProps, defineEmits,onMounted ,computed } from 'vue'
 import { useApi } from '../../composables/useApi'
 
 const props = defineProps({
@@ -10,6 +10,8 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['refresh'])
+const user = ref(null)
+const isAdmin = computed(() => user.value?.role_id === 1)
 
 const { callApi } = useApi()
 const cars = ref([])
@@ -54,6 +56,12 @@ const unassignCar = async (carId) => {
     loading.value = false
   }
 }
+onMounted(() => {
+  const userStr = localStorage.getItem('user')
+  if (userStr) {
+    user.value = JSON.parse(userStr)
+  }
+})
 
 const fetchCarsByBillId = async (billId) => {
   if (!billId) {

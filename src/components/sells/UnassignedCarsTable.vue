@@ -21,16 +21,15 @@ const filters = ref({
   vin: '',
   loadingPort: ''
 })
-
+const user = ref(null)
+const isAdmin = computed(() => user.value?.role_id === 1)
 // Function to fetch all unassigned cars
 const fetchUnassignedCars = async () => {
   loading.value = true
   error.value = null
   
   try {
-    const result = await callApi({
-      query: `
-        SELECT 
+    let myQuery = `SELECT 
           cs.id,
           cs.vin,
           cs.notes,
@@ -48,9 +47,15 @@ const fetchUnassignedCars = async () => {
         LEFT JOIN cars_names cn ON bd.id_car_name = cn.id
         LEFT JOIN colors clr ON bd.id_color = clr.id
         WHERE cs.id_sell IS NULL
-        AND cs.hidden = 0
-        ORDER BY cs.id DESC
-      `,
+        `
+        if (!isAdmin.value) {
+          myQuery += ' AND cs.hidden = 0'
+        }
+        myQuery += ' ORDER BY cs.id DESC'
+
+
+    const result = await callApi({
+      query: myQuery,
       params: []
     })
     
@@ -141,6 +146,10 @@ defineExpose({
 })
 
 onMounted(() => {
+  const userStr = localStorage.getItem('user')
+  if (userStr) {
+    user.value = JSON.parse(userStr)
+  }
   fetchUnassignedCars()
 })
 </script>

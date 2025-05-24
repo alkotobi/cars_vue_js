@@ -157,7 +157,7 @@ const handleCarsTableRefresh = async () => {
         :onDelete="handleDeleteBill"
         :onSelect="handleSelectBill"
         @select-bill="handleSelectBill"
-        :isAdmin="isAdmin" 
+        :isAdmin="isAdmin"
       />
       
       <SellBillCarsTable 

@@ -65,21 +65,21 @@ const addClient = async () => {
 
   try {
     // First insert the client to get the ID
-    const result = await callApi({
-      query: `
-        INSERT INTO clients (name, address, email, mobiles, id_no, is_broker)
-        VALUES (?, ?, ?, ?, ?, 0)
-      `,
-      params: [
-        newClient.value.name,
-        newClient.value.address,
-        newClient.value.email,
-        newClient.value.mobiles,
-        newClient.value.id_no,
-      ]
-    })
+  const result = await callApi({
+    query: `
+      INSERT INTO clients (name, address, email, mobiles, id_no, is_broker)
+      VALUES (?, ?, ?, ?, ?, 0)
+    `,
+    params: [
+      newClient.value.name,
+      newClient.value.address,
+      newClient.value.email,
+      newClient.value.mobiles,
+      newClient.value.id_no,
+    ]
+  })
 
-    if (result.success) {
+  if (result.success) {
       const clientId = result.insertId
 
       // If there's a file selected, upload it using the new uploadFile method
@@ -105,20 +105,20 @@ const addClient = async () => {
         }
       }
 
-      showAddDialog.value = false
-      validationError.value = ''
+    showAddDialog.value = false
+    validationError.value = ''
       selectedFile.value = null
-      newClient.value = {
-        name: '',
-        address: '',
-        email: '',
-        mobiles: '',
-        id_no: ''
-      }
-      await fetchClients()
+    newClient.value = {
+      name: '',
+      address: '',
+      email: '',
+      mobiles: '',
+      id_no: ''
+    }
+    await fetchClients()
     } else {
-      error.value = result.error
-      console.error('Error adding client:', result.error)
+    error.value = result.error
+    console.error('Error adding client:', result.error)
     }
   } catch (err) {
     error.value = err.message
@@ -140,23 +140,23 @@ const updateClient = async () => {
 
   try {
     // Update client basic info
-    const result = await callApi({
-      query: `
-        UPDATE clients 
-        SET name = ?, address = ?, email = ?, mobiles = ?, id_no = ?, is_broker = 0
-        WHERE id = ?
-      `,
-      params: [
-        editingClient.value.name,
-        editingClient.value.address,
-        editingClient.value.email,
-        editingClient.value.mobiles,
-        editingClient.value.id_no,
-        editingClient.value.id
-      ]
-    })
+  const result = await callApi({
+    query: `
+      UPDATE clients 
+      SET name = ?, address = ?, email = ?, mobiles = ?, id_no = ?, is_broker = 0
+      WHERE id = ?
+    `,
+    params: [
+      editingClient.value.name,
+      editingClient.value.address,
+      editingClient.value.email,
+      editingClient.value.mobiles,
+      editingClient.value.id_no,
+      editingClient.value.id
+    ]
+  })
 
-    if (result.success) {
+  if (result.success) {
       // If there's a new file selected, upload it using the new uploadFile method
       if (editSelectedFile.value) {
         try {
@@ -180,14 +180,14 @@ const updateClient = async () => {
         }
       }
 
-      showEditDialog.value = false
-      editingClient.value = null
+    showEditDialog.value = false
+    editingClient.value = null
       editSelectedFile.value = null
-      validationError.value = ''
-      await fetchClients()
+    validationError.value = ''
+    await fetchClients()
     } else {
-      error.value = result.error
-      console.error('Error updating client:', result.error)
+    error.value = result.error
+    console.error('Error updating client:', result.error)
     }
   } catch (err) {
     error.value = err.message
@@ -214,11 +214,11 @@ const handleImageClick = (path) => {
 }
 
 onMounted(() => {
-  const userStr = localStorage.getItem('user')
+    const userStr = localStorage.getItem('user')
   if (userStr) {
     user.value = JSON.parse(userStr)
     fetchClients()
-  }
+}
 })
 </script>
 
@@ -317,7 +317,7 @@ onMounted(() => {
               @change="handleFileChange($event)"
               accept="image/*,.pdf"
               class="file-input"
-            />
+          />
           </div>
           <div v-if="validationError" class="error-message">{{ validationError }}</div>
         </div>
@@ -371,7 +371,7 @@ onMounted(() => {
               @change="handleFileChange($event, true)"
               accept="image/*,.pdf"
               class="file-input"
-            />
+          />
           </div>
           <div v-if="validationError" class="error-message">{{ validationError }}</div>
         </div>

@@ -305,7 +305,7 @@ const saveCar = async () => {
         formData.value.id
       ]
     })
-
+    
     if (result.success) {
       emit('save')
     } else {
@@ -324,7 +324,7 @@ onMounted(() => {
   if (userStr) {
     user.value = JSON.parse(userStr)
   }
-  fetchReferenceData()
+      fetchReferenceData()
 })
 </script>
 
@@ -332,104 +332,104 @@ onMounted(() => {
   <div class="car-stock-form">
     <h3>{{ formData.id ? 'Edit' : 'Add' }} Car Stock</h3>
     
-    <div class="form-grid">
-      <!-- Basic Information -->
-      <div class="form-section">
-        <h4>Basic Information</h4>
-        
-        <div class="form-group">
-          <label for="vin">VIN:</label>
-          <input :disabled="!can_edit_vin" type="text" id="vin" v-model="formData.vin">
+      <div class="form-grid">
+        <!-- Basic Information -->
+        <div class="form-section">
+          <h4>Basic Information</h4>
+          
+          <div class="form-group">
+            <label for="vin">VIN:</label>
+            <input :disabled="!can_edit_vin" type="text" id="vin" v-model="formData.vin">
+          </div>
+          
+          <div class="form-group">
+            <label for="id_buy_details">Buy Details:</label>
+            <select id="id_buy_details" v-model="formData.id_buy_details">
+              <option value="">Select Buy Details</option>
+              <option v-for="detail in buyDetails" :key="detail.id" :value="detail.id">
+                {{ detail.car_name }} - {{ detail.color }} (ID: {{ detail.id }})
+              </option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="notes">Notes:</label>
+            <textarea id="notes" v-model="formData.notes"></textarea>
+          </div>
         </div>
         
-        <div class="form-group">
-          <label for="id_buy_details">Buy Details:</label>
-          <select id="id_buy_details" v-model="formData.id_buy_details">
-            <option value="">Select Buy Details</option>
-            <option v-for="detail in buyDetails" :key="detail.id" :value="detail.id">
-              {{ detail.car_name }} - {{ detail.color }} (ID: {{ detail.id }})
-            </option>
-          </select>
-        </div>
-        
-        <div class="form-group">
-          <label for="notes">Notes:</label>
-          <textarea id="notes" v-model="formData.notes"></textarea>
-        </div>
-      </div>
-      
-      <!-- Pricing and Client -->
-      <div class="form-section">
-        <h4>Pricing and Client</h4>
-        
-        <div class="form-group">
-          <label for="price_cell">Price Cell:</label>
-          <input :disabled="!can_edit_cars_sell_price" type="number" id="price_cell" v-model="formData.price_cell" step="0.01">
-        </div>
-        
-        <div class="form-group">
-          <label for="freight">Freight:</label>
-          <input type="number" id="freight" v-model="formData.freight" step="0.01">
-        </div>
+        <!-- Pricing and Client -->
+        <div class="form-section">
+          <h4>Pricing and Client</h4>
+          
+          <div class="form-group">
+            <label for="price_cell">Price Cell:</label>
+            <input :disabled="!can_edit_cars_sell_price" type="number" id="price_cell" v-model="formData.price_cell" step="0.01">
+          </div>
+          
+          <div class="form-group">
+            <label for="freight">Freight:</label>
+            <input type="number" id="freight" v-model="formData.freight" step="0.01">
+          </div>
 
-        <div class="form-group">
-          <label for="rate">Rate:</label>
-          <input :disabled="!can_edit_cars_sell_rate" type="number" id="rate" v-model="formData.rate" step="0.01">
+          <div class="form-group">
+            <label for="rate">Rate:</label>
+            <input :disabled="!can_edit_cars_sell_rate" type="number" id="rate" v-model="formData.rate" step="0.01">
+          </div>
+          
+          <div class="form-group">
+            <label for="id_client">Client:</label>
+            <select :disabled="!can_edit_car_client_name" id="id_client" v-model="formData.id_client">
+              <option  value="">Select Client</option>
+              <option v-for="client in clients" :key="client.id" :value="client.id">
+                {{ client.name }}
+              </option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="date_sell">Sell Date:</label>
+            <input type="date" id="date_sell" v-model="formData.date_sell">
+          </div>
         </div>
         
-        <div class="form-group">
-          <label for="id_client">Client:</label>
-          <select :disabled="!can_edit_car_client_name" id="id_client" v-model="formData.id_client">
-            <option  value="">Select Client</option>
-            <option v-for="client in clients" :key="client.id" :value="client.id">
-              {{ client.name }}
-            </option>
-          </select>
+        <!-- Ports and Shipping -->
+        <div class="form-section">
+          <h4>Ports and Shipping</h4>
+          
+          <div class="form-group">
+            <label for="id_port_loading">Loading Port:</label>
+            <select id="id_port_loading" v-model="formData.id_port_loading">
+              <option value="">Select Loading Port</option>
+              <option v-for="port in loadingPorts" :key="port.id" :value="port.id">
+                {{ port.loading_port }}
+              </option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="id_port_discharge">Discharge Port:</label>
+            <select :disabled="!can_edit_cars_discharge_port" id="id_port_discharge" v-model="formData.id_port_discharge">
+              <option value="">Select Discharge Port</option>
+              <option v-for="port in dischargePorts" :key="port.id" :value="port.id">
+                {{ port.discharge_port }}
+              </option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="date_loding">Loading Date:</label>
+            <input type="date" id="date_loding" v-model="formData.date_loding">
+          </div>
+          
+          <div class="form-group">
+            <label for="export_lisence_ref">Export License Ref:</label>
+            <input type="text" id="export_lisence_ref" v-model="formData.export_lisence_ref">
+          </div>
         </div>
         
-        <div class="form-group">
-          <label for="date_sell">Sell Date:</label>
-          <input type="date" id="date_sell" v-model="formData.date_sell">
-        </div>
-      </div>
-      
-      <!-- Ports and Shipping -->
-      <div class="form-section">
-        <h4>Ports and Shipping</h4>
-        
-        <div class="form-group">
-          <label for="id_port_loading">Loading Port:</label>
-          <select id="id_port_loading" v-model="formData.id_port_loading">
-            <option value="">Select Loading Port</option>
-            <option v-for="port in loadingPorts" :key="port.id" :value="port.id">
-              {{ port.loading_port }}
-            </option>
-          </select>
-        </div>
-        
-        <div class="form-group">
-          <label for="id_port_discharge">Discharge Port:</label>
-          <select :disabled="!can_edit_cars_discharge_port" id="id_port_discharge" v-model="formData.id_port_discharge">
-            <option value="">Select Discharge Port</option>
-            <option v-for="port in dischargePorts" :key="port.id" :value="port.id">
-              {{ port.discharge_port }}
-            </option>
-          </select>
-        </div>
-        
-        <div class="form-group">
-          <label for="date_loding">Loading Date:</label>
-          <input type="date" id="date_loding" v-model="formData.date_loding">
-        </div>
-        
-        <div class="form-group">
-          <label for="export_lisence_ref">Export License Ref:</label>
-          <input type="text" id="export_lisence_ref" v-model="formData.export_lisence_ref">
-        </div>
-      </div>
-      
       <!-- Documents Upload -->
-      <div class="form-group">
+          <div class="form-group">
         <label>Documents:</label>
         <div class="file-upload-container">
           <input 
@@ -446,11 +446,11 @@ onMounted(() => {
           >
             View Current Document
           </a>
-        </div>
-      </div>
-
+          </div>
+          </div>
+          
       <!-- Sell PI Upload -->
-      <div class="form-group">
+          <div class="form-group">
         <label>Sell PI:</label>
         <div class="file-upload-container">
           <input 
@@ -468,10 +468,10 @@ onMounted(() => {
             View Sell PI
           </a>
         </div>
-      </div>
-
+          </div>
+          
       <!-- Buy PI Upload -->
-      <div class="form-group">
+          <div class="form-group">
         <label>Buy PI:</label>
         <div class="file-upload-container">
           <input 
@@ -488,11 +488,11 @@ onMounted(() => {
           >
             View Buy PI
           </a>
+          </div>
         </div>
       </div>
-    </div>
-
-    <div class="form-actions">
+      
+      <div class="form-actions">
       <button 
         @click="saveCar" 
         :disabled="loading" 
@@ -501,7 +501,7 @@ onMounted(() => {
         {{ loading ? 'Saving...' : 'Save' }}
       </button>
       <button @click="$emit('cancel')" class="btn cancel-btn">Cancel</button>
-    </div>
+      </div>
 
     <div v-if="error" class="error-message">{{ error }}</div>
   </div>
