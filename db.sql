@@ -1,13 +1,13 @@
 # ************************************************************
 # Sequel Ace SQL dump
-# Version 20086
+# Version 20089
 #
 # https://sequel-ace.com/
 # https://github.com/Sequel-Ace/Sequel-Ace
 #
 # Host: 216.219.81.100 (MySQL 5.5.5-10.6.21-MariaDB)
 # Database: merhab_cars
-# Generation Time: 2025-05-24 23:40:02 +0000
+# Generation Time: 2025-05-25 18:02:32 +0000
 # ************************************************************
 
 
@@ -32,7 +32,7 @@ CREATE TABLE `banks` (
   `bank_address` varchar(255) DEFAULT NULL,
   `notes` text DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_general_ci;
 
 
 
@@ -44,7 +44,7 @@ CREATE TABLE `brands` (
   `brand` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `brand` (`brand`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 
 
 
@@ -59,11 +59,11 @@ CREATE TABLE `buy_bill` (
   `payed` decimal(10,2) DEFAULT NULL,
   `pi_path` varchar(255) DEFAULT NULL,
   `bill_ref` varchar(255) DEFAULT NULL,
-  `is_stock_updated` tinyint(1) DEFAULT 0,
+  `is_stock_updated` tinyint(1) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `id_supplier` (`id_supplier`),
   CONSTRAINT `buy_bill_ibfk_1` FOREIGN KEY (`id_supplier`) REFERENCES `suppliers` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 
 
 
@@ -89,7 +89,7 @@ CREATE TABLE `buy_details` (
   CONSTRAINT `buy_details_ibfk_1` FOREIGN KEY (`id_car_name`) REFERENCES `cars_names` (`id`),
   CONSTRAINT `buy_details_ibfk_2` FOREIGN KEY (`id_color`) REFERENCES `colors` (`id`),
   CONSTRAINT `buy_details_ibfk_3` FOREIGN KEY (`id_buy_bill`) REFERENCES `buy_bill` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 
 
 
@@ -107,7 +107,7 @@ CREATE TABLE `buy_payments` (
   PRIMARY KEY (`id`),
   KEY `id_buy_bill` (`id_buy_bill`),
   CONSTRAINT `buy_payments_ibfk_1` FOREIGN KEY (`id_buy_bill`) REFERENCES `buy_bill` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 
 
 
@@ -124,7 +124,7 @@ CREATE TABLE `cars_names` (
   UNIQUE KEY `car_name` (`car_name`),
   KEY `id_brand` (`id_brand`),
   CONSTRAINT `cars_names_ibfk_1` FOREIGN KEY (`id_brand`) REFERENCES `brands` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 
 
 
@@ -167,7 +167,7 @@ CREATE TABLE `cars_stock` (
   CONSTRAINT `cars_stock_ibfk_2` FOREIGN KEY (`id_port_loading`) REFERENCES `loading_ports` (`id`),
   CONSTRAINT `cars_stock_ibfk_3` FOREIGN KEY (`id_port_discharge`) REFERENCES `discharge_ports` (`id`),
   CONSTRAINT `cars_stock_ibfk_4` FOREIGN KEY (`id_buy_details`) REFERENCES `buy_details` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 
 
 
@@ -185,7 +185,7 @@ CREATE TABLE `clients` (
   `is_broker` tinyint(1) DEFAULT 0,
   PRIMARY KEY (`id`),
   UNIQUE KEY `client_name_unic` (`name`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 
 
 
@@ -197,7 +197,7 @@ CREATE TABLE `colors` (
   `color` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `color` (`color`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 
 
 
@@ -209,7 +209,7 @@ CREATE TABLE `discharge_ports` (
   `discharge_port` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `discharge_port` (`discharge_port`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 
 
 
@@ -221,7 +221,7 @@ CREATE TABLE `loading_ports` (
   `loading_port` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `loading_port` (`loading_port`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 
 
 
@@ -230,11 +230,11 @@ CREATE TABLE `loading_ports` (
 
 CREATE TABLE `permissions` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
-  `permission_name` varchar(255) NOT NULL,
+  `permission_name` varchar(50) NOT NULL,
   `description` text DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `permission_name` (`permission_name`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 
 
 
@@ -242,12 +242,13 @@ CREATE TABLE `permissions` (
 # ------------------------------------------------------------
 
 CREATE TABLE `rates` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `date_rate` datetime DEFAULT NULL,
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `rate` decimal(10,2) DEFAULT NULL,
+  `created_on` timestamp NULL DEFAULT NULL,
+  `id_user` int(11) DEFAULT NULL,
   `notes` text DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 
 
 
@@ -255,15 +256,13 @@ CREATE TABLE `rates` (
 # ------------------------------------------------------------
 
 CREATE TABLE `role_permissions` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
   `role_id` int(11) NOT NULL,
   `permission_id` int(11) NOT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `role_permission_unique` (`role_id`,`permission_id`),
+  PRIMARY KEY (`role_id`,`permission_id`),
   KEY `permission_id` (`permission_id`),
   CONSTRAINT `role_permissions_ibfk_1` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`) ON DELETE CASCADE,
   CONSTRAINT `role_permissions_ibfk_2` FOREIGN KEY (`permission_id`) REFERENCES `permissions` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 
 
 
@@ -272,11 +271,11 @@ CREATE TABLE `role_permissions` (
 
 CREATE TABLE `roles` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
-  `role_name` varchar(255) NOT NULL,
+  `role_name` varchar(50) NOT NULL,
   `description` text DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `role_name` (`role_name`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 
 
 
@@ -284,15 +283,15 @@ CREATE TABLE `roles` (
 # ------------------------------------------------------------
 
 CREATE TABLE `sell_bill` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `id_client` int(11) DEFAULT NULL,
-  `date_sell` datetime DEFAULT NULL,
-  `amount` decimal(10,2) DEFAULT NULL,
-  `payed` decimal(10,2) DEFAULT NULL,
-  `pi_path` varchar(255) DEFAULT NULL,
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `id_broker` int(11) DEFAULT NULL,
+  `date_sell` date DEFAULT NULL,
+  `notes` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `id_user` int(11) DEFAULT NULL,
+  `path_pi` varchar(255) DEFAULT NULL,
   `bill_ref` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 
 
 
@@ -300,16 +299,17 @@ CREATE TABLE `sell_bill` (
 # ------------------------------------------------------------
 
 CREATE TABLE `sell_payments` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `id_sell_bill` int(11) DEFAULT NULL,
-  `date_payment` datetime DEFAULT NULL,
-  `amount_da` decimal(10,2) DEFAULT NULL,
   `amount_usd` decimal(10,2) DEFAULT NULL,
+  `amount_da` decimal(10,2) DEFAULT NULL,
   `rate` decimal(10,2) DEFAULT NULL,
-  `swift_path` varchar(255) DEFAULT NULL,
+  `date` date DEFAULT NULL,
+  `path_swift` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `id_user` int(11) DEFAULT NULL,
   `notes` text DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 
 
 
@@ -318,13 +318,12 @@ CREATE TABLE `sell_payments` (
 
 CREATE TABLE `suppliers` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
-  `name` varchar(255) NOT NULL,
-  `address` varchar(255) DEFAULT NULL,
-  `email` varchar(255) DEFAULT NULL,
-  `mobiles` varchar(255) NOT NULL,
+  `name` varchar(255) DEFAULT NULL,
+  `contact_info` text DEFAULT NULL,
+  `notes` text DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `supplier_name_unic` (`name`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 
 
 
@@ -333,18 +332,20 @@ CREATE TABLE `suppliers` (
 
 CREATE TABLE `transfers` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
-  `id_user_do_transfer` int(11) DEFAULT NULL,
+  `id_user_do_transfer` int(11) NOT NULL,
+  `date_do_transfer` datetime NOT NULL,
+  `amount_sending_da` decimal(10,2) NOT NULL,
+  `rate` decimal(10,2) NOT NULL,
   `id_user_receive_transfer` int(11) DEFAULT NULL,
-  `date_transfer` datetime DEFAULT NULL,
+  `amount_received_usd` decimal(10,2) DEFAULT 0.00,
   `date_receive` datetime DEFAULT NULL,
-  `amount_sending_da` decimal(10,2) DEFAULT NULL,
-  `amount_received_usd` decimal(10,2) DEFAULT NULL,
-  `rate` decimal(10,2) DEFAULT NULL,
+  `details_transfer` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`details_transfer`)),
   `notes` text DEFAULT NULL,
-  `swift_path` varchar(255) DEFAULT NULL,
+  `receiver_notes` text DEFAULT NULL,
+  PRIMARY KEY (`id`),
   KEY `id_user_do_transfer` (`id_user_do_transfer`),
   CONSTRAINT `transfers_ibfk_1` FOREIGN KEY (`id_user_do_transfer`) REFERENCES `users` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 
 
 
@@ -352,16 +353,16 @@ CREATE TABLE `transfers` (
 # ------------------------------------------------------------
 
 CREATE TABLE `transfers_inter` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `amount` decimal(10,2) DEFAULT NULL,
+  `date_transfer` date DEFAULT NULL,
   `from_user_id` int(11) DEFAULT NULL,
   `to_user_id` int(11) DEFAULT NULL,
-  `amount` decimal(10,2) DEFAULT NULL,
-  `date_transfer` datetime DEFAULT NULL,
-  `notes` text DEFAULT NULL,
   `id_admin_confirm` int(11) DEFAULT NULL,
+  `notes` text DEFAULT NULL,
   `date_received` date DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 
 
 
@@ -370,15 +371,16 @@ CREATE TABLE `transfers_inter` (
 
 CREATE TABLE `users` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
-  `username` varchar(255) NOT NULL,
-  `email` varchar(255) DEFAULT NULL,
+  `username` varchar(50) NOT NULL,
+  `email` varchar(100) NOT NULL,
   `password` varchar(255) NOT NULL,
   `role_id` int(11) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `username` (`username`),
+  UNIQUE KEY `email` (`email`),
   KEY `role_id` (`role_id`),
   CONSTRAINT `users_ibfk_1` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 
 
 
@@ -386,11 +388,11 @@ CREATE TABLE `users` (
 # ------------------------------------------------------------
 
 CREATE TABLE `warehouses` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `warhouse_name` varchar(255) DEFAULT NULL,
-  `notes` text DEFAULT NULL,
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `warhouse_name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `notes` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 
 
 

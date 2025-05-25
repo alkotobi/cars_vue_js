@@ -1,0 +1,22 @@
+# .htaccess (replace existing content)
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  
+  # Skip rewrite for real files and directories
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+  
+  # Redirect all other requests to index.html
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+# Force correct MIME types for JavaScript modules
+
+<FilesMatch "\.(js|mjs)$">
+  ForceType application/javascript
+</FilesMatch>
+<FilesMatch "\.css$">
+ForceType text/css
+</FilesMatch>

@@ -48,7 +48,7 @@ const handleUpdateStock = async (bill) => {
         SET is_stock_updated = 1 
         WHERE id = ?
       `,
-      params: [bill.id]
+      params: [bill.id],
     })
 
     if (result.success) {
@@ -63,7 +63,11 @@ const handleUpdateStock = async (bill) => {
 }
 
 const handleDeleteBill = async (bill) => {
-  if (!confirm('Are you sure you want to delete this purchase and all its details? This action cannot be undone.')) {
+  if (
+    !confirm(
+      'Are you sure you want to delete this purchase and all its details? This action cannot be undone.',
+    )
+  ) {
     return
   }
 
@@ -78,7 +82,7 @@ const handleDeleteBill = async (bill) => {
     // 1. Delete payments
     const deletePayments = await callApi({
       query: `DELETE FROM buy_payments WHERE id_buy_bill = ?`,
-      params: [bill.id]
+      params: [bill.id],
     })
 
     if (!deletePayments.success) {
@@ -88,7 +92,7 @@ const handleDeleteBill = async (bill) => {
     // 2. Delete details
     const deleteDetails = await callApi({
       query: `DELETE FROM buy_details WHERE id_buy_bill = ?`,
-      params: [bill.id]
+      params: [bill.id],
     })
 
     if (!deleteDetails.success) {
@@ -98,7 +102,7 @@ const handleDeleteBill = async (bill) => {
     // 3. Finally delete the bill
     const deleteBill = await callApi({
       query: `DELETE FROM buy_bill WHERE id = ? AND is_stock_updated = 0`,
-      params: [bill.id]
+      params: [bill.id],
     })
 
     if (deleteBill.success) {
@@ -123,7 +127,7 @@ const openEditDialog = (bill) => {
     date_buy: bill.date_buy.slice(0, 16), // Format for datetime-local input
     bill_ref: bill.bill_ref || '',
     pi_path: bill.pi_path || '',
-    pi_file: null
+    pi_file: null,
   }
   showEditDialog.value = true
 }
@@ -135,7 +139,7 @@ const openAddDialog = () => {
     date_buy: new Date().toISOString().slice(0, 16),
     bill_ref: '',
     pi_path: '',
-    pi_file: null
+    pi_file: null,
   }
   showAddDialog.value = true
 }
@@ -147,7 +151,7 @@ const newPurchase = ref({
   amount: 0,
   bill_ref: '',
   pi_path: '',
-  pi_file: null
+  pi_file: null,
 })
 
 const newDetail = ref({
@@ -159,7 +163,7 @@ const newDetail = ref({
   year: new Date().getFullYear(),
   month: new Date().getMonth() + 1,
   is_used_car: false,
-  id_buy_bill: null
+  id_buy_bill: null,
 })
 
 // Handle PI file change
@@ -168,14 +172,8 @@ const handlePiFileChange = (event) => {
   if (!file) return
 
   // Check if file is PDF or image
-  const allowedTypes = [
-    'application/pdf',
-    'image/jpeg',
-    'image/png',
-    'image/gif',
-    'image/webp'
-  ]
-  
+  const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp']
+
   if (!allowedTypes.includes(file.type)) {
     alert('Only PDF and image files (JPEG, PNG, GIF, WEBP) are allowed')
     event.target.value = ''
@@ -190,7 +188,7 @@ const handlePiFileChange = (event) => {
 const fetchSuppliers = async () => {
   const result = await callApi({
     query: 'SELECT * FROM suppliers ORDER BY name ASC',
-    params: []
+    params: [],
   })
   if (result.success) {
     suppliers.value = result.data
@@ -202,10 +200,10 @@ const addPurchase = async () => {
   if (isSubmittingPurchase.value) {
     return
   }
-  
+
   try {
     isSubmittingPurchase.value = true
-    
+
     // Validate that PI document is provided
     if (!newPurchase.value.pi_file) {
       alert('PI document is required. Please select a file.')
@@ -219,22 +217,19 @@ const addPurchase = async () => {
       const timestamp = date.getTime()
       const dateStr = date.toISOString().split('T')[0]
       const timeStr = date.toISOString().split('T')[1].split('.')[0].replace(/:/g, '-')
-      const supplierName = suppliers.value.find(s => s.id === newPurchase.value.id_supplier)?.name || 'unknown'
+      const supplierName =
+        suppliers.value.find((s) => s.id === newPurchase.value.id_supplier)?.name || 'unknown'
       const fileExt = newPurchase.value.pi_file.name.split('.').pop().toLowerCase()
-      
+
       // Format: pi_purchase_supplier_date_time_timestamp.ext
       const filename = `pi_purchase_${supplierName.replace(/\s+/g, '_')}_${dateStr}_${timeStr}_${timestamp}.${fileExt}`
 
-      const uploadResult = await uploadFile(
-        newPurchase.value.pi_file,
-        'purchase_pi',
-        filename
-      )
-      
+      const uploadResult = await uploadFile(newPurchase.value.pi_file, 'purchase_pi', filename)
+
       if (!uploadResult.success) {
         throw new Error(uploadResult.message || 'Failed to upload PI document')
       }
-      
+
       // Store just the relative path
       newPurchase.value.pi_path = `purchase_pi/${filename}`
     } catch (uploadError) {
@@ -251,10 +246,10 @@ const addPurchase = async () => {
         newPurchase.value.id_supplier,
         newPurchase.value.date_buy,
         newPurchase.value.bill_ref,
-        newPurchase.value.pi_path
-      ]
+        newPurchase.value.pi_path,
+      ],
     })
-    
+
     if (result.success) {
       showAddDialog.value = false
       await fetchBuyBills()
@@ -264,7 +259,7 @@ const addPurchase = async () => {
         date_buy: new Date().toISOString().slice(0, 16),
         bill_ref: '',
         pi_path: '',
-        pi_file: null
+        pi_file: null,
       }
     } else {
       throw new Error(result.error || 'Failed to add purchase')
@@ -282,10 +277,10 @@ const updatePurchase = async () => {
   if (isSubmittingPurchase.value) {
     return
   }
-  
+
   try {
     isSubmittingPurchase.value = true
-    
+
     // Validate that PI document exists (either existing or new file)
     if (!newPurchase.value.pi_file && !newPurchase.value.pi_path) {
       alert('PI document is required. Please select a file.')
@@ -300,22 +295,19 @@ const updatePurchase = async () => {
         const timestamp = date.getTime()
         const dateStr = date.toISOString().split('T')[0]
         const timeStr = date.toISOString().split('T')[1].split('.')[0].replace(/:/g, '-')
-        const supplierName = suppliers.value.find(s => s.id === newPurchase.value.id_supplier)?.name || 'unknown'
+        const supplierName =
+          suppliers.value.find((s) => s.id === newPurchase.value.id_supplier)?.name || 'unknown'
         const fileExt = newPurchase.value.pi_file.name.split('.').pop().toLowerCase()
-        
+
         // Format: pi_purchase_supplier_date_time_timestamp.ext
         const filename = `pi_purchase_${supplierName.replace(/\s+/g, '_')}_${dateStr}_${timeStr}_${timestamp}.${fileExt}`
 
-        const uploadResult = await uploadFile(
-          newPurchase.value.pi_file,
-          'purchase_pi',
-          filename
-        )
-        
+        const uploadResult = await uploadFile(newPurchase.value.pi_file, 'purchase_pi', filename)
+
         if (!uploadResult.success) {
           throw new Error(uploadResult.message || 'Failed to upload PI document')
         }
-        
+
         // Store just the relative path
         newPurchase.value.pi_path = `purchase_pi/${filename}`
       } catch (uploadError) {
@@ -335,10 +327,10 @@ const updatePurchase = async () => {
         newPurchase.value.date_buy,
         newPurchase.value.bill_ref,
         newPurchase.value.pi_path,
-        editingBill.value.id
-      ]
+        editingBill.value.id,
+      ],
     })
-    
+
     if (result.success) {
       showEditDialog.value = false
       editingBill.value = null
@@ -349,7 +341,7 @@ const updatePurchase = async () => {
         date_buy: new Date().toISOString().slice(0, 16),
         bill_ref: '',
         pi_path: '',
-        pi_file: null
+        pi_file: null,
       }
     } else {
       throw new Error(result.error || 'Failed to update purchase')
@@ -377,13 +369,13 @@ const fetchBuyBills = async () => {
       LEFT JOIN suppliers s ON bb.id_supplier = s.id 
       ORDER BY bb.date_buy DESC
     `,
-    params: []
+    params: [],
   })
   if (result.success) {
-    buyBills.value = result.data.map(bill => ({
+    buyBills.value = result.data.map((bill) => ({
       ...bill,
       amount: Number(bill.calculated_amount),
-      payed: Number(bill.payed)
+      payed: Number(bill.payed),
     }))
   }
 }
@@ -398,13 +390,12 @@ const fetchBuyDetails = async (billId) => {
       LEFT JOIN buy_bill bb ON bd.id_buy_bill = bb.id
       WHERE bd.id_buy_bill = ?
     `,
-    params: [billId]
+    params: [billId],
   })
   if (result.success) {
     buyDetails.value = result.data
-  }
-  else{
-    console.error('Error fetching details:', result.error);
+  } else {
+    console.error('Error fetching details:', result.error)
   }
 }
 
@@ -416,7 +407,7 @@ const selectBill = (bill) => {
 const fetchCars = async () => {
   const result = await callApi({
     query: 'SELECT * FROM cars_names ORDER BY car_name ASC',
-    params: []
+    params: [],
   })
   if (result.success) {
     cars.value = result.data
@@ -426,7 +417,7 @@ const fetchCars = async () => {
 const fetchColors = async () => {
   const result = await callApi({
     query: 'SELECT * FROM colors ORDER BY color ASC',
-    params: []
+    params: [],
   })
   if (result.success) {
     colors.value = result.data
@@ -444,9 +435,9 @@ const updateBillAmount = async (billId) => {
       )
       WHERE id = ?
     `,
-    params: [billId, billId]
+    params: [billId, billId],
   })
-  
+
   if (!result.success) {
     console.error('Error updating bill amount:', result.error)
   }
@@ -457,36 +448,36 @@ const addDetail = async () => {
   if (isSubmittingDetail.value) {
     return
   }
-  
+
   try {
     isSubmittingDetail.value = true
-    
+
     const result = await callApi({
-    query: `
+      query: `
       INSERT INTO buy_details 
       (id_car_name, id_color, amount, notes, QTY, year, month, is_used_car, id_buy_bill, price_sell)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
-    params: [
-      newDetail.value.id_car_name,
-      newDetail.value.id_color,
-      newDetail.value.amount,
-      newDetail.value.notes,
-      newDetail.value.QTY,
-      newDetail.value.year,
-      newDetail.value.month,
-      newDetail.value.is_used_car ? 1 : 0,
-      selectedBill.value.id,
-      newDetail.value.price_sell
-    ]
-  })
-  
-  if (result.success) {
-    await updateBillAmount(selectedBill.value.id) // Update bill amount
-    showAddDetailDialog.value = false
-    await fetchBuyDetails(selectedBill.value.id)
-    await fetchBuyBills() // Refresh bills to show updated amount
-          // Reset form
+      params: [
+        newDetail.value.id_car_name,
+        newDetail.value.id_color,
+        newDetail.value.amount,
+        newDetail.value.notes,
+        newDetail.value.QTY,
+        newDetail.value.year,
+        newDetail.value.month,
+        newDetail.value.is_used_car ? 1 : 0,
+        selectedBill.value.id,
+        newDetail.value.price_sell,
+      ],
+    })
+
+    if (result.success) {
+      await updateBillAmount(selectedBill.value.id) // Update bill amount
+      showAddDetailDialog.value = false
+      await fetchBuyDetails(selectedBill.value.id)
+      await fetchBuyBills() // Refresh bills to show updated amount
+      // Reset form
       newDetail.value = {
         id_car_name: null,
         id_color: null,
@@ -496,10 +487,9 @@ const addDetail = async () => {
         year: new Date().getFullYear(),
         month: new Date().getMonth() + 1,
         is_used_car: false,
-        id_buy_bill: null
+        id_buy_bill: null,
       }
-    }
-    else {
+    } else {
       console.error('Error adding detail:', result.error)
     }
   } catch (err) {
@@ -521,9 +511,9 @@ onMounted(() => {
 const handleDeleteDetail = async (detailId) => {
   const result = await callApi({
     query: 'DELETE FROM buy_details WHERE id = ?',
-    params: [detailId]
+    params: [detailId],
   })
-  
+
   if (result.success) {
     await updateBillAmount(selectedBill.value.id) // Update bill amount
     await fetchBuyDetails(selectedBill.value.id)
@@ -548,10 +538,10 @@ const handleUpdateDetail = async (updatedDetail) => {
       updatedDetail.month,
       updatedDetail.notes,
       updatedDetail.price_sell,
-      updatedDetail.id
-    ]
+      updatedDetail.id,
+    ],
   })
-  
+
   if (result.success) {
     await updateBillAmount(selectedBill.value.id) // Update bill amount
     await fetchBuyDetails(selectedBill.value.id)
@@ -577,28 +567,18 @@ const openPayments = (bill) => {
 
     <div class="content">
       <div class="master-detail-vertical">
-        <BuyBillsTable 
-          :buyBills="buyBills"
-          :selectedBill="selectedBill"
-          @select-bill="selectBill"
-        >
+        <BuyBillsTable :buyBills="buyBills" :selectedBill="selectedBill" @select-bill="selectBill">
           <!-- Toolbar actions -->
           <template #actions="{ bill }">
-            <button 
-              @click.stop="openPayments(bill)"
-              class="payment-btn"
-              :disabled="bill.is_stock_updated"
-            >
-              Payments
-            </button>
-            <button 
+            <button @click.stop="openPayments(bill)" class="payment-btn">Payments</button>
+            <button
               @click.stop="openEditDialog(bill)"
               class="action-btn edit-btn"
               :disabled="bill.is_stock_updated"
             >
               Edit
             </button>
-            <button 
+            <button
               v-if="false"
               @click.stop="handleUpdateStock(bill)"
               class="action-btn update-btn"
@@ -606,7 +586,7 @@ const openPayments = (bill) => {
             >
               Update Stock
             </button>
-            <button 
+            <button
               v-if="isAdmin"
               @click.stop="handleDeleteBill(bill)"
               class="action-btn delete-btn"
@@ -617,7 +597,7 @@ const openPayments = (bill) => {
           </template>
         </BuyBillsTable>
 
-        <BuyDetailsTable 
+        <BuyDetailsTable
           v-if="selectedBill"
           :buyDetails="buyDetails"
           :isAdmin="isAdmin"
@@ -637,39 +617,37 @@ const openPayments = (bill) => {
             <label>Supplier</label>
             <select v-model="newPurchase.id_supplier" required>
               <option value="">Select Supplier</option>
-              <option v-for="supplier in suppliers" 
-                      :key="supplier.id" 
-                      :value="supplier.id">
+              <option v-for="supplier in suppliers" :key="supplier.id" :value="supplier.id">
                 {{ supplier.name }}
               </option>
             </select>
           </div>
-          
+
           <div class="form-group">
             <label>Date</label>
-            <input type="datetime-local" 
-                   v-model="newPurchase.date_buy" 
-                   required>
+            <input type="datetime-local" v-model="newPurchase.date_buy" required />
           </div>
-          
+
           <div class="form-group">
             <label>Bill Reference <span class="required">*</span></label>
-            <input type="text" 
-                   v-model="newPurchase.bill_ref" 
-                   placeholder="Enter bill reference number"
-                   required>
+            <input
+              type="text"
+              v-model="newPurchase.bill_ref"
+              placeholder="Enter bill reference number"
+              required
+            />
           </div>
-          
+
           <div class="form-group">
             <label>PI Document (PDF or Image) <span class="required">*</span></label>
-            <input 
-              type="file" 
+            <input
+              type="file"
               @change="handlePiFileChange"
               accept=".pdf,.jpg,.jpeg,.png,.gif,.webp"
               required
-            >
-            <a 
-              v-if="newPurchase.pi_path" 
+            />
+            <a
+              v-if="newPurchase.pi_path"
               :href="getFileUrl(newPurchase.pi_path)"
               target="_blank"
               class="current-file-link"
@@ -677,13 +655,9 @@ const openPayments = (bill) => {
               View Current PI Document
             </a>
           </div>
-          
+
           <div class="dialog-buttons">
-            <button type="button" 
-                    @click="showAddDialog = false" 
-                    class="cancel-btn">
-              Cancel
-            </button>
+            <button type="button" @click="showAddDialog = false" class="cancel-btn">Cancel</button>
             <button type="submit" class="submit-btn" :disabled="isSubmittingPurchase">
               <span v-if="isSubmittingPurchase" class="spinner"></span>
               {{ isSubmittingPurchase ? 'Adding...' : 'Add Purchase' }}
@@ -702,38 +676,36 @@ const openPayments = (bill) => {
             <label>Supplier</label>
             <select v-model="newPurchase.id_supplier" required>
               <option value="">Select Supplier</option>
-              <option v-for="supplier in suppliers" 
-                      :key="supplier.id" 
-                      :value="supplier.id">
+              <option v-for="supplier in suppliers" :key="supplier.id" :value="supplier.id">
                 {{ supplier.name }}
               </option>
             </select>
           </div>
-          
+
           <div class="form-group">
             <label>Date</label>
-            <input type="datetime-local" 
-                   v-model="newPurchase.date_buy" 
-                   required>
+            <input type="datetime-local" v-model="newPurchase.date_buy" required />
           </div>
-          
+
           <div class="form-group">
             <label>Bill Reference <span class="required">*</span></label>
-            <input type="text" 
-                   v-model="newPurchase.bill_ref" 
-                   placeholder="Enter bill reference number"
-                   required>
+            <input
+              type="text"
+              v-model="newPurchase.bill_ref"
+              placeholder="Enter bill reference number"
+              required
+            />
           </div>
-          
+
           <div class="form-group">
             <label>PI Document (PDF or Image) <span class="required">*</span></label>
-            <input 
-              type="file" 
+            <input
+              type="file"
               @change="handlePiFileChange"
               accept=".pdf,.jpg,.jpeg,.png,.gif,.webp"
-            >
-            <a 
-              v-if="newPurchase.pi_path" 
+            />
+            <a
+              v-if="newPurchase.pi_path"
               :href="getFileUrl(newPurchase.pi_path)"
               target="_blank"
               class="current-file-link"
@@ -744,13 +716,9 @@ const openPayments = (bill) => {
               PI document is required
             </div>
           </div>
-          
+
           <div class="dialog-buttons">
-            <button type="button" 
-                    @click="showEditDialog = false" 
-                    class="cancel-btn">
-              Cancel
-            </button>
+            <button type="button" @click="showEditDialog = false" class="cancel-btn">Cancel</button>
             <button type="submit" class="submit-btn" :disabled="isSubmittingPurchase">
               <span v-if="isSubmittingPurchase" class="spinner"></span>
               {{ isSubmittingPurchase ? 'Updating...' : 'Update Purchase' }}
@@ -768,84 +736,63 @@ const openPayments = (bill) => {
             <label>Car</label>
             <select v-model="newDetail.id_car_name" required>
               <option value="">Select Car</option>
-              <option v-for="car in cars" 
-                      :key="car.id" 
-                      :value="car.id">
+              <option v-for="car in cars" :key="car.id" :value="car.id">
                 {{ car.car_name }}
               </option>
             </select>
           </div>
-          
+
           <div class="form-group">
             <label>Color</label>
             <select v-model="newDetail.id_color" required>
               <option value="">Select Color</option>
-              <option v-for="color in colors" 
-                      :key="color.id" 
-                      :value="color.id">
+              <option v-for="color in colors" :key="color.id" :value="color.id">
                 {{ color.color }}
               </option>
             </select>
           </div>
-          
+
           <div class="form-group">
             <label>Quantity</label>
-            <input type="number" 
-                   v-model="newDetail.QTY" 
-                   min="1" 
-                   required>
+            <input type="number" v-model="newDetail.QTY" min="1" required />
           </div>
-          
+
           <div class="form-group">
             <label>Amount</label>
-            <input type="number" 
-                   v-model="newDetail.amount" 
-                   step="0.01" 
-                   required>
+            <input type="number" v-model="newDetail.amount" step="0.01" required />
           </div>
-          
+
           <div class="form-row">
             <div class="form-group half">
               <label>Year</label>
-              <input type="number" 
-                     v-model="newDetail.year" 
-                     required>
+              <input type="number" v-model="newDetail.year" required />
             </div>
-            
+
             <div class="form-group half">
               <label>Month</label>
-              <input type="number" 
-                     v-model="newDetail.month" 
-                     min="1" 
-                     max="12" 
-                     required>
+              <input type="number" v-model="newDetail.month" min="1" max="12" required />
             </div>
           </div>
-          
+
           <div class="form-group">
             <label>Price Sell</label>
-            <input type="number" 
-                   v-model="newDetail.price_sell"
-                   step="0.01"
-                   required>
+            <input type="number" v-model="newDetail.price_sell" step="0.01" required />
           </div>
-          
+
           <div class="form-group">
             <label>Notes</label>
             <textarea v-model="newDetail.notes" rows="3"></textarea>
           </div>
-          
+
           <div class="form-group checkbox">
             <label>
-              <input type="checkbox" v-model="newDetail.is_used_car">
+              <input type="checkbox" v-model="newDetail.is_used_car" />
               Used Car
             </label>
           </div>
-          
+
           <div class="dialog-buttons">
-            <button type="button" 
-                    @click="showAddDetailDialog = false" 
-                    class="cancel-btn">
+            <button type="button" @click="showAddDetailDialog = false" class="cancel-btn">
               Cancel
             </button>
             <button type="submit" class="submit-btn" :disabled="isSubmittingDetail">
@@ -1107,7 +1054,7 @@ h3 {
 }
 
 .payment-btn:before {
-  content: "💰";
+  content: '💰';
   font-size: 1rem;
 }
 
@@ -1144,7 +1091,7 @@ h3 {
 }
 
 .update-btn:before {
-  content: "📦";
+  content: '📦';
   font-size: 1rem;
 }
 
@@ -1157,7 +1104,7 @@ h3 {
 }
 
 .delete-btn:before {
-  content: "🗑";
+  content: '🗑';
   font-size: 1rem;
 }
 
@@ -1170,7 +1117,7 @@ h3 {
 }
 
 .edit-btn:before {
-  content: "✏️";
+  content: '✏️';
   font-size: 1rem;
 }
 
@@ -1210,6 +1157,8 @@ h3 {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>

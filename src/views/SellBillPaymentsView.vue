@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { useApi } from '../../composables/useApi'
+import { useApi } from '../composables/useApi'
 
 const route = useRoute()
 const { callApi, uploadFile, getFileUrl } = useApi()
@@ -22,13 +22,13 @@ const isSubmittingPayment = ref(false)
 const can_edit_sell_payments = computed(() => {
   if (!user.value) return false
   if (user.value.role_id === 1) return true
-  return user.value.permissions?.some(p => p.permission_name === 'can_edit_sell_payments')
+  return user.value.permissions?.some((p) => p.permission_name === 'can_edit_sell_payments')
 })
 
 const can_delete_sell_payments = computed(() => {
   if (!user.value) return false
   if (user.value.role_id === 1) return true
-  return user.value.permissions?.some(p => p.permission_name === 'can_delete_sell_payments')
+  return user.value.permissions?.some((p) => p.permission_name === 'can_delete_sell_payments')
 })
 
 // Form data
@@ -39,7 +39,7 @@ const paymentForm = ref({
   date: new Date().toISOString().split('T')[0],
   path_swift: '',
   notes: '',
-  swift_file: null
+  swift_file: null,
 })
 
 onMounted(() => {
@@ -81,7 +81,7 @@ const formErrors = ref({
   amounts: '',
   rate: '',
   calculation: '',
-  swift: ''
+  swift: '',
 })
 
 // Verify if calculations are correct
@@ -143,9 +143,9 @@ const validateForm = () => {
     amounts: '',
     rate: '',
     calculation: '',
-    swift: ''
+    swift: '',
   }
-  
+
   // Check if at least one amount is provided
   if (!paymentForm.value.amount_usd && !paymentForm.value.amount_da) {
     formErrors.value.amounts = 'Either USD or DA amount is required'
@@ -173,14 +173,8 @@ const handleSwiftFileChange = (event) => {
   if (!file) return
 
   // Check if file is PDF or image
-  const allowedTypes = [
-    'application/pdf',
-    'image/jpeg',
-    'image/png',
-    'image/gif',
-    'image/webp'
-  ]
-  
+  const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp']
+
   if (!allowedTypes.includes(file.type)) {
     alert('Only PDF and image files (JPEG, PNG, GIF, WEBP) are allowed')
     event.target.value = ''
@@ -209,13 +203,13 @@ const fetchBillInfo = async () => {
         LEFT JOIN users u ON sb.id_user = u.id
         WHERE sb.id = ?
       `,
-      params: [billId.value]
+      params: [billId.value],
     })
-    
+
     if (result.success && result.data.length > 0) {
       billInfo.value = {
         ...result.data[0],
-        total_cfr: Number(result.data[0].total_cfr) || 0
+        total_cfr: Number(result.data[0].total_cfr) || 0,
       }
     }
   } catch (err) {
@@ -226,7 +220,7 @@ const fetchBillInfo = async () => {
 const fetchPayments = async () => {
   loading.value = true
   error.value = null
-  
+
   try {
     const result = await callApi({
       query: `
@@ -238,16 +232,16 @@ const fetchPayments = async () => {
         WHERE sp.id_sell_bill = ?
         ORDER BY sp.date DESC
       `,
-      params: [billId.value]
+      params: [billId.value],
     })
-    
+
     if (result.success) {
       // Convert string numbers to actual numbers
-      payments.value = result.data.map(payment => ({
+      payments.value = result.data.map((payment) => ({
         ...payment,
         amount_usd: payment.amount_usd ? Number(payment.amount_usd) : null,
         amount_da: payment.amount_da ? Number(payment.amount_da) : null,
-        rate: payment.rate ? Number(payment.rate) : null
+        rate: payment.rate ? Number(payment.rate) : null,
       }))
     } else {
       error.value = result.error || 'Failed to fetch payments'
@@ -268,7 +262,7 @@ const openAddDialog = () => {
     date: new Date().toISOString().split('T')[0],
     path_swift: '',
     notes: '',
-    swift_file: null
+    swift_file: null,
   }
   showPaymentDialog.value = true
 }
@@ -286,7 +280,7 @@ const openEditDialog = (payment) => {
     date: payment.date.split('T')[0],
     path_swift: payment.path_swift || '',
     notes: payment.notes || '',
-    swift_file: null
+    swift_file: null,
   }
   showPaymentDialog.value = true
 }
@@ -296,7 +290,7 @@ const handleSubmit = async () => {
   if (isSubmittingPayment.value) {
     return
   }
-  
+
   if (!validateForm()) {
     return
   }
@@ -309,7 +303,7 @@ const handleSubmit = async () => {
 
   try {
     isSubmittingPayment.value = true
-    
+
     // Handle swift document upload first if there's a new file
     if (paymentForm.value.swift_file) {
       try {
@@ -318,24 +312,24 @@ const handleSubmit = async () => {
         const timestamp = date.getTime() // Add timestamp for uniqueness
         const dateStr = date.toISOString().split('T')[0]
         const timeStr = date.toISOString().split('T')[1].split('.')[0].replace(/:/g, '-')
-        const amountStr = paymentForm.value.amount_usd ? 
-          `_${paymentForm.value.amount_usd}USD` : 
-          `_${paymentForm.value.amount_da}DA`
+        const amountStr = paymentForm.value.amount_usd
+          ? `_${paymentForm.value.amount_usd}USD`
+          : `_${paymentForm.value.amount_da}DA`
         const fileExt = paymentForm.value.swift_file.name.split('.').pop().toLowerCase()
-        
+
         // Format: swift_payment_billId_date_time_amount_timestamp.ext
         const filename = `swift_payment_${billId.value}_${dateStr}_${timeStr}${amountStr}_${timestamp}.${fileExt}`
 
         const uploadResult = await uploadFile(
           paymentForm.value.swift_file,
           'payments_swift',
-          filename
+          filename,
         )
-        
+
         if (!uploadResult.success) {
           throw new Error(uploadResult.message || 'Failed to upload swift document')
         }
-        
+
         // Store just the relative path without the API endpoint
         paymentForm.value.path_swift = `payments_swift/${filename}`
       } catch (uploadError) {
@@ -364,10 +358,10 @@ const handleSubmit = async () => {
           paymentForm.value.date,
           paymentForm.value.path_swift,
           paymentForm.value.notes,
-          editingPayment.value.id
-        ]
+          editingPayment.value.id,
+        ],
       })
-      
+
       if (!result.success) {
         throw new Error(result.error || 'Failed to update payment')
       }
@@ -387,15 +381,15 @@ const handleSubmit = async () => {
           paymentForm.value.date,
           paymentForm.value.path_swift,
           paymentForm.value.notes,
-          user.value?.id
-        ]
+          user.value?.id,
+        ],
       })
-      
+
       if (!result.success) {
         throw new Error(result.error || 'Failed to create payment')
       }
     }
-    
+
     // Reset and refresh
     showPaymentDialog.value = false
     editingPayment.value = null
@@ -413,17 +407,17 @@ const handleDelete = async (paymentId) => {
     error.value = 'You do not have permission to delete payments'
     return
   }
-  
+
   if (!confirm('Are you sure you want to delete this payment?')) {
     return
   }
-  
+
   try {
     const result = await callApi({
       query: 'DELETE FROM sell_payments WHERE id = ?',
-      params: [paymentId]
+      params: [paymentId],
     })
-    
+
     if (result.success) {
       await fetchPayments()
     } else {
@@ -439,7 +433,7 @@ const handleDelete = async (paymentId) => {
   <div class="sell-bill-payments">
     <div class="header">
       <h2>Payments for Sell Bill #{{ billId }}</h2>
-      
+
       <div v-if="billInfo" class="bill-info">
         <div class="info-grid">
           <div class="info-item">
@@ -459,7 +453,7 @@ const handleDelete = async (paymentId) => {
             <span class="value">{{ billInfo.created_by || 'N/A' }}</span>
           </div>
         </div>
-        
+
         <div class="financial-summary">
           <div class="summary-item">
             <span class="label">Total CFR:</span>
@@ -483,9 +477,7 @@ const handleDelete = async (paymentId) => {
 
     <div v-if="loading" class="loading">Loading...</div>
     <div v-else-if="error" class="error">{{ error }}</div>
-    <div v-else-if="payments.length === 0" class="no-data">
-      No payments found for this bill
-    </div>
+    <div v-else-if="payments.length === 0" class="no-data">No payments found for this bill</div>
     <table v-else class="payments-table">
       <thead>
         <tr>
@@ -508,25 +500,25 @@ const handleDelete = async (paymentId) => {
           <td>{{ formatNumber(payment.rate) }}</td>
           <td>{{ payment.created_by || 'N/A' }}</td>
           <td>
-            <a v-if="payment.path_swift" 
-               :href="getFileUrl(payment.path_swift)" 
-               target="_blank">View Swift</a>
+            <a v-if="payment.path_swift" :href="getFileUrl(payment.path_swift)" target="_blank"
+              >View Swift</a
+            >
             <span v-else>No document</span>
           </td>
           <td class="actions-cell">
-            <button 
-              @click="openEditDialog(payment)" 
+            <button
+              @click="openEditDialog(payment)"
               class="edit-btn"
               :disabled="!can_edit_sell_payments"
-              :class="{ 'disabled': !can_edit_sell_payments }"
+              :class="{ disabled: !can_edit_sell_payments }"
             >
               Edit
             </button>
-            <button 
-              @click="handleDelete(payment.id)" 
+            <button
+              @click="handleDelete(payment.id)"
               class="delete-btn"
               :disabled="!can_delete_sell_payments"
-              :class="{ 'disabled': !can_delete_sell_payments }"
+              :class="{ disabled: !can_delete_sell_payments }"
             >
               Delete
             </button>
@@ -539,28 +531,28 @@ const handleDelete = async (paymentId) => {
     <div v-if="showPaymentDialog" class="dialog-overlay">
       <div class="dialog">
         <h3>{{ editingPayment ? 'Edit Payment' : 'Add Payment' }}</h3>
-        
+
         <form @submit.prevent="handleSubmit" class="payment-form">
           <div class="form-group">
             <label for="amount_usd">Amount (USD):</label>
-            <input 
-              type="number" 
-              id="amount_usd" 
+            <input
+              type="number"
+              id="amount_usd"
               v-model="paymentForm.amount_usd"
               step="0.01"
               placeholder="Enter USD amount"
-            >
+            />
           </div>
 
           <div class="form-group">
             <label for="amount_da">Amount (DA):</label>
-            <input 
-              type="number" 
-              id="amount_da" 
+            <input
+              type="number"
+              id="amount_da"
               v-model="paymentForm.amount_da"
               step="0.01"
               placeholder="Enter DA amount"
-            >
+            />
           </div>
 
           <div v-if="formErrors.amounts" class="error-message">
@@ -569,14 +561,14 @@ const handleDelete = async (paymentId) => {
 
           <div class="form-group">
             <label for="rate">Rate:</label>
-            <input 
-              type="number" 
-              id="rate" 
+            <input
+              type="number"
+              id="rate"
               v-model="paymentForm.rate"
               step="0.01"
               required
               placeholder="Enter rate"
-            >
+            />
             <div v-if="formErrors.rate" class="error-message">
               {{ formErrors.rate }}
             </div>
@@ -588,28 +580,23 @@ const handleDelete = async (paymentId) => {
 
           <div class="form-group">
             <label for="date">Date:</label>
-            <input 
-              type="date" 
-              id="date" 
-              v-model="paymentForm.date"
-              required
-            >
+            <input type="date" id="date" v-model="paymentForm.date" required />
           </div>
 
           <div class="form-group">
             <label for="path_swift">Swift Document (PDF or Image):</label>
-            <input 
-              type="file" 
-              id="path_swift" 
+            <input
+              type="file"
+              id="path_swift"
               @change="handleSwiftFileChange"
               accept=".pdf,.jpg,.jpeg,.png,.gif,.webp"
               :required="!editingPayment"
-            >
+            />
             <div v-if="formErrors.swift" class="error-message">
               {{ formErrors.swift }}
             </div>
-            <a 
-              v-if="paymentForm.path_swift" 
+            <a
+              v-if="paymentForm.path_swift"
               :href="getFileUrl(paymentForm.path_swift)"
               target="_blank"
               class="current-file-link"
@@ -620,18 +607,16 @@ const handleDelete = async (paymentId) => {
 
           <div class="form-group">
             <label for="notes">Notes:</label>
-            <textarea 
-              id="notes" 
-              v-model="paymentForm.notes"
-              rows="3"
-            ></textarea>
+            <textarea id="notes" v-model="paymentForm.notes" rows="3"></textarea>
           </div>
 
           <div class="dialog-buttons">
-            <button type="button" @click="showPaymentDialog = false" class="cancel-btn">Cancel</button>
+            <button type="button" @click="showPaymentDialog = false" class="cancel-btn">
+              Cancel
+            </button>
             <button type="submit" class="submit-btn" :disabled="isSubmittingPayment">
               <span v-if="isSubmittingPayment" class="spinner"></span>
-              {{ isSubmittingPayment ? 'Saving...' : (editingPayment ? 'Update' : 'Add') }}
+              {{ isSubmittingPayment ? 'Saving...' : editingPayment ? 'Update' : 'Add' }}
             </button>
           </div>
         </form>
@@ -782,7 +767,9 @@ const handleDelete = async (paymentId) => {
   background-color: #dc2626;
 }
 
-.loading, .error, .no-data {
+.loading,
+.error,
+.no-data {
   padding: 20px;
   text-align: center;
   color: #6b7280;
@@ -915,7 +902,9 @@ a:hover {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .error-message {
@@ -952,4 +941,4 @@ a:hover {
   opacity: 0.5;
   cursor: not-allowed;
 }
-</style> 
+</style>

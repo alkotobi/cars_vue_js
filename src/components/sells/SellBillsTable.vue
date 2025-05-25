@@ -1,18 +1,19 @@
 <script setup>
-import { ref, onMounted, defineProps, defineEmits,computed } from 'vue'
+import { ref, onMounted, defineProps, defineEmits, computed } from 'vue'
 import { useApi } from '../../composables/useApi'
+import { useRouter } from 'vue-router'
 import SellBillPrintOption from './SellBillPrintOption.vue'
 
 const props = defineProps({
   onEdit: Function,
   onDelete: Function,
   onSelect: Function,
-
 })
 const user = ref(null)
 const isAdmin = computed(() => user.value?.role_id === 1)
 const emit = defineEmits(['refresh', 'select-bill'])
 
+const router = useRouter()
 const { callApi } = useApi()
 const sellBills = ref([])
 const loading = ref(true)
@@ -25,21 +26,21 @@ const selectedPrintBillId = ref(null)
 const can_c_sell_payments = computed(() => {
   if (!user.value) return false
   if (user.value.role_id === 1) return true
-  return user.value.permissions?.some(p => p.permission_name === 'can_c_sell_payments')
+  return user.value.permissions?.some((p) => p.permission_name === 'can_c_sell_payments')
 })
 
 // Add computed property for delete permission
 const can_delete_sell_bill = computed(() => {
   if (!user.value) return false
   if (user.value.role_id === 1) return true
-  return user.value.permissions?.some(p => p.permission_name === 'can_delete_sell_bill')
+  return user.value.permissions?.some((p) => p.permission_name === 'can_delete_sell_bill')
 })
 
 // Add computed property for edit permission
 const can_edit_sell_bill = computed(() => {
   if (!user.value) return false
   if (user.value.role_id === 1) return true
-  return user.value.permissions?.some(p => p.permission_name === 'can_edit_sell_bill')
+  return user.value.permissions?.some((p) => p.permission_name === 'can_edit_sell_bill')
 })
 
 onMounted(() => {
@@ -53,10 +54,11 @@ onMounted(() => {
 const fetchSellBills = async () => {
   loading.value = true
   error.value = null
-  
+
   try {
     // Different query based on admin status
-    const query = isAdmin.value ? `
+    const query = isAdmin.value
+      ? `
       SELECT 
         sb.*,
         c.name as broker_name,
@@ -70,7 +72,8 @@ const fetchSellBills = async () => {
       LEFT JOIN clients c ON sb.id_broker = c.id AND c.is_broker = 1
       LEFT JOIN users u ON sb.id_user = u.id
       ORDER BY sb.date_sell DESC
-    ` : `
+    `
+      : `
       SELECT 
         sb.*,
         c.name as broker_name,
@@ -89,11 +92,11 @@ const fetchSellBills = async () => {
 
     const params = isAdmin.value ? [] : [user.value?.id]
     const result = await callApi({ query, params })
-    
+
     if (result.success) {
-      sellBills.value = result.data.map(bill => ({
+      sellBills.value = result.data.map((bill) => ({
         ...bill,
-        total_cfr: Number(bill.total_cfr) || 0
+        total_cfr: Number(bill.total_cfr) || 0,
       }))
     } else {
       error.value = result.error || 'Failed to fetch sell bills'
@@ -134,17 +137,20 @@ const handlePrintProceed = (options) => {
 }
 
 const handlePayments = (billId) => {
-  // Open payments in a new tab
-  const route = `/sell-bills/${billId}/payments`
-  window.open(route, '_blank')
+  // Open payments in a new tab using router.resolve
+  const route = router.resolve({
+    name: 'sell-bill-payments',
+    params: { id: billId },
+  })
+  window.open(route.href, '_blank')
 }
 
 const selectBill = (bill) => {
   selectedBillId.value = bill.id
-  
+
   // Emit the selected bill ID to the parent component
   emit('select-bill', bill.id)
-  
+
   if (props.onSelect) {
     props.onSelect(bill.id)
   }
@@ -157,37 +163,35 @@ defineExpose({ fetchSellBills })
 <template>
   <div class="sell-bills-table-component">
     <h3>Sell Bills</h3>
-    
+
     <!-- Add toolbar -->
     <div v-if="selectedBillId" class="toolbar">
       <div class="selected-bill-info">
         Selected Bill: <span class="bill-id">#{{ selectedBillId }}</span>
       </div>
       <div class="toolbar-actions">
-        <button 
-          @click="handleEdit(sellBills.find(b => b.id === selectedBillId))" 
+        <button
+          @click="handleEdit(sellBills.find((b) => b.id === selectedBillId))"
           class="edit-btn"
           :disabled="!can_edit_sell_bill"
-          :class="{ 'disabled': !can_edit_sell_bill }"
+          :class="{ disabled: !can_edit_sell_bill }"
         >
           Edit Bill
         </button>
-        <button 
-          @click="handleDelete(selectedBillId)" 
+        <button
+          @click="handleDelete(selectedBillId)"
           class="delete-btn"
           :disabled="!can_delete_sell_bill"
-          :class="{ 'disabled': !can_delete_sell_bill }"
+          :class="{ disabled: !can_delete_sell_bill }"
         >
           Delete Bill
         </button>
-        <button @click="handlePrint(selectedBillId)" class="print-btn">
-          Print Bill
-        </button>
-        <button 
-          @click="handlePayments(selectedBillId)" 
+        <button @click="handlePrint(selectedBillId)" class="print-btn">Print Bill</button>
+        <button
+          @click="handlePayments(selectedBillId)"
           class="payment-btn"
           :disabled="!can_c_sell_payments"
-          :class="{ 'disabled': !can_c_sell_payments }"
+          :class="{ disabled: !can_c_sell_payments }"
         >
           Payments
         </button>
@@ -196,9 +200,7 @@ defineExpose({ fetchSellBills })
 
     <div v-if="loading" class="loading">Loading...</div>
     <div v-else-if="error" class="error">{{ error }}</div>
-    <div v-else-if="sellBills.length === 0" class="no-data">
-      No sell bills found
-    </div>
+    <div v-else-if="sellBills.length === 0" class="no-data">No sell bills found</div>
     <table v-else class="sell-bills-table">
       <thead>
         <tr>
@@ -211,11 +213,11 @@ defineExpose({ fetchSellBills })
         </tr>
       </thead>
       <tbody>
-        <tr 
-          v-for="bill in sellBills" 
-          :key="bill.id" 
+        <tr
+          v-for="bill in sellBills"
+          :key="bill.id"
           @click="selectBill(bill)"
-          :class="{ 'selected': selectedBillId === bill.id }"
+          :class="{ selected: selectedBillId === bill.id }"
         >
           <td>{{ bill.id }}</td>
           <td>{{ bill.bill_ref || 'N/A' }}</td>
@@ -291,7 +293,9 @@ defineExpose({ fetchSellBills })
   background-color: #e3f2fd;
 }
 
-.loading, .error, .no-data {
+.loading,
+.error,
+.no-data {
   padding: 20px;
   text-align: center;
 }

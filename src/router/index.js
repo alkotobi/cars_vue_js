@@ -2,101 +2,98 @@ import { createRouter, createWebHistory } from 'vue-router'
 import LoginView from '../views/LoginView.vue'
 import DashboardView from '../views/DashboardView.vue'
 import PrintPage from '../views/PrintPage.vue'
-import SellBillPaymentsView from '../components/sells/SellBillPaymentsView.vue'
+import SellBillPaymentsView from '../views/SellBillPaymentsView.vue'
 import MoneyMovements from '../components/cashier/MoneyMovements.vue'
 import TransfersInterTable from '../components/cashier/TransfersInterTable.vue'
 import ChinaCash from '../components/cashier/ChinaCash.vue'
 import BuyBillPaymentsView from '../views/BuyBillPaymentsView.vue'
 import RatesView from '../views/RatesView.vue'
 
-// Get environment and set base URL
-const isProduction = import.meta.env.PROD
-const baseUrl = isProduction ? '/mig/' : '/'
-
+// Use root path since we're using a subdomain
 const router = createRouter({
-  history: createWebHistory(baseUrl),
+  history: createWebHistory('/mig/'),
   routes: [
     {
       path: '/',
-      redirect: '/login'
+      redirect: '/login',
     },
     {
       path: '/login',
       name: 'login',
-      component: LoginView
+      component: LoginView,
     },
     {
       path: '/dashboard',
       name: 'dashboard',
-      component: DashboardView
+      component: DashboardView,
     },
     {
       path: '/users',
       name: 'users',
-      component: () => import('../views/UsersView.vue')
+      component: () => import('../views/UsersView.vue'),
     },
     {
       path: '/roles',
       name: 'roles',
-      component: () => import('../views/RolesView.vue')
+      component: () => import('../views/RolesView.vue'),
     },
     {
       path: '/transfers',
       name: 'transfers',
-      component: () => import('../views/TransfersView.vue')
+      component: () => import('../views/TransfersView.vue'),
     },
     {
       path: '/send',
       name: 'send-transfer',
-      component: () => import('../views/SenderView.vue')
+      component: () => import('../views/SenderView.vue'),
     },
     {
       path: '/receive',
       name: 'receive-transfer',
-      component: () => import('../views/ReceiverView.vue')
+      component: () => import('../views/ReceiverView.vue'),
     },
     {
       path: '/sell-bills',
       name: 'sell-bills',
-      component: () => import('../views/SellBillsView.vue')
+      component: () => import('../views/SellBillsView.vue'),
     },
     {
       path: '/sell-bills/:id/payments',
       name: 'sell-bill-payments',
       component: SellBillPaymentsView,
-      meta: { requiresAuth: true }
+      meta: { requiresAuth: true },
     },
     {
       path: '/buy-payments/:id',
       name: 'buy-payments',
       component: BuyBillPaymentsView,
-      meta: { requiresAuth: true }
+      meta: { requiresAuth: true },
     },
     {
       path: '/transfers-list',
       name: 'transfers-list',
       component: () => import('../views/TransfersListView.vue'),
-      meta: { requiresAdmin: true }
+      meta: { requiresAdmin: true },
     },
     {
       path: '/cars',
       name: 'cars',
-      component: () => import('../views/CarsView.vue')
+      component: () => import('../views/CarsView.vue'),
     },
     {
       path: '/cars/stock',
       name: 'cars-stock',
-      component: () => import('../views/CarsStock.vue')
+      component: () => import('../views/CarsStock.vue'),
     },
     {
       path: '/warehouses',
       name: 'warehouses',
-      component: () => import('../views/WarehousesView.vue')
+      component: () => import('../views/WarehousesView.vue'),
     },
     {
       path: '/print/:billId',
       name: 'print',
-      component: PrintPage
+      component: PrintPage,
     },
     {
       path: '/cashier',
@@ -106,43 +103,47 @@ const router = createRouter({
         {
           path: 'transfers',
           name: 'cashier-transfers',
-          component: TransfersInterTable
+          component: TransfersInterTable,
         },
         {
           path: 'money-movements',
           name: 'money-movements',
-          component: MoneyMovements
+          component: MoneyMovements,
         },
         {
           path: 'china-cash',
           name: 'china-cash',
           component: ChinaCash,
-          meta: { requiresAuth: true }
-        }
-      ]
+          meta: { requiresAuth: true },
+        },
+      ],
     },
     {
       path: '/rates',
       name: 'rates',
       component: RatesView,
-      meta: { requiresAuth: true }
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/:pathMatch(.*)*',
+      redirect: '/',
     },
   ],
   scrollBehavior() {
     return { top: 0 }
-  }
+  },
 })
 
-// Add navigation guard to handle page reloads
-router.beforeEach((to, from, next) => {
-  if (to.matched.length === 0) {
-    next('/')
-  } else {
-    next()
-  }
-})
+// Remove this navigation guard since we have the catch-all route
+// router.beforeEach((to, from, next) => {
+//   if (to.matched.length === 0) {
+//     next('/')
+//   } else {
+//     next()
+//   }
+// })
 
-// Navigation guard
+// Navigation guard for authentication
 router.beforeEach((to, from, next) => {
   const publicPages = ['/login']
   const authRequired = !publicPages.includes(to.path)

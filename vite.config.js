@@ -4,42 +4,43 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
 
+// Get environment
+const isProduction = process.env.NODE_ENV === 'production'
+
+// Set API URL based on environment
+const apiUrl = isProduction ? 'https://cars.merhab.com' : 'http://localhost:8000'
+
 export default defineConfig({
-  plugins: [
-    vue(),
-    vueDevTools(),
-  ],
+  plugins: [vue(), vueDevTools()],
   resolve: {
     alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url))
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: apiUrl,
         changeOrigin: true,
-        secure: false,
+        secure: isProduction,
       },
       '/uploads': {
-        target: 'http://localhost:8000',
+        target: apiUrl,
         changeOrigin: true,
-        secure: false,
-      }
-    }
+        secure: isProduction,
+      },
+    },
   },
-  base: './',
+  base: './mig/',
   build: {
     rollupOptions: {
       output: {
         entryFileNames: `[name].[hash].js`,
         chunkFileNames: `[name].[hash].js`,
-        assetFileNames: `[name].[hash].[ext]`
-      }
+        assetFileNames: `[name].[hash].[ext]`,
+      },
     },
-    // Add these options
     manifest: true,
-    sourcemap: true
-  }
+    sourcemap: true,
+  },
 })
-
