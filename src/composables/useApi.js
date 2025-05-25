@@ -1,11 +1,14 @@
 import { ref } from 'vue'
 
-// const API_BASE_URL = 'http://localhost:8000'
-const API_BASE_URL = 'https://www.merhab.com/api'
+// Get the current hostname
+const hostname = window.location.hostname
+const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1'
+
+// Set API base URL based on environment
+const API_BASE_URL = isLocalhost ? 'http://localhost:8000' : 'https://www.merhab.com/api'
 const API_URL = `${API_BASE_URL}/api.php`
 const UPLOAD_URL = `${API_BASE_URL}/upload.php`
 
-// const UPLOAD_URL = `${API_BASE_URL}/upload_simple.php`  // Use this if main upload fails
 // const UPLOAD_URL = `${API_BASE_URL}/upload_simple.php`  // Use this if main upload fails
 
 export const useApi = () => {
@@ -60,7 +63,10 @@ export const useApi = () => {
 
       // Add timeout to prevent hanging
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+      const timeoutId = setTimeout(() => {
+        console.log('Upload timeout - aborting request')
+        controller.abort()
+      }, 30000) // 30 second timeout
 
       const response = await fetch(UPLOAD_URL, {
         method: 'POST',
@@ -69,7 +75,6 @@ export const useApi = () => {
       })
 
       clearTimeout(timeoutId)
-
       console.log('Upload response status:', response.status, response.statusText)
 
       if (!response.ok) {

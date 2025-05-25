@@ -9,8 +9,12 @@ import ChinaCash from '../components/cashier/ChinaCash.vue'
 import BuyBillPaymentsView from '../views/BuyBillPaymentsView.vue'
 import RatesView from '../views/RatesView.vue'
 
+// Get environment and set base URL
+const isProduction = import.meta.env.PROD
+const baseUrl = isProduction ? '/mig/' : '/'
+
 const router = createRouter({
-  history: createWebHistory(import.meta.env.BASE_URL),
+  history: createWebHistory(baseUrl),
   routes: [
     {
       path: '/',
