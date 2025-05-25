@@ -1,6 +1,6 @@
 {
   "index.html": {
-    "file": "index.e4AY3vWr.js",
+    "file": "index.CoJVpPtY.js",
     "name": "index",
     "src": "index.html",
     "isEntry": true,
@@ -14,10 +14,14 @@
       "src/views/TransfersListView.vue",
       "src/views/CarsView.vue",
       "src/views/CarsStock.vue",
-      "src/views/WarehousesView.vue"
+      "src/views/WarehousesView.vue",
+      "src/views/CashierView.vue"
     ],
     "css": [
-      "index.DUF1LHlg.css"
+      "index.EVF3i8p2.css"
+    ],
+    "assets": [
+      "logo.Dz9W2yBM.png"
     ]
   },
   "src/assets/logo.png": {
@@ -25,7 +29,7 @@
     "src": "src/assets/logo.png"
   },
   "src/views/CarsStock.vue": {
-    "file": "CarsStock.DEpmF45H.js",
+    "file": "CarsStock.CUGVvKds.js",
     "name": "CarsStock",
     "src": "src/views/CarsStock.vue",
     "isDynamicEntry": true,
@@ -33,11 +37,11 @@
       "index.html"
     ],
     "css": [
-      "CarsStock.C3ImC6Xf.css"
+      "CarsStock.CUjBNyyB.css"
     ]
   },
   "src/views/CarsView.vue": {
-    "file": "CarsView.CyzgtemI.js",
+    "file": "CarsView.e-wYV0u3.js",
     "name": "CarsView",
     "src": "src/views/CarsView.vue",
     "isDynamicEntry": true,
@@ -48,11 +52,23 @@
       "src/views/WarehousesView.vue"
     ],
     "css": [
-      "CarsView.DtNDxllF.css"
+      "CarsView.BHaueE2N.css"
+    ]
+  },
+  "src/views/CashierView.vue": {
+    "file": "CashierView.DG9y1jRq.js",
+    "name": "CashierView",
+    "src": "src/views/CashierView.vue",
+    "isDynamicEntry": true,
+    "imports": [
+      "index.html"
+    ],
+    "css": [
+      "CashierView.BT51dvzK.css"
     ]
   },
   "src/views/ReceiverView.vue": {
-    "file": "ReceiverView.BTMwb7Zi.js",
+    "file": "ReceiverView.0xir9d2y.js",
     "name": "ReceiverView",
     "src": "src/views/ReceiverView.vue",
     "isDynamicEntry": true,
@@ -64,7 +80,7 @@
     ]
   },
   "src/views/RolesView.vue": {
-    "file": "RolesView.CaCOkDI7.js",
+    "file": "RolesView.BwHAoC1Y.js",
     "name": "RolesView",
     "src": "src/views/RolesView.vue",
     "isDynamicEntry": true,
@@ -76,7 +92,7 @@
     ]
   },
   "src/views/SellBillsView.vue": {
-    "file": "SellBillsView.BlFgE38q.js",
+    "file": "SellBillsView.B3lIYNB7.js",
     "name": "SellBillsView",
     "src": "src/views/SellBillsView.vue",
     "isDynamicEntry": true,
@@ -84,14 +100,11 @@
       "index.html"
     ],
     "css": [
-      "SellBillsView.Ds4ta-XE.css"
-    ],
-    "assets": [
-      "logo.Dz9W2yBM.png"
+      "SellBillsView.u5c27OS3.css"
     ]
   },
   "src/views/SenderView.vue": {
-    "file": "SenderView.BFzchg_z.js",
+    "file": "SenderView.Byndie-v.js",
     "name": "SenderView",
     "src": "src/views/SenderView.vue",
     "isDynamicEntry": true,
@@ -103,7 +116,7 @@
     ]
   },
   "src/views/TransfersListView.vue": {
-    "file": "TransfersListView.B8qoB31-.js",
+    "file": "TransfersListView.C1UtPJUe.js",
     "name": "TransfersListView",
     "src": "src/views/TransfersListView.vue",
     "isDynamicEntry": true,
@@ -115,7 +128,7 @@
     ]
   },
   "src/views/TransfersView.vue": {
-    "file": "TransfersView.YQx94YOu.js",
+    "file": "TransfersView.Bd1uCpbR.js",
     "name": "TransfersView",
     "src": "src/views/TransfersView.vue",
     "isDynamicEntry": true,
@@ -127,7 +140,7 @@
     ]
   },
   "src/views/UsersView.vue": {
-    "file": "UsersView.txhCjGMg.js",
+    "file": "UsersView.fhYlmMK5.js",
     "name": "UsersView",
     "src": "src/views/UsersView.vue",
     "isDynamicEntry": true,
@@ -139,7 +152,7 @@
     ]
   },
   "src/views/WarehousesView.vue": {
-    "file": "WarehousesView.58kdMzMP.js",
+    "file": "WarehousesView.BUHxpHJz.js",
     "name": "WarehousesView",
     "src": "src/views/WarehousesView.vue",
     "isDynamicEntry": true,

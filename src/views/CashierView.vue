@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { ref,computed } from 'vue'
 import { useRouter } from 'vue-router'
 import TransfersInterTable from '../components/cashier/TransfersInterTable.vue'
 import MoneyMovements from '../components/cashier/MoneyMovements.vue'
@@ -22,6 +22,15 @@ const goToTransfers = () => {
 const goToChinaCash = () => {
   router.push('/cashier/china-cash')
 }
+
+const currentUser = computed(() => {
+  const userStr = localStorage.getItem('user')
+  return userStr ? JSON.parse(userStr) : null
+})
+
+const isAdmin = computed(() => {
+  return currentUser.value?.role_id === 1
+})
 </script>
 
 <template>
@@ -39,7 +48,7 @@ const goToChinaCash = () => {
         <span class="btn-icon">💰</span>
         Money Movements
       </button>
-      <button @click="goToChinaCash" class="sidebar-btn">
+      <button v-if="isAdmin" @click="goToChinaCash" class="sidebar-btn">
         <span class="btn-icon">💴</span>
         China Cash
       </button>
