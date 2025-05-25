@@ -191,11 +191,11 @@ const saveBill = async () => {
           formData.value.id
         ]
       })
-      
-      if (result.success) {
-        emit('save', result.data)
-      } else {
-        error.value = result.error || `Failed to ${props.mode} sell bill`
+    
+    if (result.success) {
+      emit('save', result.data)
+    } else {
+      error.value = result.error || `Failed to ${props.mode} sell bill`
       }
     }
   } catch (err) {

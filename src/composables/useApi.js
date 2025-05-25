@@ -1,7 +1,7 @@
 import { ref } from 'vue'
 
-// const API_BASE_URL = 'http://localhost:8000'
-const API_BASE_URL = 'https://www.merhab.com/api'
+const API_BASE_URL = 'http://localhost:8000'
+// const API_BASE_URL = 'https://www.merhab.com/api'
 const API_URL = `${API_BASE_URL}/api.php`
 const UPLOAD_URL = `${API_BASE_URL}/upload.php`
 

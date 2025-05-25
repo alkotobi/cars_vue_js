@@ -16,6 +16,8 @@ const props = defineProps({
 
 const emit = defineEmits(['select-bill'])
 
+const { getFileUrl } = useApi()
+
 const formatDate = (dateStr) => {
   if (!dateStr) return 'N/A'
   return new Date(dateStr).toLocaleDateString()
@@ -72,10 +74,12 @@ const formatNumber = (value) => {
           <th>ID</th>
           <th>Date</th>
           <th>Supplier</th>
+          <th>Bill Ref</th>
           <th>Amount</th>
           <th>Paid</th>
           <th>Balance</th>
           <th>Status</th>
+          <th>PI Document</th>
         </tr>
       </thead>
       <tbody>
@@ -88,6 +92,7 @@ const formatNumber = (value) => {
           <td>{{ bill.id }}</td>
           <td>{{ formatDate(bill.date_buy) }}</td>
           <td>{{ bill.supplier_name }}</td>
+          <td>{{ bill.bill_ref || 'N/A' }}</td>
           <td>{{ formatNumber(bill.amount) }}</td>
           <td>{{ formatNumber(bill.payed) }}</td>
           <td>{{ formatNumber(bill.amount - bill.payed) }}</td>
@@ -95,6 +100,18 @@ const formatNumber = (value) => {
             <span :class="bill.is_stock_updated ? 'status-updated' : 'status-pending'">
               {{ bill.is_stock_updated ? 'Updated' : 'Pending' }}
             </span>
+          </td>
+          <td>
+            <a 
+              v-if="bill.pi_path" 
+              :href="getFileUrl(bill.pi_path)"
+              target="_blank"
+              class="pi-document-link"
+              @click.stop
+            >
+              View PI
+            </a>
+            <span v-else class="no-document">No document</span>
           </td>
         </tr>
       </tbody>
@@ -203,6 +220,27 @@ const formatNumber = (value) => {
 .status-pending {
   color: #d97706;
   font-weight: 500;
+}
+
+.pi-document-link {
+  color: #3b82f6;
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.pi-document-link:hover {
+  background-color: #dbeafe;
+  text-decoration: underline;
+}
+
+.no-document {
+  color: #9ca3af;
+  font-size: 0.875rem;
+  font-style: italic;
 }
 
 /* Responsive styles */

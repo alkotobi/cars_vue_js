@@ -181,10 +181,12 @@ const fetchCarsStock = async () => {
         lp.loading_port,
         dp.discharge_port,
         bd.price_sell as buy_price,
-        w.warhouse_name as warehouse_name
+        w.warhouse_name as warehouse_name,
+        bb.bill_ref as buy_bill_ref
       FROM cars_stock cs
       LEFT JOIN clients c ON cs.id_client = c.id
       LEFT JOIN buy_details bd ON cs.id_buy_details = bd.id
+      LEFT JOIN buy_bill bb ON bd.id_buy_bill = bb.id
       LEFT JOIN cars_names cn ON bd.id_car_name = cn.id
       LEFT JOIN colors clr ON bd.id_color = clr.id
       LEFT JOIN loading_ports lp ON cs.id_port_loading = lp.id
@@ -678,6 +680,7 @@ defineExpose({
           <th>Car</th>
           <th>Color</th>
           <th>VIN</th>
+          <th>Buy Bill Ref</th>
           <th>Loading Port</th>
           <th>Discharge Port</th>
           <th>Freight</th>
@@ -695,6 +698,7 @@ defineExpose({
           <td>{{ car.car_name || 'N/A' }}</td>
           <td>{{ car.color || 'N/A' }}</td>
           <td>{{ car.vin || 'N/A' }}</td>
+          <td>{{ car.buy_bill_ref || 'N/A' }}</td>
           <td>{{ car.loading_port || 'N/A' }}</td>
           <td>{{ car.discharge_port || 'N/A' }}</td>
           <td>{{ car.freight ? '$' + car.freight : 'N/A' }}</td>

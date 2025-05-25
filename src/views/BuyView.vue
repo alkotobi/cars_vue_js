@@ -6,7 +6,7 @@ import BuyDetailsTable from '../components/buy/BuyDetailsTable.vue'
 import { useRouter } from 'vue-router'
 
 // API and base setup
-const { callApi, error } = useApi()
+const { callApi, uploadFile, getFileUrl, error } = useApi()
 const router = useRouter()
 
 // State management
@@ -19,7 +19,9 @@ const colors = ref([])
 
 // Dialog controls
 const showAddDialog = ref(false)
+const showEditDialog = ref(false)
 const showAddDetailDialog = ref(false)
+const editingBill = ref(null)
 
 // User info
 const user = ref(JSON.parse(localStorage.getItem('user')))
@@ -110,13 +112,38 @@ const handleDeleteBill = async (bill) => {
   }
 }
 
+const openEditDialog = (bill) => {
+  editingBill.value = bill
+  newPurchase.value = {
+    id_supplier: bill.id_supplier,
+    date_buy: bill.date_buy.slice(0, 16), // Format for datetime-local input
+    bill_ref: bill.bill_ref || '',
+    pi_path: bill.pi_path || '',
+    pi_file: null
+  }
+  showEditDialog.value = true
+}
+
+const openAddDialog = () => {
+  editingBill.value = null
+  newPurchase.value = {
+    id_supplier: null,
+    date_buy: new Date().toISOString().slice(0, 16),
+    bill_ref: '',
+    pi_path: '',
+    pi_file: null
+  }
+  showAddDialog.value = true
+}
+
 // Form models
 const newPurchase = ref({
   id_supplier: null,
   date_buy: new Date().toISOString().slice(0, 16),
   amount: 0,
-  payed: 0,
-  pi_path: ''
+  bill_ref: '',
+  pi_path: '',
+  pi_file: null
 })
 
 const newDetail = ref({
@@ -131,6 +158,30 @@ const newDetail = ref({
   id_buy_bill: null
 })
 
+// Handle PI file change
+const handlePiFileChange = (event) => {
+  const file = event.target.files[0]
+  if (!file) return
+
+  // Check if file is PDF or image
+  const allowedTypes = [
+    'application/pdf',
+    'image/jpeg',
+    'image/png',
+    'image/gif',
+    'image/webp'
+  ]
+  
+  if (!allowedTypes.includes(file.type)) {
+    alert('Only PDF and image files (JPEG, PNG, GIF, WEBP) are allowed')
+    event.target.value = ''
+    return
+  }
+
+  // Store the file for upload
+  newPurchase.value.pi_file = file
+}
+
 // Data fetching functions
 const fetchSuppliers = async () => {
   const result = await callApi({
@@ -143,32 +194,149 @@ const fetchSuppliers = async () => {
 }
 
 const addPurchase = async () => {
-  const result = await callApi({
-    query: `
-      INSERT INTO buy_bill (id_supplier, date_buy, payed, pi_path)
-      VALUES (?, ?, ?, ?)
-    `,
-    params: [
-      newPurchase.value.id_supplier,
-      newPurchase.value.date_buy,
-      newPurchase.value.payed,
-      newPurchase.value.pi_path
-    ]
-  })
-  
-  if (result.success) {
-    showAddDialog.value = false
-    await fetchBuyBills()
-    // Reset form
-    newPurchase.value = {
-      id_supplier: null,
-      date_buy: new Date().toISOString().slice(0, 16),
-      payed: 0,
-      pi_path: ''
+  try {
+    // Validate that PI document is provided
+    if (!newPurchase.value.pi_file) {
+      alert('PI document is required. Please select a file.')
+      return
     }
+
+    // Handle PI document upload
+    try {
+      // Create filename using purchase details and original extension
+      const date = new Date()
+      const timestamp = date.getTime()
+      const dateStr = date.toISOString().split('T')[0]
+      const timeStr = date.toISOString().split('T')[1].split('.')[0].replace(/:/g, '-')
+      const supplierName = suppliers.value.find(s => s.id === newPurchase.value.id_supplier)?.name || 'unknown'
+      const fileExt = newPurchase.value.pi_file.name.split('.').pop().toLowerCase()
+      
+      // Format: pi_purchase_supplier_date_time_timestamp.ext
+      const filename = `pi_purchase_${supplierName.replace(/\s+/g, '_')}_${dateStr}_${timeStr}_${timestamp}.${fileExt}`
+
+      const uploadResult = await uploadFile(
+        newPurchase.value.pi_file,
+        'purchase_pi',
+        filename
+      )
+      
+      if (!uploadResult.success) {
+        throw new Error(uploadResult.message || 'Failed to upload PI document')
+      }
+      
+      // Store just the relative path
+      newPurchase.value.pi_path = `purchase_pi/${filename}`
+    } catch (uploadError) {
+      console.error('Upload error:', uploadError)
+      throw new Error(`Failed to upload PI document: ${uploadError.message}`)
+    }
+
+    const result = await callApi({
+      query: `
+        INSERT INTO buy_bill (id_supplier, date_buy, bill_ref, pi_path)
+        VALUES (?, ?, ?, ?)
+      `,
+      params: [
+        newPurchase.value.id_supplier,
+        newPurchase.value.date_buy,
+        newPurchase.value.bill_ref,
+        newPurchase.value.pi_path
+      ]
+    })
+    
+    if (result.success) {
+      showAddDialog.value = false
+      await fetchBuyBills()
+      // Reset form
+      newPurchase.value = {
+        id_supplier: null,
+        date_buy: new Date().toISOString().slice(0, 16),
+        bill_ref: '',
+        pi_path: '',
+        pi_file: null
+      }
+    } else {
+      throw new Error(result.error || 'Failed to add purchase')
+    }
+  } catch (err) {
+    console.error('Error adding purchase:', err)
+    alert(err.message)
   }
-  else {
-    console.error('Error adding purchase:', result.error)
+}
+
+const updatePurchase = async () => {
+  try {
+    // Validate that PI document exists (either existing or new file)
+    if (!newPurchase.value.pi_file && !newPurchase.value.pi_path) {
+      alert('PI document is required. Please select a file.')
+      return
+    }
+
+    // Handle PI document upload if there's a new file
+    if (newPurchase.value.pi_file) {
+      try {
+        // Create filename using purchase details and original extension
+        const date = new Date()
+        const timestamp = date.getTime()
+        const dateStr = date.toISOString().split('T')[0]
+        const timeStr = date.toISOString().split('T')[1].split('.')[0].replace(/:/g, '-')
+        const supplierName = suppliers.value.find(s => s.id === newPurchase.value.id_supplier)?.name || 'unknown'
+        const fileExt = newPurchase.value.pi_file.name.split('.').pop().toLowerCase()
+        
+        // Format: pi_purchase_supplier_date_time_timestamp.ext
+        const filename = `pi_purchase_${supplierName.replace(/\s+/g, '_')}_${dateStr}_${timeStr}_${timestamp}.${fileExt}`
+
+        const uploadResult = await uploadFile(
+          newPurchase.value.pi_file,
+          'purchase_pi',
+          filename
+        )
+        
+        if (!uploadResult.success) {
+          throw new Error(uploadResult.message || 'Failed to upload PI document')
+        }
+        
+        // Store just the relative path
+        newPurchase.value.pi_path = `purchase_pi/${filename}`
+      } catch (uploadError) {
+        console.error('Upload error:', uploadError)
+        throw new Error(`Failed to upload PI document: ${uploadError.message}`)
+      }
+    }
+
+    const result = await callApi({
+      query: `
+        UPDATE buy_bill 
+        SET id_supplier = ?, date_buy = ?, bill_ref = ?, pi_path = ?
+        WHERE id = ?
+      `,
+      params: [
+        newPurchase.value.id_supplier,
+        newPurchase.value.date_buy,
+        newPurchase.value.bill_ref,
+        newPurchase.value.pi_path,
+        editingBill.value.id
+      ]
+    })
+    
+    if (result.success) {
+      showEditDialog.value = false
+      editingBill.value = null
+      await fetchBuyBills()
+      // Reset form
+      newPurchase.value = {
+        id_supplier: null,
+        date_buy: new Date().toISOString().slice(0, 16),
+        bill_ref: '',
+        pi_path: '',
+        pi_file: null
+      }
+    } else {
+      throw new Error(result.error || 'Failed to update purchase')
+    }
+  } catch (err) {
+    console.error('Error updating purchase:', err)
+    alert(err.message)
   }
 }
 
@@ -288,18 +456,18 @@ const addDetail = async () => {
     showAddDetailDialog.value = false
     await fetchBuyDetails(selectedBill.value.id)
     await fetchBuyBills() // Refresh bills to show updated amount
-    // Reset form
-    newDetail.value = {
-      id_car_name: null,
-      id_color: null,
-      amount: 0,
-      notes: '',
-      QTY: 1,
-      year: new Date().getFullYear(),
-      month: new Date().getMonth() + 1,
-      is_used_car: false,
-      id_buy_bill: null
-    }
+          // Reset form
+      newDetail.value = {
+        id_car_name: null,
+        id_color: null,
+        amount: 0,
+        notes: '',
+        QTY: 1,
+        year: new Date().getFullYear(),
+        month: new Date().getMonth() + 1,
+        is_used_car: false,
+        id_buy_bill: null
+      }
   }
   else {
     console.error('Error adding detail:', result.error)
@@ -368,7 +536,7 @@ const openPayments = (bill) => {
   <div class="buy-view">
     <div class="header">
       <h2>Buy Management</h2>
-      <button @click="showAddDialog = true" class="add-btn">Add New Purchase</button>
+      <button @click="openAddDialog" class="add-btn">Add New Purchase</button>
     </div>
 
     <div class="content">
@@ -386,6 +554,13 @@ const openPayments = (bill) => {
               :disabled="bill.is_stock_updated"
             >
               Payments
+            </button>
+            <button 
+              @click.stop="openEditDialog(bill)"
+              class="action-btn edit-btn"
+              :disabled="bill.is_stock_updated"
+            >
+              Edit
             </button>
             <button 
               v-if="false"
@@ -442,17 +617,29 @@ const openPayments = (bill) => {
           </div>
           
           <div class="form-group">
-            <label>Paid Amount</label>
-            <input type="number" 
-                   v-model="newPurchase.payed" 
-                   step="0.01" 
+            <label>Bill Reference <span class="required">*</span></label>
+            <input type="text" 
+                   v-model="newPurchase.bill_ref" 
+                   placeholder="Enter bill reference number"
                    required>
           </div>
           
           <div class="form-group">
-            <label>PI Path</label>
-            <input type="text" 
-                   v-model="newPurchase.pi_path">
+            <label>PI Document (PDF or Image) <span class="required">*</span></label>
+            <input 
+              type="file" 
+              @change="handlePiFileChange"
+              accept=".pdf,.jpg,.jpeg,.png,.gif,.webp"
+              required
+            >
+            <a 
+              v-if="newPurchase.pi_path" 
+              :href="getFileUrl(newPurchase.pi_path)"
+              target="_blank"
+              class="current-file-link"
+            >
+              View Current PI Document
+            </a>
           </div>
           
           <div class="dialog-buttons">
@@ -468,6 +655,73 @@ const openPayments = (bill) => {
         </form>
       </div>
     </div>
+
+    <!-- Edit Purchase Dialog -->
+    <div v-if="showEditDialog" class="dialog-overlay">
+      <div class="dialog">
+        <h3>Edit Purchase</h3>
+        <form @submit.prevent="updatePurchase">
+          <div class="form-group">
+            <label>Supplier</label>
+            <select v-model="newPurchase.id_supplier" required>
+              <option value="">Select Supplier</option>
+              <option v-for="supplier in suppliers" 
+                      :key="supplier.id" 
+                      :value="supplier.id">
+                {{ supplier.name }}
+              </option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label>Date</label>
+            <input type="datetime-local" 
+                   v-model="newPurchase.date_buy" 
+                   required>
+          </div>
+          
+          <div class="form-group">
+            <label>Bill Reference <span class="required">*</span></label>
+            <input type="text" 
+                   v-model="newPurchase.bill_ref" 
+                   placeholder="Enter bill reference number"
+                   required>
+          </div>
+          
+          <div class="form-group">
+            <label>PI Document (PDF or Image) <span class="required">*</span></label>
+            <input 
+              type="file" 
+              @change="handlePiFileChange"
+              accept=".pdf,.jpg,.jpeg,.png,.gif,.webp"
+            >
+            <a 
+              v-if="newPurchase.pi_path" 
+              :href="getFileUrl(newPurchase.pi_path)"
+              target="_blank"
+              class="current-file-link"
+            >
+              View Current PI Document
+            </a>
+            <div v-if="!newPurchase.pi_path && !newPurchase.pi_file" class="validation-message">
+              PI document is required
+            </div>
+          </div>
+          
+          <div class="dialog-buttons">
+            <button type="button" 
+                    @click="showEditDialog = false" 
+                    class="cancel-btn">
+              Cancel
+            </button>
+            <button type="submit" class="submit-btn">
+              Update Purchase
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <div v-if="showAddDetailDialog" class="dialog-overlay">
       <div class="dialog">
         <h3>Add Purchase Detail</h3>
@@ -860,5 +1114,42 @@ h3 {
 .delete-btn:before {
   content: "🗑";
   font-size: 1rem;
+}
+
+.edit-btn {
+  background-color: #3b82f6;
+}
+
+.edit-btn:hover:not(:disabled) {
+  background-color: #2563eb;
+}
+
+.edit-btn:before {
+  content: "✏️";
+  font-size: 1rem;
+}
+
+.current-file-link {
+  color: #3b82f6;
+  text-decoration: none;
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
+  display: inline-block;
+}
+
+.current-file-link:hover {
+  text-decoration: underline;
+}
+
+.required {
+  color: #ef4444;
+  font-weight: 600;
+}
+
+.validation-message {
+  color: #ef4444;
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+  font-style: italic;
 }
 </style>

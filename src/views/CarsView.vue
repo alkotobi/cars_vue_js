@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { ref ,computed} from 'vue'
 import { useRouter } from 'vue-router'
 import CarsStock from './CarsStock.vue'
 import ClientsView from './ClientsView.vue'
@@ -24,6 +24,42 @@ const navigateTo = (view) => {
 const returnToDashboard = () => {
   router.push('/')
 }
+const currentUser = computed(() => {
+  const userStr = localStorage.getItem('user')
+  return userStr ? JSON.parse(userStr) : null
+})
+
+const isAdmin = computed(() => {
+  if (currentUser.value) {
+  return currentUser.value?.role_id === 1
+}else
+  {
+    router.push('/login')
+    return false
+  }
+}
+)
+
+const canPurchaseCars = computed(() => {
+  if (isAdmin.value){
+    return true
+  }
+  return user.value.permissions?.some(p => p.permission_name === 'can_purchase_cars')
+})
+
+const canSellCars = computed(() => {
+  if (isAdmin.value){
+    return true
+  }
+  return user.value.permissions?.some(p => p.permission_name === 'can_sell_cars')
+})
+
+const canCCarStock = computed(() => {
+  if (isAdmin.value){
+    return true
+  }
+  return user.value.permissions?.some(p => p.permission_name === 'can_c_car_stock')
+})
 </script>
 
 <template>
@@ -37,6 +73,7 @@ const returnToDashboard = () => {
           Return to Dashboard
         </button>
         <button 
+          :disabled="!canPurchaseCars"
           @click="navigateTo('buy')"
           :class="{ active: activeView === 'buy' }"
           class="sidebar-btn buy-btn"
@@ -51,6 +88,7 @@ const returnToDashboard = () => {
           Sell
         </button>
         <button 
+        :disabled="!canSellCars"
           @click="navigateTo('sell-bills')"
           :class="{ active: activeView === 'sell-bills' }"
           class="sidebar-btn sell-bills-btn"
@@ -58,6 +96,7 @@ const returnToDashboard = () => {
           Sells
         </button>
         <button 
+          :disabled="!canCCarStock"
           @click="navigateTo('stock')"
           :class="{ active: activeView === 'stock' }"
           class="sidebar-btn stock-btn"
@@ -69,6 +108,7 @@ const returnToDashboard = () => {
       <div class="sidebar-bottom">
         <div class="sidebar-section-title">Settings</div>
         <button 
+        v-if="canPurchaseCars"
           @click="navigateTo('models')"
           :class="{ active: activeView === 'models' }"
           class="sidebar-btn"
@@ -76,6 +116,7 @@ const returnToDashboard = () => {
           Car Models
         </button>
         <button 
+        v-if="canPurchaseCars"
           @click="navigateTo('colors')"
           :class="{ active: activeView === 'colors' }"
           class="sidebar-btn"
@@ -83,6 +124,7 @@ const returnToDashboard = () => {
           Colors
         </button>
         <button 
+        v-if="canPurchaseCars"
           @click="navigateTo('discharge-ports')"
           :class="{ active: activeView === 'discharge-ports' }"
           class="sidebar-btn"
@@ -90,6 +132,7 @@ const returnToDashboard = () => {
           Discharge Ports
         </button>
         <button 
+        v-if="canPurchaseCars"
           @click="navigateTo('loading-ports')"
           :class="{ active: activeView === 'loading-ports' }"
           class="sidebar-btn"
@@ -97,6 +140,7 @@ const returnToDashboard = () => {
           Loading Ports
         </button>
         <button 
+        v-if="canSellCars"
           @click="navigateTo('clients')"
           :class="{ active: activeView === 'clients' }"
           class="sidebar-btn"
@@ -104,6 +148,7 @@ const returnToDashboard = () => {
           Clients
         </button>
         <button 
+        v-if="canSellCars"
           @click="navigateTo('brokers')"
           :class="{ active: activeView === 'brokers' }"
           class="sidebar-btn"
@@ -111,6 +156,7 @@ const returnToDashboard = () => {
           Brokers
         </button>
         <button 
+        v-if="canPurchaseCars"
           @click="navigateTo('suppliers')"
           :class="{ active: activeView === 'suppliers' }"
           class="sidebar-btn"
@@ -119,6 +165,7 @@ const returnToDashboard = () => {
         </button>
         <!-- Add Warehouses button at the bottom of the sidebar -->
         <button 
+        v-if="canPurchaseCars"
           @click="navigateTo('warehouses')"
           :class="{ active: activeView === 'warehouses' }"
           class="sidebar-btn"
@@ -158,121 +205,80 @@ const returnToDashboard = () => {
 }
 
 .sidebar {
-  width: 200px;
+  width: 220px;
   background-color: #2c3e50;
   padding: 20px;
   color: white;
   display: flex;
   flex-direction: column;
-  gap: 30px;
+  gap: 20px;
 }
 
 .sidebar-top {
   border-bottom: 2px solid #34495e;
   padding-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .sidebar-bottom {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .sidebar-section-title {
   font-size: 0.9em;
   text-transform: uppercase;
   color: #94a3b8;
-  margin-bottom: 10px;
+  margin: 8px 0;
   padding-left: 10px;
+  font-weight: 600;
 }
 
 .sidebar-btn {
   width: 100%;
-  padding: 10px;
-  margin: 5px 0;
+  padding: 12px 16px;
   background: none;
   border: none;
   color: white;
   text-align: left;
   cursor: pointer;
-  border-radius: 4px;
-  transition: background-color 0.3s;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  font-size: 0.95em;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  position: relative;
+  outline: none;
 }
 
-.buy-btn {
-  background-color: #10b981;
+.sidebar-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
-.buy-btn:hover {
-  background-color: #059669;
-}
-
-.buy-btn.active {
-  background-color: #047857;
-}
-
-.stock-btn {
-  background-color: #3b82f6;
-}
-
-.stock-btn:hover {
-  background-color: #2563eb;
-}
-
-.stock-btn.active {
-  background-color: #1d4ed8;
-}
-
-.main-content {
-  flex: 1;
-  padding: 20px;
-}
-
-.sidebar-btn:hover {
-  background-color: #34495e;
-}
-
-.sidebar-btn.active {
-  background-color: #3498db;
-}
-
-.content {
-  margin-top: 20px;
-  background-color: white;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-h1 {
-  margin: 0;
-  color: #2c3e50;
-}
-
-h2 {
-  color: #2c3e50;
-  margin-top: 0;
-}
-.empty-state {
-  text-align: center;
-  color: #666;
-  padding: 40px;
-  font-size: 1.2em;
+.sidebar-btn:not(:disabled):hover {
+  transform: translateX(4px);
 }
 
 .return-btn {
-  margin-bottom: 20px;
   background-color: #64748b;
+  margin-bottom: 8px;
 }
 
-.return-btn:hover {
+.return-btn:not(:disabled):hover {
   background-color: #475569;
 }
 
 .buy-btn {
   background-color: #10b981;
-  margin-bottom: 20px;
 }
 
-.buy-btn:hover {
+.buy-btn:not(:disabled):hover {
   background-color: #059669;
 }
 
@@ -282,10 +288,9 @@ h2 {
 
 .sell-btn {
   background-color: #ef4444;
-  margin-bottom: 20px;
 }
 
-.sell-btn:hover {
+.sell-btn:not(:disabled):hover {
   background-color: #dc2626;
 }
 
@@ -297,7 +302,7 @@ h2 {
   background-color: #f59e0b;
 }
 
-.sell-bills-btn:hover {
+.sell-bills-btn:not(:disabled):hover {
   background-color: #d97706;
 }
 
@@ -305,13 +310,64 @@ h2 {
   background-color: #b45309;
 }
 
-/* Add styling for the warehouses button */
-.warehouses-btn {
-  background-color: #10b981;
-  margin-top: 10px;
+.stock-btn {
+  background-color: #3b82f6;
 }
 
-.warehouses-btn:hover {
+.stock-btn:not(:disabled):hover {
+  background-color: #2563eb;
+}
+
+.stock-btn.active {
+  background-color: #1d4ed8;
+}
+
+.main-content {
+  flex: 1;
+  padding: 24px;
+  background-color: #f8fafc;
+}
+
+.sidebar-btn:not(.return-btn, .buy-btn, .sell-btn, .sell-bills-btn, .stock-btn):hover {
+  background-color: #34495e;
+}
+
+.sidebar-btn:not(.return-btn, .buy-btn, .sell-btn, .sell-bills-btn, .stock-btn).active {
+  background-color: #3498db;
+}
+
+.content {
+  margin-top: 24px;
+  background-color: white;
+  padding: 24px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+h1 {
+  margin: 0;
+  color: #2c3e50;
+  font-size: 1.75rem;
+}
+
+h2 {
+  color: #2c3e50;
+  margin-top: 0;
+}
+
+.empty-state {
+  text-align: center;
+  color: #64748b;
+  padding: 48px;
+  font-size: 1.1em;
+}
+
+/* Remove duplicate styles */
+.warehouses-btn {
+  background-color: #10b981;
+}
+
+.warehouses-btn:not(:disabled):hover {
   background-color: #059669;
 }
 
