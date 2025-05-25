@@ -29,6 +29,9 @@ const filteredClients = ref([])
 const dischargePorts = ref([])
 const carDetails = ref(null)
 
+// Add loading state for form submission
+const isSubmitting = ref(false)
+
 const formData = ref({
   id_client: null,
   id_port_discharge: null,
@@ -132,12 +135,18 @@ const fetchCarDetails = async () => {
 
 // Assign car with collected data
 const assignCar = async () => {
+  // Prevent multiple submissions
+  if (isSubmitting.value) {
+    return
+  }
+  
   if (!validateForm()) return
   
-  loading.value = true
-  error.value = null
-  
   try {
+    isSubmitting.value = true
+    loading.value = true
+    error.value = null
+    
     // First get the bill_ref from the sell_bill
     const billResult = await callApi({
       query: `
@@ -190,6 +199,7 @@ const assignCar = async () => {
     error.value = err.message || 'An error occurred'
   } finally {
     loading.value = false
+    isSubmitting.value = false
   }
 }
 
@@ -333,8 +343,9 @@ onMounted(() => {
         
         <div class="form-actions">
           <button type="button" @click="$emit('close')" class="cancel-btn">Cancel</button>
-          <button type="submit" class="assign-btn" :disabled="loading">
-            {{ loading ? 'Assigning...' : 'Assign Car' }}
+          <button type="submit" class="assign-btn" :disabled="isSubmitting">
+            <span v-if="isSubmitting" class="spinner"></span>
+            {{ isSubmitting ? 'Assigning...' : 'Assign Car' }}
           </button>
         </div>
       </form>
@@ -473,6 +484,22 @@ select, input {
 .assign-btn:disabled {
   background-color: #93c5fd;
   cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  border-top-color: transparent;
+  animation: spin 1s ease-in-out infinite;
+  margin-right: 8px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 .error {

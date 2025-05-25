@@ -30,6 +30,9 @@ const filteredBrokers = ref([])
 const loading = ref(false)
 const error = ref(null)
 
+// Add loading state for form submission
+const isSubmitting = ref(false)
+
 const formData = ref({
   id: null,
   id_broker: null,
@@ -91,10 +94,16 @@ const handleBrokerChange = () => {
 }
 
 const saveBill = async () => {
-  loading.value = true
-  error.value = null
+  // Prevent multiple submissions
+  if (isSubmitting.value) {
+    return
+  }
   
   try {
+    isSubmitting.value = true
+    loading.value = true
+    error.value = null
+    
     let result
     
     if (props.mode === 'add') {
@@ -203,6 +212,7 @@ const saveBill = async () => {
     error.value = err.message || 'An error occurred'
   } finally {
     loading.value = false
+    isSubmitting.value = false
   }
 }
 
@@ -255,8 +265,9 @@ onMounted(() => {
       
       <div class="form-actions">
         <button type="button" @click="$emit('cancel')" class="cancel-btn">Cancel</button>
-        <button type="submit" class="save-btn" :disabled="loading">
-          {{ loading ? 'Saving...' : (mode === 'add' ? 'Add' : 'Update') }}
+        <button type="submit" class="save-btn" :disabled="isSubmitting">
+          <span v-if="isSubmitting" class="spinner"></span>
+          {{ isSubmitting ? 'Saving...' : (mode === 'add' ? 'Add' : 'Update') }}
         </button>
       </div>
     </form>
@@ -318,6 +329,7 @@ button {
 .save-btn:disabled {
   background-color: #cccccc;
   cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .error {
@@ -326,6 +338,21 @@ button {
   padding: 10px;
   background-color: #ffebee;
   border-radius: 4px;
+}
+
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  border-top-color: transparent;
+  animation: spin 1s ease-in-out infinite;
+  margin-right: 8px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 :deep(.el-select) {

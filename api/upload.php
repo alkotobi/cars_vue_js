@@ -24,7 +24,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $requestedPath = str_replace('//', '/', $requestedPath);
         
         // Construct the full file path
-        $filePath = __DIR__ . '/../files/' . $requestedPath;
+        //$filePath = __DIR__ . '/../files/' . $requestedPath;
+        $filePath = __DIR__ . '/../mig_files/' . $requestedPath;
 
         // Check if file exists
         if (!file_exists($filePath)) {
@@ -100,6 +101,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     ];
 
     try {
+        // Log incoming request for debugging
+        error_log('Upload request received. POST data: ' . print_r($_POST, true));
+        error_log('Files data: ' . print_r($_FILES, true));
+
         // Check if file was uploaded
         if (!isset($_FILES['file'])) {
             throw new Exception('No file was uploaded');
@@ -121,26 +126,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             throw new Exception('File upload failed with error code: ' . $fileError);
         }
 
-        // Maximum file size (5MB)
-        $maxFileSize = 5 * 1024 * 1024;
+        // Maximum file size (10MB)
+        $maxFileSize = 10 * 1024 * 1024;
         if ($fileSize > $maxFileSize) {
-            throw new Exception('File size exceeds limit of 5MB');
+            throw new Exception('File size exceeds limit of 10MB');
         }
 
         // Create base upload directory if it doesn't exist
-        $baseUploadDir = __DIR__ . '/../files/';
+        $baseUploadDir = __DIR__ . '/../mig_files/';
+        error_log('Base upload directory: ' . $baseUploadDir);
+        
         if (!file_exists($baseUploadDir)) {
+            error_log('Creating base upload directory...');
             if (!mkdir($baseUploadDir, 0755, true)) {
-                throw new Exception('Failed to create base upload directory');
+                $error = error_get_last();
+                throw new Exception('Failed to create base upload directory: ' . ($error['message'] ?? 'Unknown error'));
             }
+        }
+
+        // Check if base directory is writable
+        if (!is_writable($baseUploadDir)) {
+            throw new Exception('Base upload directory is not writable: ' . $baseUploadDir);
         }
 
         // Create and validate destination folder path
         $destinationPath = $baseUploadDir . rtrim($destinationFolder, '/') . '/';
+        error_log('Destination path: ' . $destinationPath);
+        
         if (!file_exists($destinationPath)) {
+            error_log('Creating destination directory...');
             if (!mkdir($destinationPath, 0755, true)) {
-                throw new Exception('Failed to create destination directory');
+                $error = error_get_last();
+                throw new Exception('Failed to create destination directory: ' . ($error['message'] ?? 'Unknown error'));
             }
+        }
+
+        // Check if destination directory is writable
+        if (!is_writable($destinationPath)) {
+            throw new Exception('Destination directory is not writable: ' . $destinationPath);
         }
 
         // Generate final filename
@@ -154,14 +177,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Full path for the file
         $finalFilePath = $destinationPath . $finalFileName;
+        error_log('Final file path: ' . $finalFilePath);
 
         // Move uploaded file
         if (!move_uploaded_file($fileTmpName, $finalFilePath)) {
-            throw new Exception('Failed to move uploaded file');
+            $error = error_get_last();
+            throw new Exception('Failed to move uploaded file from ' . $fileTmpName . ' to ' . $finalFilePath . ': ' . ($error['message'] ?? 'Unknown error'));
         }
 
         // Set proper permissions
-        chmod($finalFilePath, 0644);
+        if (!chmod($finalFilePath, 0644)) {
+            error_log('Warning: Failed to set file permissions for ' . $finalFilePath);
+        }
 
         // Success response with path that points back to this same file
         $response['success'] = true;
@@ -169,6 +196,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $response['file_path'] = '/api/upload.php?path=' . $destinationFolder . '/' . $finalFileName;
 
     } catch (Exception $e) {
+        error_log('Upload error: ' . $e->getMessage());
+        error_log('Upload error trace: ' . $e->getTraceAsString());
         $response['message'] = $e->getMessage();
     }
 

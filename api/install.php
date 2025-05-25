@@ -43,6 +43,7 @@ try {
         `payed` decimal(10,2) DEFAULT NULL,
         `pi_path` varchar(255) DEFAULT NULL,
         `bill_ref` varchar(255) DEFAULT NULL,
+        `is_stock_updated` tinyint(1) DEFAULT 0,
         PRIMARY KEY (`id`),
         KEY `id_supplier` (`id_supplier`),
         CONSTRAINT `buy_bill_ibfk_1` FOREIGN KEY (`id_supplier`) REFERENCES `suppliers` (`id`)

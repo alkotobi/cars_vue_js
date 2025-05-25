@@ -23,6 +23,10 @@ const showEditDialog = ref(false)
 const showAddDetailDialog = ref(false)
 const editingBill = ref(null)
 
+// Loading states
+const isSubmittingPurchase = ref(false)
+const isSubmittingDetail = ref(false)
+
 // User info
 const user = ref(JSON.parse(localStorage.getItem('user')))
 const isAdmin = computed(() => user.value?.role_id === 1)
@@ -194,7 +198,14 @@ const fetchSuppliers = async () => {
 }
 
 const addPurchase = async () => {
+  // Prevent multiple submissions
+  if (isSubmittingPurchase.value) {
+    return
+  }
+  
   try {
+    isSubmittingPurchase.value = true
+    
     // Validate that PI document is provided
     if (!newPurchase.value.pi_file) {
       alert('PI document is required. Please select a file.')
@@ -261,11 +272,20 @@ const addPurchase = async () => {
   } catch (err) {
     console.error('Error adding purchase:', err)
     alert(err.message)
+  } finally {
+    isSubmittingPurchase.value = false
   }
 }
 
 const updatePurchase = async () => {
+  // Prevent multiple submissions
+  if (isSubmittingPurchase.value) {
+    return
+  }
+  
   try {
+    isSubmittingPurchase.value = true
+    
     // Validate that PI document exists (either existing or new file)
     if (!newPurchase.value.pi_file && !newPurchase.value.pi_path) {
       alert('PI document is required. Please select a file.')
@@ -337,6 +357,8 @@ const updatePurchase = async () => {
   } catch (err) {
     console.error('Error updating purchase:', err)
     alert(err.message)
+  } finally {
+    isSubmittingPurchase.value = false
   }
 }
 
@@ -431,7 +453,15 @@ const updateBillAmount = async (billId) => {
 }
 
 const addDetail = async () => {
-  const result = await callApi({
+  // Prevent multiple submissions
+  if (isSubmittingDetail.value) {
+    return
+  }
+  
+  try {
+    isSubmittingDetail.value = true
+    
+    const result = await callApi({
     query: `
       INSERT INTO buy_details 
       (id_car_name, id_color, amount, notes, QTY, year, month, is_used_car, id_buy_bill, price_sell)
@@ -468,9 +498,15 @@ const addDetail = async () => {
         is_used_car: false,
         id_buy_bill: null
       }
-  }
-  else {
-    console.error('Error adding detail:', result.error)
+    }
+    else {
+      console.error('Error adding detail:', result.error)
+    }
+  } catch (err) {
+    console.error('Error adding detail:', err)
+    alert('Failed to add detail. Please try again.')
+  } finally {
+    isSubmittingDetail.value = false
   }
 }
 
@@ -648,8 +684,9 @@ const openPayments = (bill) => {
                     class="cancel-btn">
               Cancel
             </button>
-            <button type="submit" class="submit-btn">
-              Add Purchase
+            <button type="submit" class="submit-btn" :disabled="isSubmittingPurchase">
+              <span v-if="isSubmittingPurchase" class="spinner"></span>
+              {{ isSubmittingPurchase ? 'Adding...' : 'Add Purchase' }}
             </button>
           </div>
         </form>
@@ -714,8 +751,9 @@ const openPayments = (bill) => {
                     class="cancel-btn">
               Cancel
             </button>
-            <button type="submit" class="submit-btn">
-              Update Purchase
+            <button type="submit" class="submit-btn" :disabled="isSubmittingPurchase">
+              <span v-if="isSubmittingPurchase" class="spinner"></span>
+              {{ isSubmittingPurchase ? 'Updating...' : 'Update Purchase' }}
             </button>
           </div>
         </form>
@@ -810,8 +848,9 @@ const openPayments = (bill) => {
                     class="cancel-btn">
               Cancel
             </button>
-            <button type="submit" class="submit-btn">
-              Add Detail
+            <button type="submit" class="submit-btn" :disabled="isSubmittingDetail">
+              <span v-if="isSubmittingDetail" class="spinner"></span>
+              {{ isSubmittingDetail ? 'Adding...' : 'Add Detail' }}
             </button>
           </div>
         </form>
@@ -997,8 +1036,14 @@ h3 {
   cursor: pointer;
 }
 
-.submit-btn:hover {
+.submit-btn:hover:not(:disabled) {
   background-color: #059669;
+}
+
+.submit-btn:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .detail-header {
@@ -1151,5 +1196,20 @@ h3 {
   font-size: 0.875rem;
   margin-top: 0.25rem;
   font-style: italic;
+}
+
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  border-top-color: transparent;
+  animation: spin 1s ease-in-out infinite;
+  margin-right: 8px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 </style>

@@ -1,9 +1,12 @@
 import { ref } from 'vue'
 
-const API_BASE_URL = 'http://localhost:8000'
-// const API_BASE_URL = 'https://www.merhab.com/api'
+// const API_BASE_URL = 'http://localhost:8000'
+const API_BASE_URL = 'https://www.merhab.com/api'
 const API_URL = `${API_BASE_URL}/api.php`
 const UPLOAD_URL = `${API_BASE_URL}/upload.php`
+
+// const UPLOAD_URL = `${API_BASE_URL}/upload_simple.php`  // Use this if main upload fails
+// const UPLOAD_URL = `${API_BASE_URL}/upload_simple.php`  // Use this if main upload fails
 
 export const useApi = () => {
   const error = ref(null)
@@ -39,6 +42,15 @@ export const useApi = () => {
     error.value = null
 
     try {
+      console.log('Starting file upload:', {
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        destinationFolder,
+        customFilename,
+        uploadUrl: UPLOAD_URL
+      })
+
       const formData = new FormData()
       formData.append('file', file)
       formData.append('destination_folder', destinationFolder)
@@ -46,12 +58,33 @@ export const useApi = () => {
         formData.append('custom_filename', customFilename)
       }
 
+      // Add timeout to prevent hanging
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+
       const response = await fetch(UPLOAD_URL, {
         method: 'POST',
-        body: formData
+        body: formData,
+        signal: controller.signal
       })
 
+      clearTimeout(timeoutId)
+
+      console.log('Upload response status:', response.status, response.statusText)
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status} - ${response.statusText}`)
+      }
+
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text()
+        console.error('Non-JSON response:', text)
+        throw new Error(`Server returned non-JSON response: ${text.substring(0, 200)}`)
+      }
+
       const result = await response.json()
+      console.log('Upload result:', result)
       
       if (!result.success) {
         throw new Error(result.message || 'Upload failed')
@@ -63,8 +96,19 @@ export const useApi = () => {
         relativePath: `${destinationFolder}/${customFilename}`
       }
     } catch (err) {
-      error.value = err.message
-      throw err
+      console.error('Upload error details:', err)
+      
+      // Handle specific error types
+      if (err.name === 'AbortError') {
+        error.value = 'Upload timeout - please try again'
+        throw new Error('Upload timeout - please try again')
+      } else if (err.message.includes('Failed to fetch')) {
+        error.value = 'Network error - please check your connection'
+        throw new Error('Network error - please check your connection')
+      } else {
+        error.value = err.message
+        throw err
+      }
     } finally {
       loading.value = false
     }
@@ -80,8 +124,8 @@ export const useApi = () => {
     // Remove any leading slashes from the path and store in a new variable
     let processedPath = path.replace(/^\/+/, '')
     
-    // If the path already contains 'upload.php?path=', extract just the file path
-    if (processedPath.includes('upload.php?path=')) {
+    // If the path already contains 'upload.php?path=' or 'upload_simple.php?path=', extract just the file path
+    if (processedPath.includes('upload.php?path=') || processedPath.includes('upload_simple.php?path=')) {
       const match = processedPath.match(/path=(.+)$/)
       if (match) {
         processedPath = decodeURIComponent(match[1])

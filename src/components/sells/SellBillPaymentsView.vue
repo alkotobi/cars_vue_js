@@ -15,6 +15,9 @@ const showPaymentDialog = ref(false)
 const editingPayment = ref(null)
 const user = ref(null)
 
+// Add loading state for form submission
+const isSubmittingPayment = ref(false)
+
 // Add computed properties for permissions
 const can_edit_sell_payments = computed(() => {
   if (!user.value) return false
@@ -289,6 +292,11 @@ const openEditDialog = (payment) => {
 }
 
 const handleSubmit = async () => {
+  // Prevent multiple submissions
+  if (isSubmittingPayment.value) {
+    return
+  }
+  
   if (!validateForm()) {
     return
   }
@@ -300,6 +308,8 @@ const handleSubmit = async () => {
   }
 
   try {
+    isSubmittingPayment.value = true
+    
     // Handle swift document upload first if there's a new file
     if (paymentForm.value.swift_file) {
       try {
@@ -393,6 +403,8 @@ const handleSubmit = async () => {
   } catch (err) {
     console.error('Error in handleSubmit:', err)
     error.value = err.message
+  } finally {
+    isSubmittingPayment.value = false
   }
 }
 
@@ -617,7 +629,10 @@ const handleDelete = async (paymentId) => {
 
           <div class="dialog-buttons">
             <button type="button" @click="showPaymentDialog = false" class="cancel-btn">Cancel</button>
-            <button type="submit" class="submit-btn">{{ editingPayment ? 'Update' : 'Add' }}</button>
+            <button type="submit" class="submit-btn" :disabled="isSubmittingPayment">
+              <span v-if="isSubmittingPayment" class="spinner"></span>
+              {{ isSubmittingPayment ? 'Saving...' : (editingPayment ? 'Update' : 'Add') }}
+            </button>
           </div>
         </form>
       </div>
@@ -878,8 +893,29 @@ a:hover {
   background-color: #6b7280;
 }
 
-.submit-btn:hover {
+.submit-btn:hover:not(:disabled) {
   background-color: #2563eb;
+}
+
+.submit-btn:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  border-top-color: transparent;
+  animation: spin 1s ease-in-out infinite;
+  margin-right: 8px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 .error-message {

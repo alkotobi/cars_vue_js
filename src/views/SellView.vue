@@ -12,6 +12,12 @@ const availableCarsLoading = ref(false)
 const error = ref(null)
 const selectedBillId = ref(null)
 const showAddDialog = ref(false)
+
+// Add loading states for form submissions
+const isSubmittingBill = ref(false)
+const isSubmittingAssignment = ref(false)
+const isSubmittingUpdate = ref(false)
+
 // Add new refs for the assignment dialog
 const showAssignDialog = ref(false)
 const carToAssign = ref(null)
@@ -191,7 +197,14 @@ const fetchAvailableCars = async () => {
 }
 
 const addSellBill = async () => {
+  // Prevent multiple submissions
+  if (isSubmittingBill.value) {
+    return
+  }
+  
   try {
+    isSubmittingBill.value = true
+    
     const result = await callApi({
       query: `
         INSERT INTO sell_bill (id_broker, date_sell, notes)
@@ -219,6 +232,8 @@ const addSellBill = async () => {
     }
   } catch (err) {
     error.value = err.message || 'An error occurred'
+  } finally {
+    isSubmittingBill.value = false
   }
 }
 
@@ -277,6 +292,11 @@ const openAssignDialog = (car) => {
 }
 
 const assignCarToBill = async () => {
+  // Prevent multiple submissions
+  if (isSubmittingAssignment.value) {
+    return
+  }
+  
   if (!selectedBillId.value) {
     alert('Please select a bill first')
     return
@@ -299,6 +319,8 @@ const assignCarToBill = async () => {
   }
   
   try {
+    isSubmittingAssignment.value = true
+    
     const result = await callApi({
       query: `
         UPDATE cars_stock 
@@ -331,6 +353,8 @@ const assignCarToBill = async () => {
     }
   } catch (err) {
     error.value = err.message || 'An error occurred'
+  } finally {
+    isSubmittingAssignment.value = false
   }
 }
 
@@ -378,7 +402,14 @@ const openEditDialog = (bill, event) => {
 
 // Add new function to update sell bill
 const updateSellBill = async () => {
+  // Prevent multiple submissions
+  if (isSubmittingUpdate.value) {
+    return
+  }
+  
   try {
+    isSubmittingUpdate.value = true
+    
     const result = await callApi({
       query: `
         UPDATE sell_bill 
@@ -409,6 +440,8 @@ const updateSellBill = async () => {
     }
   } catch (err) {
     error.value = err.message || 'An error occurred'
+  } finally {
+    isSubmittingUpdate.value = false
   }
 }
 
@@ -484,7 +517,14 @@ const editCar = (car) => {
 const updateCar = async () => {
   if (!editingCar.value) return
   
+  // Prevent multiple submissions
+  if (isSubmittingUpdate.value) {
+    return
+  }
+  
   try {
+    isSubmittingUpdate.value = true
+    
     const result = await callApi({
       query: `
         UPDATE cars_stock 
@@ -515,6 +555,8 @@ const updateCar = async () => {
     }
   } catch (err) {
     error.value = err.message || 'An error occurred'
+  } finally {
+    isSubmittingUpdate.value = false
   }
 }
 </script>
