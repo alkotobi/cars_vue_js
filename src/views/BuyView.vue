@@ -1,11 +1,13 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useApi } from '../composables/useApi'
-import BuyBillsTable from '../components/BuyBillsTable.vue'
-import BuyDetailsTable from '../components/BuyDetailsTable.vue'
+import BuyBillsTable from '../components/buy/BuyBillsTable.vue'
+import BuyDetailsTable from '../components/buy/BuyDetailsTable.vue'
+import { useRouter } from 'vue-router'
 
 // API and base setup
 const { callApi, error } = useApi()
+const router = useRouter()
 
 // State management
 const buyBills = ref([])
@@ -18,6 +20,95 @@ const colors = ref([])
 // Dialog controls
 const showAddDialog = ref(false)
 const showAddDetailDialog = ref(false)
+
+// User info
+const user = ref(JSON.parse(localStorage.getItem('user')))
+const isAdmin = computed(() => user.value?.role_id === 1)
+
+// Toolbar action methods
+const canUpdateStock = (bill) => {
+  return bill.amount > 0 && !bill.is_stock_updated
+}
+
+const handleUpdateStock = async (bill) => {
+  if (!confirm('Are you sure you want to update the stock? This action cannot be undone.')) {
+    return
+  }
+
+  try {
+    const result = await callApi({
+      query: `
+        UPDATE buy_bill 
+        SET is_stock_updated = 1 
+        WHERE id = ?
+      `,
+      params: [bill.id]
+    })
+
+    if (result.success) {
+      await fetchBuyBills()
+    } else {
+      alert('Failed to update stock')
+    }
+  } catch (err) {
+    console.error('Error updating stock:', err)
+    alert('Failed to update stock')
+  }
+}
+
+const handleDeleteBill = async (bill) => {
+  if (!confirm('Are you sure you want to delete this purchase and all its details? This action cannot be undone.')) {
+    return
+  }
+
+  try {
+    // First check if the bill can be deleted
+    if (bill.is_stock_updated) {
+      alert('Cannot delete a purchase that has already been updated in stock')
+      return
+    }
+
+    // Start with deleting related records
+    // 1. Delete payments
+    const deletePayments = await callApi({
+      query: `DELETE FROM buy_payments WHERE id_buy_bill = ?`,
+      params: [bill.id]
+    })
+
+    if (!deletePayments.success) {
+      throw new Error('Failed to delete related payments')
+    }
+
+    // 2. Delete details
+    const deleteDetails = await callApi({
+      query: `DELETE FROM buy_details WHERE id_buy_bill = ?`,
+      params: [bill.id]
+    })
+
+    if (!deleteDetails.success) {
+      throw new Error('Failed to delete purchase details')
+    }
+
+    // 3. Finally delete the bill
+    const deleteBill = await callApi({
+      query: `DELETE FROM buy_bill WHERE id = ? AND is_stock_updated = 0`,
+      params: [bill.id]
+    })
+
+    if (deleteBill.success) {
+      if (selectedBill.value?.id === bill.id) {
+        selectedBill.value = null
+        buyDetails.value = [] // Clear details
+      }
+      await fetchBuyBills()
+    } else {
+      throw new Error('Failed to delete purchase')
+    }
+  } catch (err) {
+    console.error('Error deleting purchase:', err)
+    alert(err.message || 'Failed to delete purchase')
+  }
+}
 
 // Form models
 const newPurchase = ref({
@@ -54,13 +145,12 @@ const fetchSuppliers = async () => {
 const addPurchase = async () => {
   const result = await callApi({
     query: `
-      INSERT INTO buy_bill (id_supplier, date_buy, amount, payed, pi_path)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO buy_bill (id_supplier, date_buy, payed, pi_path)
+      VALUES (?, ?, ?, ?)
     `,
     params: [
       newPurchase.value.id_supplier,
       newPurchase.value.date_buy,
-      newPurchase.value.amount,
       newPurchase.value.payed,
       newPurchase.value.pi_path
     ]
@@ -73,20 +163,26 @@ const addPurchase = async () => {
     newPurchase.value = {
       id_supplier: null,
       date_buy: new Date().toISOString().slice(0, 16),
-      amount: 0,
       payed: 0,
       pi_path: ''
     }
   }
   else {
-    console.error('Error adding purchase:', result.error);
+    console.error('Error adding purchase:', result.error)
   }
 }
 
 const fetchBuyBills = async () => {
   const result = await callApi({
     query: `
-      SELECT bb.*, s.name as supplier_name 
+      SELECT 
+        bb.*,
+        s.name as supplier_name,
+        COALESCE((
+          SELECT SUM(amount * QTY)
+          FROM buy_details
+          WHERE id_buy_bill = bb.id
+        ), 0) as calculated_amount
       FROM buy_bill bb 
       LEFT JOIN suppliers s ON bb.id_supplier = s.id 
       ORDER BY bb.date_buy DESC
@@ -94,7 +190,11 @@ const fetchBuyBills = async () => {
     params: []
   })
   if (result.success) {
-    buyBills.value = result.data
+    buyBills.value = result.data.map(bill => ({
+      ...bill,
+      amount: Number(bill.calculated_amount),
+      payed: Number(bill.payed)
+    }))
   }
 }
 
@@ -123,10 +223,6 @@ const selectBill = (bill) => {
   fetchBuyDetails(bill.id)
 }
 
-
-
-
-
 const fetchCars = async () => {
   const result = await callApi({
     query: 'SELECT * FROM cars_names ORDER BY car_name ASC',
@@ -147,6 +243,25 @@ const fetchColors = async () => {
   }
 }
 
+const updateBillAmount = async (billId) => {
+  const result = await callApi({
+    query: `
+      UPDATE buy_bill 
+      SET amount = (
+        SELECT COALESCE(SUM(amount * QTY), 0)
+        FROM buy_details
+        WHERE id_buy_bill = ?
+      )
+      WHERE id = ?
+    `,
+    params: [billId, billId]
+  })
+  
+  if (!result.success) {
+    console.error('Error updating bill amount:', result.error)
+  }
+}
+
 const addDetail = async () => {
   const result = await callApi({
     query: `
@@ -164,13 +279,15 @@ const addDetail = async () => {
       newDetail.value.month,
       newDetail.value.is_used_car ? 1 : 0,
       selectedBill.value.id,
-      newDetail.value.price_sell  // Add this
+      newDetail.value.price_sell
     ]
   })
   
   if (result.success) {
+    await updateBillAmount(selectedBill.value.id) // Update bill amount
     showAddDetailDialog.value = false
     await fetchBuyDetails(selectedBill.value.id)
+    await fetchBuyBills() // Refresh bills to show updated amount
     // Reset form
     newDetail.value = {
       id_car_name: null,
@@ -185,19 +302,12 @@ const addDetail = async () => {
     }
   }
   else {
-    console.error('Error adding detail:', result.error);
+    console.error('Error adding detail:', result.error)
   }
 }
 
 // Lifecycle hooks
-const user = ref(null)
-const isAdmin = computed(() => user.value?.role_id === 1)
-
 onMounted(() => {
-  const userStr = localStorage.getItem('user')
-  if (userStr) {
-    user.value = JSON.parse(userStr)
-  }
   fetchBuyBills()
   fetchSuppliers()
   fetchCars()
@@ -211,8 +321,9 @@ const handleDeleteDetail = async (detailId) => {
   })
   
   if (result.success) {
-    // Refresh the details list after successful deletion
+    await updateBillAmount(selectedBill.value.id) // Update bill amount
     await fetchBuyDetails(selectedBill.value.id)
+    await fetchBuyBills() // Refresh bills to show updated amount
   } else {
     alert('Failed to delete detail. Please try again.')
     console.error('Error deleting detail:', result.error)
@@ -232,18 +343,24 @@ const handleUpdateDetail = async (updatedDetail) => {
       updatedDetail.year,
       updatedDetail.month,
       updatedDetail.notes,
-      updatedDetail.price_sell,  // Add this
+      updatedDetail.price_sell,
       updatedDetail.id
     ]
   })
   
   if (result.success) {
-    // Refresh the details list after successful update
+    await updateBillAmount(selectedBill.value.id) // Update bill amount
     await fetchBuyDetails(selectedBill.value.id)
+    await fetchBuyBills() // Refresh bills to show updated amount
   } else {
     alert('Failed to update detail. Please try again.')
     console.error('Error updating detail:', result.error)
   }
+}
+
+// Replace handlePaymentClick with new method to open in new tab
+const openPayments = (bill) => {
+  window.open(`/buy-payments/${bill.id}`, '_blank')
 }
 </script>
 
@@ -260,7 +377,34 @@ const handleUpdateDetail = async (updatedDetail) => {
           :buyBills="buyBills"
           :selectedBill="selectedBill"
           @select-bill="selectBill"
-        />
+        >
+          <!-- Toolbar actions -->
+          <template #actions="{ bill }">
+            <button 
+              @click.stop="openPayments(bill)"
+              class="payment-btn"
+              :disabled="bill.is_stock_updated"
+            >
+              Payments
+            </button>
+            <button 
+              v-if="false"
+              @click.stop="handleUpdateStock(bill)"
+              class="action-btn update-btn"
+              :disabled="!canUpdateStock(bill)"
+            >
+              Update Stock
+            </button>
+            <button 
+              v-if="isAdmin"
+              @click.stop="handleDeleteBill(bill)"
+              class="action-btn delete-btn"
+              :disabled="bill.is_stock_updated"
+            >
+              Delete
+            </button>
+          </template>
+        </BuyBillsTable>
 
         <BuyDetailsTable 
           v-if="selectedBill"
@@ -298,15 +442,7 @@ const handleUpdateDetail = async (updatedDetail) => {
           </div>
           
           <div class="form-group">
-            <label>Amount</label>
-            <input type="number" 
-                   v-model="newPurchase.amount" 
-                   step="0.01" 
-                   required>
-          </div>
-          
-          <div class="form-group">
-            <label>Paid</label>
+            <label>Paid Amount</label>
             <input type="number" 
                    v-model="newPurchase.payed" 
                    step="0.01" 
@@ -652,4 +788,77 @@ h3 {
   margin: 0;
 }
 
+.payment-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.payment-btn:hover:not(:disabled) {
+  background-color: #2563eb;
+}
+
+.payment-btn:before {
+  content: "💰";
+  font-size: 1rem;
+}
+
+.payment-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.update-btn {
+  background-color: #059669;
+}
+
+.update-btn:hover:not(:disabled) {
+  background-color: #047857;
+}
+
+.update-btn:before {
+  content: "📦";
+  font-size: 1rem;
+}
+
+.delete-btn {
+  background-color: #dc2626;
+}
+
+.delete-btn:hover:not(:disabled) {
+  background-color: #b91c1c;
+}
+
+.delete-btn:before {
+  content: "🗑";
+  font-size: 1rem;
+}
 </style>

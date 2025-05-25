@@ -1,6 +1,8 @@
 <script setup>
-import { ref, onMounted, defineProps, defineEmits } from 'vue'
+import { ref, onMounted, watch, defineProps, defineEmits } from 'vue'
 import { useApi } from '../../composables/useApi'
+import { ElSelect, ElOption } from 'element-plus'
+import 'element-plus/dist/index.css'
 
 const props = defineProps({
   carId: {
@@ -23,6 +25,7 @@ const { callApi } = useApi()
 const loading = ref(false)
 const error = ref(null)
 const clients = ref([])
+const filteredClients = ref([])
 const dischargePorts = ref([])
 const carDetails = ref(null)
 
@@ -48,12 +51,29 @@ const fetchClients = async () => {
     
     if (result.success) {
       clients.value = result.data
+      filteredClients.value = result.data
     } else {
-      error.value = result.error || 'Failed to fetch clients'
+      error.value = result.error || "Failed to fetch clients"
     }
   } catch (err) {
-    error.value = err.message || 'An error occurred'
+    error.value = err.message || "An error occurred"
   }
+}
+
+const remoteMethod = (query) => {
+  if (query) {
+    // Filter the existing clients data
+    filteredClients.value = clients.value.filter(client => 
+      client.name.toLowerCase().includes(query.toLowerCase())
+    )
+  } else {
+    // If no query, show all clients
+    filteredClients.value = clients.value
+  }
+}
+
+const handleClientChange = () => {
+  // Handle client change if needed
 }
 
 // Fetch discharge ports for dropdown
@@ -256,12 +276,21 @@ onMounted(() => {
       <form @submit.prevent="assignCar">
         <div class="form-group">
           <label for="client">Client: <span class="required">*</span></label>
-          <select id="client" v-model="formData.id_client" required>
-            <option value="">Select Client</option>
-            <option v-for="client in clients" :key="client.id" :value="client.id">
-              {{ client.name }}
-            </option>
-          </select>
+          <el-select
+            v-model="formData.id_client"
+            filterable
+            :loading="loading"
+            placeholder="Select or search client"
+            style="width: 100%"
+            @change="handleClientChange"
+          >
+            <el-option
+              v-for="client in filteredClients"
+              :key="client.id"
+              :label="client.name"
+              :value="client.id"
+            />
+          </el-select>
         </div>
         
         <div class="form-group">

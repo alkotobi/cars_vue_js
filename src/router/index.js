@@ -2,6 +2,12 @@ import { createRouter, createWebHistory } from 'vue-router'
 import LoginView from '../views/LoginView.vue'
 import DashboardView from '../views/DashboardView.vue'
 import PrintPage from '../views/PrintPage.vue'
+import SellBillPaymentsView from '../components/sells/SellBillPaymentsView.vue'
+import MoneyMovements from '../components/cashier/MoneyMovements.vue'
+import TransfersInterTable from '../components/cashier/TransfersInterTable.vue'
+import ChinaCash from '../components/cashier/ChinaCash.vue'
+import BuyBillPaymentsView from '../views/BuyBillPaymentsView.vue'
+import RatesView from '../views/RatesView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -51,6 +57,18 @@ const router = createRouter({
       component: () => import('../views/SellBillsView.vue')
     },
     {
+      path: '/sell-bills/:id/payments',
+      name: 'sell-bill-payments',
+      component: SellBillPaymentsView,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/buy-payments/:id',
+      name: 'buy-payments',
+      component: BuyBillPaymentsView,
+      meta: { requiresAuth: true }
+    },
+    {
       path: '/transfers-list',
       name: 'transfers-list',
       component: () => import('../views/TransfersListView.vue'),
@@ -75,7 +93,36 @@ const router = createRouter({
       path: '/print/:billId',
       name: 'print',
       component: PrintPage
-    }
+    },
+    {
+      path: '/cashier',
+      name: 'cashier',
+      component: () => import('../views/CashierView.vue'),
+      children: [
+        {
+          path: 'transfers',
+          name: 'cashier-transfers',
+          component: TransfersInterTable
+        },
+        {
+          path: 'money-movements',
+          name: 'money-movements',
+          component: MoneyMovements
+        },
+        {
+          path: 'china-cash',
+          name: 'china-cash',
+          component: ChinaCash,
+          meta: { requiresAuth: true }
+        }
+      ]
+    },
+    {
+      path: '/rates',
+      name: 'rates',
+      component: RatesView,
+      meta: { requiresAuth: true }
+    },
   ],
   scrollBehavior() {
     return { top: 0 }

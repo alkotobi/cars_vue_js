@@ -41,7 +41,7 @@ const returnToDashboard = () => {
           :class="{ active: activeView === 'buy' }"
           class="sidebar-btn buy-btn"
         >
-          Buy
+          Purchases
         </button>
         <button v-if="false"
           @click="navigateTo('sell')"
@@ -55,7 +55,7 @@ const returnToDashboard = () => {
           :class="{ active: activeView === 'sell-bills' }"
           class="sidebar-btn sell-bills-btn"
         >
-          Sell Bills
+          Sells
         </button>
         <button 
           @click="navigateTo('stock')"
@@ -121,7 +121,7 @@ const returnToDashboard = () => {
         <button 
           @click="navigateTo('warehouses')"
           :class="{ active: activeView === 'warehouses' }"
-          class="sidebar-btn warehouses-btn"
+          class="sidebar-btn"
         >
           Warehouses
         </button>

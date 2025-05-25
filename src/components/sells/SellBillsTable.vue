@@ -21,6 +21,27 @@ const selectedBillId = ref(null)
 const showPrintOptions = ref(false)
 const selectedPrintBillId = ref(null)
 
+// Add computed property for payments permission
+const can_c_sell_payments = computed(() => {
+  if (!user.value) return false
+  if (user.value.role_id === 1) return true
+  return user.value.permissions?.some(p => p.permission_name === 'can_c_sell_payments')
+})
+
+// Add computed property for delete permission
+const can_delete_sell_bill = computed(() => {
+  if (!user.value) return false
+  if (user.value.role_id === 1) return true
+  return user.value.permissions?.some(p => p.permission_name === 'can_delete_sell_bill')
+})
+
+// Add computed property for edit permission
+const can_edit_sell_bill = computed(() => {
+  if (!user.value) return false
+  if (user.value.role_id === 1) return true
+  return user.value.permissions?.some(p => p.permission_name === 'can_edit_sell_bill')
+})
+
 onMounted(() => {
   const userStr = localStorage.getItem('user')
   if (userStr) {
@@ -39,28 +60,41 @@ const fetchSellBills = async () => {
       SELECT 
         sb.*,
         c.name as broker_name,
-        u.username as created_by
+        u.username as created_by,
+        (
+          SELECT SUM(cs.price_cell + COALESCE(cs.freight, 0))
+          FROM cars_stock cs
+          WHERE cs.id_sell = sb.id
+        ) as total_cfr
       FROM sell_bill sb
       LEFT JOIN clients c ON sb.id_broker = c.id AND c.is_broker = 1
       LEFT JOIN users u ON sb.id_user = u.id
       ORDER BY sb.date_sell DESC
     ` : `
-        SELECT 
+      SELECT 
         sb.*,
         c.name as broker_name,
-        u.username as created_by
-        FROM sell_bill sb
-        LEFT JOIN clients c ON sb.id_broker = c.id AND c.is_broker = 1
+        u.username as created_by,
+        (
+          SELECT SUM(cs.price_cell + COALESCE(cs.freight, 0))
+          FROM cars_stock cs
+          WHERE cs.id_sell = sb.id
+        ) as total_cfr
+      FROM sell_bill sb
+      LEFT JOIN clients c ON sb.id_broker = c.id AND c.is_broker = 1
       LEFT JOIN users u ON sb.id_user = u.id
       WHERE sb.id_user = ?
-        ORDER BY sb.date_sell DESC
+      ORDER BY sb.date_sell DESC
     `
 
     const params = isAdmin.value ? [] : [user.value?.id]
     const result = await callApi({ query, params })
     
     if (result.success) {
-      sellBills.value = result.data
+      sellBills.value = result.data.map(bill => ({
+        ...bill,
+        total_cfr: Number(bill.total_cfr) || 0
+      }))
     } else {
       error.value = result.error || 'Failed to fetch sell bills'
     }
@@ -99,6 +133,12 @@ const handlePrintProceed = (options) => {
   selectedPrintBillId.value = null
 }
 
+const handlePayments = (billId) => {
+  // Open payments in a new tab
+  const route = `/sell-bills/${billId}/payments`
+  window.open(route, '_blank')
+}
+
 const selectBill = (bill) => {
   selectedBillId.value = bill.id
   
@@ -124,14 +164,32 @@ defineExpose({ fetchSellBills })
         Selected Bill: <span class="bill-id">#{{ selectedBillId }}</span>
       </div>
       <div class="toolbar-actions">
-        <button @click="handleEdit(sellBills.find(b => b.id === selectedBillId))" class="edit-btn">
+        <button 
+          @click="handleEdit(sellBills.find(b => b.id === selectedBillId))" 
+          class="edit-btn"
+          :disabled="!can_edit_sell_bill"
+          :class="{ 'disabled': !can_edit_sell_bill }"
+        >
           Edit Bill
         </button>
-        <button @click="handleDelete(selectedBillId)" class="delete-btn">
+        <button 
+          @click="handleDelete(selectedBillId)" 
+          class="delete-btn"
+          :disabled="!can_delete_sell_bill"
+          :class="{ 'disabled': !can_delete_sell_bill }"
+        >
           Delete Bill
         </button>
         <button @click="handlePrint(selectedBillId)" class="print-btn">
           Print Bill
+        </button>
+        <button 
+          @click="handlePayments(selectedBillId)" 
+          class="payment-btn"
+          :disabled="!can_c_sell_payments"
+          :class="{ 'disabled': !can_c_sell_payments }"
+        >
+          Payments
         </button>
       </div>
     </div>
@@ -278,7 +336,31 @@ defineExpose({ fetchSellBills })
   font-weight: 500;
 }
 
-.edit-btn:hover {
+.payment-btn {
+  background-color: #10b981;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  font-weight: 500;
+}
+
+.edit-btn.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: #9ca3af;
+}
+
+.edit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: #9ca3af;
+}
+
+.edit-btn:hover:not(:disabled) {
   background-color: #2563eb;
 }
 
@@ -288,5 +370,29 @@ defineExpose({ fetchSellBills })
 
 .print-btn:hover {
   background-color: #4f46e5;
+}
+
+.payment-btn.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: #9ca3af;
+}
+
+.payment-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: #9ca3af;
+}
+
+.delete-btn.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: #9ca3af;
+}
+
+.delete-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: #9ca3af;
 }
 </style>

@@ -1,6 +1,8 @@
 <script setup>
 import { ref, onMounted, watch, defineProps, defineEmits } from 'vue'
 import { useApi } from '../../composables/useApi'
+import { ElSelect, ElOption } from 'element-plus'
+import 'element-plus/dist/index.css'
 
 const props = defineProps({
   mode: {
@@ -24,6 +26,7 @@ const emit = defineEmits(['save', 'cancel'])
 
 const { callApi } = useApi()
 const brokers = ref([])
+const filteredBrokers = ref([])
 const loading = ref(false)
 const error = ref(null)
 
@@ -62,12 +65,29 @@ const fetchBrokers = async () => {
     
     if (result.success) {
       brokers.value = result.data
+      filteredBrokers.value = result.data
     } else {
       error.value = result.error || 'Failed to fetch brokers'
     }
   } catch (err) {
     error.value = err.message || 'An error occurred'
   }
+}
+
+const remoteMethod = (query) => {
+  if (query) {
+    // Filter the existing brokers data
+    filteredBrokers.value = brokers.value.filter(broker => 
+      broker.name.toLowerCase().includes(query.toLowerCase())
+    )
+  } else {
+    // If no query, show all brokers
+    filteredBrokers.value = brokers.value
+  }
+}
+
+const handleBrokerChange = () => {
+  // Handle broker change if needed
 }
 
 const saveBill = async () => {
@@ -206,12 +226,21 @@ onMounted(() => {
     <form @submit.prevent="saveBill">
       <div class="form-group">
         <label for="broker">Broker:</label>
-        <select id="broker" v-model="formData.id_broker">
-          <option value="">Select Broker</option>
-          <option v-for="broker in brokers" :key="broker.id" :value="broker.id">
-            {{ broker.name }}
-          </option>
-        </select>
+        <el-select
+          v-model="formData.id_broker"
+          filterable
+          :loading="loading"
+          placeholder="Select or search broker"
+          style="width: 100%"
+          @change="handleBrokerChange"
+        >
+          <el-option
+            v-for="broker in filteredBrokers"
+            :key="broker.id"
+            :label="broker.name"
+            :value="broker.id"
+          />
+        </el-select>
       </div>
       
       <div class="form-group">
@@ -297,5 +326,17 @@ button {
   padding: 10px;
   background-color: #ffebee;
   border-radius: 4px;
+}
+
+:deep(.el-select) {
+  width: 100%;
+}
+
+:deep(.el-input__wrapper) {
+  background-color: white;
+}
+
+:deep(.el-select .el-input.is-focus .el-input__wrapper) {
+  box-shadow: 0 0 0 1px var(--el-color-primary) inset;
 }
 </style>

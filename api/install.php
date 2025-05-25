@@ -4,64 +4,303 @@ require_once 'config.php';
 
 try {
     $pdo = new PDO(
-        "mysql:host=$db_host;charset=utf8mb4",
+        "mysql:host=$db_host;charset=utf8",
         $db_user,
         $db_pass
     );
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
     // Create database if not exists
-    $pdo->exec("CREATE DATABASE IF NOT EXISTS $db_name");
+    $pdo->exec("CREATE DATABASE IF NOT EXISTS $db_name CHARACTER SET utf8 COLLATE utf8_general_ci");
     $pdo->exec("USE $db_name");
 
-    // Create roles table
-    $pdo->exec("CREATE TABLE IF NOT EXISTS roles (
-        id INT PRIMARY KEY AUTO_INCREMENT,
-        role_name VARCHAR(50) NOT NULL UNIQUE,
-        description TEXT
-    )");
+    // Create banks table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `banks` (
+        `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+        `company_name` varchar(255) DEFAULT NULL,
+        `bank_name` varchar(255) DEFAULT NULL,
+        `swift_code` varchar(255) DEFAULT NULL,
+        `bank_account` varchar(255) DEFAULT NULL,
+        `bank_address` varchar(255) DEFAULT NULL,
+        `notes` text DEFAULT NULL,
+        PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci");
+
+    // Create brands table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `brands` (
+        `id` int(11) NOT NULL AUTO_INCREMENT,
+        `brand` varchar(255) DEFAULT NULL,
+        PRIMARY KEY (`id`),
+        UNIQUE KEY `brand` (`brand`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci");
+
+    // Create buy_bill table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `buy_bill` (
+        `id` int(11) NOT NULL AUTO_INCREMENT,
+        `id_supplier` int(11) DEFAULT NULL,
+        `date_buy` datetime DEFAULT NULL,
+        `amount` decimal(10,2) DEFAULT NULL,
+        `payed` decimal(10,2) DEFAULT NULL,
+        `pi_path` varchar(255) DEFAULT NULL,
+        PRIMARY KEY (`id`),
+        KEY `id_supplier` (`id_supplier`),
+        CONSTRAINT `buy_bill_ibfk_1` FOREIGN KEY (`id_supplier`) REFERENCES `suppliers` (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci");
+
+    // Create buy_details table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `buy_details` (
+        `id` int(11) NOT NULL AUTO_INCREMENT,
+        `id_car_name` int(11) DEFAULT NULL,
+        `id_color` int(11) DEFAULT NULL,
+        `amount` decimal(10,2) DEFAULT NULL,
+        `notes` text DEFAULT NULL,
+        `QTY` int(11) DEFAULT NULL,
+        `year` int(11) DEFAULT NULL,
+        `month` int(11) DEFAULT NULL,
+        `is_used_car` tinyint(1) DEFAULT 0,
+        `id_buy_bill` int(11) DEFAULT NULL,
+        `price_sell` decimal(10,2) DEFAULT NULL,
+        PRIMARY KEY (`id`),
+        KEY `id_car_name` (`id_car_name`),
+        KEY `id_color` (`id_color`),
+        KEY `id_buy_bill` (`id_buy_bill`),
+        CONSTRAINT `buy_details_ibfk_1` FOREIGN KEY (`id_car_name`) REFERENCES `cars_names` (`id`),
+        CONSTRAINT `buy_details_ibfk_2` FOREIGN KEY (`id_color`) REFERENCES `colors` (`id`),
+        CONSTRAINT `buy_details_ibfk_3` FOREIGN KEY (`id_buy_bill`) REFERENCES `buy_bill` (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci");
+
+    // Create buy_payments table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `buy_payments` (
+        `id` int(11) NOT NULL AUTO_INCREMENT,
+        `id_buy_bill` int(11) DEFAULT NULL,
+        `date_payment` datetime DEFAULT NULL,
+        `amount` decimal(10,2) DEFAULT NULL,
+        `swift_path` varchar(255) DEFAULT NULL,
+        `notes` text DEFAULT NULL,
+        `id_user` int(11) DEFAULT NULL,
+        PRIMARY KEY (`id`),
+        KEY `id_buy_bill` (`id_buy_bill`),
+        CONSTRAINT `buy_payments_ibfk_1` FOREIGN KEY (`id_buy_bill`) REFERENCES `buy_bill` (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci");
+
+    // Create cars_names table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `cars_names` (
+        `id` int(11) NOT NULL AUTO_INCREMENT,
+        `car_name` varchar(255) DEFAULT NULL,
+        `id_brand` int(11) DEFAULT NULL,
+        `notes` text DEFAULT NULL,
+        `is_big_car` tinyint(1) DEFAULT 0,
+        PRIMARY KEY (`id`),
+        UNIQUE KEY `car_name` (`car_name`),
+        KEY `id_brand` (`id_brand`),
+        CONSTRAINT `cars_names_ibfk_1` FOREIGN KEY (`id_brand`) REFERENCES `brands` (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci");
+
+    // Create cars_stock table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `cars_stock` (
+        `id` int(11) NOT NULL AUTO_INCREMENT,
+        `notes` text DEFAULT NULL,
+        `id_buy_details` int(11) DEFAULT NULL,
+        `date_sell` datetime DEFAULT NULL,
+        `id_client` int(11) DEFAULT NULL,
+        `price_cell` decimal(10,2) DEFAULT NULL,
+        `freight` decimal(10,2) DEFAULT NULL,
+        `id_port_loading` int(11) DEFAULT NULL,
+        `id_port_discharge` int(11) DEFAULT NULL,
+        `vin` varchar(255) DEFAULT NULL,
+        `path_documents` varchar(255) DEFAULT NULL,
+        `date_loding` datetime DEFAULT NULL,
+        `date_send_documents` datetime DEFAULT NULL,
+        `hidden` tinyint(1) DEFAULT 0,
+        `id_sell_pi` varchar(255) DEFAULT NULL,
+        `sell_pi_path` varchar(255) DEFAULT NULL,
+        `buy_pi_path` varchar(255) DEFAULT NULL,
+        `id_sell` int(11) DEFAULT NULL,
+        `export_lisence_ref` varchar(255) DEFAULT NULL,
+        `id_warehouse` int(11) DEFAULT NULL,
+        `in_wharhouse_date` date DEFAULT NULL,
+        `date_get_documents_from_supp` date DEFAULT NULL,
+        `date_get_keys_from_supp` date DEFAULT NULL,
+        `rate` decimal(10,2) DEFAULT NULL,
+        `date_get_bl` date DEFAULT NULL,
+        `date_pay_freight` date DEFAULT NULL,
+        PRIMARY KEY (`id`),
+        KEY `id_client` (`id_client`),
+        KEY `id_port_loading` (`id_port_loading`),
+        KEY `id_port_discharge` (`id_port_discharge`),
+        KEY `id_buy_details` (`id_buy_details`),
+        CONSTRAINT `cars_stock_ibfk_1` FOREIGN KEY (`id_client`) REFERENCES `clients` (`id`),
+        CONSTRAINT `cars_stock_ibfk_2` FOREIGN KEY (`id_port_loading`) REFERENCES `loading_ports` (`id`),
+        CONSTRAINT `cars_stock_ibfk_3` FOREIGN KEY (`id_port_discharge`) REFERENCES `discharge_ports` (`id`),
+        CONSTRAINT `cars_stock_ibfk_4` FOREIGN KEY (`id_buy_details`) REFERENCES `buy_details` (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci");
+
+    // Create clients table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `clients` (
+        `id` int(11) NOT NULL AUTO_INCREMENT,
+        `name` varchar(255) NOT NULL,
+        `address` varchar(255) DEFAULT NULL,
+        `email` varchar(255) DEFAULT NULL,
+        `mobiles` varchar(255) NOT NULL,
+        `id_copy_path` varchar(255) DEFAULT NULL,
+        `id_no` varchar(255) DEFAULT NULL,
+        `is_broker` tinyint(1) DEFAULT 0,
+        PRIMARY KEY (`id`),
+        UNIQUE KEY `client_name_unic` (`name`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci");
+
+    // Create colors table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `colors` (
+        `id` int(11) NOT NULL AUTO_INCREMENT,
+        `color` varchar(255) DEFAULT NULL,
+        PRIMARY KEY (`id`),
+        UNIQUE KEY `color` (`color`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci");
+
+    // Create discharge_ports table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `discharge_ports` (
+        `id` int(11) NOT NULL AUTO_INCREMENT,
+        `discharge_port` varchar(255) DEFAULT NULL,
+        PRIMARY KEY (`id`),
+        UNIQUE KEY `discharge_port` (`discharge_port`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci");
+
+    // Create loading_ports table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `loading_ports` (
+        `id` int(11) NOT NULL AUTO_INCREMENT,
+        `loading_port` varchar(255) DEFAULT NULL,
+        PRIMARY KEY (`id`),
+        UNIQUE KEY `loading_port` (`loading_port`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci");
 
     // Create permissions table
-    $pdo->exec("CREATE TABLE IF NOT EXISTS permissions (
-        id INT PRIMARY KEY AUTO_INCREMENT,
-        permission_name VARCHAR(50) NOT NULL UNIQUE,
-        description TEXT
-    )");
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `permissions` (
+        `id` int(11) NOT NULL AUTO_INCREMENT,
+        `permission_name` varchar(255) NOT NULL,
+        `description` text DEFAULT NULL,
+        PRIMARY KEY (`id`),
+        UNIQUE KEY `permission_name` (`permission_name`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci");
 
-    // Create users table
-    $pdo->exec("CREATE TABLE IF NOT EXISTS users (
-        id INT PRIMARY KEY AUTO_INCREMENT,
-        username VARCHAR(50) NOT NULL UNIQUE,
-        email VARCHAR(100) NOT NULL UNIQUE,
-        password VARCHAR(255) NOT NULL,
-        role_id INT,
-        FOREIGN KEY (role_id) REFERENCES roles(id)
-    )");
+    // Create rates table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `rates` (
+        `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+        `rate` decimal(10,2) DEFAULT NULL,
+        `created_on` timestamp NULL DEFAULT NULL,
+        `id_user` int DEFAULT NULL,
+        `notes` text,
+        PRIMARY KEY (`id`),
+        KEY `id_user` (`id_user`),
+        CONSTRAINT `rates_ibfk_1` FOREIGN KEY (`id_user`) REFERENCES `users` (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci");
 
     // Create role_permissions table
-    $pdo->exec("CREATE TABLE IF NOT EXISTS role_permissions (
-        role_id INT,
-        permission_id INT,
-        PRIMARY KEY (role_id, permission_id),
-        FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE,
-        FOREIGN KEY (permission_id) REFERENCES permissions(id) ON DELETE CASCADE
-    )");
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `role_permissions` (
+        `id` int(11) NOT NULL AUTO_INCREMENT,
+        `role_id` int(11) NOT NULL,
+        `permission_id` int(11) NOT NULL,
+        PRIMARY KEY (`id`),
+        UNIQUE KEY `role_permission_unique` (`role_id`,`permission_id`),
+        KEY `permission_id` (`permission_id`),
+        CONSTRAINT `role_permissions_ibfk_1` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`) ON DELETE CASCADE,
+        CONSTRAINT `role_permissions_ibfk_2` FOREIGN KEY (`permission_id`) REFERENCES `permissions` (`id`) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci");
+
+    // Create roles table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `roles` (
+        `id` int(11) NOT NULL AUTO_INCREMENT,
+        `role_name` varchar(255) NOT NULL,
+        `description` text DEFAULT NULL,
+        PRIMARY KEY (`id`),
+        UNIQUE KEY `role_name` (`role_name`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci");
+
+    // Create sell_bill table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `sell_bill` (
+        `id` int(11) NOT NULL AUTO_INCREMENT,
+        `id_client` int(11) DEFAULT NULL,
+        `date_sell` datetime DEFAULT NULL,
+        `amount` decimal(10,2) DEFAULT NULL,
+        `payed` decimal(10,2) DEFAULT NULL,
+        `pi_path` varchar(255) DEFAULT NULL,
+        `bill_ref` varchar(255) DEFAULT NULL,
+        PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci");
+
+    // Create sell_payments table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `sell_payments` (
+        `id` int(11) NOT NULL AUTO_INCREMENT,
+        `id_sell_bill` int(11) DEFAULT NULL,
+        `date_payment` datetime DEFAULT NULL,
+        `amount_da` decimal(10,2) DEFAULT NULL,
+        `amount_usd` decimal(10,2) DEFAULT NULL,
+        `rate` decimal(10,2) DEFAULT NULL,
+        `swift_path` varchar(255) DEFAULT NULL,
+        `notes` text DEFAULT NULL,
+        PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci");
+
+    // Create suppliers table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `suppliers` (
+        `id` int(11) NOT NULL AUTO_INCREMENT,
+        `name` varchar(255) NOT NULL,
+        `address` varchar(255) DEFAULT NULL,
+        `email` varchar(255) DEFAULT NULL,
+        `mobiles` varchar(255) NOT NULL,
+        PRIMARY KEY (`id`),
+        UNIQUE KEY `supplier_name_unic` (`name`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci");
 
     // Create transfers table
-    $pdo->exec("CREATE TABLE IF NOT EXISTS transfers (
-        id INT PRIMARY KEY AUTO_INCREMENT,
-        id_user_do_transfer INT NOT NULL,
-        date_do_transfer DATETIME NOT NULL,
-        amount_sending_da DECIMAL(10,2) NOT NULL,
-        rate DECIMAL(10,2) NOT NULL,
-        id_user_receive_transfer INT ,
-        amount_received_usd DECIMAL(10,2) default 0.00,
-        date_receive DATETIME,
-        details_transfer JSON,
-        notes TEXT,
-        receiver_notes TEXT,
-        FOREIGN KEY (id_user_do_transfer) REFERENCES users(id)
-    )");
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `transfers` (
+        `id` int(11) NOT NULL AUTO_INCREMENT,
+        `id_user_do_transfer` int(11) DEFAULT NULL,
+        `id_user_receive_transfer` int(11) DEFAULT NULL,
+        `date_transfer` datetime DEFAULT NULL,
+        `date_receive` datetime DEFAULT NULL,
+        `amount_sending_da` decimal(10,2) DEFAULT NULL,
+        `amount_received_usd` decimal(10,2) DEFAULT NULL,
+        `rate` decimal(10,2) DEFAULT NULL,
+        `notes` text DEFAULT NULL,
+        `swift_path` varchar(255) DEFAULT NULL,
+        PRIMARY KEY (`id`),
+        KEY `id_user_do_transfer` (`id_user_do_transfer`),
+        CONSTRAINT `transfers_ibfk_1` FOREIGN KEY (`id_user_do_transfer`) REFERENCES `users` (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci");
+
+    // Create transfers_inter table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `transfers_inter` (
+        `id` int(11) NOT NULL AUTO_INCREMENT,
+        `from_user_id` int(11) DEFAULT NULL,
+        `to_user_id` int(11) DEFAULT NULL,
+        `amount` decimal(10,2) DEFAULT NULL,
+        `date_transfer` datetime DEFAULT NULL,
+        `notes` text DEFAULT NULL,
+        `id_admin_confirm` int(11) DEFAULT NULL,
+        `date_received` date DEFAULT NULL,
+        PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci");
+
+    // Create users table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `users` (
+        `id` int(11) NOT NULL AUTO_INCREMENT,
+        `username` varchar(255) NOT NULL,
+        `email` varchar(255) DEFAULT NULL,
+        `password` varchar(255) NOT NULL,
+        `role_id` int(11) DEFAULT NULL,
+        PRIMARY KEY (`id`),
+        UNIQUE KEY `username` (`username`),
+        KEY `role_id` (`role_id`),
+        CONSTRAINT `users_ibfk_1` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci");
+
+    // Create warehouses table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `warehouses` (
+        `id` int(11) NOT NULL AUTO_INCREMENT,
+        `warhouse_name` varchar(255) DEFAULT NULL,
+        `notes` text DEFAULT NULL,
+        PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci");
 
     // Insert default roles if not exist
     $stmt = $pdo->prepare("INSERT IGNORE INTO roles (role_name, description) VALUES 
@@ -78,13 +317,24 @@ try {
         ('is_exchange_sender', 'Can send exchange requests'),
         ('is_exchange_receiver', 'Can receive exchange requests'),
         ('can_manage_cars', 'Can manage cars inventory'),
-        ('can_edit_cars_prop',''),
-        ('can_edit_vin',''),
-        ('can_edit_car_client_name',''),
-        ('can_edit_cars_sell_price',''),
-        ('can_edit_cars_sell_rate',''),
-        ('can_edit_cars_discharge_port',''),
-        ('can_receive_car', 'Can mark cars as received in warehouse')
+        ('can_edit_cars_prop', 'Can edit car properties like brand, model, year, etc.'),
+        ('can_edit_vin', 'Can edit vehicle identification number'),
+        ('can_edit_car_client_name', 'Can modify client information for cars'),
+        ('can_edit_cars_sell_price', 'Can modify selling price of cars'),
+        ('can_edit_cars_sell_rate', 'Can modify exchange rates for car sales'),
+        ('can_edit_cars_discharge_port', 'Can modify discharge port information'),
+        ('can_upload_car_files', 'Can upload documents and files related to cars'),
+        ('can_edit_cars_ports', 'Can modify loading and discharge ports for cars'),
+        ('can_edit_car_money', 'Can modify financial information related to cars'),
+        ('can_receive_car', 'Can mark cars as received in warehouse'),
+        ('can_edit_car_documents', 'Can modify and manage car documentation'),
+        ('can_load_car', 'Can manage car loading operations'),
+        ('can_edit_sell_payments', 'Can modify payment information for sales'),
+        ('can_delete_sell_paymets', 'Can delete payment records for sales'),
+        ('can_c_sell_payments', 'Can create new payment records for sales'),
+        ('can_delete_sell_bill', 'Can delete sales invoices'),
+        ('can_edit_sell_bill', 'Can modify sales invoice information'),
+        ('can_access_cashier', 'Can access cashier functions and operations')
     ");
     $stmt->execute();
 
@@ -104,198 +354,7 @@ try {
     ");
     $stmt->execute();
 
-    // Create brands table
-    $pdo->exec("CREATE TABLE IF NOT EXISTS brands (
-        id INT PRIMARY KEY AUTO_INCREMENT,
-        brand VARCHAR(255) DEFAULT NULL,
-        UNIQUE KEY brand (brand)
-    )");
-
-    // Create colors table
-    $pdo->exec("CREATE TABLE IF NOT EXISTS colors (
-        id INT PRIMARY KEY AUTO_INCREMENT,
-        color VARCHAR(255) DEFAULT NULL,
-        UNIQUE KEY color (color)
-    )");
-
-    // Create discharge ports table
-    $pdo->exec("CREATE TABLE IF NOT EXISTS discharge_ports (
-        id INT PRIMARY KEY AUTO_INCREMENT,
-        discharge_port VARCHAR(255) DEFAULT NULL,
-        UNIQUE KEY discharge_port (discharge_port)
-    )");
-
-    // Create loading ports table
-    $pdo->exec("CREATE TABLE IF NOT EXISTS loading_ports (
-        id INT PRIMARY KEY AUTO_INCREMENT,
-        loading_port VARCHAR(255) DEFAULT NULL,
-        UNIQUE KEY loading_port (loading_port)
-    )");
-
-    // Create clients table
-    $pdo->exec("CREATE TABLE IF NOT EXISTS clients (
-        id INT PRIMARY KEY AUTO_INCREMENT,
-        name VARCHAR(255) NOT NULL,
-        address VARCHAR(255) DEFAULT NULL,
-        email VARCHAR(255) DEFAULT NULL,
-        mobiles VARCHAR(255) NOT NULL,
-        id_copy_path VARCHAR(255) DEFAULT NULL,
-        id_no VARCHAR(255) DEFAULT NULL,
-        is_broker TINYINT(1) DEFAULT 0
-    )");
-
-    // Create suppliers table
-    $pdo->exec("CREATE TABLE IF NOT EXISTS suppliers (
-        id INT PRIMARY KEY AUTO_INCREMENT,
-        name VARCHAR(255) DEFAULT NULL,
-        contact_info TEXT DEFAULT NULL,
-        notes TEXT DEFAULT NULL
-    )");
-
-    // Create cars_names table
-    $pdo->exec("CREATE TABLE IF NOT EXISTS cars_names (
-        id INT NOT NULL AUTO_INCREMENT,
-        car_name VARCHAR(255) DEFAULT NULL,
-        id_brand INT DEFAULT NULL,
-        notes TEXT,
-        is_big_car TINYINT(1) DEFAULT '0',
-        PRIMARY KEY (id),
-        UNIQUE KEY car_name (car_name),
-        FOREIGN KEY (id_brand) REFERENCES brands(id)
-    )");
-
-    // Create buy_bill table
-    $pdo->exec("CREATE TABLE IF NOT EXISTS buy_bill (
-        id INT PRIMARY KEY AUTO_INCREMENT,
-        id_supplier INT DEFAULT NULL,
-        date_buy DATETIME DEFAULT NULL,
-        amount DECIMAL(10,2) DEFAULT NULL,
-        payed DECIMAL(10,2) DEFAULT NULL,
-        pi_path VARCHAR(255) DEFAULT NULL,
-        FOREIGN KEY (id_supplier) REFERENCES suppliers(id)
-    )");
-
-    // Create buy_details table
-    $pdo->exec("CREATE TABLE IF NOT EXISTS buy_details (
-        id INT PRIMARY KEY AUTO_INCREMENT,
-        id_car_name INT DEFAULT NULL,
-        id_color INT DEFAULT NULL,
-        amount DECIMAL(10,2) DEFAULT NULL,
-        notes TEXT DEFAULT NULL,
-        QTY INT DEFAULT NULL,
-        year INT DEFAULT NULL,
-        month INT DEFAULT NULL,
-        is_used_car TINYINT(1) DEFAULT 0,
-        id_buy_bill INT DEFAULT NULL,
-        price_sell DECIMAL(10,2) DEFAULT NULL,
-        FOREIGN KEY (id_car_name) REFERENCES cars_names(id),
-        FOREIGN KEY (id_color) REFERENCES colors(id),
-        FOREIGN KEY (id_buy_bill) REFERENCES buy_bill(id)
-    )");
-
-    // Create warhouse table
-    $pdo->exec("CREATE TABLE IF NOT EXISTS `warehouses` ( 
-       `id` int unsigned NOT NULL AUTO_INCREMENT, 
-       `warhouse_name` varchar(255) COLLATE utf8mb4_general_ci DEFAULT NULL, 
-       `notes` text COLLATE utf8mb4_general_ci, 
-       PRIMARY KEY (`id`) 
-     );"); 
-
-    // Update cars_stock table
-    $pdo->exec("CREATE TABLE IF NOT EXISTS `cars_stock` ( 
-       `id` int NOT NULL AUTO_INCREMENT, 
-       `notes` text, 
-       `id_buy_details` int DEFAULT NULL, 
-       `date_sell` datetime DEFAULT NULL, 
-       `id_client` int DEFAULT NULL, 
-       `price_cell` decimal(10,2) DEFAULT NULL, 
-       `freight` decimal(10,2) DEFAULT NULL, 
-       `id_port_loading` int DEFAULT NULL, 
-       `id_port_discharge` int DEFAULT NULL, 
-       `vin` varchar(255) DEFAULT NULL, 
-       `path_documents` varchar(255) DEFAULT NULL, 
-       `date_loding` datetime DEFAULT NULL, 
-       `date_send_documents` datetime DEFAULT NULL, 
-       `hidden` tinyint(1) DEFAULT '0', 
-       `id_sell_pi` varchar(255) DEFAULT NULL, 
-       `sell_pi_path` varchar(255) DEFAULT NULL, 
-       `buy_pi_path` varchar(255) DEFAULT NULL, 
-       `id_sell` int DEFAULT NULL, 
-       `export_lisence_ref` varchar(255) DEFAULT NULL, 
-       `id_warehouse` int DEFAULT NULL, 
-       `in_wharhouse_date` date DEFAULT NULL, 
-       `date_get_documents_from_supp` date DEFAULT NULL, 
-       `date_get_keys_from_supp` date DEFAULT NULL, 
-       `rate` decimal(10,0) DEFAULT NULL,
-       `date_pay_freight` date DEFAULT NULL,
-       `date_get_bl` date DEFAULT NULL,
-       PRIMARY KEY (`id`), 
-       KEY `id_client` (`id_client`), 
-       KEY `id_port_loading` (`id_port_loading`), 
-       KEY `id_port_discharge` (`id_port_discharge`), 
-       KEY `id_buy_details` (`id_buy_details`),
-       KEY `id_warehouse` (`id_warehouse`),
-       CONSTRAINT `cars_stock_ibfk_1` FOREIGN KEY (`id_client`) REFERENCES `clients` (`id`), 
-       CONSTRAINT `cars_stock_ibfk_2` FOREIGN KEY (`id_port_loading`) REFERENCES `loading_ports` (`id`), 
-       CONSTRAINT `cars_stock_ibfk_3` FOREIGN KEY (`id_port_discharge`) REFERENCES `discharge_ports` (`id`), 
-       CONSTRAINT `cars_stock_ibfk_4` FOREIGN KEY (`id_buy_details`) REFERENCES `buy_details` (`id`),
-       CONSTRAINT `cars_stock_ibfk_5` FOREIGN KEY (`id_warehouse`) REFERENCES `warehouses` (`id`)
-     );"); 
-
-    // Create buy_payments table
-    $pdo->exec("CREATE TABLE IF NOT EXISTS buy_payments (
-        id INT PRIMARY KEY AUTO_INCREMENT,
-        id_buy_bill INT DEFAULT NULL,
-        date_payment DATETIME DEFAULT NULL,
-        amount DECIMAL(10,2) DEFAULT NULL,
-        swift_path VARCHAR(255) DEFAULT NULL,
-        FOREIGN KEY (id_buy_bill) REFERENCES buy_bill(id)
-    )");
-
-    // Create sell_bill table
-    $pdo->exec("CREATE TABLE IF NOT EXISTS `sell_bill` (
-        `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-        `id_broker` int(11) DEFAULT NULL,
-        `date_sell` date DEFAULT NULL,
-        `notes` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
-        `id_user` int(11) DEFAULT NULL,
-        `path_pi` varchar(255) DEFAULT NULL,
-        `bill_ref` varchar(255) DEFAULT NULL,
-        PRIMARY KEY (`id`)
-    )");
-
-    // Create sell_payments table
-    $pdo->exec("CREATE TABLE IF NOT EXISTS sell_payments (
-        id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-        id_sell_bill INT DEFAULT NULL,
-        `amount-usd` DECIMAL(10,2) DEFAULT NULL,
-        amount_da DECIMAL(10,2) DEFAULT NULL,
-        rate DECIMAL(10,2) DEFAULT NULL,
-        date DATE DEFAULT NULL,
-        path_swift VARCHAR(255) COLLATE utf8mb4_general_ci DEFAULT NULL,
-        id_user INT DEFAULT NULL,
-        PRIMARY KEY (id)
-    )");
-
-    // Create banks table
-    $pdo->exec("CREATE TABLE IF NOT EXISTS banks (
-        id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-        company_name VARCHAR(255) COLLATE latin1_general_ci DEFAULT NULL,
-        bank_name VARCHAR(255) COLLATE latin1_general_ci DEFAULT NULL,
-        swift_code VARCHAR(255) COLLATE latin1_general_ci DEFAULT NULL,
-        bank_account VARCHAR(255) COLLATE latin1_general_ci DEFAULT NULL,
-        bank_address VARCHAR(255) COLLATE latin1_general_ci DEFAULT NULL,
-        notes TEXT COLLATE latin1_general_ci,
-        PRIMARY KEY (id)
-    )");
-
-    // Insert a default bank
-    $stmt = $pdo->prepare("INSERT IGNORE INTO banks (company_name, bank_name, swift_code, bank_account, bank_address) VALUES 
-        ('GROUP MERHAB LIMITED', 'GROUP MERHAB BANK', 'MERHAB123', '123456789', 'GUANGZHOU, CHINA')
-    ");
-    $stmt->execute();
-
-    echo json_encode(['success' => true, 'message' => 'Database setup completed successfully']);
+    echo json_encode(['success' => true, 'message' => 'Database and tables created successfully']);
 } catch (PDOException $e) {
     echo json_encode(['success' => false, 'error' => $e->getMessage()]);
 }

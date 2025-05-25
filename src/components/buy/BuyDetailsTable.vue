@@ -1,6 +1,6 @@
 <script setup>
-import { defineProps, defineEmits, ref } from 'vue'
-import { useApi } from '../composables/useApi'
+import { defineProps, defineEmits, ref, computed } from 'vue'
+import { useApi } from '../../composables/useApi'
 
 const { callApi, error, loading } = useApi()
 
@@ -19,6 +19,11 @@ const emit = defineEmits(['add-detail', 'delete-detail', 'update-detail'])
 
 const showEditDialog = ref(false)
 const editingDetail = ref(null)
+
+// Compute if stock is updated from the first detail
+const isStockUpdated = computed(() => {
+  return props.buyDetails[0]?.is_stock_updated === 1
+})
 
 const confirmDelete = (detailId, isStockUpdated) => {
   if (isStockUpdated) {
@@ -94,13 +99,21 @@ const showStockAlert = async () => {
         <button 
           @click="showStockAlert" 
           class="stock-btn"
-          :class="{ 'disabled': buyDetails[0]?.is_stock_updated }"
-          :disabled="buyDetails[0]?.is_stock_updated"
-          :title="buyDetails[0]?.is_stock_updated ? 'Stock has already been updated' : 'Update stock'"
+          :class="{ 'disabled': isStockUpdated }"
+          :disabled="isStockUpdated"
+          :title="isStockUpdated ? 'Stock has already been updated' : 'Update stock'"
         >
-          In Stock
+          Update Stock
         </button>
-        <button @click="$emit('add-detail')" class="add-btn">Add Detail</button>
+        <button 
+          @click="$emit('add-detail')" 
+          class="add-btn"
+          :class="{ 'disabled': isStockUpdated }"
+          :disabled="isStockUpdated"
+          :title="isStockUpdated ? 'Cannot add details - Stock has been updated' : 'Add new detail'"
+        >
+          Add Detail
+        </button>
       </div>
     </div>
     <table class="data-table">
@@ -438,6 +451,16 @@ const showStockAlert = async () => {
 
 .stock-btn.disabled:hover {
   background-color: #9ca3af;
+}
+
+.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+button.disabled {
+  background-color: #ccc;
+  pointer-events: none;
 }
 
 </style>
