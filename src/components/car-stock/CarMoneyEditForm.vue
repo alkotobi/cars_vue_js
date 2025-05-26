@@ -5,18 +5,19 @@ import { useApi } from '../../composables/useApi'
 const props = defineProps({
   car: {
     type: Object,
-    required: true
+    required: true,
   },
   show: {
     type: Boolean,
-    default: false
-  }
+    default: false,
+  },
 })
 
 const emit = defineEmits(['close', 'save'])
 const { callApi } = useApi()
 const loading = ref(false)
 const error = ref(null)
+const isProcessing = ref(false)
 
 // Form fields
 const price = ref(props.car.price_cell || '')
@@ -24,6 +25,7 @@ const freight = ref(props.car.freight || '')
 const rate = ref(props.car.rate || '')
 
 const handleSubmit = async () => {
+  if (isProcessing.value || loading.value) return
   // Validate inputs
   if (price.value && isNaN(parseFloat(price.value))) {
     error.value = 'Price must be a valid number'
@@ -39,46 +41,47 @@ const handleSubmit = async () => {
   }
 
   loading.value = true
+  isProcessing.value = true
   error.value = null
 
   try {
     const updates = []
     const params = []
-    
+
     if (price.value !== '') {
       updates.push('price_cell = ?')
       params.push(parseFloat(price.value))
     }
-    
+
     if (freight.value !== '') {
       updates.push('freight = ?')
       params.push(parseFloat(freight.value))
     }
-    
+
     if (rate.value !== '') {
       updates.push('rate = ?')
       params.push(parseFloat(rate.value))
     }
-    
+
     if (updates.length === 0) {
       error.value = 'Please fill at least one field to update'
       loading.value = false
       return
     }
-    
+
     params.push(props.car.id)
 
     const result = await callApi({
       query: `UPDATE cars_stock SET ${updates.join(', ')} WHERE id = ?`,
-      params
+      params,
     })
 
     if (result.success) {
-      const updatedCar = { 
+      const updatedCar = {
         ...props.car,
         price_cell: price.value !== '' ? parseFloat(price.value) : props.car.price_cell,
         freight: freight.value !== '' ? parseFloat(freight.value) : props.car.freight,
-        rate: rate.value !== '' ? parseFloat(rate.value) : props.car.rate
+        rate: rate.value !== '' ? parseFloat(rate.value) : props.car.rate,
       }
       emit('save', updatedCar)
       emit('close')
@@ -89,6 +92,7 @@ const handleSubmit = async () => {
     error.value = err.message || 'An error occurred'
   } finally {
     loading.value = false
+    isProcessing.value = false
   }
 }
 
@@ -103,18 +107,28 @@ const closeModal = () => {
 
 <template>
   <div v-if="show" class="modal-overlay">
-    <div class="modal-content">
+    <div class="modal-content" :class="{ 'is-processing': isProcessing }">
       <div class="modal-header">
-        <h3>Edit Money Fields</h3>
-        <button class="close-btn" @click="closeModal">&times;</button>
+        <h3>
+          <i class="fas fa-dollar-sign"></i>
+          Edit Money Fields
+        </h3>
+        <button class="close-btn" @click="closeModal" :disabled="isProcessing">
+          <i class="fas fa-times"></i>
+        </button>
       </div>
 
       <div class="modal-body">
         <div class="form-group">
-          <label for="price">Price:</label>
+          <label for="price">
+            <i class="fas fa-tag"></i>
+            Price:
+          </label>
           <div class="input-group">
-            <span class="currency-symbol">$</span>
-            <input 
+            <span class="currency-symbol">
+              <i class="fas fa-dollar-sign"></i>
+            </span>
+            <input
               type="number"
               id="price"
               v-model="price"
@@ -122,15 +136,21 @@ const closeModal = () => {
               step="0.01"
               min="0"
               class="input-field"
+              :disabled="isProcessing"
             />
           </div>
         </div>
 
         <div class="form-group">
-          <label for="freight">Freight:</label>
+          <label for="freight">
+            <i class="fas fa-ship"></i>
+            Freight:
+          </label>
           <div class="input-group">
-            <span class="currency-symbol">$</span>
-            <input 
+            <span class="currency-symbol">
+              <i class="fas fa-dollar-sign"></i>
+            </span>
+            <input
               type="number"
               id="freight"
               v-model="freight"
@@ -138,14 +158,18 @@ const closeModal = () => {
               step="0.01"
               min="0"
               class="input-field"
+              :disabled="isProcessing"
             />
           </div>
         </div>
 
         <div class="form-group">
-          <label for="rate">Rate:</label>
+          <label for="rate">
+            <i class="fas fa-percentage"></i>
+            Rate:
+          </label>
           <div class="input-group">
-            <input 
+            <input
               type="number"
               id="rate"
               v-model="rate"
@@ -153,29 +177,34 @@ const closeModal = () => {
               step="0.01"
               min="0"
               class="input-field"
+              :disabled="isProcessing"
             />
+            <span class="rate-symbol">
+              <i class="fas fa-percent"></i>
+            </span>
           </div>
         </div>
 
         <div v-if="error" class="error-message">
+          <i class="fas fa-exclamation-circle"></i>
           {{ error }}
         </div>
       </div>
 
       <div class="modal-footer">
-        <button 
-          class="cancel-btn" 
-          @click="closeModal"
-          :disabled="loading"
-        >
+        <button class="cancel-btn" @click="closeModal" :disabled="isProcessing">
+          <i class="fas fa-times"></i>
           Cancel
         </button>
-        <button 
-          class="save-btn" 
+        <button
+          class="save-btn"
           @click="handleSubmit"
-          :disabled="loading"
+          :disabled="isProcessing"
+          :class="{ 'is-processing': isProcessing }"
         >
-          {{ loading ? 'Saving...' : 'Save Changes' }}
+          <i class="fas fa-save"></i>
+          <span>{{ isProcessing ? 'Saving...' : 'Save Changes' }}</span>
+          <i v-if="isProcessing" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
       </div>
     </div>
@@ -231,37 +260,54 @@ const closeModal = () => {
 }
 
 .form-group label {
-  display: block;
-  margin-bottom: 8px;
-  font-weight: 500;
-  color: #374151;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.form-group label i {
+  color: #6b7280;
+  width: 16px;
+  text-align: center;
 }
 
 .input-group {
   display: flex;
   align-items: center;
   width: 100%;
+  position: relative;
+}
+
+.currency-symbol,
+.rate-symbol {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 38px;
+  background-color: #f3f4f6;
+  border: 1px solid #d1d5db;
+  color: #6b7280;
 }
 
 .currency-symbol {
-  padding: 8px 12px;
-  background-color: #f3f4f6;
-  border: 1px solid #d1d5db;
   border-right: none;
-  border-radius: 4px 0 0 4px;
-  color: #6b7280;
+  border-top-left-radius: 4px;
+  border-bottom-left-radius: 4px;
+}
+
+.rate-symbol {
+  border-left: none;
+  border-top-right-radius: 4px;
+  border-bottom-right-radius: 4px;
 }
 
 .input-field {
   flex: 1;
   padding: 8px 12px;
   border: 1px solid #d1d5db;
-  border-radius: 0 4px 4px 0;
   font-size: 14px;
-}
-
-.input-field:not(.currency-input) {
-  border-radius: 4px;
+  transition: all 0.2s ease;
 }
 
 .input-field:focus {
@@ -270,10 +316,35 @@ const closeModal = () => {
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
 }
 
+.input-field:disabled {
+  background-color: #f3f4f6;
+  cursor: not-allowed;
+}
+
+.input-field[type='number'] {
+  -moz-appearance: textfield;
+}
+
+.input-field[type='number']::-webkit-outer-spin-button,
+.input-field[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 .error-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   color: #ef4444;
-  margin-bottom: 16px;
+  margin: 16px 0;
+  padding: 12px;
+  background-color: #fee2e2;
+  border-radius: 4px;
   font-size: 14px;
+}
+
+.error-message i {
+  font-size: 1.1em;
 }
 
 .modal-footer {
@@ -283,12 +354,17 @@ const closeModal = () => {
   margin-top: 20px;
 }
 
-.cancel-btn, .save-btn {
+.cancel-btn,
+.save-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   padding: 8px 16px;
   border-radius: 4px;
   font-size: 14px;
   cursor: pointer;
   border: none;
+  transition: all 0.2s ease;
 }
 
 .cancel-btn {
@@ -301,16 +377,52 @@ const closeModal = () => {
   color: white;
 }
 
-.cancel-btn:hover {
+.cancel-btn:hover:not(:disabled) {
   background-color: #e5e7eb;
 }
 
-.save-btn:hover {
+.save-btn:hover:not(:disabled) {
   background-color: #2563eb;
 }
 
-button:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
+.save-btn.is-processing {
+  position: relative;
 }
-</style> 
+
+.save-btn.is-processing::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: inherit;
+}
+
+.loading-indicator {
+  margin-left: 4px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.fa-spin {
+  animation: spin 1s linear infinite;
+}
+
+.modal-content.is-processing {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.modal-header h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modal-header h3 i {
+  color: #3b82f6;
+}
+</style>

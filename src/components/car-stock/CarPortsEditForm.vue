@@ -5,12 +5,12 @@ import { useApi } from '../../composables/useApi'
 const props = defineProps({
   car: {
     type: Object,
-    required: true
+    required: true,
   },
   show: {
     type: Boolean,
-    default: false
-  }
+    default: false,
+  },
 })
 
 const emit = defineEmits(['close', 'save'])
@@ -26,13 +26,17 @@ const dischargePorts = ref([])
 const selectedLoadingPort = ref(props.car.id_port_loading || '')
 const selectedDischargePort = ref(props.car.id_port_discharge || '')
 
+const isProcessing = ref(false)
+const isFetchingPorts = ref(false)
+
 // Fetch ports data
 const fetchPorts = async () => {
+  isFetchingPorts.value = true
   try {
     // Fetch loading ports
     const loadingPortsResult = await callApi({
       query: 'SELECT id, loading_port FROM loading_ports ORDER BY loading_port',
-      params: []
+      params: [],
     })
     if (loadingPortsResult.success) {
       loadingPorts.value = loadingPortsResult.data
@@ -41,7 +45,7 @@ const fetchPorts = async () => {
     // Fetch discharge ports
     const dischargePortsResult = await callApi({
       query: 'SELECT id, discharge_port FROM discharge_ports ORDER BY discharge_port',
-      params: []
+      params: [],
     })
     if (dischargePortsResult.success) {
       dischargePorts.value = dischargePortsResult.data
@@ -49,53 +53,61 @@ const fetchPorts = async () => {
   } catch (err) {
     error.value = 'Failed to load ports data'
     console.error('Error fetching ports:', err)
+  } finally {
+    isFetchingPorts.value = false
   }
 }
 
 const handleSubmit = async () => {
+  if (isProcessing.value || loading.value) return
   if (!selectedLoadingPort.value && !selectedDischargePort.value) {
     error.value = 'Please select at least one port to update'
     return
   }
 
   loading.value = true
+  isProcessing.value = true
   error.value = null
 
   try {
     const updates = []
     const params = []
-    
+
     if (selectedLoadingPort.value) {
       updates.push('id_port_loading = ?')
       params.push(selectedLoadingPort.value)
     }
-    
+
     if (selectedDischargePort.value) {
       updates.push('id_port_discharge = ?')
       params.push(selectedDischargePort.value)
     }
-    
+
     params.push(props.car.id)
 
     const result = await callApi({
       query: `UPDATE cars_stock SET ${updates.join(', ')} WHERE id = ?`,
-      params
+      params,
     })
 
     if (result.success) {
       // Find the port names for the response
       const updatedCar = { ...props.car }
       if (selectedLoadingPort.value) {
-        const loadingPort = loadingPorts.value.find(p => p.id === parseInt(selectedLoadingPort.value))
+        const loadingPort = loadingPorts.value.find(
+          (p) => p.id === parseInt(selectedLoadingPort.value),
+        )
         updatedCar.loading_port = loadingPort?.loading_port
         updatedCar.id_port_loading = parseInt(selectedLoadingPort.value)
       }
       if (selectedDischargePort.value) {
-        const dischargePort = dischargePorts.value.find(p => p.id === parseInt(selectedDischargePort.value))
+        const dischargePort = dischargePorts.value.find(
+          (p) => p.id === parseInt(selectedDischargePort.value),
+        )
         updatedCar.discharge_port = dischargePort?.discharge_port
         updatedCar.id_port_discharge = parseInt(selectedDischargePort.value)
       }
-      
+
       emit('save', updatedCar)
       emit('close')
     } else {
@@ -105,6 +117,7 @@ const handleSubmit = async () => {
     error.value = err.message || 'An error occurred'
   } finally {
     loading.value = false
+    isProcessing.value = false
   }
 }
 
@@ -121,68 +134,87 @@ onMounted(fetchPorts)
 
 <template>
   <div v-if="show" class="modal-overlay">
-    <div class="modal-content">
+    <div class="modal-content" :class="{ 'is-processing': isProcessing }">
       <div class="modal-header">
-        <h3>Edit Ports</h3>
-        <button class="close-btn" @click="closeModal">&times;</button>
+        <h3>
+          <i class="fas fa-anchor"></i>
+          Edit Ports
+        </h3>
+        <button class="close-btn" @click="closeModal" :disabled="isProcessing">
+          <i class="fas fa-times"></i>
+        </button>
       </div>
 
       <div class="modal-body">
-        <div class="form-group">
-          <label for="loading-port">Loading Port:</label>
-          <select 
-            id="loading-port" 
-            v-model="selectedLoadingPort"
-            class="select-field"
-          >
-            <option value="">Select Loading Port</option>
-            <option 
-              v-for="port in loadingPorts" 
-              :key="port.id" 
-              :value="port.id"
-            >
-              {{ port.loading_port }}
-            </option>
-          </select>
+        <div v-if="isFetchingPorts" class="loading-state">
+          <i class="fas fa-spinner fa-spin"></i>
+          Loading ports data...
         </div>
 
-        <div class="form-group">
-          <label for="discharge-port">Discharge Port:</label>
-          <select 
-            id="discharge-port" 
-            v-model="selectedDischargePort"
-            class="select-field"
-          >
-            <option value="">Select Discharge Port</option>
-            <option 
-              v-for="port in dischargePorts" 
-              :key="port.id" 
-              :value="port.id"
-            >
-              {{ port.discharge_port }}
-            </option>
-          </select>
-        </div>
+        <template v-else>
+          <div class="form-group">
+            <label for="loading-port">
+              <i class="fas fa-ship"></i>
+              Loading Port:
+            </label>
+            <div class="select-wrapper">
+              <select
+                id="loading-port"
+                v-model="selectedLoadingPort"
+                class="select-field"
+                :disabled="isProcessing"
+              >
+                <option value="">Select Loading Port</option>
+                <option v-for="port in loadingPorts" :key="port.id" :value="port.id">
+                  {{ port.loading_port }}
+                </option>
+              </select>
+              <i class="fas fa-chevron-down select-arrow"></i>
+            </div>
+          </div>
 
-        <div v-if="error" class="error-message">
-          {{ error }}
-        </div>
+          <div class="form-group">
+            <label for="discharge-port">
+              <i class="fas fa-anchor"></i>
+              Discharge Port:
+            </label>
+            <div class="select-wrapper">
+              <select
+                id="discharge-port"
+                v-model="selectedDischargePort"
+                class="select-field"
+                :disabled="isProcessing"
+              >
+                <option value="">Select Discharge Port</option>
+                <option v-for="port in dischargePorts" :key="port.id" :value="port.id">
+                  {{ port.discharge_port }}
+                </option>
+              </select>
+              <i class="fas fa-chevron-down select-arrow"></i>
+            </div>
+          </div>
+
+          <div v-if="error" class="error-message">
+            <i class="fas fa-exclamation-circle"></i>
+            {{ error }}
+          </div>
+        </template>
       </div>
 
       <div class="modal-footer">
-        <button 
-          class="cancel-btn" 
-          @click="closeModal"
-          :disabled="loading"
-        >
+        <button class="cancel-btn" @click="closeModal" :disabled="isProcessing">
+          <i class="fas fa-times"></i>
           Cancel
         </button>
-        <button 
-          class="save-btn" 
+        <button
+          class="save-btn"
           @click="handleSubmit"
-          :disabled="loading"
+          :disabled="isProcessing || isFetchingPorts"
+          :class="{ 'is-processing': isProcessing }"
         >
-          {{ loading ? 'Saving...' : 'Save Changes' }}
+          <i class="fas fa-save"></i>
+          <span>{{ isProcessing ? 'Saving...' : 'Save Changes' }}</span>
+          <i v-if="isProcessing" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
       </div>
     </div>
@@ -238,19 +270,40 @@ onMounted(fetchPorts)
 }
 
 .form-group label {
-  display: block;
-  margin-bottom: 8px;
-  font-weight: 500;
-  color: #374151;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.form-group label i {
+  color: #6b7280;
+  width: 16px;
+  text-align: center;
+}
+
+.select-wrapper {
+  position: relative;
+}
+
+.select-arrow {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #6b7280;
+  pointer-events: none;
 }
 
 .select-field {
   width: 100%;
   padding: 8px 12px;
+  padding-right: 32px;
   border: 1px solid #d1d5db;
   border-radius: 4px;
   font-size: 14px;
+  appearance: none;
   background-color: white;
+  transition: all 0.2s ease;
 }
 
 .select-field:focus {
@@ -259,10 +312,25 @@ onMounted(fetchPorts)
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
 }
 
+.select-field:disabled {
+  background-color: #f3f4f6;
+  cursor: not-allowed;
+}
+
 .error-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   color: #ef4444;
-  margin-bottom: 16px;
+  margin: 16px 0;
+  padding: 12px;
+  background-color: #fee2e2;
+  border-radius: 4px;
   font-size: 14px;
+}
+
+.error-message i {
+  font-size: 1.1em;
 }
 
 .modal-footer {
@@ -272,12 +340,17 @@ onMounted(fetchPorts)
   margin-top: 20px;
 }
 
-.cancel-btn, .save-btn {
+.cancel-btn,
+.save-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   padding: 8px 16px;
   border-radius: 4px;
   font-size: 14px;
   cursor: pointer;
   border: none;
+  transition: all 0.2s ease;
 }
 
 .cancel-btn {
@@ -290,16 +363,67 @@ onMounted(fetchPorts)
   color: white;
 }
 
-.cancel-btn:hover {
+.cancel-btn:hover:not(:disabled) {
   background-color: #e5e7eb;
 }
 
-.save-btn:hover {
+.save-btn:hover:not(:disabled) {
   background-color: #2563eb;
 }
 
-button:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
+.save-btn.is-processing {
+  position: relative;
 }
-</style> 
+
+.save-btn.is-processing::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: inherit;
+}
+
+.loading-indicator {
+  margin-left: 4px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.fa-spin {
+  animation: spin 1s linear infinite;
+}
+
+.modal-content.is-processing {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.modal-header h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modal-header h3 i {
+  color: #3b82f6;
+}
+
+.loading-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 40px;
+  color: #6b7280;
+  font-size: 16px;
+}
+
+.loading-state i {
+  color: #3b82f6;
+  font-size: 24px;
+}
+</style>

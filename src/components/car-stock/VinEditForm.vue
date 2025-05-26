@@ -5,12 +5,12 @@ import { useApi } from '../../composables/useApi'
 const props = defineProps({
   car: {
     type: Object,
-    required: true
+    required: true,
   },
   show: {
     type: Boolean,
-    default: false
-  }
+    default: false,
+  },
 })
 
 const emit = defineEmits(['close', 'save'])
@@ -18,20 +18,23 @@ const { callApi } = useApi()
 const newVin = ref('')
 const loading = ref(false)
 const error = ref(null)
+const isProcessing = ref(false)
 
 const handleSubmit = async () => {
+  if (isProcessing.value || loading.value) return
   if (!newVin.value.trim()) {
     error.value = 'VIN number is required'
     return
   }
 
   loading.value = true
+  isProcessing.value = true
   error.value = null
 
   try {
     const result = await callApi({
       query: 'UPDATE cars_stock SET vin = ? WHERE id = ?',
-      params: [newVin.value.trim(), props.car.id]
+      params: [newVin.value.trim(), props.car.id],
     })
 
     if (result.success) {
@@ -44,6 +47,7 @@ const handleSubmit = async () => {
     error.value = err.message || 'An error occurred'
   } finally {
     loading.value = false
+    isProcessing.value = false
   }
 }
 
@@ -56,54 +60,71 @@ const closeModal = () => {
 
 <template>
   <div v-if="show" class="modal-overlay">
-    <div class="modal-content">
+    <div class="modal-content" :class="{ 'is-processing': isProcessing }">
       <div class="modal-header">
-        <h3>Edit VIN Number</h3>
-        <button class="close-btn" @click="closeModal">&times;</button>
+        <h3>
+          <i class="fas fa-barcode"></i>
+          Edit VIN Number
+        </h3>
+        <button class="close-btn" @click="closeModal" :disabled="isProcessing">
+          <i class="fas fa-times"></i>
+        </button>
       </div>
 
       <div class="modal-body">
         <div class="form-group">
-          <label for="current-vin">Current VIN:</label>
-          <input 
-            type="text" 
-            id="current-vin" 
-            :value="car.vin || 'N/A'" 
-            disabled 
-            class="input-disabled"
-          />
+          <label for="current-vin">
+            <i class="fas fa-tag"></i>
+            Current VIN:
+          </label>
+          <div class="input-wrapper">
+            <input
+              type="text"
+              id="current-vin"
+              :value="car.vin || 'N/A'"
+              disabled
+              class="input-disabled"
+            />
+          </div>
         </div>
 
         <div class="form-group">
-          <label for="new-vin">New VIN:</label>
-          <input 
-            type="text" 
-            id="new-vin" 
-            v-model="newVin" 
-            placeholder="Enter new VIN number"
-            class="input-field"
-          />
+          <label for="new-vin">
+            <i class="fas fa-edit"></i>
+            New VIN:
+          </label>
+          <div class="input-wrapper">
+            <input
+              type="text"
+              id="new-vin"
+              v-model="newVin"
+              placeholder="Enter new VIN number"
+              class="input-field"
+              :disabled="isProcessing"
+            />
+          </div>
         </div>
 
         <div v-if="error" class="error-message">
+          <i class="fas fa-exclamation-circle"></i>
           {{ error }}
         </div>
       </div>
 
       <div class="modal-footer">
-        <button 
-          class="cancel-btn" 
-          @click="closeModal"
-          :disabled="loading"
-        >
+        <button class="cancel-btn" @click="closeModal" :disabled="isProcessing">
+          <i class="fas fa-times"></i>
           Cancel
         </button>
-        <button 
-          class="save-btn" 
+        <button
+          class="save-btn"
           @click="handleSubmit"
-          :disabled="loading"
+          :disabled="isProcessing"
+          :class="{ 'is-processing': isProcessing }"
         >
-          {{ loading ? 'Saving...' : 'Save Changes' }}
+          <i class="fas fa-save"></i>
+          <span>{{ isProcessing ? 'Saving...' : 'Save Changes' }}</span>
+          <i v-if="isProcessing" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
       </div>
     </div>
@@ -165,7 +186,8 @@ const closeModal = () => {
   color: #374151;
 }
 
-.input-field, .input-disabled {
+.input-field,
+.input-disabled {
   width: 100%;
   padding: 8px 12px;
   border: 1px solid #d1d5db;
@@ -185,9 +207,19 @@ const closeModal = () => {
 }
 
 .error-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   color: #ef4444;
   margin-bottom: 16px;
   font-size: 14px;
+  padding: 8px 12px;
+  background-color: #fee2e2;
+  border-radius: 4px;
+}
+
+.error-message i {
+  font-size: 1.1em;
 }
 
 .modal-footer {
@@ -197,12 +229,17 @@ const closeModal = () => {
   margin-top: 20px;
 }
 
-.cancel-btn, .save-btn {
+.cancel-btn,
+.save-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   padding: 8px 16px;
   border-radius: 4px;
   font-size: 14px;
   cursor: pointer;
   border: none;
+  transition: all 0.2s ease;
 }
 
 .cancel-btn {
@@ -227,4 +264,59 @@ button:disabled {
   opacity: 0.7;
   cursor: not-allowed;
 }
-</style> 
+
+.modal-content.is-processing {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-wrapper i {
+  position: absolute;
+  right: 12px;
+  color: #6b7280;
+}
+
+.form-group label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.form-group label i {
+  color: #6b7280;
+  width: 16px;
+  text-align: center;
+}
+
+.save-btn.is-processing {
+  position: relative;
+}
+
+.save-btn.is-processing::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: inherit;
+}
+
+.loading-indicator {
+  margin-left: 4px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.fa-spin {
+  animation: spin 1s linear infinite;
+}
+</style>
