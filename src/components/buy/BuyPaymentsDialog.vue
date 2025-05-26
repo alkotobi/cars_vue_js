@@ -5,17 +5,17 @@ import { useApi } from '../../composables/useApi'
 const props = defineProps({
   billId: {
     type: Number,
-    required: true
+    required: true,
   },
   show: {
     type: Boolean,
-    required: true
+    required: true,
   },
   totalAmount: {
     type: Number,
     required: true,
-    validator: (value) => !isNaN(value)
-  }
+    validator: (value) => !isNaN(value),
+  },
 })
 
 const emit = defineEmits(['update:show', 'payment-added', 'payment-updated'])
@@ -31,7 +31,7 @@ const paymentForm = ref({
   date_payment: new Date().toISOString().slice(0, 16),
   swift_path: '',
   notes: '',
-  swift_file: null
+  swift_file: null,
 })
 
 // User info
@@ -75,14 +75,8 @@ const handleSwiftFileChange = (event) => {
   const file = event.target.files[0]
   if (!file) return
 
-  const allowedTypes = [
-    'application/pdf',
-    'image/jpeg',
-    'image/png',
-    'image/gif',
-    'image/webp'
-  ]
-  
+  const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp']
+
   if (!allowedTypes.includes(file.type)) {
     alert('Only PDF and image files (JPEG, PNG, GIF, WEBP) are allowed')
     event.target.value = ''
@@ -96,7 +90,7 @@ const handleSwiftFileChange = (event) => {
 const fetchPayments = async () => {
   loading.value = true
   error.value = null
-  
+
   try {
     const result = await callApi({
       query: `
@@ -108,13 +102,13 @@ const fetchPayments = async () => {
         WHERE bp.id_buy_bill = ?
         ORDER BY bp.date_payment DESC
       `,
-      params: [props.billId]
+      params: [props.billId],
     })
-    
+
     if (result.success) {
-      payments.value = result.data.map(payment => ({
+      payments.value = result.data.map((payment) => ({
         ...payment,
-        amount: Number(payment.amount) || 0 // Ensure amount is a number with fallback
+        amount: Number(payment.amount) || 0, // Ensure amount is a number with fallback
       }))
     } else {
       error.value = result.error || 'Failed to fetch payments'
@@ -129,7 +123,7 @@ const fetchPayments = async () => {
 // Add payment with proper number handling
 const addPayment = async () => {
   if (!validateForm()) return
-  
+
   loading.value = true
   error.value = null
 
@@ -157,8 +151,8 @@ const addPayment = async () => {
         Number(paymentForm.value.amount), // Ensure amount is a number
         swiftPath,
         paymentForm.value.notes,
-        user.value.id
-      ]
+        user.value.id,
+      ],
     })
 
     if (result.success) {
@@ -173,7 +167,7 @@ const addPayment = async () => {
           )
           WHERE id = ?
         `,
-        params: [props.billId, props.billId]
+        params: [props.billId, props.billId],
       })
 
       await fetchPayments()
@@ -196,7 +190,7 @@ const resetForm = () => {
     date_payment: new Date().toISOString().slice(0, 16),
     swift_path: '',
     notes: '',
-    swift_file: null
+    swift_file: null,
   }
   error.value = null
 }
@@ -214,110 +208,178 @@ const formatNumber = (value) => {
 }
 
 // Watch for dialog show/hide
-watch(() => props.show, (newVal) => {
-  if (newVal) {
-    fetchPayments()
-  } else {
-    resetForm()
-  }
-})
+watch(
+  () => props.show,
+  (newVal) => {
+    if (newVal) {
+      fetchPayments()
+    } else {
+      resetForm()
+    }
+  },
+)
 </script>
 
 <template>
   <div v-if="show" class="dialog-overlay">
     <div class="dialog">
       <div class="dialog-header">
-        <h3>Payment Management</h3>
-        <button @click="$emit('update:show', false)" class="close-btn">&times;</button>
+        <h3>
+          <i class="fas fa-money-check-alt"></i>
+          Payment Management
+        </h3>
+        <button @click="$emit('update:show', false)" class="close-btn">
+          <i class="fas fa-times"></i>
+        </button>
       </div>
 
       <div class="dialog-content">
         <!-- Payment Summary -->
         <div class="payment-summary">
           <div class="summary-item">
+            <i class="fas fa-file-invoice-dollar"></i>
             <span>Total Amount:</span>
-            <span>{{ formatNumber(totalAmount) }}</span>
+            <span class="amount">{{ formatNumber(totalAmount) }}</span>
           </div>
           <div class="summary-item">
+            <i class="fas fa-check-circle"></i>
             <span>Total Paid:</span>
-            <span>{{ formatNumber(totalPayments) }}</span>
+            <span class="amount paid">{{ formatNumber(totalPayments) }}</span>
           </div>
           <div class="summary-item">
+            <i class="fas fa-balance-scale"></i>
             <span>Remaining:</span>
-            <span>{{ formatNumber(remainingBalance) }}</span>
+            <span class="amount remaining">{{ formatNumber(remainingBalance) }}</span>
           </div>
         </div>
 
-        <!-- Payment Form -->
+        <!-- Add Payment Form -->
         <form @submit.prevent="addPayment" class="payment-form">
+          <h4>
+            <i class="fas fa-plus-circle"></i>
+            Add New Payment
+          </h4>
+
           <div class="form-group">
-            <label>Amount</label>
-            <input 
-              type="number" 
+            <label for="amount">
+              <i class="fas fa-money-bill-wave"></i>
+              Amount
+            </label>
+            <input
+              type="number"
+              id="amount"
               v-model="paymentForm.amount"
               step="0.01"
               required
-            >
+              :disabled="loading"
+            />
           </div>
 
           <div class="form-group">
-            <label>Date</label>
-            <input 
-              type="datetime-local" 
+            <label for="date">
+              <i class="fas fa-calendar-alt"></i>
+              Payment Date
+            </label>
+            <input
+              type="datetime-local"
+              id="date"
               v-model="paymentForm.date_payment"
               required
-            >
+              :disabled="loading"
+            />
           </div>
 
           <div class="form-group">
-            <label>Swift Document</label>
-            <input 
+            <label for="swift">
+              <i class="fas fa-file-alt"></i>
+              Swift Document
+            </label>
+            <input
               type="file"
+              id="swift"
               @change="handleSwiftFileChange"
-              accept=".pdf,image/*"
-            >
+              accept=".pdf,.jpg,.jpeg,.png,.gif,.webp"
+              :disabled="loading"
+            />
+            <div v-if="paymentForm.swift_path" class="current-file">
+              <i class="fas fa-check-circle"></i>
+              Current: {{ paymentForm.swift_path.split('/').pop() }}
+            </div>
           </div>
 
           <div class="form-group">
-            <label>Notes</label>
-            <textarea 
+            <label for="notes">
+              <i class="fas fa-sticky-note"></i>
+              Notes
+            </label>
+            <textarea
+              id="notes"
               v-model="paymentForm.notes"
               rows="3"
+              :disabled="loading"
             ></textarea>
           </div>
 
-          <div class="error" v-if="error">{{ error }}</div>
+          <div v-if="error" class="error-message">
+            <i class="fas fa-exclamation-circle"></i>
+            {{ error }}
+          </div>
 
-          <button type="submit" :disabled="loading" class="submit-btn">
-            {{ loading ? 'Adding...' : 'Add Payment' }}
-          </button>
+          <div class="form-buttons">
+            <button type="submit" class="submit-btn" :disabled="loading">
+              <i class="fas fa-save"></i>
+              <span>{{ loading ? 'Adding Payment...' : 'Add Payment' }}</span>
+              <i v-if="loading" class="fas fa-spinner fa-spin"></i>
+            </button>
+          </div>
         </form>
 
         <!-- Payments List -->
         <div class="payments-list">
-          <h4>Payment History</h4>
-          <div v-if="loading" class="loading">Loading...</div>
-          <table v-else>
+          <h4>
+            <i class="fas fa-history"></i>
+            Payment History
+          </h4>
+
+          <div v-if="loading" class="loading-state">
+            <i class="fas fa-spinner fa-spin"></i>
+            Loading payments...
+          </div>
+
+          <table v-else class="data-table">
             <thead>
               <tr>
-                <th>Date</th>
-                <th>Amount</th>
-                <th>Notes</th>
-                <th>Created By</th>
+                <th><i class="fas fa-calendar"></i> Date</th>
+                <th><i class="fas fa-money-bill-wave"></i> Amount</th>
+                <th><i class="fas fa-file-alt"></i> Swift</th>
+                <th><i class="fas fa-user"></i> Created By</th>
+                <th><i class="fas fa-sticky-note"></i> Notes</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="payment in payments" :key="payment.id">
                 <td>{{ formatDate(payment.date_payment) }}</td>
                 <td>{{ formatNumber(payment.amount) }}</td>
-                <td>{{ payment.notes || '-' }}</td>
+                <td>
+                  <a
+                    v-if="payment.swift_path"
+                    :href="getFileUrl(payment.swift_path)"
+                    target="_blank"
+                    class="swift-link"
+                  >
+                    <i class="fas fa-file-pdf"></i>
+                    View Swift
+                  </a>
+                  <span v-else class="no-document">
+                    <i class="fas fa-times-circle"></i>
+                    No document
+                  </span>
+                </td>
                 <td>{{ payment.created_by }}</td>
+                <td>{{ payment.notes || '-' }}</td>
               </tr>
             </tbody>
           </table>
-          <div v-if="!loading && payments.length === 0" class="no-data">
-            No payments found
-          </div>
         </div>
       </div>
     </div>
@@ -345,33 +407,50 @@ watch(() => props.show, (newVal) => {
   max-width: 800px;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
 .dialog-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 24px;
+  padding: 20px;
   border-bottom: 1px solid #e5e7eb;
+  position: sticky;
+  top: 0;
+  background-color: white;
+  z-index: 1;
 }
 
 .dialog-header h3 {
   margin: 0;
   font-size: 1.25rem;
-  color: #111827;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dialog-header h3 i {
+  color: #3b82f6;
 }
 
 .close-btn {
   background: none;
   border: none;
-  font-size: 1.5rem;
-  cursor: pointer;
   color: #6b7280;
+  cursor: pointer;
+  font-size: 1.25rem;
+  padding: 4px;
+  transition: color 0.2s ease;
+}
+
+.close-btn:hover {
+  color: #374151;
 }
 
 .dialog-content {
-  padding: 24px;
+  padding: 20px;
 }
 
 .payment-summary {
@@ -379,30 +458,58 @@ watch(() => props.show, (newVal) => {
   grid-template-columns: repeat(3, 1fr);
   gap: 16px;
   margin-bottom: 24px;
+  background-color: #f8fafc;
   padding: 16px;
-  background-color: #f9fafb;
-  border-radius: 6px;
+  border-radius: 8px;
 }
 
 .summary-item {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background-color: white;
+  border-radius: 6px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
-.summary-item span:first-child {
+.summary-item i {
   color: #6b7280;
-  font-size: 0.875rem;
+  width: 16px;
+  text-align: center;
 }
 
-.summary-item span:last-child {
-  font-size: 1.25rem;
+.summary-item .amount {
+  margin-left: auto;
   font-weight: 600;
-  color: #111827;
+  color: #1e293b;
+}
+
+.summary-item .amount.paid {
+  color: #059669;
+}
+
+.summary-item .amount.remaining {
+  color: #dc2626;
 }
 
 .payment-form {
+  background-color: #f8fafc;
+  padding: 20px;
+  border-radius: 8px;
   margin-bottom: 24px;
+}
+
+.payment-form h4 {
+  margin: 0 0 16px;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.payment-form h4 i {
+  color: #3b82f6;
 }
 
 .form-group {
@@ -410,10 +517,18 @@ watch(() => props.show, (newVal) => {
 }
 
 .form-group label {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-bottom: 8px;
-  color: #374151;
   font-weight: 500;
+  color: #374151;
+}
+
+.form-group label i {
+  color: #6b7280;
+  width: 16px;
+  text-align: center;
 }
 
 .form-group input,
@@ -423,73 +538,175 @@ watch(() => props.show, (newVal) => {
   border: 1px solid #d1d5db;
   border-radius: 6px;
   font-size: 0.875rem;
+  transition: all 0.2s ease;
 }
 
 .form-group input:focus,
 .form-group textarea:focus {
   outline: none;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
-.error {
-  color: #dc2626;
-  margin-bottom: 16px;
+.form-group input:disabled,
+.form-group textarea:disabled {
+  background-color: #f3f4f6;
+  cursor: not-allowed;
+}
+
+.current-file {
+  margin-top: 8px;
   font-size: 0.875rem;
+  color: #059669;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.error-message {
+  color: #ef4444;
+  margin: 16px 0;
+  padding: 12px;
+  background-color: #fef2f2;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.form-buttons {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 24px;
 }
 
 .submit-btn {
-  background-color: #2563eb;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background-color: #3b82f6;
   color: white;
-  padding: 8px 16px;
   border: none;
   border-radius: 6px;
-  cursor: pointer;
   font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.submit-btn:hover:not(:disabled) {
+  background-color: #2563eb;
+  transform: translateY(-1px);
 }
 
 .submit-btn:disabled {
-  background-color: #93c5fd;
+  opacity: 0.6;
   cursor: not-allowed;
 }
 
 .payments-list {
-  margin-top: 24px;
+  background-color: #f8fafc;
+  padding: 20px;
+  border-radius: 8px;
 }
 
 .payments-list h4 {
-  margin-bottom: 16px;
-  color: #111827;
+  margin: 0 0 16px;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-table {
+.payments-list h4 i {
+  color: #3b82f6;
+}
+
+.loading-state {
+  text-align: center;
+  padding: 40px;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.data-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
+  background-color: white;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
-th, td {
-  padding: 12px;
+.data-table th,
+.data-table td {
+  padding: 12px 16px;
   text-align: left;
   border-bottom: 1px solid #e5e7eb;
 }
 
-th {
-  background-color: #f9fafb;
-  font-weight: 500;
+.data-table th {
+  background-color: #f8fafc;
+  font-weight: 600;
   color: #374151;
+  white-space: nowrap;
 }
 
-.loading {
-  text-align: center;
-  padding: 24px;
+.data-table th i {
+  margin-right: 8px;
   color: #6b7280;
 }
 
-.no-data {
-  text-align: center;
-  padding: 24px;
-  color: #6b7280;
-  background-color: #f9fafb;
+.data-table td {
+  color: #4b5563;
+}
+
+.swift-link {
+  color: #3b82f6;
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  padding: 6px 12px;
   border-radius: 6px;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: #eff6ff;
 }
-</style> 
+
+.swift-link:hover {
+  background-color: #dbeafe;
+  transform: translateY(-1px);
+}
+
+.no-document {
+  color: #9ca3af;
+  font-size: 0.875rem;
+  font-style: italic;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  .payment-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .data-table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .dialog {
+    width: 95%;
+    max-height: 95vh;
+  }
+}
+</style>

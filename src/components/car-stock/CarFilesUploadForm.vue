@@ -37,6 +37,20 @@ const isDraggingDocuments = ref(false)
 const isDraggingSellPi = ref(false)
 const isDraggingBuyPi = ref(false)
 
+const isUploading = ref({
+  documents: false,
+  sell_pi: false,
+  buy_pi: false,
+})
+
+const resetUploadStates = () => {
+  isUploading.value = {
+    documents: false,
+    sell_pi: false,
+    buy_pi: false,
+  }
+}
+
 const isValidFileType = (file) => {
   // Define accepted MIME types
   const acceptedTypes = {
@@ -104,9 +118,10 @@ const getFileExtension = (file) => {
 }
 
 const handleFileUpload = async (file, type) => {
-  if (!file) return null
+  if (!file || isUploading.value[type]) return null
 
   try {
+    isUploading.value[type] = true
     // Reset progress for this type
     uploadProgress.value[type] = 0
 
@@ -164,8 +179,9 @@ const handleFileUpload = async (file, type) => {
     console.error('Upload error:', err)
     throw new Error(`Error uploading ${type}: ${err.message}`)
   } finally {
-    // Reset progress after completion or error
+    // Reset progress and uploading state after completion or error
     uploadProgress.value[type] = 0
+    isUploading.value[type] = false
   }
 }
 
@@ -258,6 +274,7 @@ const handleSubmit = async () => {
   } finally {
     loading.value = false
     isProcessing.value = false
+    resetUploadStates()
   }
 }
 
@@ -387,7 +404,7 @@ const handleDrop = (event, type, dragRef) => {
             class="file-input-container"
             :class="{
               'is-dragging': isDraggingDocuments,
-              'is-uploading': uploadProgress.documents > 0,
+              'is-uploading': uploadProgress.documents > 0 || isUploading.documents,
             }"
             @dragover="(e) => handleDragOver(e, isDraggingDocuments)"
             @dragleave="(e) => handleDragLeave(e, isDraggingDocuments)"
@@ -399,14 +416,15 @@ const handleDrop = (event, type, dragRef) => {
               accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.heic,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.pages,.numbers,.key,application/pdf,image/*,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/x-iwork-pages-sffpages,application/x-iwork-numbers-sffnumbers,application/x-iwork-keynote-sffkey"
               @change="(e) => handleFileChange(e, 'documents')"
               class="file-input"
-              :disabled="isProcessing"
+              :disabled="isProcessing || isUploading.documents"
             />
             <div class="file-input-overlay">
-              <i class="fas fa-cloud-upload-alt"></i>
-              <span>Choose or drop PDF file</span>
+              <i class="fas fa-cloud-upload-alt fa-2x"></i>
+              <span>Choose or drop file</span>
+              <i v-if="isUploading.documents" class="fas fa-spinner fa-spin"></i>
             </div>
             <div v-if="documentsFile" class="selected-file">
-              <i class="fas fa-file-pdf"></i>
+              <i class="fas fa-file-alt"></i>
               {{ documentsFile.name }}
             </div>
             <div v-if="uploadProgress.documents > 0" class="upload-progress">
@@ -414,7 +432,7 @@ const handleDrop = (event, type, dragRef) => {
               <span>{{ uploadProgress.documents }}%</span>
             </div>
             <div v-if="props.car.path_documents" class="current-file">
-              <i class="fas fa-check-circle"></i>
+              <i class="fas fa-check-circle text-success"></i>
               Current: {{ props.car.path_documents.split('/').pop() }}
             </div>
           </div>
@@ -429,7 +447,7 @@ const handleDrop = (event, type, dragRef) => {
             class="file-input-container"
             :class="{
               'is-dragging': isDraggingSellPi,
-              'is-uploading': uploadProgress.sell_pi > 0,
+              'is-uploading': uploadProgress.sell_pi > 0 || isUploading.sell_pi,
             }"
             @dragover="(e) => handleDragOver(e, isDraggingSellPi)"
             @dragleave="(e) => handleDragLeave(e, isDraggingSellPi)"
@@ -441,14 +459,15 @@ const handleDrop = (event, type, dragRef) => {
               accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.heic,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.pages,.numbers,.key,application/pdf,image/*,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/x-iwork-pages-sffpages,application/x-iwork-numbers-sffnumbers,application/x-iwork-keynote-sffkey"
               @change="(e) => handleFileChange(e, 'sell_pi')"
               class="file-input"
-              :disabled="isProcessing"
+              :disabled="isProcessing || isUploading.sell_pi"
             />
             <div class="file-input-overlay">
-              <i class="fas fa-cloud-upload-alt"></i>
-              <span>Choose or drop PDF file</span>
+              <i class="fas fa-cloud-upload-alt fa-2x"></i>
+              <span>Choose or drop file</span>
+              <i v-if="isUploading.sell_pi" class="fas fa-spinner fa-spin"></i>
             </div>
             <div v-if="sellPiFile" class="selected-file">
-              <i class="fas fa-file-pdf"></i>
+              <i class="fas fa-file-alt"></i>
               {{ sellPiFile.name }}
             </div>
             <div v-if="uploadProgress.sell_pi > 0" class="upload-progress">
@@ -456,7 +475,7 @@ const handleDrop = (event, type, dragRef) => {
               <span>{{ uploadProgress.sell_pi }}%</span>
             </div>
             <div v-if="props.car.sell_pi_path" class="current-file">
-              <i class="fas fa-check-circle"></i>
+              <i class="fas fa-check-circle text-success"></i>
               Current: {{ props.car.sell_pi_path.split('/').pop() }}
             </div>
           </div>
@@ -471,7 +490,7 @@ const handleDrop = (event, type, dragRef) => {
             class="file-input-container"
             :class="{
               'is-dragging': isDraggingBuyPi,
-              'is-uploading': uploadProgress.buy_pi > 0,
+              'is-uploading': uploadProgress.buy_pi > 0 || isUploading.buy_pi,
             }"
             @dragover="(e) => handleDragOver(e, isDraggingBuyPi)"
             @dragleave="(e) => handleDragLeave(e, isDraggingBuyPi)"
@@ -483,14 +502,15 @@ const handleDrop = (event, type, dragRef) => {
               accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.heic,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.pages,.numbers,.key,application/pdf,image/*,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/x-iwork-pages-sffpages,application/x-iwork-numbers-sffnumbers,application/x-iwork-keynote-sffkey"
               @change="(e) => handleFileChange(e, 'buy_pi')"
               class="file-input"
-              :disabled="isProcessing"
+              :disabled="isProcessing || isUploading.buy_pi"
             />
             <div class="file-input-overlay">
-              <i class="fas fa-cloud-upload-alt"></i>
-              <span>Choose or drop PDF file</span>
+              <i class="fas fa-cloud-upload-alt fa-2x"></i>
+              <span>Choose or drop file</span>
+              <i v-if="isUploading.buy_pi" class="fas fa-spinner fa-spin"></i>
             </div>
             <div v-if="buyPiFile" class="selected-file">
-              <i class="fas fa-file-pdf"></i>
+              <i class="fas fa-file-alt"></i>
               {{ buyPiFile.name }}
             </div>
             <div v-if="uploadProgress.buy_pi > 0" class="upload-progress">
@@ -498,7 +518,7 @@ const handleDrop = (event, type, dragRef) => {
               <span>{{ uploadProgress.buy_pi }}%</span>
             </div>
             <div v-if="props.car.buy_pi_path" class="current-file">
-              <i class="fas fa-check-circle"></i>
+              <i class="fas fa-check-circle text-success"></i>
               Current: {{ props.car.buy_pi_path.split('/').pop() }}
             </div>
           </div>
@@ -527,7 +547,7 @@ const handleDrop = (event, type, dragRef) => {
         >
           <i class="fas fa-upload"></i>
           <span>{{ isProcessing ? 'Uploading...' : 'Upload Files' }}</span>
-          <i v-if="isProcessing" class="fas fa-spinner fa-spin loading-indicator"></i>
+          <i v-if="isProcessing" class="fas fa-spinner fa-spin"></i>
         </button>
       </div>
     </div>
@@ -590,82 +610,74 @@ const handleDrop = (event, type, dragRef) => {
 }
 
 .file-input-container {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.file-input {
-  width: 100%;
-  padding: 8px;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  font-size: 14px;
-}
-
-.current-file {
-  font-size: 12px;
-  color: #6b7280;
-}
-
-.error-message {
-  color: #ef4444;
-  margin-bottom: 16px;
-  font-size: 14px;
-}
-
-.success-message {
-  color: #10b981;
-  margin-bottom: 16px;
-  font-size: 14px;
-}
-
-.modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  margin-top: 20px;
-}
-
-.cancel-btn,
-.save-btn {
-  padding: 8px 16px;
-  border-radius: 4px;
-  font-size: 14px;
+  position: relative;
+  border: 2px dashed #d1d5db;
+  border-radius: 8px;
+  padding: 20px;
+  text-align: center;
+  transition: all 0.3s ease;
+  background-color: #f9fafb;
   cursor: pointer;
-  border: none;
 }
 
-.cancel-btn {
-  background-color: #f3f4f6;
-  color: #374151;
+.file-input-container:hover {
+  border-color: #3b82f6;
+  background-color: #f0f9ff;
 }
 
-.save-btn {
-  background-color: #3b82f6;
-  color: white;
-}
-
-.cancel-btn:hover {
-  background-color: #e5e7eb;
-}
-
-.save-btn:hover {
-  background-color: #2563eb;
-}
-
-button:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
+.file-input-container.is-dragging {
+  border-color: #3b82f6;
+  background-color: #e0f2fe;
 }
 
 .file-input-container.is-uploading {
-  border-color: #3b82f6;
-  background-color: rgba(59, 130, 246, 0.05);
+  border-color: #6366f1;
+  background-color: #eef2ff;
+}
+
+.file-input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.file-input:disabled {
+  cursor: not-allowed;
+}
+
+.file-input-overlay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: #6b7280;
+}
+
+.file-input-overlay i {
+  color: #3b82f6;
+}
+
+.selected-file {
+  margin-top: 12px;
+  padding: 8px;
+  background-color: #f3f4f6;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+}
+
+.selected-file i {
+  color: #3b82f6;
 }
 
 .upload-progress {
-  margin: 8px;
+  margin-top: 12px;
   background-color: #f3f4f6;
   border-radius: 4px;
   overflow: hidden;
@@ -676,7 +688,7 @@ button:disabled {
 .progress-bar {
   height: 100%;
   background-color: #3b82f6;
-  transition: width 0.2s ease;
+  transition: width 0.3s ease;
 }
 
 .upload-progress span {
@@ -684,9 +696,104 @@ button:disabled {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  color: white;
+  color: #1f2937;
   font-size: 12px;
   font-weight: 500;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  z-index: 1;
+}
+
+.current-file {
+  margin-top: 8px;
+  font-size: 0.875rem;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.text-success {
+  color: #10b981;
+}
+
+.error-message {
+  color: #ef4444;
+  margin: 16px 0;
+  padding: 12px;
+  background-color: #fef2f2;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.success-message {
+  color: #10b981;
+  margin: 16px 0;
+  padding: 12px;
+  background-color: #f0fdf4;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.cancel-btn,
+.save-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.cancel-btn {
+  background-color: #f3f4f6;
+  color: #374151;
+  border: 1px solid #d1d5db;
+}
+
+.cancel-btn:hover:not(:disabled) {
+  background-color: #e5e7eb;
+}
+
+.save-btn {
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+}
+
+.save-btn:hover:not(:disabled) {
+  background-color: #2563eb;
+}
+
+.save-btn.is-processing {
+  background-color: #6366f1;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.fa-spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>

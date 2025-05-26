@@ -7,12 +7,12 @@ const { callApi, error, loading } = useApi()
 const props = defineProps({
   buyDetails: {
     type: Array,
-    required: true
+    required: true,
   },
   isAdmin: {
     type: Boolean,
-    default: false
-  }
+    default: false,
+  },
 })
 
 const emit = defineEmits(['add-detail', 'delete-detail', 'update-detail'])
@@ -63,9 +63,9 @@ const showStockAlert = async () => {
             (id_buy_details,price_cell)
             VALUES (?,?)
           `,
-          params: [detail.id,detail.price_sell]
+          params: [detail.id, detail.price_sell],
         })
-        
+
         if (!result.success) {
           alert('Error creating stock entry')
           console.error('Error creating stock entry:', result.error)
@@ -77,7 +77,7 @@ const showStockAlert = async () => {
     // Update the is_stock_updated flag in buy_bill
     const result = await callApi({
       query: 'UPDATE buy_bill SET is_stock_updated = 1 WHERE id = ?',
-      params: [props.buyDetails[0].id_buy_bill]
+      params: [props.buyDetails[0].id_buy_bill],
     })
 
     if (result.success) {
@@ -94,24 +94,29 @@ const showStockAlert = async () => {
 <template>
   <div class="detail-section">
     <div class="detail-header">
-      <h3>Purchase Details</h3>
+      <h3>
+        <i class="fas fa-list-alt"></i>
+        Purchase Details
+      </h3>
       <div class="button-group">
-        <button 
-          @click="showStockAlert" 
+        <button
+          @click="showStockAlert"
           class="stock-btn"
-          :class="{ 'disabled': isStockUpdated }"
+          :class="{ disabled: isStockUpdated }"
           :disabled="isStockUpdated"
           :title="isStockUpdated ? 'Stock has already been updated' : 'Update stock'"
         >
+          <i class="fas fa-boxes"></i>
           Update Stock
         </button>
-        <button 
-          @click="$emit('add-detail')" 
+        <button
+          @click="$emit('add-detail')"
           class="add-btn"
-          :class="{ 'disabled': isStockUpdated }"
+          :class="{ disabled: isStockUpdated }"
           :disabled="isStockUpdated"
           :title="isStockUpdated ? 'Cannot add details - Stock has been updated' : 'Add new detail'"
         >
+          <i class="fas fa-plus"></i>
           Add Detail
         </button>
       </div>
@@ -119,14 +124,14 @@ const showStockAlert = async () => {
     <table class="data-table">
       <thead>
         <tr>
-          <th>Car</th>
-          <th>Color</th>
-          <th>Quantity</th>
-          <th>Amount</th>
-          <th>Year</th>
-          <th>Month</th>
-          <th>Price Sell</th>
-          <th>Actions</th>
+          <th><i class="fas fa-car"></i> Car</th>
+          <th><i class="fas fa-palette"></i> Color</th>
+          <th><i class="fas fa-hashtag"></i> Quantity</th>
+          <th><i class="fas fa-money-bill-wave"></i> Amount</th>
+          <th><i class="fas fa-calendar-alt"></i> Year</th>
+          <th><i class="fas fa-calendar-day"></i> Month</th>
+          <th><i class="fas fa-tag"></i> Price Sell</th>
+          <th><i class="fas fa-cog"></i> Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -139,22 +144,32 @@ const showStockAlert = async () => {
           <td>{{ detail.month }}</td>
           <td>{{ detail.price_sell }}</td>
           <td class="actions">
-            <button 
+            <button
               @click="openEditDialog(detail)"
               class="edit-btn"
-              :class="{ 'disabled': detail.is_stock_updated }"
+              :class="{ disabled: detail.is_stock_updated }"
               :disabled="detail.is_stock_updated"
-              :title="detail.is_stock_updated ? 'Cannot edit - Stock has been updated' : 'Edit this detail'"
+              :title="
+                detail.is_stock_updated
+                  ? 'Cannot edit - Stock has been updated'
+                  : 'Edit this detail'
+              "
             >
+              <i class="fas fa-edit"></i>
               Edit
             </button>
-            <button 
+            <button
               @click="confirmDelete(detail.id, detail.is_stock_updated)"
               class="delete-btn"
-              :class="{ 'disabled': detail.is_stock_updated }"
+              :class="{ disabled: detail.is_stock_updated }"
               :disabled="detail.is_stock_updated"
-              :title="detail.is_stock_updated ? 'Cannot delete - Stock has been updated' : 'Delete this detail'"
+              :title="
+                detail.is_stock_updated
+                  ? 'Cannot delete - Stock has been updated'
+                  : 'Delete this detail'
+              "
             >
+              <i class="fas fa-trash-alt"></i>
               Delete
             </button>
           </td>
@@ -163,192 +178,241 @@ const showStockAlert = async () => {
     </table>
   </div>
   <!-- Edit Dialog -->
-<div v-if="showEditDialog && editingDetail" class="dialog-overlay">
-  <div class="dialog">
-    <h3>Edit Purchase Detail</h3>
-    <form @submit.prevent="handleEditSubmit">
-      <div class="form-group">
-        <label for="edit-qty">Quantity</label>
-        <input 
-          type="number" 
-          id="edit-qty"
-          v-model="editingDetail.QTY" 
-          min="1" 
-          required
-        >
-      </div>
-      
-      <div class="form-group">
-        <label for="edit-amount">Amount</label>
-        <input 
-          type="number" 
-          id="edit-amount"
-          v-model="editingDetail.amount" 
-          step="0.01" 
-          required
-        >
-      </div>
-      
-      <div class="form-row">
-        <div class="form-group half">
-          <label for="edit-year">Year</label>
-          <input 
-            type="number" 
-            id="edit-year"
-            v-model="editingDetail.year" 
-            required
-          >
-        </div>
-        
-        <div class="form-group half">
-          <label for="edit-month">Month</label>
-          <input 
-            type="number" 
-            id="edit-month"
-            v-model="editingDetail.month" 
-            min="1" 
-            max="12" 
-            required
-          >
-        </div>
-      </div>
-      
-      <!-- Add price_sell field -->
-      <div class="form-group">
-        <label for="edit-price-sell">Price Sell</label>
-        <input 
-          type="number" 
-          id="edit-price-sell"
-          v-model="editingDetail.price_sell"
-          step="0.01" 
-          required
-        >
-      </div>
-      
-      <div class="form-group">
-        <label for="edit-notes">Notes</label>
-        <textarea 
-          id="edit-notes"
-          v-model="editingDetail.notes" 
-          rows="3"
-        ></textarea>
-      </div>
-      
-      <div class="dialog-buttons">
-        <button 
-          type="button" 
-          @click="showEditDialog = false" 
-          class="cancel-btn"
-        >
-          Cancel
-        </button>
-        <button type="submit" class="submit-btn">
-          Save Changes
+  <div v-if="showEditDialog && editingDetail" class="dialog-overlay">
+    <div class="dialog">
+      <div class="dialog-header">
+        <h3>
+          <i class="fas fa-edit"></i>
+          Edit Purchase Detail
+        </h3>
+        <button class="close-btn" @click="showEditDialog = false">
+          <i class="fas fa-times"></i>
         </button>
       </div>
-    </form>
+      <form @submit.prevent="handleEditSubmit">
+        <div class="form-group">
+          <label for="edit-qty">
+            <i class="fas fa-hashtag"></i>
+            Quantity
+          </label>
+          <input type="number" id="edit-qty" v-model="editingDetail.QTY" min="1" required />
+        </div>
+
+        <div class="form-group">
+          <label for="edit-amount">
+            <i class="fas fa-money-bill-wave"></i>
+            Amount
+          </label>
+          <input
+            type="number"
+            id="edit-amount"
+            v-model="editingDetail.amount"
+            step="0.01"
+            required
+          />
+        </div>
+
+        <div class="form-row">
+          <div class="form-group half">
+            <label for="edit-year">
+              <i class="fas fa-calendar-alt"></i>
+              Year
+            </label>
+            <input type="number" id="edit-year" v-model="editingDetail.year" required />
+          </div>
+
+          <div class="form-group half">
+            <label for="edit-month">
+              <i class="fas fa-calendar-day"></i>
+              Month
+            </label>
+            <input
+              type="number"
+              id="edit-month"
+              v-model="editingDetail.month"
+              min="1"
+              max="12"
+              required
+            />
+          </div>
+        </div>
+
+        <!-- Add price_sell field -->
+        <div class="form-group">
+          <label for="edit-price-sell">Price Sell</label>
+          <input
+            type="number"
+            id="edit-price-sell"
+            v-model="editingDetail.price_sell"
+            step="0.01"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="edit-notes">Notes</label>
+          <textarea id="edit-notes" v-model="editingDetail.notes" rows="3"></textarea>
+        </div>
+
+        <div class="dialog-buttons">
+          <button type="button" @click="showEditDialog = false" class="cancel-btn">Cancel</button>
+          <button type="submit" class="submit-btn">Save Changes</button>
+        </div>
+      </form>
+    </div>
   </div>
-</div>
 </template>
 
 <style scoped>
 .detail-section {
   width: 100%;
-  border-top: 1px solid #e5e7eb;
-  padding-top: 20px;
-}
-
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.data-table th,
-.data-table td {
-  padding: 12px;
-  text-align: left;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.data-table th {
-  background-color: #f8f9fa;
-  font-weight: 600;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
 }
 
 .detail-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  padding: 20px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.detail-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.detail-header h3 i {
+  color: #3b82f6;
+}
+
+.button-group {
+  display: flex;
+  gap: 12px;
+}
+
+.stock-btn,
+.add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+}
+
+.stock-btn {
+  background-color: #059669;
+  color: white;
+}
+
+.stock-btn:hover:not(:disabled) {
+  background-color: #047857;
+  transform: translateY(-1px);
 }
 
 .add-btn {
-  padding: 8px 16px;
-  background-color: #10b981;
+  background-color: #3b82f6;
   color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
 }
 
-.add-btn:hover {
-  background-color: #059669;
+.add-btn:hover:not(:disabled) {
+  background-color: #2563eb;
+  transform: translateY(-1px);
 }
 
-.delete-btn {
-  padding: 4px 8px;
-  background-color: #ef4444;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
+.data-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
-.delete-btn:hover {
-  background-color: #dc2626;
+.data-table th,
+.data-table td {
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid #e5e7eb;
 }
 
-.delete-btn.disabled {
-  background-color: #9ca3af;
-  cursor: not-allowed;
-  opacity: 0.6;
+.data-table th {
+  background-color: #f8fafc;
+  font-weight: 600;
+  color: #374151;
+  white-space: nowrap;
 }
 
-.delete-btn.disabled:hover {
-  background-color: #9ca3af;
+.data-table th i {
+  margin-right: 8px;
+  color: #6b7280;
 }
 
-.actions-cell {
+.data-table td {
+  color: #4b5563;
+}
+
+.actions {
   display: flex;
   gap: 8px;
 }
 
+.edit-btn,
+.delete-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+}
+
 .edit-btn {
-  padding: 4px 8px;
   background-color: #3b82f6;
   color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
 }
 
-.edit-btn:hover {
+.edit-btn:hover:not(:disabled) {
   background-color: #2563eb;
+  transform: translateY(-1px);
 }
 
-.edit-btn.disabled {
-  background-color: #9ca3af;
-  cursor: not-allowed;
+.delete-btn {
+  background-color: #ef4444;
+  color: white;
+}
+
+.delete-btn:hover:not(:disabled) {
+  background-color: #dc2626;
+  transform: translateY(-1px);
+}
+
+button:disabled {
   opacity: 0.6;
+  cursor: not-allowed;
 }
 
+/* Dialog styles */
 .dialog-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background-color: rgba(0, 0, 0, 0.5);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -356,13 +420,50 @@ const showStockAlert = async () => {
 }
 
 .dialog {
-  background: white;
-  padding: 24px;
+  background-color: white;
   border-radius: 8px;
-  min-width: 400px;
-  max-width: 90%;
-  max-height: 90vh;
-  overflow-y: auto;
+  width: 90%;
+  max-width: 500px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.dialog-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dialog-header h3 i {
+  color: #3b82f6;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: #6b7280;
+  cursor: pointer;
+  font-size: 1.25rem;
+  padding: 4px;
+  transition: color 0.2s ease;
+}
+
+.close-btn:hover {
+  color: #374151;
+}
+
+form {
+  padding: 20px;
 }
 
 .form-group {
@@ -370,26 +471,46 @@ const showStockAlert = async () => {
 }
 
 .form-group label {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-bottom: 8px;
   font-weight: 500;
+  color: #374151;
+}
+
+.form-group label i {
+  color: #6b7280;
+  width: 16px;
+  text-align: center;
 }
 
 .form-group input,
 .form-group textarea {
   width: 100%;
-  padding: 8px;
+  padding: 8px 12px;
   border: 1px solid #d1d5db;
-  border-radius: 4px;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 .form-row {
   display: flex;
   gap: 16px;
+  margin-bottom: 16px;
 }
 
 .form-group.half {
   flex: 1;
+  margin-bottom: 0;
 }
 
 .dialog-buttons {
@@ -399,68 +520,66 @@ const showStockAlert = async () => {
   margin-top: 24px;
 }
 
-.cancel-btn {
+.dialog-buttons button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   padding: 8px 16px;
-  background-color: #9ca3af;
-  color: white;
-  border: none;
-  border-radius: 4px;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
   cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-.submit-btn {
-  padding: 8px 16px;
-  background-color: #10b981;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
+.cancel-btn {
+  background-color: #f3f4f6;
+  color: #374151;
+  border: 1px solid #d1d5db;
 }
 
 .cancel-btn:hover {
-  background-color: #6b7280;
+  background-color: #e5e7eb;
 }
 
-.submit-btn:hover {
-  background-color: #059669;
-}
-
-.button-group {
-  display: flex;
-  gap: 12px;
-}
-
-.stock-btn {
-  padding: 8px 16px;
+.submit-btn {
   background-color: #3b82f6;
   color: white;
   border: none;
-  border-radius: 4px;
-  cursor: pointer;
 }
 
-.stock-btn:hover {
+.submit-btn:hover {
   background-color: #2563eb;
+  transform: translateY(-1px);
 }
 
-.stock-btn.disabled {
-  background-color: #9ca3af;
-  cursor: not-allowed;
-  opacity: 0.6;
-}
+/* Responsive styles */
+@media (max-width: 768px) {
+  .detail-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
 
-.stock-btn.disabled:hover {
-  background-color: #9ca3af;
-}
+  .button-group {
+    width: 100%;
+    justify-content: flex-end;
+  }
 
-.disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+  .data-table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
 
-button.disabled {
-  background-color: #ccc;
-  pointer-events: none;
-}
+  .form-row {
+    flex-direction: column;
+    gap: 16px;
+  }
 
+  .form-group.half {
+    width: 100%;
+    margin-bottom: 16px;
+  }
+}
 </style>
