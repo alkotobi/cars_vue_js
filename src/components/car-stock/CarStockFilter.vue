@@ -6,6 +6,14 @@ const emit = defineEmits(['filter'])
 
 const { callApi } = useApi()
 
+// Add loading states
+const isLoading = ref(false)
+const isProcessing = ref({
+  basic: false,
+  advanced: false,
+  reset: false,
+})
+
 // Reference data for dropdowns
 const carNames = ref([])
 const colors = ref([])
@@ -34,16 +42,17 @@ const advancedFilters = ref({
   loading_date_to: '',
   status: '',
   client: '',
-  warehouse: ''
+  warehouse: '',
 })
 
 // Fetch reference data for filter dropdowns
 const fetchReferenceData = async () => {
+  isLoading.value = true
   try {
     // Fetch car names
     const carNamesResult = await callApi({
       query: 'SELECT id, car_name FROM cars_names ORDER BY car_name',
-      params: []
+      params: [],
     })
     if (carNamesResult.success) {
       carNames.value = carNamesResult.data
@@ -52,7 +61,7 @@ const fetchReferenceData = async () => {
     // Fetch colors
     const colorsResult = await callApi({
       query: 'SELECT id, color FROM colors ORDER BY color',
-      params: []
+      params: [],
     })
     if (colorsResult.success) {
       colors.value = colorsResult.data
@@ -61,7 +70,7 @@ const fetchReferenceData = async () => {
     // Fetch loading ports
     const loadingPortsResult = await callApi({
       query: 'SELECT id, loading_port FROM loading_ports ORDER BY loading_port',
-      params: []
+      params: [],
     })
     if (loadingPortsResult.success) {
       loadingPorts.value = loadingPortsResult.data
@@ -70,7 +79,7 @@ const fetchReferenceData = async () => {
     // Fetch discharge ports
     const dischargePortsResult = await callApi({
       query: 'SELECT id, discharge_port FROM discharge_ports ORDER BY discharge_port',
-      params: []
+      params: [],
     })
     if (dischargePortsResult.success) {
       dischargePorts.value = dischargePortsResult.data
@@ -79,7 +88,7 @@ const fetchReferenceData = async () => {
     // Fetch clients
     const clientsResult = await callApi({
       query: 'SELECT id, name FROM clients ORDER BY name',
-      params: []
+      params: [],
     })
     if (clientsResult.success) {
       clients.value = clientsResult.data
@@ -88,38 +97,58 @@ const fetchReferenceData = async () => {
     // Fetch warehouses
     const warehousesResult = await callApi({
       query: 'SELECT id, name FROM warehouses ORDER BY name',
-      params: []
+      params: [],
     })
     if (warehousesResult.success) {
       warehouses.value = warehousesResult.data
     }
   } catch (error) {
     console.error('Error fetching reference data:', error)
+  } finally {
+    isLoading.value = false
   }
 }
 
 // Apply basic filter
-const applyBasicFilter = () => {
-  // If the basic filter is empty, reset all filters
-  if (!basicFilter.value.trim()) {
-    resetFilters()
-    return
+const applyBasicFilter = async () => {
+  if (isProcessing.value.basic) return
+  isProcessing.value.basic = true
+  try {
+    // If the basic filter is empty, reset all filters
+    if (!basicFilter.value.trim()) {
+      await resetFilters()
+      return
+    }
+    emit('filter', { basic: basicFilter.value, advanced: null })
+  } finally {
+    isProcessing.value.basic = false
   }
-  emit('filter', { basic: basicFilter.value, advanced: null })
 }
 
 // Apply advanced filters
-const applyAdvancedFilters = () => {
-  emit('filter', { basic: null, advanced: advancedFilters.value })
+const applyAdvancedFilters = async () => {
+  if (isProcessing.value.advanced) return
+  isProcessing.value.advanced = true
+  try {
+    emit('filter', { basic: null, advanced: advancedFilters.value })
+  } finally {
+    isProcessing.value.advanced = false
+  }
 }
 
 // Reset filters
-const resetFilters = () => {
-  basicFilter.value = ''
-  Object.keys(advancedFilters.value).forEach(key => {
-    advancedFilters.value[key] = ''
-  })
-  emit('filter', { basic: '', advanced: null })
+const resetFilters = async () => {
+  if (isProcessing.value.reset) return
+  isProcessing.value.reset = true
+  try {
+    basicFilter.value = ''
+    Object.keys(advancedFilters.value).forEach((key) => {
+      advancedFilters.value[key] = ''
+    })
+    emit('filter', { basic: '', advanced: null })
+  } finally {
+    isProcessing.value.reset = false
+  }
 }
 
 // Toggle advanced filter visibility
@@ -132,23 +161,40 @@ fetchReferenceData()
 </script>
 
 <template>
-  <div class="car-stock-filter">
+  <div class="car-stock-filter" :class="{ 'is-loading': isLoading }">
     <!-- Basic Filter -->
     <div class="basic-filter">
       <div class="filter-row">
         <div class="filter-input">
-          <input 
-            type="text" 
-            v-model="basicFilter" 
-            placeholder="Search by ID, Car, Color, VIN, Ports, Client..." 
+          <i class="fas fa-search search-icon"></i>
+          <input
+            type="text"
+            v-model="basicFilter"
+            placeholder="Search by ID, Car, Color, VIN, Ports, Client..."
             @input="applyBasicFilter"
+            :disabled="isProcessing.basic"
           />
+          <i v-if="isProcessing.basic" class="fas fa-spinner fa-spin loading-indicator"></i>
         </div>
         <div class="filter-actions">
-          <button @click="toggleAdvancedFilter" class="toggle-btn">
-            {{ showAdvancedFilter ? 'Hide Advanced' : 'Show Advanced' }}
+          <button
+            @click="toggleAdvancedFilter"
+            class="toggle-btn"
+            :disabled="isProcessing.advanced"
+          >
+            <i class="fas fa-sliders-h"></i>
+            <span>{{ showAdvancedFilter ? 'Hide Advanced' : 'Show Advanced' }}</span>
           </button>
-          <button @click="resetFilters" class="reset-btn">Reset</button>
+          <button
+            @click="resetFilters"
+            class="reset-btn"
+            :disabled="isProcessing.reset"
+            :class="{ processing: isProcessing.reset }"
+          >
+            <i class="fas fa-undo-alt"></i>
+            <span>Reset</span>
+            <i v-if="isProcessing.reset" class="fas fa-spinner fa-spin loading-indicator"></i>
+          </button>
         </div>
       </div>
     </div>
@@ -158,28 +204,32 @@ fetchReferenceData()
       <div class="filter-grid">
         <!-- ID Filter -->
         <div class="filter-field">
-          <label for="id-filter">ID</label>
-          <input 
-            id="id-filter" 
-            type="text" 
-            v-model="advancedFilters.id" 
+          <label for="id-filter">
+            <i class="fas fa-hashtag"></i>
+            ID
+          </label>
+          <input
+            id="id-filter"
+            type="text"
+            v-model="advancedFilters.id"
             placeholder="Car ID"
+            :disabled="isProcessing.advanced"
           />
         </div>
 
         <!-- Car Name Filter -->
         <div class="filter-field">
-          <label for="car-name-filter">Car</label>
-          <select 
-            id="car-name-filter" 
+          <label for="car-name-filter">
+            <i class="fas fa-car"></i>
+            Car
+          </label>
+          <select
+            id="car-name-filter"
             v-model="advancedFilters.car_name"
+            :disabled="isProcessing.advanced"
           >
             <option value="">All Cars</option>
-            <option 
-              v-for="car in carNames" 
-              :key="car.id" 
-              :value="car.car_name"
-            >
+            <option v-for="car in carNames" :key="car.id" :value="car.car_name">
               {{ car.car_name }}
             </option>
           </select>
@@ -187,17 +237,17 @@ fetchReferenceData()
 
         <!-- Color Filter -->
         <div class="filter-field">
-          <label for="color-filter">Color</label>
-          <select 
-            id="color-filter" 
+          <label for="color-filter">
+            <i class="fas fa-palette"></i>
+            Color
+          </label>
+          <select
+            id="color-filter"
             v-model="advancedFilters.color"
+            :disabled="isProcessing.advanced"
           >
             <option value="">All Colors</option>
-            <option 
-              v-for="color in colors" 
-              :key="color.id" 
-              :value="color.color"
-            >
+            <option v-for="color in colors" :key="color.id" :value="color.color">
               {{ color.color }}
             </option>
           </select>
@@ -205,28 +255,32 @@ fetchReferenceData()
 
         <!-- VIN Filter -->
         <div class="filter-field">
-          <label for="vin-filter">VIN</label>
-          <input 
-            id="vin-filter" 
-            type="text" 
-            v-model="advancedFilters.vin" 
+          <label for="vin-filter">
+            <i class="fas fa-barcode"></i>
+            VIN
+          </label>
+          <input
+            id="vin-filter"
+            type="text"
+            v-model="advancedFilters.vin"
             placeholder="VIN Number"
+            :disabled="isProcessing.advanced"
           />
         </div>
 
         <!-- Loading Port Filter -->
         <div class="filter-field">
-          <label for="loading-port-filter">Loading Port</label>
-          <select 
-            id="loading-port-filter" 
+          <label for="loading-port-filter">
+            <i class="fas fa-ship"></i>
+            Loading Port
+          </label>
+          <select
+            id="loading-port-filter"
             v-model="advancedFilters.loading_port"
+            :disabled="isProcessing.advanced"
           >
             <option value="">All Loading Ports</option>
-            <option 
-              v-for="port in loadingPorts" 
-              :key="port.id" 
-              :value="port.loading_port"
-            >
+            <option v-for="port in loadingPorts" :key="port.id" :value="port.loading_port">
               {{ port.loading_port }}
             </option>
           </select>
@@ -234,17 +288,17 @@ fetchReferenceData()
 
         <!-- Discharge Port Filter -->
         <div class="filter-field">
-          <label for="discharge-port-filter">Discharge Port</label>
-          <select 
-            id="discharge-port-filter" 
+          <label for="discharge-port-filter">
+            <i class="fas fa-anchor"></i>
+            Discharge Port
+          </label>
+          <select
+            id="discharge-port-filter"
             v-model="advancedFilters.discharge_port"
+            :disabled="isProcessing.advanced"
           >
             <option value="">All Discharge Ports</option>
-            <option 
-              v-for="port in dischargePorts" 
-              :key="port.id" 
-              :value="port.discharge_port"
-            >
+            <option v-for="port in dischargePorts" :key="port.id" :value="port.discharge_port">
               {{ port.discharge_port }}
             </option>
           </select>
@@ -252,59 +306,78 @@ fetchReferenceData()
 
         <!-- Freight Range Filter -->
         <div class="filter-field range-field">
-          <label>Freight Range</label>
+          <label>
+            <i class="fas fa-dollar-sign"></i>
+            Freight Range
+          </label>
           <div class="range-inputs">
-            <input 
-              type="number" 
-              v-model="advancedFilters.freight_min" 
+            <input
+              type="number"
+              v-model="advancedFilters.freight_min"
               placeholder="Min"
+              :disabled="isProcessing.advanced"
             />
-            <input 
-              type="number" 
-              v-model="advancedFilters.freight_max" 
+            <input
+              type="number"
+              v-model="advancedFilters.freight_max"
               placeholder="Max"
+              :disabled="isProcessing.advanced"
             />
           </div>
         </div>
 
         <!-- Price Range Filter -->
         <div class="filter-field range-field">
-          <label>Price Range</label>
+          <label>
+            <i class="fas fa-tags"></i>
+            Price Range
+          </label>
           <div class="range-inputs">
-            <input 
-              type="number" 
-              v-model="advancedFilters.price_min" 
+            <input
+              type="number"
+              v-model="advancedFilters.price_min"
               placeholder="Min"
+              :disabled="isProcessing.advanced"
             />
-            <input 
-              type="number" 
-              v-model="advancedFilters.price_max" 
+            <input
+              type="number"
+              v-model="advancedFilters.price_max"
               placeholder="Max"
+              :disabled="isProcessing.advanced"
             />
           </div>
         </div>
 
         <!-- Loading Date Range Filter -->
         <div class="filter-field range-field">
-          <label>Loading Date Range</label>
+          <label>
+            <i class="fas fa-calendar-alt"></i>
+            Loading Date Range
+          </label>
           <div class="range-inputs">
-            <input 
-              type="date" 
-              v-model="advancedFilters.loading_date_from" 
+            <input
+              type="date"
+              v-model="advancedFilters.loading_date_from"
+              :disabled="isProcessing.advanced"
             />
-            <input 
-              type="date" 
-              v-model="advancedFilters.loading_date_to" 
+            <input
+              type="date"
+              v-model="advancedFilters.loading_date_to"
+              :disabled="isProcessing.advanced"
             />
           </div>
         </div>
 
         <!-- Status Filter -->
         <div class="filter-field">
-          <label for="status-filter">Status</label>
-          <select 
-            id="status-filter" 
+          <label for="status-filter">
+            <i class="fas fa-info-circle"></i>
+            Status
+          </label>
+          <select
+            id="status-filter"
             v-model="advancedFilters.status"
+            :disabled="isProcessing.advanced"
           >
             <option value="">All Status</option>
             <option value="available">Available</option>
@@ -314,17 +387,17 @@ fetchReferenceData()
 
         <!-- Client Filter -->
         <div class="filter-field">
-          <label for="client-filter">Client</label>
-          <select 
-            id="client-filter" 
+          <label for="client-filter">
+            <i class="fas fa-user"></i>
+            Client
+          </label>
+          <select
+            id="client-filter"
             v-model="advancedFilters.client"
+            :disabled="isProcessing.advanced"
           >
             <option value="">All Clients</option>
-            <option 
-              v-for="client in clients" 
-              :key="client.id" 
-              :value="client.name"
-            >
+            <option v-for="client in clients" :key="client.id" :value="client.name">
               {{ client.name }}
             </option>
           </select>
@@ -332,26 +405,44 @@ fetchReferenceData()
 
         <!-- Warehouse Filter -->
         <div class="filter-field">
-          <label for="warehouse-filter">Warehouse</label>
-          <select 
-            id="warehouse-filter" 
+          <label for="warehouse-filter">
+            <i class="fas fa-warehouse"></i>
+            Warehouse
+          </label>
+          <select
+            id="warehouse-filter"
             v-model="advancedFilters.warehouse"
+            :disabled="isProcessing.advanced"
           >
             <option value="">All Warehouses</option>
-            <option 
-              v-for="warehouse in warehouses" 
-              :key="warehouse.id" 
-              :value="warehouse.name"
-            >
+            <option v-for="warehouse in warehouses" :key="warehouse.id" :value="warehouse.name">
               {{ warehouse.name }}
             </option>
           </select>
-      </div>
+        </div>
 
         <!-- Add the Apply and Reset buttons at the bottom -->
-      <div class="advanced-filter-actions">
-        <button @click="applyAdvancedFilters" class="apply-btn">Apply Filters</button>
-        <button @click="resetFilters" class="reset-btn">Reset All</button>
+        <div class="advanced-filter-actions">
+          <button
+            @click="applyAdvancedFilters"
+            class="apply-btn"
+            :disabled="isProcessing.advanced"
+            :class="{ processing: isProcessing.advanced }"
+          >
+            <i class="fas fa-check"></i>
+            <span>Apply Filters</span>
+            <i v-if="isProcessing.advanced" class="fas fa-spinner fa-spin loading-indicator"></i>
+          </button>
+          <button
+            @click="resetFilters"
+            class="reset-btn"
+            :disabled="isProcessing.reset"
+            :class="{ processing: isProcessing.reset }"
+          >
+            <i class="fas fa-undo-alt"></i>
+            <span>Reset All</span>
+            <i v-if="isProcessing.reset" class="fas fa-spinner fa-spin loading-indicator"></i>
+          </button>
         </div>
       </div>
     </div>
@@ -364,6 +455,12 @@ fetchReferenceData()
   background-color: #f8f9fa;
   border-radius: 8px;
   padding: 16px;
+  position: relative;
+}
+
+.car-stock-filter.is-loading {
+  opacity: 0.7;
+  pointer-events: none;
 }
 
 .filter-row {
@@ -374,14 +471,30 @@ fetchReferenceData()
 
 .filter-input {
   flex: 1;
+  position: relative;
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #6b7280;
 }
 
 .filter-input input {
   width: 100%;
-  padding: 10px;
+  padding: 10px 36px;
   border: 1px solid #ddd;
   border-radius: 4px;
   font-size: 14px;
+}
+
+.filter-input .loading-indicator {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 .filter-actions {
@@ -389,13 +502,25 @@ fetchReferenceData()
   gap: 8px;
 }
 
-.toggle-btn, .reset-btn, .apply-btn {
+.toggle-btn,
+.reset-btn,
+.apply-btn {
   padding: 10px 16px;
   border: none;
   border-radius: 4px;
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+.toggle-btn i,
+.reset-btn i,
+.apply-btn i {
+  font-size: 1.1em;
 }
 
 .toggle-btn {
@@ -413,16 +538,34 @@ fetchReferenceData()
   color: white;
 }
 
-.toggle-btn:hover {
+.toggle-btn:hover:not(:disabled) {
   background-color: #4f46e5;
 }
 
-.reset-btn:hover {
+.reset-btn:hover:not(:disabled) {
   background-color: #6b7280;
 }
 
-.apply-btn:hover {
+.apply-btn:hover:not(:disabled) {
   background-color: #059669;
+}
+
+button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.processing {
+  position: relative;
+  pointer-events: none;
+}
+
+.processing::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: inherit;
 }
 
 .advanced-filters {
@@ -447,6 +590,15 @@ fetchReferenceData()
   font-size: 14px;
   font-weight: 500;
   color: #4b5563;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.filter-field label i {
+  color: #6b7280;
+  width: 16px;
+  text-align: center;
 }
 
 .filter-field input,
@@ -455,28 +607,35 @@ fetchReferenceData()
   border: 1px solid #ddd;
   border-radius: 4px;
   font-size: 14px;
+  transition: border-color 0.2s ease;
 }
 
-.range-inputs,
-.date-inputs {
-  display: flex;
-  align-items: center;
+.filter-field input:focus,
+.filter-field select:focus {
+  border-color: #6366f1;
+  outline: none;
+}
+
+.filter-field input:disabled,
+.filter-field select:disabled {
+  background-color: #f3f4f6;
+  cursor: not-allowed;
+}
+
+.range-inputs {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   gap: 8px;
+  align-items: center;
 }
 
-.range-inputs input,
-.date-inputs input {
-  flex: 1;
-}
-
-.range-inputs span,
-.date-inputs span {
+.range-inputs span {
   color: #6b7280;
   font-size: 12px;
 }
 
 .advanced-filter-actions {
-  grid-column: 1 / -1;  /* Make it span all columns */
+  grid-column: 1 / -1;
   display: flex;
   justify-content: flex-end;
   gap: 12px;
@@ -485,19 +644,28 @@ fetchReferenceData()
   border-top: 1px solid #e5e7eb;
 }
 
-.apply-btn {
-  background-color: #10b981;
-  color: white;
-  padding: 10px 16px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: background-color 0.2s;
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
-.apply-btn:hover {
-  background-color: #059669;
+.fa-spin {
+  animation: spin 1s linear infinite;
+}
+
+@media (max-width: 640px) {
+  .filter-row {
+    flex-direction: column;
+  }
+
+  .filter-actions {
+    width: 100%;
+  }
+
+  .toggle-btn,
+  .reset-btn {
+    flex: 1;
+  }
 }
 </style>
