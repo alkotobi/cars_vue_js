@@ -5,7 +5,7 @@ const hostname = window.location.hostname
 const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1'
 
 // Set API base URL based on environment
-const API_BASE_URL = isLocalhost ? 'http://localhost:8000' : 'https://www.merhab.com/api'
+const API_BASE_URL = isLocalhost ? 'http://localhost:8000/api' : 'https://www.merhab.com/api'
 const API_URL = `${API_BASE_URL}/api.php`
 const UPLOAD_URL = `${API_BASE_URL}/upload.php`
 
@@ -26,7 +26,7 @@ export const useApi = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(data)
+        body: JSON.stringify(data),
       })
 
       const result = await response.json()
@@ -51,7 +51,7 @@ export const useApi = () => {
         fileType: file.type,
         destinationFolder,
         customFilename,
-        uploadUrl: UPLOAD_URL
+        uploadUrl: UPLOAD_URL,
       })
 
       const formData = new FormData()
@@ -71,7 +71,7 @@ export const useApi = () => {
       const response = await fetch(UPLOAD_URL, {
         method: 'POST',
         body: formData,
-        signal: controller.signal
+        signal: controller.signal,
       })
 
       clearTimeout(timeoutId)
@@ -90,7 +90,7 @@ export const useApi = () => {
 
       const result = await response.json()
       console.log('Upload result:', result)
-      
+
       if (!result.success) {
         throw new Error(result.message || 'Upload failed')
       }
@@ -98,11 +98,11 @@ export const useApi = () => {
       // Return both the server response and the relative path
       return {
         ...result,
-        relativePath: `${destinationFolder}/${customFilename}`
+        relativePath: `${destinationFolder}/${customFilename}`,
       }
     } catch (err) {
       console.error('Upload error details:', err)
-      
+
       // Handle specific error types
       if (err.name === 'AbortError') {
         error.value = 'Upload timeout - please try again'
@@ -125,18 +125,21 @@ export const useApi = () => {
     if (path.startsWith('http')) {
       return path
     }
-    
+
     // Remove any leading slashes from the path and store in a new variable
     let processedPath = path.replace(/^\/+/, '')
-    
+
     // If the path already contains 'upload.php?path=' or 'upload_simple.php?path=', extract just the file path
-    if (processedPath.includes('upload.php?path=') || processedPath.includes('upload_simple.php?path=')) {
+    if (
+      processedPath.includes('upload.php?path=') ||
+      processedPath.includes('upload_simple.php?path=')
+    ) {
       const match = processedPath.match(/path=(.+)$/)
       if (match) {
         processedPath = decodeURIComponent(match[1])
       }
     }
-    
+
     return `${UPLOAD_URL}?path=${encodeURIComponent(processedPath)}`
   }
 
@@ -145,6 +148,6 @@ export const useApi = () => {
     uploadFile,
     getFileUrl,
     error,
-    loading
+    loading,
   }
 }
