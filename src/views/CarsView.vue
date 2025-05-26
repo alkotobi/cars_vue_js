@@ -1,5 +1,5 @@
 <script setup>
-import { ref ,computed} from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import CarsStock from './CarsStock.vue'
 import ClientsView from './ClientsView.vue'
@@ -12,17 +12,45 @@ import LoadingPortsView from './LoadingPortsView.vue'
 import BuyView from './BuyView.vue'
 import SellView from './SellView.vue'
 import SellBillsView from './SellBillsView.vue'
-import WarehousesView from './WarehousesView.vue'  // Add this import
+import WarehousesView from './WarehousesView.vue' // Add this import
 
 const router = useRouter()
 const activeView = ref(null)
+const isLoading = ref(false)
+const isProcessing = ref({
+  dashboard: false,
+  buy: false,
+  sell: false,
+  sellBills: false,
+  stock: false,
+  models: false,
+  colors: false,
+  dischargePorts: false,
+  loadingPorts: false,
+  clients: false,
+  brokers: false,
+  suppliers: false,
+  warehouses: false,
+})
 
-const navigateTo = (view) => {
-  activeView.value = view
+const navigateTo = async (view) => {
+  if (isProcessing.value[view]) return
+  isProcessing.value[view] = true
+  try {
+    activeView.value = view
+  } finally {
+    isProcessing.value[view] = false
+  }
 }
 
-const returnToDashboard = () => {
-  router.push('/')
+const returnToDashboard = async () => {
+  if (isProcessing.value.dashboard) return
+  isProcessing.value.dashboard = true
+  try {
+    await router.push('/')
+  } finally {
+    isProcessing.value.dashboard = false
+  }
 }
 const currentUser = computed(() => {
   const userStr = localStorage.getItem('user')
@@ -31,154 +59,199 @@ const currentUser = computed(() => {
 
 const isAdmin = computed(() => {
   if (currentUser.value) {
-  return currentUser.value?.role_id === 1
-}else
-  {
+    return currentUser.value?.role_id === 1
+  } else {
     router.push('/login')
     return false
   }
-}
-)
+})
 
 const canPurchaseCars = computed(() => {
-  if (isAdmin.value){
+  if (isAdmin.value) {
     return true
   }
-  return user.value.permissions?.some(p => p.permission_name === 'can_purchase_cars')
+  return user.value.permissions?.some((p) => p.permission_name === 'can_purchase_cars')
 })
 
 const canSellCars = computed(() => {
-  if (isAdmin.value){
+  if (isAdmin.value) {
     return true
   }
-  return user.value.permissions?.some(p => p.permission_name === 'can_sell_cars')
+  return user.value.permissions?.some((p) => p.permission_name === 'can_sell_cars')
 })
 
 const canCCarStock = computed(() => {
-  if (isAdmin.value){
+  if (isAdmin.value) {
     return true
   }
-  return user.value.permissions?.some(p => p.permission_name === 'can_c_car_stock')
+  return user.value.permissions?.some((p) => p.permission_name === 'can_c_car_stock')
 })
 </script>
 
 <template>
-  <div class="cars-view">
+  <div class="cars-view" :class="{ 'is-loading': isLoading }">
     <div class="sidebar">
       <div class="sidebar-top">
-        <button 
+        <button
           @click="returnToDashboard"
           class="sidebar-btn return-btn"
+          :disabled="isProcessing.dashboard"
+          :class="{ processing: isProcessing.dashboard }"
         >
-          Return to Dashboard
+          <i class="fas fa-arrow-left"></i>
+          <span>Return to Dashboard</span>
+          <i v-if="isProcessing.dashboard" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
-        <button 
-          :disabled="!canPurchaseCars"
+        <button
+          :disabled="!canPurchaseCars || isProcessing.buy"
           @click="navigateTo('buy')"
-          :class="{ active: activeView === 'buy' }"
+          :class="{ active: activeView === 'buy', processing: isProcessing.buy }"
           class="sidebar-btn buy-btn"
         >
-          Purchases
+          <i class="fas fa-shopping-cart"></i>
+          <span>Purchases</span>
+          <i v-if="isProcessing.buy" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
-        <button v-if="false"
+        <button
+          v-if="false"
           @click="navigateTo('sell')"
-          :class="{ active: activeView === 'sell' }"
+          :class="{ active: activeView === 'sell', processing: isProcessing.sell }"
           class="sidebar-btn sell-btn"
+          :disabled="isProcessing.sell"
         >
-          Sell
+          <i class="fas fa-dollar-sign"></i>
+          <span>Sell</span>
+          <i v-if="isProcessing.sell" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
-        <button 
-        :disabled="!canSellCars"
+        <button
+          :disabled="!canSellCars || isProcessing.sellBills"
           @click="navigateTo('sell-bills')"
-          :class="{ active: activeView === 'sell-bills' }"
+          :class="{ active: activeView === 'sell-bills', processing: isProcessing.sellBills }"
           class="sidebar-btn sell-bills-btn"
         >
-          Sells
+          <i class="fas fa-file-invoice-dollar"></i>
+          <span>Sells</span>
+          <i v-if="isProcessing.sellBills" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
-        <button 
-          :disabled="!canCCarStock"
+        <button
+          :disabled="!canCCarStock || isProcessing.stock"
           @click="navigateTo('stock')"
-          :class="{ active: activeView === 'stock' }"
+          :class="{ active: activeView === 'stock', processing: isProcessing.stock }"
           class="sidebar-btn stock-btn"
         >
-          Cars Stock
+          <i class="fas fa-warehouse"></i>
+          <span>Cars Stock</span>
+          <i v-if="isProcessing.stock" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
       </div>
 
       <div class="sidebar-bottom">
-        <div class="sidebar-section-title">Settings</div>
-        <button 
-        v-if="canPurchaseCars"
+        <div class="sidebar-section-title"><i class="fas fa-cog"></i> Settings</div>
+        <button
+          v-if="canPurchaseCars"
           @click="navigateTo('models')"
-          :class="{ active: activeView === 'models' }"
+          :class="{ active: activeView === 'models', processing: isProcessing.models }"
           class="sidebar-btn"
+          :disabled="isProcessing.models"
         >
-          Car Models
+          <i class="fas fa-car"></i>
+          <span>Car Models</span>
+          <i v-if="isProcessing.models" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
-        <button 
-        v-if="canPurchaseCars"
+        <button
+          v-if="canPurchaseCars"
           @click="navigateTo('colors')"
-          :class="{ active: activeView === 'colors' }"
+          :class="{ active: activeView === 'colors', processing: isProcessing.colors }"
           class="sidebar-btn"
+          :disabled="isProcessing.colors"
         >
-          Colors
+          <i class="fas fa-palette"></i>
+          <span>Colors</span>
+          <i v-if="isProcessing.colors" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
-        <button 
-        v-if="canPurchaseCars"
+        <button
+          v-if="canPurchaseCars"
           @click="navigateTo('discharge-ports')"
-          :class="{ active: activeView === 'discharge-ports' }"
+          :class="{
+            active: activeView === 'discharge-ports',
+            processing: isProcessing.dischargePorts,
+          }"
           class="sidebar-btn"
+          :disabled="isProcessing.dischargePorts"
         >
-          Discharge Ports
+          <i class="fas fa-anchor"></i>
+          <span>Discharge Ports</span>
+          <i
+            v-if="isProcessing.dischargePorts"
+            class="fas fa-spinner fa-spin loading-indicator"
+          ></i>
         </button>
-        <button 
-        v-if="canPurchaseCars"
+        <button
+          v-if="canPurchaseCars"
           @click="navigateTo('loading-ports')"
-          :class="{ active: activeView === 'loading-ports' }"
+          :class="{ active: activeView === 'loading-ports', processing: isProcessing.loadingPorts }"
           class="sidebar-btn"
+          :disabled="isProcessing.loadingPorts"
         >
-          Loading Ports
+          <i class="fas fa-ship"></i>
+          <span>Loading Ports</span>
+          <i v-if="isProcessing.loadingPorts" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
-        <button 
-        v-if="canSellCars"
+        <button
+          v-if="canSellCars"
           @click="navigateTo('clients')"
-          :class="{ active: activeView === 'clients' }"
+          :class="{ active: activeView === 'clients', processing: isProcessing.clients }"
           class="sidebar-btn"
+          :disabled="isProcessing.clients"
         >
-          Clients
+          <i class="fas fa-users"></i>
+          <span>Clients</span>
+          <i v-if="isProcessing.clients" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
-        <button 
-        v-if="canSellCars"
+        <button
+          v-if="canSellCars"
           @click="navigateTo('brokers')"
-          :class="{ active: activeView === 'brokers' }"
+          :class="{ active: activeView === 'brokers', processing: isProcessing.brokers }"
           class="sidebar-btn"
+          :disabled="isProcessing.brokers"
         >
-          Brokers
+          <i class="fas fa-handshake"></i>
+          <span>Brokers</span>
+          <i v-if="isProcessing.brokers" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
-        <button 
-        v-if="canPurchaseCars"
+        <button
+          v-if="canPurchaseCars"
           @click="navigateTo('suppliers')"
-          :class="{ active: activeView === 'suppliers' }"
+          :class="{ active: activeView === 'suppliers', processing: isProcessing.suppliers }"
           class="sidebar-btn"
+          :disabled="isProcessing.suppliers"
         >
-          Suppliers
+          <i class="fas fa-truck"></i>
+          <span>Suppliers</span>
+          <i v-if="isProcessing.suppliers" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
-        <!-- Add Warehouses button at the bottom of the sidebar -->
-        <button 
-        v-if="canPurchaseCars"
+        <button
+          v-if="canPurchaseCars"
           @click="navigateTo('warehouses')"
-          :class="{ active: activeView === 'warehouses' }"
+          :class="{ active: activeView === 'warehouses', processing: isProcessing.warehouses }"
           class="sidebar-btn"
+          :disabled="isProcessing.warehouses"
         >
-          Warehouses
+          <i class="fas fa-building"></i>
+          <span>Warehouses</span>
+          <i v-if="isProcessing.warehouses" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
       </div>
     </div>
     <div class="main-content">
-      <h1>Cars Management</h1>
+      <h1>
+        <i class="fas fa-car-side"></i>
+        Cars Management
+      </h1>
       <div class="content">
         <div v-if="!activeView" class="empty-state">
-          Please select an option from the sidebar
+          <i class="fas fa-hand-point-left fa-2x"></i>
+          <p>Please select an option from the sidebar</p>
         </div>
         <BuyView v-if="activeView === 'buy'" />
         <SellView v-if="activeView === 'sell'" />
@@ -191,7 +264,6 @@ const canCCarStock = computed(() => {
         <ClientsView v-if="activeView === 'clients'" />
         <BrokersView v-if="activeView === 'brokers'" />
         <SuppliersView v-if="activeView === 'suppliers'" />
-        <!-- Add conditional rendering for Warehouses view -->
         <WarehousesView v-if="activeView === 'warehouses'" />
       </div>
     </div>
@@ -252,6 +324,7 @@ const canCCarStock = computed(() => {
   font-weight: 500;
   display: flex;
   align-items: center;
+  gap: 8px;
   position: relative;
   outline: none;
 }
@@ -360,6 +433,60 @@ h2 {
   color: #64748b;
   padding: 48px;
   font-size: 1.1em;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.empty-state i {
+  color: #94a3b8;
+}
+
+.empty-state p {
+  margin: 0;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.fa-spin {
+  animation: spin 1s linear infinite;
+}
+
+.cars-view.is-loading {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.sidebar-btn i:not(.loading-indicator) {
+  width: 20px;
+  text-align: center;
+}
+
+.sidebar-btn span {
+  flex: 1;
+}
+
+.loading-indicator {
+  margin-left: auto;
+  font-size: 0.9em;
+}
+
+.sidebar-btn.processing {
+  position: relative;
+  pointer-events: none;
+}
+
+.sidebar-btn.processing::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: inherit;
 }
 
 /* Remove duplicate styles */
