@@ -7,16 +7,16 @@ import 'element-plus/dist/index.css'
 const props = defineProps({
   carId: {
     type: Number,
-    default: null
+    default: null,
   },
   sellBillId: {
     type: Number,
-    default: null
+    default: null,
   },
   visible: {
     type: Boolean,
-    default: false
-  }
+    default: false,
+  },
 })
 
 const emit = defineEmits(['close', 'assign-success'])
@@ -31,12 +31,13 @@ const carDetails = ref(null)
 
 // Add loading state for form submission
 const isSubmitting = ref(false)
+const isProcessing = ref(false)
 
 const formData = ref({
   id_client: null,
   id_port_discharge: null,
   price_cell: null,
-  freight: null
+  freight: null,
 })
 
 // Fetch clients for dropdown
@@ -49,25 +50,25 @@ const fetchClients = async () => {
         WHERE is_broker = 0
         ORDER BY name ASC
       `,
-      params: []
+      params: [],
     })
-    
+
     if (result.success) {
       clients.value = result.data
       filteredClients.value = result.data
     } else {
-      error.value = result.error || "Failed to fetch clients"
+      error.value = result.error || 'Failed to fetch clients'
     }
   } catch (err) {
-    error.value = err.message || "An error occurred"
+    error.value = err.message || 'An error occurred'
   }
 }
 
 const remoteMethod = (query) => {
   if (query) {
     // Filter the existing clients data
-    filteredClients.value = clients.value.filter(client => 
-      client.name.toLowerCase().includes(query.toLowerCase())
+    filteredClients.value = clients.value.filter((client) =>
+      client.name.toLowerCase().includes(query.toLowerCase()),
     )
   } else {
     // If no query, show all clients
@@ -88,9 +89,9 @@ const fetchDischargePorts = async () => {
         FROM discharge_ports
         ORDER BY discharge_port ASC
       `,
-      params: []
+      params: [],
     })
-    
+
     if (result.success) {
       dischargePorts.value = result.data
     } else {
@@ -104,7 +105,7 @@ const fetchDischargePorts = async () => {
 // Fetch car details to show in the form
 const fetchCarDetails = async () => {
   if (!props.carId) return
-  
+
   try {
     const result = await callApi({
       query: `
@@ -120,9 +121,9 @@ const fetchCarDetails = async () => {
         LEFT JOIN colors clr ON bd.id_color = clr.id
         WHERE cs.id = ?
       `,
-      params: [props.carId]
+      params: [props.carId],
     })
-    
+
     if (result.success && result.data.length > 0) {
       carDetails.value = result.data[0]
     } else {
@@ -139,14 +140,14 @@ const assignCar = async () => {
   if (isSubmitting.value) {
     return
   }
-  
+
   if (!validateForm()) return
-  
+
   try {
     isSubmitting.value = true
     loading.value = true
     error.value = null
-    
+
     // First get the bill_ref from the sell_bill
     const billResult = await callApi({
       query: `
@@ -154,17 +155,17 @@ const assignCar = async () => {
         FROM sell_bill
         WHERE id = ?
       `,
-      params: [props.sellBillId]
+      params: [props.sellBillId],
     })
-    
+
     if (!billResult.success || !billResult.data.length) {
       error.value = 'Failed to get bill reference'
       return
     }
-    
+
     const billRef = billResult.data[0].bill_ref
     const currentDate = new Date().toISOString().split('T')[0]
-    
+
     const result = await callApi({
       query: `
         UPDATE cars_stock 
@@ -185,10 +186,10 @@ const assignCar = async () => {
         formData.value.freight || null,
         currentDate,
         billRef,
-        props.carId
-      ]
+        props.carId,
+      ],
     })
-    
+
     if (result.success) {
       emit('assign-success')
       resetForm()
@@ -209,17 +210,17 @@ const validateForm = () => {
     error.value = 'Please select a client'
     return false
   }
-  
+
   if (!formData.value.id_port_discharge) {
     error.value = 'Please select a discharge port'
     return false
   }
-  
+
   if (!formData.value.price_cell) {
     error.value = 'Please enter a sell price'
     return false
   }
-  
+
   return true
 }
 
@@ -229,7 +230,7 @@ const resetForm = () => {
     id_client: null,
     id_port_discharge: null,
     price_cell: null,
-    freight: null
+    freight: null,
   }
   error.value = null
 }
@@ -237,11 +238,11 @@ const resetForm = () => {
 // Calculate potential profit
 const calculateProfit = () => {
   if (!carDetails.value?.buy_price || !formData.value.price_cell) return 'N/A'
-  
+
   const buyPrice = parseFloat(carDetails.value.buy_price)
   const sellPrice = parseFloat(formData.value.price_cell)
   const freightCost = formData.value.freight ? parseFloat(formData.value.freight) : 0
-  
+
   return (sellPrice - buyPrice - freightCost).toFixed(2)
 }
 
@@ -257,38 +258,64 @@ onMounted(() => {
 <template>
   <div v-if="visible" class="car-assignment-form-overlay">
     <div class="car-assignment-form">
+      <!-- Loading Overlay -->
+      <div v-if="loading" class="loading-overlay">
+        <i class="fas fa-spinner fa-spin fa-2x"></i>
+        <span>{{ isProcessing ? 'Assigning car...' : 'Loading...' }}</span>
+      </div>
+
       <div class="form-header">
-        <h3>Assign Car to Sell Bill</h3>
+        <h3>
+          <i class="fas fa-link"></i>
+          Assign Car to Bill
+        </h3>
         <button @click="$emit('close')" class="close-btn">&times;</button>
       </div>
-      
+
       <div v-if="error" class="error">{{ error }}</div>
-      
+
       <div v-if="carDetails" class="car-details">
         <div class="detail-item">
-          <span class="label">Car:</span>
+          <span class="label">
+            <i class="fas fa-car"></i>
+            Car:
+          </span>
           <span class="value">{{ carDetails.car_name }}</span>
         </div>
         <div class="detail-item">
-          <span class="label">Color:</span>
+          <span class="label">
+            <i class="fas fa-palette"></i>
+            Color:
+          </span>
           <span class="value">{{ carDetails.color }}</span>
         </div>
         <div class="detail-item">
-          <span class="label">VIN:</span>
-          <span class="value">{{ carDetails.vin }}</span>
+          <span class="label">
+            <i class="fas fa-fingerprint"></i>
+            VIN:
+          </span>
+          <span class="value">{{ carDetails.vin || 'N/A' }}</span>
         </div>
         <div class="detail-item">
-          <span class="label">Buy Price:</span>
+          <span class="label">
+            <i class="fas fa-dollar-sign"></i>
+            Buy Price:
+          </span>
           <span class="value">${{ carDetails.buy_price }}</span>
         </div>
       </div>
-      
+
       <form @submit.prevent="assignCar">
         <div class="form-group">
-          <label for="client">Client: <span class="required">*</span></label>
+          <label for="client">
+            <i class="fas fa-user"></i>
+            Client: <span class="required">*</span>
+          </label>
           <el-select
             v-model="formData.id_client"
             filterable
+            remote
+            :remote-method="remoteMethod"
             :loading="loading"
             placeholder="Select or search client"
             style="width: 100%"
@@ -299,12 +326,22 @@ onMounted(() => {
               :key="client.id"
               :label="client.name"
               :value="client.id"
-            />
+            >
+              <i class="fas fa-user"></i>
+              {{ client.name }}
+              <small v-if="client.mobiles">
+                <i class="fas fa-phone"></i>
+                {{ client.mobiles }}
+              </small>
+            </el-option>
           </el-select>
         </div>
-        
+
         <div class="form-group">
-          <label for="discharge-port">Discharge Port: <span class="required">*</span></label>
+          <label for="discharge-port">
+            <i class="fas fa-anchor"></i>
+            Discharge Port: <span class="required">*</span>
+          </label>
           <select id="discharge-port" v-model="formData.id_port_discharge" required>
             <option value="">Select Discharge Port</option>
             <option v-for="port in dischargePorts" :key="port.id" :value="port.id">
@@ -312,40 +349,46 @@ onMounted(() => {
             </option>
           </select>
         </div>
-        
+
         <div class="form-group">
-          <label for="sell-price">Sell Price: <span class="required">*</span></label>
-          <input 
-            type="number" 
-            id="sell-price" 
-            v-model="formData.price_cell" 
-            step="0.01" 
-            min="0" 
-            required
-          >
-        </div>
-        
-        <div class="form-group">
-          <label for="freight">Freight:</label>
-          <input 
-            type="number" 
-            id="freight" 
-            v-model="formData.freight" 
-            step="0.01" 
+          <label for="sell-price">
+            <i class="fas fa-dollar-sign"></i>
+            Sell Price: <span class="required">*</span>
+          </label>
+          <input
+            type="number"
+            id="sell-price"
+            v-model="formData.price_cell"
+            step="0.01"
             min="0"
-          >
+            required
+          />
         </div>
-        
+
+        <div class="form-group">
+          <label for="freight">
+            <i class="fas fa-ship"></i>
+            Freight:
+          </label>
+          <input type="number" id="freight" v-model="formData.freight" step="0.01" min="0" />
+        </div>
+
         <div v-if="formData.price_cell && carDetails?.buy_price" class="profit-calculation">
-          <span class="label">Estimated Profit:</span>
+          <span class="label">
+            <i class="fas fa-dollar-sign"></i>
+            Estimated Profit:
+          </span>
           <span class="value profit">${{ calculateProfit() }}</span>
         </div>
-        
+
         <div class="form-actions">
-          <button type="button" @click="$emit('close')" class="cancel-btn">Cancel</button>
-          <button type="submit" class="assign-btn" :disabled="isSubmitting">
-            <span v-if="isSubmitting" class="spinner"></span>
-            {{ isSubmitting ? 'Assigning...' : 'Assign Car' }}
+          <button type="button" @click="$emit('close')" class="cancel-btn">
+            <i class="fas fa-times"></i>
+            Cancel
+          </button>
+          <button type="submit" class="assign-btn" :disabled="isProcessing">
+            <i class="fas fa-save"></i>
+            {{ isProcessing ? 'Assigning...' : 'Assign Car' }}
           </button>
         </div>
       </form>
@@ -434,7 +477,8 @@ onMounted(() => {
   color: #ef4444;
 }
 
-select, input {
+select,
+input {
   width: 100%;
   padding: 8px;
   border: 1px solid #d1d5db;
@@ -499,7 +543,9 @@ select, input {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .error {
@@ -508,5 +554,186 @@ select, input {
   padding: 10px;
   border-radius: 4px;
   margin-bottom: 15px;
+}
+
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.9);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  z-index: 10;
+}
+
+.form-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #1f2937;
+  margin-bottom: 1.5rem;
+}
+
+.error-message {
+  background-color: #fee2e2;
+  color: #dc2626;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.form-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-group label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #374151;
+  font-weight: 500;
+}
+
+.form-group label i {
+  color: #6b7280;
+}
+
+.car-details {
+  background-color: #f9fafb;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid #e5e7eb;
+}
+
+.car-details p {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+  color: #374151;
+}
+
+.car-details i {
+  color: #6b7280;
+}
+
+.client-select {
+  width: 100%;
+}
+
+input[type='number'],
+select,
+textarea {
+  padding: 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  font-size: 1rem;
+  transition: border-color 0.2s;
+}
+
+input[type='number']:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.cancel-btn,
+.save-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 0.375rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cancel-btn {
+  background-color: #f3f4f6;
+  color: #374151;
+}
+
+.cancel-btn:hover:not(:disabled) {
+  background-color: #e5e7eb;
+}
+
+.save-btn {
+  background-color: #10b981;
+  color: white;
+}
+
+.save-btn:hover:not(:disabled) {
+  background-color: #059669;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Element Plus Select Customization */
+:deep(.el-select-dropdown__item) {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+:deep(.el-select-dropdown__item i) {
+  color: #6b7280;
+}
+
+:deep(.el-select-dropdown__item small) {
+  margin-left: auto;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* Add smooth transitions */
+.form-group input,
+.form-group select,
+.form-group textarea {
+  transition: all 0.2s;
+}
+
+button i {
+  transition: transform 0.2s;
+}
+
+button:hover:not(:disabled) i {
+  transform: scale(1.1);
 }
 </style>

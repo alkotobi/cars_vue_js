@@ -120,9 +120,10 @@ const fetchPayments = async () => {
   }
 }
 
-// Add payment with proper number handling
+// Add payment with proper number handling and double-click prevention
 const addPayment = async () => {
   if (!validateForm()) return
+  if (loading.value) return // Prevent double-click
 
   loading.value = true
   error.value = null
@@ -148,7 +149,7 @@ const addPayment = async () => {
       params: [
         props.billId,
         paymentForm.value.date_payment,
-        Number(paymentForm.value.amount), // Ensure amount is a number
+        Number(paymentForm.value.amount),
         swiftPath,
         paymentForm.value.notes,
         user.value.id,
@@ -223,6 +224,12 @@ watch(
 <template>
   <div v-if="show" class="dialog-overlay">
     <div class="dialog">
+      <!-- Loading Overlay -->
+      <div v-if="loading" class="loading-overlay">
+        <i class="fas fa-spinner fa-spin fa-2x"></i>
+        <span>Processing payment...</span>
+      </div>
+
       <div class="dialog-header">
         <h3>
           <i class="fas fa-money-check-alt"></i>
@@ -234,7 +241,7 @@ watch(
       </div>
 
       <div class="dialog-content">
-        <!-- Payment Summary -->
+        <!-- Payment Summary with enhanced icons -->
         <div class="payment-summary">
           <div class="summary-item">
             <i class="fas fa-file-invoice-dollar"></i>
@@ -253,7 +260,7 @@ watch(
           </div>
         </div>
 
-        <!-- Add Payment Form -->
+        <!-- Add Payment Form with loading states -->
         <form @submit.prevent="addPayment" class="payment-form">
           <h4>
             <i class="fas fa-plus-circle"></i>
@@ -327,9 +334,8 @@ watch(
 
           <div class="form-buttons">
             <button type="submit" class="submit-btn" :disabled="loading">
-              <i class="fas fa-save"></i>
-              <span>{{ loading ? 'Adding Payment...' : 'Add Payment' }}</span>
-              <i v-if="loading" class="fas fa-spinner fa-spin"></i>
+              <i class="fas" :class="loading ? 'fa-spinner fa-spin' : 'fa-save'"></i>
+              <span>{{ loading ? 'Processing...' : 'Add Payment' }}</span>
             </button>
           </div>
         </form>
@@ -408,6 +414,7 @@ watch(
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  position: relative;
 }
 
 .dialog-header {
@@ -708,5 +715,29 @@ watch(
     width: 95%;
     max-height: 95vh;
   }
+}
+
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.9);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  z-index: 1001;
+}
+
+.loading-overlay i {
+  color: #3b82f6;
+}
+
+.loading-overlay span {
+  color: #4b5563;
+  font-size: 0.875rem;
 }
 </style>

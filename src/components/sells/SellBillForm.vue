@@ -8,7 +8,7 @@ const props = defineProps({
   mode: {
     type: String,
     default: 'add', // 'add' or 'edit'
-    validator: (value) => ['add', 'edit'].includes(value)
+    validator: (value) => ['add', 'edit'].includes(value),
   },
   billData: {
     type: Object,
@@ -16,11 +16,11 @@ const props = defineProps({
       id: null,
       id_broker: null,
       date_sell: new Date().toISOString().split('T')[0],
-      notes: ''
-    })
-  }
+      notes: '',
+    }),
+  },
 })
-const user = ref(null);
+const user = ref(null)
 
 const emit = defineEmits(['save', 'cancel'])
 
@@ -37,22 +37,26 @@ const formData = ref({
   id: null,
   id_broker: null,
   date_sell: new Date().toISOString().split('T')[0],
-  notes: ''
+  notes: '',
 })
 
 // Watch for changes in billData prop
-watch(() => props.billData, (newData) => {
-  if (newData) {
-    formData.value = { ...newData }
-    // Ensure date is in the correct format for the date input
-    if (formData.value.date_sell) {
-      const date = new Date(formData.value.date_sell)
-      if (!isNaN(date)) {
-        formData.value.date_sell = date.toISOString().split('T')[0]
+watch(
+  () => props.billData,
+  (newData) => {
+    if (newData) {
+      formData.value = { ...newData }
+      // Ensure date is in the correct format for the date input
+      if (formData.value.date_sell) {
+        const date = new Date(formData.value.date_sell)
+        if (!isNaN(date)) {
+          formData.value.date_sell = date.toISOString().split('T')[0]
+        }
       }
     }
-  }
-}, { immediate: true })
+  },
+  { immediate: true },
+)
 
 const fetchBrokers = async () => {
   try {
@@ -63,9 +67,9 @@ const fetchBrokers = async () => {
         WHERE is_broker = 1
         ORDER BY name ASC
       `,
-      params: []
+      params: [],
     })
-    
+
     if (result.success) {
       brokers.value = result.data
       filteredBrokers.value = result.data
@@ -80,8 +84,8 @@ const fetchBrokers = async () => {
 const remoteMethod = (query) => {
   if (query) {
     // Filter the existing brokers data
-    filteredBrokers.value = brokers.value.filter(broker => 
-      broker.name.toLowerCase().includes(query.toLowerCase())
+    filteredBrokers.value = brokers.value.filter((broker) =>
+      broker.name.toLowerCase().includes(query.toLowerCase()),
     )
   } else {
     // If no query, show all brokers
@@ -98,17 +102,17 @@ const saveBill = async () => {
   if (isSubmitting.value) {
     return
   }
-  
+
   try {
     isSubmitting.value = true
     loading.value = true
     error.value = null
-    
+
     let result
-    
+
     if (props.mode === 'add') {
       console.log('User data:', user.value)
-      
+
       // First insert the bill to get the ID
       result = await callApi({
         query: `
@@ -119,10 +123,10 @@ const saveBill = async () => {
           formData.value.id_broker || null,
           formData.value.date_sell,
           formData.value.notes || '',
-          user.value?.id || null
-        ]
+          user.value?.id || null,
+        ],
       })
-      
+
       console.log('Insert result:', result)
       console.log('Insert result:', result.success && result.lastInsertId)
       if (result.success && result.lastInsertId) {
@@ -130,16 +134,18 @@ const saveBill = async () => {
         const username = user.value?.username?.substring(0, 3).toUpperCase() || 'USR'
         const userId = (user.value?.id || 0).toString().padStart(3, '0')
         const date = new Date(formData.value.date_sell)
-        const dateStr = date.toLocaleDateString('en-GB', {
-          day: '2-digit',
-          month: '2-digit',
-          year: '2-digit'
-        }).replace(/\//g, '')
+        const dateStr = date
+          .toLocaleDateString('en-GB', {
+            day: '2-digit',
+            month: '2-digit',
+            year: '2-digit',
+          })
+          .replace(/\//g, '')
         const billId = result.lastInsertId.toString().padStart(3, '0')
         const billRef = `${username}${userId}${dateStr}${billId}`
-        
+
         console.log('Generated bill_ref:', billRef)
-        
+
         // Update the bill with the generated bill_ref
         const updateResult = await callApi({
           query: `
@@ -147,11 +153,11 @@ const saveBill = async () => {
             SET bill_ref = ?
             WHERE id = ?
           `,
-          params: [billRef, result.lastInsertId]
+          params: [billRef, result.lastInsertId],
         })
-        
+
         console.log('Update result:', updateResult)
-        
+
         if (!updateResult.success) {
           console.error('Failed to update bill_ref:', updateResult.error)
           error.value = 'Failed to update bill reference'
@@ -172,9 +178,9 @@ const saveBill = async () => {
             LEFT JOIN clients c ON sb.id_broker = c.id AND c.is_broker = 1
             WHERE sb.id = ?
           `,
-          params: [result.lastInsertId]
+          params: [result.lastInsertId],
         })
-        
+
         console.log('Fetch result:', fetchResult)
 
         if (fetchResult.success && fetchResult.data.length > 0) {
@@ -197,14 +203,14 @@ const saveBill = async () => {
           formData.value.id_broker || null,
           formData.value.date_sell,
           formData.value.notes || '',
-          formData.value.id
-        ]
+          formData.value.id,
+        ],
       })
-    
-    if (result.success) {
-      emit('save', result.data)
-    } else {
-      error.value = result.error || `Failed to ${props.mode} sell bill`
+
+      if (result.success) {
+        emit('save', result.data)
+      } else {
+        error.value = result.error || `Failed to ${props.mode} sell bill`
       }
     }
   } catch (err) {
@@ -229,45 +235,88 @@ onMounted(() => {
 
 <template>
   <div class="sell-bill-form">
-    <h3>{{ mode === 'add' ? 'Add New' : 'Edit' }} Sell Bill</h3>
-    
-    <div v-if="error" class="error">{{ error }}</div>
-    
-    <form @submit.prevent="saveBill">
+    <!-- Loading Overlay -->
+    <div v-if="loading" class="loading-overlay">
+      <i class="fas fa-spinner fa-spin fa-2x"></i>
+      <span>{{ isSubmitting ? 'Saving...' : 'Loading...' }}</span>
+    </div>
+
+    <h3 class="form-title">
+      <i class="fas fa-file-invoice-dollar"></i>
+      {{ mode === 'add' ? 'Add New Sell Bill' : 'Edit Sell Bill' }}
+    </h3>
+
+    <div v-if="error" class="error-message">
+      <i class="fas fa-exclamation-circle"></i>
+      {{ error }}
+    </div>
+
+    <form @submit.prevent="saveBill" class="form-content">
       <div class="form-group">
-        <label for="broker">Broker:</label>
+        <label for="broker">
+          <i class="fas fa-user-tie"></i>
+          Broker:
+        </label>
         <el-select
           v-model="formData.id_broker"
           filterable
+          remote
+          :remote-method="remoteMethod"
           :loading="loading"
-          placeholder="Select or search broker"
-          style="width: 100%"
-          @change="handleBrokerChange"
+          placeholder="Select a broker"
+          class="broker-select"
         >
           <el-option
             v-for="broker in filteredBrokers"
             :key="broker.id"
             :label="broker.name"
             :value="broker.id"
-          />
+          >
+            <i class="fas fa-user-tie"></i>
+            {{ broker.name }}
+            <small v-if="broker.mobiles">
+              <i class="fas fa-phone"></i>
+              {{ broker.mobiles }}
+            </small>
+          </el-option>
         </el-select>
       </div>
-      
+
       <div class="form-group">
-        <label for="date">Date:</label>
-        <input type="date" id="date" v-model="formData.date_sell" required>
+        <label for="date">
+          <i class="fas fa-calendar"></i>
+          Date:
+        </label>
+        <input
+          type="date"
+          id="date"
+          v-model="formData.date_sell"
+          :disabled="isSubmitting"
+          required
+        />
       </div>
-      
+
       <div class="form-group">
-        <label for="notes">Notes:</label>
-        <textarea id="notes" v-model="formData.notes"></textarea>
+        <label for="notes">
+          <i class="fas fa-sticky-note"></i>
+          Notes:
+        </label>
+        <textarea
+          id="notes"
+          v-model="formData.notes"
+          :disabled="isSubmitting"
+          placeholder="Enter any additional notes..."
+        ></textarea>
       </div>
-      
+
       <div class="form-actions">
-        <button type="button" @click="$emit('cancel')" class="cancel-btn">Cancel</button>
-        <button type="submit" class="save-btn" :disabled="isSubmitting">
-          <span v-if="isSubmitting" class="spinner"></span>
-          {{ isSubmitting ? 'Saving...' : (mode === 'add' ? 'Add' : 'Update') }}
+        <button type="button" @click="$emit('cancel')" :disabled="isSubmitting" class="cancel-btn">
+          <i class="fas fa-times"></i>
+          Cancel
+        </button>
+        <button type="submit" :disabled="isSubmitting" class="save-btn">
+          <i class="fas fa-save"></i>
+          {{ isSubmitting ? 'Saving...' : 'Save' }}
         </button>
       </div>
     </form>
@@ -276,94 +325,166 @@ onMounted(() => {
 
 <style scoped>
 .sell-bill-form {
-  max-width: 600px;
-  margin: 0 auto;
+  position: relative;
+  padding: 1.5rem;
+}
+
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.9);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  z-index: 10;
+}
+
+.form-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #1f2937;
+  margin-bottom: 1.5rem;
+}
+
+.error-message {
+  background-color: #fee2e2;
+  color: #dc2626;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.form-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
 }
 
 .form-group {
-  margin-bottom: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
-label {
-  display: block;
-  margin-bottom: 5px;
-  font-weight: bold;
+.form-group label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #374151;
+  font-weight: 500;
 }
 
-input, select, textarea {
+.form-group label i {
+  color: #6b7280;
+}
+
+.broker-select {
   width: 100%;
-  padding: 8px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+}
+
+input[type='date'],
+textarea {
+  padding: 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  font-size: 1rem;
+  transition: border-color 0.2s;
+}
+
+input[type='date']:focus,
+textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
 }
 
 textarea {
-  height: 100px;
+  min-height: 100px;
   resize: vertical;
 }
 
 .form-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
-  margin-top: 20px;
+  gap: 1rem;
+  margin-top: 1rem;
 }
 
-button {
-  padding: 8px 16px;
+.cancel-btn,
+.save-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
   border: none;
-  border-radius: 4px;
+  border-radius: 0.375rem;
+  font-weight: 500;
   cursor: pointer;
+  transition: all 0.2s;
 }
 
 .cancel-btn {
-  background-color: #6b7280;
-  color: white;
+  background-color: #f3f4f6;
+  color: #374151;
+}
+
+.cancel-btn:hover:not(:disabled) {
+  background-color: #e5e7eb;
 }
 
 .save-btn {
-  background-color: #10b981;
+  background-color: #3b82f6;
   color: white;
 }
 
-.save-btn:disabled {
-  background-color: #cccccc;
+.save-btn:hover:not(:disabled) {
+  background-color: #2563eb;
+}
+
+button:disabled {
+  opacity: 0.5;
   cursor: not-allowed;
-  opacity: 0.6;
 }
 
-.error {
-  color: red;
-  margin-bottom: 15px;
-  padding: 10px;
-  background-color: #ffebee;
-  border-radius: 4px;
+/* Element Plus Select Customization */
+:deep(.el-select-dropdown__item) {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
-.spinner {
-  display: inline-block;
-  width: 16px;
-  height: 16px;
-  border: 2px solid #ffffff;
-  border-radius: 50%;
-  border-top-color: transparent;
-  animation: spin 1s ease-in-out infinite;
-  margin-right: 8px;
+:deep(.el-select-dropdown__item i) {
+  color: #6b7280;
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
+:deep(.el-select-dropdown__item small) {
+  margin-left: auto;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
 }
 
-:deep(.el-select) {
-  width: 100%;
+/* Add smooth transitions */
+.form-group input,
+.form-group textarea {
+  transition: all 0.2s;
 }
 
-:deep(.el-input__wrapper) {
-  background-color: white;
+button i {
+  transition: transform 0.2s;
 }
 
-:deep(.el-select .el-input.is-focus .el-input__wrapper) {
-  box-shadow: 0 0 0 1px var(--el-color-primary) inset;
+button:hover:not(:disabled) i {
+  transform: scale(1.1);
 }
 </style>

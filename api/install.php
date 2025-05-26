@@ -251,13 +251,19 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS `roles` (
     // Create sell_bill table
     $pdo->exec("CREATE TABLE IF NOT EXISTS `sell_bill` (
         `id` int(11) NOT NULL AUTO_INCREMENT,
-        `id_client` int(11) DEFAULT NULL,
+        `id_broker` int(11) DEFAULT NULL,
         `date_sell` datetime DEFAULT NULL,
         `amount` decimal(10,2) DEFAULT NULL,
         `payed` decimal(10,2) DEFAULT NULL,
         `pi_path` varchar(255) DEFAULT NULL,
         `bill_ref` varchar(255) DEFAULT NULL,
-        PRIMARY KEY (`id`)
+        `id_user` int(11) DEFAULT NULL,
+        `notes` text DEFAULT NULL,
+        PRIMARY KEY (`id`),
+        KEY `id_user` (`id_user`),
+        KEY `id_broker` (`id_broker`),
+        CONSTRAINT `sell_bill_ibfk_1` FOREIGN KEY (`id_user`) REFERENCES `users` (`id`),
+        CONSTRAINT `sell_bill_ibfk_2` FOREIGN KEY (`id_broker`) REFERENCES `clients` (`id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci");
 
     // Create sell_payments table

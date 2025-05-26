@@ -21,6 +21,7 @@ const error = ref(null)
 const selectedBillId = ref(null)
 const showPrintOptions = ref(false)
 const selectedPrintBillId = ref(null)
+const isProcessing = ref(false)
 
 // Add computed property for payments permission
 const can_c_sell_payments = computed(() => {
@@ -162,54 +163,32 @@ defineExpose({ fetchSellBills })
 
 <template>
   <div class="sell-bills-table-component">
-    <h3>Sell Bills</h3>
-
-    <!-- Add toolbar -->
-    <div v-if="selectedBillId" class="toolbar">
-      <div class="selected-bill-info">
-        Selected Bill: <span class="bill-id">#{{ selectedBillId }}</span>
-      </div>
-      <div class="toolbar-actions">
-        <button
-          @click="handleEdit(sellBills.find((b) => b.id === selectedBillId))"
-          class="edit-btn"
-          :disabled="!can_edit_sell_bill"
-          :class="{ disabled: !can_edit_sell_bill }"
-        >
-          Edit Bill
-        </button>
-        <button
-          @click="handleDelete(selectedBillId)"
-          class="delete-btn"
-          :disabled="!can_delete_sell_bill"
-          :class="{ disabled: !can_delete_sell_bill }"
-        >
-          Delete Bill
-        </button>
-        <button @click="handlePrint(selectedBillId)" class="print-btn">Print Bill</button>
-        <button
-          @click="handlePayments(selectedBillId)"
-          class="payment-btn"
-          :disabled="!can_c_sell_payments"
-          :class="{ disabled: !can_c_sell_payments }"
-        >
-          Payments
-        </button>
-      </div>
+    <!-- Loading Overlay -->
+    <div v-if="loading" class="loading-overlay">
+      <i class="fas fa-spinner fa-spin fa-2x"></i>
+      <span>Loading bills...</span>
     </div>
 
-    <div v-if="loading" class="loading">Loading...</div>
-    <div v-else-if="error" class="error">{{ error }}</div>
-    <div v-else-if="sellBills.length === 0" class="no-data">No sell bills found</div>
+    <div v-if="error" class="error">
+      <i class="fas fa-exclamation-circle"></i>
+      {{ error }}
+    </div>
+
+    <div v-else-if="sellBills.length === 0" class="no-data">
+      <i class="fas fa-inbox fa-2x"></i>
+      <p>No sell bills found</p>
+    </div>
+
     <table v-else class="sell-bills-table">
       <thead>
         <tr>
-          <th>ID</th>
-          <th>Reference</th>
-          <th>Date</th>
-          <th>Broker</th>
-          <th>Created By</th>
-          <th>Notes</th>
+          <th><i class="fas fa-hashtag"></i> ID</th>
+          <th><i class="fas fa-barcode"></i> Reference</th>
+          <th><i class="fas fa-calendar"></i> Date</th>
+          <th><i class="fas fa-user-tie"></i> Broker</th>
+          <th><i class="fas fa-user"></i> Created By</th>
+          <th><i class="fas fa-sticky-note"></i> Notes</th>
+          <th><i class="fas fa-cog"></i> Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -225,9 +204,38 @@ defineExpose({ fetchSellBills })
           <td>{{ bill.broker_name || 'N/A' }}</td>
           <td>{{ bill.created_by || 'N/A' }}</td>
           <td>{{ bill.notes || 'N/A' }}</td>
+          <td class="actions">
+            <button
+              v-if="can_edit_sell_bill"
+              @click.stop="handleEdit(bill)"
+              :disabled="isProcessing"
+              class="btn edit-btn"
+              title="Edit Bill"
+            >
+              <i class="fas fa-edit"></i>
+            </button>
+            <button
+              v-if="can_delete_sell_bill"
+              @click.stop="handleDelete(bill.id)"
+              :disabled="isProcessing"
+              class="btn delete-btn"
+              title="Delete Bill"
+            >
+              <i class="fas fa-trash-alt"></i>
+            </button>
+            <button
+              @click.stop="handlePrint(bill.id)"
+              :disabled="isProcessing"
+              class="btn print-btn"
+              title="Print Bill"
+            >
+              <i class="fas fa-print"></i>
+            </button>
+          </td>
         </tr>
       </tbody>
     </table>
+
     <SellBillPrintOption
       :visible="showPrintOptions"
       :billId="selectedPrintBillId"
@@ -239,7 +247,23 @@ defineExpose({ fetchSellBills })
 
 <style scoped>
 .sell-bills-table-component {
+  position: relative;
   margin-bottom: 20px;
+}
+
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.9);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  z-index: 10;
 }
 
 .toolbar {
@@ -270,133 +294,125 @@ defineExpose({ fetchSellBills })
 .sell-bills-table {
   width: 100%;
   border-collapse: collapse;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+}
+
+.sell-bills-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background-color: #f3f4f6;
 }
 
 .sell-bills-table th,
 .sell-bills-table td {
-  padding: 10px;
+  padding: 12px;
   text-align: left;
-  border-bottom: 1px solid #ddd;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .sell-bills-table th {
-  background-color: #f2f2f2;
-  font-weight: bold;
+  background-color: #f3f4f6;
+  font-weight: 600;
+  color: #374151;
+}
+
+.sell-bills-table th i {
+  margin-right: 8px;
+  color: #6b7280;
 }
 
 .sell-bills-table tr:hover {
-  background-color: #f5f5f5;
+  background-color: #f9fafb;
   cursor: pointer;
 }
 
 .sell-bills-table tr.selected {
-  background-color: #e3f2fd;
+  background-color: #e5edff;
 }
 
 .loading,
 .error,
 .no-data {
-  padding: 20px;
+  padding: 2rem;
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  color: #6b7280;
 }
 
 .error {
-  color: red;
+  color: #dc2626;
+  background-color: #fee2e2;
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.btn {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .edit-btn {
   background-color: #3b82f6;
   color: white;
-  border: none;
-  border-radius: 4px;
-  padding: 8px 16px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  font-weight: 500;
-}
-
-.delete-btn {
-  background-color: #ef4444;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  padding: 8px 16px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  font-weight: 500;
-}
-
-.print-btn {
-  background-color: #6366f1;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  padding: 8px 16px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  font-weight: 500;
-}
-
-.payment-btn {
-  background-color: #10b981;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  padding: 8px 16px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  font-weight: 500;
-}
-
-.edit-btn.disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  background-color: #9ca3af;
-}
-
-.edit-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  background-color: #9ca3af;
 }
 
 .edit-btn:hover:not(:disabled) {
   background-color: #2563eb;
 }
 
-.delete-btn:hover {
+.delete-btn {
+  background-color: #ef4444;
+  color: white;
+}
+
+.delete-btn:hover:not(:disabled) {
   background-color: #dc2626;
 }
 
-.print-btn:hover {
-  background-color: #4f46e5;
+.print-btn {
+  background-color: #10b981;
+  color: white;
 }
 
-.payment-btn.disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  background-color: #9ca3af;
+.print-btn:hover:not(:disabled) {
+  background-color: #059669;
 }
 
-.payment-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  background-color: #9ca3af;
+/* Add smooth transitions */
+.sell-bills-table tr {
+  transition: background-color 0.2s;
 }
 
-.delete-btn.disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  background-color: #9ca3af;
+.btn i {
+  transition: transform 0.2s;
 }
 
-.delete-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  background-color: #9ca3af;
+.btn:hover:not(:disabled) i {
+  transform: scale(1.1);
 }
 </style>

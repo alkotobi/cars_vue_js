@@ -16,6 +16,7 @@ const buyDetails = ref([])
 const suppliers = ref([])
 const cars = ref([])
 const colors = ref([])
+const isLoadingBills = ref(false)
 
 // Dialog controls
 const showAddDialog = ref(false)
@@ -355,6 +356,7 @@ const updatePurchase = async () => {
 }
 
 const fetchBuyBills = async () => {
+  isLoadingBills.value = true
   const result = await callApi({
     query: `
       SELECT 
@@ -378,6 +380,7 @@ const fetchBuyBills = async () => {
       payed: Number(bill.payed),
     }))
   }
+  isLoadingBills.value = false
 }
 
 const fetchBuyDetails = async (billId) => {
@@ -567,7 +570,12 @@ const openPayments = (bill) => {
 
     <div class="content">
       <div class="master-detail-vertical">
-        <BuyBillsTable :buyBills="buyBills" :selectedBill="selectedBill" @select-bill="selectBill">
+        <BuyBillsTable
+          :buyBills="buyBills"
+          :selectedBill="selectedBill"
+          :loading="isLoadingBills"
+          @select-bill="selectBill"
+        >
           <!-- Toolbar actions -->
           <template #actions="{ bill }">
             <button @click.stop="openPayments(bill)" class="payment-btn">Payments</button>

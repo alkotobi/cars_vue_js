@@ -12,6 +12,10 @@ const props = defineProps({
     type: Object,
     default: null,
   },
+  loading: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 const emit = defineEmits(['select-bill'])
@@ -31,116 +35,140 @@ const formatNumber = (value) => {
 
 <template>
   <div class="master-section">
-    <!-- Toolbar -->
-    <div class="toolbar" v-if="selectedBill">
-      <div class="bill-info">
-        <div class="bill-id">
-          <i class="fas fa-file-invoice-dollar"></i>
-          Purchase #{{ selectedBill.id }}
-        </div>
-        <div class="bill-details">
-          <div class="detail-item">
-            <i class="fas fa-building"></i>
-            <span class="label">Supplier:</span>
-            <span class="value">{{ selectedBill.supplier_name }}</span>
-          </div>
-          <div class="detail-item">
-            <i class="fas fa-money-bill-wave"></i>
-            <span class="label">Amount:</span>
-            <span class="value">{{ formatNumber(selectedBill.amount) }}</span>
-          </div>
-          <div class="detail-item">
-            <i class="fas fa-check-circle"></i>
-            <span class="label">Paid:</span>
-            <span class="value">{{ formatNumber(selectedBill.payed) }}</span>
-          </div>
-          <div class="detail-item">
-            <i class="fas fa-balance-scale"></i>
-            <span class="label">Balance:</span>
-            <span class="value">{{ formatNumber(selectedBill.amount - selectedBill.payed) }}</span>
-          </div>
-          <div class="detail-item">
-            <i
-              class="fas"
-              :class="
-                selectedBill.is_stock_updated ? 'fa-check text-success' : 'fa-clock text-warning'
-              "
-            ></i>
-            <span class="label">Status:</span>
-            <span
-              class="value"
-              :class="selectedBill.is_stock_updated ? 'status-updated' : 'status-pending'"
-            >
-              {{ selectedBill.is_stock_updated ? 'Updated' : 'Pending' }}
-            </span>
-          </div>
-        </div>
-      </div>
-      <div class="toolbar-actions">
-        <slot name="actions" :bill="selectedBill"></slot>
-      </div>
+    <!-- Loading Overlay -->
+    <div v-if="loading" class="loading-overlay">
+      <i class="fas fa-spinner fa-spin fa-2x"></i>
+      <span>Loading bills...</span>
     </div>
 
-    <!-- Table -->
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th><i class="fas fa-hashtag"></i> ID</th>
-          <th><i class="fas fa-calendar"></i> Date</th>
-          <th><i class="fas fa-building"></i> Supplier</th>
-          <th><i class="fas fa-file-alt"></i> Bill Ref</th>
-          <th><i class="fas fa-money-bill-wave"></i> Amount</th>
-          <th><i class="fas fa-check-circle"></i> Paid</th>
-          <th><i class="fas fa-balance-scale"></i> Balance</th>
-          <th><i class="fas fa-info-circle"></i> Status</th>
-          <th><i class="fas fa-file-pdf"></i> PI Document</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr
-          v-for="bill in buyBills"
-          :key="bill.id"
-          :class="{ selected: selectedBill?.id === bill.id }"
-          @click="$emit('select-bill', bill)"
-        >
-          <td>{{ bill.id }}</td>
-          <td>{{ formatDate(bill.date_buy) }}</td>
-          <td>{{ bill.supplier_name }}</td>
-          <td>{{ bill.bill_ref || 'N/A' }}</td>
-          <td>{{ formatNumber(bill.amount) }}</td>
-          <td>{{ formatNumber(bill.payed) }}</td>
-          <td>{{ formatNumber(bill.amount - bill.payed) }}</td>
-          <td>
-            <span :class="bill.is_stock_updated ? 'status-updated' : 'status-pending'">
-              <i class="fas" :class="bill.is_stock_updated ? 'fa-check' : 'fa-clock'"></i>
-              {{ bill.is_stock_updated ? 'Updated' : 'Pending' }}
-            </span>
-          </td>
-          <td>
-            <a
-              v-if="bill.pi_path"
-              :href="getFileUrl(bill.pi_path)"
-              target="_blank"
-              class="pi-document-link"
-              @click.stop
-            >
-              <i class="fas fa-file-pdf"></i>
-              View PI
-            </a>
-            <span v-else class="no-document">
-              <i class="fas fa-times-circle"></i>
-              No document
-            </span>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+    <!-- No Selection Message -->
+    <div v-if="!loading && buyBills.length === 0" class="no-selection">
+      <i class="fas fa-inbox fa-2x"></i>
+      <p>No purchase bills found</p>
+    </div>
+
+    <div v-else-if="!loading">
+      <!-- Toolbar -->
+      <div class="toolbar" v-if="selectedBill">
+        <div class="bill-info">
+          <div class="bill-id">
+            <i class="fas fa-file-invoice-dollar"></i>
+            Purchase #{{ selectedBill.id }}
+          </div>
+          <div class="bill-details">
+            <div class="detail-item">
+              <i class="fas fa-building"></i>
+              <span class="label">Supplier:</span>
+              <span class="value">{{ selectedBill.supplier_name }}</span>
+            </div>
+            <div class="detail-item">
+              <i class="fas fa-money-bill-wave"></i>
+              <span class="label">Amount:</span>
+              <span class="value">{{ formatNumber(selectedBill.amount) }}</span>
+            </div>
+            <div class="detail-item">
+              <i class="fas fa-check-circle"></i>
+              <span class="label">Paid:</span>
+              <span class="value">{{ formatNumber(selectedBill.payed) }}</span>
+            </div>
+            <div class="detail-item">
+              <i class="fas fa-balance-scale"></i>
+              <span class="label">Balance:</span>
+              <span class="value">{{
+                formatNumber(selectedBill.amount - selectedBill.payed)
+              }}</span>
+            </div>
+            <div class="detail-item">
+              <i
+                class="fas"
+                :class="
+                  selectedBill.is_stock_updated ? 'fa-check text-success' : 'fa-clock text-warning'
+                "
+              ></i>
+              <span class="label">Status:</span>
+              <span
+                class="value"
+                :class="selectedBill.is_stock_updated ? 'status-updated' : 'status-pending'"
+              >
+                {{ selectedBill.is_stock_updated ? 'Updated' : 'Pending' }}
+              </span>
+            </div>
+          </div>
+        </div>
+        <div class="toolbar-actions">
+          <slot name="actions" :bill="selectedBill"></slot>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <table class="data-table" :class="{ 'with-selection': selectedBill }">
+        <thead>
+          <tr>
+            <th><i class="fas fa-hashtag"></i> ID</th>
+            <th><i class="fas fa-calendar"></i> Date</th>
+            <th><i class="fas fa-building"></i> Supplier</th>
+            <th><i class="fas fa-file-alt"></i> Bill Ref</th>
+            <th><i class="fas fa-money-bill-wave"></i> Amount</th>
+            <th><i class="fas fa-check-circle"></i> Paid</th>
+            <th><i class="fas fa-balance-scale"></i> Balance</th>
+            <th><i class="fas fa-info-circle"></i> Status</th>
+            <th><i class="fas fa-file-pdf"></i> PI Document</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            v-for="bill in buyBills"
+            :key="bill.id"
+            :class="{ selected: selectedBill?.id === bill.id }"
+            @click="$emit('select-bill', bill)"
+          >
+            <td>{{ bill.id }}</td>
+            <td>{{ formatDate(bill.date_buy) }}</td>
+            <td>{{ bill.supplier_name }}</td>
+            <td>{{ bill.bill_ref || 'N/A' }}</td>
+            <td>{{ formatNumber(bill.amount) }}</td>
+            <td>{{ formatNumber(bill.payed) }}</td>
+            <td>{{ formatNumber(bill.amount - bill.payed) }}</td>
+            <td>
+              <span :class="bill.is_stock_updated ? 'status-updated' : 'status-pending'">
+                <i class="fas" :class="bill.is_stock_updated ? 'fa-check' : 'fa-clock'"></i>
+                {{ bill.is_stock_updated ? 'Updated' : 'Pending' }}
+              </span>
+            </td>
+            <td>
+              <a
+                v-if="bill.pi_path"
+                :href="getFileUrl(bill.pi_path)"
+                target="_blank"
+                class="pi-document-link"
+                @click.stop
+              >
+                <i class="fas fa-file-pdf"></i>
+                View PI
+              </a>
+              <span v-else class="no-document">
+                <i class="fas fa-times-circle"></i>
+                No document
+              </span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Selection Message -->
+      <div v-if="!selectedBill" class="no-selection">
+        <i class="fas fa-hand-pointer fa-2x"></i>
+        <p>Please select a purchase bill to view its details</p>
+      </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .master-section {
   width: 100%;
+  position: relative;
+  min-height: 200px;
 }
 
 .toolbar {
@@ -348,5 +376,56 @@ const formatNumber = (value) => {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
+}
+
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.9);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  z-index: 10;
+}
+
+.loading-overlay i {
+  color: #3b82f6;
+}
+
+.loading-overlay span {
+  color: #4b5563;
+  font-size: 0.875rem;
+}
+
+.data-table.with-selection {
+  margin-top: 1rem;
+}
+
+.no-selection {
+  text-align: center;
+  padding: 2rem;
+  background-color: #f9fafb;
+  border-radius: 0.5rem;
+  color: #6b7280;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  border: 1px dashed #d1d5db;
+}
+
+.no-selection i {
+  color: #9ca3af;
+}
+
+.no-selection p {
+  margin: 0;
+  font-size: 0.875rem;
 }
 </style>

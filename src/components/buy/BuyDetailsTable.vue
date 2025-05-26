@@ -25,6 +25,9 @@ const isStockUpdated = computed(() => {
   return props.buyDetails[0]?.is_stock_updated === 1
 })
 
+// Add loading state
+const isProcessing = ref(false)
+
 const confirmDelete = (detailId, isStockUpdated) => {
   if (isStockUpdated) {
     alert('Cannot delete details - Stock has already been updated')
@@ -52,40 +55,51 @@ const showStockAlert = async () => {
     return
   }
 
-  if (confirm('Are you sure you want to update the stock? This action cannot be undone.')) {
-    // Process each detail
-    for (const detail of props.buyDetails) {
-      // Create stock entries based on quantity
-      for (let i = 0; i < detail.QTY; i++) {
-        const result = await callApi({
-          query: `
-            INSERT INTO cars_stock 
-            (id_buy_details,price_cell)
-            VALUES (?,?)
-          `,
-          params: [detail.id, detail.price_sell],
-        })
+  if (isProcessing.value) return // Prevent double-click
 
-        if (!result.success) {
-          alert('Error creating stock entry')
-          console.error('Error creating stock entry:', result.error)
-          return
+  if (confirm('Are you sure you want to update the stock? This action cannot be undone.')) {
+    isProcessing.value = true
+
+    try {
+      // Process each detail
+      for (const detail of props.buyDetails) {
+        // Create stock entries based on quantity
+        for (let i = 0; i < detail.QTY; i++) {
+          const result = await callApi({
+            query: `
+              INSERT INTO cars_stock 
+              (id_buy_details,price_cell)
+              VALUES (?,?)
+            `,
+            params: [detail.id, detail.price_sell],
+          })
+
+          if (!result.success) {
+            alert('Error creating stock entry')
+            console.error('Error creating stock entry:', result.error)
+            return
+          }
         }
       }
-    }
 
-    // Update the is_stock_updated flag in buy_bill
-    const result = await callApi({
-      query: 'UPDATE buy_bill SET is_stock_updated = 1 WHERE id = ?',
-      params: [props.buyDetails[0].id_buy_bill],
-    })
+      // Update the is_stock_updated flag in buy_bill
+      const result = await callApi({
+        query: 'UPDATE buy_bill SET is_stock_updated = 1 WHERE id = ?',
+        params: [props.buyDetails[0].id_buy_bill],
+      })
 
-    if (result.success) {
-      alert('Stock has been successfully updated')
-      emit('update-detail', props.buyDetails[0]) // Trigger refresh of parent component
-    } else {
-      console.error('Error updating is_stock_updated flag:', result.error)
-      alert('Error updating stock')
+      if (result.success) {
+        alert('Stock has been successfully updated')
+        emit('update-detail', props.buyDetails[0]) // Trigger refresh of parent component
+      } else {
+        console.error('Error updating is_stock_updated flag:', result.error)
+        alert('Error updating stock')
+      }
+    } catch (err) {
+      console.error('Error updating stock:', err)
+      alert('Error updating stock: ' + err.message)
+    } finally {
+      isProcessing.value = false
     }
   }
 }
@@ -93,6 +107,12 @@ const showStockAlert = async () => {
 
 <template>
   <div class="detail-section">
+    <!-- Loading Overlay -->
+    <div v-if="isProcessing" class="loading-overlay">
+      <i class="fas fa-spinner fa-spin fa-2x"></i>
+      <span>Processing stock update...</span>
+    </div>
+
     <div class="detail-header">
       <h3>
         <i class="fas fa-list-alt"></i>
@@ -102,12 +122,12 @@ const showStockAlert = async () => {
         <button
           @click="showStockAlert"
           class="stock-btn"
-          :class="{ disabled: isStockUpdated }"
-          :disabled="isStockUpdated"
+          :class="{ disabled: isStockUpdated || isProcessing }"
+          :disabled="isStockUpdated || isProcessing"
           :title="isStockUpdated ? 'Stock has already been updated' : 'Update stock'"
         >
-          <i class="fas fa-boxes"></i>
-          Update Stock
+          <i class="fas" :class="isProcessing ? 'fa-spinner fa-spin' : 'fa-boxes'"></i>
+          {{ isProcessing ? 'Processing...' : 'Update Stock' }}
         </button>
         <button
           @click="$emit('add-detail')"
@@ -270,6 +290,8 @@ const showStockAlert = async () => {
   border-radius: 8px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   overflow: hidden;
+  position: relative;
+  min-height: 200px;
 }
 
 .detail-header {
@@ -581,5 +603,29 @@ form {
     width: 100%;
     margin-bottom: 16px;
   }
+}
+
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.9);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  z-index: 10;
+}
+
+.loading-overlay i {
+  color: #3b82f6;
+}
+
+.loading-overlay span {
+  color: #4b5563;
+  font-size: 0.875rem;
 }
 </style>
