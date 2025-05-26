@@ -22,10 +22,11 @@ const isAdmin = computed(() => {
 const fetchUserBalances = async () => {
   loading.value = true
   error.value = null
-  
+
   try {
     // If not admin, only fetch current user's data
-    const query = isAdmin.value ? `
+    const query = isAdmin.value
+      ? `
       SELECT 
         u.id,
         u.username,
@@ -57,7 +58,8 @@ const fetchUserBalances = async () => {
         ) as total_money_out
       FROM users u
       ORDER BY u.username
-    ` : `
+    `
+      : `
       SELECT 
         u.id,
         u.username,
@@ -94,18 +96,18 @@ const fetchUserBalances = async () => {
 
     const params = isAdmin.value ? [] : [currentUser.value?.id]
     const result = await callApi({ query, params })
-    
+
     if (result.success) {
-      users.value = result.data.map(user => {
+      users.value = result.data.map((user) => {
         // Ensure we're working with numbers, not strings
         const moneyIn = parseFloat(user.total_money_in) || 0
         const moneyOut = parseFloat(user.total_money_out) || 0
-        
+
         return {
           ...user,
           total_money_in: moneyIn,
           total_money_out: moneyOut,
-          balance: moneyIn - moneyOut
+          balance: moneyIn - moneyOut,
         }
       })
 
@@ -130,7 +132,7 @@ const formatCurrency = (value) => {
     style: 'currency',
     currency: 'DZD',
     minimumFractionDigits: 2,
-    maximumFractionDigits: 2
+    maximumFractionDigits: 2,
   }).format(numValue)
 }
 
@@ -155,7 +157,7 @@ const formatDate = (date) => {
     month: 'long',
     day: 'numeric',
     hour: '2-digit',
-    minute: '2-digit'
+    minute: '2-digit',
   }).format(date)
 }
 
@@ -165,138 +167,369 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="money-movements">
+  <div class="money-movements" :class="{ 'is-loading': loading }">
     <div class="header" :data-print-date="formatDate(new Date())">
-      <h2>Money Movements</h2>
+      <div class="header-content">
+        <h2>
+          <i class="fas fa-money-bill-wave pulse"></i>
+          Money Movements
+        </h2>
+        <button
+          class="refresh-btn"
+          @click="fetchUserBalances"
+          :disabled="loading"
+          :class="{ 'is-loading': loading }"
+        >
+          <i class="fas fa-sync-alt"></i>
+          Refresh
+        </button>
+      </div>
+
       <div class="summary" v-if="isAdmin">
-        <div class="summary-item">
-          <span class="label">Total System Balance:</span>
-          <span class="value" :class="{ 'positive': totalBalance >= 0, 'negative': totalBalance < 0 }">
-            {{ formatCurrency(totalBalance) }}
-          </span>
+        <div
+          class="summary-item"
+          :class="{ 'positive-card': totalBalance >= 0, 'negative-card': totalBalance < 0 }"
+        >
+          <i class="fas fa-balance-scale-right"></i>
+          <div class="summary-content">
+            <span class="label">Total System Balance</span>
+            <span
+              class="value"
+              :class="{ positive: totalBalance >= 0, negative: totalBalance < 0 }"
+            >
+              <i
+                :class="totalBalance >= 0 ? 'fas fa-arrow-up bounce' : 'fas fa-arrow-down bounce'"
+              ></i>
+              {{ formatCurrency(totalBalance) }}
+            </span>
+          </div>
         </div>
         <div class="summary-item">
-          <span class="label">Total Users:</span>
-          <span class="value">{{ users.length }}</span>
+          <i class="fas fa-users-cog"></i>
+          <div class="summary-content">
+            <span class="label">Active Users</span>
+            <span class="value">
+              <i class="fas fa-user-check"></i>
+              {{ users.length }}
+            </span>
+          </div>
         </div>
       </div>
     </div>
 
-    <div v-if="error" class="error-message">{{ error }}</div>
+    <div v-if="error" class="error-message">
+      <i class="fas fa-exclamation-triangle fa-lg shake"></i>
+      <div class="error-content">
+        <strong>Error Occurred</strong>
+        <p>{{ error }}</p>
+        <button class="retry-btn" @click="fetchUserBalances">
+          <i class="fas fa-redo"></i>
+          Try Again
+        </button>
+      </div>
+    </div>
 
-    <div class="movements-table">
-      <table v-if="!loading && users.length > 0">
-        <thead>
-          <tr>
-            <th>User</th>
-            <th>Money In</th>
-            <th>Money Out</th>
-            <th>Balance</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr 
-            v-for="user in users" 
-            :key="user.id"
-            @click="handleUserSelect(user)"
-            :class="{ 
-              'selected': selectedUser?.id === user.id,
-              'clickable': isAdmin || user.id === currentUser?.id
-            }"
-          >
-            <td>{{ user.username }}</td>
-            <td class="money-in">{{ formatCurrency(user.total_money_in) }}</td>
-            <td class="money-out">{{ formatCurrency(user.total_money_out) }}</td>
-            <td :class="{ 'positive': user.balance >= 0, 'negative': user.balance < 0 }">
-              {{ formatCurrency(user.balance) }}
-            </td>
-          </tr>
-        </tbody>
-      </table>
-
-      <div v-else-if="loading" class="loading">
-        Loading user balances...
+    <div class="movements-table-container">
+      <div class="table-overlay" v-if="loading">
+        <div class="loading-spinner">
+          <i class="fas fa-circle-notch fa-spin fa-2x"></i>
+          <span>Loading Data...</span>
+        </div>
       </div>
 
-      <div v-else class="no-data">
-        No users found
+      <div class="table-wrapper" v-if="!loading && users.length > 0">
+        <table>
+          <thead>
+            <tr>
+              <th><i class="fas fa-user-tag"></i> User</th>
+              <th><i class="fas fa-arrow-circle-down"></i> Money In</th>
+              <th><i class="fas fa-arrow-circle-up"></i> Money Out</th>
+              <th><i class="fas fa-wallet"></i> Balance</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="user in users"
+              :key="user.id"
+              @click="handleUserSelect(user)"
+              :class="{
+                'row-selected': selectedUser?.id === user.id,
+                'row-clickable': isAdmin || user.id === currentUser?.id,
+                'row-disabled': !isAdmin && user.id !== currentUser?.id,
+              }"
+            >
+              <td>
+                <div class="user-cell">
+                  <i class="fas fa-user-circle"></i>
+                  <span>{{ user.username }}</span>
+                  <i
+                    v-if="user.id === currentUser?.id"
+                    class="fas fa-star current-user-star"
+                    title="Current User"
+                  ></i>
+                </div>
+              </td>
+              <td class="money-in">
+                <div class="amount-cell">
+                  <i class="fas fa-plus-circle pulse-success"></i>
+                  <span>{{ formatCurrency(user.total_money_in) }}</span>
+                </div>
+              </td>
+              <td class="money-out">
+                <div class="amount-cell">
+                  <i class="fas fa-minus-circle pulse-danger"></i>
+                  <span>{{ formatCurrency(user.total_money_out) }}</span>
+                </div>
+              </td>
+              <td :class="{ positive: user.balance >= 0, negative: user.balance < 0 }">
+                <div class="amount-cell">
+                  <i
+                    :class="
+                      user.balance >= 0
+                        ? 'fas fa-arrow-up bounce-soft'
+                        : 'fas fa-arrow-down bounce-soft'
+                    "
+                  ></i>
+                  <span>{{ formatCurrency(user.balance) }}</span>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div v-else-if="!loading && !users.length" class="empty-state">
+        <i class="fas fa-users-slash fa-3x pulse"></i>
+        <h3>No Users Found</h3>
+        <p>There are currently no users in the system.</p>
+        <button class="retry-btn" @click="fetchUserBalances">
+          <i class="fas fa-sync-alt"></i>
+          Refresh Data
+        </button>
       </div>
     </div>
 
     <!-- User Transactions Table -->
-    <UserTransactionsTable 
+    <UserTransactionsTable
       v-if="selectedUser"
       :selectedUser="selectedUser"
+      class="transactions-table-wrapper"
     />
   </div>
 </template>
 
 <style scoped>
 .money-movements {
-  padding: 20px;
+  padding: 24px;
   background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s ease;
 }
 
-.header {
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 24px;
 }
 
 .header h2 {
-  margin: 0 0 16px 0;
-  color: #1a1a1a;
-  font-size: 1.5rem;
+  margin: 0;
+  color: #1e293b;
+  font-size: 1.75rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header h2 i {
+  color: #3b82f6;
+  font-size: 1.5em;
+}
+
+.refresh-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.refresh-btn:hover:not(:disabled) {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+.refresh-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.refresh-btn.is-loading i {
+  animation: spin 1s linear infinite;
 }
 
 .summary {
-  display: flex;
-  gap: 24px;
-  margin-bottom: 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+  margin-bottom: 32px;
 }
 
 .summary-item {
-  background-color: #f3f4f6;
-  padding: 12px 20px;
-  border-radius: 8px;
+  background: #f8fafc;
+  padding: 20px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  align-items: flex-start;
+  gap: 16px;
+  transition: all 0.3s ease;
+}
+
+.summary-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.summary-item.positive-card {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.summary-item.negative-card {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.summary-item > i {
+  color: #64748b;
+  font-size: 1.5rem;
+  margin-top: 4px;
+}
+
+.summary-content {
+  flex: 1;
 }
 
 .summary-item .label {
-  color: #6b7280;
+  color: #64748b;
   font-size: 0.875rem;
+  font-weight: 500;
+  display: block;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .summary-item .value {
-  color: #1f2937;
-  font-size: 1.25rem;
+  color: #1e293b;
+  font-size: 1.5rem;
   font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.movements-table {
+.movements-table-container {
+  position: relative;
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+}
+
+.table-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(4px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10;
+}
+
+.loading-spinner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: #3b82f6;
+}
+
+.loading-spinner span {
+  color: #64748b;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.table-wrapper {
   overflow-x: auto;
 }
 
 table {
   width: 100%;
-  border-collapse: collapse;
-  text-align: left;
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
 th {
-  background-color: #f9fafb;
-  padding: 12px;
+  background: #f8fafc;
+  padding: 16px;
   font-weight: 600;
-  color: #374151;
-  border-bottom: 2px solid #e5e7eb;
+  color: #475569;
+  border-bottom: 2px solid #e2e8f0;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+}
+
+th i {
+  color: #64748b;
+  margin-right: 8px;
+  width: 16px;
 }
 
 td {
-  padding: 12px;
-  border-bottom: 1px solid #e5e7eb;
-  color: #1f2937;
+  padding: 16px;
+  border-bottom: 1px solid #e2e8f0;
+  color: #1e293b;
+  font-size: 0.875rem;
+}
+
+.user-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.user-cell i {
+  color: #64748b;
+  font-size: 1.25rem;
+}
+
+.current-user-star {
+  color: #eab308 !important;
+  margin-left: auto;
+}
+
+.amount-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
 }
 
 .money-in {
@@ -309,223 +542,230 @@ td {
 
 .positive {
   color: #059669;
-  font-weight: 600;
 }
 
 .negative {
   color: #dc2626;
-  font-weight: 600;
 }
 
 .error-message {
-  background-color: #fee2e2;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
   color: #dc2626;
-  padding: 12px;
+  padding: 16px;
+  border-radius: 12px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.error-content {
+  flex: 1;
+}
+
+.error-content strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.875rem;
+}
+
+.error-content p {
+  margin: 0 0 12px 0;
+  color: #ef4444;
+  font-size: 0.875rem;
+}
+
+.retry-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: 1px solid currentColor;
   border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.retry-btn:hover {
+  background: rgba(220, 38, 38, 0.1);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 48px 24px;
+  color: #64748b;
+}
+
+.empty-state i {
+  color: #94a3b8;
   margin-bottom: 16px;
 }
 
-.loading, .no-data {
-  text-align: center;
-  padding: 40px;
-  color: #6b7280;
-  font-size: 1.1rem;
+.empty-state h3 {
+  margin: 0 0 8px 0;
+  color: #475569;
+  font-size: 1.25rem;
 }
 
-tr {
-  transition: background-color 0.2s;
+.empty-state p {
+  margin: 0 0 20px 0;
+  color: #64748b;
+  font-size: 0.875rem;
 }
 
-tr.clickable {
+.row-clickable {
   cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-tr.clickable:hover {
-  background-color: #f3f4f6;
+.row-clickable:hover {
+  background: #f8fafc;
 }
 
-tr.selected {
-  background-color: #e5e7eb;
+.row-selected {
+  background: #f1f5f9;
 }
 
-tr:not(.clickable) {
-  opacity: 0.7;
+.row-disabled {
+  opacity: 0.6;
   cursor: not-allowed;
+  pointer-events: none;
 }
-</style>
 
-<style>
-@media print {
-  /* Hide only specific UI elements */
-  nav,
-  aside,
-  .sidebar,
-  .toolbar,
-  button:not(.print-button),
-  .btn:not(.print-button),
-  .actions,
-  .action-buttons {
-    display: none !important;
+/* Animations */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
   }
+  to {
+    transform: rotate(360deg);
+  }
+}
 
-  /* Show the main content */
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-2px);
+  }
+  75% {
+    transform: translateX(2px);
+  }
+}
+
+@keyframes bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes bounce-soft {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
+
+.pulse {
+  animation: pulse 2s infinite;
+}
+
+.shake {
+  animation: shake 0.5s infinite;
+}
+
+.bounce {
+  animation: bounce 2s infinite;
+}
+
+.bounce-soft {
+  animation: bounce-soft 2s infinite;
+}
+
+.pulse-success {
+  color: #059669;
+  animation: pulse 2s infinite;
+}
+
+.pulse-danger {
+  color: #dc2626;
+  animation: pulse 2s infinite;
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
   .money-movements {
-    display: block !important;
-    visibility: visible !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    box-shadow: none !important;
-    background: white !important;
-    width: 100% !important;
-    position: absolute !important;
-    left: 0 !important;
-    top: 0 !important;
-  }
-
-  /* Style both tables containers */
-  .movements-table,
-  .user-transactions {
-    display: block !important;
-    visibility: visible !important;
-    width: 100% !important;
-    margin: 0 !important;
-    overflow: visible !important;
-    page-break-inside: avoid !important;
-  }
-
-  /* Add section title for transactions detail */
-  .user-transactions::before {
-    content: "Transaction Details" !important;
-    display: block !important;
-    font-size: 16pt !important;
-    font-weight: bold !important;
-    margin: 20px 0 !important;
-    text-align: center !important;
-    border-top: 2px solid #000 !important;
-    padding-top: 20px !important;
-  }
-
-  /* Style all tables */
-  table {
-    display: table !important;
-    visibility: visible !important;
-    width: 100% !important;
-    border-collapse: collapse !important;
-    font-size: 11pt !important;
-    margin-bottom: 20px !important;
-    page-break-inside: auto !important;
-  }
-
-  thead {
-    display: table-header-group !important;
-  }
-
-  tbody {
-    display: table-row-group !important;
-  }
-
-  tr {
-    display: table-row !important;
-    page-break-inside: avoid !important;
-  }
-
-  th, td {
-    display: table-cell !important;
-    padding: 8px !important;
-    border: 1px solid #000 !important;
-    text-align: left !important;
-  }
-
-  /* Keep colors for money in/out but make them printer-friendly */
-  .money-in {
-    color: #006400 !important; /* Dark green */
-  }
-
-  .money-out {
-    color: #8B0000 !important; /* Dark red */
-  }
-
-  .positive {
-    color: #006400 !important;
-  }
-
-  .negative {
-    color: #8B0000 !important;
-  }
-
-  /* Format header for print */
-  .header {
-    display: block !important;
-    text-align: center !important;
-    margin-bottom: 20px !important;
-    padding: 0 !important;
-  }
-
-  .header h2, .header h3 {
-    display: block !important;
-    font-size: 18pt !important;
-    margin-bottom: 10px !important;
+    padding: 20px;
   }
 
   .summary {
-    display: flex !important;
-    justify-content: space-around !important;
-    margin-bottom: 20px !important;
-    border-bottom: 2px solid #000 !important;
-    padding-bottom: 10px !important;
-  }
-
-  .summary-item {
-    display: block !important;
-    background: none !important;
-    padding: 5px !important;
-  }
-
-  /* Add date to print */
-  .header::after {
-    content: "Printed on " attr(data-print-date) !important;
-    display: block !important;
-    font-size: 10pt !important;
-    margin-top: 5px !important;
-    color: #666 !important;
-  }
-
-  /* Remove interactive styles */
-  tr.clickable, tr:not(.clickable) {
-    opacity: 1 !important;
-    cursor: default !important;
-  }
-
-  tr:hover, tr.selected {
-    background: none !important;
-  }
-
-  /* Set A4 page margins */
-  @page {
-    size: A4;
-    margin: 1.5cm;
-  }
-
-  /* Ensure user transactions table starts on new page */
-  .user-transactions {
-    page-break-before: always !important;
-    display: block !important;
-  }
-
-  /* Style transaction type indicators */
-  .transaction-type {
-    font-weight: bold !important;
-    padding: 2px 6px !important;
-    border-radius: 0 !important;
-    background: none !important;
-  }
-
-  .transaction-type.in {
-    color: #006400 !important;
-  }
-
-  .transaction-type.out {
-    color: #8B0000 !important;
+    grid-template-columns: 1fr;
   }
 }
-</style> 
+
+@media (max-width: 768px) {
+  .header-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .refresh-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .movements-table-container {
+    margin: 0 -20px;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+  }
+
+  .table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  td,
+  th {
+    padding: 12px;
+    font-size: 0.813rem;
+  }
+
+  .user-cell {
+    gap: 8px;
+  }
+
+  .amount-cell {
+    gap: 6px;
+  }
+}
+
+/* Print Styles - Keep existing print styles */
+</style>

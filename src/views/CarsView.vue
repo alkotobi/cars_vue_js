@@ -266,6 +266,7 @@ const canCCarStock = computed(() => {
         <SuppliersView v-if="activeView === 'suppliers'" />
         <WarehousesView v-if="activeView === 'warehouses'" />
       </div>
+      <div class="copyright">© Merhab Noureddine 2025</div>
     </div>
   </div>
 </template>
@@ -500,5 +501,13 @@ h2 {
 
 .warehouses-btn.active {
   background-color: #047857;
+}
+
+.copyright {
+  text-align: center;
+  color: #6b7280;
+  font-size: 0.875rem;
+  margin-top: 2rem;
+  padding-bottom: 1rem;
 }
 </style>

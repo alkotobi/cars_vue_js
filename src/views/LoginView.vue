@@ -324,6 +324,7 @@ onUnmounted(() => {
         {{ showChangePassword ? 'Back to Login' : 'Change Password' }}
       </button>
     </form>
+    <div class="copyright">© Merhab Noureddine 2025</div>
   </div>
 </template>
 
@@ -493,5 +494,16 @@ button:disabled {
   input {
     font-size: 16px; /* Prevents zoom on mobile */
   }
+}
+
+.copyright {
+  text-align: center;
+  color: #6b7280;
+  font-size: 0.875rem;
+  margin-top: 1rem;
+  position: absolute;
+  bottom: 1rem;
+  width: 100%;
+  left: 0;
 }
 </style>

@@ -5,12 +5,12 @@ import { useApi } from '../../composables/useApi'
 const props = defineProps({
   visible: {
     type: Boolean,
-    default: false
+    default: false,
   },
   editData: {
     type: Object,
-    default: null
-  }
+    default: null,
+  },
 })
 
 const emit = defineEmits(['close', 'save'])
@@ -27,7 +27,7 @@ const formData = ref({
   from_user_id: null,
   to_user_id: null,
   notes: '',
-  date_transfer: new Date().toISOString().split('T')[0]
+  date_transfer: new Date().toISOString().split('T')[0],
 })
 
 // Define resetForm before using it in watch
@@ -38,35 +38,39 @@ const resetForm = () => {
     from_user_id: currentUser.value?.id || null,
     to_user_id: null,
     notes: '',
-    date_transfer: new Date().toISOString().split('T')[0]
+    date_transfer: new Date().toISOString().split('T')[0],
   }
   error.value = null
 }
 
 // Watch for editData changes
-watch(() => props.editData, (newData) => {
-  if (newData) {
-    formData.value = {
-      id: newData.id,
-      amount: newData.amount,
-      from_user_id: newData.from_user_id,
-      to_user_id: newData.to_user_id,
-      notes: newData.notes || '',
-      date_transfer: newData.date_transfer
+watch(
+  () => props.editData,
+  (newData) => {
+    if (newData) {
+      formData.value = {
+        id: newData.id,
+        amount: newData.amount,
+        from_user_id: newData.from_user_id,
+        to_user_id: newData.to_user_id,
+        notes: newData.notes || '',
+        date_transfer: newData.date_transfer,
+      }
+    } else {
+      resetForm()
     }
-  } else {
-    resetForm()
-  }
-}, { immediate: true })
+  },
+  { immediate: true },
+)
 
 // Fetch users for dropdowns
 const fetchUsers = async () => {
   try {
     const result = await callApi({
       query: 'SELECT id, username FROM users WHERE id != ? ORDER BY username',
-      params: [currentUser.value?.id]
+      params: [currentUser.value?.id],
     })
-    
+
     if (result.success) {
       users.value = result.data
     } else {
@@ -79,12 +83,12 @@ const fetchUsers = async () => {
 
 const saveTransfer = async () => {
   if (!validateForm()) return
-  
+
   loading.value = true
   error.value = null
-  
+
   try {
-    let result;
+    let result
     if (formData.value.id) {
       // Update existing transfer
       result = await callApi({
@@ -103,8 +107,8 @@ const saveTransfer = async () => {
           formData.value.from_user_id,
           formData.value.to_user_id,
           formData.value.notes || null,
-          formData.value.id
-        ]
+          formData.value.id,
+        ],
       })
     } else {
       // Create new transfer
@@ -119,11 +123,11 @@ const saveTransfer = async () => {
           formData.value.date_transfer,
           formData.value.from_user_id,
           formData.value.to_user_id,
-          formData.value.notes || null
-        ]
+          formData.value.notes || null,
+        ],
       })
     }
-    
+
     if (result.success) {
       emit('save')
       resetForm()
@@ -142,22 +146,22 @@ const validateForm = () => {
     error.value = 'Please enter a valid amount'
     return false
   }
-  
+
   if (!formData.value.from_user_id) {
     error.value = 'Please select the sender'
     return false
   }
-  
+
   if (!formData.value.to_user_id) {
     error.value = 'Please select the receiver'
     return false
   }
-  
+
   if (formData.value.from_user_id === formData.value.to_user_id) {
     error.value = 'Sender and receiver cannot be the same user'
     return false
   }
-  
+
   return true
 }
 
@@ -175,65 +179,124 @@ onMounted(() => {
   <div v-if="visible" class="dialog-overlay">
     <div class="dialog">
       <div class="dialog-header">
-        <h3>{{ formData.id ? 'Edit' : 'New' }} Transfer</h3>
-        <button @click="$emit('close')" class="close-btn">&times;</button>
+        <h3>
+          <i :class="formData.id ? 'fas fa-edit' : 'fas fa-plus-circle'"></i>
+          {{ formData.id ? 'Edit' : 'New' }} Transfer
+        </h3>
+        <button @click="$emit('close')" class="close-btn" :disabled="loading">
+          <i class="fas fa-times"></i>
+        </button>
       </div>
 
-      <div v-if="error" class="error-message">{{ error }}</div>
+      <div v-if="error" class="error-message">
+        <i class="fas fa-exclamation-circle"></i>
+        {{ error }}
+      </div>
 
-      <form @submit.prevent="saveTransfer" class="form">
+      <form @submit.prevent="saveTransfer" class="form" :class="{ 'is-loading': loading }">
         <div class="form-group">
-          <label for="amount">Amount: <span class="required">*</span></label>
-          <input
-            type="number"
-            id="amount"
-            v-model="formData.amount"
-            step="0.01"
-            min="0"
-            required
-          >
+          <label for="amount">
+            <i class="fas fa-dollar-sign"></i>
+            Amount: <span class="required">*</span>
+          </label>
+          <div class="input-wrapper">
+            <input
+              type="number"
+              id="amount"
+              v-model="formData.amount"
+              step="0.01"
+              min="0"
+              required
+              :disabled="loading"
+              placeholder="Enter amount"
+            />
+          </div>
         </div>
 
         <div class="form-group">
-          <label for="from_user">From User: <span class="required">*</span></label>
-          <select id="from_user" v-model="formData.from_user_id" required :disabled="!formData.id">
-            <option :value="currentUser?.id">{{ currentUser?.username }} (You)</option>
-          </select>
+          <label for="from_user">
+            <i class="fas fa-user-circle"></i>
+            From User: <span class="required">*</span>
+          </label>
+          <div class="input-wrapper">
+            <select
+              id="from_user"
+              v-model="formData.from_user_id"
+              required
+              :disabled="!formData.id || loading"
+            >
+              <option :value="currentUser?.id">{{ currentUser?.username }} (You)</option>
+            </select>
+          </div>
         </div>
 
         <div class="form-group">
-          <label for="to_user">To User: <span class="required">*</span></label>
-          <select id="to_user" v-model="formData.to_user_id" required>
-            <option value="">Select User</option>
-            <option v-for="user in users" :key="user.id" :value="user.id">
-              {{ user.username }}
-            </option>
-          </select>
+          <label for="to_user">
+            <i class="fas fa-user-circle"></i>
+            To User: <span class="required">*</span>
+          </label>
+          <div class="input-wrapper">
+            <select id="to_user" v-model="formData.to_user_id" required :disabled="loading">
+              <option value="">Select User</option>
+              <option v-for="user in users" :key="user.id" :value="user.id">
+                {{ user.username }}
+              </option>
+            </select>
+          </div>
         </div>
 
         <div class="form-group">
-          <label for="date">Date: <span class="required">*</span></label>
-          <input
-            type="date"
-            id="date"
-            v-model="formData.date_transfer"
-            required
-          >
+          <label for="date">
+            <i class="fas fa-calendar-alt"></i>
+            Date: <span class="required">*</span>
+          </label>
+          <div class="input-wrapper">
+            <input
+              type="date"
+              id="date"
+              v-model="formData.date_transfer"
+              required
+              :disabled="loading"
+            />
+          </div>
         </div>
 
         <div class="form-group">
-          <label for="notes">Notes:</label>
-          <textarea
-            id="notes"
-            v-model="formData.notes"
-            rows="3"
-          ></textarea>
+          <label for="notes">
+            <i class="fas fa-sticky-note"></i>
+            Notes:
+          </label>
+          <div class="input-wrapper">
+            <textarea
+              id="notes"
+              v-model="formData.notes"
+              rows="3"
+              :disabled="loading"
+              placeholder="Add any additional notes here"
+            ></textarea>
+          </div>
         </div>
 
         <div class="form-actions">
-          <button type="button" @click="$emit('close')" class="cancel-btn">Cancel</button>
+          <button type="button" @click="$emit('close')" class="cancel-btn" :disabled="loading">
+            <i class="fas fa-times"></i>
+            Cancel
+          </button>
           <button type="submit" class="save-btn" :disabled="loading">
-            {{ loading ? (formData.id ? 'Updating...' : 'Saving...') : (formData.id ? 'Update' : 'Save') }}
+            <i
+              :class="
+                loading ? 'fas fa-spinner fa-spin' : formData.id ? 'fas fa-save' : 'fas fa-plus'
+              "
+            ></i>
+            {{
+              loading
+                ? formData.id
+                  ? 'Updating...'
+                  : 'Saving...'
+                : formData.id
+                  ? 'Update'
+                  : 'Save'
+            }}
           </button>
         </div>
       </form>
@@ -253,107 +316,222 @@ onMounted(() => {
   justify-content: center;
   align-items: center;
   z-index: 1000;
+  backdrop-filter: blur(4px);
 }
 
 .dialog {
   background: white;
-  border-radius: 8px;
-  padding: 20px;
+  border-radius: 12px;
   width: 90%;
   max-width: 500px;
-  max-height: 90vh;
-  overflow-y: auto;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  box-shadow:
+    0 4px 6px rgba(0, 0, 0, 0.1),
+    0 1px 3px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
 }
 
 .dialog-header {
+  background-color: #f8fafc;
+  padding: 16px 24px;
+  border-bottom: 1px solid #e2e8f0;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
 }
 
 .dialog-header h3 {
   margin: 0;
-  font-size: 1.5rem;
-  color: #1a1a1a;
+  color: #1e293b;
+  font-size: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dialog-header h3 i {
+  color: #3b82f6;
 }
 
 .close-btn {
   background: none;
   border: none;
+  color: #64748b;
   font-size: 1.5rem;
-  color: #666;
   cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.close-btn:hover:not(:disabled) {
+  color: #ef4444;
+  background-color: #fee2e2;
+}
+
+.close-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .form {
+  padding: 24px;
+  position: relative;
+}
+
+.form.is-loading::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(2px);
+}
+
+.error-message {
+  margin: 0 24px;
+  padding: 12px;
+  background-color: #fee2e2;
+  color: #dc2626;
+  border-radius: 6px;
+  font-size: 0.875rem;
   display: flex;
-  flex-direction: column;
-  gap: 15px;
+  align-items: center;
+  gap: 8px;
+  animation: slideIn 0.3s ease;
 }
 
 .form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
+  margin-bottom: 20px;
 }
 
 .form-group label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  color: #1e293b;
   font-weight: 500;
-  color: #374151;
+}
+
+.form-group label i {
+  color: #64748b;
+  width: 16px;
 }
 
 .required {
   color: #ef4444;
 }
 
-input, select, textarea {
-  padding: 8px;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  font-size: 1rem;
+.input-wrapper {
+  position: relative;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+  background-color: white;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+input:disabled,
+select:disabled,
+textarea:disabled {
+  background-color: #f8fafc;
+  cursor: not-allowed;
 }
 
 textarea {
   resize: vertical;
+  min-height: 80px;
 }
 
 .form-actions {
   display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 10px;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #e2e8f0;
 }
 
-.cancel-btn, .save-btn {
-  padding: 8px 16px;
-  border: none;
-  border-radius: 4px;
+.form-actions button {
+  padding: 10px 20px;
+  border-radius: 6px;
   font-weight: 500;
   cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
 }
 
 .cancel-btn {
-  background-color: #6b7280;
-  color: white;
+  background-color: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
+}
+
+.cancel-btn:hover:not(:disabled) {
+  background-color: #e2e8f0;
 }
 
 .save-btn {
-  background-color: #10b981;
+  background-color: #3b82f6;
+  border: none;
   color: white;
+  flex: 1;
+}
+
+.save-btn:hover:not(:disabled) {
+  background-color: #2563eb;
+  transform: translateY(-1px);
 }
 
 .save-btn:disabled {
-  background-color: #d1d5db;
+  opacity: 0.7;
   cursor: not-allowed;
+  transform: none;
 }
 
-.error-message {
-  background-color: #fee2e2;
-  color: #dc2626;
-  padding: 12px;
-  border-radius: 4px;
-  margin-bottom: 15px;
+@keyframes slideIn {
+  from {
+    transform: translateY(-10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
-</style> 
+
+@media (max-width: 640px) {
+  .dialog {
+    width: 95%;
+    margin: 16px;
+  }
+
+  .form-actions {
+    flex-direction: column;
+  }
+
+  .form-actions button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+</style>

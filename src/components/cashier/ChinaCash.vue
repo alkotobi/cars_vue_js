@@ -42,7 +42,7 @@ const fetchTransactions = async () => {
         WHERE bp.date_payment IS NOT NULL
         ORDER BY date ASC
       `.trim(),
-      params: []
+      params: [],
     })
 
     if (result.success) {
@@ -58,7 +58,7 @@ const fetchTransactions = async () => {
         }
         acc[date].push({
           ...tx,
-          amount: Number(tx.amount)
+          amount: Number(tx.amount),
         })
         return acc
       }, {})
@@ -69,11 +69,11 @@ const fetchTransactions = async () => {
         .forEach(([date, dayTransactions]) => {
           // Calculate daily totals
           const dailyIn = dayTransactions
-            .filter(tx => tx.type === 'in')
+            .filter((tx) => tx.type === 'in')
             .reduce((sum, tx) => sum + tx.amount, 0)
-          
+
           const dailyOut = dayTransactions
-            .filter(tx => tx.type === 'out')
+            .filter((tx) => tx.type === 'out')
             .reduce((sum, tx) => sum + tx.amount, 0)
 
           // Calculate new balance
@@ -88,12 +88,12 @@ const fetchTransactions = async () => {
             in: dailyIn,
             out: dailyOut,
             newBalance,
-            transactions: dayTransactions.map(tx => ({
+            transactions: dayTransactions.map((tx) => ({
               createdBy: tx.created_by,
               notes: tx.notes,
               amount: tx.amount,
-              type: tx.type
-            }))
+              type: tx.type,
+            })),
           })
         })
 
@@ -105,7 +105,7 @@ const fetchTransactions = async () => {
     console.error('Full error details:', {
       message: err.message,
       stack: err.stack,
-      name: err.name
+      name: err.name,
     })
     error.value = `Error fetching transactions: ${err.message || err}. Please check the console for more details.`
   } finally {
@@ -119,28 +119,30 @@ const formatDate = (dateStr) => {
   return new Date(dateStr).toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
-    day: 'numeric'
+    day: 'numeric',
   })
 }
 
 const formatNumber = (value) => {
   const num = Number(value)
-  return !isNaN(num) ? num.toLocaleString('en-US', {
-    style: 'currency',
-    currency: 'USD'
-  }) : 'N/A'
+  return !isNaN(num)
+    ? num.toLocaleString('en-US', {
+        style: 'currency',
+        currency: 'USD',
+      })
+    : 'N/A'
 }
 
 // Add computed totals
 const totals = computed(() => {
   if (!transactions.value.length) return { totalIn: 0, totalOut: 0, balance: 0 }
-  
+
   // Get the last transaction to get final balance
   const lastDay = transactions.value[transactions.value.length - 1]
   return {
     totalIn: transactions.value.reduce((sum, day) => sum + day.in, 0),
     totalOut: transactions.value.reduce((sum, day) => sum + day.out, 0),
-    balance: lastDay.newBalance
+    balance: lastDay.newBalance,
   }
 })
 
@@ -152,67 +154,135 @@ onMounted(() => {
 <template>
   <div class="china-cash">
     <div class="header">
-      <h2>China Cash Management</h2>
+      <h2>
+        <i class="fas fa-yen-sign"></i>
+        China Cash Management
+      </h2>
       <div class="summary">
         <div class="summary-item">
-          <span class="label">Total In:</span>
-          <span class="value positive">{{ formatNumber(totals.totalIn) }}</span>
+          <i class="fas fa-chart-line"></i>
+          <div class="summary-content">
+            <span class="label">Total In:</span>
+            <span class="value positive">
+              <i class="fas fa-arrow-up"></i>
+              {{ formatNumber(totals.totalIn) }}
+            </span>
+          </div>
         </div>
         <div class="summary-item">
-          <span class="label">Total Out:</span>
-          <span class="value negative">{{ formatNumber(totals.totalOut) }}</span>
+          <i class="fas fa-chart-line fa-flip-vertical"></i>
+          <div class="summary-content">
+            <span class="label">Total Out:</span>
+            <span class="value negative">
+              <i class="fas fa-arrow-down"></i>
+              {{ formatNumber(totals.totalOut) }}
+            </span>
+          </div>
         </div>
         <div class="summary-item">
-          <span class="label">Current Balance:</span>
-          <span class="value" :class="{ 'positive': totals.balance >= 0, 'negative': totals.balance < 0 }">
-            {{ formatNumber(totals.balance) }}
-          </span>
+          <i class="fas fa-balance-scale"></i>
+          <div class="summary-content">
+            <span class="label">Current Balance:</span>
+            <span
+              class="value"
+              :class="{ positive: totals.balance >= 0, negative: totals.balance < 0 }"
+            >
+              <i :class="totals.balance >= 0 ? 'fas fa-plus-circle' : 'fas fa-minus-circle'"></i>
+              {{ formatNumber(totals.balance) }}
+            </span>
+          </div>
         </div>
       </div>
     </div>
 
     <!-- Transactions Table -->
-    <div class="transactions-table">
-      <div v-if="error" class="error-message">{{ error }}</div>
-      
+    <div class="transactions-table" :class="{ 'is-loading': loading }">
+      <div v-if="error" class="error-message">
+        <i class="fas fa-exclamation-circle"></i>
+        <div class="error-content">
+          <strong>Error</strong>
+          <p>{{ error }}</p>
+        </div>
+      </div>
+
+      <div v-if="loading" class="loading-overlay">
+        <i class="fas fa-spinner fa-spin fa-2x"></i>
+        <span>Loading transactions...</span>
+      </div>
+
       <table v-if="!loading && transactions.length > 0">
         <thead>
           <tr>
-            <th>Date</th>
-            <th>Previous Balance</th>
-            <th>In</th>
-            <th>Out</th>
-            <th>New Balance</th>
-            <th>Details</th>
+            <th><i class="fas fa-calendar-alt"></i> Date</th>
+            <th><i class="fas fa-history"></i> Previous Balance</th>
+            <th><i class="fas fa-arrow-up"></i> In</th>
+            <th><i class="fas fa-arrow-down"></i> Out</th>
+            <th><i class="fas fa-wallet"></i> New Balance</th>
+            <th><i class="fas fa-info-circle"></i> Details</th>
           </tr>
         </thead>
         <tbody>
           <template v-for="day in transactions" :key="day.date">
-            <tr class="day-summary">
-              <td>{{ formatDate(day.date) }}</td>
-              <td :class="{ 'positive': day.previousBalance >= 0, 'negative': day.previousBalance < 0 }">
+            <tr
+              class="day-summary"
+              :class="{
+                'positive-row': day.newBalance >= 0,
+                'negative-row': day.newBalance < 0,
+              }"
+            >
+              <td>
+                <span class="date-badge">
+                  <i class="fas fa-calendar-day"></i>
+                  {{ formatDate(day.date) }}
+                </span>
+              </td>
+              <td
+                :class="{ positive: day.previousBalance >= 0, negative: day.previousBalance < 0 }"
+              >
                 {{ formatNumber(day.previousBalance) }}
               </td>
-              <td class="positive">{{ formatNumber(day.in) }}</td>
-              <td class="negative">{{ formatNumber(day.out) }}</td>
-              <td :class="{ 'positive': day.newBalance >= 0, 'negative': day.newBalance < 0 }">
+              <td class="positive">
+                <span class="amount-badge in" v-if="day.in > 0">
+                  <i class="fas fa-plus"></i>
+                  {{ formatNumber(day.in) }}
+                </span>
+                <span class="empty-amount" v-else>-</span>
+              </td>
+              <td class="negative">
+                <span class="amount-badge out" v-if="day.out > 0">
+                  <i class="fas fa-minus"></i>
+                  {{ formatNumber(day.out) }}
+                </span>
+                <span class="empty-amount" v-else>-</span>
+              </td>
+              <td :class="{ positive: day.newBalance >= 0, negative: day.newBalance < 0 }">
                 {{ formatNumber(day.newBalance) }}
               </td>
               <td>
                 <div v-for="tx in day.transactions" :key="tx.id" class="transaction-detail">
                   <span class="type-badge" :class="tx.type">
+                    <i :class="tx.type === 'in' ? 'fas fa-arrow-right' : 'fas fa-arrow-left'"></i>
                     {{ formatNumber(tx.amount) }}
                   </span>
-                  <span class="created-by">{{ tx.createdBy }}</span>
-                  <span class="notes">{{ tx.notes }}</span>
+                  <span class="created-by">
+                    <i class="fas fa-user"></i>
+                    {{ tx.createdBy }}
+                  </span>
+                  <span v-if="tx.notes" class="notes" :title="tx.notes">
+                    <i class="fas fa-comment-alt"></i>
+                    {{ tx.notes }}
+                  </span>
                 </div>
               </td>
             </tr>
           </template>
         </tbody>
       </table>
-      <div v-else-if="loading" class="loading">Loading...</div>
-      <div v-else class="no-data">No transactions found</div>
+
+      <div v-else-if="!loading && !transactions.length" class="no-data">
+        <i class="fas fa-inbox fa-3x"></i>
+        <p>No transactions found</p>
+      </div>
     </div>
   </div>
 </template>
@@ -229,6 +299,14 @@ onMounted(() => {
 .header h2 {
   margin: 0 0 16px 0;
   color: #1e293b;
+  font-size: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header h2 i {
+  color: #3b82f6;
 }
 
 .summary {
@@ -238,17 +316,35 @@ onMounted(() => {
   margin-bottom: 24px;
   background-color: #f8fafc;
   padding: 16px;
-  border-radius: 8px;
+  border-radius: 12px;
   border: 1px solid #e2e8f0;
 }
 
 .summary-item {
   flex: 1;
   min-width: 200px;
-  padding: 12px;
+  padding: 16px;
   border-radius: 8px;
   background-color: white;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  transition: transform 0.2s ease;
+}
+
+.summary-item:hover {
+  transform: translateY(-1px);
+}
+
+.summary-item > i {
+  color: #64748b;
+  font-size: 1.25rem;
+  margin-top: 4px;
+}
+
+.summary-content {
+  flex: 1;
 }
 
 .summary-item .label {
@@ -259,16 +355,44 @@ onMounted(() => {
 }
 
 .summary-item .value {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 1.5rem;
   font-weight: 600;
 }
 
 .transactions-table {
   background-color: white;
-  border-radius: 8px;
+  border-radius: 12px;
   border: 1px solid #e2e8f0;
   overflow: hidden;
+  position: relative;
+}
+
+.transactions-table.is-loading {
+  min-height: 200px;
+}
+
+.loading-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.9);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  z-index: 10;
+}
+
+.loading-overlay i {
+  color: #3b82f6;
+}
+
+.loading-overlay span {
+  color: #4b5563;
+  font-size: 0.875rem;
 }
 
 table {
@@ -276,33 +400,63 @@ table {
   border-collapse: collapse;
 }
 
-th, td {
-  padding: 12px;
+th,
+td {
+  padding: 12px 16px;
   text-align: left;
   border-bottom: 1px solid #e2e8f0;
 }
 
 th {
   background-color: #f8fafc;
-  font-weight: 500;
-  color: #475569;
+  font-weight: 600;
+  color: #1e293b;
+  white-space: nowrap;
+}
+
+th i {
+  color: #64748b;
+  margin-right: 8px;
+  width: 16px;
 }
 
 .day-summary {
   background-color: #f8fafc;
 }
 
+.day-summary:hover {
+  background-color: #f1f5f9;
+}
+
+.date-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background-color: #e2e8f0;
+  color: #475569;
+  font-size: 0.875rem;
+}
+
 .transaction-detail {
-  padding: 4px 0;
+  padding: 8px 0;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
+  border-bottom: 1px dashed #e2e8f0;
+}
+
+.transaction-detail:last-child {
+  border-bottom: none;
 }
 
 .type-badge {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: 4px 8px;
-  border-radius: 4px;
+  border-radius: 6px;
   font-size: 0.875rem;
   font-weight: 500;
 }
@@ -317,14 +471,50 @@ th {
   color: #991b1b;
 }
 
+.amount-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+.amount-badge.in {
+  background-color: #dcfce7;
+  color: #059669;
+}
+
+.amount-badge.out {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+.empty-amount {
+  color: #9ca3af;
+  font-size: 0.875rem;
+}
+
 .created-by {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-weight: 500;
   color: #64748b;
+  font-size: 0.875rem;
 }
 
 .notes {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   color: #64748b;
   font-size: 0.875rem;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .positive {
@@ -339,28 +529,83 @@ th {
   background-color: #fee2e2;
   color: #dc2626;
   padding: 12px;
-  border-radius: 6px;
+  border-radius: 8px;
   margin-bottom: 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
 }
 
-.loading {
-  text-align: center;
-  padding: 40px;
-  color: #64748b;
+.error-message i {
+  margin-top: 2px;
+}
+
+.error-content {
+  flex: 1;
+}
+
+.error-content strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.error-content p {
+  margin: 0;
+  font-size: 0.875rem;
 }
 
 .no-data {
   text-align: center;
-  padding: 40px;
+  padding: 48px;
   color: #64748b;
   background-color: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.no-data i {
+  color: #94a3b8;
+}
+
+.no-data p {
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+@media (max-width: 1024px) {
+  .summary {
+    flex-direction: column;
+  }
+
+  .summary-item {
+    width: 100%;
+  }
 }
 
 @media (max-width: 768px) {
   .transaction-detail {
     flex-direction: column;
     align-items: flex-start;
-    gap: 4px;
+    gap: 8px;
+    padding: 12px 0;
+  }
+
+  .notes {
+    max-width: 100%;
+  }
+
+  td,
+  th {
+    padding: 12px;
+  }
+
+  .transactions-table {
+    margin: 0 -20px;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
   }
 }
 </style>

@@ -235,6 +235,7 @@ const canAccessCashier = computed(() => {
         </li>
       </ul>
     </div>
+    <div class="copyright">© Merhab Noureddine 2025</div>
   </div>
 </template>
 
@@ -440,5 +441,13 @@ button:disabled {
   .permissions-list {
     grid-template-columns: 1fr;
   }
+}
+
+.copyright {
+  text-align: center;
+  color: #6b7280;
+  font-size: 0.875rem;
+  margin-top: 2rem;
+  padding-bottom: 1rem;
 }
 </style>
