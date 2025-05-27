@@ -273,6 +273,7 @@ const formatNumber = (value) => {
   transition: all 0.2s ease;
   position: relative;
   overflow: hidden;
+  border-left: 4px solid transparent;
 }
 
 .data-table tbody tr:hover {
@@ -283,25 +284,25 @@ const formatNumber = (value) => {
 
 .data-table tbody tr.selected {
   background-color: #eff6ff;
-  border-left: 4px solid #3b82f6;
+  border-left-color: #3b82f6;
 }
 
 .data-table tbody tr.selected::before {
-  content: '\f0da';
-  font-family: 'Font Awesome 5 Free';
-  font-weight: 900;
-  position: absolute;
-  left: -20px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #3b82f6;
-  opacity: 0;
-  transition: all 0.3s ease;
+  content: none;
 }
 
-.data-table tbody tr.selected:hover::before {
-  left: 5px;
-  opacity: 1;
+.data-table tbody tr.selected td:first-child {
+  position: relative;
+}
+
+.data-table tbody tr.selected td:first-child::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background-color: #3b82f6;
 }
 
 .data-table td {
