@@ -56,6 +56,44 @@ const can_edit_sell_bill = computed(() => {
   return user.value.permissions?.some((p) => p.permission_name === 'can_edit_sell_bill')
 })
 
+const sortConfig = ref({
+  field: 'date_sell',
+  direction: 'desc',
+})
+
+// Add computed property for sorted bills
+const sortedBills = computed(() => {
+  if (!sellBills.value.length) return []
+
+  return [...sellBills.value].sort((a, b) => {
+    let aValue = a[sortConfig.value.field]
+    let bValue = b[sortConfig.value.field]
+
+    // Handle date comparison
+    if (sortConfig.value.field === 'date_sell') {
+      aValue = new Date(aValue).getTime()
+      bValue = new Date(bValue).getTime()
+    }
+
+    // Handle numeric fields
+    if (sortConfig.value.field === 'id') {
+      aValue = Number(aValue)
+      bValue = Number(bValue)
+    }
+
+    // Handle null values
+    if (aValue === null || aValue === undefined) aValue = ''
+    if (bValue === null || bValue === undefined) bValue = ''
+
+    // Compare values based on direction
+    if (sortConfig.value.direction === 'asc') {
+      return aValue > bValue ? 1 : -1
+    } else {
+      return aValue < bValue ? 1 : -1
+    }
+  })
+})
+
 onMounted(() => {
   const userStr = localStorage.getItem('user')
   if (userStr) {
@@ -228,6 +266,17 @@ const selectBill = (bill) => {
   }
 }
 
+const handleSort = (field) => {
+  if (sortConfig.value.field === field) {
+    // Toggle direction if clicking the same field
+    sortConfig.value.direction = sortConfig.value.direction === 'asc' ? 'desc' : 'asc'
+  } else {
+    // Set new field and default to descending
+    sortConfig.value.field = field
+    sortConfig.value.direction = 'desc'
+  }
+}
+
 // Expose the fetchSellBills method to parent component
 defineExpose({ fetchSellBills })
 </script>
@@ -313,18 +362,54 @@ defineExpose({ fetchSellBills })
     <table v-else class="sell-bills-table">
       <thead>
         <tr>
-          <th><i class="fas fa-hashtag"></i> ID</th>
-          <th><i class="fas fa-barcode"></i> Reference</th>
-          <th><i class="fas fa-calendar"></i> Date</th>
-          <th><i class="fas fa-user-tie"></i> Broker</th>
-          <th><i class="fas fa-user"></i> Created By</th>
-          <th><i class="fas fa-sticky-note"></i> Notes</th>
+          <th @click="handleSort('id')" class="sortable">
+            <i class="fas fa-hashtag"></i> ID
+            <i
+              v-if="sortConfig.field === 'id'"
+              :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
+            ></i>
+          </th>
+          <th @click="handleSort('bill_ref')" class="sortable">
+            <i class="fas fa-barcode"></i> Reference
+            <i
+              v-if="sortConfig.field === 'bill_ref'"
+              :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
+            ></i>
+          </th>
+          <th @click="handleSort('date_sell')" class="sortable">
+            <i class="fas fa-calendar"></i> Date
+            <i
+              v-if="sortConfig.field === 'date_sell'"
+              :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
+            ></i>
+          </th>
+          <th @click="handleSort('broker_name')" class="sortable">
+            <i class="fas fa-user-tie"></i> Broker
+            <i
+              v-if="sortConfig.field === 'broker_name'"
+              :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
+            ></i>
+          </th>
+          <th @click="handleSort('created_by')" class="sortable">
+            <i class="fas fa-user"></i> Created By
+            <i
+              v-if="sortConfig.field === 'created_by'"
+              :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
+            ></i>
+          </th>
+          <th @click="handleSort('notes')" class="sortable">
+            <i class="fas fa-sticky-note"></i> Notes
+            <i
+              v-if="sortConfig.field === 'notes'"
+              :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
+            ></i>
+          </th>
           <th><i class="fas fa-cog"></i> Actions</th>
         </tr>
       </thead>
       <tbody>
         <tr
-          v-for="bill in sellBills"
+          v-for="bill in sortedBills"
           :key="bill.id"
           @click="selectBill(bill)"
           :class="{ selected: selectedBillId === bill.id }"
@@ -632,5 +717,30 @@ defineExpose({ fetchSellBills })
   .filters-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* Add sorting styles */
+.sortable {
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  padding-right: 24px; /* Space for sort icon */
+}
+
+.sortable i:last-child {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.75rem;
+  opacity: 0.5;
+}
+
+.sortable:hover {
+  background-color: #f1f5f9;
+}
+
+.sortable:hover i:last-child {
+  opacity: 1;
 }
 </style>
