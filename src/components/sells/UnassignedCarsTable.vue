@@ -222,12 +222,6 @@ onMounted(() => {
 
 <template>
   <div class="unassigned-cars-table">
-    <!-- Loading Overlay -->
-    <div v-if="loading" class="loading-overlay">
-      <i class="fas fa-spinner fa-spin fa-2x"></i>
-      <span>Loading unassigned cars...</span>
-    </div>
-
     <div class="table-header">
       <h3>
         <i class="fas fa-car"></i>
@@ -239,6 +233,79 @@ onMounted(() => {
           Total Cars: {{ unassignedCars.length }}
         </span>
       </div>
+    </div>
+    <!-- Filters Section -->
+    <div class="filters-section">
+      <div class="filters-header">
+        <h3>
+          <i class="fas fa-filter"></i>
+          Filters
+        </h3>
+        <button @click="resetFilters" class="reset-btn">
+          <i class="fas fa-undo"></i>
+          Reset
+        </button>
+      </div>
+
+      <div class="filters-grid">
+        <div class="filter-group">
+          <label>
+            <i class="fas fa-car"></i>
+            Car Name:
+          </label>
+          <input
+            type="text"
+            v-model="filters.carName"
+            @input="handleFilterChange"
+            placeholder="Search car name..."
+          />
+        </div>
+
+        <div class="filter-group">
+          <label>
+            <i class="fas fa-palette"></i>
+            Color:
+          </label>
+          <input
+            type="text"
+            v-model="filters.color"
+            @input="handleFilterChange"
+            placeholder="Search color..."
+          />
+        </div>
+
+        <div class="filter-group">
+          <label>
+            <i class="fas fa-fingerprint"></i>
+            VIN:
+          </label>
+          <input
+            type="text"
+            v-model="filters.vin"
+            @input="handleFilterChange"
+            placeholder="Search VIN..."
+          />
+        </div>
+
+        <div class="filter-group">
+          <label>
+            <i class="fas fa-ship"></i>
+            Loading Port:
+          </label>
+          <input
+            type="text"
+            v-model="filters.loadingPort"
+            @input="handleFilterChange"
+            placeholder="Search loading port..."
+          />
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div v-if="loading" class="loading-overlay">
+      <i class="fas fa-spinner fa-spin fa-2x"></i>
+      <span>Loading unassigned cars...</span>
     </div>
 
     <div v-if="error" class="error-message">
@@ -461,5 +528,87 @@ onMounted(() => {
 
 .btn:hover:not(:disabled) i {
   transform: scale(1.1);
+}
+
+/* Add filter styles */
+.filters-section {
+  background-color: #f8fafc;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.filters-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.filters-header h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: #1f2937;
+  font-size: 1.1rem;
+}
+
+.reset-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background-color: #e5e7eb;
+  border: none;
+  border-radius: 4px;
+  color: #4b5563;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.reset-btn:hover {
+  background-color: #d1d5db;
+}
+
+.filters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.filter-group label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #4b5563;
+  font-size: 0.9rem;
+}
+
+.filter-group input {
+  padding: 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  transition: all 0.2s;
+}
+
+.filter-group input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+@media (max-width: 768px) {
+  .filters-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>
