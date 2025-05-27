@@ -300,14 +300,14 @@ const closeModal = () => {
 const handleDragOver = (event, dragRef) => {
   event.preventDefault()
   if (typeof dragRef === 'object' && dragRef !== null) {
-    dragRef.value = true
+  dragRef.value = true
   }
 }
 
 const handleDragLeave = (event, dragRef) => {
   event.preventDefault()
   if (typeof dragRef === 'object' && dragRef !== null) {
-    dragRef.value = false
+  dragRef.value = false
   }
 }
 
@@ -347,7 +347,7 @@ const handleFileChange = (event, type) => {
 const handleDrop = (event, type, dragRef) => {
   event.preventDefault()
   if (typeof dragRef === 'object' && dragRef !== null) {
-    dragRef.value = false
+  dragRef.value = false
   }
 
   const file = event.dataTransfer.files?.[0]

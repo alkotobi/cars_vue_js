@@ -38,6 +38,7 @@ const formData = ref({
   id_broker: null,
   date_sell: new Date().toISOString().split('T')[0],
   notes: '',
+  is_batch_sell: false,
 })
 
 // Watch for changes in billData prop
@@ -116,14 +117,15 @@ const saveBill = async () => {
       // First insert the bill to get the ID
       result = await callApi({
         query: `
-          INSERT INTO sell_bill (id_broker, date_sell, notes, id_user)
-          VALUES (?, ?, ?, ?)
+          INSERT INTO sell_bill (id_broker, date_sell, notes, id_user, is_batch_sell)
+          VALUES (?, ?, ?, ?, ?)
         `,
         params: [
           formData.value.id_broker || null,
           formData.value.date_sell,
           formData.value.notes || '',
           user.value?.id || null,
+          formData.value.is_batch_sell ? 1 : 0,
         ],
       })
 
@@ -196,13 +198,14 @@ const saveBill = async () => {
       result = await callApi({
         query: `
           UPDATE sell_bill
-          SET id_broker = ?, date_sell = ?, notes = ?
+          SET id_broker = ?, date_sell = ?, notes = ?, is_batch_sell = ?
           WHERE id = ?
         `,
         params: [
           formData.value.id_broker || null,
           formData.value.date_sell,
           formData.value.notes || '',
+          formData.value.is_batch_sell ? 1 : 0,
           formData.value.id,
         ],
       })
@@ -307,6 +310,18 @@ onMounted(() => {
           :disabled="isSubmitting"
           placeholder="Enter any additional notes..."
         ></textarea>
+      </div>
+
+      <div class="form-group">
+        <div class="checkbox-wrapper">
+          <input
+            type="checkbox"
+            id="is_batch_sell"
+            v-model="formData.is_batch_sell"
+            class="form-checkbox"
+          />
+          <label for="is_batch_sell" class="checkbox-label">Batch Sell</label>
+        </div>
       </div>
 
       <div class="form-actions">
@@ -486,5 +501,25 @@ button i {
 
 button:hover:not(:disabled) i {
   transform: scale(1.1);
+}
+
+.checkbox-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.form-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.checkbox-label {
+  cursor: pointer;
+  user-select: none;
+  color: #374151;
+  font-size: 0.95rem;
 }
 </style>

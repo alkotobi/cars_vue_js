@@ -4,13 +4,11 @@ import { useRouter } from 'vue-router'
 import CarStockTable from '../components/car-stock/CarStockTable.vue'
 import CarStockForm from '../components/car-stock/CarStockForm.vue'
 import CarStockFilter from '../components/car-stock/CarStockFilter.vue'
-import CarStockStatistics from '../components/car-stock/CarStockStatistics.vue'
 
 const router = useRouter()
 const showEditDialog = ref(false)
 const editingCar = ref(null)
 const carStockTableRef = ref(null)
-const carStockStatsRef = ref(null)
 const filters = ref({
   basic: '',
   advanced: null,
@@ -35,12 +33,9 @@ const handleEditCar = async (car) => {
 const handleSave = async () => {
   showEditDialog.value = false
 
-  // Refresh the table and statistics
+  // Refresh the table
   if (carStockTableRef.value) {
     await carStockTableRef.value.fetchCarsStock()
-  }
-  if (carStockStatsRef.value) {
-    await carStockStatsRef.value.refresh()
   }
 }
 
@@ -74,9 +69,6 @@ const navigateToWarehouses = async () => {
     </div>
 
     <div class="content">
-      <!-- Add the statistics component -->
-      <CarStockStatistics ref="carStockStatsRef" />
-
       <!-- Add the filter component -->
       <CarStockFilter @filter="handleFilter" ref="filterRef" />
 

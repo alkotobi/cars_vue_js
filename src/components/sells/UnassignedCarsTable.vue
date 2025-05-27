@@ -14,6 +14,7 @@ const selectedSellBillId = ref(null)
 const showAssignmentForm = ref(false)
 const selectedCarId = ref(null)
 const isProcessing = ref(false)
+const isBatchSell = ref(false)
 
 // Filter states
 const filters = ref({
@@ -112,15 +113,74 @@ const handleFilterChange = () => {
   applyFilters()
 }
 
+// Function to check if the selected bill is a batch sell
+const checkBatchSell = async (billId) => {
+  try {
+    const result = await callApi({
+      query: `
+        SELECT is_batch_sell
+        FROM sell_bill
+        WHERE id = ?
+      `,
+      params: [billId],
+    })
+
+    if (result.success && result.data.length > 0) {
+      isBatchSell.value = result.data[0].is_batch_sell === 1
+    }
+  } catch (err) {
+    console.error('Error checking batch sell:', err)
+  }
+}
+
+// Function to directly assign car for batch sell
+const assignCarToBatchSell = async (carId) => {
+  if (isProcessing.value) return
+  isProcessing.value = true
+
+  try {
+    const result = await callApi({
+      query: `
+        UPDATE cars_stock
+        SET id_sell = ?
+        WHERE id = ?
+      `,
+      params: [selectedSellBillId.value, carId],
+    })
+
+    if (result.success) {
+      await fetchUnassignedCars()
+      emit('refresh')
+    } else {
+      error.value = result.error || 'Failed to assign car'
+    }
+  } catch (err) {
+    error.value = err.message || 'An error occurred'
+  } finally {
+    isProcessing.value = false
+  }
+}
+
 // Open assignment form for a car
-const openAssignmentForm = (carId) => {
+const openAssignmentForm = async (carId) => {
   if (!selectedSellBillId.value) {
     alert('Please select a sell bill first')
     return
   }
 
-  selectedCarId.value = carId
-  showAssignmentForm.value = true
+  if (isProcessing.value) return
+
+  // Check if it's a batch sell
+  await checkBatchSell(selectedSellBillId.value)
+
+  if (isBatchSell.value) {
+    // If it's a batch sell, assign directly without showing the form
+    await assignCarToBatchSell(carId)
+  } else {
+    // If it's not a batch sell, show the assignment form as usual
+    selectedCarId.value = carId
+    showAssignmentForm.value = true
+  }
 }
 
 // Handle successful assignment
@@ -131,8 +191,9 @@ const handleAssignSuccess = () => {
 }
 
 // Set the selected sell bill ID
-const setSellBillId = (billId) => {
+const setSellBillId = async (billId) => {
   selectedSellBillId.value = billId
+  await checkBatchSell(billId)
 }
 
 // Calculate profit
@@ -199,7 +260,8 @@ onMounted(() => {
           <th><i class="fas fa-fingerprint"></i> VIN</th>
           <th><i class="fas fa-dollar-sign"></i> Sell Price</th>
           <th v-if="isAdmin"><i class="fas fa-tags"></i> Buy Price</th>
-          <th><i class="fas fa-sticky-note"></i> Notes</th>
+          <th><i class="fas fa-ship"></i> Loading Port</th>
+          <th><i class="fas fa-calendar"></i> Loading Date</th>
           <th><i class="fas fa-cog"></i> Actions</th>
         </tr>
       </thead>
@@ -211,30 +273,34 @@ onMounted(() => {
           <td>{{ car.vin || 'N/A' }}</td>
           <td>{{ car.price_cell ? '$' + car.price_cell.toLocaleString() : 'N/A' }}</td>
           <td v-if="isAdmin">{{ car.buy_price ? '$' + car.buy_price.toLocaleString() : 'N/A' }}</td>
-          <td>{{ car.notes || 'N/A' }}</td>
+          <td>{{ car.loading_port || 'N/A' }}</td>
+          <td>{{ car.date_loding || 'N/A' }}</td>
           <td class="actions">
             <button
               @click="openAssignmentForm(car.id)"
-              :disabled="isProcessing || !selectedSellBillId"
-              class="btn assign-btn"
-              :title="selectedSellBillId ? 'Assign Car' : 'Select a sell bill first'"
+              class="assign-btn"
+              :disabled="isProcessing"
+              :class="{ processing: isProcessing }"
             >
               <i class="fas fa-link"></i>
-              Assign
+              <span>{{ isBatchSell ? 'Quick Assign' : 'Assign' }}</span>
+              <i v-if="isProcessing" class="fas fa-spinner fa-spin loading-indicator"></i>
             </button>
           </td>
         </tr>
       </tbody>
     </table>
 
-    <!-- Car Assignment Form -->
-    <CarAssignmentForm
-      :visible="showAssignmentForm"
-      :carId="selectedCarId"
-      :sellBillId="selectedSellBillId"
-      @close="showAssignmentForm = false"
-      @assign-success="handleAssignSuccess"
-    />
+    <!-- Assignment Form Dialog -->
+    <div v-if="showAssignmentForm && !isBatchSell" class="dialog-overlay">
+      <CarAssignmentForm
+        :visible="showAssignmentForm"
+        :carId="selectedCarId"
+        :sellBillId="selectedSellBillId"
+        @close="showAssignmentForm = false"
+        @assign-success="handleAssignSuccess"
+      />
+    </div>
   </div>
 </template>
 
