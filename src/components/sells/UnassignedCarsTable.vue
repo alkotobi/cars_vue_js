@@ -25,6 +25,57 @@ const filters = ref({
 })
 const user = ref(null)
 const isAdmin = computed(() => user.value?.role_id === 1)
+
+// Add sort config after the filters
+const sortConfig = ref({
+  field: 'id',
+  direction: 'desc',
+})
+
+// Add computed property for sorted cars
+const sortedCars = computed(() => {
+  if (!unassignedCars.value.length) return []
+
+  return [...unassignedCars.value].sort((a, b) => {
+    let aValue = a[sortConfig.value.field]
+    let bValue = b[sortConfig.value.field]
+
+    // Handle date comparison
+    if (sortConfig.value.field === 'date_loding') {
+      aValue = aValue ? new Date(aValue).getTime() : 0
+      bValue = bValue ? new Date(bValue).getTime() : 0
+    }
+
+    // Handle numeric fields
+    if (['id', 'price_cell', 'buy_price'].includes(sortConfig.value.field)) {
+      aValue = Number(aValue) || 0
+      bValue = Number(bValue) || 0
+    }
+
+    // Handle null values
+    if (aValue === null || aValue === undefined) aValue = ''
+    if (bValue === null || bValue === undefined) bValue = ''
+
+    // Compare values based on direction
+    if (sortConfig.value.direction === 'asc') {
+      return aValue > bValue ? 1 : -1
+    } else {
+      return aValue < bValue ? 1 : -1
+    }
+  })
+})
+
+const handleSort = (field) => {
+  if (sortConfig.value.field === field) {
+    // Toggle direction if clicking the same field
+    sortConfig.value.direction = sortConfig.value.direction === 'asc' ? 'desc' : 'asc'
+  } else {
+    // Set new field and default to descending
+    sortConfig.value.field = field
+    sortConfig.value.direction = 'desc'
+  }
+}
+
 // Function to fetch all unassigned cars
 const fetchUnassignedCars = async () => {
   loading.value = true
@@ -321,19 +372,67 @@ onMounted(() => {
     <table v-else class="cars-table">
       <thead>
         <tr>
-          <th><i class="fas fa-hashtag"></i> ID</th>
-          <th><i class="fas fa-car"></i> Car</th>
-          <th><i class="fas fa-palette"></i> Color</th>
-          <th><i class="fas fa-fingerprint"></i> VIN</th>
-          <th><i class="fas fa-dollar-sign"></i> Sell Price</th>
-          <th v-if="isAdmin"><i class="fas fa-tags"></i> Buy Price</th>
-          <th><i class="fas fa-ship"></i> Loading Port</th>
-          <th><i class="fas fa-calendar"></i> Loading Date</th>
+          <th @click="handleSort('id')" class="sortable">
+            <i class="fas fa-hashtag"></i> ID
+            <i
+              v-if="sortConfig.field === 'id'"
+              :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
+            ></i>
+          </th>
+          <th @click="handleSort('car_name')" class="sortable">
+            <i class="fas fa-car"></i> Car
+            <i
+              v-if="sortConfig.field === 'car_name'"
+              :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
+            ></i>
+          </th>
+          <th @click="handleSort('color')" class="sortable">
+            <i class="fas fa-palette"></i> Color
+            <i
+              v-if="sortConfig.field === 'color'"
+              :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
+            ></i>
+          </th>
+          <th @click="handleSort('vin')" class="sortable">
+            <i class="fas fa-fingerprint"></i> VIN
+            <i
+              v-if="sortConfig.field === 'vin'"
+              :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
+            ></i>
+          </th>
+          <th @click="handleSort('price_cell')" class="sortable">
+            <i class="fas fa-dollar-sign"></i> Sell Price
+            <i
+              v-if="sortConfig.field === 'price_cell'"
+              :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
+            ></i>
+          </th>
+          <th v-if="isAdmin" @click="handleSort('buy_price')" class="sortable">
+            <i class="fas fa-tags"></i> Buy Price
+            <i
+              v-if="sortConfig.field === 'buy_price'"
+              :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
+            ></i>
+          </th>
+          <th @click="handleSort('loading_port')" class="sortable">
+            <i class="fas fa-ship"></i> Loading Port
+            <i
+              v-if="sortConfig.field === 'loading_port'"
+              :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
+            ></i>
+          </th>
+          <th @click="handleSort('date_loding')" class="sortable">
+            <i class="fas fa-calendar"></i> Loading Date
+            <i
+              v-if="sortConfig.field === 'date_loding'"
+              :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
+            ></i>
+          </th>
           <th><i class="fas fa-cog"></i> Actions</th>
         </tr>
       </thead>
       <tbody>
-        <tr v-for="car in unassignedCars" :key="car.id">
+        <tr v-for="car in sortedCars" :key="car.id">
           <td>{{ car.id }}</td>
           <td>{{ car.car_name }}</td>
           <td>{{ car.color }}</td>
@@ -610,5 +709,30 @@ onMounted(() => {
   .filters-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* Add sorting styles */
+.sortable {
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  padding-right: 24px; /* Space for sort icon */
+}
+
+.sortable i:last-child {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.75rem;
+  opacity: 0.5;
+}
+
+.sortable:hover {
+  background-color: #f1f5f9;
+}
+
+.sortable:hover i:last-child {
+  opacity: 1;
 }
 </style>
