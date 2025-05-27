@@ -125,6 +125,12 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/statistics',
+      name: 'statistics',
+      component: () => import('../views/StatisticsView.vue'),
+      meta: { requiresAdmin: true },
+    },
+    {
       path: '/:pathMatch(.*)*',
       redirect: '/',
     },
@@ -143,17 +149,23 @@ const router = createRouter({
 //   }
 // })
 
-// Navigation guard for authentication
+// Navigation guard for authentication and admin routes
 router.beforeEach((to, from, next) => {
   const publicPages = ['/login']
   const authRequired = !publicPages.includes(to.path)
   const user = localStorage.getItem('user')
+  const userData = user ? JSON.parse(user) : null
 
   if (authRequired && !user) {
     return next('/login')
   }
 
   if (to.path === '/login' && user) {
+    return next('/dashboard')
+  }
+
+  // Check for admin-only routes
+  if (to.meta.requiresAdmin && (!userData || userData.role_id !== 1)) {
     return next('/dashboard')
   }
 

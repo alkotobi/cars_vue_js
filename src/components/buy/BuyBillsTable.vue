@@ -22,6 +22,92 @@ const emit = defineEmits(['select-bill'])
 
 const { getFileUrl } = useApi()
 
+// Add filter states
+const filters = ref({
+  dateFrom: '',
+  dateTo: '',
+  supplier: '',
+  billRef: '',
+  status: '', // 'all', 'updated', 'pending'
+})
+
+// Add sorting state
+const sortConfig = ref({
+  field: 'date_buy',
+  direction: 'desc',
+})
+
+// Filter and sort bills
+const filteredAndSortedBills = computed(() => {
+  let result = [...props.buyBills]
+
+  // Apply filters
+  if (filters.value.dateFrom) {
+    result = result.filter((bill) => new Date(bill.date_buy) >= new Date(filters.value.dateFrom))
+  }
+  if (filters.value.dateTo) {
+    result = result.filter((bill) => new Date(bill.date_buy) <= new Date(filters.value.dateTo))
+  }
+  if (filters.value.supplier) {
+    result = result.filter((bill) =>
+      bill.supplier_name?.toLowerCase().includes(filters.value.supplier.toLowerCase()),
+    )
+  }
+  if (filters.value.billRef) {
+    result = result.filter((bill) =>
+      bill.bill_ref?.toLowerCase().includes(filters.value.billRef.toLowerCase()),
+    )
+  }
+  if (filters.value.status) {
+    if (filters.value.status === 'updated') {
+      result = result.filter((bill) => bill.is_stock_updated)
+    } else if (filters.value.status === 'pending') {
+      result = result.filter((bill) => !bill.is_stock_updated)
+    }
+  }
+
+  // Apply sorting
+  result.sort((a, b) => {
+    let aValue = a[sortConfig.value.field]
+    let bValue = b[sortConfig.value.field]
+
+    // Handle date comparison
+    if (sortConfig.value.field === 'date_buy') {
+      aValue = new Date(aValue).getTime()
+      bValue = new Date(bValue).getTime()
+    }
+
+    if (sortConfig.value.direction === 'asc') {
+      return aValue > bValue ? 1 : -1
+    } else {
+      return aValue < bValue ? 1 : -1
+    }
+  })
+
+  return result
+})
+
+const handleSort = (field) => {
+  if (sortConfig.value.field === field) {
+    // Toggle direction if clicking the same field
+    sortConfig.value.direction = sortConfig.value.direction === 'asc' ? 'desc' : 'asc'
+  } else {
+    // Set new field and default to descending
+    sortConfig.value.field = field
+    sortConfig.value.direction = 'desc'
+  }
+}
+
+const resetFilters = () => {
+  filters.value = {
+    dateFrom: '',
+    dateTo: '',
+    supplier: '',
+    billRef: '',
+    status: '',
+  }
+}
+
 const formatDate = (dateStr) => {
   if (!dateStr) return 'N/A'
   return new Date(dateStr).toLocaleDateString()
@@ -48,6 +134,68 @@ const formatNumber = (value) => {
     </div>
 
     <div v-else-if="!loading">
+      <!-- Filters -->
+      <div class="filters">
+        <div class="filter-group">
+          <label>
+            <i class="fas fa-calendar"></i>
+            Date From
+          </label>
+          <input type="date" v-model="filters.dateFrom" class="filter-input" />
+        </div>
+
+        <div class="filter-group">
+          <label>
+            <i class="fas fa-calendar"></i>
+            Date To
+          </label>
+          <input type="date" v-model="filters.dateTo" class="filter-input" />
+        </div>
+
+        <div class="filter-group">
+          <label>
+            <i class="fas fa-building"></i>
+            Supplier
+          </label>
+          <input
+            type="text"
+            v-model="filters.supplier"
+            placeholder="Search supplier..."
+            class="filter-input"
+          />
+        </div>
+
+        <div class="filter-group">
+          <label>
+            <i class="fas fa-file-alt"></i>
+            Bill Ref
+          </label>
+          <input
+            type="text"
+            v-model="filters.billRef"
+            placeholder="Search bill ref..."
+            class="filter-input"
+          />
+        </div>
+
+        <div class="filter-group">
+          <label>
+            <i class="fas fa-info-circle"></i>
+            Status
+          </label>
+          <select v-model="filters.status" class="filter-input">
+            <option value="">All</option>
+            <option value="updated">Updated</option>
+            <option value="pending">Pending</option>
+          </select>
+        </div>
+
+        <button @click="resetFilters" class="reset-btn">
+          <i class="fas fa-undo"></i>
+          Reset Filters
+        </button>
+      </div>
+
       <!-- Toolbar -->
       <div class="toolbar" v-if="selectedBill">
         <div class="bill-info">
@@ -104,10 +252,38 @@ const formatNumber = (value) => {
       <table class="data-table" :class="{ 'with-selection': selectedBill }">
         <thead>
           <tr>
-            <th><i class="fas fa-hashtag"></i> ID</th>
-            <th><i class="fas fa-calendar"></i> Date</th>
-            <th><i class="fas fa-building"></i> Supplier</th>
-            <th><i class="fas fa-file-alt"></i> Bill Ref</th>
+            <th @click="handleSort('id')">
+              <i class="fas fa-hashtag"></i> ID
+              <i
+                v-if="sortConfig.field === 'id'"
+                :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
+              >
+              </i>
+            </th>
+            <th @click="handleSort('date_buy')" class="sortable">
+              <i class="fas fa-calendar"></i> Date
+              <i
+                v-if="sortConfig.field === 'date_buy'"
+                :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
+              >
+              </i>
+            </th>
+            <th @click="handleSort('supplier_name')" class="sortable">
+              <i class="fas fa-building"></i> Supplier
+              <i
+                v-if="sortConfig.field === 'supplier_name'"
+                :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
+              >
+              </i>
+            </th>
+            <th @click="handleSort('bill_ref')" class="sortable">
+              <i class="fas fa-file-alt"></i> Bill Ref
+              <i
+                v-if="sortConfig.field === 'bill_ref'"
+                :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
+              >
+              </i>
+            </th>
             <th><i class="fas fa-money-bill-wave"></i> Amount</th>
             <th><i class="fas fa-check-circle"></i> Paid</th>
             <th><i class="fas fa-balance-scale"></i> Balance</th>
@@ -117,7 +293,7 @@ const formatNumber = (value) => {
         </thead>
         <tbody>
           <tr
-            v-for="bill in buyBills"
+            v-for="bill in filteredAndSortedBills"
             :key="bill.id"
             :class="{ selected: selectedBill?.id === bill.id }"
             @click="$emit('select-bill', bill)"
@@ -540,6 +716,120 @@ const formatNumber = (value) => {
     display: block;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+  }
+}
+
+.filters {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-end;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 200px;
+}
+
+.filter-group label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #64748b;
+  font-size: 0.875rem;
+}
+
+.filter-group label i {
+  color: #6b7280;
+  width: 16px;
+  text-align: center;
+}
+
+.filter-input {
+  padding: 8px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  color: #1e293b;
+  background-color: white;
+  transition: all 0.2s;
+}
+
+.filter-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.filter-input::placeholder {
+  color: #94a3b8;
+}
+
+.reset-btn {
+  padding: 8px 16px;
+  background-color: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  color: #64748b;
+  font-size: 0.875rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s;
+  height: fit-content;
+}
+
+.reset-btn:hover {
+  background-color: #e2e8f0;
+  color: #475569;
+}
+
+.reset-btn i {
+  font-size: 0.75rem;
+}
+
+/* Sorting styles */
+.data-table th {
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  padding-right: 24px; /* Space for sort icon */
+}
+
+.data-table th i:last-child {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.75rem;
+  opacity: 0.5;
+}
+
+.data-table th:hover {
+  background-color: #f1f5f9;
+}
+
+.data-table th:hover i:last-child {
+  opacity: 1;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1024px) {
+  .filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filter-group {
+    min-width: 100%;
   }
 }
 </style>

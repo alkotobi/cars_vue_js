@@ -12,7 +12,8 @@ import LoadingPortsView from './LoadingPortsView.vue'
 import BuyView from './BuyView.vue'
 import SellView from './SellView.vue'
 import SellBillsView from './SellBillsView.vue'
-import WarehousesView from './WarehousesView.vue' // Add this import
+import WarehousesView from './WarehousesView.vue'
+import StatisticsView from './StatisticsView.vue'
 
 const router = useRouter()
 const activeView = ref(null)
@@ -31,6 +32,7 @@ const isProcessing = ref({
   brokers: false,
   suppliers: false,
   warehouses: false,
+  statistics: false,
 })
 
 const navigateTo = async (view) => {
@@ -70,22 +72,32 @@ const canPurchaseCars = computed(() => {
   if (isAdmin.value) {
     return true
   }
-  return user.value.permissions?.some((p) => p.permission_name === 'can_purchase_cars')
+  return currentUser.value?.permissions?.some((p) => p.permission_name === 'can_purchase_cars')
 })
 
 const canSellCars = computed(() => {
   if (isAdmin.value) {
     return true
   }
-  return user.value.permissions?.some((p) => p.permission_name === 'can_sell_cars')
+  return currentUser.value?.permissions?.some((p) => p.permission_name === 'can_sell_cars')
 })
 
 const canCCarStock = computed(() => {
   if (isAdmin.value) {
     return true
   }
-  return user.value.permissions?.some((p) => p.permission_name === 'can_c_car_stock')
+  return currentUser.value?.permissions?.some((p) => p.permission_name === 'can_c_car_stock')
 })
+
+const handleStatisticsClick = async () => {
+  if (isProcessing.value.statistics) return
+  isProcessing.value.statistics = true
+  try {
+    activeView.value = 'statistics'
+  } finally {
+    isProcessing.value.statistics = false
+  }
+}
 </script>
 
 <template>
@@ -142,6 +154,18 @@ const canCCarStock = computed(() => {
           <i class="fas fa-warehouse"></i>
           <span>Cars Stock</span>
           <i v-if="isProcessing.stock" class="fas fa-spinner fa-spin loading-indicator"></i>
+        </button>
+
+        <button
+          v-if="isAdmin"
+          @click="handleStatisticsClick"
+          :class="{ processing: isProcessing.statistics }"
+          class="sidebar-btn statistics-btn"
+          :disabled="isProcessing.statistics"
+        >
+          <i class="fas fa-chart-bar"></i>
+          <span>Statistics</span>
+          <i v-if="isProcessing.statistics" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
       </div>
 
@@ -265,6 +289,7 @@ const canCCarStock = computed(() => {
         <BrokersView v-if="activeView === 'brokers'" />
         <SuppliersView v-if="activeView === 'suppliers'" />
         <WarehousesView v-if="activeView === 'warehouses'" />
+        <StatisticsView v-if="activeView === 'statistics'" />
       </div>
       <div class="copyright">© Merhab Noureddine 2025</div>
     </div>
@@ -509,5 +534,18 @@ h2 {
   font-size: 0.875rem;
   margin-top: 2rem;
   padding-bottom: 1rem;
+}
+
+.sidebar-btn.statistics-btn {
+  background-color: #8b5cf6;
+  color: white;
+}
+
+.sidebar-btn.statistics-btn:hover:not(:disabled) {
+  background-color: #7c3aed;
+}
+
+.sidebar-btn.statistics-btn i:not(.loading-indicator) {
+  color: #ddd6fe;
 }
 </style>
