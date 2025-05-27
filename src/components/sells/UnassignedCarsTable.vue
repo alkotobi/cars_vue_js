@@ -39,7 +39,7 @@ const fetchUnassignedCars = async () => {
           cs.date_loding,
           cs.path_documents,
           lp.loading_port,
-          bd.price_sell as buy_price,
+          bd.amount as buy_price,
           cn.car_name,
           clr.color
         FROM cars_stock cs
@@ -197,7 +197,8 @@ onMounted(() => {
           <th><i class="fas fa-car"></i> Car</th>
           <th><i class="fas fa-palette"></i> Color</th>
           <th><i class="fas fa-fingerprint"></i> VIN</th>
-          <th><i class="fas fa-dollar-sign"></i> Buy Price</th>
+          <th><i class="fas fa-dollar-sign"></i> Sell Price</th>
+          <th v-if="isAdmin"><i class="fas fa-tags"></i> Buy Price</th>
           <th><i class="fas fa-sticky-note"></i> Notes</th>
           <th><i class="fas fa-cog"></i> Actions</th>
         </tr>
@@ -208,7 +209,8 @@ onMounted(() => {
           <td>{{ car.car_name }}</td>
           <td>{{ car.color }}</td>
           <td>{{ car.vin || 'N/A' }}</td>
-          <td>{{ car.buy_price ? '$' + car.buy_price.toLocaleString() : 'N/A' }}</td>
+          <td>{{ car.price_cell ? '$' + car.price_cell.toLocaleString() : 'N/A' }}</td>
+          <td v-if="isAdmin">{{ car.buy_price ? '$' + car.buy_price.toLocaleString() : 'N/A' }}</td>
           <td>{{ car.notes || 'N/A' }}</td>
           <td class="actions">
             <button
