@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, defineProps, defineEmits, computed } from 'vue'
+import { ref, onMounted, defineProps, defineEmits, computed, watch } from 'vue'
 import { useApi } from '../../composables/useApi'
 import { useRouter } from 'vue-router'
 import SellBillPrintOption from './SellBillPrintOption.vue'
@@ -22,6 +22,18 @@ const selectedBillId = ref(null)
 const showPrintOptions = ref(false)
 const selectedPrintBillId = ref(null)
 const isProcessing = ref(false)
+
+// Add filter states
+const filters = ref({
+  dateFrom: '',
+  dateTo: '',
+  broker: '',
+  reference: '',
+  isBatchSell: null,
+})
+
+// Add allSellBills to store unfiltered data
+const allSellBills = ref([])
 
 // Add computed property for payments permission
 const can_c_sell_payments = computed(() => {
@@ -95,10 +107,11 @@ const fetchSellBills = async () => {
     const result = await callApi({ query, params })
 
     if (result.success) {
-      sellBills.value = result.data.map((bill) => ({
+      allSellBills.value = result.data.map((bill) => ({
         ...bill,
         total_cfr: Number(bill.total_cfr) || 0,
       }))
+      applyFilters() // Apply filters after fetching
     } else {
       error.value = result.error || 'Failed to fetch sell bills'
     }
@@ -106,6 +119,64 @@ const fetchSellBills = async () => {
     error.value = err.message || 'An error occurred'
   } finally {
     loading.value = false
+  }
+}
+
+// Add filter functions
+const applyFilters = () => {
+  sellBills.value = allSellBills.value.filter((bill) => {
+    // Date range filter
+    if (filters.value.dateFrom && new Date(bill.date_sell) < new Date(filters.value.dateFrom)) {
+      return false
+    }
+    if (filters.value.dateTo && new Date(bill.date_sell) > new Date(filters.value.dateTo)) {
+      return false
+    }
+
+    // Broker filter
+    if (
+      filters.value.broker &&
+      (!bill.broker_name ||
+        !bill.broker_name.toLowerCase().includes(filters.value.broker.toLowerCase()))
+    ) {
+      return false
+    }
+
+    // Reference filter
+    if (
+      filters.value.reference &&
+      (!bill.bill_ref ||
+        !bill.bill_ref.toLowerCase().includes(filters.value.reference.toLowerCase()))
+    ) {
+      return false
+    }
+
+    // Batch sell filter
+    if (filters.value.isBatchSell !== null) {
+      if (filters.value.isBatchSell && !bill.is_batch_sell) return false
+      if (!filters.value.isBatchSell && bill.is_batch_sell) return false
+    }
+
+    return true
+  })
+}
+
+// Watch for filter changes
+watch(
+  filters,
+  () => {
+    applyFilters()
+  },
+  { deep: true },
+)
+
+const resetFilters = () => {
+  filters.value = {
+    dateFrom: '',
+    dateTo: '',
+    broker: '',
+    reference: '',
+    isBatchSell: null,
   }
 }
 
@@ -163,6 +234,66 @@ defineExpose({ fetchSellBills })
 
 <template>
   <div class="sell-bills-table-component">
+    <!-- Filters Section -->
+    <div class="filters-section">
+      <div class="filters-header">
+        <h3>
+          <i class="fas fa-filter"></i>
+          Filters
+        </h3>
+        <button @click="resetFilters" class="reset-btn">
+          <i class="fas fa-undo"></i>
+          Reset
+        </button>
+      </div>
+
+      <div class="filters-grid">
+        <div class="filter-group">
+          <label>
+            <i class="fas fa-calendar"></i>
+            Date From:
+          </label>
+          <input type="date" v-model="filters.dateFrom" />
+        </div>
+
+        <div class="filter-group">
+          <label>
+            <i class="fas fa-calendar"></i>
+            Date To:
+          </label>
+          <input type="date" v-model="filters.dateTo" />
+        </div>
+
+        <div class="filter-group">
+          <label>
+            <i class="fas fa-user-tie"></i>
+            Broker:
+          </label>
+          <input type="text" v-model="filters.broker" placeholder="Search broker..." />
+        </div>
+
+        <div class="filter-group">
+          <label>
+            <i class="fas fa-barcode"></i>
+            Reference:
+          </label>
+          <input type="text" v-model="filters.reference" placeholder="Search reference..." />
+        </div>
+
+        <div class="filter-group">
+          <label>
+            <i class="fas fa-layer-group"></i>
+            Batch Sell:
+          </label>
+          <select v-model="filters.isBatchSell">
+            <option :value="null">All</option>
+            <option :value="true">Yes</option>
+            <option :value="false">No</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
     <!-- Loading Overlay -->
     <div v-if="loading" class="loading-overlay">
       <i class="fas fa-spinner fa-spin fa-2x"></i>
@@ -414,5 +545,92 @@ defineExpose({ fetchSellBills })
 
 .btn:hover:not(:disabled) i {
   transform: scale(1.1);
+}
+
+.filters-section {
+  background-color: #f8fafc;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.filters-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.filters-header h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: #1f2937;
+  font-size: 1.1rem;
+}
+
+.reset-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background-color: #e5e7eb;
+  border: none;
+  border-radius: 4px;
+  color: #4b5563;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.reset-btn:hover {
+  background-color: #d1d5db;
+}
+
+.filters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.filter-group label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #4b5563;
+  font-size: 0.9rem;
+}
+
+.filter-group input,
+.filter-group select {
+  padding: 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  transition: all 0.2s;
+}
+
+.filter-group input:focus,
+.filter-group select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.filter-group select {
+  cursor: pointer;
+}
+
+@media (max-width: 768px) {
+  .filters-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>
