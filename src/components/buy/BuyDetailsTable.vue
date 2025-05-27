@@ -68,10 +68,10 @@ const showStockAlert = async () => {
           const result = await callApi({
             query: `
               INSERT INTO cars_stock 
-              (id_buy_details,price_cell)
-              VALUES (?,?)
+              (id_buy_details, price_cell, notes, is_used_car)
+              VALUES (?, ?, ?, ?)
             `,
-            params: [detail.id, detail.price_sell],
+            params: [detail.id, detail.price_sell, detail.notes, detail.is_used_car],
           })
 
           if (!result.success) {
@@ -151,6 +151,8 @@ const showStockAlert = async () => {
           <th><i class="fas fa-calendar-alt"></i> Year</th>
           <th><i class="fas fa-calendar-day"></i> Month</th>
           <th><i class="fas fa-tag"></i> Price Sell</th>
+          <th><i class="fas fa-sticky-note"></i> Notes</th>
+          <th><i class="fas fa-car-alt"></i> Used Car</th>
           <th><i class="fas fa-cog"></i> Actions</th>
         </tr>
       </thead>
@@ -163,6 +165,13 @@ const showStockAlert = async () => {
           <td>{{ detail.year }}</td>
           <td>{{ detail.month }}</td>
           <td>{{ detail.price_sell }}</td>
+          <td>{{ detail.notes }}</td>
+          <td>
+            <i
+              :class="detail.is_used_car ? 'fas fa-check text-success' : 'fas fa-times text-danger'"
+              :title="detail.is_used_car ? 'Used Car' : 'New Car'"
+            ></i>
+          </td>
           <td class="actions">
             <button
               @click="openEditDialog(detail)"
@@ -272,6 +281,14 @@ const showStockAlert = async () => {
         <div class="form-group">
           <label for="edit-notes">Notes</label>
           <textarea id="edit-notes" v-model="editingDetail.notes" rows="3"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="edit-is-used-car">
+            <i class="fas fa-car"></i>
+            Used Car
+          </label>
+          <input type="checkbox" id="edit-is-used-car" v-model="editingDetail.is_used_car" />
         </div>
 
         <div class="dialog-buttons">
@@ -498,7 +515,6 @@ form {
   gap: 8px;
   margin-bottom: 8px;
   font-weight: 500;
-  color: #374151;
 }
 
 .form-group label i {
@@ -627,5 +643,35 @@ form {
 .loading-overlay span {
   color: #4b5563;
   font-size: 0.875rem;
+}
+
+/* Checkbox styling */
+input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+/* Status icons */
+.text-success {
+  color: #059669;
+}
+
+.text-danger {
+  color: #dc2626;
+}
+
+/* Notes cell */
+td:nth-child(8) {
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+td:nth-child(8):hover {
+  white-space: normal;
+  overflow: visible;
+  background-color: #f8fafc;
 }
 </style>

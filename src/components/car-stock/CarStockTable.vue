@@ -196,7 +196,8 @@ const fetchCarsStock = async () => {
         dp.discharge_port,
         bd.price_sell as buy_price,
         w.warhouse_name as warehouse_name,
-        bb.bill_ref as buy_bill_ref
+        bb.bill_ref as buy_bill_ref,
+        cs.is_used_car
       FROM cars_stock cs
       LEFT JOIN clients c ON cs.id_client = c.id
       LEFT JOIN buy_details bd ON cs.id_buy_details = bd.id
@@ -733,6 +734,7 @@ defineExpose({
             <th>Price</th>
             <th>Loading Date</th>
             <th>Status</th>
+            <th>Notes</th>
             <th>Client</th>
             <th>Warehouse</th>
             <th>Documents</th>
@@ -740,7 +742,7 @@ defineExpose({
           </tr>
         </thead>
         <tbody>
-          <tr v-for="car in cars" :key="car.id">
+          <tr v-for="car in cars" :key="car.id" :class="{ 'used-car': car.is_used_car }">
             <td>#{{ car.id }}</td>
             <td>{{ car.car_name }}</td>
             <td>{{ car.color }}</td>
@@ -751,13 +753,24 @@ defineExpose({
             <td>${{ car.price_cell || '0' }}</td>
             <td>{{ car.date_loding ? new Date(car.date_loding).toLocaleDateString() : '-' }}</td>
             <td>
-              <span :class="car.date_sell || car.id_client ? 'status-sold' : 'status-available'">
+              <span
+                :class="{
+                  'status-sold': car.date_sell || car.id_client,
+                  'status-available': !car.date_sell && !car.id_client,
+                  'status-used': car.is_used_car,
+                }"
+              >
                 <i
-                  :class="car.date_sell || car.id_client ? 'fas fa-check-circle' : 'fas fa-clock'"
+                  :class="[
+                    car.date_sell || car.id_client ? 'fas fa-check-circle' : 'fas fa-clock',
+                    car.is_used_car ? 'fas fa-history' : '',
+                  ]"
                 ></i>
                 {{ car.date_sell || car.id_client ? 'Sold' : 'Available' }}
+                {{ car.is_used_car ? '(Used)' : '' }}
               </span>
             </td>
+            <td class="notes-cell" :title="car.notes">{{ car.notes || '-' }}</td>
             <td>{{ car.client_name || '-' }}</td>
             <td>{{ car.warehouse_name || '-' }}</td>
             <td class="documents-cell">
@@ -1238,5 +1251,46 @@ defineExpose({
   .cars-table {
     min-width: 1200px;
   }
+}
+
+/* Used car styling */
+.used-car {
+  background-color: #fef3c7;
+}
+
+.used-car:hover {
+  background-color: #fde68a;
+}
+
+/* Status styling */
+.status-used {
+  background-color: #fef3c7 !important;
+  color: #92400e !important;
+  border-color: #f59e0b !important;
+}
+
+.status-used i {
+  color: #d97706;
+}
+
+/* Notes cell styling */
+.notes-cell {
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  position: relative;
+}
+
+.notes-cell:hover {
+  white-space: normal;
+  overflow: visible;
+  background-color: #f8fafc;
+  z-index: 1;
+  position: relative;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+  padding: 8px;
+  margin: -8px;
 }
 </style>
