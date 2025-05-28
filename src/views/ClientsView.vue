@@ -522,7 +522,7 @@ onMounted(() => {
         </div>
 
         <div class="dialog-actions">
-          <button @click="addClient" class="btn save-btn" :disabled="isSubmitting || !isAdmin">
+          <button @click="addClient" class="btn save-btn" :disabled="isSubmitting">
             <i class="fas fa-save"></i>
             <span v-if="isSubmitting">
               <i class="fas fa-spinner fa-spin"></i>
@@ -669,7 +669,7 @@ onMounted(() => {
         </div>
 
         <div class="dialog-actions">
-          <button @click="updateClient" class="btn save-btn" :disabled="isSubmitting || !isAdmin">
+          <button @click="updateClient" class="btn save-btn" :disabled="isSubmitting">
             <i class="fas fa-save"></i>
             <span v-if="isSubmitting">
               <i class="fas fa-spinner fa-spin"></i>
