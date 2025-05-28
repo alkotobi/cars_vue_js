@@ -32,6 +32,7 @@ const editFormData = ref({
   price_cell: null,
   freight: null,
   rate: null,
+  notes: null,
 })
 
 const filteredClients = ref([])
@@ -216,6 +217,7 @@ const handleEdit = async (car) => {
         price_cell: carData.price_cell,
         freight: carData.freight,
         rate: carData.rate,
+        notes: carData.notes,
       }
 
       // Calculate initial CFR DA
@@ -254,7 +256,8 @@ const handleSaveEdit = async () => {
             id_port_discharge = ?,
             price_cell = ?,
             freight = ?,
-            rate = ?
+            rate = ?,
+            notes = ?
         WHERE id = ?
       `,
       params: [
@@ -263,6 +266,7 @@ const handleSaveEdit = async () => {
         editFormData.value.price_cell,
         editFormData.value.freight,
         editFormData.value.rate,
+        editFormData.value.notes || null,
         editingCar.value.id,
       ],
     })
@@ -713,20 +717,33 @@ defineExpose({
           </div>
 
           <div class="form-group">
-            <label>
+            <label for="edit-rate">
               <i class="fas fa-exchange-alt"></i>
-              Rate: <span class="required">*</span>
+              Rate:
             </label>
-            <div class="input-with-info">
-              <input
-                type="number"
-                v-model="editFormData.rate"
-                step="0.01"
-                min="0"
-                required
-                :class="{ 'default-value': editFormData.rate === editingCar?.rate }"
-              />
-            </div>
+            <input
+              type="number"
+              id="edit-rate"
+              v-model="editFormData.rate"
+              step="0.01"
+              min="0"
+              :disabled="isProcessing"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="edit-notes">
+              <i class="fas fa-sticky-note"></i>
+              Notes:
+            </label>
+            <textarea
+              id="edit-notes"
+              v-model="editFormData.notes"
+              placeholder="Add any notes about this car..."
+              rows="3"
+              class="textarea-field"
+              :disabled="isProcessing"
+            ></textarea>
           </div>
 
           <div class="form-group">

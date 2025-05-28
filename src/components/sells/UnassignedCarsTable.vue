@@ -428,6 +428,13 @@ onMounted(() => {
               :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
             ></i>
           </th>
+          <th @click="handleSort('notes')" class="sortable">
+            <i class="fas fa-sticky-note"></i> Notes
+            <i
+              v-if="sortConfig.field === 'notes'"
+              :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
+            ></i>
+          </th>
           <th><i class="fas fa-cog"></i> Actions</th>
         </tr>
       </thead>
@@ -441,6 +448,7 @@ onMounted(() => {
           <td v-if="isAdmin">{{ car.buy_price ? '$' + car.buy_price.toLocaleString() : 'N/A' }}</td>
           <td>{{ car.loading_port || 'N/A' }}</td>
           <td>{{ car.date_loding || 'N/A' }}</td>
+          <td>{{ car.notes || 'N/A' }}</td>
           <td class="actions">
             <button
               @click="openAssignmentForm(car.id)"

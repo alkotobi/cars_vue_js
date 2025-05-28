@@ -41,6 +41,7 @@ const formData = ref({
   price_cell: null,
   freight: null,
   rate: null,
+  notes: '',
 })
 
 // Add ref for CFR DA input
@@ -290,7 +291,8 @@ const assignCar = async () => {
             freight = ?,
             date_sell = ?,
             id_sell_pi = ?,
-            rate = ?
+            rate = ?,
+            notes = ?
         WHERE id = ?
       `,
       params: [
@@ -302,6 +304,7 @@ const assignCar = async () => {
         currentDate,
         billRef,
         formData.value.rate || null,
+        formData.value.notes || null,
         props.carId,
       ],
     })
@@ -354,6 +357,7 @@ const resetForm = () => {
     price_cell: null,
     freight: null,
     rate: currentRate, // Keep the default rate
+    notes: '',
   }
   error.value = null
 }
@@ -555,6 +559,21 @@ onMounted(() => {
             />
             <span v-if="formData.rate !== null" class="default-badge">Default</span>
           </div>
+        </div>
+
+        <div class="form-group">
+          <label for="notes">
+            <i class="fas fa-sticky-note"></i>
+            Notes:
+          </label>
+          <textarea
+            id="notes"
+            v-model="formData.notes"
+            placeholder="Add any notes about this car assignment..."
+            rows="3"
+            class="textarea-field"
+            :disabled="isSubmitting"
+          ></textarea>
         </div>
 
         <div
