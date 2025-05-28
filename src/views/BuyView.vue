@@ -164,6 +164,7 @@ const newDetail = ref({
   year: new Date().getFullYear(),
   month: new Date().getMonth() + 1,
   is_used_car: false,
+  is_big_car: false,
   id_buy_bill: null,
 })
 
@@ -458,8 +459,8 @@ const addDetail = async () => {
     const result = await callApi({
       query: `
       INSERT INTO buy_details 
-      (id_car_name, id_color, amount, notes, QTY, year, month, is_used_car, id_buy_bill, price_sell)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (id_car_name, id_color, amount, notes, QTY, year, month, is_used_car, id_buy_bill, price_sell, is_big_car)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
       params: [
         newDetail.value.id_car_name,
@@ -472,14 +473,16 @@ const addDetail = async () => {
         newDetail.value.is_used_car ? 1 : 0,
         selectedBill.value.id,
         newDetail.value.price_sell,
+        newDetail.value.is_big_car ? 1 : 0,
       ],
     })
 
     if (result.success) {
-      await updateBillAmount(selectedBill.value.id) // Update bill amount
+      await updateBillAmount(selectedBill.value.id)
       showAddDetailDialog.value = false
       await fetchBuyDetails(selectedBill.value.id)
-      await fetchBuyBills() // Refresh bills to show updated amount
+      await fetchBuyBills()
+
       // Reset form
       newDetail.value = {
         id_car_name: null,
@@ -490,6 +493,7 @@ const addDetail = async () => {
         year: new Date().getFullYear(),
         month: new Date().getMonth() + 1,
         is_used_car: false,
+        is_big_car: false,
         id_buy_bill: null,
       }
     } else {
@@ -531,7 +535,7 @@ const handleUpdateDetail = async (updatedDetail) => {
   const result = await callApi({
     query: `
       UPDATE buy_details 
-      SET QTY = ?, amount = ?, year = ?, month = ?, notes = ?, price_sell = ?
+      SET QTY = ?, amount = ?, year = ?, month = ?, notes = ?, price_sell = ?, is_big_car = ?
       WHERE id = ?
     `,
     params: [
@@ -541,14 +545,15 @@ const handleUpdateDetail = async (updatedDetail) => {
       updatedDetail.month,
       updatedDetail.notes,
       updatedDetail.price_sell,
+      updatedDetail.is_big_car ? 1 : 0,
       updatedDetail.id,
     ],
   })
 
   if (result.success) {
-    await updateBillAmount(selectedBill.value.id) // Update bill amount
+    await updateBillAmount(selectedBill.value.id)
     await fetchBuyDetails(selectedBill.value.id)
-    await fetchBuyBills() // Refresh bills to show updated amount
+    await fetchBuyBills()
   } else {
     alert('Failed to update detail. Please try again.')
     console.error('Error updating detail:', result.error)
@@ -796,6 +801,13 @@ const openPayments = (bill) => {
             <label>
               <input type="checkbox" v-model="newDetail.is_used_car" />
               Used Car
+            </label>
+          </div>
+
+          <div class="form-group checkbox">
+            <label>
+              <input type="checkbox" v-model="newDetail.is_big_car" />
+              Big Car
             </label>
           </div>
 

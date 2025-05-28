@@ -68,10 +68,16 @@ const showStockAlert = async () => {
           const result = await callApi({
             query: `
               INSERT INTO cars_stock 
-              (id_buy_details, price_cell, notes, is_used_car)
-              VALUES (?, ?, ?, ?)
+              (id_buy_details, price_cell, notes, is_used_car, is_big_car)
+              VALUES (?, ?, ?, ?, ?)
             `,
-            params: [detail.id, detail.price_sell, detail.notes, detail.is_used_car],
+            params: [
+              detail.id,
+              detail.price_sell,
+              detail.notes,
+              detail.is_used_car,
+              detail.is_big_car,
+            ],
           })
 
           if (!result.success) {
@@ -153,6 +159,7 @@ const showStockAlert = async () => {
           <th><i class="fas fa-tag"></i> Price Sell</th>
           <th><i class="fas fa-sticky-note"></i> Notes</th>
           <th><i class="fas fa-car-alt"></i> Used Car</th>
+          <th><i class="fas fa-truck"></i> Big Car</th>
           <th><i class="fas fa-cog"></i> Actions</th>
         </tr>
       </thead>
@@ -170,6 +177,12 @@ const showStockAlert = async () => {
             <i
               :class="detail.is_used_car ? 'fas fa-check text-success' : 'fas fa-times text-danger'"
               :title="detail.is_used_car ? 'Used Car' : 'New Car'"
+            ></i>
+          </td>
+          <td>
+            <i
+              :class="detail.is_big_car ? 'fas fa-check text-success' : 'fas fa-times text-danger'"
+              :title="detail.is_big_car ? 'Big Car' : 'Small Car'"
             ></i>
           </td>
           <td class="actions">
@@ -289,6 +302,14 @@ const showStockAlert = async () => {
             Used Car
           </label>
           <input type="checkbox" id="edit-is-used-car" v-model="editingDetail.is_used_car" />
+        </div>
+
+        <div class="form-group">
+          <label for="edit-is-big-car">
+            <i class="fas fa-truck"></i>
+            Big Car
+          </label>
+          <input type="checkbox" id="edit-is-big-car" v-model="editingDetail.is_big_car" />
         </div>
 
         <div class="dialog-buttons">

@@ -38,6 +38,7 @@ const formData = ref({
   id_port_discharge: null,
   price_cell: null,
   freight: null,
+  rate: null,
 })
 
 // Fetch clients for dropdown
@@ -102,7 +103,24 @@ const fetchDischargePorts = async () => {
   }
 }
 
-// Fetch car details to show in the form
+// Add new function to fetch default values
+const fetchDefaultFreight = async (isSmallCar) => {
+  try {
+    const result = await callApi({
+      query: 'SELECT freight_small, freight_big FROM defaults LIMIT 1',
+      params: [],
+    })
+
+    if (result.success && result.data.length > 0) {
+      const defaultFreight = isSmallCar ? result.data[0].freight_small : result.data[0].freight_big
+      formData.value.freight = defaultFreight
+    }
+  } catch (err) {
+    console.error('Error fetching default freight:', err)
+  }
+}
+
+// Update the fetchCarDetails function to include car size info and set freight
 const fetchCarDetails = async () => {
   if (!props.carId) return
 
@@ -112,7 +130,9 @@ const fetchCarDetails = async () => {
         SELECT 
           cs.id,
           cs.vin,
+          cs.price_cell,
           cn.car_name,
+          cs.is_big_car,
           clr.color,
           bd.price_sell as buy_price
         FROM cars_stock cs
@@ -126,11 +146,33 @@ const fetchCarDetails = async () => {
 
     if (result.success && result.data.length > 0) {
       carDetails.value = result.data[0]
+      // Set the default sell price if available
+      if (carDetails.value.price_cell) {
+        formData.value.price_cell = carDetails.value.price_cell
+      }
+      // Fetch and set default freight based on car size
+      await fetchDefaultFreight(carDetails.value.is_big_car === 0)
     } else {
       error.value = result.error || 'Failed to fetch car details'
     }
   } catch (err) {
     error.value = err.message || 'An error occurred'
+  }
+}
+
+// Add new function to fetch default values
+const fetchDefaultRate = async () => {
+  try {
+    const result = await callApi({
+      query: 'SELECT rate FROM defaults LIMIT 1',
+      params: [],
+    })
+
+    if (result.success && result.data.length > 0) {
+      formData.value.rate = result.data[0].rate
+    }
+  } catch (err) {
+    console.error('Error fetching default rate:', err)
   }
 }
 
@@ -175,7 +217,8 @@ const assignCar = async () => {
             price_cell = ?,
             freight = ?,
             date_sell = ?,
-            id_sell_pi = ?
+            id_sell_pi = ?,
+            rate = ?
         WHERE id = ?
       `,
       params: [
@@ -186,6 +229,7 @@ const assignCar = async () => {
         formData.value.freight || null,
         currentDate,
         billRef,
+        formData.value.rate || null,
         props.carId,
       ],
     })
@@ -221,16 +265,24 @@ const validateForm = () => {
     return false
   }
 
+  if (!formData.value.rate) {
+    error.value = 'Please enter a rate'
+    return false
+  }
+
   return true
 }
 
-// Reset form after submission
+// Update resetForm to preserve freight value
 const resetForm = () => {
+  const currentRate = formData.value.rate // Preserve current rate
+  const currentFreight = formData.value.freight // Preserve current freight
   formData.value = {
     id_client: null,
     id_port_discharge: null,
     price_cell: null,
-    freight: null,
+    freight: currentFreight, // Keep the default freight
+    rate: currentRate, // Keep the default rate
   }
   error.value = null
 }
@@ -249,6 +301,7 @@ const calculateProfit = () => {
 onMounted(() => {
   fetchClients()
   fetchDischargePorts()
+  fetchDefaultRate()
   if (props.carId) {
     fetchCarDetails()
   }
@@ -355,14 +408,26 @@ onMounted(() => {
             <i class="fas fa-dollar-sign"></i>
             Sell Price: <span class="required">*</span>
           </label>
-          <input
-            type="number"
-            id="sell-price"
-            v-model="formData.price_cell"
-            step="0.01"
-            min="0"
-            required
-          />
+          <div class="input-with-info">
+            <input
+              type="number"
+              id="sell-price"
+              v-model="formData.price_cell"
+              step="0.01"
+              min="0"
+              required
+              :class="{
+                'default-value':
+                  carDetails?.price_cell && formData.price_cell === carDetails.price_cell,
+              }"
+            />
+            <span
+              v-if="carDetails?.price_cell && formData.price_cell === carDetails.price_cell"
+              class="default-badge"
+            >
+              Default
+            </span>
+          </div>
         </div>
 
         <div class="form-group">
@@ -370,7 +435,35 @@ onMounted(() => {
             <i class="fas fa-ship"></i>
             Freight:
           </label>
-          <input type="number" id="freight" v-model="formData.freight" step="0.01" min="0" />
+          <div class="input-with-info">
+            <input
+              type="number"
+              id="freight"
+              v-model="formData.freight"
+              step="0.01"
+              min="0"
+              :class="{ 'default-value': carDetails?.is_big_car === undefined }"
+            />
+            <span v-if="carDetails?.is_big_car === undefined" class="default-badge">
+              Default ({{ carDetails.is_big_car === 0 ? 'Small' : 'Big' }} Car)
+            </span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="rate">
+            <i class="fas fa-exchange-alt"></i>
+            Rate: <span class="required">*</span>
+          </label>
+          <input
+            type="number"
+            id="rate"
+            v-model="formData.rate"
+            step="0.01"
+            min="0"
+            required
+            :class="{ error: error && !formData.rate }"
+          />
         </div>
 
         <div v-if="formData.price_cell && carDetails?.buy_price" class="profit-calculation">
@@ -735,5 +828,26 @@ button i {
 
 button:hover:not(:disabled) i {
   transform: scale(1.1);
+}
+
+.input-with-info {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.default-badge {
+  font-size: 0.8em;
+  padding: 2px 6px;
+  background-color: #e5e7eb;
+  color: #374151;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.default-value {
+  border-color: #3b82f6 !important;
+  background-color: #f0f9ff !important;
 }
 </style>
