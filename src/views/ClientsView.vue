@@ -37,6 +37,7 @@ const newClient = ref({
   id_no: '',
   is_client: true,
   is_broker: false,
+  notes: '',
 })
 
 const fetchClients = async () => {
@@ -102,8 +103,8 @@ const addClient = async () => {
     // First insert the client to get the ID
     const result = await callApi({
       query: `
-        INSERT INTO clients (name, address, email, mobiles, id_no, is_broker, is_client)
-        VALUES (?, ?, ?, ?, ?, ?, 1)
+        INSERT INTO clients (name, address, email, mobiles, id_no, is_broker, is_client, notes)
+        VALUES (?, ?, ?, ?, ?, ?, 1, ?)
       `,
       params: [
         newClient.value.name,
@@ -112,6 +113,7 @@ const addClient = async () => {
         newClient.value.mobiles,
         newClient.value.id_no,
         newClient.value.is_broker,
+        newClient.value.notes,
       ],
     })
 
@@ -157,6 +159,7 @@ const addClient = async () => {
         id_no: '',
         is_client: true,
         is_broker: false,
+        notes: '',
       }
       await fetchClients()
     } else {
@@ -212,7 +215,7 @@ const updateClient = async () => {
     const result = await callApi({
       query: `
       UPDATE clients 
-      SET name = ?, address = ?, email = ?, mobiles = ?, id_no = ?, is_broker = ?, is_client = 1
+      SET name = ?, address = ?, email = ?, mobiles = ?, id_no = ?, is_broker = ?, is_client = 1, notes = ?
       WHERE id = ?
     `,
       params: [
@@ -222,6 +225,7 @@ const updateClient = async () => {
         editingClient.value.mobiles,
         editingClient.value.id_no,
         editingClient.value.is_broker,
+        editingClient.value.notes,
         editingClient.value.id,
       ],
     })
@@ -326,6 +330,7 @@ onMounted(() => {
             <th><i class="fas fa-id-card"></i> ID No</th>
             <th><i class="fas fa-file-alt"></i> ID Document</th>
             <th><i class="fas fa-user-tag"></i> Status</th>
+            <th><i class="fas fa-sticky-note"></i> Notes</th>
             <th><i class="fas fa-cog"></i> Actions</th>
           </tr>
         </thead>
@@ -369,6 +374,14 @@ onMounted(() => {
                   Broker
                 </span>
               </div>
+            </td>
+            <td class="notes-cell">
+              <span v-if="client.notes" class="notes-content" :title="client.notes">
+                {{
+                  client.notes.length > 50 ? client.notes.substring(0, 50) + '...' : client.notes
+                }}
+              </span>
+              <span v-else class="no-notes">No notes</span>
             </td>
             <td>
               <button @click="editClient(client)" class="btn edit-btn">
@@ -465,6 +478,21 @@ onMounted(() => {
               :disabled="isSubmitting"
             />
             <label for="is-broker">Is Broker</label>
+          </div>
+
+          <div class="textarea-group">
+            <label for="notes">
+              <i class="fas fa-sticky-note"></i>
+              Notes
+            </label>
+            <textarea
+              id="notes"
+              v-model="newClient.notes"
+              placeholder="Add notes about the client..."
+              rows="3"
+              class="textarea-field"
+              :disabled="isSubmitting"
+            ></textarea>
           </div>
 
           <div class="file-upload">
@@ -591,6 +619,21 @@ onMounted(() => {
               :disabled="isSubmitting"
             />
             <label for="edit-is-broker">Is Broker</label>
+          </div>
+
+          <div class="textarea-group">
+            <label for="edit-notes">
+              <i class="fas fa-sticky-note"></i>
+              Notes
+            </label>
+            <textarea
+              id="edit-notes"
+              v-model="editingClient.notes"
+              placeholder="Add notes about the client..."
+              rows="3"
+              class="textarea-field"
+              :disabled="isSubmitting"
+            ></textarea>
           </div>
 
           <div class="file-upload">
@@ -1061,5 +1104,59 @@ onMounted(() => {
 .badge.broker {
   background-color: #e0f2fe;
   color: #0284c7;
+}
+
+.textarea-group {
+  margin-top: 16px;
+}
+
+.textarea-group label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  color: #374151;
+  font-weight: 500;
+}
+
+.textarea-group label i {
+  color: #6b7280;
+}
+
+.textarea-field {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 1em;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 80px;
+  transition: all 0.2s;
+}
+
+.textarea-field:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.notes-cell {
+  max-width: 200px;
+}
+
+.notes-content {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #374151;
+  font-size: 0.9em;
+}
+
+.no-notes {
+  color: #9ca3af;
+  font-size: 0.9em;
+  font-style: italic;
 }
 </style>
