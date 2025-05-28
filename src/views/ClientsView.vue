@@ -135,8 +135,14 @@ const fetchClients = async () => {
   try {
     const result = await callApi({
       query: `
-        SELECT * FROM clients where  is_client = 1
-        ORDER BY name ASC
+        SELECT 
+          c.*,
+          COUNT(cs.id) as cars_count
+        FROM clients c
+        LEFT JOIN cars_stock cs ON c.id = cs.id_client
+        WHERE c.is_client = 1
+        GROUP BY c.id
+        ORDER BY c.name ASC
       `,
       params: [],
     })
@@ -523,6 +529,15 @@ onMounted(() => {
               >
               </i>
             </th>
+            <th @click="handleSort('cars_count')" class="sortable">
+              <i class="fas fa-car"></i>
+              Cars
+              <i
+                v-if="sortConfig.key === 'cars_count'"
+                :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
+              >
+              </i>
+            </th>
             <th><i class="fas fa-file-alt"></i> ID Document</th>
             <th @click="handleSort('is_broker')" class="sortable">
               <i class="fas fa-user-tag"></i>
@@ -544,6 +559,12 @@ onMounted(() => {
             <td>{{ client.email }}</td>
             <td>{{ client.mobiles }}</td>
             <td>{{ client.id_no }}</td>
+            <td class="cars-count">
+              <span class="badge cars" :class="{ 'has-cars': client.cars_count > 0 }">
+                <i class="fas fa-car"></i>
+                {{ client.cars_count }}
+              </span>
+            </td>
             <td class="id-document-cell">
               <div
                 v-if="client.id_copy_path && isImageFile(client.id_copy_path)"
@@ -1307,6 +1328,23 @@ onMounted(() => {
 .badge.broker {
   background-color: #e0f2fe;
   color: #0284c7;
+}
+
+.badge.cars {
+  background-color: #f1f5f9;
+  color: #64748b;
+  font-weight: 500;
+  min-width: 40px;
+  justify-content: center;
+}
+
+.badge.cars.has-cars {
+  background-color: #dbeafe;
+  color: #2563eb;
+}
+
+.cars-count {
+  text-align: center;
 }
 
 .textarea-group {
