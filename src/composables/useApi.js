@@ -98,7 +98,7 @@ export const useApi = () => {
       // Return both the server response and the relative path
       return {
         ...result,
-        relativePath: `${destinationFolder}/${customFilename}`,
+        relativePath: `${destinationFolder}/${customFilename || result.file_path.split('/').pop()}`,
       }
     } catch (err) {
       console.error('Upload error details:', err)
