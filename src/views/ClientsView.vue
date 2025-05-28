@@ -301,7 +301,7 @@ onMounted(() => {
         <i class="fas fa-users"></i>
         Clients Management
       </h2>
-      <button @click="showAddDialog = true" class="add-btn" :disabled="!isAdmin">
+      <button @click="showAddDialog = true" class="add-btn">
         <i class="fas fa-plus"></i>
         Add Client
       </button>
