@@ -35,6 +35,8 @@ const newClient = ref({
   email: '',
   mobiles: '',
   id_no: '',
+  is_client: true,
+  is_broker: false,
 })
 
 const fetchClients = async () => {
@@ -42,7 +44,7 @@ const fetchClients = async () => {
   try {
     const result = await callApi({
       query: `
-        SELECT * FROM clients where is_broker = 0
+        SELECT * FROM clients where  is_client = 1
         ORDER BY name ASC
       `,
       params: [],
@@ -100,8 +102,8 @@ const addClient = async () => {
     // First insert the client to get the ID
     const result = await callApi({
       query: `
-        INSERT INTO clients (name, address, email, mobiles, id_no, is_broker)
-        VALUES (?, ?, ?, ?, ?, 0)
+        INSERT INTO clients (name, address, email, mobiles, id_no, is_broker, is_client)
+        VALUES (?, ?, ?, ?, ?, ?, 1)
       `,
       params: [
         newClient.value.name,
@@ -109,6 +111,7 @@ const addClient = async () => {
         newClient.value.email,
         newClient.value.mobiles,
         newClient.value.id_no,
+        newClient.value.is_broker,
       ],
     })
 
@@ -152,6 +155,8 @@ const addClient = async () => {
         email: '',
         mobiles: '',
         id_no: '',
+        is_client: true,
+        is_broker: false,
       }
       await fetchClients()
     } else {
@@ -207,7 +212,7 @@ const updateClient = async () => {
     const result = await callApi({
       query: `
       UPDATE clients 
-      SET name = ?, address = ?, email = ?, mobiles = ?, id_no = ?, is_broker = 0
+      SET name = ?, address = ?, email = ?, mobiles = ?, id_no = ?, is_broker = ?, is_client = 1
       WHERE id = ?
     `,
       params: [
@@ -216,6 +221,7 @@ const updateClient = async () => {
         editingClient.value.email,
         editingClient.value.mobiles,
         editingClient.value.id_no,
+        editingClient.value.is_broker,
         editingClient.value.id,
       ],
     })
@@ -319,6 +325,7 @@ onMounted(() => {
             <th><i class="fas fa-phone"></i> Mobile</th>
             <th><i class="fas fa-id-card"></i> ID No</th>
             <th><i class="fas fa-file-alt"></i> ID Document</th>
+            <th><i class="fas fa-user-tag"></i> Status</th>
             <th><i class="fas fa-cog"></i> Actions</th>
           </tr>
         </thead>
@@ -350,6 +357,18 @@ onMounted(() => {
                 <i class="fas fa-times-circle"></i>
                 No ID
               </span>
+            </td>
+            <td>
+              <div class="status-badges">
+                <span class="badge client">
+                  <i class="fas fa-user"></i>
+                  Client
+                </span>
+                <span v-if="client.is_broker" class="badge broker">
+                  <i class="fas fa-user-tie"></i>
+                  Broker
+                </span>
+              </div>
             </td>
             <td>
               <button @click="editClient(client)" class="btn edit-btn">
@@ -436,6 +455,16 @@ onMounted(() => {
               :class="{ error: validationError && !newClient.id_no }"
               :disabled="isSubmitting"
             />
+          </div>
+
+          <div class="checkbox-field">
+            <input
+              type="checkbox"
+              id="is-broker"
+              v-model="newClient.is_broker"
+              :disabled="isSubmitting"
+            />
+            <label for="is-broker">Is Broker</label>
           </div>
 
           <div class="file-upload">
@@ -552,6 +581,16 @@ onMounted(() => {
               :class="{ error: validationError && !editingClient.id_no }"
               :disabled="isSubmitting"
             />
+          </div>
+
+          <div class="checkbox-field">
+            <input
+              type="checkbox"
+              id="edit-is-broker"
+              v-model="editingClient.is_broker"
+              :disabled="isSubmitting"
+            />
+            <label for="edit-is-broker">Is Broker</label>
           </div>
 
           <div class="file-upload">
@@ -984,5 +1023,43 @@ onMounted(() => {
 .file-input.error {
   border-color: #ef4444;
   background-color: #fef2f2;
+}
+
+.checkbox-field {
+  margin-top: 8px;
+}
+
+.checkbox-field input {
+  margin-right: 8px;
+}
+
+.checkbox-field label {
+  margin-right: 16px;
+}
+
+.status-badges {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.badge.client {
+  background-color: #dcfce7;
+  color: #059669;
+}
+
+.badge.broker {
+  background-color: #e0f2fe;
+  color: #0284c7;
 }
 </style>
