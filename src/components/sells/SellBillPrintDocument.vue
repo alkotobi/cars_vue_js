@@ -391,11 +391,6 @@ onMounted(() => {
         <h3>Notes</h3>
         <p>{{ billData.notes || 'No notes' }}</p>
       </div>
-
-      <!-- Page Footer -->
-      <div class="page-footer">
-        <div class="page-number">Page 1 of 2</div>
-      </div>
     </div>
 
     <!-- Second Page (Terms and Conditions) -->
@@ -533,11 +528,6 @@ onMounted(() => {
           <p>Buyer's Signature</p>
           <div class="signature-line"></div>
         </div>
-      </div>
-
-      <!-- Page Footer -->
-      <div class="page-footer">
-        <div class="page-number">Page 2 of 2</div>
       </div>
     </div>
   </div>
@@ -820,18 +810,11 @@ onMounted(() => {
 }
 
 .page-footer {
-  position: absolute;
-  bottom: 20mm;
-  left: 0;
-  right: 0;
-  text-align: center;
-  font-size: 12px;
-  color: #666;
+  display: none;
 }
 
 .page-number {
-  font-size: 12px;
-  color: #666;
+  display: none;
 }
 
 .terms-page {
