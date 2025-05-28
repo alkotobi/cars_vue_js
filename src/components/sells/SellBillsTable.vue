@@ -447,6 +447,15 @@ defineExpose({ fetchSellBills })
             >
               <i class="fas fa-print"></i>
             </button>
+            <button
+              v-if="can_c_sell_payments"
+              @click.stop="handlePayments(bill.id)"
+              :disabled="isProcessing"
+              class="btn payment-btn"
+              title="View Payments"
+            >
+              <i class="fas fa-money-bill-wave"></i>
+            </button>
           </td>
         </tr>
       </tbody>
@@ -616,6 +625,15 @@ defineExpose({ fetchSellBills })
 }
 
 .print-btn:hover:not(:disabled) {
+  background-color: #059669;
+}
+
+.payment-btn {
+  background-color: #10b981;
+  color: white;
+}
+
+.payment-btn:hover:not(:disabled) {
   background-color: #059669;
 }
 
