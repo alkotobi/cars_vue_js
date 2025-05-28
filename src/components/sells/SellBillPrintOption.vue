@@ -1,5 +1,5 @@
 <script setup>
-import { ref, defineProps, defineEmits, onMounted } from 'vue'
+import { ref, defineProps, defineEmits, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useApi } from '../../composables/useApi'
 
@@ -20,34 +20,77 @@ const props = defineProps({
 const emit = defineEmits(['close', 'proceed'])
 
 const formData = ref({
-  documentType: 'sell_contract',
-  currency: 'dza',
-  paymentTerms: 'cfr',
+  documentType: 'contract',
+  paymentTerms: 'FOB',
   paymentMode: 'TT',
+  currency: 'USD',
   bankId: null,
 })
 
 const banks = ref([])
 const isProcessing = ref(false)
+const isLoadingBanks = ref(false)
+
+// Add document type options
+const documentTypes = [
+  { value: 'contract', label: 'Contract' },
+  { value: 'invoice', label: 'Invoice' },
+  { value: 'proforma', label: 'Proforma' },
+]
+
+// Add payment terms options
+const paymentTermsOptions = [
+  { value: 'FOB', label: 'FOB' },
+  { value: 'CFR', label: 'CFR' },
+]
+
+// Add payment type options
+const paymentTypes = [
+  { value: 'LC', label: 'LC' },
+  { value: 'TT', label: 'TT' },
+]
+
+// Add currency options
+const currencyOptions = [
+  { value: 'USD', label: 'USD' },
+  { value: 'DA', label: 'DA' },
+]
 
 const fetchBanks = async () => {
   try {
+    isLoadingBanks.value = true
     const result = await callApi({
       query: 'SELECT * FROM banks ORDER BY company_name ASC',
       params: [],
     })
     if (result.success && result.data.length > 0) {
       banks.value = result.data
-      // Set the first bank as default
-      formData.value.bankId = result.data[0].id
+      // Set the first bank as default if not already set
+      if (!formData.value.bankId) {
+        formData.value.bankId = result.data[0].id
+      }
     }
   } catch (err) {
     console.error('Error fetching banks:', err)
+  } finally {
+    isLoadingBanks.value = false
   }
 }
 
+// Watch for dialog visibility
+watch(
+  () => props.visible,
+  (newValue) => {
+    if (newValue) {
+      fetchBanks()
+    }
+  },
+)
+
 onMounted(() => {
-  fetchBanks()
+  if (props.visible) {
+    fetchBanks()
+  }
 })
 
 const handleProceed = () => {
@@ -72,266 +115,152 @@ const handleCancel = () => {
 </script>
 
 <template>
-  <div v-if="visible" class="print-options-overlay">
-    <div class="print-options-dialog">
-      <!-- Loading Overlay -->
-      <div v-if="loading" class="loading-overlay">
-        <i class="fas fa-spinner fa-spin fa-2x"></i>
-        <span>{{ isProcessing ? 'Generating document...' : 'Loading...' }}</span>
+  <div v-if="visible" class="print-options-dialog">
+    <div class="dialog-content">
+      <h3>Print Options</h3>
+
+      <div class="form-group">
+        <label>Document Type:</label>
+        <select v-model="formData.documentType">
+          <option v-for="type in documentTypes" :key="type.value" :value="type.value">
+            {{ type.label }}
+          </option>
+        </select>
       </div>
 
-      <div class="dialog-header">
-        <h3>
-          <i class="fas fa-print"></i>
-          Print Options
-        </h3>
-        <button @click="$emit('close')" class="close-btn">
-          <i class="fas fa-times"></i>
-        </button>
+      <div class="form-group">
+        <label>Payment Terms:</label>
+        <select v-model="formData.paymentTerms">
+          <option v-for="term in paymentTermsOptions" :key="term.value" :value="term.value">
+            {{ term.label }}
+          </option>
+        </select>
       </div>
 
-      <div v-if="error" class="error-message">
-        <i class="fas fa-exclamation-circle"></i>
-        {{ error }}
+      <div class="form-group">
+        <label>Payment Type:</label>
+        <select v-model="formData.paymentMode">
+          <option v-for="type in paymentTypes" :key="type.value" :value="type.value">
+            {{ type.label }}
+          </option>
+        </select>
       </div>
 
-      <div class="options-content">
-        <div class="option-group">
-          <label>
-            <i class="fas fa-file-alt"></i>
-            Document Type:
-          </label>
-          <div class="radio-group">
-            <label class="radio-label">
-              <input
-                type="radio"
-                v-model="selectedOption"
-                value="invoice"
-                :disabled="isProcessing"
-              />
-              <i class="fas fa-file-invoice-dollar"></i>
-              Invoice
-            </label>
-            <label class="radio-label">
-              <input
-                type="radio"
-                v-model="selectedOption"
-                value="proforma"
-                :disabled="isProcessing"
-              />
-              <i class="fas fa-file-contract"></i>
-              Proforma
-            </label>
-          </div>
-        </div>
-
-        <div class="option-group">
-          <label>
-            <i class="fas fa-language"></i>
-            Language:
-          </label>
-          <div class="radio-group">
-            <label class="radio-label">
-              <input type="radio" v-model="language" value="en" :disabled="isProcessing" />
-              <i class="fas fa-flag-usa"></i>
-              English
-            </label>
-            <label class="radio-label">
-              <input type="radio" v-model="language" value="ar" :disabled="isProcessing" />
-              <i class="fas fa-flag"></i>
-              Arabic
-            </label>
-          </div>
-        </div>
+      <div class="form-group">
+        <label>Currency:</label>
+        <select v-model="formData.currency">
+          <option v-for="currency in currencyOptions" :key="currency.value" :value="currency.value">
+            {{ currency.label }}
+          </option>
+        </select>
       </div>
 
-      <div class="dialog-actions">
-        <button @click="$emit('close')" :disabled="isProcessing" class="cancel-btn">
-          <i class="fas fa-times"></i>
-          Cancel
-        </button>
-        <button @click="handleProceed" :disabled="isProcessing" class="proceed-btn">
-          <i class="fas fa-print"></i>
-          {{ isProcessing ? 'Generating...' : 'Generate Document' }}
-        </button>
+      <div class="form-group">
+        <label>Bank:</label>
+        <select v-model="formData.bankId" :disabled="isLoadingBanks">
+          <option v-if="isLoadingBanks" value="">Loading banks...</option>
+          <option v-else value="">Select Bank</option>
+          <option v-for="bank in banks" :key="bank.id" :value="bank.id">
+            {{ bank.company_name }}
+          </option>
+        </select>
+      </div>
+
+      <div class="dialog-buttons">
+        <button @click="handleCancel" class="cancel-btn">Cancel</button>
+        <button @click="handleProceed" class="proceed-btn">Print</button>
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.print-options-overlay {
+.print-options-dialog {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background-color: rgba(0, 0, 0, 0.5);
   display: flex;
-  align-items: center;
   justify-content: center;
+  align-items: center;
   z-index: 1000;
 }
 
-.print-options-dialog {
-  position: relative;
-  background: white;
-  border-radius: 0.5rem;
-  width: 90%;
+.dialog-content {
+  background-color: white;
+  border-radius: 8px;
+  padding: 24px;
+  width: 100%;
   max-width: 500px;
-  padding: 1.5rem;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1);
 }
 
-.loading-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(255, 255, 255, 0.9);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 1rem;
-  z-index: 10;
-  border-radius: 0.5rem;
-}
-
-.dialog-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1.5rem;
-}
-
-.dialog-header h3 {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+h3 {
+  margin-top: 0;
+  margin-bottom: 24px;
   color: #1f2937;
-  margin: 0;
+  font-size: 1.25rem;
 }
 
-.close-btn {
-  background: none;
-  border: none;
-  color: #6b7280;
-  cursor: pointer;
-  padding: 0.5rem;
-  transition: color 0.2s;
+.form-group {
+  margin-bottom: 16px;
 }
 
-.close-btn:hover:not(:disabled) {
-  color: #374151;
-}
-
-.error-message {
-  background-color: #fee2e2;
-  color: #dc2626;
-  padding: 1rem;
-  border-radius: 0.5rem;
-  margin-bottom: 1rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.options-content {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.option-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.option-group > label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+label {
+  display: block;
+  margin-bottom: 8px;
   color: #374151;
   font-weight: 500;
 }
 
-.option-group > label i {
-  color: #6b7280;
+select {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 1rem;
 }
 
-.radio-group {
-  display: flex;
-  gap: 1rem;
+select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  ring: 2px solid #3b82f6;
 }
 
-.radio-label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: #374151;
-  cursor: pointer;
-}
-
-.radio-label input[type='radio'] {
-  cursor: pointer;
-}
-
-.radio-label i {
-  color: #6b7280;
-}
-
-.dialog-actions {
+.dialog-buttons {
   display: flex;
   justify-content: flex-end;
-  gap: 1rem;
-  margin-top: 1.5rem;
-}
-
-.cancel-btn,
-.proceed-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 0.375rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
+  gap: 12px;
+  margin-top: 24px;
 }
 
 .cancel-btn {
-  background-color: #f3f4f6;
-  color: #374151;
-}
-
-.cancel-btn:hover:not(:disabled) {
-  background-color: #e5e7eb;
+  padding: 8px 16px;
+  background-color: #9ca3af;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
 }
 
 .proceed-btn {
-  background-color: #10b981;
+  padding: 8px 16px;
+  background-color: #3b82f6;
   color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
 }
 
-.proceed-btn:hover:not(:disabled) {
-  background-color: #059669;
+.cancel-btn:hover {
+  background-color: #6b7280;
 }
 
-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* Add smooth transitions */
-button i {
-  transition: transform 0.2s;
-}
-
-button:hover:not(:disabled) i {
-  transform: scale(1.1);
+.proceed-btn:hover {
+  background-color: #2563eb;
 }
 </style>

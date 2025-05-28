@@ -141,7 +141,7 @@ const calculateTotal = () => {
       }
 
       // Convert to selected currency
-      if (props.options.currency.toLowerCase() === 'dza') {
+      if (props.options.currency.toUpperCase() === 'DA') {
         const rate = parseFloat(car.rate)
         if (!rate) {
           console.warn(`No rate found for car ID ${car.id}`)
@@ -163,7 +163,7 @@ const calculateCarPrice = (car) => {
   }
 
   // Convert to selected currency
-  if (props.options.currency.toLowerCase() === 'dza') {
+  if (props.options.currency.toUpperCase() === 'DA') {
     const rate = parseFloat(car.rate)
     if (!rate) {
       console.warn(`No rate found for car ID ${car.id}`)
@@ -175,7 +175,7 @@ const calculateCarPrice = (car) => {
 }
 
 const formatPrice = (price) => {
-  if (props.options.currency.toLowerCase() === 'dza') {
+  if (props.options.currency.toUpperCase() === 'DA') {
     if (price === 'Rate not set') return price
     return `DZD ${price}`
   }
@@ -294,8 +294,8 @@ onMounted(() => {
         <div class="document-info">
           <h2>
             {{
-              options.documentType === 'sell_contract'
-                ? 'SELL CONTRACT'
+              options.documentType === 'contract'
+                ? 'SALE CONTRACT'
                 : options.documentType === 'invoice'
                   ? 'INVOICE'
                   : 'PROFORMA INVOICE'
@@ -387,7 +387,7 @@ onMounted(() => {
       </div>
 
       <!-- Contract Terms - Only visible for sell contract -->
-      <div class="section contract-terms" v-if="options.documentType === 'sell_contract'">
+      <div class="section contract-terms" v-if="options.documentType === 'contract'">
         <h3>Terms and Conditions</h3>
         <div class="terms-list">
           <!-- Payment Terms -->
