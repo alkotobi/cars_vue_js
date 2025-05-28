@@ -40,6 +40,96 @@ const newClient = ref({
   notes: '',
 })
 
+// Add filter and sort refs
+const filters = ref({
+  name: '',
+  email: '',
+  mobile: '',
+  idNo: '',
+  isBroker: null,
+})
+
+const sortConfig = ref({
+  key: 'name',
+  direction: 'asc',
+})
+
+// Add computed property for filtered and sorted clients
+const filteredAndSortedClients = computed(() => {
+  let result = [...clients.value]
+
+  // Apply filters
+  result = result.filter((client) => {
+    if (
+      filters.value.name &&
+      !client.name?.toLowerCase().includes(filters.value.name.toLowerCase())
+    ) {
+      return false
+    }
+    if (
+      filters.value.email &&
+      !client.email?.toLowerCase().includes(filters.value.email.toLowerCase())
+    ) {
+      return false
+    }
+    if (filters.value.mobile && !client.mobiles?.includes(filters.value.mobile)) {
+      return false
+    }
+    if (filters.value.idNo && !client.id_no?.includes(filters.value.idNo)) {
+      return false
+    }
+    if (filters.value.isBroker !== null && client.is_broker !== filters.value.isBroker) {
+      return false
+    }
+    return true
+  })
+
+  // Apply sorting
+  result.sort((a, b) => {
+    let aVal = a[sortConfig.value.key]
+    let bVal = b[sortConfig.value.key]
+
+    // Handle null values
+    if (aVal === null) aVal = ''
+    if (bVal === null) bVal = ''
+
+    // Convert to strings for comparison
+    aVal = String(aVal).toLowerCase()
+    bVal = String(bVal).toLowerCase()
+
+    if (sortConfig.value.direction === 'asc') {
+      return aVal > bVal ? 1 : aVal < bVal ? -1 : 0
+    } else {
+      return aVal < bVal ? 1 : aVal > bVal ? -1 : 0
+    }
+  })
+
+  return result
+})
+
+// Add function to handle sorting
+const handleSort = (key) => {
+  if (sortConfig.value.key === key) {
+    // If already sorting by this key, toggle direction
+    sortConfig.value.direction = sortConfig.value.direction === 'asc' ? 'desc' : 'asc'
+  } else {
+    // If sorting by a new key, set it with ascending direction
+    sortConfig.value.key = key
+    sortConfig.value.direction = 'asc'
+  }
+}
+
+// Add function to clear filters
+const clearFilters = () => {
+  filters.value = {
+    name: '',
+    email: '',
+    mobile: '',
+    idNo: '',
+    isBroker: null,
+  }
+}
+
 const fetchClients = async () => {
   isLoading.value = true
   try {
@@ -319,23 +409,136 @@ onMounted(() => {
       {{ error }}
     </div>
 
-    <div class="content" v-else>
-      <table class="clients-table">
+    <!-- Filters Section -->
+    <div v-if="!isLoading && !error" class="filters-section">
+      <div class="filters-header">
+        <h4>
+          <i class="fas fa-filter"></i>
+          Filters
+        </h4>
+        <button @click="clearFilters" class="clear-filters-btn">
+          <i class="fas fa-times"></i>
+          Clear Filters
+        </button>
+      </div>
+
+      <div class="filters-grid">
+        <div class="filter-group">
+          <label>
+            <i class="fas fa-user"></i>
+            Name
+          </label>
+          <input type="text" v-model="filters.name" placeholder="Filter by name..." />
+        </div>
+
+        <div class="filter-group">
+          <label>
+            <i class="fas fa-envelope"></i>
+            Email
+          </label>
+          <input type="text" v-model="filters.email" placeholder="Filter by email..." />
+        </div>
+
+        <div class="filter-group">
+          <label>
+            <i class="fas fa-phone"></i>
+            Mobile
+          </label>
+          <input type="text" v-model="filters.mobile" placeholder="Filter by mobile..." />
+        </div>
+
+        <div class="filter-group">
+          <label>
+            <i class="fas fa-id-card"></i>
+            ID Number
+          </label>
+          <input type="text" v-model="filters.idNo" placeholder="Filter by ID..." />
+        </div>
+
+        <div class="filter-group">
+          <label>
+            <i class="fas fa-user-tie"></i>
+            Broker Status
+          </label>
+          <select v-model="filters.isBroker">
+            <option :value="null">All</option>
+            <option :value="true">Broker</option>
+            <option :value="false">Not Broker</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="content" v-if="!isLoading && !error">
+      <div v-if="filteredAndSortedClients.length === 0" class="no-results">
+        <i class="fas fa-search fa-2x"></i>
+        <p>No clients match the current filters</p>
+      </div>
+
+      <table v-else class="clients-table">
         <thead>
           <tr>
-            <th><i class="fas fa-user"></i> Name</th>
-            <th><i class="fas fa-map-marker-alt"></i> Address</th>
-            <th><i class="fas fa-envelope"></i> Email</th>
-            <th><i class="fas fa-phone"></i> Mobile</th>
-            <th><i class="fas fa-id-card"></i> ID No</th>
+            <th @click="handleSort('name')" class="sortable">
+              <i class="fas fa-user"></i>
+              Name
+              <i
+                v-if="sortConfig.key === 'name'"
+                :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
+              >
+              </i>
+            </th>
+            <th @click="handleSort('address')" class="sortable">
+              <i class="fas fa-map-marker-alt"></i>
+              Address
+              <i
+                v-if="sortConfig.key === 'address'"
+                :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
+              >
+              </i>
+            </th>
+            <th @click="handleSort('email')" class="sortable">
+              <i class="fas fa-envelope"></i>
+              Email
+              <i
+                v-if="sortConfig.key === 'email'"
+                :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
+              >
+              </i>
+            </th>
+            <th @click="handleSort('mobiles')" class="sortable">
+              <i class="fas fa-phone"></i>
+              Mobile
+              <i
+                v-if="sortConfig.key === 'mobiles'"
+                :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
+              >
+              </i>
+            </th>
+            <th @click="handleSort('id_no')" class="sortable">
+              <i class="fas fa-id-card"></i>
+              ID No
+              <i
+                v-if="sortConfig.key === 'id_no'"
+                :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
+              >
+              </i>
+            </th>
             <th><i class="fas fa-file-alt"></i> ID Document</th>
-            <th><i class="fas fa-user-tag"></i> Status</th>
+            <th @click="handleSort('is_broker')" class="sortable">
+              <i class="fas fa-user-tag"></i>
+              Status
+              <i
+                v-if="sortConfig.key === 'is_broker'"
+                :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
+              >
+              </i>
+            </th>
             <th><i class="fas fa-sticky-note"></i> Notes</th>
             <th><i class="fas fa-cog"></i> Actions</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="client in clients" :key="client.id">
+          <tr v-for="client in filteredAndSortedClients" :key="client.id">
             <td>{{ client.name }}</td>
             <td>{{ client.address }}</td>
             <td>{{ client.email }}</td>
@@ -1158,5 +1361,121 @@ onMounted(() => {
   color: #9ca3af;
   font-size: 0.9em;
   font-style: italic;
+}
+
+.filters-section {
+  background-color: #f9fafb;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 16px 0;
+  border: 1px solid #e5e7eb;
+}
+
+.filters-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.filters-header h4 {
+  margin: 0;
+  font-size: 1rem;
+  color: #374151;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.clear-filters-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  background-color: #ef4444;
+  color: white;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: background-color 0.2s;
+}
+
+.clear-filters-btn:hover {
+  background-color: #dc2626;
+}
+
+.filters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filter-group label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #374151;
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+.filter-group input,
+.filter-group select {
+  padding: 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  transition: border-color 0.2s;
+}
+
+.filter-group input:focus,
+.filter-group select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.no-results {
+  text-align: center;
+  padding: 2rem;
+  color: #6b7280;
+  background-color: #f9fafb;
+  border-radius: 8px;
+  margin-top: 1rem;
+}
+
+.no-results i {
+  margin-bottom: 1rem;
+  color: #9ca3af;
+}
+
+.sortable {
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  padding-right: 24px !important;
+}
+
+.sortable i:last-child {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0.5;
+}
+
+.sortable:hover {
+  background-color: #f3f4f6;
+}
+
+.sortable i:last-child {
+  opacity: 1;
 }
 </style>
