@@ -178,6 +178,15 @@ const fetchDefaultRate = async () => {
   }
 }
 
+// Add computed property for CFR DA calculation
+const calculateCFRDA = computed(() => {
+  if (!formData.value.price_cell || !formData.value.rate) return 'N/A'
+  const sellPrice = parseFloat(formData.value.price_cell) || 0
+  const freight = parseFloat(formData.value.freight) || 0
+  const rate = parseFloat(formData.value.rate) || 0
+  return ((sellPrice + freight) * rate).toFixed(2)
+})
+
 // Assign car with collected data
 const assignCar = async () => {
   // Prevent multiple submissions
@@ -455,6 +464,16 @@ onMounted(() => {
               :class="{ 'default-value': formData.rate !== null }"
             />
             <span v-if="formData.rate !== null" class="default-badge">Default</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>
+            <i class="fas fa-calculator"></i>
+            CFR DA:
+          </label>
+          <div class="calculated-value">
+            {{ calculateCFRDA }}
           </div>
         </div>
 
@@ -823,5 +842,14 @@ button i {
 
 button:hover:not(:disabled) i {
   transform: scale(1.1);
+}
+
+.calculated-value {
+  padding: 8px;
+  background-color: #f3f4f6;
+  border-radius: 4px;
+  color: #1f2937;
+  font-weight: 500;
+  font-family: monospace;
 }
 </style>

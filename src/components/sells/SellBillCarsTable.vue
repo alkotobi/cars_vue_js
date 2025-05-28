@@ -256,26 +256,27 @@ const fetchCarsByBillId = async (billId) => {
           cs.id,
           cs.vin,
           cs.notes,
-          cs.date_sell,
           cs.price_cell,
           cs.freight,
+          cs.rate,
           cs.date_loding,
-          cs.date_send_documents,
-          c.name as client_name,
+          cs.path_documents,
+          cs.is_big_car,
+          cs.is_used_car,
           lp.loading_port,
+          c.name as client_name,
           dp.discharge_port,
-          bd.price_sell as buy_price,
+          bd.amount as buy_price,
           cn.car_name,
           clr.color
         FROM cars_stock cs
-        LEFT JOIN clients c ON cs.id_client = c.id
         LEFT JOIN loading_ports lp ON cs.id_port_loading = lp.id
+        LEFT JOIN clients c ON cs.id_client = c.id
         LEFT JOIN discharge_ports dp ON cs.id_port_discharge = dp.id
         LEFT JOIN buy_details bd ON cs.id_buy_details = bd.id
         LEFT JOIN cars_names cn ON bd.id_car_name = cn.id
         LEFT JOIN colors clr ON bd.id_color = clr.id
         WHERE cs.id_sell = ?
-        ORDER BY cs.id DESC
       `,
       params: [billId],
     })
@@ -323,6 +324,15 @@ const totalValue = computed(() => {
     return total + price + freight
   }, 0)
 })
+
+// Add computed function for CFR DA calculation
+const calculateCFRDA = (car) => {
+  if (!car.price_cell || !car.rate) return 'N/A'
+  const sellPrice = parseFloat(car.price_cell) || 0
+  const freight = parseFloat(car.freight) || 0
+  const rate = parseFloat(car.rate) || 0
+  return ((sellPrice + freight) * rate).toFixed(2)
+}
 
 // Expose methods to parent component
 defineExpose({
@@ -379,6 +389,8 @@ defineExpose({
           <th><i class="fas fa-fingerprint"></i> VIN</th>
           <th><i class="fas fa-dollar-sign"></i> Price</th>
           <th><i class="fas fa-ship"></i> Freight</th>
+          <th><i class="fas fa-exchange-alt"></i> Rate</th>
+          <th><i class="fas fa-calculator"></i> CFR DA</th>
           <th><i class="fas fa-sticky-note"></i> Notes</th>
           <th><i class="fas fa-cog"></i> Actions</th>
         </tr>
@@ -391,6 +403,8 @@ defineExpose({
           <td>{{ car.vin || 'N/A' }}</td>
           <td>{{ car.price_cell ? '$' + car.price_cell.toLocaleString() : 'N/A' }}</td>
           <td>{{ car.freight ? '$' + car.freight.toLocaleString() : 'N/A' }}</td>
+          <td>{{ car.rate || 'N/A' }}</td>
+          <td>{{ calculateCFRDA(car) }}</td>
           <td>{{ car.notes || 'N/A' }}</td>
           <td class="actions">
             <button
