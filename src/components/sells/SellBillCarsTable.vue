@@ -388,6 +388,63 @@ const calculateCFRDA = (car) => {
   return ((sellPrice + freight) * rate).toFixed(2)
 }
 
+// Add filter refs
+const filters = ref({
+  carName: '',
+  clientName: '',
+  vin: '',
+  minPrice: '',
+  maxPrice: '',
+})
+
+// Add computed property for filtered cars
+const filteredCars = computed(() => {
+  return cars.value.filter((car) => {
+    // Car name filter
+    if (
+      filters.value.carName &&
+      !car.car_name?.toLowerCase().includes(filters.value.carName.toLowerCase())
+    ) {
+      return false
+    }
+
+    // Client name filter
+    if (
+      filters.value.clientName &&
+      !car.client_name?.toLowerCase().includes(filters.value.clientName.toLowerCase())
+    ) {
+      return false
+    }
+
+    // VIN filter
+    if (filters.value.vin && !car.vin?.toLowerCase().includes(filters.value.vin.toLowerCase())) {
+      return false
+    }
+
+    // Price range filter
+    const price = parseFloat(car.price_cell)
+    if (filters.value.minPrice && price < parseFloat(filters.value.minPrice)) {
+      return false
+    }
+    if (filters.value.maxPrice && price > parseFloat(filters.value.maxPrice)) {
+      return false
+    }
+
+    return true
+  })
+})
+
+// Add function to clear filters
+const clearFilters = () => {
+  filters.value = {
+    carName: '',
+    clientName: '',
+    vin: '',
+    minPrice: '',
+    maxPrice: '',
+  }
+}
+
 // Expose methods to parent component
 defineExpose({
   fetchCarsByBillId,
@@ -410,12 +467,64 @@ defineExpose({
       <div class="total-info" v-if="cars.length > 0">
         <span>
           <i class="fas fa-hashtag"></i>
-          Total Cars: {{ cars.length }}
+          Total Cars: {{ filteredCars.length }} / {{ cars.length }}
         </span>
         <span v-if="totalValue > 0">
           <i class="fas fa-dollar-sign"></i>
           Total Value: ${{ totalValue.toLocaleString() }}
         </span>
+      </div>
+    </div>
+
+    <!-- Add Filters Section -->
+    <div class="filters-section">
+      <div class="filters-header">
+        <h4>
+          <i class="fas fa-filter"></i>
+          Filters
+        </h4>
+        <button @click="clearFilters" class="clear-filters-btn">
+          <i class="fas fa-times"></i>
+          Clear Filters
+        </button>
+      </div>
+
+      <div class="filters-grid">
+        <div class="filter-group">
+          <label>
+            <i class="fas fa-car"></i>
+            Car Name
+          </label>
+          <input type="text" v-model="filters.carName" placeholder="Filter by car name..." />
+        </div>
+
+        <div class="filter-group">
+          <label>
+            <i class="fas fa-user"></i>
+            Client Name
+          </label>
+          <input type="text" v-model="filters.clientName" placeholder="Filter by client name..." />
+        </div>
+
+        <div class="filter-group">
+          <label>
+            <i class="fas fa-fingerprint"></i>
+            VIN
+          </label>
+          <input type="text" v-model="filters.vin" placeholder="Filter by VIN..." />
+        </div>
+
+        <div class="filter-group price-range">
+          <label>
+            <i class="fas fa-dollar-sign"></i>
+            Price Range
+          </label>
+          <div class="price-inputs">
+            <input type="number" v-model="filters.minPrice" placeholder="Min" step="0.01" min="0" />
+            <span class="separator">-</span>
+            <input type="number" v-model="filters.maxPrice" placeholder="Max" step="0.01" min="0" />
+          </div>
+        </div>
       </div>
     </div>
 
@@ -434,6 +543,11 @@ defineExpose({
       <p>No cars found in this bill</p>
     </div>
 
+    <div v-else-if="filteredCars.length === 0" class="no-data">
+      <i class="fas fa-filter fa-2x"></i>
+      <p>No cars match the current filters</p>
+    </div>
+
     <table v-else class="cars-table">
       <thead>
         <tr>
@@ -441,6 +555,7 @@ defineExpose({
           <th><i class="fas fa-car"></i> Car</th>
           <th><i class="fas fa-palette"></i> Color</th>
           <th><i class="fas fa-fingerprint"></i> VIN</th>
+          <th><i class="fas fa-user"></i> Client</th>
           <th><i class="fas fa-dollar-sign"></i> Price</th>
           <th><i class="fas fa-ship"></i> Freight</th>
           <th><i class="fas fa-exchange-alt"></i> Rate</th>
@@ -450,11 +565,12 @@ defineExpose({
         </tr>
       </thead>
       <tbody>
-        <tr v-for="car in cars" :key="car.id">
+        <tr v-for="car in filteredCars" :key="car.id">
           <td>{{ car.id }}</td>
           <td>{{ car.car_name }}</td>
           <td>{{ car.color }}</td>
           <td>{{ car.vin || 'N/A' }}</td>
+          <td>{{ car.client_name || 'N/A' }}</td>
           <td>{{ car.price_cell ? '$' + car.price_cell.toLocaleString() : 'N/A' }}</td>
           <td>{{ car.freight ? '$' + car.freight.toLocaleString() : 'N/A' }}</td>
           <td>{{ car.rate || 'N/A' }}</td>
@@ -1006,5 +1122,101 @@ button:disabled {
 
 .default-value {
   border-color: #10b981;
+}
+
+.filters-section {
+  background-color: #f9fafb;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 16px 0;
+  border: 1px solid #e5e7eb;
+}
+
+.filters-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.filters-header h4 {
+  margin: 0;
+  font-size: 1rem;
+  color: #374151;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.clear-filters-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  background-color: #ef4444;
+  color: white;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: background-color 0.2s;
+}
+
+.clear-filters-btn:hover {
+  background-color: #dc2626;
+}
+
+.filters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filter-group label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #374151;
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+.filter-group input {
+  padding: 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  transition: border-color 0.2s;
+}
+
+.filter-group input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.price-range .price-inputs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.price-range .separator {
+  color: #6b7280;
+}
+
+.price-range input {
+  width: 100%;
+}
+
+/* Add transition for filtered rows */
+.cars-table tbody tr {
+  transition: opacity 0.2s;
 }
 </style>
