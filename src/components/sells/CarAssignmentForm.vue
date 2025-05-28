@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, watch, defineProps, defineEmits } from 'vue'
+import { ref, onMounted, watch, defineProps, defineEmits, computed } from 'vue'
 import { useApi } from '../../composables/useApi'
 import { ElSelect, ElOption } from 'element-plus'
 import 'element-plus/dist/index.css'
@@ -18,6 +18,8 @@ const props = defineProps({
     default: false,
   },
 })
+const user = ref(JSON.parse(localStorage.getItem('user')))
+const isAdmin = computed(() => user.value?.role_id === 1)
 
 const emit = defineEmits(['close', 'assign-success'])
 
@@ -103,7 +105,7 @@ const fetchDischargePorts = async () => {
   }
 }
 
-// Add new function to fetch default values
+// Add new function to fetch default freight values
 const fetchDefaultFreight = async (isSmallCar) => {
   try {
     const result = await callApi({
@@ -131,8 +133,8 @@ const fetchCarDetails = async () => {
           cs.id,
           cs.vin,
           cs.price_cell,
-          cn.car_name,
           cs.is_big_car,
+          cn.car_name,
           clr.color,
           bd.price_sell as buy_price
         FROM cars_stock cs
@@ -151,7 +153,7 @@ const fetchCarDetails = async () => {
         formData.value.price_cell = carDetails.value.price_cell
       }
       // Fetch and set default freight based on car size
-      await fetchDefaultFreight(carDetails.value.is_big_car === 0)
+      await fetchDefaultFreight(!carDetails.value.is_big_car)
     } else {
       error.value = result.error || 'Failed to fetch car details'
     }
@@ -160,7 +162,7 @@ const fetchCarDetails = async () => {
   }
 }
 
-// Add new function to fetch default values
+// Add fetchDefaultRate function
 const fetchDefaultRate = async () => {
   try {
     const result = await callApi({
@@ -273,15 +275,14 @@ const validateForm = () => {
   return true
 }
 
-// Update resetForm to preserve freight value
+// Reset form after submission
 const resetForm = () => {
   const currentRate = formData.value.rate // Preserve current rate
-  const currentFreight = formData.value.freight // Preserve current freight
   formData.value = {
     id_client: null,
     id_port_discharge: null,
     price_cell: null,
-    freight: currentFreight, // Keep the default freight
+    freight: null,
     rate: currentRate, // Keep the default rate
   }
   error.value = null
@@ -408,26 +409,14 @@ onMounted(() => {
             <i class="fas fa-dollar-sign"></i>
             Sell Price: <span class="required">*</span>
           </label>
-          <div class="input-with-info">
-            <input
-              type="number"
-              id="sell-price"
-              v-model="formData.price_cell"
-              step="0.01"
-              min="0"
-              required
-              :class="{
-                'default-value':
-                  carDetails?.price_cell && formData.price_cell === carDetails.price_cell,
-              }"
-            />
-            <span
-              v-if="carDetails?.price_cell && formData.price_cell === carDetails.price_cell"
-              class="default-badge"
-            >
-              Default
-            </span>
-          </div>
+          <input
+            type="number"
+            id="sell-price"
+            v-model="formData.price_cell"
+            step="0.01"
+            min="0"
+            required
+          />
         </div>
 
         <div class="form-group">
@@ -442,10 +431,10 @@ onMounted(() => {
               v-model="formData.freight"
               step="0.01"
               min="0"
-              :class="{ 'default-value': carDetails?.is_big_car === undefined }"
+              :class="{ 'default-value': formData.freight !== null }"
             />
-            <span v-if="carDetails?.is_big_car === undefined" class="default-badge">
-              Default ({{ carDetails.is_big_car === 0 ? 'Small' : 'Big' }} Car)
+            <span v-if="formData.freight !== null" class="default-badge">
+              Default ({{ carDetails?.is_big_car ? 'Big' : 'Small' }} Car)
             </span>
           </div>
         </div>
@@ -455,18 +444,24 @@ onMounted(() => {
             <i class="fas fa-exchange-alt"></i>
             Rate: <span class="required">*</span>
           </label>
-          <input
-            type="number"
-            id="rate"
-            v-model="formData.rate"
-            step="0.01"
-            min="0"
-            required
-            :class="{ error: error && !formData.rate }"
-          />
+          <div class="input-with-info">
+            <input
+              type="number"
+              id="rate"
+              v-model="formData.rate"
+              step="0.01"
+              min="0"
+              required
+              :class="{ 'default-value': formData.rate !== null }"
+            />
+            <span v-if="formData.rate !== null" class="default-badge">Default</span>
+          </div>
         </div>
 
-        <div v-if="formData.price_cell && carDetails?.buy_price" class="profit-calculation">
+        <div
+          v-if="formData.price_cell && carDetails?.buy_price && isAdmin"
+          class="profit-calculation"
+        >
           <span class="label">
             <i class="fas fa-dollar-sign"></i>
             Estimated Profit:
@@ -828,26 +823,5 @@ button i {
 
 button:hover:not(:disabled) i {
   transform: scale(1.1);
-}
-
-.input-with-info {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.default-badge {
-  font-size: 0.8em;
-  padding: 2px 6px;
-  background-color: #e5e7eb;
-  color: #374151;
-  border-radius: 4px;
-  white-space: nowrap;
-}
-
-.default-value {
-  border-color: #3b82f6 !important;
-  background-color: #f0f9ff !important;
 }
 </style>

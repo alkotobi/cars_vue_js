@@ -28,7 +28,7 @@ onMounted(() => {
 
 const handleSelectBill = (billId) => {
   selectedBillId.value = billId
-  
+
   // Update the unassigned cars table with the selected bill ID
   if (unassignedCarsTableRef.value) {
     unassignedCarsTableRef.value.setSellBillId(billId)
@@ -40,7 +40,7 @@ const openAddDialog = () => {
     id_broker: null,
     date_sell: new Date().toISOString().split('T')[0],
     notes: '',
-    id_user: user.value?.id
+    id_user: user.value?.id,
   }
   showAddDialog.value = true
 }
@@ -55,10 +55,14 @@ const handleDeleteBill = async (id) => {
     alert('Only admins can delete sell bills.')
     return
   }
-  if (!confirm('Are you sure you want to delete this sell bill? This will also unassign all cars from this bill.')) {
+  if (
+    !confirm(
+      'Are you sure you want to delete this sell bill? This will also unassign all cars from this bill.',
+    )
+  ) {
     return
   }
-  
+
   try {
     // First, unassign all cars from this bill
     const unassignResult = await callApi({
@@ -71,32 +75,32 @@ const handleDeleteBill = async (id) => {
             id_sell_pi = NULL
         WHERE id_sell = ?
       `,
-      params: [id]
+      params: [id],
     })
-    
+
     if (!unassignResult.success) {
       console.error('Failed to unassign cars:', unassignResult.error)
       alert('Failed to unassign cars from bill: ' + unassignResult.error)
       return
     }
-    
+
     // Then delete the bill
     const result = await callApi({
       query: 'DELETE FROM sell_bill WHERE id = ?',
-      params: [id]
+      params: [id],
     })
-    
+
     if (result.success) {
       // Refresh the table
       if (sellBillsTableRef.value) {
         sellBillsTableRef.value.fetchSellBills()
       }
-      
+
       // If this was the selected bill, clear the selection
       if (selectedBillId.value === id) {
         selectedBillId.value = null
       }
-      
+
       // Refresh the cars tables
       handleCarsTableRefresh()
     } else {
@@ -113,7 +117,7 @@ const handleSave = () => {
   console.log('handleSave called')
   showAddDialog.value = false
   showEditDialog.value = false
-  
+
   // Refresh the table
   if (sellBillsTableRef.value) {
     console.log('Refreshing table')
@@ -128,12 +132,12 @@ const handleCarsTableRefresh = async () => {
   if (sellBillsTableRef.value) {
     await sellBillsTableRef.value.fetchSellBills()
   }
-  
+
   // Refresh the unassigned cars table
   if (unassignedCarsTableRef.value) {
     await unassignedCarsTableRef.value.fetchUnassignedCars()
   }
-  
+
   // If a bill is selected, refresh the cars for that bill
   if (selectedBillId.value && sellBillCarsTableRef.value) {
     await sellBillCarsTableRef.value.fetchCarsByBillId(selectedBillId.value)
@@ -149,29 +153,26 @@ const handleCarsTableRefresh = async () => {
         <button @click="openAddDialog" class="add-btn">Add Sell Bill</button>
       </div>
     </div>
-    
+
     <div class="content">
-      <SellBillsTable 
+      <SellBillsTable
         ref="sellBillsTableRef"
         :onEdit="handleEditBill"
         :onDelete="handleDeleteBill"
         :onSelect="handleSelectBill"
         @select-bill="handleSelectBill"
-        :isAdmin="isAdmin" 
+        :isAdmin="isAdmin"
       />
-      
-      <SellBillCarsTable 
+
+      <SellBillCarsTable
         ref="sellBillCarsTableRef"
-        :sellBillId="selectedBillId" 
+        :sellBillId="selectedBillId"
         @refresh="handleCarsTableRefresh"
       />
-      
-      <UnassignedCarsTable 
-        ref="unassignedCarsTableRef"
-        @refresh="handleCarsTableRefresh"
-      />
+
+      <UnassignedCarsTable ref="unassignedCarsTableRef" @refresh="handleCarsTableRefresh" />
     </div>
-    
+
     <!-- Add Dialog -->
     <div v-if="showAddDialog" class="dialog-overlay">
       <div class="dialog">
@@ -183,7 +184,7 @@ const handleCarsTableRefresh = async () => {
         />
       </div>
     </div>
-    
+
     <!-- Edit Dialog -->
     <div v-if="showEditDialog" class="dialog-overlay">
       <div class="dialog">
