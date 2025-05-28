@@ -31,10 +31,52 @@ const editFormData = ref({
   id_port_discharge: null,
   price_cell: null,
   freight: null,
+  rate: null,
 })
 
 const filteredClients = ref([])
 const filteredPorts = ref([])
+
+// Add CFR DA calculation functions
+const cfrDaInput = ref(null)
+
+const calculatePriceFromCFRDA = (cfrDa, rate, freight) => {
+  if (!cfrDa || !rate) return null
+  const parsedCfrDa = parseFloat(cfrDa)
+  const parsedRate = parseFloat(rate)
+  const parsedFreight = parseFloat(freight) || 0
+  return (parsedCfrDa / parsedRate - parsedFreight).toFixed(2)
+}
+
+const calculateCFRDAFromPrice = (price, rate, freight) => {
+  if (!price || !rate) return null
+  const parsedPrice = parseFloat(price)
+  const parsedRate = parseFloat(rate)
+  const parsedFreight = parseFloat(freight) || 0
+  return ((parsedPrice + parsedFreight) * parsedRate).toFixed(2)
+}
+
+const handlePriceChange = (event) => {
+  const newPrice = event.target.value
+  if (newPrice && editFormData.value.rate) {
+    cfrDaInput.value = calculateCFRDAFromPrice(
+      newPrice,
+      editFormData.value.rate,
+      editFormData.value.freight,
+    )
+  }
+}
+
+const handleCFRDAChange = (event) => {
+  const newCFRDA = event.target.value
+  if (newCFRDA && editFormData.value.rate) {
+    editFormData.value.price_cell = calculatePriceFromCFRDA(
+      newCFRDA,
+      editFormData.value.rate,
+      editFormData.value.freight,
+    )
+  }
+}
 
 // Function to unassign a car from the sell bill
 const unassignCar = async (carId) => {
@@ -173,6 +215,16 @@ const handleEdit = async (car) => {
         id_port_discharge: carData.id_port_discharge,
         price_cell: carData.price_cell,
         freight: carData.freight,
+        rate: carData.rate,
+      }
+
+      // Calculate initial CFR DA
+      if (carData.price_cell && carData.rate) {
+        cfrDaInput.value = calculateCFRDAFromPrice(
+          carData.price_cell,
+          carData.rate,
+          carData.freight,
+        )
       }
 
       // Fetch necessary data for dropdowns
@@ -201,7 +253,8 @@ const handleSaveEdit = async () => {
         SET id_client = ?,
             id_port_discharge = ?,
             price_cell = ?,
-            freight = ?
+            freight = ?,
+            rate = ?
         WHERE id = ?
       `,
       params: [
@@ -209,6 +262,7 @@ const handleSaveEdit = async () => {
         editFormData.value.id_port_discharge,
         editFormData.value.price_cell,
         editFormData.value.freight,
+        editFormData.value.rate,
         editingCar.value.id,
       ],
     })
@@ -509,13 +563,71 @@ defineExpose({
           </div>
 
           <div class="form-group">
-            <label>Price: <span class="required">*</span></label>
-            <input type="number" v-model="editFormData.price_cell" step="0.01" min="0" required />
+            <label>
+              <i class="fas fa-dollar-sign"></i>
+              Price: <span class="required">*</span>
+            </label>
+            <div class="input-with-info">
+              <input
+                type="number"
+                v-model="editFormData.price_cell"
+                step="0.01"
+                min="0"
+                required
+                @input="handlePriceChange"
+                :class="{ 'default-value': editFormData.price_cell === editingCar?.price_cell }"
+              />
+            </div>
           </div>
 
           <div class="form-group">
-            <label>Freight:</label>
-            <input type="number" v-model="editFormData.freight" step="0.01" min="0" />
+            <label>
+              <i class="fas fa-ship"></i>
+              Freight:
+            </label>
+            <div class="input-with-info">
+              <input
+                type="number"
+                v-model="editFormData.freight"
+                step="0.01"
+                min="0"
+                :class="{ 'default-value': editFormData.freight === editingCar?.freight }"
+              />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>
+              <i class="fas fa-exchange-alt"></i>
+              Rate: <span class="required">*</span>
+            </label>
+            <div class="input-with-info">
+              <input
+                type="number"
+                v-model="editFormData.rate"
+                step="0.01"
+                min="0"
+                required
+                :class="{ 'default-value': editFormData.rate === editingCar?.rate }"
+              />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>
+              <i class="fas fa-calculator"></i>
+              CFR DA:
+            </label>
+            <div class="input-with-info">
+              <input
+                type="number"
+                v-model="cfrDaInput"
+                step="0.01"
+                min="0"
+                @input="handleCFRDAChange"
+                :class="{ 'calculated-value': true }"
+              />
+            </div>
           </div>
 
           <div class="form-actions">
@@ -873,5 +985,26 @@ button:disabled {
 
 :deep(.el-select-dropdown__item:hover) {
   background-color: #f3f4f6;
+}
+
+.input-with-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.input-with-info input {
+  flex: 1;
+}
+
+.calculated-value {
+  background-color: #f3f4f6;
+  color: #1f2937;
+  font-weight: 500;
+  font-family: monospace;
+}
+
+.default-value {
+  border-color: #10b981;
 }
 </style>
