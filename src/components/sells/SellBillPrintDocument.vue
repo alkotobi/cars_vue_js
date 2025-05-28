@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useApi } from '../../composables/useApi'
 import logoImage from '@/assets/logo.png'
+import stampImage from '@/assets/gml2.png'
 
 const props = defineProps({
   billId: {
@@ -280,6 +281,11 @@ onMounted(() => {
     <div v-if="loading" class="loading">Loading...</div>
     <div v-else-if="error" class="error">{{ error }}</div>
     <div v-else class="a4-page">
+      <!-- Floating Stamp -->
+      <div class="floating-stamp">
+        <img :src="stampImage" alt="Company Stamp" />
+      </div>
+
       <!-- Header -->
       <div class="header">
         <div class="company-info">
@@ -386,8 +392,21 @@ onMounted(() => {
         <p>{{ billData.notes || 'No notes' }}</p>
       </div>
 
-      <!-- Contract Terms - Only visible for sell contract -->
-      <div class="section contract-terms" v-if="options.documentType === 'contract'">
+      <!-- Page Footer -->
+      <div class="page-footer">
+        <div class="page-number">Page 1 of 2</div>
+      </div>
+    </div>
+
+    <!-- Second Page (Terms and Conditions) -->
+    <div v-if="options.documentType === 'contract'" class="a4-page terms-page">
+      <!-- Floating Stamp -->
+      <div class="floating-stamp">
+        <img :src="stampImage" alt="Company Stamp" />
+      </div>
+
+      <!-- Contract Terms -->
+      <div class="section contract-terms">
         <h3>Terms and Conditions</h3>
         <div class="terms-list">
           <!-- Payment Terms -->
@@ -515,6 +534,11 @@ onMounted(() => {
           <div class="signature-line"></div>
         </div>
       </div>
+
+      <!-- Page Footer -->
+      <div class="page-footer">
+        <div class="page-number">Page 2 of 2</div>
+      </div>
     </div>
   </div>
 </template>
@@ -528,6 +552,8 @@ onMounted(() => {
   margin: 0 auto;
   background: white;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  position: relative;
+  margin-bottom: 20mm;
 }
 
 @media print {
@@ -627,6 +653,9 @@ onMounted(() => {
 .signature-box {
   width: 200px;
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .signature-line {
@@ -765,6 +794,57 @@ onMounted(() => {
   .term-item {
     background-color: transparent;
     border: 1px solid #e5e7eb;
+  }
+}
+
+.company-stamp {
+  width: 120px;
+  height: auto;
+  margin-top: 10px;
+  object-fit: contain;
+}
+
+.floating-stamp {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-30deg);
+  opacity: 1;
+  pointer-events: none;
+  z-index: 100;
+}
+
+.floating-stamp img {
+  width: 300px;
+  height: auto;
+}
+
+.page-footer {
+  position: absolute;
+  bottom: 20mm;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 12px;
+  color: #666;
+}
+
+.page-number {
+  font-size: 12px;
+  color: #666;
+}
+
+.terms-page {
+  page-break-before: always;
+}
+
+@media print {
+  .terms-page {
+    page-break-before: always;
+  }
+
+  .floating-stamp {
+    position: fixed;
   }
 }
 </style>
