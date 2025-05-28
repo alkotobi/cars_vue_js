@@ -43,6 +43,50 @@ const formData = ref({
   rate: null,
 })
 
+// Add ref for CFR DA input
+const cfrDaInput = ref(null)
+
+// Add function to calculate price from CFR DA
+const calculatePriceFromCFRDA = (cfrDa, rate, freight) => {
+  if (!cfrDa || !rate) return null
+  const parsedCfrDa = parseFloat(cfrDa)
+  const parsedRate = parseFloat(rate)
+  const parsedFreight = parseFloat(freight) || 0
+  return (parsedCfrDa / parsedRate - parsedFreight).toFixed(2)
+}
+
+// Add function to calculate CFR DA from price
+const calculateCFRDAFromPrice = (price, rate, freight) => {
+  if (!price || !rate) return null
+  const parsedPrice = parseFloat(price)
+  const parsedRate = parseFloat(rate)
+  const parsedFreight = parseFloat(freight) || 0
+  return ((parsedPrice + parsedFreight) * parsedRate).toFixed(2)
+}
+
+// Add handlers for input changes
+const handlePriceChange = (event) => {
+  const newPrice = event.target.value
+  if (newPrice && formData.value.rate) {
+    cfrDaInput.value = calculateCFRDAFromPrice(
+      newPrice,
+      formData.value.rate,
+      formData.value.freight,
+    )
+  }
+}
+
+const handleCFRDAChange = (event) => {
+  const newCFRDA = event.target.value
+  if (newCFRDA && formData.value.rate) {
+    formData.value.price_cell = calculatePriceFromCFRDA(
+      newCFRDA,
+      formData.value.rate,
+      formData.value.freight,
+    )
+  }
+}
+
 // Fetch clients for dropdown
 const fetchClients = async () => {
   try {
@@ -154,6 +198,15 @@ const fetchCarDetails = async () => {
       }
       // Fetch and set default freight based on car size
       await fetchDefaultFreight(!carDetails.value.is_big_car)
+      // After fetching default rate, calculate initial CFR DA
+      await fetchDefaultRate()
+      if (formData.value.price_cell && formData.value.rate) {
+        cfrDaInput.value = calculateCFRDAFromPrice(
+          formData.value.price_cell,
+          formData.value.rate,
+          formData.value.freight,
+        )
+      }
     } else {
       error.value = result.error || 'Failed to fetch car details'
     }
@@ -162,7 +215,7 @@ const fetchCarDetails = async () => {
   }
 }
 
-// Add fetchDefaultRate function
+// Update fetchDefaultRate to calculate initial CFR DA
 const fetchDefaultRate = async () => {
   try {
     const result = await callApi({
@@ -172,6 +225,14 @@ const fetchDefaultRate = async () => {
 
     if (result.success && result.data.length > 0) {
       formData.value.rate = result.data[0].rate
+      // Calculate initial CFR DA if price is available
+      if (formData.value.price_cell) {
+        cfrDaInput.value = calculateCFRDAFromPrice(
+          formData.value.price_cell,
+          formData.value.rate,
+          formData.value.freight,
+        )
+      }
     }
   } catch (err) {
     console.error('Error fetching default rate:', err)
@@ -359,7 +420,7 @@ onMounted(() => {
           </span>
           <span class="value">{{ carDetails.vin || 'N/A' }}</span>
         </div>
-        <div class="detail-item">
+        <div v-if="isAdmin" class="detail-item">
           <span class="label">
             <i class="fas fa-dollar-sign"></i>
             Buy Price:
@@ -412,20 +473,49 @@ onMounted(() => {
             </option>
           </select>
         </div>
-
+        <div class="form-group">
+          <label for="cfr-da">
+            <i class="fas fa-calculator"></i>
+            CFR DA:
+          </label>
+          <div class="input-with-info">
+            <input
+              type="number"
+              id="cfr-da"
+              v-model="cfrDaInput"
+              step="0.01"
+              min="0"
+              @input="handleCFRDAChange"
+              :class="{ 'calculated-value': true }"
+            />
+          </div>
+        </div>
         <div class="form-group">
           <label for="sell-price">
             <i class="fas fa-dollar-sign"></i>
             Sell Price: <span class="required">*</span>
           </label>
-          <input
-            type="number"
-            id="sell-price"
-            v-model="formData.price_cell"
-            step="0.01"
-            min="0"
-            required
-          />
+          <div class="input-with-info">
+            <input
+              type="number"
+              id="sell-price"
+              v-model="formData.price_cell"
+              step="0.01"
+              min="0"
+              required
+              @input="handlePriceChange"
+              :class="{
+                'default-value':
+                  carDetails?.price_cell && formData.price_cell === carDetails.price_cell,
+              }"
+            />
+            <span
+              v-if="carDetails?.price_cell && formData.price_cell === carDetails.price_cell"
+              class="default-badge"
+            >
+              Default
+            </span>
+          </div>
         </div>
 
         <div class="form-group">
@@ -464,16 +554,6 @@ onMounted(() => {
               :class="{ 'default-value': formData.rate !== null }"
             />
             <span v-if="formData.rate !== null" class="default-badge">Default</span>
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label>
-            <i class="fas fa-calculator"></i>
-            CFR DA:
-          </label>
-          <div class="calculated-value">
-            {{ calculateCFRDA }}
           </div>
         </div>
 
@@ -845,11 +925,19 @@ button:hover:not(:disabled) i {
 }
 
 .calculated-value {
-  padding: 8px;
   background-color: #f3f4f6;
-  border-radius: 4px;
   color: #1f2937;
   font-weight: 500;
   font-family: monospace;
+}
+
+.input-with-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.input-with-info input {
+  flex: 1;
 }
 </style>
