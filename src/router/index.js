@@ -70,6 +70,12 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/params',
+      name: 'params',
+      component: () => import('../views/ParamsView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/transfers-list',
       name: 'transfers-list',
       component: () => import('../views/TransfersListView.vue'),

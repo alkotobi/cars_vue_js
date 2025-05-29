@@ -17,6 +17,7 @@ const isProcessing = ref({
   cars: false,
   cashier: false,
   rates: false,
+  params: false,
 })
 
 const canManageUsers = computed(() => {
@@ -97,6 +98,16 @@ const handleRatesClick = async () => {
   }
 }
 
+const handleParamsClick = async () => {
+  if (isProcessing.value.params) return
+  isProcessing.value.params = true
+  try {
+    await router.push('/params')
+  } finally {
+    isProcessing.value.params = false
+  }
+}
+
 const fetchLatestRate = async () => {
   loading.value = true
   try {
@@ -142,6 +153,10 @@ const canAccessCashier = computed(() => {
   if (user.value.role_id === 1) return true
   // Check for specific permission
   return user.value.permissions?.some((p) => p.permission_name === 'can_access_cashier')
+})
+
+const isAdmin = computed(() => {
+  return user.value?.role_id === 1
 })
 </script>
 
@@ -220,6 +235,18 @@ const canAccessCashier = computed(() => {
         <i class="fas fa-percentage"></i>
         <span>Rates</span>
         <i v-if="isProcessing.rates" class="fas fa-spinner fa-spin loading-indicator"></i>
+      </button>
+
+      <button
+        v-if="isAdmin"
+        @click="handleParamsClick"
+        class="action-btn params-btn"
+        :disabled="isProcessing.params"
+        :class="{ processing: isProcessing.params }"
+      >
+        <i class="fas fa-cogs"></i>
+        <span>Params</span>
+        <i v-if="isProcessing.params" class="fas fa-spinner fa-spin loading-indicator"></i>
       </button>
     </div>
 
@@ -337,6 +364,11 @@ const canAccessCashier = computed(() => {
 
 .rates-btn {
   background-color: #9c27b0;
+  color: white;
+}
+
+.params-btn {
+  background-color: #6366f1;
   color: white;
 }
 
