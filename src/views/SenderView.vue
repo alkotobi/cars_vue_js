@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useApi } from '../composables/useApi'
+import TransferDetails from '../components/TransferDetails.vue'
 
 const router = useRouter()
 const { callApi, error } = useApi()
@@ -26,6 +27,8 @@ const newTransfer = ref({
 
 const formError = ref(null)
 const banks = ref([])
+const showDetailsDialog = ref(false)
+const selectedTransferForDetails = ref(null)
 
 const isAdmin = computed(() => user.value?.role_id === 1)
 
@@ -41,6 +44,7 @@ const fetchTransfers = async () => {
     params: [user.value.id, user.value.id],
   })
   if (result.success) {
+    console.log('Fetched transfers:', result.data)
     transfers.value = result.data
   }
 }
@@ -196,6 +200,13 @@ const selectedBankInEdit = computed(() => {
   return banks.value.find((bank) => bank.id === editForm.value.id_bank)
 })
 
+const openDetailsDialog = (transfer) => {
+  console.log('Opening details for transfer:', transfer)
+  console.log('Transfer ID:', transfer.id, typeof transfer.id)
+  selectedTransferForDetails.value = transfer
+  showDetailsDialog.value = true
+}
+
 onMounted(() => {
   const userStr = localStorage.getItem('user')
   if (userStr) {
@@ -259,16 +270,31 @@ onMounted(() => {
               <span v-else class="status pending">⏳</span>
             </td>
             <td>
-              <button
-                v-if="isAdmin || !transfer.date_receive"
-                @click="openEditDialog(transfer)"
-                class="btn update-btn"
-              >
-                Edit
-              </button>
-              <button v-if="isAdmin" @click="deleteTransfer(transfer)" class="btn delete-btn">
-                Delete
-              </button>
+              <div class="action-buttons">
+                <button
+                  @click="openDetailsDialog(transfer)"
+                  class="btn details-btn"
+                  title="View Details"
+                >
+                  <i class="fas fa-list-ul"></i>
+                </button>
+                <button
+                  v-if="!transfer.date_receive || isAdmin"
+                  @click="openEditDialog(transfer)"
+                  class="btn edit-btn"
+                  title="Edit Transfer"
+                >
+                  <i class="fas fa-edit"></i>
+                </button>
+                <button
+                  v-if="isAdmin"
+                  @click="deleteTransfer(transfer)"
+                  class="btn delete-btn"
+                  title="Delete Transfer"
+                >
+                  <i class="fas fa-trash"></i>
+                </button>
+              </div>
             </td>
           </tr>
         </tbody>
@@ -417,6 +443,12 @@ onMounted(() => {
         </form>
       </div>
     </div>
+    <TransferDetails
+      v-if="showDetailsDialog"
+      :transfer-id="selectedTransferForDetails?.id"
+      :is-visible="showDetailsDialog"
+      @close="showDetailsDialog = false"
+    />
   </div>
 </template>
 
@@ -663,5 +695,26 @@ select.input-field {
 .bank-cell .swift {
   color: #9ca3af;
   font-family: monospace;
+}
+
+.details-btn {
+  background: #6366f1;
+  color: white;
+  padding: 6px 10px;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn i {
+  font-size: 0.9em;
 }
 </style>
