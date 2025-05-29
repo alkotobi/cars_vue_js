@@ -166,7 +166,7 @@ const fetchTransfers = async () => {
             SELECT GROUP_CONCAT(
               CONCAT(
                 client_name,
-                ': $',
+                ':',
                 FORMAT(amount, 2),
                 ' (Rate: ',
                 FORMAT(rate, 2),
@@ -564,9 +564,9 @@ onMounted(() => {
             <th>Bank</th>
             <th>Account</th>
             <th>Notes</th>
-            <th>Client Details</th>
+            <th>Client Details (Da)</th>
             <th @click="toggleSort('total_client_amounts')" class="sortable">
-              Total Client Amount
+              Total Client Amount (Da)
               <i
                 :class="[
                   'fas',
@@ -608,8 +608,8 @@ onMounted(() => {
             <td class="amount-cell">
               {{
                 transfer.total_client_amounts
-                  ? '$' + Number(transfer.total_client_amounts).toFixed(2)
-                  : '$0.00'
+                  ? Number(transfer.total_client_amounts).toFixed(2)
+                  : '0.00'
               }}
             </td>
             <td class="status-cell">
