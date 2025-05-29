@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useApi } from '../composables/useApi'
+import TransferDetails from '../components/TransferDetails.vue'
 
 const { callApi } = useApi()
 const transfers = ref([])
@@ -10,6 +11,9 @@ const banks = ref([])
 const formError = ref(null)
 const isLoading = ref(false)
 const processingTransferId = ref(null)
+const showDetailsDialog = ref(false)
+const selectedTransferForDetails = ref(null)
+const user = ref(null)
 
 const editForm = ref({
   amount_sending_da: '',
@@ -154,7 +158,25 @@ const selectedBankInEdit = computed(() => {
   return banks.value.find((bank) => bank.id === editForm.value.id_bank)
 })
 
+const canEditDetails = computed(() => {
+  if (!user.value || !selectedTransferForDetails.value) return false
+  return (
+    user.value.role_id === 1 || // Admin
+    user.value.id === selectedTransferForDetails.value.id_user_do_transfer // Transfer creator
+  )
+})
+
+const openDetailsDialog = (transfer) => {
+  console.log('Opening details for transfer:', transfer)
+  selectedTransferForDetails.value = transfer
+  showDetailsDialog.value = true
+}
+
 onMounted(() => {
+  const userStr = localStorage.getItem('user')
+  if (userStr) {
+    user.value = JSON.parse(userStr)
+  }
   fetchTransfers()
   fetchBanks()
 })
@@ -270,6 +292,13 @@ const deleteTransfer = async (transfer) => {
                   </span>
                   <span v-else>Delete</span>
                 </button>
+                <button
+                  @click="openDetailsDialog(transfer)"
+                  class="btn details-btn"
+                  title="View Details"
+                >
+                  <i class="fas fa-list-ul"></i>
+                </button>
               </div>
             </td>
           </tr>
@@ -373,6 +402,14 @@ const deleteTransfer = async (transfer) => {
         </form>
       </div>
     </div>
+
+    <TransferDetails
+      v-if="showDetailsDialog"
+      :transfer-id="selectedTransferForDetails?.id"
+      :is-visible="showDetailsDialog"
+      :read-only="!canEditDetails"
+      @close="showDetailsDialog = false"
+    />
   </div>
 </template>
 
@@ -693,5 +730,21 @@ td:nth-child(10) /* Date Received */ {
   table {
     font-size: 11pt;
   }
+}
+
+.details-btn {
+  background: #6366f1;
+  color: white;
+  padding: 6px 10px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn i {
+  font-size: 0.9em;
 }
 </style>

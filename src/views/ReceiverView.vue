@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useApi } from '../composables/useApi'
+import TransferDetails from '../components/TransferDetails.vue'
 
 const router = useRouter()
 const { callApi, error } = useApi()
@@ -16,6 +17,9 @@ const receiveForm = ref({
 
 const isLoading = ref(false)
 const processingTransferId = ref(null)
+
+const showDetailsDialog = ref(false)
+const selectedTransferForDetails = ref(null)
 
 const fetchTransfers = async () => {
   isLoading.value = true
@@ -152,6 +156,12 @@ const unreceiveTransfer = async (transfer) => {
     processingTransferId.value = null
   }
 }
+
+const openDetailsDialog = (transfer) => {
+  console.log('Opening details for transfer:', transfer)
+  selectedTransferForDetails.value = transfer
+  showDetailsDialog.value = true
+}
 </script>
 
 <template>
@@ -219,6 +229,13 @@ const unreceiveTransfer = async (transfer) => {
                   <i class="fas fa-spinner fa-spin"></i>
                 </span>
                 <span v-else>Receive</span>
+              </button>
+              <button
+                @click="openDetailsDialog(transfer)"
+                class="btn details-btn"
+                title="View Details"
+              >
+                <i class="fas fa-list-ul"></i>
               </button>
             </td>
           </tr>
@@ -288,6 +305,13 @@ const unreceiveTransfer = async (transfer) => {
                 </span>
                 <span v-else>Unreceive</span>
               </button>
+              <button
+                @click="openDetailsDialog(transfer)"
+                class="btn details-btn"
+                title="View Details"
+              >
+                <i class="fas fa-list-ul"></i>
+              </button>
             </td>
           </tr>
         </tbody>
@@ -341,6 +365,14 @@ const unreceiveTransfer = async (transfer) => {
         </div>
       </div>
     </div>
+
+    <TransferDetails
+      v-if="showDetailsDialog"
+      :transfer-id="selectedTransferForDetails?.id"
+      :is-visible="showDetailsDialog"
+      :read-only="true"
+      @close="showDetailsDialog = false"
+    />
   </div>
 </template>
 
@@ -631,6 +663,22 @@ h2 i {
 .form-group label i {
   margin-right: 4px;
   color: #6b7280;
+}
+
+.details-btn {
+  background: #6366f1;
+  color: white;
+  padding: 6px 10px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn i {
+  font-size: 0.9em;
 }
 
 @media print {

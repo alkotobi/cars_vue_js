@@ -11,6 +11,10 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  readOnly: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 console.log('TransferDetails component props:', props)
@@ -244,7 +248,7 @@ const updateDetail = async () => {
       </div>
 
       <div class="actions">
-        <button @click="showAddDialog = true" class="btn add-btn">
+        <button v-if="!props.readOnly" @click="showAddDialog = true" class="btn add-btn">
           <i class="fas fa-plus"></i> Add Detail
         </button>
       </div>
@@ -280,6 +284,7 @@ const updateDetail = async () => {
               <td>
                 <div class="action-buttons">
                   <button
+                    v-if="!props.readOnly"
                     @click="openEditDialog(detail)"
                     class="btn edit-btn"
                     :disabled="processingId === detail.id"
@@ -287,6 +292,7 @@ const updateDetail = async () => {
                     <i class="fas fa-edit"></i>
                   </button>
                   <button
+                    v-if="!props.readOnly"
                     @click="deleteDetail(detail.id)"
                     class="btn delete-btn"
                     :disabled="processingId === detail.id"
