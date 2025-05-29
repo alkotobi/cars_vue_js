@@ -22,6 +22,7 @@ const editForm = ref({
   amount_received_usd: '',
   receiver_notes: '',
   id_bank: null,
+  ref_pi_transfer: '',
 })
 
 const filters = ref({
@@ -92,6 +93,7 @@ const openEditDialog = (transfer) => {
     amount_received_usd: transfer.amount_received_usd || '',
     receiver_notes: transfer.receiver_notes || '',
     id_bank: transfer.id_bank || null,
+    ref_pi_transfer: transfer.ref_pi_transfer || '',
   }
   showEditDialog.value = true
 }
@@ -139,7 +141,8 @@ const updateTransfer = async () => {
           notes = ?,
           amount_received_usd = ?,
           receiver_notes = ?,
-          id_bank = ?
+          id_bank = ?,
+          ref_pi_transfer = ?
         WHERE id = ?
       `,
       params: [
@@ -149,6 +152,7 @@ const updateTransfer = async () => {
         amount_received_usd,
         editForm.value.receiver_notes || null,
         editForm.value.id_bank,
+        editForm.value.ref_pi_transfer || null,
         selectedTransfer.value.id,
       ],
     })
@@ -395,6 +399,19 @@ const clearFilters = () => {
                 ]"
               ></i>
             </th>
+            <th @click="toggleSort('ref_pi_transfer')" class="sortable">
+              PI Reference
+              <i
+                :class="[
+                  'fas',
+                  sortConfig.field === 'ref_pi_transfer'
+                    ? sortConfig.direction === 'asc'
+                      ? 'fa-sort-up'
+                      : 'fa-sort-down'
+                    : 'fa-sort',
+                ]"
+              ></i>
+            </th>
             <th @click="toggleSort('amount_sending_da')" class="sortable">
               Amount DA
               <i
@@ -481,6 +498,7 @@ const clearFilters = () => {
           >
             <td>{{ transfer.sender_name }}</td>
             <td>{{ new Date(transfer.date_do_transfer).toLocaleString() }}</td>
+            <td>{{ transfer.ref_pi_transfer || '-' }}</td>
             <td>{{ transfer.amount_sending_da }}</td>
             <td>{{ transfer.rate }}</td>
             <td>
@@ -616,6 +634,15 @@ const clearFilters = () => {
           <div class="form-group">
             <label>Receiver Notes:</label>
             <textarea v-model="editForm.receiver_notes" class="input-field" />
+          </div>
+          <div class="form-group">
+            <label><i class="fas fa-hashtag"></i> PI Reference:</label>
+            <input
+              type="text"
+              v-model="editForm.ref_pi_transfer"
+              class="input-field"
+              placeholder="Enter PI reference..."
+            />
           </div>
           <div class="dialog-actions">
             <button
