@@ -14,6 +14,7 @@ const editForm = ref({
   amount_sending_da: '',
   rate: '',
   notes: '',
+  id_bank: null,
 })
 
 const newTransfer = ref({
@@ -31,8 +32,9 @@ const isAdmin = computed(() => user.value?.role_id === 1)
 const fetchTransfers = async () => {
   const result = await callApi({
     query: `
-      SELECT t.* 
+      SELECT t.*, b.company_name, b.bank_name, b.bank_account, b.swift_code
       FROM transfers t
+      LEFT JOIN banks b ON t.id_bank = b.id
       WHERE t.id_user_do_transfer = ? OR t.id_user_receive_transfer = ?
       ORDER BY t.date_do_transfer DESC
     `,
@@ -53,6 +55,7 @@ const openEditDialog = (transfer) => {
     amount_sending_da: transfer.amount_sending_da,
     rate: transfer.rate,
     notes: transfer.notes || '',
+    id_bank: transfer.id_bank || null,
   }
   showEditDialog.value = true
 }
@@ -60,6 +63,11 @@ const openEditDialog = (transfer) => {
 const updateTransfer = async () => {
   if (!editForm.value.amount_sending_da || !editForm.value.rate) {
     error.value = 'Please fill all required fields'
+    return
+  }
+
+  if (!editForm.value.id_bank) {
+    error.value = 'Please select a bank'
     return
   }
 
@@ -71,7 +79,8 @@ const updateTransfer = async () => {
       SET amount_sending_da = ?, 
           rate = ?,
           amount_received_usd = ?,
-          notes = ?
+          notes = ?,
+          id_bank = ?
       WHERE id = ? ${!isAdmin.value ? 'AND date_receive IS NULL' : ''}
     `,
     params: [
@@ -79,6 +88,7 @@ const updateTransfer = async () => {
       editForm.value.rate,
       amount_received_usd,
       editForm.value.notes || null,
+      editForm.value.id_bank,
       selectedTransfer.value.id,
     ],
   })
@@ -181,6 +191,11 @@ const selectedBank = computed(() => {
   return banks.value.find((bank) => bank.id === newTransfer.value.id_bank)
 })
 
+const selectedBankInEdit = computed(() => {
+  if (!editForm.value.id_bank) return null
+  return banks.value.find((bank) => bank.id === editForm.value.id_bank)
+})
+
 onMounted(() => {
   const userStr = localStorage.getItem('user')
   if (userStr) {
@@ -210,6 +225,8 @@ onMounted(() => {
             <th>Amount (DA)</th>
             <th>Rate</th>
             <th>USD Value</th>
+            <th>Bank</th>
+            <th>Account</th>
             <th>Notes</th>
             <th>Status</th>
             <th>Actions</th>
@@ -221,6 +238,21 @@ onMounted(() => {
             <td>{{ transfer.amount_sending_da }}</td>
             <td>{{ transfer.rate }}</td>
             <td>${{ calculateUSD(transfer.amount_sending_da, transfer.rate) }}</td>
+            <td>
+              <div v-if="transfer.company_name" class="bank-cell">
+                <strong>{{ transfer.company_name }}</strong
+                ><br />
+                <small>{{ transfer.bank_name }}</small>
+              </div>
+              <span v-else>-</span>
+            </td>
+            <td>
+              <div v-if="transfer.bank_account" class="bank-cell">
+                {{ transfer.bank_account }}<br />
+                <small class="swift">{{ transfer.swift_code }}</small>
+              </div>
+              <span v-else>-</span>
+            </td>
             <td>{{ transfer.notes || '-' }}</td>
             <td class="status-cell">
               <span v-if="transfer.date_receive" class="status received">✅</span>
@@ -247,26 +279,70 @@ onMounted(() => {
     <div v-if="showEditDialog" class="dialog-overlay">
       <div class="dialog">
         <h2>Edit Transfer</h2>
-        <div class="form-group">
-          <label>Amount (DA):</label>
-          <input type="number" v-model="editForm.amount_sending_da" class="input-field" />
+        <div v-if="error" class="error-message">
+          {{ error }}
         </div>
-        <div class="form-group">
-          <label>Rate:</label>
-          <input type="number" v-model="editForm.rate" class="input-field" />
-        </div>
-        <div class="form-group">
-          <label>Notes:</label>
-          <textarea
-            v-model="editForm.notes"
-            class="input-field"
-            placeholder="Optional notes"
-          ></textarea>
-        </div>
-        <div class="dialog-actions">
-          <button @click="updateTransfer" class="btn update-btn">Save</button>
-          <button @click="showEditDialog = false" class="btn cancel-btn">Cancel</button>
-        </div>
+        <form @submit.prevent="updateTransfer">
+          <div class="form-group">
+            <label>Amount (DA):</label>
+            <input
+              type="number"
+              v-model.number="editForm.amount_sending_da"
+              class="input-field"
+              step="0.01"
+              min="0.01"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label>Rate:</label>
+            <input
+              type="number"
+              v-model.number="editForm.rate"
+              class="input-field"
+              step="0.0001"
+              min="0.0001"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label>Bank Account:</label>
+            <select v-model="editForm.id_bank" class="input-field" required>
+              <option value="">Select a bank account</option>
+              <option v-for="bank in banks" :key="bank.id" :value="bank.id">
+                {{ bank.company_name }} - {{ bank.bank_name }} ({{ bank.bank_account }})
+              </option>
+            </select>
+          </div>
+
+          <div v-if="editForm.id_bank" class="bank-details">
+            <div class="bank-info">
+              <p><strong>Selected Bank Details:</strong></p>
+              <p v-if="selectedBankInEdit">
+                Company: {{ selectedBankInEdit.company_name }}<br />
+                Bank: {{ selectedBankInEdit.bank_name }}<br />
+                Account: {{ selectedBankInEdit.bank_account }}<br />
+                Swift: {{ selectedBankInEdit.swift_code }}<br />
+                Address: {{ selectedBankInEdit.bank_address }}
+              </p>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Notes:</label>
+            <textarea
+              v-model="editForm.notes"
+              class="input-field"
+              placeholder="Optional notes"
+            ></textarea>
+          </div>
+          <div class="dialog-actions">
+            <button type="submit" class="btn update-btn">Save</button>
+            <button type="button" @click="showEditDialog = false" class="btn cancel-btn">
+              Cancel
+            </button>
+          </div>
+        </form>
       </div>
     </div>
     <!-- Add Dialog -->
@@ -387,29 +463,35 @@ td {
 
 /* Column widths */
 th:nth-child(1) {
-  width: 15%;
+  width: 12%;
 } /* Date */
 th:nth-child(2) {
-  width: 12%;
+  width: 10%;
 } /* Amount DA */
 th:nth-child(3) {
-  width: 10%;
+  width: 8%;
 } /* Rate */
 th:nth-child(4) {
-  width: 12%;
+  width: 8%;
 } /* USD Value */
 th:nth-child(5) {
-  width: 25%;
-} /* Notes - wider column */
+  width: 15%;
+} /* Bank */
 th:nth-child(6) {
-  width: 12%;
-} /* Status */
+  width: 15%;
+} /* Account */
 th:nth-child(7) {
-  width: 14%;
+  width: 15%;
+} /* Notes */
+th:nth-child(8) {
+  width: 7%;
+} /* Status */
+th:nth-child(9) {
+  width: 10%;
 } /* Actions */
 
 /* Notes cell specific styling */
-td:nth-child(5) {
+td:nth-child(7) {
   white-space: pre-wrap;
   min-width: 200px;
 }
@@ -563,5 +645,23 @@ select.input-field {
   background-position: right 10px center;
   background-size: 1em;
   padding-right: 40px;
+}
+
+.bank-cell {
+  font-size: 0.9em;
+  line-height: 1.4;
+}
+
+.bank-cell strong {
+  color: #1f2937;
+}
+
+.bank-cell small {
+  color: #6b7280;
+}
+
+.bank-cell .swift {
+  color: #9ca3af;
+  font-family: monospace;
 }
 </style>
