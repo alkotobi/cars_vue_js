@@ -572,38 +572,75 @@ const clearFilters = () => {
           {{ formError }}
         </div>
         <form @submit.prevent="updateTransfer">
-          <div class="form-group">
-            <label>Amount (DA):</label>
-            <input
-              type="number"
-              v-model.number="editForm.amount_sending_da"
-              step="0.01"
-              min="0.01"
-              required
-              class="input-field"
-            />
-          </div>
-          <div class="form-group">
-            <label>Rate:</label>
-            <input
-              type="number"
-              v-model.number="editForm.rate"
-              step="0.0001"
-              min="0.0001"
-              required
-              class="input-field"
-            />
-          </div>
-          <div class="form-group">
-            <label>Bank Account:</label>
-            <select v-model="editForm.id_bank" class="input-field" required>
-              <option value="">Select a bank account</option>
-              <option v-for="bank in banks" :key="bank.id" :value="bank.id">
-                {{ bank.company_name }} - {{ bank.bank_name }} ({{ bank.bank_account }})
-              </option>
-            </select>
+          <div class="form-grid">
+            <!-- Left Column -->
+            <div class="form-column">
+              <div class="form-group">
+                <label>Amount (DA):</label>
+                <input
+                  type="number"
+                  v-model.number="editForm.amount_sending_da"
+                  step="0.01"
+                  min="0.01"
+                  required
+                  class="input-field"
+                />
+              </div>
+              <div class="form-group">
+                <label>Rate:</label>
+                <input
+                  type="number"
+                  v-model.number="editForm.rate"
+                  step="0.0001"
+                  min="0.0001"
+                  required
+                  class="input-field"
+                />
+              </div>
+              <div class="form-group">
+                <label>Bank Account:</label>
+                <select v-model="editForm.id_bank" class="input-field" required>
+                  <option value="">Select a bank account</option>
+                  <option v-for="bank in banks" :key="bank.id" :value="bank.id">
+                    {{ bank.company_name }} - {{ bank.bank_name }} ({{ bank.bank_account }})
+                  </option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Notes:</label>
+                <textarea v-model="editForm.notes" class="input-field" />
+              </div>
+            </div>
+
+            <!-- Right Column -->
+            <div class="form-column">
+              <div class="form-group">
+                <label>Received USD:</label>
+                <input
+                  type="number"
+                  v-model.number="editForm.amount_received_usd"
+                  step="0.01"
+                  min="0"
+                  class="input-field"
+                />
+              </div>
+              <div class="form-group">
+                <label>Receiver Notes:</label>
+                <textarea v-model="editForm.receiver_notes" class="input-field" />
+              </div>
+              <div class="form-group">
+                <label><i class="fas fa-hashtag"></i> PI Reference:</label>
+                <input
+                  type="text"
+                  v-model="editForm.ref_pi_transfer"
+                  class="input-field"
+                  placeholder="Enter PI reference..."
+                />
+              </div>
+            </div>
           </div>
 
+          <!-- Bank Details Section - Full Width -->
           <div v-if="editForm.id_bank" class="bank-details">
             <div class="bank-info">
               <p><strong>Selected Bank Details:</strong></p>
@@ -617,33 +654,6 @@ const clearFilters = () => {
             </div>
           </div>
 
-          <div class="form-group">
-            <label>Notes:</label>
-            <textarea v-model="editForm.notes" class="input-field" />
-          </div>
-          <div class="form-group">
-            <label>Received USD:</label>
-            <input
-              type="number"
-              v-model.number="editForm.amount_received_usd"
-              step="0.01"
-              min="0"
-              class="input-field"
-            />
-          </div>
-          <div class="form-group">
-            <label>Receiver Notes:</label>
-            <textarea v-model="editForm.receiver_notes" class="input-field" />
-          </div>
-          <div class="form-group">
-            <label><i class="fas fa-hashtag"></i> PI Reference:</label>
-            <input
-              type="text"
-              v-model="editForm.ref_pi_transfer"
-              class="input-field"
-              placeholder="Enter PI reference..."
-            />
-          </div>
           <div class="dialog-actions">
             <button
               type="submit"
@@ -851,11 +861,13 @@ tr:hover td {
 }
 
 .dialog {
+  width: 90%;
+  max-width: 900px;
+  max-height: 90vh;
+  overflow-y: auto;
   background-color: white;
   padding: 30px;
   border-radius: 12px;
-  min-width: 500px;
-  max-width: 90vw;
   box-shadow:
     0 20px 25px -5px rgba(0, 0, 0, 0.1),
     0 10px 10px -5px rgba(0, 0, 0, 0.04);
@@ -866,6 +878,19 @@ tr:hover td {
   font-size: 1.5em;
   margin-bottom: 1.5rem;
   font-weight: 600;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.form-column {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
 }
 
 .form-group {
@@ -881,34 +906,20 @@ tr:hover td {
 
 .input-field {
   width: 100%;
-  padding: 10px 12px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  font-size: 0.95em;
-  transition: all 0.2s ease;
+  padding: 8px 12px;
 }
 
-.input-field:focus {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-select.input-field {
-  appearance: none;
-  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
-  background-repeat: no-repeat;
-  background-position: right 12px center;
-  background-size: 1em;
-  padding-right: 40px;
+textarea.input-field {
+  min-height: 100px;
+  resize: vertical;
 }
 
 .bank-details {
-  margin: 20px 0;
-  padding: 20px;
   background-color: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
+  padding: 20px;
+  margin: 20px 0;
 }
 
 .bank-info p {
@@ -1107,6 +1118,16 @@ td:nth-child(10) /* Date Received */ {
 @media (max-width: 768px) {
   .filters-grid {
     grid-template-columns: 1fr;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+
+  .dialog {
+    padding: 20px;
+    width: 95%;
   }
 }
 </style>

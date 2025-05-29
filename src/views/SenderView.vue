@@ -720,7 +720,9 @@ onMounted(() => {
 
 <style scoped>
 .sender-view {
-  width: 80vw;
+  width: 98%;
+  margin: 0 auto;
+  padding: 20px;
 }
 
 .header {
@@ -741,13 +743,17 @@ onMounted(() => {
 
 .transfers-table {
   overflow-x: auto;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin: 20px 0;
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
   margin-top: 20px;
-  table-layout: fixed;
+  min-width: 1200px;
 }
 
 th,
@@ -761,22 +767,22 @@ td {
 
 /* Column widths */
 th:nth-child(1) {
-  width: 12%;
+  width: 10%;
 } /* Date */
 th:nth-child(2) {
-  width: 10%;
+  width: 8%;
 } /* PI Reference */
 th:nth-child(3) {
-  width: 10%;
+  width: 8%;
 } /* Amount DA */
 th:nth-child(4) {
-  width: 8%;
+  width: 6%;
 } /* Rate */
 th:nth-child(5) {
-  width: 15%;
+  width: 12%;
 } /* Bank */
 th:nth-child(6) {
-  width: 15%;
+  width: 12%;
 } /* Account */
 th:nth-child(7) {
   width: 15%;
@@ -785,13 +791,13 @@ th:nth-child(8) {
   width: 7%;
 } /* Status */
 th:nth-child(9) {
-  width: 10%;
+  width: 12%;
 } /* Actions */
 
 /* Notes cell specific styling */
 td:nth-child(7) {
-  white-space: pre-wrap;
-  min-width: 200px;
+  white-space: normal;
+  min-width: 120px;
 }
 
 th {
@@ -804,7 +810,10 @@ th {
 }
 
 .status {
-  font-size: 1.2em;
+  font-size: 1em;
+  display: inline-block;
+  padding: 2px 4px;
+  border-radius: 4px;
 }
 
 .received {
@@ -823,11 +832,8 @@ th {
 }
 
 .btn {
-  padding: 6px 12px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  margin-right: 8px;
+  padding: 4px 8px;
+  font-size: 0.85em;
 }
 
 .update-btn {
@@ -857,14 +863,14 @@ th {
 }
 
 .dialog {
-  background-color: white;
-  padding: 20px;
-  border-radius: 8px;
-  min-width: 300px;
+  max-height: 90vh;
+  overflow-y: auto;
+  width: 90%;
+  max-width: 600px;
 }
 
 .form-group {
-  margin-bottom: 15px;
+  margin-bottom: 12px;
 }
 
 .form-group label {
@@ -875,7 +881,7 @@ th {
 
 .input-field {
   width: 100%;
-  padding: 8px;
+  padding: 6px 8px;
   border: 1px solid #ddd;
   border-radius: 4px;
 }
@@ -893,12 +899,13 @@ th {
 }
 .header-buttons {
   display: flex;
-  gap: 10px;
+  gap: 8px;
 }
 
-.create-btn {
-  background-color: #4caf50;
-  color: white;
+.create-btn,
+.back-btn {
+  padding: 6px 12px;
+  font-size: 0.9em;
 }
 
 textarea.input-field {
@@ -946,21 +953,22 @@ select.input-field {
 }
 
 .bank-cell {
-  font-size: 0.9em;
-  line-height: 1.4;
+  font-size: 0.85em;
+  line-height: 1.3;
 }
 
 .bank-cell strong {
-  color: #1f2937;
+  display: inline;
+  margin-right: 4px;
 }
 
 .bank-cell small {
-  color: #6b7280;
+  display: inline;
 }
 
 .bank-cell .swift {
-  color: #9ca3af;
-  font-family: monospace;
+  font-size: 0.85em;
+  padding: 2px 4px;
 }
 
 .details-btn {
@@ -971,7 +979,9 @@ select.input-field {
 
 .action-buttons {
   display: flex;
-  gap: 6px;
+  gap: 4px;
+  flex-wrap: nowrap;
+  min-width: 120px;
 }
 
 .btn {
@@ -985,17 +995,14 @@ select.input-field {
 }
 
 .filters-section {
-  background: white;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  margin-bottom: 20px;
+  padding: 15px;
+  margin-bottom: 15px;
 }
 
 .filters-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
+  gap: 12px;
   align-items: end;
 }
 
@@ -1014,9 +1021,7 @@ select.input-field {
 }
 
 .filter-input {
-  padding: 8px;
-  border: 1px solid #e5e7eb;
-  border-radius: 4px;
+  padding: 6px 8px;
   font-size: 0.9em;
 }
 
@@ -1056,9 +1061,19 @@ select.input-field {
   color: #2563eb;
 }
 
-@media (max-width: 768px) {
-  .filters-grid {
-    grid-template-columns: 1fr;
+@media (max-width: 1400px) {
+  .sender-view {
+    width: 100%;
+    padding: 10px;
+  }
+
+  .transfers-table {
+    margin: 10px 0;
+  }
+
+  td,
+  th {
+    padding: 8px;
   }
 }
 </style>

@@ -384,6 +384,19 @@ const openDetailsDialog = (transfer) => {
                 ]"
               ></i>
             </th>
+            <th @click="toggleSort('ref_pi_transfer')" class="sortable">
+              PI Reference
+              <i
+                :class="[
+                  'fas',
+                  sortConfig.field === 'ref_pi_transfer'
+                    ? sortConfig.direction === 'asc'
+                      ? 'fa-sort-up'
+                      : 'fa-sort-down'
+                    : 'fa-sort',
+                ]"
+              ></i>
+            </th>
             <th @click="toggleSort('amount_sending_da')" class="sortable">
               Sent USD
               <i
@@ -421,6 +434,7 @@ const openDetailsDialog = (transfer) => {
           <tr v-for="transfer in filteredTransfers" :key="transfer.id">
             <td>{{ transfer.sender_name }}</td>
             <td>{{ new Date(transfer.date_do_transfer).toLocaleString() }}</td>
+            <td>{{ transfer.ref_pi_transfer || '-' }}</td>
             <td>${{ calculateUSD(transfer.amount_sending_da, transfer.rate) }}</td>
             <td>
               <div v-if="transfer.company_name" class="bank-cell">
@@ -653,7 +667,9 @@ const openDetailsDialog = (transfer) => {
 
 <style scoped>
 .receiver-view {
-  width: 80vw;
+  width: 98%;
+  margin: 0 auto;
+  padding: 20px;
 }
 
 .header {
@@ -674,13 +690,17 @@ const openDetailsDialog = (transfer) => {
 
 .transfers-table {
   overflow-x: auto;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin: 20px 0;
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
   margin-top: 20px;
-  table-layout: fixed;
+  min-width: 1200px;
 }
 
 th,
@@ -694,38 +714,41 @@ td {
 
 /* Column widths */
 th:nth-child(1) {
-  width: 10%;
+  width: 8%;
 } /* Sender */
 th:nth-child(2) {
-  width: 12%;
+  width: 10%;
 } /* Date */
 th:nth-child(3) {
   width: 8%;
-} /* Sent USD */
+} /* PI Reference */
 th:nth-child(4) {
-  width: 15%;
-} /* Bank */
+  width: 7%;
+} /* Sent USD */
 th:nth-child(5) {
-  width: 15%;
-} /* Account */
+  width: 12%;
+} /* Bank */
 th:nth-child(6) {
-  width: 8%;
-} /* Received USD */
+  width: 12%;
+} /* Account */
 th:nth-child(7) {
-  width: 15%;
-} /* Notes */
+  width: 7%;
+} /* Received USD */
 th:nth-child(8) {
-  width: 15%;
-} /* Receiver Notes */
+  width: 12%;
+} /* Notes */
 th:nth-child(9) {
-  width: 10%;
+  width: 12%;
+} /* Receiver Notes */
+th:nth-child(10) {
+  width: 12%;
 } /* Actions */
 
 /* Notes cell specific styling */
-td:nth-child(7),
-td:nth-child(8) {
-  white-space: pre-wrap;
-  min-width: 150px;
+td:nth-child(8),
+td:nth-child(9) {
+  white-space: normal;
+  min-width: 120px;
 }
 
 th {
@@ -734,11 +757,12 @@ th {
 }
 
 .btn {
-  padding: 6px 12px;
+  padding: 4px 8px;
   border: none;
   border-radius: 4px;
   cursor: pointer;
   margin-right: 8px;
+  font-size: 0.85em;
 }
 
 .btn:hover {
@@ -816,22 +840,22 @@ textarea.input-field {
 
 /* Recent transfers table specific widths */
 .transfers-table:nth-of-type(2) table th:nth-child(1) {
-  width: 10%;
+  width: 8%;
 } /* Sender */
 .transfers-table:nth-of-type(2) table th:nth-child(2) {
-  width: 12%;
+  width: 10%;
 } /* Date */
 .transfers-table:nth-of-type(2) table th:nth-child(3) {
-  width: 8%;
+  width: 7%;
 } /* Sent USD */
 .transfers-table:nth-of-type(2) table th:nth-child(4) {
-  width: 15%;
+  width: 12%;
 } /* Bank */
 .transfers-table:nth-of-type(2) table th:nth-child(5) {
-  width: 15%;
+  width: 12%;
 } /* Account */
 .transfers-table:nth-of-type(2) table th:nth-child(6) {
-  width: 8%;
+  width: 7%;
 } /* Received USD */
 .transfers-table:nth-of-type(2) table th:nth-child(7) {
   width: 15%;
@@ -840,14 +864,14 @@ textarea.input-field {
   width: 15%;
 } /* Receiver Notes */
 .transfers-table:nth-of-type(2) table th:nth-child(9) {
-  width: 10%;
+  width: 14%;
 } /* Actions */
 
 /* Notes cell specific styling for recent transfers */
 .transfers-table:nth-of-type(2) table td:nth-child(7),
 .transfers-table:nth-of-type(2) table td:nth-child(8) {
-  white-space: pre-wrap;
-  min-width: 150px;
+  white-space: normal;
+  min-width: 120px;
 }
 
 /* Add this new style for amount mismatch highlighting */
@@ -861,19 +885,18 @@ textarea.input-field {
 }
 
 .bank-cell {
-  font-size: 0.95em;
-  line-height: 1.5;
+  font-size: 0.85em;
+  line-height: 1.3;
   white-space: normal;
 }
 
 .bank-cell strong {
-  color: #1f2937;
-  font-weight: 600;
-  display: block;
+  display: inline;
+  margin-right: 4px;
 }
 
 .bank-cell small {
-  color: #6b7280;
+  display: inline;
 }
 
 .bank-cell .swift {
@@ -1061,9 +1084,21 @@ h2 i {
   color: #2563eb;
 }
 
-@media (max-width: 768px) {
-  .filters-grid {
-    grid-template-columns: 1fr;
+.action-buttons {
+  display: flex;
+  gap: 4px;
+  flex-wrap: nowrap;
+  min-width: 120px;
+}
+
+@media (max-width: 1400px) {
+  .receiver-view {
+    width: 100%;
+    padding: 10px;
+  }
+
+  .transfers-table {
+    margin: 10px 0;
   }
 }
 </style>
