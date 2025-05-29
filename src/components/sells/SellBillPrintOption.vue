@@ -67,7 +67,7 @@ const fetchBanks = async () => {
       banks.value = result.data
       // Set the first bank as default if not already set
       if (!formData.value.bankId) {
-        formData.value.bankId = result.data[0].id
+      formData.value.bankId = result.data[0].id
       }
     }
   } catch (err) {
@@ -89,7 +89,7 @@ watch(
 
 onMounted(() => {
   if (props.visible) {
-    fetchBanks()
+  fetchBanks()
   }
 })
 
@@ -100,9 +100,9 @@ const handleProceed = () => {
     params: { billId: props.billId },
     query: { options: encodeURIComponent(JSON.stringify(formData.value)) },
   }).href
-
+  
   window.open(printUrl, '_blank')
-
+  
   emit('proceed', {
     billId: props.billId,
     ...formData.value,
@@ -118,44 +118,44 @@ const handleCancel = () => {
   <div v-if="visible" class="print-options-dialog">
     <div class="dialog-content">
       <h3>Print Options</h3>
-
-      <div class="form-group">
+      
+        <div class="form-group">
         <label>Document Type:</label>
         <select v-model="formData.documentType">
           <option v-for="type in documentTypes" :key="type.value" :value="type.value">
             {{ type.label }}
           </option>
-        </select>
-      </div>
-
-      <div class="form-group">
+          </select>
+        </div>
+        
+        <div class="form-group">
         <label>Payment Terms:</label>
         <select v-model="formData.paymentTerms">
           <option v-for="term in paymentTermsOptions" :key="term.value" :value="term.value">
             {{ term.label }}
-          </option>
-        </select>
-      </div>
-
-      <div class="form-group">
+            </option>
+          </select>
+        </div>
+        
+        <div class="form-group">
         <label>Payment Type:</label>
         <select v-model="formData.paymentMode">
           <option v-for="type in paymentTypes" :key="type.value" :value="type.value">
             {{ type.label }}
           </option>
-        </select>
-      </div>
-
-      <div class="form-group">
+          </select>
+        </div>
+        
+        <div class="form-group">
         <label>Currency:</label>
         <select v-model="formData.currency">
           <option v-for="currency in currencyOptions" :key="currency.value" :value="currency.value">
             {{ currency.label }}
           </option>
-        </select>
-      </div>
-
-      <div class="form-group">
+          </select>
+        </div>
+        
+        <div class="form-group">
         <label>Bank:</label>
         <select v-model="formData.bankId" :disabled="isLoadingBanks">
           <option v-if="isLoadingBanks" value="">Loading banks...</option>
@@ -163,13 +163,13 @@ const handleCancel = () => {
           <option v-for="bank in banks" :key="bank.id" :value="bank.id">
             {{ bank.company_name }}
           </option>
-        </select>
-      </div>
-
+          </select>
+        </div>
+        
       <div class="dialog-buttons">
         <button @click="handleCancel" class="cancel-btn">Cancel</button>
         <button @click="handleProceed" class="proceed-btn">Print</button>
-      </div>
+        </div>
     </div>
   </div>
 </template>
@@ -263,4 +263,4 @@ select:focus {
 .proceed-btn:hover {
   background-color: #2563eb;
 }
-</style>
+</style> 

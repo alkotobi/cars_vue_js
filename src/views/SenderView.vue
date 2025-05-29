@@ -13,14 +13,16 @@ const selectedTransfer = ref(null)
 const editForm = ref({
   amount_sending_da: '',
   rate: '',
-  notes: ''
+  notes: '',
 })
 
 const newTransfer = ref({
   amount_sending_da: '',
   rate: '',
-  notes: ''
+  notes: '',
 })
+
+const formError = ref(null)
 
 const isAdmin = computed(() => user.value?.role_id === 1)
 
@@ -32,7 +34,7 @@ const fetchTransfers = async () => {
       WHERE t.id_user_do_transfer = ? OR t.id_user_receive_transfer = ?
       ORDER BY t.date_do_transfer DESC
     `,
-    params: [user.value.id, user.value.id]
+    params: [user.value.id, user.value.id],
   })
   if (result.success) {
     transfers.value = result.data
@@ -48,7 +50,7 @@ const openEditDialog = (transfer) => {
   editForm.value = {
     amount_sending_da: transfer.amount_sending_da,
     rate: transfer.rate,
-    notes: transfer.notes || ''
+    notes: transfer.notes || '',
   }
   showEditDialog.value = true
 }
@@ -60,7 +62,7 @@ const updateTransfer = async () => {
   }
 
   const amount_received_usd = (editForm.value.amount_sending_da / editForm.value.rate).toFixed(2)
-  
+
   const result = await callApi({
     query: `
       UPDATE transfers 
@@ -75,8 +77,8 @@ const updateTransfer = async () => {
       editForm.value.rate,
       amount_received_usd,
       editForm.value.notes || null,
-      selectedTransfer.value.id
-    ]
+      selectedTransfer.value.id,
+    ],
   })
 
   if (result.success) {
@@ -96,7 +98,7 @@ const deleteTransfer = async (transfer) => {
 
   const result = await callApi({
     query: 'DELETE FROM transfers WHERE id = ?',
-    params: [transfer.id]
+    params: [transfer.id],
   })
 
   if (result.success) {
@@ -105,33 +107,44 @@ const deleteTransfer = async (transfer) => {
 }
 
 const createTransfer = async () => {
-  if (!newTransfer.value.amount_sending_da || !newTransfer.value.rate) {
-    error.value = 'Please fill all required fields'
-    return
-  }
+  try {
+    formError.value = null
 
-  const amount_received_usd = (newTransfer.value.amount_sending_da / newTransfer.value.rate).toFixed(2)
-  
-  const result = await callApi({
-    query: `
-      INSERT INTO transfers (
-        id_user_do_transfer, date_do_transfer, amount_sending_da, 
-        rate, amount_received_usd, notes
-      ) VALUES (?, NOW(), ?, ?, ?, ?)
-    `,
-    params: [
-      user.value.id,
-      newTransfer.value.amount_sending_da,
-      newTransfer.value.rate,
-      amount_received_usd,
-      newTransfer.value.notes || null
-    ]
-  })
+    const amount = parseFloat(newTransfer.value.amount_sending_da)
+    const rate = parseFloat(newTransfer.value.rate)
 
-  if (result.success) {
-    showAddDialog.value = false
-    newTransfer.value = { amount_sending_da: '', rate: '', notes: '' }
-    fetchTransfers()
+    if (isNaN(amount) || amount <= 0) {
+      formError.value = 'Please enter a valid amount'
+      return
+    }
+
+    if (isNaN(rate) || rate <= 0) {
+      formError.value = 'Please enter a valid rate'
+      return
+    }
+
+    const amount_received_usd = (amount / rate).toFixed(2)
+
+    const result = await callApi({
+      query: `
+        INSERT INTO transfers (
+          id_user_do_transfer, date_do_transfer, amount_sending_da, 
+          rate, amount_received_usd, notes
+        ) VALUES (?, NOW(), ?, ?, ?, ?)
+      `,
+      params: [user.value.id, amount, rate, amount_received_usd, newTransfer.value.notes || null],
+    })
+
+    if (result.success) {
+      showAddDialog.value = false
+      newTransfer.value = { amount_sending_da: '', rate: '', notes: '' }
+      await fetchTransfers()
+    } else {
+      formError.value = result.error || 'Failed to create transfer'
+    }
+  } catch (err) {
+    formError.value = err.message || 'An error occurred while creating the transfer'
+    console.error('Create transfer error:', err)
   }
 }
 
@@ -149,9 +162,7 @@ onMounted(() => {
     <div class="header">
       <h1>My Transfers</h1>
       <div class="header-buttons">
-        <button @click="showAddDialog = true" class="btn create-btn">
-          New Transfer
-        </button>
+        <button @click="showAddDialog = true" class="btn create-btn">New Transfer</button>
         <button @click="router.push('/transfers')" class="back-btn">← Return to Transfers</button>
       </div>
     </div>
@@ -182,18 +193,14 @@ onMounted(() => {
               <span v-else class="status pending">⏳</span>
             </td>
             <td>
-              <button 
+              <button
                 v-if="isAdmin || !transfer.date_receive"
-                @click="openEditDialog(transfer)" 
+                @click="openEditDialog(transfer)"
                 class="btn update-btn"
               >
                 Edit
               </button>
-              <button 
-                v-if="isAdmin"
-                @click="deleteTransfer(transfer)" 
-                class="btn delete-btn"
-              >
+              <button v-if="isAdmin" @click="deleteTransfer(transfer)" class="btn delete-btn">
                 Delete
               </button>
             </td>
@@ -208,24 +215,16 @@ onMounted(() => {
         <h2>Edit Transfer</h2>
         <div class="form-group">
           <label>Amount (DA):</label>
-          <input 
-            type="number" 
-            v-model="editForm.amount_sending_da"
-            class="input-field"
-          />
+          <input type="number" v-model="editForm.amount_sending_da" class="input-field" />
         </div>
         <div class="form-group">
           <label>Rate:</label>
-          <input 
-            type="number" 
-            v-model="editForm.rate"
-            class="input-field"
-          />
+          <input type="number" v-model="editForm.rate" class="input-field" />
         </div>
         <div class="form-group">
           <label>Notes:</label>
-          <textarea 
-            v-model="editForm.notes" 
+          <textarea
+            v-model="editForm.notes"
             class="input-field"
             placeholder="Optional notes"
           ></textarea>
@@ -240,36 +239,49 @@ onMounted(() => {
     <div v-if="showAddDialog" class="dialog-overlay">
       <div class="dialog">
         <h2>New Transfer</h2>
-        <div class="form-group">
-          <label>Amount (DA):</label>
-          <input 
-            type="number" 
-            v-model="newTransfer.amount_sending_da"
-            class="input-field"
-            placeholder="Enter amount in DA"
-          />
+        <div v-if="formError" class="error-message">
+          {{ formError }}
         </div>
-        <div class="form-group">
-          <label>Rate:</label>
-          <input 
-            type="number" 
-            v-model="newTransfer.rate"
-            class="input-field"
-            placeholder="Enter exchange rate"
-          />
-        </div>
-        <div class="form-group">
-          <label>Notes:</label>
-          <textarea 
-            v-model="newTransfer.notes" 
-            class="input-field"
-            placeholder="Optional notes"
-          ></textarea>
-        </div>
-        <div class="dialog-actions">
-          <button @click="createTransfer" class="btn create-btn">Create</button>
-          <button @click="showAddDialog = false" class="btn cancel-btn">Cancel</button>
-        </div>
+        <form @submit.prevent="createTransfer">
+          <div class="form-group">
+            <label>Amount (DA):</label>
+            <input
+              type="number"
+              v-model.number="newTransfer.amount_sending_da"
+              class="input-field"
+              placeholder="Enter amount in DA"
+              step="0.01"
+              min="0.01"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label>Rate:</label>
+            <input
+              type="number"
+              v-model.number="newTransfer.rate"
+              class="input-field"
+              placeholder="Enter exchange rate"
+              step="0.0001"
+              min="0.0001"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label>Notes:</label>
+            <textarea
+              v-model="newTransfer.notes"
+              class="input-field"
+              placeholder="Optional notes"
+            ></textarea>
+          </div>
+          <div class="dialog-actions">
+            <button type="submit" class="btn create-btn">Create</button>
+            <button type="button" @click="showAddDialog = false" class="btn cancel-btn">
+              Cancel
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   </div>
@@ -278,7 +290,6 @@ onMounted(() => {
 <style scoped>
 .sender-view {
   width: 80vw;
- 
 }
 
 .header {
@@ -308,7 +319,8 @@ table {
   table-layout: fixed;
 }
 
-th, td {
+th,
+td {
   padding: 12px;
   text-align: left;
   border-bottom: 1px solid #ddd;
@@ -317,13 +329,27 @@ th, td {
 }
 
 /* Column widths */
-th:nth-child(1) { width: 15%; } /* Date */
-th:nth-child(2) { width: 12%; } /* Amount DA */
-th:nth-child(3) { width: 10%; } /* Rate */
-th:nth-child(4) { width: 12%; } /* USD Value */
-th:nth-child(5) { width: 25%; } /* Notes - wider column */
-th:nth-child(6) { width: 12%; } /* Status */
-th:nth-child(7) { width: 14%; } /* Actions */
+th:nth-child(1) {
+  width: 15%;
+} /* Date */
+th:nth-child(2) {
+  width: 12%;
+} /* Amount DA */
+th:nth-child(3) {
+  width: 10%;
+} /* Rate */
+th:nth-child(4) {
+  width: 12%;
+} /* USD Value */
+th:nth-child(5) {
+  width: 25%;
+} /* Notes - wider column */
+th:nth-child(6) {
+  width: 12%;
+} /* Status */
+th:nth-child(7) {
+  width: 14%;
+} /* Actions */
 
 /* Notes cell specific styling */
 td:nth-child(5) {
@@ -345,11 +371,11 @@ th {
 }
 
 .received {
-  color: #4CAF50;
+  color: #4caf50;
 }
 
 .pending {
-  color: #FFA500;
+  color: #ffa500;
 }
 
 .edit-input {
@@ -368,7 +394,7 @@ th {
 }
 
 .update-btn {
-  background-color: #2196F3;
+  background-color: #2196f3;
   color: white;
 }
 
@@ -434,12 +460,21 @@ th {
 }
 
 .create-btn {
-  background-color: #4CAF50;
+  background-color: #4caf50;
   color: white;
 }
 
 textarea.input-field {
   min-height: 100px;
   resize: vertical;
+}
+
+.error-message {
+  padding: 12px;
+  margin-bottom: 16px;
+  background-color: #fee2e2;
+  border: 1px solid #ef4444;
+  border-radius: 4px;
+  color: #b91c1c;
 }
 </style>

@@ -11,7 +11,7 @@ const editForm = ref({
   rate: '',
   notes: '',
   amount_received_usd: '',
-  receiver_notes: ''
+  receiver_notes: '',
 })
 
 const fetchTransfers = async () => {
@@ -25,7 +25,7 @@ const fetchTransfers = async () => {
       LEFT JOIN users u_receiver ON t.id_user_receive_transfer = u_receiver.id
       ORDER BY t.date_do_transfer DESC
     `,
-    params: []
+    params: [],
   })
   if (result.success) {
     transfers.value = result.data
@@ -43,7 +43,7 @@ const openEditDialog = (transfer) => {
     rate: transfer.rate,
     notes: transfer.notes || '',
     amount_received_usd: transfer.amount_received_usd || '',
-    receiver_notes: transfer.receiver_notes || ''
+    receiver_notes: transfer.receiver_notes || '',
   }
   showEditDialog.value = true
 }
@@ -65,8 +65,8 @@ const updateTransfer = async () => {
       editForm.value.notes,
       editForm.value.amount_received_usd,
       editForm.value.receiver_notes,
-      selectedTransfer.value.id
-    ]
+      selectedTransfer.value.id,
+    ],
   })
 
   if (result.success) {
@@ -79,10 +79,10 @@ onMounted(() => {
 })
 const deleteTransfer = async (transfer) => {
   if (!confirm('Are you sure you want to delete this transfer permanently?')) return
-  
+
   const result = await callApi({
     query: `DELETE FROM transfers WHERE id = ?`,
-    params: [transfer.id]
+    params: [transfer.id],
   })
 
   if (result.success) {
@@ -114,12 +114,17 @@ const deleteTransfer = async (transfer) => {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="transfer in transfers" 
-              :key="transfer.id"
-              :class="{
-                'not-received': !transfer.date_receive,
-                'amount-mismatch': transfer.date_receive && calculateUSD(transfer.amount_sending_da, transfer.rate) !== transfer.amount_received_usd
-              }">
+          <tr
+            v-for="transfer in transfers"
+            :key="transfer.id"
+            :class="{
+              'not-received': !transfer.date_receive,
+              'amount-mismatch':
+                transfer.date_receive &&
+                calculateUSD(transfer.amount_sending_da, transfer.rate) !==
+                  transfer.amount_received_usd,
+            }"
+          >
             <td>{{ transfer.sender_name }}</td>
             <td>{{ new Date(transfer.date_do_transfer).toLocaleString() }}</td>
             <td>{{ transfer.amount_sending_da }}</td>
@@ -127,17 +132,15 @@ const deleteTransfer = async (transfer) => {
             <td>${{ calculateUSD(transfer.amount_sending_da, transfer.rate) }}</td>
             <td>{{ transfer.notes || '-' }}</td>
             <td>{{ transfer.receiver_name || '-' }}</td>
-            <td>{{ transfer.date_receive ? new Date(transfer.date_receive).toLocaleString() : '-' }}</td>
+            <td>
+              {{ transfer.date_receive ? new Date(transfer.date_receive).toLocaleString() : '-' }}
+            </td>
             <td>{{ transfer.amount_received_usd ? `$${transfer.amount_received_usd}` : '-' }}</td>
             <td>{{ transfer.receiver_notes || '-' }}</td>
             <td>
               <div class="action-buttons">
-                <button @click="openEditDialog(transfer)" class="btn edit-btn">
-                  Edit
-                </button>
-                <button @click="deleteTransfer(transfer)" class="btn delete-btn">
-                  Delete
-                </button>
+                <button @click="openEditDialog(transfer)" class="btn edit-btn">Edit</button>
+                <button @click="deleteTransfer(transfer)" class="btn delete-btn">Delete</button>
               </div>
             </td>
           </tr>
@@ -151,23 +154,23 @@ const deleteTransfer = async (transfer) => {
         <h2>Edit Transfer</h2>
         <div class="form-group">
           <label>Amount Sending (DA):</label>
-          <input type="number" v-model="editForm.amount_sending_da" step="0.01"/>
+          <input type="number" v-model="editForm.amount_sending_da" step="0.01" />
         </div>
         <div class="form-group">
           <label>Rate:</label>
-          <input type="number" v-model="editForm.rate" step="0.0001"/>
+          <input type="number" v-model="editForm.rate" step="0.0001" />
         </div>
         <div class="form-group">
           <label>Notes:</label>
-          <textarea v-model="editForm.notes"/>
+          <textarea v-model="editForm.notes" />
         </div>
         <div class="form-group">
           <label>Received USD:</label>
-          <input type="number" v-model="editForm.amount_received_usd" step="0.01"/>
+          <input type="number" v-model="editForm.amount_received_usd" step="0.01" />
         </div>
         <div class="form-group">
           <label>Receiver Notes:</label>
-          <textarea v-model="editForm.receiver_notes"/>
+          <textarea v-model="editForm.receiver_notes" />
         </div>
         <div class="dialog-actions">
           <button @click="updateTransfer" class="btn save-btn">Save</button>
@@ -195,7 +198,8 @@ table {
   table-layout: fixed;
 }
 
-th, td {
+th,
+td {
   padding: 12px;
   text-align: left;
   border-bottom: 1px solid #ddd;
@@ -214,25 +218,49 @@ th {
 }
 
 .btn.delete-btn {
-  background-color: #DC2626;
+  background-color: #dc2626;
   color: white;
 }
 
 /* Adjust action column width */
-th:nth-child(11) { width: 9%; }  /* Actions */
+th:nth-child(11) {
+  width: 9%;
+} /* Actions */
 
 /* Adjusted column widths */
-th:nth-child(1) { width: 9%; }   /* Sender */
-th:nth-child(2) { width: 10%; }  /* Date Sent */
-th:nth-child(3) { width: 7%; }   /* Amount DA */
-th:nth-child(4) { width: 6%; }   /* Rate */
-th:nth-child(5) { width: 7%; }   /* USD Sent */
-th:nth-child(6) { width: 12%; }  /* Notes */
-th:nth-child(7) { width: 8%; }   /* Receiver */
-th:nth-child(8) { width: 10%; }  /* Date Received */
-th:nth-child(9) { width: 7%; }   /* Received USD */
-th:nth-child(10) { width: 9%; }  /* Receiver Notes */
-th:nth-child(11) { width: 7%; }  /* Actions */
+th:nth-child(1) {
+  width: 9%;
+} /* Sender */
+th:nth-child(2) {
+  width: 10%;
+} /* Date Sent */
+th:nth-child(3) {
+  width: 7%;
+} /* Amount DA */
+th:nth-child(4) {
+  width: 6%;
+} /* Rate */
+th:nth-child(5) {
+  width: 7%;
+} /* USD Sent */
+th:nth-child(6) {
+  width: 12%;
+} /* Notes */
+th:nth-child(7) {
+  width: 8%;
+} /* Receiver */
+th:nth-child(8) {
+  width: 10%;
+} /* Date Received */
+th:nth-child(9) {
+  width: 7%;
+} /* Received USD */
+th:nth-child(10) {
+  width: 9%;
+} /* Receiver Notes */
+th:nth-child(11) {
+  width: 7%;
+} /* Actions */
 
 .back-btn {
   padding: 8px 16px;
@@ -298,11 +326,11 @@ th:nth-child(11) { width: 7%; }  /* Actions */
 
 /* Add status highlighting */
 .not-received {
-  background-color: #FFEBEE;  /* Light red for unreceived */
+  background-color: #ffebee; /* Light red for unreceived */
 }
 
 .amount-mismatch {
-  background-color: #FFCDD2;  /* Darker red for amount mismatch */
+  background-color: #ffcdd2; /* Darker red for amount mismatch */
 }
 
 /* Keep existing styles */
@@ -342,14 +370,29 @@ th:nth-child(11) { width: 7%; }  /* Actions */
   }
 
   /* Adjusted print column widths */
-  th:nth-child(1) { width: 15% !important; }
-  th:nth-child(2) { width: 16% !important; }
-  th:nth-child(3) { width: 10% !important; }
-  th:nth-child(4) { width: 8% !important; }
-  th:nth-child(5) { width: 10% !important; }
-  th:nth-child(7) { width: 12% !important; }
-  th:nth-child(8) { width: 15% !important; }
-  th:nth-child(9) { width: 14% !important; }
+  th:nth-child(1) {
+    width: 15% !important;
+  }
+  th:nth-child(2) {
+    width: 16% !important;
+  }
+  th:nth-child(3) {
+    width: 10% !important;
+  }
+  th:nth-child(4) {
+    width: 8% !important;
+  }
+  th:nth-child(5) {
+    width: 10% !important;
+  }
+  th:nth-child(7) {
+    width: 12% !important;
+  }
+  th:nth-child(8) {
+    width: 15% !important;
+  }
+  th:nth-child(9) {
+    width: 14% !important;
+  }
 }
 </style>
-
