@@ -734,7 +734,7 @@ defineExpose({ fetchSellBills })
 @media (max-width: 768px) {
   .filters-grid {
     grid-template-columns: 1fr;
-  }
+}
 }
 
 /* Add sorting styles */

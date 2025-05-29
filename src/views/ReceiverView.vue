@@ -11,22 +11,34 @@ const showReceiveDialog = ref(false)
 const selectedTransfer = ref(null)
 const receiveForm = ref({
   amount_received_usd: '',
-  receiver_notes: ''
+  receiver_notes: '',
 })
 
+const isLoading = ref(false)
+const processingTransferId = ref(null)
+
 const fetchTransfers = async () => {
-  const result = await callApi({
-    query: `
-      SELECT t.*, u.username as sender_name
-      FROM transfers t
-      JOIN users u ON t.id_user_do_transfer = u.id
-      WHERE t.date_receive IS NULL
-      ORDER BY t.date_do_transfer DESC
-    `,
-    params: []
-  })
-  if (result.success) {
-    transfers.value = result.data
+  isLoading.value = true
+  try {
+    const result = await callApi({
+      query: `
+        SELECT t.*, u.username as sender_name,
+          b.company_name, b.bank_name, b.bank_account, b.swift_code
+        FROM transfers t
+        JOIN users u ON t.id_user_do_transfer = u.id
+        LEFT JOIN banks b ON t.id_bank = b.id
+        WHERE t.date_receive IS NULL
+        ORDER BY t.date_do_transfer DESC
+      `,
+      params: [],
+    })
+    if (result.success) {
+      transfers.value = result.data
+    }
+  } catch (err) {
+    console.error('Error fetching transfers:', err)
+  } finally {
+    isLoading.value = false
   }
 }
 
@@ -38,42 +50,47 @@ const openReceiveDialog = (transfer) => {
   selectedTransfer.value = transfer
   receiveForm.value = {
     amount_received_usd: calculateUSD(transfer.amount_sending_da, transfer.rate),
-    receiver_notes: ''
+    receiver_notes: '',
   }
   showReceiveDialog.value = true
 }
 
 const receiveTransfer = async () => {
+  if (processingTransferId.value) return
   if (!receiveForm.value.amount_received_usd) {
     error.value = 'Please fill all required fields'
     return
   }
 
-  const result = await callApi({
-    query: `
-      UPDATE transfers 
-      SET amount_received_usd = ?,
-          receiver_notes = ?,
-          date_receive = NOW(),
-          id_user_receive_transfer = ?
-      WHERE id = ? AND date_receive IS NULL
-    `,
-    params: [
-      receiveForm.value.amount_received_usd,
-      receiveForm.value.receiver_notes || null,
-      user.value.id,
-      selectedTransfer.value.id
-    ]
-  })
+  processingTransferId.value = selectedTransfer.value.id
+  try {
+    const result = await callApi({
+      query: `
+        UPDATE transfers 
+        SET amount_received_usd = ?,
+            receiver_notes = ?,
+            date_receive = NOW(),
+            id_user_receive_transfer = ?
+        WHERE id = ? AND date_receive IS NULL
+      `,
+      params: [
+        receiveForm.value.amount_received_usd,
+        receiveForm.value.receiver_notes || null,
+        user.value.id,
+        selectedTransfer.value.id,
+      ],
+    })
 
-  if (result.success) {
-    showReceiveDialog.value = false
-    selectedTransfer.value = null
-    fetchTransfers()
-    fetchRecentTransfers()  // Add this line to update recent transfers table
-  }
-  else {
-    error.value = result.message
+    if (result.success) {
+      showReceiveDialog.value = false
+      selectedTransfer.value = null
+      fetchTransfers()
+      fetchRecentTransfers()
+    } else {
+      error.value = result.message
+    }
+  } finally {
+    processingTransferId.value = null
   }
 }
 
@@ -82,14 +99,16 @@ const recentTransfers = ref([])
 const fetchRecentTransfers = async () => {
   const result = await callApi({
     query: `
-      SELECT t.*, u.username as sender_name
+      SELECT t.*, u.username as sender_name,
+        b.company_name, b.bank_name, b.bank_account, b.swift_code
       FROM transfers t
       JOIN users u ON t.id_user_do_transfer = u.id
+      LEFT JOIN banks b ON t.id_bank = b.id
       WHERE t.date_receive IS NOT NULL
       AND t.date_receive >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
       ORDER BY t.date_receive DESC
     `,
-    params: []
+    params: [],
   })
   if (result.success) {
     recentTransfers.value = result.data
@@ -106,25 +125,31 @@ onMounted(() => {
 })
 
 const unreceiveTransfer = async (transfer) => {
+  if (processingTransferId.value) return
   if (!confirm('Are you sure you want to mark this transfer as unreceived?')) return
 
-  const result = await callApi({
-    query: `
-      UPDATE transfers 
-      SET amount_received_usd = NULL,
-          receiver_notes = NULL,
-          date_receive = NULL,
-          id_user_receive_transfer = NULL
-      WHERE id = ?
-    `,
-    params: [transfer.id]
-  })
+  processingTransferId.value = transfer.id
+  try {
+    const result = await callApi({
+      query: `
+        UPDATE transfers 
+        SET amount_received_usd = NULL,
+            receiver_notes = NULL,
+            date_receive = NULL,
+            id_user_receive_transfer = NULL
+        WHERE id = ?
+      `,
+      params: [transfer.id],
+    })
 
-  if (result.success) {
-    fetchTransfers()
-    fetchRecentTransfers()
-  } else {
-    error.value = result.message
+    if (result.success) {
+      fetchTransfers()
+      fetchRecentTransfers()
+    } else {
+      error.value = result.message
+    }
+  } finally {
+    processingTransferId.value = null
   }
 }
 </script>
@@ -132,8 +157,16 @@ const unreceiveTransfer = async (transfer) => {
 <template>
   <div class="receiver-view">
     <div class="header">
-      <h1>All Pending Transfers</h1>
-      <button @click="router.push('/transfers')" class="back-btn">← Return to Transfers</button>
+      <h1><i class="fas fa-exchange-alt"></i> All Pending Transfers</h1>
+      <button @click="router.push('/transfers')" class="back-btn">
+        <i class="fas fa-arrow-left"></i> Return to Transfers
+      </button>
+    </div>
+
+    <!-- Add loading overlay -->
+    <div v-if="isLoading" class="loading-overlay">
+      <i class="fas fa-spinner fa-spin fa-2x"></i>
+      <span>Loading transfers...</span>
     </div>
 
     <!-- Transfers Table -->
@@ -144,6 +177,8 @@ const unreceiveTransfer = async (transfer) => {
             <th>Sender</th>
             <th>Date Sent</th>
             <th>Sent USD</th>
+            <th>Bank</th>
+            <th>Account</th>
             <th>Received USD</th>
             <th>Notes</th>
             <th>Receiver Notes</th>
@@ -155,15 +190,35 @@ const unreceiveTransfer = async (transfer) => {
             <td>{{ transfer.sender_name }}</td>
             <td>{{ new Date(transfer.date_do_transfer).toLocaleString() }}</td>
             <td>${{ calculateUSD(transfer.amount_sending_da, transfer.rate) }}</td>
+            <td>
+              <div v-if="transfer.company_name" class="bank-cell">
+                <strong>{{ transfer.company_name }}</strong
+                ><br />
+                <small>{{ transfer.bank_name }}</small>
+              </div>
+              <span v-else>-</span>
+            </td>
+            <td>
+              <div v-if="transfer.bank_account" class="bank-cell">
+                {{ transfer.bank_account }}<br />
+                <small class="swift">{{ transfer.swift_code }}</small>
+              </div>
+              <span v-else>-</span>
+            </td>
             <td>${{ transfer.amount_received_usd || '-' }}</td>
             <td>{{ transfer.notes || '-' }}</td>
             <td>{{ transfer.receiver_notes || '-' }}</td>
             <td>
-              <button 
-                @click="openReceiveDialog(transfer)" 
+              <button
+                @click="openReceiveDialog(transfer)"
                 class="btn receive-btn"
+                :disabled="processingTransferId === transfer.id"
               >
-                Receive
+                <i class="fas fa-check"></i>
+                <span v-if="processingTransferId === transfer.id">
+                  <i class="fas fa-spinner fa-spin"></i>
+                </span>
+                <span v-else>Receive</span>
               </button>
             </td>
           </tr>
@@ -172,7 +227,9 @@ const unreceiveTransfer = async (transfer) => {
     </div>
 
     <!-- Recent Received Transfers Table -->
-    <h2 class="section-title">Recently Received Transfers (Past Week)</h2>
+    <h2 class="section-title">
+      <i class="fas fa-history"></i> Recently Received Transfers (Past Week)
+    </h2>
     <div class="transfers-table">
       <table>
         <thead>
@@ -180,6 +237,8 @@ const unreceiveTransfer = async (transfer) => {
             <th>Sender</th>
             <th>Date Received</th>
             <th>Sent USD</th>
+            <th>Bank</th>
+            <th>Account</th>
             <th>Received USD</th>
             <th>Notes</th>
             <th>Receiver Notes</th>
@@ -187,22 +246,47 @@ const unreceiveTransfer = async (transfer) => {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="transfer in recentTransfers" 
-              :key="transfer.id"
-              :class="{ 'amount-mismatch': calculateUSD(transfer.amount_sending_da, transfer.rate) !== transfer.amount_received_usd }"
+          <tr
+            v-for="transfer in recentTransfers"
+            :key="transfer.id"
+            :class="{
+              'amount-mismatch':
+                calculateUSD(transfer.amount_sending_da, transfer.rate) !==
+                transfer.amount_received_usd,
+            }"
           >
             <td>{{ transfer.sender_name }}</td>
             <td>{{ new Date(transfer.date_receive).toLocaleString() }}</td>
             <td>${{ calculateUSD(transfer.amount_sending_da, transfer.rate) }}</td>
+            <td>
+              <div v-if="transfer.company_name" class="bank-cell">
+                <strong>{{ transfer.company_name }}</strong
+                ><br />
+                <small>{{ transfer.bank_name }}</small>
+              </div>
+              <span v-else>-</span>
+            </td>
+            <td>
+              <div v-if="transfer.bank_account" class="bank-cell">
+                {{ transfer.bank_account }}<br />
+                <small class="swift">{{ transfer.swift_code }}</small>
+              </div>
+              <span v-else>-</span>
+            </td>
             <td>${{ transfer.amount_received_usd }}</td>
             <td>{{ transfer.notes || '-' }}</td>
             <td>{{ transfer.receiver_notes || '-' }}</td>
             <td>
-              <button 
-                @click="unreceiveTransfer(transfer)" 
+              <button
+                @click="unreceiveTransfer(transfer)"
                 class="btn unreceive-btn"
+                :disabled="processingTransferId === transfer.id"
               >
-                Unreceive
+                <i class="fas fa-undo"></i>
+                <span v-if="processingTransferId === transfer.id">
+                  <i class="fas fa-spinner fa-spin"></i>
+                </span>
+                <span v-else>Unreceive</span>
               </button>
             </td>
           </tr>
@@ -213,27 +297,47 @@ const unreceiveTransfer = async (transfer) => {
     <!-- Receive Dialog -->
     <div v-if="showReceiveDialog" class="dialog-overlay">
       <div class="dialog">
-        <h2>Receive Transfer</h2>
+        <h2><i class="fas fa-check-circle"></i> Receive Transfer</h2>
+        <div v-if="error" class="error-message">
+          <i class="fas fa-exclamation-circle"></i>
+          {{ error }}
+        </div>
         <div class="form-group">
-          <label>Amount Received (USD):</label>
-          <input 
-            type="number" 
+          <label><i class="fas fa-dollar-sign"></i> Amount Received (USD):</label>
+          <input
+            type="number"
             v-model="receiveForm.amount_received_usd"
             class="input-field"
             step="0.01"
           />
         </div>
         <div class="form-group">
-          <label>Receiver Notes:</label>
-          <textarea 
-            v-model="receiveForm.receiver_notes" 
+          <label><i class="fas fa-comment"></i> Receiver Notes:</label>
+          <textarea
+            v-model="receiveForm.receiver_notes"
             class="input-field"
             placeholder="Add your notes here"
           ></textarea>
         </div>
         <div class="dialog-actions">
-          <button @click="receiveTransfer" class="btn receive-btn">Confirm</button>
-          <button @click="showReceiveDialog = false" class="btn cancel-btn">Cancel</button>
+          <button
+            @click="receiveTransfer"
+            class="btn receive-btn"
+            :disabled="processingTransferId === selectedTransfer?.id"
+          >
+            <i class="fas fa-check"></i>
+            <span v-if="processingTransferId === selectedTransfer?.id">
+              <i class="fas fa-spinner fa-spin"></i> Processing...
+            </span>
+            <span v-else>Confirm</span>
+          </button>
+          <button
+            @click="showReceiveDialog = false"
+            class="btn cancel-btn"
+            :disabled="processingTransferId === selectedTransfer?.id"
+          >
+            <i class="fas fa-times"></i> Cancel
+          </button>
         </div>
       </div>
     </div>
@@ -272,7 +376,8 @@ table {
   table-layout: fixed;
 }
 
-th, td {
+th,
+td {
   padding: 12px;
   text-align: left;
   border-bottom: 1px solid #ddd;
@@ -281,17 +386,37 @@ th, td {
 }
 
 /* Column widths */
-th:nth-child(1) { width: 12%; } /* Sender */
-th:nth-child(2) { width: 15%; } /* Date */
-th:nth-child(3) { width: 10%; } /* Sent USD */
-th:nth-child(4) { width: 10%; } /* Received USD */
-th:nth-child(5) { width: 20%; } /* Notes */
-th:nth-child(6) { width: 20%; } /* Receiver Notes */
-th:nth-child(7) { width: 13%; } /* Actions */
+th:nth-child(1) {
+  width: 10%;
+} /* Sender */
+th:nth-child(2) {
+  width: 12%;
+} /* Date */
+th:nth-child(3) {
+  width: 8%;
+} /* Sent USD */
+th:nth-child(4) {
+  width: 15%;
+} /* Bank */
+th:nth-child(5) {
+  width: 15%;
+} /* Account */
+th:nth-child(6) {
+  width: 8%;
+} /* Received USD */
+th:nth-child(7) {
+  width: 15%;
+} /* Notes */
+th:nth-child(8) {
+  width: 15%;
+} /* Receiver Notes */
+th:nth-child(9) {
+  width: 10%;
+} /* Actions */
 
 /* Notes cell specific styling */
-td:nth-child(5),
-td:nth-child(6) {
+td:nth-child(7),
+td:nth-child(8) {
   white-space: pre-wrap;
   min-width: 150px;
 }
@@ -314,12 +439,12 @@ th {
 }
 
 .receive-btn {
-  background-color: #4CAF50;
+  background-color: #4caf50;
   color: white;
 }
 
 .unreceive-btn {
-  background-color: #DC2626;
+  background-color: #dc2626;
   color: white;
 }
 
@@ -383,30 +508,130 @@ textarea.input-field {
 }
 
 /* Recent transfers table specific widths */
-.transfers-table:nth-of-type(2) table th:nth-child(1) { width: 15%; } /* Sender */
-.transfers-table:nth-of-type(2) table th:nth-child(2) { width: 15%; } /* Date */
-.transfers-table:nth-of-type(2) table th:nth-child(3) { width: 12%; } /* Sent USD */
-.transfers-table:nth-of-type(2) table th:nth-child(4) { width: 12%; } /* Received USD */
-.transfers-table:nth-of-type(2) table th:nth-child(5) { width: 23%; } /* Notes */
-.transfers-table:nth-of-type(2) table th:nth-child(6) { width: 23%; } /* Receiver Notes */
+.transfers-table:nth-of-type(2) table th:nth-child(1) {
+  width: 10%;
+} /* Sender */
+.transfers-table:nth-of-type(2) table th:nth-child(2) {
+  width: 12%;
+} /* Date */
+.transfers-table:nth-of-type(2) table th:nth-child(3) {
+  width: 8%;
+} /* Sent USD */
+.transfers-table:nth-of-type(2) table th:nth-child(4) {
+  width: 15%;
+} /* Bank */
+.transfers-table:nth-of-type(2) table th:nth-child(5) {
+  width: 15%;
+} /* Account */
+.transfers-table:nth-of-type(2) table th:nth-child(6) {
+  width: 8%;
+} /* Received USD */
+.transfers-table:nth-of-type(2) table th:nth-child(7) {
+  width: 15%;
+} /* Notes */
+.transfers-table:nth-of-type(2) table th:nth-child(8) {
+  width: 15%;
+} /* Receiver Notes */
+.transfers-table:nth-of-type(2) table th:nth-child(9) {
+  width: 10%;
+} /* Actions */
 
 /* Notes cell specific styling for recent transfers */
-.transfers-table:nth-of-type(2) table td:nth-child(5),
-.transfers-table:nth-of-type(2) table td:nth-child(6) {
+.transfers-table:nth-of-type(2) table td:nth-child(7),
+.transfers-table:nth-of-type(2) table td:nth-child(8) {
   white-space: pre-wrap;
   min-width: 150px;
 }
 
 /* Add this new style for amount mismatch highlighting */
 .amount-mismatch {
-  background-color: #FEF2F2;  /* Light red background */
-  color: #991B1B;  /* Darker red text for contrast */
+  background-color: #fef2f2; /* Light red background */
+  color: #991b1b; /* Darker red text for contrast */
 }
 
 .amount-mismatch td {
-  border-bottom-color: #FCA5A5;  /* Reddish border */
+  border-bottom-color: #fca5a5; /* Reddish border */
 }
 
+.bank-cell {
+  font-size: 0.95em;
+  line-height: 1.5;
+  white-space: normal;
+}
+
+.bank-cell strong {
+  color: #1f2937;
+  font-weight: 600;
+  display: block;
+}
+
+.bank-cell small {
+  color: #6b7280;
+}
+
+.bank-cell .swift {
+  color: #64748b;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  background: #f1f5f9;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.9em;
+  display: inline-block;
+  margin-top: 2px;
+}
+
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.9);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  z-index: 1000;
+  backdrop-filter: blur(2px);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.btn i {
+  font-size: 0.9em;
+}
+
+.error-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background-color: #fef2f2;
+  border: 1px solid #fee2e2;
+  border-radius: 4px;
+  color: #dc2626;
+  margin-bottom: 15px;
+}
+
+h1 i,
+h2 i {
+  margin-right: 8px;
+}
+
+.form-group label i {
+  margin-right: 4px;
+  color: #6b7280;
+}
 
 @media print {
   .header button,
@@ -420,14 +645,14 @@ textarea.input-field {
     table-layout: auto !important;
   }
 
-  th:nth-child(7),
-  td:nth-child(7) {
+  th:nth-child(9),
+  td:nth-child(9) {
     display: none !important;
   }
 
   .amount-mismatch {
     background-color: transparent !important;
-    border-left: 4px solid #DC2626 !important;
+    border-left: 4px solid #dc2626 !important;
   }
 
   .receiver-view {

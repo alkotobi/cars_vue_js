@@ -1,34 +1,63 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useApi } from '../composables/useApi'
 
 const { callApi } = useApi()
 const transfers = ref([])
 const showEditDialog = ref(false)
 const selectedTransfer = ref(null)
+const banks = ref([])
+const formError = ref(null)
+const isLoading = ref(false)
+const processingTransferId = ref(null)
+
 const editForm = ref({
   amount_sending_da: '',
   rate: '',
   notes: '',
   amount_received_usd: '',
   receiver_notes: '',
+  id_bank: null,
 })
 
+const fetchBanks = async () => {
+  try {
+    const result = await callApi({
+      query: 'SELECT * FROM banks ORDER BY company_name',
+      params: [],
+    })
+    if (result.success) {
+      banks.value = result.data
+    }
+  } catch (err) {
+    console.error('Error fetching banks:', err)
+  }
+}
+
 const fetchTransfers = async () => {
-  const result = await callApi({
-    query: `
-      SELECT t.*, 
-        u_sender.username as sender_name,
-        u_receiver.username as receiver_name
-      FROM transfers t
-      LEFT JOIN users u_sender ON t.id_user_do_transfer = u_sender.id
-      LEFT JOIN users u_receiver ON t.id_user_receive_transfer = u_receiver.id
-      ORDER BY t.date_do_transfer DESC
-    `,
-    params: [],
-  })
-  if (result.success) {
-    transfers.value = result.data
+  isLoading.value = true
+  try {
+    const result = await callApi({
+      query: `
+        SELECT t.*, 
+          u_sender.username as sender_name,
+          u_receiver.username as receiver_name,
+          b.company_name, b.bank_name, b.bank_account, b.swift_code
+        FROM transfers t
+        LEFT JOIN users u_sender ON t.id_user_do_transfer = u_sender.id
+        LEFT JOIN users u_receiver ON t.id_user_receive_transfer = u_receiver.id
+        LEFT JOIN banks b ON t.id_bank = b.id
+        ORDER BY t.date_do_transfer DESC
+      `,
+      params: [],
+    })
+    if (result.success) {
+      transfers.value = result.data
+    }
+  } catch (error) {
+    console.error('Error fetching transfers:', error)
+  } finally {
+    isLoading.value = false
   }
 }
 
@@ -44,49 +73,108 @@ const openEditDialog = (transfer) => {
     notes: transfer.notes || '',
     amount_received_usd: transfer.amount_received_usd || '',
     receiver_notes: transfer.receiver_notes || '',
+    id_bank: transfer.id_bank || null,
   }
   showEditDialog.value = true
 }
 
 const updateTransfer = async () => {
-  const result = await callApi({
-    query: `
-      UPDATE transfers SET
-        amount_sending_da = ?,
-        rate = ?,
-        notes = ?,
-        amount_received_usd = ?,
-        receiver_notes = ?
-      WHERE id = ?
-    `,
-    params: [
-      editForm.value.amount_sending_da,
-      editForm.value.rate,
-      editForm.value.notes,
-      editForm.value.amount_received_usd,
-      editForm.value.receiver_notes,
-      selectedTransfer.value.id,
-    ],
-  })
+  if (processingTransferId.value) return // Prevent double submit
+  processingTransferId.value = selectedTransfer.value.id
+  try {
+    formError.value = null
 
-  if (result.success) {
-    showEditDialog.value = false
-    fetchTransfers()
+    // Validate inputs
+    const amount = parseFloat(editForm.value.amount_sending_da)
+    const rate = parseFloat(editForm.value.rate)
+    const receivedUsd = editForm.value.amount_received_usd
+      ? parseFloat(editForm.value.amount_received_usd)
+      : null
+
+    if (isNaN(amount) || amount <= 0) {
+      formError.value = 'Please enter a valid amount'
+      return
+    }
+
+    if (isNaN(rate) || rate <= 0) {
+      formError.value = 'Please enter a valid rate'
+      return
+    }
+
+    if (!editForm.value.id_bank) {
+      formError.value = 'Please select a bank'
+      return
+    }
+
+    if (receivedUsd !== null && isNaN(receivedUsd)) {
+      formError.value = 'Please enter a valid received USD amount'
+      return
+    }
+
+    const amount_received_usd = receivedUsd || (amount / rate).toFixed(2)
+
+    const result = await callApi({
+      query: `
+        UPDATE transfers SET
+          amount_sending_da = ?,
+          rate = ?,
+          notes = ?,
+          amount_received_usd = ?,
+          receiver_notes = ?,
+          id_bank = ?
+        WHERE id = ?
+      `,
+      params: [
+        amount,
+        rate,
+        editForm.value.notes || null,
+        amount_received_usd,
+        editForm.value.receiver_notes || null,
+        editForm.value.id_bank,
+        selectedTransfer.value.id,
+      ],
+    })
+
+    if (result.success) {
+      showEditDialog.value = false
+      await fetchTransfers()
+    } else {
+      formError.value = result.error || 'Failed to update transfer'
+    }
+  } catch (err) {
+    console.error('Update transfer error:', err)
+    formError.value = err.message || 'An error occurred while updating the transfer'
+  } finally {
+    processingTransferId.value = null
   }
 }
+
+const selectedBankInEdit = computed(() => {
+  if (!editForm.value.id_bank) return null
+  return banks.value.find((bank) => bank.id === editForm.value.id_bank)
+})
+
 onMounted(() => {
   fetchTransfers()
+  fetchBanks()
 })
+
 const deleteTransfer = async (transfer) => {
+  if (processingTransferId.value) return // Prevent double delete
   if (!confirm('Are you sure you want to delete this transfer permanently?')) return
 
-  const result = await callApi({
-    query: `DELETE FROM transfers WHERE id = ?`,
-    params: [transfer.id],
-  })
+  processingTransferId.value = transfer.id
+  try {
+    const result = await callApi({
+      query: `DELETE FROM transfers WHERE id = ?`,
+      params: [transfer.id],
+    })
 
-  if (result.success) {
-    fetchTransfers()
+    if (result.success) {
+      await fetchTransfers()
+    }
+  } finally {
+    processingTransferId.value = null
   }
 }
 </script>
@@ -97,6 +185,10 @@ const deleteTransfer = async (transfer) => {
     <button @click="$router.push('/transfers')" class="back-btn">← Return to Transfers</button>
 
     <div class="transfers-table">
+      <div v-if="isLoading" class="loading-overlay">
+        <i class="fas fa-spinner fa-spin"></i>
+        Loading transfers...
+      </div>
       <table>
         <thead>
           <tr>
@@ -105,7 +197,9 @@ const deleteTransfer = async (transfer) => {
             <th>Amount DA</th>
             <th>Rate</th>
             <th>USD Sent</th>
-            <th>Notes</th>
+            <th>Bank</th>
+            <th>Account</th>
+            <th>Sender Notes</th>
             <th>Receiver</th>
             <th>Date Received</th>
             <th>Received USD</th>
@@ -130,6 +224,21 @@ const deleteTransfer = async (transfer) => {
             <td>{{ transfer.amount_sending_da }}</td>
             <td>{{ transfer.rate }}</td>
             <td>${{ calculateUSD(transfer.amount_sending_da, transfer.rate) }}</td>
+            <td>
+              <div v-if="transfer.company_name" class="bank-cell">
+                <strong>{{ transfer.company_name }}</strong
+                ><br />
+                <small>{{ transfer.bank_name }}</small>
+              </div>
+              <span v-else>-</span>
+            </td>
+            <td>
+              <div v-if="transfer.bank_account" class="bank-cell">
+                {{ transfer.bank_account }}<br />
+                <small class="swift">{{ transfer.swift_code }}</small>
+              </div>
+              <span v-else>-</span>
+            </td>
             <td>{{ transfer.notes || '-' }}</td>
             <td>{{ transfer.receiver_name || '-' }}</td>
             <td>
@@ -139,8 +248,28 @@ const deleteTransfer = async (transfer) => {
             <td>{{ transfer.receiver_notes || '-' }}</td>
             <td>
               <div class="action-buttons">
-                <button @click="openEditDialog(transfer)" class="btn edit-btn">Edit</button>
-                <button @click="deleteTransfer(transfer)" class="btn delete-btn">Delete</button>
+                <button
+                  @click="openEditDialog(transfer)"
+                  class="btn edit-btn"
+                  :disabled="processingTransferId === transfer.id"
+                >
+                  <i class="fas fa-edit"></i>
+                  <span v-if="processingTransferId === transfer.id">
+                    <i class="fas fa-spinner fa-spin"></i>
+                  </span>
+                  <span v-else>Edit</span>
+                </button>
+                <button
+                  @click="deleteTransfer(transfer)"
+                  class="btn delete-btn"
+                  :disabled="processingTransferId === transfer.id"
+                >
+                  <i class="fas fa-trash"></i>
+                  <span v-if="processingTransferId === transfer.id">
+                    <i class="fas fa-spinner fa-spin"></i>
+                  </span>
+                  <span v-else>Delete</span>
+                </button>
               </div>
             </td>
           </tr>
@@ -152,30 +281,96 @@ const deleteTransfer = async (transfer) => {
     <div v-if="showEditDialog" class="dialog-overlay">
       <div class="dialog">
         <h2>Edit Transfer</h2>
-        <div class="form-group">
-          <label>Amount Sending (DA):</label>
-          <input type="number" v-model="editForm.amount_sending_da" step="0.01" />
+        <div v-if="formError" class="error-message">
+          <i class="fas fa-exclamation-circle"></i>
+          {{ formError }}
         </div>
-        <div class="form-group">
-          <label>Rate:</label>
-          <input type="number" v-model="editForm.rate" step="0.0001" />
-        </div>
-        <div class="form-group">
-          <label>Notes:</label>
-          <textarea v-model="editForm.notes" />
-        </div>
-        <div class="form-group">
-          <label>Received USD:</label>
-          <input type="number" v-model="editForm.amount_received_usd" step="0.01" />
-        </div>
-        <div class="form-group">
-          <label>Receiver Notes:</label>
-          <textarea v-model="editForm.receiver_notes" />
-        </div>
-        <div class="dialog-actions">
-          <button @click="updateTransfer" class="btn save-btn">Save</button>
-          <button @click="showEditDialog = false" class="btn cancel-btn">Cancel</button>
-        </div>
+        <form @submit.prevent="updateTransfer">
+          <div class="form-group">
+            <label>Amount (DA):</label>
+            <input
+              type="number"
+              v-model.number="editForm.amount_sending_da"
+              step="0.01"
+              min="0.01"
+              required
+              class="input-field"
+            />
+          </div>
+          <div class="form-group">
+            <label>Rate:</label>
+            <input
+              type="number"
+              v-model.number="editForm.rate"
+              step="0.0001"
+              min="0.0001"
+              required
+              class="input-field"
+            />
+          </div>
+          <div class="form-group">
+            <label>Bank Account:</label>
+            <select v-model="editForm.id_bank" class="input-field" required>
+              <option value="">Select a bank account</option>
+              <option v-for="bank in banks" :key="bank.id" :value="bank.id">
+                {{ bank.company_name }} - {{ bank.bank_name }} ({{ bank.bank_account }})
+              </option>
+            </select>
+          </div>
+
+          <div v-if="editForm.id_bank" class="bank-details">
+            <div class="bank-info">
+              <p><strong>Selected Bank Details:</strong></p>
+              <p v-if="selectedBankInEdit">
+                Company: {{ selectedBankInEdit.company_name }}<br />
+                Bank: {{ selectedBankInEdit.bank_name }}<br />
+                Account: {{ selectedBankInEdit.bank_account }}<br />
+                Swift: {{ selectedBankInEdit.swift_code }}<br />
+                Address: {{ selectedBankInEdit.bank_address }}
+              </p>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Notes:</label>
+            <textarea v-model="editForm.notes" class="input-field" />
+          </div>
+          <div class="form-group">
+            <label>Received USD:</label>
+            <input
+              type="number"
+              v-model.number="editForm.amount_received_usd"
+              step="0.01"
+              min="0"
+              class="input-field"
+            />
+          </div>
+          <div class="form-group">
+            <label>Receiver Notes:</label>
+            <textarea v-model="editForm.receiver_notes" class="input-field" />
+          </div>
+          <div class="dialog-actions">
+            <button
+              type="submit"
+              class="btn save-btn"
+              :disabled="processingTransferId === selectedTransfer?.id"
+            >
+              <i class="fas fa-save"></i>
+              <span v-if="processingTransferId === selectedTransfer?.id">
+                <i class="fas fa-spinner fa-spin"></i> Saving...
+              </span>
+              <span v-else>Save</span>
+            </button>
+            <button
+              type="button"
+              @click="showEditDialog = false"
+              class="btn cancel-btn"
+              :disabled="processingTransferId === selectedTransfer?.id"
+            >
+              <i class="fas fa-times"></i> Cancel
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   </div>
@@ -183,98 +378,160 @@ const deleteTransfer = async (transfer) => {
 
 <style scoped>
 .transfers-list-view {
-  padding: 20px;
-  width: 90vw;
+  padding: 30px;
+  width: 95%;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+h1 {
+  color: #1f2937;
+  font-size: 2em;
+  margin-bottom: 1.5rem;
+  font-weight: 600;
+}
+
+.back-btn {
+  padding: 10px 20px;
+  background-color: #4b5563;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  margin: 20px 0;
+  font-size: 0.95em;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.back-btn:hover {
+  background-color: #374151;
+  transform: translateX(-2px);
 }
 
 .transfers-table {
-  overflow-x: auto;
+  position: relative;
+  background: white;
+  border-radius: 12px;
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
   margin: 20px 0;
 }
 
 table {
   width: 100%;
-  border-collapse: collapse;
-  table-layout: fixed;
-}
-
-th,
-td {
-  padding: 12px;
-  text-align: left;
-  border-bottom: 1px solid #ddd;
-  word-wrap: break-word;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.95em;
 }
 
 th {
-  background-color: #f8f9fa;
+  background-color: #f8fafc;
+  font-weight: 600;
+  color: #1f2937;
+  padding: 16px;
+  text-align: left;
+  border-bottom: 2px solid #e5e7eb;
+  white-space: nowrap;
+}
+
+td {
+  padding: 14px 16px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #4b5563;
+}
+
+tr:hover td {
+  background-color: #f8fafc;
+}
+
+.bank-cell {
+  font-size: 0.95em;
+  line-height: 1.5;
+}
+
+.bank-cell strong {
+  color: #1f2937;
   font-weight: 600;
 }
 
-/* Add to existing styles */
+.bank-cell small {
+  color: #6b7280;
+}
+
+.bank-cell .swift {
+  color: #64748b;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  background: #f1f5f9;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
 .action-buttons {
   display: flex;
   gap: 8px;
 }
 
-.btn.delete-btn {
-  background-color: #dc2626;
-  color: white;
-}
-
-/* Adjust action column width */
-th:nth-child(11) {
-  width: 9%;
-} /* Actions */
-
-/* Adjusted column widths */
-th:nth-child(1) {
-  width: 9%;
-} /* Sender */
-th:nth-child(2) {
-  width: 10%;
-} /* Date Sent */
-th:nth-child(3) {
-  width: 7%;
-} /* Amount DA */
-th:nth-child(4) {
-  width: 6%;
-} /* Rate */
-th:nth-child(5) {
-  width: 7%;
-} /* USD Sent */
-th:nth-child(6) {
-  width: 12%;
-} /* Notes */
-th:nth-child(7) {
-  width: 8%;
-} /* Receiver */
-th:nth-child(8) {
-  width: 10%;
-} /* Date Received */
-th:nth-child(9) {
-  width: 7%;
-} /* Received USD */
-th:nth-child(10) {
-  width: 9%;
-} /* Receiver Notes */
-th:nth-child(11) {
-  width: 7%;
-} /* Actions */
-
-.back-btn {
+.btn {
   padding: 8px 16px;
-  background-color: #4b5563;
-  color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
   cursor: pointer;
-  margin-top: 20px;
+  font-size: 0.9em;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .btn.edit-btn {
   background-color: #3b82f6;
   color: white;
+}
+
+.btn.edit-btn:hover {
+  background-color: #2563eb;
+}
+
+.btn.delete-btn {
+  background-color: #ef4444;
+  color: white;
+}
+
+.btn.delete-btn:hover {
+  background-color: #dc2626;
+}
+
+.btn.save-btn {
+  background-color: #10b981;
+  color: white;
+}
+
+.btn.save-btn:hover {
+  background-color: #059669;
+}
+
+.btn.cancel-btn {
+  background-color: #6b7280;
+  color: white;
+}
+
+.btn.cancel-btn:hover {
+  background-color: #4b5563;
+}
+
+.not-received {
+  background-color: #fef2f2;
+}
+
+.amount-mismatch {
+  background-color: #fff1f2;
 }
 
 .dialog-overlay {
@@ -287,112 +544,154 @@ th:nth-child(11) {
   display: flex;
   justify-content: center;
   align-items: center;
+  backdrop-filter: blur(4px);
 }
 
 .dialog {
   background-color: white;
-  padding: 20px;
-  border-radius: 8px;
-  min-width: 400px;
+  padding: 30px;
+  border-radius: 12px;
+  min-width: 500px;
+  max-width: 90vw;
+  box-shadow:
+    0 20px 25px -5px rgba(0, 0, 0, 0.1),
+    0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.dialog h2 {
+  color: #1f2937;
+  font-size: 1.5em;
+  margin-bottom: 1.5rem;
+  font-weight: 600;
 }
 
 .form-group {
-  margin-bottom: 15px;
+  margin-bottom: 20px;
 }
 
 .form-group label {
   display: block;
-  margin-bottom: 5px;
+  margin-bottom: 8px;
+  color: #4b5563;
+  font-weight: 500;
 }
 
-.form-group input,
-.form-group textarea {
+.input-field {
   width: 100%;
-  padding: 8px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 0.95em;
+  transition: all 0.2s ease;
 }
 
-.dialog-actions {
+.input-field:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+select.input-field {
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 1em;
+  padding-right: 40px;
+}
+
+.bank-details {
+  margin: 20px 0;
+  padding: 20px;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.bank-info p {
+  margin: 0 0 12px 0;
+  line-height: 1.6;
+}
+
+.error-message {
+  background-color: #fef2f2;
+  border: 1px solid #fee2e2;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
   gap: 10px;
-  margin-top: 20px;
+  color: #dc2626;
 }
 
-.btn.save-btn {
-  background-color: #10b981;
-}
-
-/* Add status highlighting */
-.not-received {
-  background-color: #ffebee; /* Light red for unreceived */
-}
-
-.amount-mismatch {
-  background-color: #ffcdd2; /* Darker red for amount mismatch */
-}
-
-/* Keep existing styles */
-.form-group label {
-  display: block;
-  margin-bottom: 5px;
-}
-
-.form-group input,
-.form-group textarea {
-  width: 100%;
-  padding: 8px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-}
-
-.dialog-actions {
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.95);
   display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 20px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 1.1em;
+  color: #4b5563;
+  backdrop-filter: blur(2px);
 }
 
-.btn.save-btn {
-  background-color: #10b981;
+.loading-overlay i {
+  font-size: 2.5em;
+  color: #3b82f6;
+}
+
+/* Money values styling */
+td:nth-child(3), /* Amount DA */
+td:nth-child(5), /* USD Sent */
+td:nth-child(11) /* Received USD */ {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 500;
+}
+
+/* Date styling */
+td:nth-child(2), /* Date Sent */
+td:nth-child(10) /* Date Received */ {
+  white-space: nowrap;
+  color: #64748b;
+}
+
+@media (max-width: 1400px) {
+  .transfers-list-view {
+    width: 98%;
+    padding: 20px;
+  }
+
+  td,
+  th {
+    padding: 12px;
+  }
 }
 
 @media print {
+  .transfers-list-view {
+    width: 100%;
+    padding: 0;
+  }
+
+  .back-btn,
   .action-buttons,
-  th:nth-child(6),
-  td:nth-child(6),
-  th:nth-child(10),
-  td:nth-child(10),
-  th:nth-child(11),
-  td:nth-child(11) {
+  .loading-overlay {
     display: none !important;
   }
 
-  /* Adjusted print column widths */
-  th:nth-child(1) {
-    width: 15% !important;
+  .transfers-table {
+    box-shadow: none;
   }
-  th:nth-child(2) {
-    width: 16% !important;
-  }
-  th:nth-child(3) {
-    width: 10% !important;
-  }
-  th:nth-child(4) {
-    width: 8% !important;
-  }
-  th:nth-child(5) {
-    width: 10% !important;
-  }
-  th:nth-child(7) {
-    width: 12% !important;
-  }
-  th:nth-child(8) {
-    width: 15% !important;
-  }
-  th:nth-child(9) {
-    width: 14% !important;
+
+  table {
+    font-size: 11pt;
   }
 }
 </style>

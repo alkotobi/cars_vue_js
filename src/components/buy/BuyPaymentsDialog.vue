@@ -76,7 +76,7 @@ const handleSwiftFileChange = (event) => {
   if (!file) return
 
   const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp']
-
+  
   if (!allowedTypes.includes(file.type)) {
     alert('Only PDF and image files (JPEG, PNG, GIF, WEBP) are allowed')
     event.target.value = ''
@@ -90,7 +90,7 @@ const handleSwiftFileChange = (event) => {
 const fetchPayments = async () => {
   loading.value = true
   error.value = null
-
+  
   try {
     const result = await callApi({
       query: `
@@ -104,7 +104,7 @@ const fetchPayments = async () => {
       `,
       params: [props.billId],
     })
-
+    
     if (result.success) {
       payments.value = result.data.map((payment) => ({
         ...payment,
@@ -124,7 +124,7 @@ const fetchPayments = async () => {
 const addPayment = async () => {
   if (!validateForm()) return
   if (loading.value) return // Prevent double-click
-
+  
   loading.value = true
   error.value = null
 
@@ -212,11 +212,11 @@ const formatNumber = (value) => {
 watch(
   () => props.show,
   (newVal) => {
-    if (newVal) {
-      fetchPayments()
-    } else {
-      resetForm()
-    }
+  if (newVal) {
+    fetchPayments()
+  } else {
+    resetForm()
+  }
   },
 )
 </script>
@@ -272,8 +272,8 @@ watch(
               <i class="fas fa-money-bill-wave"></i>
               Amount
             </label>
-            <input
-              type="number"
+            <input 
+              type="number" 
               id="amount"
               v-model="paymentForm.amount"
               step="0.01"
@@ -287,8 +287,8 @@ watch(
               <i class="fas fa-calendar-alt"></i>
               Payment Date
             </label>
-            <input
-              type="datetime-local"
+            <input 
+              type="datetime-local" 
               id="date"
               v-model="paymentForm.date_payment"
               required
@@ -301,7 +301,7 @@ watch(
               <i class="fas fa-file-alt"></i>
               Swift Document
             </label>
-            <input
+            <input 
               type="file"
               id="swift"
               @change="handleSwiftFileChange"
@@ -319,7 +319,7 @@ watch(
               <i class="fas fa-sticky-note"></i>
               Notes
             </label>
-            <textarea
+            <textarea 
               id="notes"
               v-model="paymentForm.notes"
               rows="3"
@@ -336,7 +336,7 @@ watch(
             <button type="submit" class="submit-btn" :disabled="loading">
               <i class="fas" :class="loading ? 'fa-spinner fa-spin' : 'fa-save'"></i>
               <span>{{ loading ? 'Processing...' : 'Add Payment' }}</span>
-            </button>
+          </button>
           </div>
         </form>
 
@@ -740,4 +740,4 @@ watch(
   color: #4b5563;
   font-size: 0.875rem;
 }
-</style>
+</style> 
