@@ -20,9 +20,11 @@ const newTransfer = ref({
   amount_sending_da: '',
   rate: '',
   notes: '',
+  id_bank: null,
 })
 
 const formError = ref(null)
+const banks = ref([])
 
 const isAdmin = computed(() => user.value?.role_id === 1)
 
@@ -106,6 +108,20 @@ const deleteTransfer = async (transfer) => {
   }
 }
 
+const fetchBanks = async () => {
+  try {
+    const result = await callApi({
+      query: 'SELECT * FROM banks ORDER BY company_name',
+      params: [],
+    })
+    if (result.success) {
+      banks.value = result.data
+    }
+  } catch (err) {
+    console.error('Error fetching banks:', err)
+  }
+}
+
 const createTransfer = async () => {
   try {
     formError.value = null
@@ -123,21 +139,33 @@ const createTransfer = async () => {
       return
     }
 
+    if (!newTransfer.value.id_bank) {
+      formError.value = 'Please select a bank'
+      return
+    }
+
     const amount_received_usd = (amount / rate).toFixed(2)
 
     const result = await callApi({
       query: `
         INSERT INTO transfers (
           id_user_do_transfer, date_do_transfer, amount_sending_da, 
-          rate, amount_received_usd, notes
-        ) VALUES (?, NOW(), ?, ?, ?, ?)
+          rate, amount_received_usd, notes, id_bank
+        ) VALUES (?, NOW(), ?, ?, ?, ?, ?)
       `,
-      params: [user.value.id, amount, rate, amount_received_usd, newTransfer.value.notes || null],
+      params: [
+        user.value.id,
+        amount,
+        rate,
+        amount_received_usd,
+        newTransfer.value.notes || null,
+        newTransfer.value.id_bank,
+      ],
     })
 
     if (result.success) {
       showAddDialog.value = false
-      newTransfer.value = { amount_sending_da: '', rate: '', notes: '' }
+      newTransfer.value = { amount_sending_da: '', rate: '', notes: '', id_bank: null }
       await fetchTransfers()
     } else {
       formError.value = result.error || 'Failed to create transfer'
@@ -148,11 +176,17 @@ const createTransfer = async () => {
   }
 }
 
+const selectedBank = computed(() => {
+  if (!newTransfer.value.id_bank) return null
+  return banks.value.find((bank) => bank.id === newTransfer.value.id_bank)
+})
+
 onMounted(() => {
   const userStr = localStorage.getItem('user')
   if (userStr) {
     user.value = JSON.parse(userStr)
     fetchTransfers()
+    fetchBanks()
   }
 })
 </script>
@@ -267,6 +301,29 @@ onMounted(() => {
               required
             />
           </div>
+          <div class="form-group">
+            <label>Bank Account:</label>
+            <select v-model="newTransfer.id_bank" class="input-field" required>
+              <option value="">Select a bank account</option>
+              <option v-for="bank in banks" :key="bank.id" :value="bank.id">
+                {{ bank.company_name }} - {{ bank.bank_name }} ({{ bank.bank_account }})
+              </option>
+            </select>
+          </div>
+
+          <div v-if="newTransfer.id_bank" class="bank-details">
+            <div class="bank-info">
+              <p><strong>Selected Bank Details:</strong></p>
+              <p v-if="selectedBank">
+                Company: {{ selectedBank.company_name }}<br />
+                Bank: {{ selectedBank.bank_name }}<br />
+                Account: {{ selectedBank.bank_account }}<br />
+                Swift: {{ selectedBank.swift_code }}<br />
+                Address: {{ selectedBank.bank_address }}
+              </p>
+            </div>
+          </div>
+
           <div class="form-group">
             <label>Notes:</label>
             <textarea
@@ -476,5 +533,35 @@ textarea.input-field {
   border: 1px solid #ef4444;
   border-radius: 4px;
   color: #b91c1c;
+}
+
+.bank-details {
+  margin: 15px 0;
+  padding: 15px;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+}
+
+.bank-info {
+  font-size: 0.9em;
+  line-height: 1.5;
+}
+
+.bank-info p {
+  margin: 0 0 10px 0;
+}
+
+.bank-info strong {
+  color: #4b5563;
+}
+
+select.input-field {
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 1em;
+  padding-right: 40px;
 }
 </style>
