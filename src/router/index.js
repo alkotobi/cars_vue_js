@@ -79,7 +79,7 @@ const router = createRouter({
       path: '/transfers-list',
       name: 'transfers-list',
       component: () => import('../views/TransfersListView.vue'),
-      meta: { requiresAdmin: true },
+      meta: { requiresTransferAccess: true },
     },
     {
       path: '/cars',
@@ -173,6 +173,21 @@ router.beforeEach((to, from, next) => {
   // Check for admin-only routes
   if (to.meta.requiresAdmin && (!userData || userData.role_id !== 1)) {
     return next('/dashboard')
+  }
+
+  // Check for transfer access routes
+  if (to.meta.requiresTransferAccess && userData) {
+    const hasAccess =
+      userData.role_id === 1 || // Admin
+      userData.permissions?.some(
+        (p) =>
+          p.permission_name === 'is_exchange_sender' ||
+          p.permission_name === 'is_exchange_receiver',
+      )
+
+    if (!hasAccess) {
+      return next('/dashboard')
+    }
   }
 
   next()

@@ -143,7 +143,7 @@ const fetchClients = async () => {
         WHERE c.is_client = 1
         GROUP BY c.id
         ORDER BY c.name ASC
-      `,
+    `,
       params: [],
     })
     if (result.success) {
@@ -201,7 +201,7 @@ const addClient = async () => {
       query: `
         INSERT INTO clients (name, address, email, mobiles, id_no, is_broker, is_client, notes)
         VALUES (?, ?, ?, ?, ?, ?, 1, ?)
-      `,
+    `,
       params: [
         newClient.value.name,
         newClient.value.address,

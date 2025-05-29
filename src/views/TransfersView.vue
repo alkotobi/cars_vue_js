@@ -11,52 +11,61 @@ const transfers = ref([])
 const canSendTransfer = computed(() => {
   if (!user.value) return false
   if (user.value.role_id === 1) return true
-  return user.value.permissions?.some(p => p.permission_name === 'is_exchange_sender')
+  return user.value.permissions?.some((p) => p.permission_name === 'is_exchange_sender')
 })
 
 const canReceiveTransfer = computed(() => {
   if (!user.value) return false
   if (user.value.role_id === 1) return true
-  return user.value.permissions?.some(p => p.permission_name === 'is_exchange_receiver')
+  return user.value.permissions?.some((p) => p.permission_name === 'is_exchange_receiver')
 })
 
 const canViewTransfersList = computed(() => {
-  return user.value?.role_id === 1
+  if (!user.value) return false
+  if (user.value.role_id === 1) return true // Admin
+  return user.value.permissions?.some(
+    (p) =>
+      p.permission_name === 'is_exchange_sender' || p.permission_name === 'is_exchange_receiver',
+  )
 })
 
 // Statistics computations
 const statistics = computed(() => {
-  if (!transfers.value.length) return {
-    totalSent: 0,
-    totalReceived: 0,
-    totalPending: 0,
-    totalPendingDA: 0,
-    totalPendingUSD: 0
-  }
-
-  const stats = transfers.value.reduce((acc, transfer) => {
-    // Count total sent
-    acc.totalSent++
-
-    if (transfer.date_receive) {
-      // Count received transfers
-      acc.totalReceived++
-    } else {
-      // Count pending transfers
-      acc.totalPending++
-      // Sum pending amounts
-      acc.totalPendingDA += parseFloat(transfer.amount_sending_da)
-      acc.totalPendingUSD += parseFloat(transfer.amount_sending_da) / parseFloat(transfer.rate)
+  if (!transfers.value.length)
+    return {
+      totalSent: 0,
+      totalReceived: 0,
+      totalPending: 0,
+      totalPendingDA: 0,
+      totalPendingUSD: 0,
     }
 
-    return acc
-  }, {
-    totalSent: 0,
-    totalReceived: 0,
-    totalPending: 0,
-    totalPendingDA: 0,
-    totalPendingUSD: 0
-  })
+  const stats = transfers.value.reduce(
+    (acc, transfer) => {
+      // Count total sent
+      acc.totalSent++
+
+      if (transfer.date_receive) {
+        // Count received transfers
+        acc.totalReceived++
+      } else {
+        // Count pending transfers
+        acc.totalPending++
+        // Sum pending amounts
+        acc.totalPendingDA += parseFloat(transfer.amount_sending_da)
+        acc.totalPendingUSD += parseFloat(transfer.amount_sending_da) / parseFloat(transfer.rate)
+      }
+
+      return acc
+    },
+    {
+      totalSent: 0,
+      totalReceived: 0,
+      totalPending: 0,
+      totalPendingDA: 0,
+      totalPendingUSD: 0,
+    },
+  )
 
   // Round USD to 2 decimal places
   stats.totalPendingUSD = Math.round(stats.totalPendingUSD * 100) / 100
@@ -72,7 +81,7 @@ const fetchTransfers = async () => {
       WHERE t.id_user_do_transfer = ?
       ORDER BY t.date_do_transfer DESC
     `,
-    params: [user.value.id]
+    params: [user.value.id],
   })
   if (result.success) {
     transfers.value = result.data
@@ -93,25 +102,11 @@ onMounted(() => {
     <div class="sidebar">
       <router-link to="/dashboard" class="dashboard-btn">← Return to Dashboard</router-link>
       <div class="nav-buttons">
-        <router-link 
-          v-if="canViewTransfersList" 
-          to="/transfers-list" 
-          class="nav-btn"
-        >
+        <router-link v-if="canViewTransfersList" to="/transfers-list" class="nav-btn">
           Transfers List
         </router-link>
-        <router-link 
-          v-if="canSendTransfer" 
-          to="/send" 
-          class="nav-btn"
-        >
-          Send Transfer
-        </router-link>
-        <router-link 
-          v-if="canReceiveTransfer" 
-          to="/receive" 
-          class="nav-btn"
-        >
+        <router-link v-if="canSendTransfer" to="/send" class="nav-btn"> Send Transfer </router-link>
+        <router-link v-if="canReceiveTransfer" to="/receive" class="nav-btn">
           Receive Transfer
         </router-link>
       </div>
