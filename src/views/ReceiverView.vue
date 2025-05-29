@@ -13,6 +13,7 @@ const selectedTransfer = ref(null)
 const receiveForm = ref({
   amount_received_usd: '',
   receiver_notes: '',
+  date_receive: new Date().toISOString().split('T')[0],
 })
 
 const isLoading = ref(false)
@@ -55,13 +56,14 @@ const openReceiveDialog = (transfer) => {
   receiveForm.value = {
     amount_received_usd: calculateUSD(transfer.amount_sending_da, transfer.rate),
     receiver_notes: '',
+    date_receive: new Date().toISOString().split('T')[0],
   }
   showReceiveDialog.value = true
 }
 
 const receiveTransfer = async () => {
   if (processingTransferId.value) return
-  if (!receiveForm.value.amount_received_usd) {
+  if (!receiveForm.value.amount_received_usd || !receiveForm.value.date_receive) {
     error.value = 'Please fill all required fields'
     return
   }
@@ -73,13 +75,14 @@ const receiveTransfer = async () => {
         UPDATE transfers 
         SET amount_received_usd = ?,
             receiver_notes = ?,
-            date_receive = NOW(),
+            date_receive = ?,
             id_user_receive_transfer = ?
         WHERE id = ? AND date_receive IS NULL
       `,
       params: [
         receiveForm.value.amount_received_usd,
         receiveForm.value.receiver_notes || null,
+        receiveForm.value.date_receive,
         user.value.id,
         selectedTransfer.value.id,
       ],
@@ -327,12 +330,17 @@ const openDetailsDialog = (transfer) => {
           {{ error }}
         </div>
         <div class="form-group">
+          <label><i class="fas fa-calendar"></i> Date Received:</label>
+          <input type="date" v-model="receiveForm.date_receive" class="input-field" required />
+        </div>
+        <div class="form-group">
           <label><i class="fas fa-dollar-sign"></i> Amount Received (USD):</label>
           <input
             type="number"
             v-model="receiveForm.amount_received_usd"
             class="input-field"
             step="0.01"
+            required
           />
         </div>
         <div class="form-group">
