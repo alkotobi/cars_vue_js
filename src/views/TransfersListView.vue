@@ -199,6 +199,9 @@ const deleteTransfer = async (transfer) => {
     processingTransferId.value = null
   }
 }
+
+// Add isAdmin computed property after other computed properties
+const isAdmin = computed(() => user.value?.role_id === 1)
 </script>
 
 <template>
@@ -271,9 +274,10 @@ const deleteTransfer = async (transfer) => {
             <td>
               <div class="action-buttons">
                 <button
+                  :disabled="!isAdmin"
                   @click="openEditDialog(transfer)"
                   class="btn edit-btn"
-                  :disabled="processingTransferId === transfer.id"
+                  :class="{ disabled: !isAdmin }"
                 >
                   <i class="fas fa-edit"></i>
                   <span v-if="processingTransferId === transfer.id">
@@ -282,9 +286,10 @@ const deleteTransfer = async (transfer) => {
                   <span v-else>Edit</span>
                 </button>
                 <button
+                  :disabled="!isAdmin"
                   @click="deleteTransfer(transfer)"
                   class="btn delete-btn"
-                  :disabled="processingTransferId === transfer.id"
+                  :class="{ disabled: !isAdmin }"
                 >
                   <i class="fas fa-trash"></i>
                   <span v-if="processingTransferId === transfer.id">
@@ -746,5 +751,23 @@ td:nth-child(10) /* Date Received */ {
 
 .btn i {
   font-size: 0.9em;
+}
+
+.btn.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.btn.edit-btn.disabled {
+  background-color: #3b82f6;
+}
+
+.btn.delete-btn.disabled {
+  background-color: #ef4444;
+}
+
+.btn.disabled:hover {
+  transform: none;
 }
 </style>

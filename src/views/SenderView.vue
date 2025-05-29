@@ -16,6 +16,7 @@ const editForm = ref({
   rate: '',
   notes: '',
   id_bank: null,
+  date_do_transfer: '',
 })
 
 const newTransfer = ref({
@@ -23,6 +24,7 @@ const newTransfer = ref({
   rate: '',
   notes: '',
   id_bank: null,
+  date_do_transfer: new Date().toISOString().split('T')[0],
 })
 
 const formError = ref(null)
@@ -60,12 +62,17 @@ const openEditDialog = (transfer) => {
     rate: transfer.rate,
     notes: transfer.notes || '',
     id_bank: transfer.id_bank || null,
+    date_do_transfer: new Date(transfer.date_do_transfer).toISOString().split('T')[0],
   }
   showEditDialog.value = true
 }
 
 const updateTransfer = async () => {
-  if (!editForm.value.amount_sending_da || !editForm.value.rate) {
+  if (
+    !editForm.value.amount_sending_da ||
+    !editForm.value.rate ||
+    !editForm.value.date_do_transfer
+  ) {
     error.value = 'Please fill all required fields'
     return
   }
@@ -84,7 +91,8 @@ const updateTransfer = async () => {
           rate = ?,
           amount_received_usd = ?,
           notes = ?,
-          id_bank = ?
+          id_bank = ?,
+          date_do_transfer = ?
       WHERE id = ? ${!isAdmin.value ? 'AND date_receive IS NULL' : ''}
     `,
     params: [
@@ -93,6 +101,7 @@ const updateTransfer = async () => {
       amount_received_usd,
       editForm.value.notes || null,
       editForm.value.id_bank,
+      editForm.value.date_do_transfer,
       selectedTransfer.value.id,
     ],
   })
@@ -158,6 +167,11 @@ const createTransfer = async () => {
       return
     }
 
+    if (!newTransfer.value.date_do_transfer) {
+      formError.value = 'Please select a date'
+      return
+    }
+
     const amount_received_usd = (amount / rate).toFixed(2)
 
     const result = await callApi({
@@ -165,10 +179,11 @@ const createTransfer = async () => {
         INSERT INTO transfers (
           id_user_do_transfer, date_do_transfer, amount_sending_da, 
           rate, amount_received_usd, notes, id_bank
-        ) VALUES (?, NOW(), ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
       `,
       params: [
         user.value.id,
+        newTransfer.value.date_do_transfer,
         amount,
         rate,
         amount_received_usd,
@@ -179,7 +194,13 @@ const createTransfer = async () => {
 
     if (result.success) {
       showAddDialog.value = false
-      newTransfer.value = { amount_sending_da: '', rate: '', notes: '', id_bank: null }
+      newTransfer.value = {
+        amount_sending_da: '',
+        rate: '',
+        notes: '',
+        id_bank: null,
+        date_do_transfer: new Date().toISOString().split('T')[0],
+      }
       await fetchTransfers()
     } else {
       formError.value = result.error || 'Failed to create transfer'
@@ -310,6 +331,10 @@ onMounted(() => {
         </div>
         <form @submit.prevent="updateTransfer">
           <div class="form-group">
+            <label>Date:</label>
+            <input type="date" v-model="editForm.date_do_transfer" class="input-field" required />
+          </div>
+          <div class="form-group">
             <label>Amount (DA):</label>
             <input
               type="number"
@@ -379,6 +404,15 @@ onMounted(() => {
           {{ formError }}
         </div>
         <form @submit.prevent="createTransfer">
+          <div class="form-group">
+            <label>Date:</label>
+            <input
+              type="date"
+              v-model="newTransfer.date_do_transfer"
+              class="input-field"
+              required
+            />
+          </div>
           <div class="form-group">
             <label>Amount (DA):</label>
             <input
