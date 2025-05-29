@@ -34,6 +34,109 @@ const selectedTransferForDetails = ref(null)
 
 const isAdmin = computed(() => user.value?.role_id === 1)
 
+const filters = ref({
+  bank: '',
+  dateFrom: '',
+  dateTo: '',
+  status: '', // 'received', 'pending', or ''
+  amountMin: '',
+  amountMax: '',
+})
+
+const sortConfig = ref({
+  field: 'date_do_transfer',
+  direction: 'desc',
+})
+
+const filteredTransfers = computed(() => {
+  let result = [...transfers.value]
+
+  // Apply filters
+  if (filters.value.bank) {
+    result = result.filter(
+      (t) =>
+        (t.company_name || '').toLowerCase().includes(filters.value.bank.toLowerCase()) ||
+        (t.bank_name || '').toLowerCase().includes(filters.value.bank.toLowerCase()),
+    )
+  }
+
+  if (filters.value.dateFrom) {
+    result = result.filter((t) => new Date(t.date_do_transfer) >= new Date(filters.value.dateFrom))
+  }
+
+  if (filters.value.dateTo) {
+    result = result.filter((t) => new Date(t.date_do_transfer) <= new Date(filters.value.dateTo))
+  }
+
+  if (filters.value.status) {
+    if (filters.value.status === 'received') {
+      result = result.filter((t) => t.date_receive)
+    } else if (filters.value.status === 'pending') {
+      result = result.filter((t) => !t.date_receive)
+    }
+  }
+
+  if (filters.value.amountMin) {
+    const min = parseFloat(filters.value.amountMin)
+    if (!isNaN(min)) {
+      result = result.filter((t) => parseFloat(t.amount_sending_da) >= min)
+    }
+  }
+
+  if (filters.value.amountMax) {
+    const max = parseFloat(filters.value.amountMax)
+    if (!isNaN(max)) {
+      result = result.filter((t) => parseFloat(t.amount_sending_da) <= max)
+    }
+  }
+
+  // Apply sorting
+  result.sort((a, b) => {
+    let aValue = a[sortConfig.value.field]
+    let bValue = b[sortConfig.value.field]
+
+    // Handle numeric fields
+    if (['amount_sending_da', 'rate', 'amount_received_usd'].includes(sortConfig.value.field)) {
+      aValue = parseFloat(aValue) || 0
+      bValue = parseFloat(bValue) || 0
+    }
+
+    // Handle date fields
+    if (['date_do_transfer', 'date_receive'].includes(sortConfig.value.field)) {
+      aValue = new Date(aValue || null).getTime()
+      bValue = new Date(bValue || null).getTime()
+    }
+
+    if (sortConfig.value.direction === 'asc') {
+      return aValue > bValue ? 1 : -1
+    } else {
+      return aValue < bValue ? 1 : -1
+    }
+  })
+
+  return result
+})
+
+const toggleSort = (field) => {
+  if (sortConfig.value.field === field) {
+    sortConfig.value.direction = sortConfig.value.direction === 'asc' ? 'desc' : 'asc'
+  } else {
+    sortConfig.value.field = field
+    sortConfig.value.direction = 'asc'
+  }
+}
+
+const clearFilters = () => {
+  filters.value = {
+    bank: '',
+    dateFrom: '',
+    dateTo: '',
+    status: '',
+    amountMin: '',
+    amountMax: '',
+  }
+}
+
 const fetchTransfers = async () => {
   const result = await callApi({
     query: `
@@ -248,15 +351,106 @@ onMounted(() => {
       </div>
     </div>
 
+    <!-- Add filters section before table -->
+    <div class="filters-section">
+      <div class="filters-grid">
+        <div class="filter-group">
+          <label><i class="fas fa-university"></i> Bank</label>
+          <input
+            type="text"
+            v-model="filters.bank"
+            class="filter-input"
+            placeholder="Filter by bank..."
+          />
+        </div>
+        <div class="filter-group">
+          <label><i class="fas fa-calendar"></i> From Date</label>
+          <input type="date" v-model="filters.dateFrom" class="filter-input" />
+        </div>
+        <div class="filter-group">
+          <label><i class="fas fa-calendar"></i> To Date</label>
+          <input type="date" v-model="filters.dateTo" class="filter-input" />
+        </div>
+        <div class="filter-group">
+          <label><i class="fas fa-tasks"></i> Status</label>
+          <select v-model="filters.status" class="filter-input">
+            <option value="">All</option>
+            <option value="received">Received</option>
+            <option value="pending">Pending</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label><i class="fas fa-money-bill"></i> Min Amount (DA)</label>
+          <input
+            type="number"
+            v-model="filters.amountMin"
+            class="filter-input"
+            placeholder="Minimum amount..."
+            min="0"
+            step="0.01"
+          />
+        </div>
+        <div class="filter-group">
+          <label><i class="fas fa-money-bill"></i> Max Amount (DA)</label>
+          <input
+            type="number"
+            v-model="filters.amountMax"
+            class="filter-input"
+            placeholder="Maximum amount..."
+            min="0"
+            step="0.01"
+          />
+        </div>
+        <button @click="clearFilters" class="btn clear-btn">
+          <i class="fas fa-times"></i> Clear Filters
+        </button>
+      </div>
+    </div>
+
     <!-- Transfers Table -->
     <div class="transfers-table">
       <table>
         <thead>
           <tr>
-            <th>Date Sent</th>
-            <th>Amount (DA)</th>
-            <th>Rate</th>
-            <th>USD Value</th>
+            <th @click="toggleSort('date_do_transfer')" class="sortable">
+              Date Sent
+              <i
+                :class="[
+                  'fas',
+                  sortConfig.field === 'date_do_transfer'
+                    ? sortConfig.direction === 'asc'
+                      ? 'fa-sort-up'
+                      : 'fa-sort-down'
+                    : 'fa-sort',
+                ]"
+              ></i>
+            </th>
+            <th @click="toggleSort('amount_sending_da')" class="sortable">
+              Amount (DA)
+              <i
+                :class="[
+                  'fas',
+                  sortConfig.field === 'amount_sending_da'
+                    ? sortConfig.direction === 'asc'
+                      ? 'fa-sort-up'
+                      : 'fa-sort-down'
+                    : 'fa-sort',
+                ]"
+              ></i>
+            </th>
+            <th @click="toggleSort('rate')" class="sortable">
+              Rate
+              <i
+                :class="[
+                  'fas',
+                  sortConfig.field === 'rate'
+                    ? sortConfig.direction === 'asc'
+                      ? 'fa-sort-up'
+                      : 'fa-sort-down'
+                    : 'fa-sort',
+                ]"
+              ></i>
+            </th>
             <th>Bank</th>
             <th>Account</th>
             <th>Notes</th>
@@ -265,11 +459,10 @@ onMounted(() => {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="transfer in transfers" :key="transfer.id">
+          <tr v-for="transfer in filteredTransfers" :key="transfer.id">
             <td>{{ new Date(transfer.date_do_transfer).toLocaleString() }}</td>
             <td>{{ transfer.amount_sending_da }}</td>
             <td>{{ transfer.rate }}</td>
-            <td>${{ calculateUSD(transfer.amount_sending_da, transfer.rate) }}</td>
             <td>
               <div v-if="transfer.company_name" class="bank-cell">
                 <strong>{{ transfer.company_name }}</strong
@@ -750,5 +943,83 @@ select.input-field {
 
 .btn i {
   font-size: 0.9em;
+}
+
+.filters-section {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+}
+
+.filters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  align-items: end;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filter-group label {
+  color: #4b5563;
+  font-size: 0.9em;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.filter-input {
+  padding: 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+.clear-btn {
+  background-color: #6b7280;
+  color: white;
+  height: 38px;
+  align-self: flex-end;
+}
+
+.clear-btn:hover {
+  background-color: #4b5563;
+}
+
+.sortable {
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  padding-right: 24px !important;
+}
+
+.sortable i {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0.5;
+}
+
+.sortable:hover i {
+  opacity: 1;
+}
+
+.fa-sort-up,
+.fa-sort-down {
+  opacity: 1;
+  color: #2563eb;
+}
+
+@media (max-width: 768px) {
+  .filters-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

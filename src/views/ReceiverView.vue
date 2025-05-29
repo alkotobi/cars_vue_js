@@ -22,6 +22,142 @@ const processingTransferId = ref(null)
 const showDetailsDialog = ref(false)
 const selectedTransferForDetails = ref(null)
 
+const filters = ref({
+  sender: '',
+  bank: '',
+  dateFrom: '',
+  dateTo: '',
+})
+
+const sortConfig = ref({
+  field: 'date_do_transfer',
+  direction: 'desc',
+})
+
+const filteredTransfers = computed(() => {
+  let result = [...transfers.value]
+
+  // Apply filters
+  if (filters.value.sender) {
+    result = result.filter((t) =>
+      t.sender_name.toLowerCase().includes(filters.value.sender.toLowerCase()),
+    )
+  }
+
+  if (filters.value.bank) {
+    result = result.filter(
+      (t) =>
+        (t.company_name || '').toLowerCase().includes(filters.value.bank.toLowerCase()) ||
+        (t.bank_name || '').toLowerCase().includes(filters.value.bank.toLowerCase()),
+    )
+  }
+
+  if (filters.value.dateFrom) {
+    result = result.filter((t) => new Date(t.date_do_transfer) >= new Date(filters.value.dateFrom))
+  }
+
+  if (filters.value.dateTo) {
+    result = result.filter((t) => new Date(t.date_do_transfer) <= new Date(filters.value.dateTo))
+  }
+
+  // Apply sorting
+  result.sort((a, b) => {
+    let aValue = a[sortConfig.value.field]
+    let bValue = b[sortConfig.value.field]
+
+    // Handle numeric fields
+    if (['amount_sending_da', 'rate', 'amount_received_usd'].includes(sortConfig.value.field)) {
+      aValue = parseFloat(aValue) || 0
+      bValue = parseFloat(bValue) || 0
+    }
+
+    // Handle date fields
+    if (['date_do_transfer', 'date_receive'].includes(sortConfig.value.field)) {
+      aValue = new Date(aValue).getTime()
+      bValue = new Date(bValue).getTime()
+    }
+
+    if (sortConfig.value.direction === 'asc') {
+      return aValue > bValue ? 1 : -1
+    } else {
+      return aValue < bValue ? 1 : -1
+    }
+  })
+
+  return result
+})
+
+const filteredRecentTransfers = computed(() => {
+  let result = [...recentTransfers.value]
+
+  // Apply filters
+  if (filters.value.sender) {
+    result = result.filter((t) =>
+      t.sender_name.toLowerCase().includes(filters.value.sender.toLowerCase()),
+    )
+  }
+
+  if (filters.value.bank) {
+    result = result.filter(
+      (t) =>
+        (t.company_name || '').toLowerCase().includes(filters.value.bank.toLowerCase()) ||
+        (t.bank_name || '').toLowerCase().includes(filters.value.bank.toLowerCase()),
+    )
+  }
+
+  if (filters.value.dateFrom) {
+    result = result.filter((t) => new Date(t.date_receive) >= new Date(filters.value.dateFrom))
+  }
+
+  if (filters.value.dateTo) {
+    result = result.filter((t) => new Date(t.date_receive) <= new Date(filters.value.dateTo))
+  }
+
+  // Apply sorting
+  result.sort((a, b) => {
+    let aValue = a[sortConfig.value.field]
+    let bValue = b[sortConfig.value.field]
+
+    // Handle numeric fields
+    if (['amount_sending_da', 'rate', 'amount_received_usd'].includes(sortConfig.value.field)) {
+      aValue = parseFloat(aValue) || 0
+      bValue = parseFloat(bValue) || 0
+    }
+
+    // Handle date fields
+    if (['date_do_transfer', 'date_receive'].includes(sortConfig.value.field)) {
+      aValue = new Date(aValue).getTime()
+      bValue = new Date(bValue).getTime()
+    }
+
+    if (sortConfig.value.direction === 'asc') {
+      return aValue > bValue ? 1 : -1
+    } else {
+      return aValue < bValue ? 1 : -1
+    }
+  })
+
+  return result
+})
+
+const toggleSort = (field) => {
+  if (sortConfig.value.field === field) {
+    sortConfig.value.direction = sortConfig.value.direction === 'asc' ? 'desc' : 'asc'
+  } else {
+    sortConfig.value.field = field
+    sortConfig.value.direction = 'asc'
+  }
+}
+
+const clearFilters = () => {
+  filters.value = {
+    sender: '',
+    bank: '',
+    dateFrom: '',
+    dateTo: '',
+  }
+}
+
 const fetchTransfers = async () => {
   isLoading.value = true
   try {
@@ -182,24 +318,107 @@ const openDetailsDialog = (transfer) => {
       <span>Loading transfers...</span>
     </div>
 
+    <!-- Add filters section before tables -->
+    <div class="filters-section">
+      <div class="filters-grid">
+        <div class="filter-group">
+          <label><i class="fas fa-user"></i> Sender</label>
+          <input
+            type="text"
+            v-model="filters.sender"
+            class="filter-input"
+            placeholder="Filter by sender..."
+          />
+        </div>
+        <div class="filter-group">
+          <label><i class="fas fa-university"></i> Bank</label>
+          <input
+            type="text"
+            v-model="filters.bank"
+            class="filter-input"
+            placeholder="Filter by bank..."
+          />
+        </div>
+        <div class="filter-group">
+          <label><i class="fas fa-calendar"></i> From Date</label>
+          <input type="date" v-model="filters.dateFrom" class="filter-input" />
+        </div>
+        <div class="filter-group">
+          <label><i class="fas fa-calendar"></i> To Date</label>
+          <input type="date" v-model="filters.dateTo" class="filter-input" />
+        </div>
+        <button @click="clearFilters" class="btn clear-btn">
+          <i class="fas fa-times"></i> Clear Filters
+        </button>
+      </div>
+    </div>
+
     <!-- Transfers Table -->
     <div class="transfers-table">
       <table>
         <thead>
           <tr>
-            <th>Sender</th>
-            <th>Date Sent</th>
-            <th>Sent USD</th>
+            <th @click="toggleSort('sender_name')" class="sortable">
+              Sender
+              <i
+                :class="[
+                  'fas',
+                  sortConfig.field === 'sender_name'
+                    ? sortConfig.direction === 'asc'
+                      ? 'fa-sort-up'
+                      : 'fa-sort-down'
+                    : 'fa-sort',
+                ]"
+              ></i>
+            </th>
+            <th @click="toggleSort('date_do_transfer')" class="sortable">
+              Date Sent
+              <i
+                :class="[
+                  'fas',
+                  sortConfig.field === 'date_do_transfer'
+                    ? sortConfig.direction === 'asc'
+                      ? 'fa-sort-up'
+                      : 'fa-sort-down'
+                    : 'fa-sort',
+                ]"
+              ></i>
+            </th>
+            <th @click="toggleSort('amount_sending_da')" class="sortable">
+              Sent USD
+              <i
+                :class="[
+                  'fas',
+                  sortConfig.field === 'amount_sending_da'
+                    ? sortConfig.direction === 'asc'
+                      ? 'fa-sort-up'
+                      : 'fa-sort-down'
+                    : 'fa-sort',
+                ]"
+              ></i>
+            </th>
             <th>Bank</th>
             <th>Account</th>
-            <th>Received USD</th>
+            <th @click="toggleSort('amount_received_usd')" class="sortable">
+              Received USD
+              <i
+                :class="[
+                  'fas',
+                  sortConfig.field === 'amount_received_usd'
+                    ? sortConfig.direction === 'asc'
+                      ? 'fa-sort-up'
+                      : 'fa-sort-down'
+                    : 'fa-sort',
+                ]"
+              ></i>
+            </th>
             <th>Notes</th>
             <th>Receiver Notes</th>
             <th>Actions</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="transfer in transfers" :key="transfer.id">
+          <tr v-for="transfer in filteredTransfers" :key="transfer.id">
             <td>{{ transfer.sender_name }}</td>
             <td>{{ new Date(transfer.date_do_transfer).toLocaleString() }}</td>
             <td>${{ calculateUSD(transfer.amount_sending_da, transfer.rate) }}</td>
@@ -254,12 +473,60 @@ const openDetailsDialog = (transfer) => {
       <table>
         <thead>
           <tr>
-            <th>Sender</th>
-            <th>Date Received</th>
-            <th>Sent USD</th>
+            <th @click="toggleSort('sender_name')" class="sortable">
+              Sender
+              <i
+                :class="[
+                  'fas',
+                  sortConfig.field === 'sender_name'
+                    ? sortConfig.direction === 'asc'
+                      ? 'fa-sort-up'
+                      : 'fa-sort-down'
+                    : 'fa-sort',
+                ]"
+              ></i>
+            </th>
+            <th @click="toggleSort('date_receive')" class="sortable">
+              Date Received
+              <i
+                :class="[
+                  'fas',
+                  sortConfig.field === 'date_receive'
+                    ? sortConfig.direction === 'asc'
+                      ? 'fa-sort-up'
+                      : 'fa-sort-down'
+                    : 'fa-sort',
+                ]"
+              ></i>
+            </th>
+            <th @click="toggleSort('amount_sending_da')" class="sortable">
+              Sent USD
+              <i
+                :class="[
+                  'fas',
+                  sortConfig.field === 'amount_sending_da'
+                    ? sortConfig.direction === 'asc'
+                      ? 'fa-sort-up'
+                      : 'fa-sort-down'
+                    : 'fa-sort',
+                ]"
+              ></i>
+            </th>
             <th>Bank</th>
             <th>Account</th>
-            <th>Received USD</th>
+            <th @click="toggleSort('amount_received_usd')" class="sortable">
+              Received USD
+              <i
+                :class="[
+                  'fas',
+                  sortConfig.field === 'amount_received_usd'
+                    ? sortConfig.direction === 'asc'
+                      ? 'fa-sort-up'
+                      : 'fa-sort-down'
+                    : 'fa-sort',
+                ]"
+              ></i>
+            </th>
             <th>Notes</th>
             <th>Receiver Notes</th>
             <th>Actions</th>
@@ -267,7 +534,7 @@ const openDetailsDialog = (transfer) => {
         </thead>
         <tbody>
           <tr
-            v-for="transfer in recentTransfers"
+            v-for="transfer in filteredRecentTransfers"
             :key="transfer.id"
             :class="{
               'amount-mismatch':
@@ -719,6 +986,84 @@ h2 i {
   .transfers-table {
     overflow: visible !important;
     page-break-inside: avoid;
+  }
+}
+
+.filters-section {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+}
+
+.filters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  align-items: end;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filter-group label {
+  color: #4b5563;
+  font-size: 0.9em;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.filter-input {
+  padding: 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+.clear-btn {
+  background-color: #6b7280;
+  color: white;
+  height: 38px;
+  align-self: flex-end;
+}
+
+.clear-btn:hover {
+  background-color: #4b5563;
+}
+
+.sortable {
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  padding-right: 24px !important;
+}
+
+.sortable i {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0.5;
+}
+
+.sortable:hover i {
+  opacity: 1;
+}
+
+.fa-sort-up,
+.fa-sort-down {
+  opacity: 1;
+  color: #2563eb;
+}
+
+@media (max-width: 768px) {
+  .filters-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>
