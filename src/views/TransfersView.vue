@@ -109,6 +109,9 @@ onMounted(() => {
         <router-link v-if="canReceiveTransfer" to="/receive" class="nav-btn">
           Receive Transfer
         </router-link>
+        <router-link to="/transfers/client-details" class="nav-btn">
+          <i class="fas fa-users"></i> Client Details
+        </router-link>
       </div>
     </div>
     <div class="main-content">

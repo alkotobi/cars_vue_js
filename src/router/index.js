@@ -41,6 +41,14 @@ const router = createRouter({
       path: '/transfers',
       name: 'transfers',
       component: () => import('../views/TransfersView.vue'),
+      children: [
+        {
+          path: 'client-details',
+          name: 'client-transfers-detail',
+          component: () => import('../views/ClientTransfersDetail.vue'),
+          meta: { requiresTransferAccess: true },
+        },
+      ],
     },
     {
       path: '/send',
