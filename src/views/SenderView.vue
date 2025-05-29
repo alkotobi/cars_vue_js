@@ -142,7 +142,33 @@ const clearFilters = () => {
 const fetchTransfers = async () => {
   const result = await callApi({
     query: `
-      SELECT t.*, b.company_name, b.bank_name, b.bank_account, b.swift_code
+      SELECT 
+        t.*,
+        b.company_name,
+        b.bank_name,
+        b.bank_account,
+        b.swift_code,
+        (
+          SELECT GROUP_CONCAT(
+            CONCAT(
+              client_name,
+              ': $',
+              FORMAT(amount, 2),
+              ' (Rate: ',
+              FORMAT(rate, 2),
+              ')'
+            ) SEPARATOR '\n'
+          )
+          FROM transfer_details
+          WHERE id_transfer = t.id
+        ) as client_details,
+        COALESCE(
+          (
+            SELECT SUM(amount)
+            FROM transfer_details
+            WHERE id_transfer = t.id
+          ), 0
+        ) as total_client_amounts
       FROM transfers t
       LEFT JOIN banks b ON t.id_bank = b.id
       WHERE t.id_user_do_transfer = ? OR t.id_user_receive_transfer = ?
@@ -152,7 +178,10 @@ const fetchTransfers = async () => {
   })
   if (result.success) {
     console.log('Fetched transfers:', result.data)
-    transfers.value = result.data
+    transfers.value = result.data.map((transfer) => ({
+      ...transfer,
+      total_client_amounts: Number(transfer.total_client_amounts) || 0,
+    }))
   }
 }
 
@@ -474,13 +503,27 @@ onMounted(() => {
             <th>Bank</th>
             <th>Account</th>
             <th>Notes</th>
+            <th>Client Details</th>
+            <th @click="toggleSort('total_client_amounts')" class="sortable">
+              Total Client Amount
+              <i
+                :class="[
+                  'fas',
+                  sortConfig.field === 'total_client_amounts'
+                    ? sortConfig.direction === 'asc'
+                      ? 'fa-sort-up'
+                      : 'fa-sort-down'
+                    : 'fa-sort',
+                ]"
+              ></i>
+            </th>
             <th>Status</th>
             <th>Actions</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="transfer in filteredTransfers" :key="transfer.id">
-            <td>{{ new Date(transfer.date_do_transfer).toLocaleString() }}</td>
+            <td>{{ new Date(transfer.date_do_transfer).toLocaleDateString() }}</td>
             <td>{{ transfer.ref_pi_transfer || '-' }}</td>
             <td>{{ transfer.amount_sending_da }}</td>
             <td>{{ transfer.rate }}</td>
@@ -500,6 +543,14 @@ onMounted(() => {
               <span v-else>-</span>
             </td>
             <td>{{ transfer.notes || '-' }}</td>
+            <td class="client-details">{{ transfer.client_details || '-' }}</td>
+            <td class="amount-cell">
+              {{
+                transfer.total_client_amounts
+                  ? '$' + Number(transfer.total_client_amounts).toFixed(2)
+                  : '$0.00'
+              }}
+            </td>
             <td class="status-cell">
               <span v-if="transfer.date_receive" class="status received">✅</span>
               <span v-else class="status pending">⏳</span>
@@ -767,7 +818,7 @@ td {
 
 /* Column widths */
 th:nth-child(1) {
-  width: 10%;
+  width: 8%;
 } /* Date */
 th:nth-child(2) {
   width: 8%;
@@ -779,19 +830,25 @@ th:nth-child(4) {
   width: 6%;
 } /* Rate */
 th:nth-child(5) {
-  width: 12%;
+  width: 10%;
 } /* Bank */
 th:nth-child(6) {
-  width: 12%;
+  width: 10%;
 } /* Account */
 th:nth-child(7) {
-  width: 15%;
+  width: 10%;
 } /* Notes */
 th:nth-child(8) {
+  width: 15%;
+} /* Client Details */
+th:nth-child(9) {
+  width: 8%;
+} /* Total Client Amount */
+th:nth-child(10) {
   width: 7%;
 } /* Status */
-th:nth-child(9) {
-  width: 12%;
+th:nth-child(11) {
+  width: 10%;
 } /* Actions */
 
 /* Notes cell specific styling */
@@ -1059,6 +1116,20 @@ select.input-field {
 .fa-sort-down {
   opacity: 1;
   color: #2563eb;
+}
+
+.client-details {
+  white-space: pre-line;
+  font-size: 0.9em;
+  line-height: 1.4;
+  min-width: 150px;
+}
+
+.amount-cell {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 500;
+  text-align: right;
+  color: #1f2937;
 }
 
 @media (max-width: 1400px) {
