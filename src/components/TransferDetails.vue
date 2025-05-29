@@ -1,6 +1,8 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
 import { useApi } from '../composables/useApi'
+import { ElSelect, ElOption } from 'element-plus'
+import 'element-plus/dist/index.css'
 
 const props = defineProps({
   transferId: {
@@ -28,6 +30,15 @@ const showAddDialog = ref(false)
 const processingId = ref(null)
 const error = ref(null)
 const isProcessing = ref(false)
+const clients = ref([])
+const filteredClients = ref([])
+const showAddClientDialog = ref(false)
+const newClient = ref({
+  name: '',
+  phone: '',
+  email: '',
+  address: '',
+})
 
 const detailForm = ref({
   amount: '',
@@ -36,6 +47,7 @@ const detailForm = ref({
   rate: '',
   description: '',
   notes: '',
+  id_client: null,
 })
 
 onMounted(() => {
@@ -43,6 +55,7 @@ onMounted(() => {
   if (props.transferId) {
     fetchDetails()
   }
+  fetchClients()
 })
 
 watch(
@@ -80,18 +93,20 @@ const fetchDetails = async () => {
   try {
     const query = `
       SELECT 
-        id,
-        id_transfer,
-        amount,
-        date,
-        client_name,
-        client_mobile,
-        rate,
-        description,
-        notes
-      FROM transfer_details 
-      WHERE id_transfer = ?
-      ORDER BY date DESC
+        td.id,
+        td.id_transfer,
+        td.amount,
+        td.date,
+        COALESCE(c.name, td.client_name) as client_name,
+        COALESCE(c.mobiles, td.client_mobile) as client_mobile,
+        td.rate,
+        td.description,
+        td.notes,
+        td.id_client
+      FROM transfer_details td
+      LEFT JOIN clients c ON td.id_client = c.id
+      WHERE td.id_transfer = ?
+      ORDER BY td.date DESC
     `
     console.log('Executing query:', query.replace(/\s+/g, ' ').trim())
     console.log('With params:', [props.transferId])
@@ -123,6 +138,56 @@ const fetchDetails = async () => {
   }
 }
 
+const fetchClients = async () => {
+  try {
+    const result = await callApi({
+      query: `
+        SELECT id, name, mobiles
+        FROM clients
+        WHERE is_client = 1
+        ORDER BY name ASC
+      `,
+      params: [],
+    })
+
+    if (result.success) {
+      clients.value = result.data
+      filteredClients.value = result.data
+    }
+  } catch (err) {
+    console.error('Error fetching clients:', err)
+    error.value = 'Failed to fetch clients'
+  }
+}
+
+const handleClientSelect = (clientId) => {
+  const selectedClient = clients.value.find((c) => c.id === clientId)
+  if (selectedClient) {
+    // Handle add form
+    if (showAddDialog.value) {
+      detailForm.value.client_name = selectedClient.name
+      detailForm.value.client_mobile = selectedClient.mobiles
+      detailForm.value.id_client = selectedClient.id
+    }
+    // Handle edit form
+    if (showEditDialog.value && editDetail.value) {
+      editDetail.value.client_name = selectedClient.name
+      editDetail.value.client_mobile = selectedClient.mobiles
+      editDetail.value.id_client = selectedClient.id
+    }
+  }
+}
+
+const remoteSearch = (query) => {
+  if (query) {
+    filteredClients.value = clients.value.filter((client) =>
+      client.name.toLowerCase().includes(query.toLowerCase()),
+    )
+  } else {
+    filteredClients.value = clients.value
+  }
+}
+
 const addDetail = async () => {
   if (isProcessing.value) return
   isProcessing.value = true
@@ -131,8 +196,8 @@ const addDetail = async () => {
     const result = await callApi({
       query: `
         INSERT INTO transfer_details 
-        (id_transfer, amount, date, client_name, client_mobile, rate, description, notes)
-        VALUES (?, ?, NOW(), ?, ?, ?, ?, ?)
+        (id_transfer, amount, date, client_name, client_mobile, rate, description, notes, id_client)
+        VALUES (?, ?, NOW(), ?, ?, ?, ?, ?, ?)
       `,
       params: [
         props.transferId,
@@ -142,6 +207,7 @@ const addDetail = async () => {
         detailForm.value.rate,
         detailForm.value.description,
         detailForm.value.notes,
+        detailForm.value.id_client,
       ],
     })
 
@@ -154,6 +220,7 @@ const addDetail = async () => {
         rate: '',
         description: '',
         notes: '',
+        id_client: null,
       }
       await fetchDetails()
       emit('refresh')
@@ -210,7 +277,8 @@ const updateDetail = async () => {
             client_mobile = ?,
             rate = ?,
             description = ?,
-            notes = ?
+            notes = ?,
+            id_client = ?
         WHERE id = ?
       `,
       params: [
@@ -220,6 +288,7 @@ const updateDetail = async () => {
         editDetail.value.rate,
         editDetail.value.description,
         editDetail.value.notes,
+        editDetail.value.id_client,
         editDetail.value.id,
       ],
     })
@@ -242,6 +311,46 @@ const handleClose = () => {
   emit('close')
   emit('refresh')
 }
+
+const addNewClient = async () => {
+  if (isProcessing.value) return
+  isProcessing.value = true
+  try {
+    if (!newClient.value.name.trim()) {
+      error.value = 'Client name is required'
+      return
+    }
+
+    const result = await callApi({
+      query: `
+        INSERT INTO clients (name, mobiles, email, address, is_client)
+        VALUES (?, ?, ?, ?, 1)
+      `,
+      params: [
+        newClient.value.name.trim(),
+        newClient.value.phone.trim() || null,
+        newClient.value.email.trim() || null,
+        newClient.value.address.trim() || null,
+      ],
+    })
+
+    if (result.success) {
+      showAddClientDialog.value = false
+      newClient.value = {
+        name: '',
+        phone: '',
+        email: '',
+        address: '',
+      }
+      await fetchClients() // Refresh clients list
+    }
+  } catch (err) {
+    console.error('Error adding new client:', err)
+    error.value = err.message || 'Failed to add new client'
+  } finally {
+    isProcessing.value = false
+  }
+}
 </script>
 
 <template>
@@ -263,6 +372,13 @@ const handleClose = () => {
         <button v-if="!props.readOnly" @click="showAddDialog = true" class="btn add-btn">
           <i class="fas fa-plus"></i> Add Detail
         </button>
+        <button
+          v-if="!props.readOnly"
+          @click="showAddClientDialog = true"
+          class="btn add-client-btn"
+        >
+          <i class="fas fa-user-plus"></i> New Client
+        </button>
       </div>
 
       <div v-if="isLoading" class="loading-overlay">
@@ -275,25 +391,25 @@ const handleClose = () => {
           <thead>
             <tr>
               <th>Date</th>
-              <th>Amount</th>
-              <th>Rate</th>
               <th>Client Name</th>
               <th>Mobile</th>
+              <th>Amount</th>
+              <th>Rate</th>
               <th>Description</th>
               <th>Notes</th>
-              <th>Actions</th>
+              <th v-if="!readOnly">Actions</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="detail in details" :key="detail.id">
               <td>{{ new Date(detail.date).toLocaleString() }}</td>
-              <td>{{ detail.amount }}</td>
-              <td>{{ detail.rate }}</td>
               <td>{{ detail.client_name }}</td>
-              <td>{{ detail.client_mobile }}</td>
-              <td>{{ detail.description }}</td>
-              <td>{{ detail.notes }}</td>
-              <td>
+              <td>{{ detail.client_mobile || '-' }}</td>
+              <td class="amount-cell">${{ Number(detail.amount).toFixed(2) }}</td>
+              <td>{{ detail.rate }}</td>
+              <td>{{ detail.description || '-' }}</td>
+              <td>{{ detail.notes || '-' }}</td>
+              <td v-if="!readOnly">
                 <div class="action-buttons">
                   <button
                     v-if="!props.readOnly"
@@ -328,6 +444,44 @@ const handleClose = () => {
               <i class="fas fa-spinner fa-spin dialog-spinner"></i>
             </div>
             <div class="form-group">
+              <label><i class="fas fa-user"></i> Select Client:</label>
+              <el-select
+                v-model="detailForm.id_client"
+                filterable
+                remote
+                :remote-method="remoteSearch"
+                placeholder="Search client..."
+                class="input-field"
+                @change="handleClientSelect"
+              >
+                <el-option
+                  v-for="client in filteredClients"
+                  :key="client.id"
+                  :label="client.name"
+                  :value="client.id"
+                />
+              </el-select>
+            </div>
+            <div class="form-group">
+              <label><i class="fas fa-user"></i> Client Name:</label>
+              <input
+                type="text"
+                v-model="detailForm.client_name"
+                required
+                class="input-field"
+                :readonly="detailForm.id_client"
+              />
+            </div>
+            <div class="form-group">
+              <label><i class="fas fa-mobile-alt"></i> Client Mobile:</label>
+              <input
+                type="text"
+                v-model="detailForm.client_mobile"
+                class="input-field"
+                :readonly="detailForm.id_client"
+              />
+            </div>
+            <div class="form-group">
               <label><i class="fas fa-dollar-sign"></i> Amount:</label>
               <input
                 type="number"
@@ -336,14 +490,6 @@ const handleClose = () => {
                 required
                 class="input-field"
               />
-            </div>
-            <div class="form-group">
-              <label><i class="fas fa-user"></i> Client Name:</label>
-              <input type="text" v-model="detailForm.client_name" required class="input-field" />
-            </div>
-            <div class="form-group">
-              <label><i class="fas fa-mobile-alt"></i> Client Mobile:</label>
-              <input type="text" v-model="detailForm.client_mobile" class="input-field" />
             </div>
             <div class="form-group">
               <label><i class="fas fa-exchange-alt"></i> Rate:</label>
@@ -391,6 +537,44 @@ const handleClose = () => {
               <i class="fas fa-spinner fa-spin dialog-spinner"></i>
             </div>
             <div class="form-group">
+              <label><i class="fas fa-user"></i> Select Client:</label>
+              <el-select
+                v-model="editDetail.id_client"
+                filterable
+                remote
+                :remote-method="remoteSearch"
+                placeholder="Search client..."
+                class="input-field"
+                @change="handleClientSelect"
+              >
+                <el-option
+                  v-for="client in filteredClients"
+                  :key="client.id"
+                  :label="client.name"
+                  :value="client.id"
+                />
+              </el-select>
+            </div>
+            <div class="form-group">
+              <label><i class="fas fa-user"></i> Client Name:</label>
+              <input
+                type="text"
+                v-model="editDetail.client_name"
+                required
+                class="input-field"
+                :readonly="editDetail.id_client"
+              />
+            </div>
+            <div class="form-group">
+              <label><i class="fas fa-mobile-alt"></i> Client Mobile:</label>
+              <input
+                type="text"
+                v-model="editDetail.client_mobile"
+                class="input-field"
+                :readonly="editDetail.id_client"
+              />
+            </div>
+            <div class="form-group">
               <label><i class="fas fa-dollar-sign"></i> Amount:</label>
               <input
                 type="number"
@@ -399,14 +583,6 @@ const handleClose = () => {
                 required
                 class="input-field"
               />
-            </div>
-            <div class="form-group">
-              <label><i class="fas fa-user"></i> Client Name:</label>
-              <input type="text" v-model="editDetail.client_name" required class="input-field" />
-            </div>
-            <div class="form-group">
-              <label><i class="fas fa-mobile-alt"></i> Client Mobile:</label>
-              <input type="text" v-model="editDetail.client_mobile" class="input-field" />
             </div>
             <div class="form-group">
               <label><i class="fas fa-exchange-alt"></i> Rate:</label>
@@ -439,6 +615,75 @@ const handleClose = () => {
                 :disabled="isProcessing"
               >
                 <i class="fas fa-times"></i> Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Add New Client Dialog -->
+      <div v-if="showAddClientDialog" class="dialog-overlay">
+        <div class="dialog">
+          <h3><i class="fas fa-user-plus"></i> Add New Client</h3>
+          <div v-if="error" class="error-message">{{ error }}</div>
+
+          <form @submit.prevent="addNewClient" class="client-form">
+            <div v-if="isProcessing" class="dialog-loading">
+              <i class="fas fa-spinner fa-spin dialog-spinner"></i>
+            </div>
+            <div class="form-group">
+              <label><i class="fas fa-user"></i> Name *</label>
+              <input
+                v-model="newClient.name"
+                type="text"
+                class="input-field"
+                placeholder="Enter client name"
+                required
+              />
+            </div>
+
+            <div class="form-group">
+              <label><i class="fas fa-phone"></i> Phone</label>
+              <input
+                v-model="newClient.phone"
+                type="tel"
+                class="input-field"
+                placeholder="Enter phone number"
+              />
+            </div>
+
+            <div class="form-group">
+              <label><i class="fas fa-envelope"></i> Email</label>
+              <input
+                v-model="newClient.email"
+                type="email"
+                class="input-field"
+                placeholder="Enter email address"
+              />
+            </div>
+
+            <div class="form-group">
+              <label><i class="fas fa-map-marker-alt"></i> Address</label>
+              <textarea
+                v-model="newClient.address"
+                class="input-field"
+                placeholder="Enter address"
+                rows="3"
+              ></textarea>
+            </div>
+
+            <div class="dialog-actions">
+              <button type="submit" class="btn save-btn" :disabled="isProcessing">
+                <i v-if="isProcessing" class="fas fa-spinner fa-spin"></i>
+                <span v-else>Save Client</span>
+              </button>
+              <button
+                type="button"
+                @click="showAddClientDialog = false"
+                class="btn cancel-btn"
+                :disabled="isProcessing"
+              >
+                Cancel
               </button>
             </div>
           </form>
@@ -506,6 +751,8 @@ const handleClose = () => {
 }
 
 .actions {
+  display: flex;
+  gap: 10px;
   margin-bottom: 20px;
 }
 
@@ -700,5 +947,49 @@ textarea.input-field {
   opacity: 0.6;
   cursor: not-allowed;
   pointer-events: none;
+}
+
+/* Add styles for el-select */
+:deep(.el-select) {
+  width: 100%;
+}
+
+:deep(.el-input__wrapper) {
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+:deep(.el-input__wrapper:hover) {
+  border-color: #3b82f6;
+}
+
+:deep(.el-input__wrapper.is-focus) {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.add-client-btn {
+  background-color: #10b981;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 0.9em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.add-client-btn:hover {
+  background-color: #059669;
+}
+
+.add-client-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 </style>

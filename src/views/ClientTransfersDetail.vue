@@ -5,6 +5,14 @@ import { useApi } from '../composables/useApi'
 const { callApi, error } = useApi()
 const clientTransfers = ref([])
 const isLoading = ref(false)
+const showAddClientDialog = ref(false)
+const isProcessing = ref(false)
+const newClient = ref({
+  name: '',
+  phone: '',
+  email: '',
+  address: '',
+})
 
 // Add sort configuration
 const sortConfig = ref({
@@ -39,7 +47,7 @@ const fetchClientTransfers = async () => {
       query: `
         SELECT 
           td.id,
-          td.client_name,
+          COALESCE(c.name, td.client_name) as client_name,
           td.amount,
           td.rate,
           td.notes,
@@ -47,16 +55,22 @@ const fetchClientTransfers = async () => {
           t.date_receive,
           t.ref_pi_transfer,
           b.company_name,
-          b.bank_name
+          b.bank_name,
+          (td.amount * td.rate) as amount_da
         FROM transfer_details td
         JOIN transfers t ON td.id_transfer = t.id
         LEFT JOIN banks b ON t.id_bank = b.id
+        LEFT JOIN clients c ON td.id_client = c.id
         ORDER BY t.date_do_transfer DESC
       `,
       params: [],
     })
     if (result.success) {
-      clientTransfers.value = result.data
+      clientTransfers.value = result.data.map((transfer) => ({
+        ...transfer,
+        amount: Number(transfer.amount).toFixed(2),
+        amount_da: Number(transfer.amount_da).toFixed(2),
+      }))
     }
   } catch (err) {
     console.error('Error fetching client transfers:', err)
@@ -144,6 +158,48 @@ const clearFilters = () => {
   }
 }
 
+// Add new client function
+const addNewClient = async () => {
+  if (isProcessing.value) return
+  isProcessing.value = true
+  try {
+    if (!newClient.value.name.trim()) {
+      error.value = 'Client name is required'
+      return
+    }
+
+    const result = await callApi({
+      query: `
+        INSERT INTO clients (name, phone, email, address)
+        VALUES (?, ?, ?, ?)
+      `,
+      params: [
+        newClient.value.name.trim(),
+        newClient.value.phone.trim() || null,
+        newClient.value.email.trim() || null,
+        newClient.value.address.trim() || null,
+      ],
+    })
+
+    if (result.success) {
+      showAddClientDialog.value = false
+      newClient.value = {
+        name: '',
+        phone: '',
+        email: '',
+        address: '',
+      }
+      // Optionally refresh the transfers list if it includes client information
+      await fetchClientTransfers()
+    }
+  } catch (err) {
+    console.error('Error adding new client:', err)
+    error.value = err.message || 'Failed to add new client'
+  } finally {
+    isProcessing.value = false
+  }
+}
+
 onMounted(() => {
   fetchClientTransfers()
 })
@@ -151,159 +207,98 @@ onMounted(() => {
 
 <template>
   <div class="client-transfers">
-    <div class="header">
-      <h1>Client Transfer Details</h1>
-    </div>
-
-    <!-- Filters Section -->
-    <div class="filters-section">
-      <div class="filters-grid">
-        <div class="filter-group">
-          <label><i class="fas fa-user"></i> Client Name</label>
-          <input
-            type="text"
-            v-model="filters.clientName"
-            class="filter-input"
-            placeholder="Filter by client name..."
-          />
-        </div>
-        <div class="filter-group">
-          <label><i class="fas fa-calendar"></i> From Date</label>
-          <input type="date" v-model="filters.dateFrom" class="filter-input" />
-        </div>
-        <div class="filter-group">
-          <label><i class="fas fa-calendar"></i> To Date</label>
-          <input type="date" v-model="filters.dateTo" class="filter-input" />
-        </div>
-        <div class="filter-group">
-          <label><i class="fas fa-money-bill"></i> Min Amount</label>
-          <input
-            type="number"
-            v-model="filters.amountMin"
-            class="filter-input"
-            placeholder="Minimum amount..."
-            min="0"
-            step="0.01"
-          />
-        </div>
-        <div class="filter-group">
-          <label><i class="fas fa-money-bill"></i> Max Amount</label>
-          <input
-            type="number"
-            v-model="filters.amountMax"
-            class="filter-input"
-            placeholder="Maximum amount..."
-            min="0"
-            step="0.01"
-          />
-        </div>
-        <button @click="clearFilters" class="btn clear-btn">
-          <i class="fas fa-times"></i> Clear Filters
+    <div class="page-header">
+      <div class="title">
+        <h2><i class="fas fa-exchange-alt"></i> Client Transfers Details</h2>
+      </div>
+      <div class="header-actions">
+        <button @click="showAddClientDialog = true" class="btn add-client-btn">
+          <i class="fas fa-user-plus"></i> Add New Client
         </button>
       </div>
     </div>
 
-    <!-- Transfers Table -->
-    <div class="transfers-table">
-      <div v-if="isLoading" class="loading-overlay">
-        <i class="fas fa-spinner fa-spin fa-2x"></i>
-        <span>Loading client transfers...</span>
+    <!-- Filters -->
+    <div class="filters">
+      <div class="filter-group">
+        <label><i class="fas fa-user"></i> Client Name:</label>
+        <input
+          v-model="filters.clientName"
+          placeholder="Filter by client name"
+          class="filter-input"
+        />
       </div>
+      <div class="filter-group">
+        <label><i class="fas fa-calendar"></i> Date Range:</label>
+        <input type="date" v-model="filters.dateFrom" class="filter-input date-input" />
+        <span>to</span>
+        <input type="date" v-model="filters.dateTo" class="filter-input date-input" />
+      </div>
+      <div class="filter-group">
+        <label><i class="fas fa-dollar-sign"></i> Amount Range (USD):</label>
+        <input
+          type="number"
+          v-model="filters.amountMin"
+          placeholder="Min"
+          class="filter-input amount-input"
+        />
+        <span>to</span>
+        <input
+          type="number"
+          v-model="filters.amountMax"
+          placeholder="Max"
+          class="filter-input amount-input"
+        />
+      </div>
+    </div>
+
+    <!-- Loading State -->
+    <div v-if="isLoading" class="loading">
+      <i class="fas fa-spinner fa-spin"></i> Loading transfers...
+    </div>
+
+    <!-- Table -->
+    <div v-else class="transfers-table">
       <table>
         <thead>
           <tr>
             <th @click="toggleSort('client_name')" class="sortable">
               Client Name
               <i
-                :class="[
-                  'fas',
-                  sortConfig.field === 'client_name'
-                    ? sortConfig.direction === 'asc'
-                      ? 'fa-sort-up'
-                      : 'fa-sort-down'
-                    : 'fa-sort',
-                ]"
+                v-if="sortConfig.field === 'client_name'"
+                :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
               ></i>
             </th>
             <th @click="toggleSort('date_do_transfer')" class="sortable">
               Date
               <i
-                :class="[
-                  'fas',
-                  sortConfig.field === 'date_do_transfer'
-                    ? sortConfig.direction === 'asc'
-                      ? 'fa-sort-up'
-                      : 'fa-sort-down'
-                    : 'fa-sort',
-                ]"
+                v-if="sortConfig.field === 'date_do_transfer'"
+                :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
+              ></i>
+            </th>
+            <th @click="toggleSort('amount_da')" class="sortable">
+              Amount (DA)
+              <i
+                v-if="sortConfig.field === 'amount_da'"
+                :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
               ></i>
             </th>
             <th @click="toggleSort('amount')" class="sortable">
-              Amount (DA)
+              Amount (USD)
               <i
-                :class="[
-                  'fas',
-                  sortConfig.field === 'amount'
-                    ? sortConfig.direction === 'asc'
-                      ? 'fa-sort-up'
-                      : 'fa-sort-down'
-                    : 'fa-sort',
-                ]"
-              ></i>
-            </th>
-            <th @click="toggleSort('amount_usd')" class="sortable">
-              Amount ($)
-              <i
-                :class="[
-                  'fas',
-                  sortConfig.field === 'amount_usd'
-                    ? sortConfig.direction === 'asc'
-                      ? 'fa-sort-up'
-                      : 'fa-sort-down'
-                    : 'fa-sort',
-                ]"
+                v-if="sortConfig.field === 'amount'"
+                :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
               ></i>
             </th>
             <th @click="toggleSort('rate')" class="sortable">
               Rate
               <i
-                :class="[
-                  'fas',
-                  sortConfig.field === 'rate'
-                    ? sortConfig.direction === 'asc'
-                      ? 'fa-sort-up'
-                      : 'fa-sort-down'
-                    : 'fa-sort',
-                ]"
+                v-if="sortConfig.field === 'rate'"
+                :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
               ></i>
             </th>
-            <th @click="toggleSort('company_name')" class="sortable">
-              Bank
-              <i
-                :class="[
-                  'fas',
-                  sortConfig.field === 'company_name'
-                    ? sortConfig.direction === 'asc'
-                      ? 'fa-sort-up'
-                      : 'fa-sort-down'
-                    : 'fa-sort',
-                ]"
-              ></i>
-            </th>
-            <th @click="toggleSort('ref_pi_transfer')" class="sortable">
-              PI Reference
-              <i
-                :class="[
-                  'fas',
-                  sortConfig.field === 'ref_pi_transfer'
-                    ? sortConfig.direction === 'asc'
-                      ? 'fa-sort-up'
-                      : 'fa-sort-down'
-                    : 'fa-sort',
-                ]"
-              ></i>
-            </th>
-            <th>Status</th>
+            <th>Bank</th>
+            <th>Reference</th>
             <th>Notes</th>
           </tr>
         </thead>
@@ -311,28 +306,81 @@ onMounted(() => {
           <tr v-for="transfer in filteredTransfers" :key="transfer.id">
             <td>{{ transfer.client_name }}</td>
             <td>{{ new Date(transfer.date_do_transfer).toLocaleDateString() }}</td>
-            <td class="amount-cell">{{ Number(transfer.amount).toFixed(2) }} DA</td>
-            <td class="amount-cell">
-              ${{ (Number(transfer.amount) / Number(transfer.rate)).toFixed(2) }}
-            </td>
+            <td class="amount-cell">{{ transfer.amount_da }} DA</td>
+            <td class="amount-cell">${{ transfer.amount }}</td>
             <td>{{ transfer.rate }}</td>
-            <td>
-              <div v-if="transfer.company_name" class="bank-cell">
-                <strong>{{ transfer.company_name }}</strong
-                ><br />
-                <small>{{ transfer.bank_name }}</small>
-              </div>
-              <span v-else>-</span>
-            </td>
+            <td>{{ transfer.bank_name }} ({{ transfer.company_name }})</td>
             <td>{{ transfer.ref_pi_transfer || '-' }}</td>
-            <td class="status-cell">
-              <span v-if="transfer.date_receive" class="status received">✅</span>
-              <span v-else class="status pending">⏳</span>
-            </td>
             <td>{{ transfer.notes || '-' }}</td>
           </tr>
         </tbody>
       </table>
+    </div>
+
+    <!-- Add Client Dialog -->
+    <div v-if="showAddClientDialog" class="dialog-overlay">
+      <div class="dialog">
+        <h3><i class="fas fa-user-plus"></i> Add New Client</h3>
+        <div v-if="error" class="error-message">{{ error }}</div>
+
+        <form @submit.prevent="addNewClient" class="client-form">
+          <div class="form-group">
+            <label><i class="fas fa-user"></i> Name *</label>
+            <input
+              v-model="newClient.name"
+              type="text"
+              class="input-field"
+              placeholder="Enter client name"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <label><i class="fas fa-phone"></i> Phone</label>
+            <input
+              v-model="newClient.phone"
+              type="tel"
+              class="input-field"
+              placeholder="Enter phone number"
+            />
+          </div>
+
+          <div class="form-group">
+            <label><i class="fas fa-envelope"></i> Email</label>
+            <input
+              v-model="newClient.email"
+              type="email"
+              class="input-field"
+              placeholder="Enter email address"
+            />
+          </div>
+
+          <div class="form-group">
+            <label><i class="fas fa-map-marker-alt"></i> Address</label>
+            <textarea
+              v-model="newClient.address"
+              class="input-field"
+              placeholder="Enter address"
+              rows="3"
+            ></textarea>
+          </div>
+
+          <div class="dialog-actions">
+            <button type="submit" class="btn save-btn" :disabled="isProcessing">
+              <i v-if="isProcessing" class="fas fa-spinner fa-spin"></i>
+              <span v-else>Save Client</span>
+            </button>
+            <button
+              type="button"
+              @click="showAddClientDialog = false"
+              class="btn cancel-btn"
+              :disabled="isProcessing"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   </div>
 </template>
@@ -342,77 +390,79 @@ onMounted(() => {
   padding: 20px;
 }
 
-.header {
-  margin-bottom: 20px;
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  width: 100%;
 }
 
-.header h1 {
-  color: #1f2937;
-  font-size: 1.8em;
+.title {
+  display: flex;
+  align-items: center;
 }
 
-.filters-section {
-  background: white;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  margin-bottom: 20px;
+.header-actions {
+  display: flex;
+  gap: 10px;
 }
 
-.filters-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
-  align-items: end;
+.add-client-btn {
+  background-color: #10b981;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 0.9em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  height: 40px;
+}
+
+.add-client-btn:hover {
+  background-color: #059669;
+}
+
+.filters {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
 }
 
 .filter-group {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 8px;
 }
 
-.filter-group label {
-  color: #4b5563;
-  font-size: 0.9em;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
 .filter-input {
-  padding: 8px;
+  padding: 6px 12px;
   border: 1px solid #e5e7eb;
   border-radius: 4px;
   font-size: 0.9em;
 }
 
-.clear-btn {
-  background-color: #6b7280;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  padding: 8px 16px;
-  cursor: pointer;
-  height: 38px;
-  align-self: flex-end;
+.date-input {
+  width: 130px;
 }
 
-.clear-btn:hover {
-  background-color: #4b5563;
+.amount-input {
+  width: 100px;
 }
 
 .transfers-table {
-  position: relative;
   overflow-x: auto;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
+  margin-top: 12px;
 }
 
 th,
@@ -423,9 +473,27 @@ td {
 }
 
 th {
-  background-color: #f8f9fa;
+  background-color: #f8fafc;
   font-weight: 600;
-  color: #4b5563;
+  color: #1f2937;
+}
+
+.sortable {
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  padding-right: 20px;
+}
+
+.sortable i {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.sortable:hover {
+  background-color: #f1f5f9;
 }
 
 .amount-cell {
@@ -433,77 +501,133 @@ th {
   text-align: right;
 }
 
-.bank-cell {
-  font-size: 0.9em;
-  line-height: 1.3;
-}
-
-.bank-cell strong {
-  color: #1f2937;
-}
-
-.bank-cell small {
+.loading {
+  text-align: center;
+  padding: 40px;
   color: #6b7280;
 }
 
-.status-cell {
-  text-align: center;
+.loading i {
+  margin-right: 8px;
+  color: #3b82f6;
 }
 
-.status {
-  font-size: 1.2em;
-}
-
-.received {
-  color: #10b981;
-}
-
-.pending {
-  color: #f59e0b;
-}
-
-.loading-overlay {
-  position: absolute;
+.dialog-overlay {
+  position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(255, 255, 255, 0.9);
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.dialog {
+  background: white;
+  border-radius: 8px;
+  padding: 24px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.dialog h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 20px 0;
+  color: #1f2937;
+}
+
+.client-form {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  font-size: 1.1em;
+  gap: 16px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.form-group label {
   color: #4b5563;
+  font-size: 0.9em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
-.loading-overlay i {
-  color: #3b82f6;
+.input-field {
+  padding: 8px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 0.9em;
 }
 
-.sortable {
+.input-field:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+textarea.input-field {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.save-btn {
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
   cursor: pointer;
-  user-select: none;
-  position: relative;
-  padding-right: 24px !important;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
-.sortable i {
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  opacity: 0.5;
+.save-btn:hover {
+  background-color: #2563eb;
 }
 
-.sortable:hover i {
-  opacity: 1;
+.cancel-btn {
+  background-color: #6b7280;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  cursor: pointer;
 }
 
-.fa-sort-up,
-.fa-sort-down {
-  opacity: 1;
-  color: #2563eb;
+.cancel-btn:hover {
+  background-color: #4b5563;
+}
+
+.error-message {
+  background-color: #fee2e2;
+  border: 1px solid #ef4444;
+  color: #b91c1c;
+  padding: 12px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+}
+
+button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 </style>

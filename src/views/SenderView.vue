@@ -165,16 +165,17 @@ const fetchTransfers = async () => {
           (
             SELECT GROUP_CONCAT(
               CONCAT(
-                client_name,
+                COALESCE(c.name, td.client_name),
                 ':',
-                FORMAT(amount, 2),
+                FORMAT(td.amount, 2),
                 ' (Rate: ',
-                FORMAT(rate, 2),
+                FORMAT(td.rate, 2),
                 ')'
               ) SEPARATOR '\n'
             )
-            FROM transfer_details
-            WHERE id_transfer = t.id
+            FROM transfer_details td
+            LEFT JOIN clients c ON td.id_client = c.id
+            WHERE td.id_transfer = t.id
           ) as client_details,
           COALESCE(
             (
