@@ -17,6 +17,7 @@ const editForm = ref({
   notes: '',
   id_bank: null,
   date_do_transfer: '',
+  ref_pi_transfer: '',
 })
 
 const newTransfer = ref({
@@ -25,6 +26,7 @@ const newTransfer = ref({
   notes: '',
   id_bank: null,
   date_do_transfer: new Date().toISOString().split('T')[0],
+  ref_pi_transfer: '',
 })
 
 const formError = ref(null)
@@ -166,6 +168,7 @@ const openEditDialog = (transfer) => {
     notes: transfer.notes || '',
     id_bank: transfer.id_bank || null,
     date_do_transfer: new Date(transfer.date_do_transfer).toISOString().split('T')[0],
+    ref_pi_transfer: transfer.ref_pi_transfer || '',
   }
   showEditDialog.value = true
 }
@@ -195,7 +198,8 @@ const updateTransfer = async () => {
           amount_received_usd = ?,
           notes = ?,
           id_bank = ?,
-          date_do_transfer = ?
+          date_do_transfer = ?,
+          ref_pi_transfer = ?
       WHERE id = ? ${!isAdmin.value ? 'AND date_receive IS NULL' : ''}
     `,
     params: [
@@ -205,6 +209,7 @@ const updateTransfer = async () => {
       editForm.value.notes || null,
       editForm.value.id_bank,
       editForm.value.date_do_transfer,
+      editForm.value.ref_pi_transfer || null,
       selectedTransfer.value.id,
     ],
   })
@@ -281,8 +286,8 @@ const createTransfer = async () => {
       query: `
         INSERT INTO transfers (
           id_user_do_transfer, date_do_transfer, amount_sending_da, 
-          rate, amount_received_usd, notes, id_bank
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+          rate, amount_received_usd, notes, id_bank, ref_pi_transfer
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `,
       params: [
         user.value.id,
@@ -292,6 +297,7 @@ const createTransfer = async () => {
         amount_received_usd,
         newTransfer.value.notes || null,
         newTransfer.value.id_bank,
+        newTransfer.value.ref_pi_transfer || null,
       ],
     })
 
@@ -303,6 +309,7 @@ const createTransfer = async () => {
         notes: '',
         id_bank: null,
         date_do_transfer: new Date().toISOString().split('T')[0],
+        ref_pi_transfer: '',
       }
       await fetchTransfers()
     } else {
@@ -425,6 +432,19 @@ onMounted(() => {
                 ]"
               ></i>
             </th>
+            <th @click="toggleSort('ref_pi_transfer')" class="sortable">
+              PI Reference
+              <i
+                :class="[
+                  'fas',
+                  sortConfig.field === 'ref_pi_transfer'
+                    ? sortConfig.direction === 'asc'
+                      ? 'fa-sort-up'
+                      : 'fa-sort-down'
+                    : 'fa-sort',
+                ]"
+              ></i>
+            </th>
             <th @click="toggleSort('amount_sending_da')" class="sortable">
               Amount (DA)
               <i
@@ -461,6 +481,7 @@ onMounted(() => {
         <tbody>
           <tr v-for="transfer in filteredTransfers" :key="transfer.id">
             <td>{{ new Date(transfer.date_do_transfer).toLocaleString() }}</td>
+            <td>{{ transfer.ref_pi_transfer || '-' }}</td>
             <td>{{ transfer.amount_sending_da }}</td>
             <td>{{ transfer.rate }}</td>
             <td>
@@ -580,6 +601,15 @@ onMounted(() => {
               placeholder="Optional notes"
             ></textarea>
           </div>
+          <div class="form-group">
+            <label><i class="fas fa-hashtag"></i> PI Reference:</label>
+            <input
+              type="text"
+              v-model="editForm.ref_pi_transfer"
+              class="input-field"
+              placeholder="Enter PI reference..."
+            />
+          </div>
           <div class="dialog-actions">
             <button type="submit" class="btn update-btn">Save</button>
             <button type="button" @click="showEditDialog = false" class="btn cancel-btn">
@@ -661,6 +691,15 @@ onMounted(() => {
               placeholder="Optional notes"
             ></textarea>
           </div>
+          <div class="form-group">
+            <label><i class="fas fa-hashtag"></i> PI Reference:</label>
+            <input
+              type="text"
+              v-model="newTransfer.ref_pi_transfer"
+              class="input-field"
+              placeholder="Enter PI reference..."
+            />
+          </div>
           <div class="dialog-actions">
             <button type="submit" class="btn create-btn">Create</button>
             <button type="button" @click="showAddDialog = false" class="btn cancel-btn">
@@ -726,13 +765,13 @@ th:nth-child(1) {
 } /* Date */
 th:nth-child(2) {
   width: 10%;
-} /* Amount DA */
+} /* PI Reference */
 th:nth-child(3) {
-  width: 8%;
-} /* Rate */
+  width: 10%;
+} /* Amount DA */
 th:nth-child(4) {
   width: 8%;
-} /* USD Value */
+} /* Rate */
 th:nth-child(5) {
   width: 15%;
 } /* Bank */
