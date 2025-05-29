@@ -58,16 +58,16 @@ const fetchTransfers = async () => {
   try {
     const result = await callApi({
       query: `
-        SELECT t.*, 
-          u_sender.username as sender_name,
+      SELECT t.*, 
+        u_sender.username as sender_name,
           u_receiver.username as receiver_name,
           b.company_name, b.bank_name, b.bank_account, b.swift_code
-        FROM transfers t
-        LEFT JOIN users u_sender ON t.id_user_do_transfer = u_sender.id
-        LEFT JOIN users u_receiver ON t.id_user_receive_transfer = u_receiver.id
+      FROM transfers t
+      LEFT JOIN users u_sender ON t.id_user_do_transfer = u_sender.id
+      LEFT JOIN users u_receiver ON t.id_user_receive_transfer = u_receiver.id
         LEFT JOIN banks b ON t.id_bank = b.id
-        ORDER BY t.date_do_transfer DESC
-      `,
+      ORDER BY t.date_do_transfer DESC
+    `,
       params: [],
     })
     if (result.success) {
@@ -135,16 +135,16 @@ const updateTransfer = async () => {
 
     const result = await callApi({
       query: `
-        UPDATE transfers SET
-          amount_sending_da = ?,
-          rate = ?,
-          notes = ?,
-          amount_received_usd = ?,
+      UPDATE transfers SET
+        amount_sending_da = ?,
+        rate = ?,
+        notes = ?,
+        amount_received_usd = ?,
           receiver_notes = ?,
           id_bank = ?,
           ref_pi_transfer = ?
-        WHERE id = ?
-      `,
+      WHERE id = ?
+    `,
       params: [
         amount,
         rate,

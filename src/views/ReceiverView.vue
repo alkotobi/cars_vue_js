@@ -161,20 +161,20 @@ const clearFilters = () => {
 const fetchTransfers = async () => {
   isLoading.value = true
   try {
-    const result = await callApi({
-      query: `
+  const result = await callApi({
+    query: `
         SELECT t.*, u.username as sender_name,
           b.company_name, b.bank_name, b.bank_account, b.swift_code
-        FROM transfers t
-        JOIN users u ON t.id_user_do_transfer = u.id
+      FROM transfers t
+      JOIN users u ON t.id_user_do_transfer = u.id
         LEFT JOIN banks b ON t.id_bank = b.id
-        WHERE t.date_receive IS NULL
-        ORDER BY t.date_do_transfer DESC
-      `,
+      WHERE t.date_receive IS NULL
+      ORDER BY t.date_do_transfer DESC
+    `,
       params: [],
-    })
-    if (result.success) {
-      transfers.value = result.data
+  })
+  if (result.success) {
+    transfers.value = result.data
     }
   } catch (err) {
     console.error('Error fetching transfers:', err)
@@ -206,32 +206,32 @@ const receiveTransfer = async () => {
 
   processingTransferId.value = selectedTransfer.value.id
   try {
-    const result = await callApi({
-      query: `
-        UPDATE transfers 
-        SET amount_received_usd = ?,
-            receiver_notes = ?,
+  const result = await callApi({
+    query: `
+      UPDATE transfers 
+      SET amount_received_usd = ?,
+          receiver_notes = ?,
             date_receive = ?,
-            id_user_receive_transfer = ?
-        WHERE id = ? AND date_receive IS NULL
-      `,
-      params: [
-        receiveForm.value.amount_received_usd,
-        receiveForm.value.receiver_notes || null,
+          id_user_receive_transfer = ?
+      WHERE id = ? AND date_receive IS NULL
+    `,
+    params: [
+      receiveForm.value.amount_received_usd,
+      receiveForm.value.receiver_notes || null,
         receiveForm.value.date_receive,
-        user.value.id,
+      user.value.id,
         selectedTransfer.value.id,
       ],
-    })
+  })
 
-    if (result.success) {
-      showReceiveDialog.value = false
-      selectedTransfer.value = null
-      fetchTransfers()
+  if (result.success) {
+    showReceiveDialog.value = false
+    selectedTransfer.value = null
+    fetchTransfers()
       fetchRecentTransfers()
     } else {
       error.value = result.message
-    }
+  }
   } finally {
     processingTransferId.value = null
   }
@@ -273,24 +273,24 @@ const unreceiveTransfer = async (transfer) => {
 
   processingTransferId.value = transfer.id
   try {
-    const result = await callApi({
-      query: `
-        UPDATE transfers 
-        SET amount_received_usd = NULL,
-            receiver_notes = NULL,
-            date_receive = NULL,
-            id_user_receive_transfer = NULL
-        WHERE id = ?
-      `,
+  const result = await callApi({
+    query: `
+      UPDATE transfers 
+      SET amount_received_usd = NULL,
+          receiver_notes = NULL,
+          date_receive = NULL,
+          id_user_receive_transfer = NULL
+      WHERE id = ?
+    `,
       params: [transfer.id],
-    })
+  })
 
-    if (result.success) {
-      fetchTransfers()
-      fetchRecentTransfers()
-    } else {
-      error.value = result.message
-    }
+  if (result.success) {
+    fetchTransfers()
+    fetchRecentTransfers()
+  } else {
+    error.value = result.message
+  }
   } finally {
     processingTransferId.value = null
   }
@@ -455,8 +455,8 @@ const openDetailsDialog = (transfer) => {
             <td>{{ transfer.notes || '-' }}</td>
             <td>{{ transfer.receiver_notes || '-' }}</td>
             <td>
-              <button
-                @click="openReceiveDialog(transfer)"
+              <button 
+                @click="openReceiveDialog(transfer)" 
                 class="btn receive-btn"
                 :disabled="processingTransferId === transfer.id"
               >
@@ -549,7 +549,7 @@ const openDetailsDialog = (transfer) => {
         <tbody>
           <tr
             v-for="transfer in filteredRecentTransfers"
-            :key="transfer.id"
+              :key="transfer.id"
             :class="{
               'amount-mismatch':
                 calculateUSD(transfer.amount_sending_da, transfer.rate) !==
@@ -578,8 +578,8 @@ const openDetailsDialog = (transfer) => {
             <td>{{ transfer.notes || '-' }}</td>
             <td>{{ transfer.receiver_notes || '-' }}</td>
             <td>
-              <button
-                @click="unreceiveTransfer(transfer)"
+              <button 
+                @click="unreceiveTransfer(transfer)" 
                 class="btn unreceive-btn"
                 :disabled="processingTransferId === transfer.id"
               >
@@ -616,8 +616,8 @@ const openDetailsDialog = (transfer) => {
         </div>
         <div class="form-group">
           <label><i class="fas fa-dollar-sign"></i> Amount Received (USD):</label>
-          <input
-            type="number"
+          <input 
+            type="number" 
             v-model="receiveForm.amount_received_usd"
             class="input-field"
             step="0.01"
@@ -626,8 +626,8 @@ const openDetailsDialog = (transfer) => {
         </div>
         <div class="form-group">
           <label><i class="fas fa-comment"></i> Receiver Notes:</label>
-          <textarea
-            v-model="receiveForm.receiver_notes"
+          <textarea 
+            v-model="receiveForm.receiver_notes" 
             class="input-field"
             placeholder="Add your notes here"
           ></textarea>

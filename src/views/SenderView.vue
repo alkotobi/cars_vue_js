@@ -33,6 +33,9 @@ const formError = ref(null)
 const banks = ref([])
 const showDetailsDialog = ref(false)
 const selectedTransferForDetails = ref(null)
+const isLoading = ref(false)
+const isProcessing = ref(false)
+const processingTransferId = ref(null)
 
 const isAdmin = computed(() => user.value?.role_id === 1)
 
@@ -43,6 +46,7 @@ const filters = ref({
   status: '', // 'received', 'pending', or ''
   amountMin: '',
   amountMax: '',
+  clientName: '',
 })
 
 const sortConfig = ref({
@@ -92,6 +96,13 @@ const filteredTransfers = computed(() => {
     }
   }
 
+  // Add client name filter
+  if (filters.value.clientName) {
+    result = result.filter((t) =>
+      (t.client_details || '').toLowerCase().includes(filters.value.clientName.toLowerCase()),
+    )
+  }
+
   // Apply sorting
   result.sort((a, b) => {
     let aValue = a[sortConfig.value.field]
@@ -136,52 +147,60 @@ const clearFilters = () => {
     status: '',
     amountMin: '',
     amountMax: '',
+    clientName: '',
   }
 }
 
 const fetchTransfers = async () => {
-  const result = await callApi({
-    query: `
-      SELECT 
-        t.*,
-        b.company_name,
-        b.bank_name,
-        b.bank_account,
-        b.swift_code,
-        (
-          SELECT GROUP_CONCAT(
-            CONCAT(
-              client_name,
-              ': $',
-              FORMAT(amount, 2),
-              ' (Rate: ',
-              FORMAT(rate, 2),
-              ')'
-            ) SEPARATOR '\n'
-          )
-          FROM transfer_details
-          WHERE id_transfer = t.id
-        ) as client_details,
-        COALESCE(
+  isLoading.value = true
+  try {
+    const result = await callApi({
+      query: `
+        SELECT 
+          t.*,
+          b.company_name,
+          b.bank_name,
+          b.bank_account,
+          b.swift_code,
           (
-            SELECT SUM(amount)
+            SELECT GROUP_CONCAT(
+              CONCAT(
+                client_name,
+                ': $',
+                FORMAT(amount, 2),
+                ' (Rate: ',
+                FORMAT(rate, 2),
+                ')'
+              ) SEPARATOR '\n'
+            )
             FROM transfer_details
             WHERE id_transfer = t.id
-          ), 0
-        ) as total_client_amounts
-      FROM transfers t
-      LEFT JOIN banks b ON t.id_bank = b.id
-      WHERE t.id_user_do_transfer = ? OR t.id_user_receive_transfer = ?
-      ORDER BY t.date_do_transfer DESC
-    `,
-    params: [user.value.id, user.value.id],
-  })
-  if (result.success) {
-    console.log('Fetched transfers:', result.data)
-    transfers.value = result.data.map((transfer) => ({
-      ...transfer,
-      total_client_amounts: Number(transfer.total_client_amounts) || 0,
-    }))
+          ) as client_details,
+          COALESCE(
+            (
+              SELECT SUM(amount)
+              FROM transfer_details
+              WHERE id_transfer = t.id
+            ), 0
+          ) as total_client_amounts
+        FROM transfers t
+        LEFT JOIN banks b ON t.id_bank = b.id
+        WHERE t.id_user_do_transfer = ? OR t.id_user_receive_transfer = ?
+        ORDER BY t.date_do_transfer DESC
+      `,
+      params: [user.value.id, user.value.id],
+    })
+    if (result.success) {
+      console.log('Fetched transfers:', result.data)
+      transfers.value = result.data.map((transfer) => ({
+        ...transfer,
+        total_client_amounts: Number(transfer.total_client_amounts) || 0,
+      }))
+    }
+  } catch (error) {
+    console.error('Error fetching transfers:', error)
+  } finally {
+    isLoading.value = false
   }
 }
 
@@ -203,50 +222,60 @@ const openEditDialog = (transfer) => {
 }
 
 const updateTransfer = async () => {
-  if (
-    !editForm.value.amount_sending_da ||
-    !editForm.value.rate ||
-    !editForm.value.date_do_transfer
-  ) {
-    error.value = 'Please fill all required fields'
-    return
-  }
+  if (isProcessing.value) return
+  isProcessing.value = true
 
-  if (!editForm.value.id_bank) {
-    error.value = 'Please select a bank'
-    return
-  }
+  try {
+    if (
+      !editForm.value.amount_sending_da ||
+      !editForm.value.rate ||
+      !editForm.value.date_do_transfer
+    ) {
+      error.value = 'Please fill all required fields'
+      return
+    }
 
-  const amount_received_usd = (editForm.value.amount_sending_da / editForm.value.rate).toFixed(2)
+    if (!editForm.value.id_bank) {
+      error.value = 'Please select a bank'
+      return
+    }
 
-  const result = await callApi({
-    query: `
-      UPDATE transfers 
-      SET amount_sending_da = ?, 
-          rate = ?,
-          amount_received_usd = ?,
-          notes = ?,
-          id_bank = ?,
-          date_do_transfer = ?,
-          ref_pi_transfer = ?
-      WHERE id = ? ${!isAdmin.value ? 'AND date_receive IS NULL' : ''}
-    `,
-    params: [
-      editForm.value.amount_sending_da,
-      editForm.value.rate,
-      amount_received_usd,
-      editForm.value.notes || null,
-      editForm.value.id_bank,
-      editForm.value.date_do_transfer,
-      editForm.value.ref_pi_transfer || null,
-      selectedTransfer.value.id,
-    ],
-  })
+    const amount_received_usd = (editForm.value.amount_sending_da / editForm.value.rate).toFixed(2)
 
-  if (result.success) {
-    showEditDialog.value = false
-    selectedTransfer.value = null
-    fetchTransfers()
+    const result = await callApi({
+      query: `
+        UPDATE transfers 
+        SET amount_sending_da = ?, 
+            rate = ?,
+            amount_received_usd = ?,
+            notes = ?,
+            id_bank = ?,
+            date_do_transfer = ?,
+            ref_pi_transfer = ?
+        WHERE id = ? ${!isAdmin.value ? 'AND date_receive IS NULL' : ''}
+      `,
+      params: [
+        editForm.value.amount_sending_da,
+        editForm.value.rate,
+        amount_received_usd,
+        editForm.value.notes || null,
+        editForm.value.id_bank,
+        editForm.value.date_do_transfer,
+        editForm.value.ref_pi_transfer || null,
+        selectedTransfer.value.id,
+      ],
+    })
+
+    if (result.success) {
+      showEditDialog.value = false
+      selectedTransfer.value = null
+      await fetchTransfers()
+    }
+  } catch (err) {
+    console.error('Update transfer error:', err)
+    error.value = err.message || 'An error occurred while updating'
+  } finally {
+    isProcessing.value = false
   }
 }
 
@@ -256,15 +285,24 @@ const deleteTransfer = async (transfer) => {
     return
   }
 
+  if (processingTransferId.value === transfer.id) return
   if (!confirm('Are you sure you want to delete this transfer?')) return
 
-  const result = await callApi({
-    query: 'DELETE FROM transfers WHERE id = ?',
-    params: [transfer.id],
-  })
+  processingTransferId.value = transfer.id
+  try {
+    const result = await callApi({
+      query: 'DELETE FROM transfers WHERE id = ?',
+      params: [transfer.id],
+    })
 
-  if (result.success) {
-    fetchTransfers()
+    if (result.success) {
+      await fetchTransfers()
+    }
+  } catch (err) {
+    console.error('Delete transfer error:', err)
+    error.value = err.message || 'An error occurred while deleting'
+  } finally {
+    processingTransferId.value = null
   }
 }
 
@@ -283,6 +321,9 @@ const fetchBanks = async () => {
 }
 
 const createTransfer = async () => {
+  if (isProcessing.value) return
+  isProcessing.value = true
+
   try {
     formError.value = null
 
@@ -347,6 +388,8 @@ const createTransfer = async () => {
   } catch (err) {
     formError.value = err.message || 'An error occurred while creating the transfer'
     console.error('Create transfer error:', err)
+  } finally {
+    isProcessing.value = false
   }
 }
 
@@ -365,6 +408,11 @@ const openDetailsDialog = (transfer) => {
   console.log('Transfer ID:', transfer.id, typeof transfer.id)
   selectedTransferForDetails.value = transfer
   showDetailsDialog.value = true
+}
+
+const handleDetailsClose = async () => {
+  showDetailsDialog.value = false
+  await fetchTransfers()
 }
 
 onMounted(() => {
@@ -437,6 +485,15 @@ onMounted(() => {
             step="0.01"
           />
         </div>
+        <div class="filter-group">
+          <label><i class="fas fa-user"></i> Client Name</label>
+          <input
+            type="text"
+            v-model="filters.clientName"
+            class="filter-input"
+            placeholder="Filter by client name..."
+          />
+        </div>
         <button @click="clearFilters" class="btn clear-btn">
           <i class="fas fa-times"></i> Clear Filters
         </button>
@@ -445,6 +502,10 @@ onMounted(() => {
 
     <!-- Transfers Table -->
     <div class="transfers-table">
+      <div v-if="isLoading" class="loading-overlay">
+        <i class="fas fa-spinner fa-spin fa-2x"></i>
+        <span>Loading transfers...</span>
+      </div>
       <table>
         <thead>
           <tr>
@@ -561,6 +622,7 @@ onMounted(() => {
                   @click="openDetailsDialog(transfer)"
                   class="btn details-btn"
                   title="View Details"
+                  :disabled="processingTransferId === transfer.id"
                 >
                   <i class="fas fa-list-ul"></i>
                 </button>
@@ -569,6 +631,7 @@ onMounted(() => {
                   @click="openEditDialog(transfer)"
                   class="btn edit-btn"
                   title="Edit Transfer"
+                  :disabled="processingTransferId === transfer.id"
                 >
                   <i class="fas fa-edit"></i>
                 </button>
@@ -577,8 +640,10 @@ onMounted(() => {
                   @click="deleteTransfer(transfer)"
                   class="btn delete-btn"
                   title="Delete Transfer"
+                  :disabled="processingTransferId === transfer.id"
                 >
                   <i class="fas fa-trash"></i>
+                  <i v-if="processingTransferId === transfer.id" class="fas fa-spinner fa-spin"></i>
                 </button>
               </div>
             </td>
@@ -595,6 +660,9 @@ onMounted(() => {
           {{ error }}
         </div>
         <form @submit.prevent="updateTransfer">
+          <div v-if="isProcessing" class="dialog-loading">
+            <i class="fas fa-spinner fa-spin dialog-spinner"></i>
+          </div>
           <div class="form-group">
             <label>Date:</label>
             <input type="date" v-model="editForm.date_do_transfer" class="input-field" required />
@@ -662,8 +730,16 @@ onMounted(() => {
             />
           </div>
           <div class="dialog-actions">
-            <button type="submit" class="btn update-btn">Save</button>
-            <button type="button" @click="showEditDialog = false" class="btn cancel-btn">
+            <button type="submit" class="btn update-btn" :disabled="isProcessing">
+              <i v-if="isProcessing" class="fas fa-spinner fa-spin"></i>
+              <span v-else>Save</span>
+            </button>
+            <button
+              type="button"
+              @click="showEditDialog = false"
+              class="btn cancel-btn"
+              :disabled="isProcessing"
+            >
               Cancel
             </button>
           </div>
@@ -678,6 +754,9 @@ onMounted(() => {
           {{ formError }}
         </div>
         <form @submit.prevent="createTransfer">
+          <div v-if="isProcessing" class="dialog-loading">
+            <i class="fas fa-spinner fa-spin dialog-spinner"></i>
+          </div>
           <div class="form-group">
             <label>Date:</label>
             <input
@@ -752,8 +831,16 @@ onMounted(() => {
             />
           </div>
           <div class="dialog-actions">
-            <button type="submit" class="btn create-btn">Create</button>
-            <button type="button" @click="showAddDialog = false" class="btn cancel-btn">
+            <button type="submit" class="btn create-btn" :disabled="isProcessing">
+              <i v-if="isProcessing" class="fas fa-spinner fa-spin"></i>
+              <span v-else>Create</span>
+            </button>
+            <button
+              type="button"
+              @click="showAddDialog = false"
+              class="btn cancel-btn"
+              :disabled="isProcessing"
+            >
               Cancel
             </button>
           </div>
@@ -764,7 +851,8 @@ onMounted(() => {
       v-if="showDetailsDialog"
       :transfer-id="selectedTransferForDetails?.id"
       :is-visible="showDetailsDialog"
-      @close="showDetailsDialog = false"
+      @close="handleDetailsClose"
+      @refresh="fetchTransfers"
     />
   </div>
 </template>
@@ -793,6 +881,7 @@ onMounted(() => {
 }
 
 .transfers-table {
+  position: relative;
   overflow-x: auto;
   background: white;
   border-radius: 8px;
@@ -914,6 +1003,7 @@ th {
   right: 0;
   bottom: 0;
   background-color: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -924,6 +1014,10 @@ th {
   overflow-y: auto;
   width: 90%;
   max-width: 600px;
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
 .form-group {
@@ -1146,5 +1240,60 @@ select.input-field {
   th {
     padding: 8px;
   }
+}
+
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.9);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-size: 1.1em;
+  color: #4b5563;
+  z-index: 10;
+}
+
+.loading-overlay i {
+  color: #3b82f6;
+}
+
+/* Add styles for disabled buttons */
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.btn i {
+  margin-right: 4px;
+}
+
+.dialog-loading {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  border-radius: 8px;
+}
+
+.dialog-spinner {
+  color: #3b82f6;
+  font-size: 2em;
+}
+
+.dialog form {
+  position: relative;
 }
 </style>

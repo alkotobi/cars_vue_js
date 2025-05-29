@@ -19,7 +19,7 @@ const props = defineProps({
 
 console.log('TransferDetails component props:', props)
 
-const emit = defineEmits(['close'])
+const emit = defineEmits(['close', 'refresh'])
 
 const { callApi } = useApi()
 const details = ref([])
@@ -27,6 +27,7 @@ const isLoading = ref(false)
 const showAddDialog = ref(false)
 const processingId = ref(null)
 const error = ref(null)
+const isProcessing = ref(false)
 
 const detailForm = ref({
   amount: '',
@@ -123,7 +124,8 @@ const fetchDetails = async () => {
 }
 
 const addDetail = async () => {
-  if (processingId.value) return
+  if (isProcessing.value) return
+  isProcessing.value = true
 
   try {
     const result = await callApi({
@@ -154,10 +156,13 @@ const addDetail = async () => {
         notes: '',
       }
       await fetchDetails()
+      emit('refresh')
     }
   } catch (err) {
     console.error('Error adding detail:', err)
     error.value = 'Failed to add detail'
+  } finally {
+    isProcessing.value = false
   }
 }
 
@@ -174,6 +179,7 @@ const deleteDetail = async (id) => {
 
     if (result.success) {
       await fetchDetails()
+      emit('refresh')
     }
   } catch (err) {
     console.error('Error deleting detail:', err)
@@ -192,9 +198,9 @@ const openEditDialog = (detail) => {
 }
 
 const updateDetail = async () => {
-  if (!editDetail.value || processingId.value) return
+  if (!editDetail.value || isProcessing.value) return
+  isProcessing.value = true
 
-  processingId.value = editDetail.value.id
   try {
     const result = await callApi({
       query: `
@@ -222,13 +228,19 @@ const updateDetail = async () => {
       showEditDialog.value = false
       editDetail.value = null
       await fetchDetails()
+      emit('refresh')
     }
   } catch (err) {
     console.error('Error updating detail:', err)
     error.value = 'Failed to update detail'
   } finally {
-    processingId.value = null
+    isProcessing.value = false
   }
+}
+
+const handleClose = () => {
+  emit('close')
+  emit('refresh')
 }
 </script>
 
@@ -237,7 +249,7 @@ const updateDetail = async () => {
     <div class="modal-content">
       <div class="modal-header">
         <h2><i class="fas fa-list-ul"></i> Transfer Details</h2>
-        <button @click="$emit('close')" class="close-btn">
+        <button @click="handleClose" class="close-btn">
           <i class="fas fa-times"></i>
         </button>
       </div>
@@ -312,6 +324,9 @@ const updateDetail = async () => {
         <div class="dialog">
           <h3><i class="fas fa-plus-circle"></i> Add Detail</h3>
           <form @submit.prevent="addDetail">
+            <div v-if="isProcessing" class="dialog-loading">
+              <i class="fas fa-spinner fa-spin dialog-spinner"></i>
+            </div>
             <div class="form-group">
               <label><i class="fas fa-dollar-sign"></i> Amount:</label>
               <input
@@ -349,8 +364,17 @@ const updateDetail = async () => {
               <textarea v-model="detailForm.notes" class="input-field"></textarea>
             </div>
             <div class="dialog-actions">
-              <button type="submit" class="btn save-btn"><i class="fas fa-save"></i> Save</button>
-              <button type="button" @click="showAddDialog = false" class="btn cancel-btn">
+              <button type="submit" class="btn save-btn" :disabled="isProcessing">
+                <i v-if="isProcessing" class="fas fa-spinner fa-spin"></i>
+                <i v-else class="fas fa-save"></i>
+                Save
+              </button>
+              <button
+                type="button"
+                @click="showAddDialog = false"
+                class="btn cancel-btn"
+                :disabled="isProcessing"
+              >
                 <i class="fas fa-times"></i> Cancel
               </button>
             </div>
@@ -363,6 +387,9 @@ const updateDetail = async () => {
         <div class="dialog">
           <h3><i class="fas fa-edit"></i> Edit Detail</h3>
           <form @submit.prevent="updateDetail">
+            <div v-if="isProcessing" class="dialog-loading">
+              <i class="fas fa-spinner fa-spin dialog-spinner"></i>
+            </div>
             <div class="form-group">
               <label><i class="fas fa-dollar-sign"></i> Amount:</label>
               <input
@@ -400,22 +427,16 @@ const updateDetail = async () => {
               <textarea v-model="editDetail.notes" class="input-field"></textarea>
             </div>
             <div class="dialog-actions">
-              <button
-                type="submit"
-                class="btn save-btn"
-                :disabled="processingId === editDetail?.id"
-              >
-                <i class="fas fa-save"></i>
-                <span v-if="processingId === editDetail?.id">
-                  <i class="fas fa-spinner fa-spin"></i> Saving...
-                </span>
-                <span v-else>Save</span>
+              <button type="submit" class="btn save-btn" :disabled="isProcessing">
+                <i v-if="isProcessing" class="fas fa-spinner fa-spin"></i>
+                <i v-else class="fas fa-save"></i>
+                Save
               </button>
               <button
                 type="button"
                 @click="showEditDialog = false"
                 class="btn cancel-btn"
-                :disabled="processingId === editDetail?.id"
+                :disabled="isProcessing"
               >
                 <i class="fas fa-times"></i> Cancel
               </button>
@@ -579,12 +600,9 @@ td {
 
 .dialog {
   background: white;
-  padding: 24px;
-  border-radius: 12px;
-  width: 90%;
-  max-width: 500px;
-  max-height: 90vh;
-  overflow-y: auto;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
 .dialog h3 {
@@ -653,5 +671,34 @@ textarea.input-field {
   border-radius: 6px;
   color: #dc2626;
   margin-bottom: 16px;
+}
+
+.dialog-loading {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  border-radius: 8px;
+}
+
+.dialog form {
+  position: relative;
+}
+
+.dialog-spinner {
+  color: #3b82f6;
+  font-size: 2em;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 </style>
