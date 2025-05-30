@@ -95,7 +95,7 @@ const fetchClients = async () => {
       query: `
         SELECT id, name
         FROM clients
-        WHERE is_broker = 0
+        WHERE is_client = 1
         ORDER BY name ASC
       `,
       params: [],
@@ -124,8 +124,30 @@ const remoteMethod = (query) => {
   }
 }
 
-const handleClientChange = () => {
-  // Handle client change if needed
+const handleClientChange = async () => {
+  if (!formData.value.id_client) return
+
+  try {
+    const result = await callApi({
+      query: `
+        SELECT id_copy_path
+        FROM clients
+        WHERE id = ?
+      `,
+      params: [formData.value.id_client],
+    })
+
+    if (result.success && result.data.length > 0) {
+      if (!result.data[0].id_copy_path) {
+        error.value = 'Cannot assign to this client because you did not provide ID card for him'
+        formData.value.id_client = null
+      }
+    }
+  } catch (err) {
+    console.error('Error checking client ID card:', err)
+    error.value = 'Failed to verify client ID card'
+    formData.value.id_client = null
+  }
 }
 
 // Fetch discharge ports for dropdown
