@@ -1,16 +1,17 @@
 <script setup>
 import { ref, defineProps, defineEmits } from 'vue'
 import { useApi } from '../../composables/useApi'
+import { ElMessageBox } from 'element-plus'
 
 const props = defineProps({
   car: {
     type: Object,
-    required: true
+    required: true,
   },
   show: {
     type: Boolean,
-    default: false
-  }
+    default: false,
+  },
 })
 
 const emit = defineEmits(['close', 'save'])
@@ -22,20 +23,30 @@ const success = ref(false)
 const handleLoad = async () => {
   if (props.car.date_loding) return
 
-  loading.value = true
-  error.value = null
-
   try {
+    await ElMessageBox.confirm(
+      'Are you sure you want to mark this car as loaded?',
+      'Confirm Loading',
+      {
+        confirmButtonText: 'Yes, Load Car',
+        cancelButtonText: 'No',
+        type: 'warning',
+      },
+    )
+
+    loading.value = true
+    error.value = null
+
     const currentDate = new Date().toISOString().split('T')[0]
     const result = await callApi({
       query: 'UPDATE cars_stock SET date_loding = ? WHERE id = ?',
-      params: [currentDate, props.car.id]
+      params: [currentDate, props.car.id],
     })
 
     if (result.success) {
-      const updatedCar = { 
+      const updatedCar = {
         ...props.car,
-        date_loding: currentDate
+        date_loding: currentDate,
       }
       Object.assign(props.car, updatedCar)
       success.value = true
@@ -47,7 +58,9 @@ const handleLoad = async () => {
       throw new Error(result.error || 'Failed to update loading date')
     }
   } catch (err) {
-    error.value = err.message || 'An error occurred'
+    if (err !== 'cancel') {
+      error.value = err.message || 'An error occurred'
+    }
   } finally {
     loading.value = false
   }
@@ -79,13 +92,15 @@ const closeModal = () => {
           </div>
           <div v-if="props.car.date_loding" class="date-info">
             <span class="date-label">Loading Date:</span>
-            <span class="date-value">{{ new Date(props.car.date_loding).toLocaleDateString() }}</span>
+            <span class="date-value">{{
+              new Date(props.car.date_loding).toLocaleDateString()
+            }}</span>
           </div>
-          <button 
-            class="action-btn load-btn" 
+          <button
+            class="action-btn load-btn"
             @click="handleLoad"
             :disabled="loading || !!props.car.date_loding"
-            :class="{ 'disabled': !!props.car.date_loding }"
+            :class="{ disabled: !!props.car.date_loding }"
           >
             {{ loading ? 'Processing...' : 'Load Car' }}
           </button>
@@ -170,7 +185,8 @@ const closeModal = () => {
   margin-bottom: 8px;
 }
 
-.status-label, .date-label {
+.status-label,
+.date-label {
   font-weight: 500;
   color: #6b7280;
 }
@@ -253,10 +269,12 @@ const closeModal = () => {
   border-radius: 50%;
   display: block;
   stroke-width: 2;
-  stroke: #4CAF50;
+  stroke: #4caf50;
   stroke-miterlimit: 10;
-  box-shadow: inset 0px 0px 0px #4CAF50;
-  animation: fill .4s ease-in-out .4s forwards, scale .3s ease-in-out .9s both;
+  box-shadow: inset 0px 0px 0px #4caf50;
+  animation:
+    fill 0.4s ease-in-out 0.4s forwards,
+    scale 0.3s ease-in-out 0.9s both;
   position: relative;
   top: 0;
   right: 0;
@@ -277,7 +295,7 @@ const closeModal = () => {
   transform: translate(-50%, -50%);
   width: 100%;
   height: 100%;
-  background-color: #4CAF50;
+  background-color: #4caf50;
   animation: fillCheckmark 0.4s ease-in-out 0.4s forwards;
   opacity: 0;
 }
@@ -329,7 +347,8 @@ const closeModal = () => {
 }
 
 @keyframes scale {
-  0%, 100% {
+  0%,
+  100% {
     transform: none;
   }
   50% {
@@ -347,4 +366,4 @@ const closeModal = () => {
     transform: translateY(0);
   }
 }
-</style> 
+</style>
