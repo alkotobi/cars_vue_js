@@ -14,7 +14,7 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['close', 'save'])
+const emit = defineEmits(['close', 'save', 'documents-sent'])
 const { callApi } = useApi()
 const loading = ref(false)
 const error = ref(null)
@@ -191,6 +191,10 @@ const handleDocsSentToClient = async () => {
       }
       Object.assign(props.car, updatedCar)
       emit('save', updatedCar)
+      emit('documents-sent', updatedCar)
+      setTimeout(() => {
+        emit('close')
+      }, 1500)
     } else {
       throw new Error(result.error || 'Failed to update documents sent date')
     }
@@ -346,7 +350,7 @@ const closeModal = () => {
 
           <!-- Client Documents Section -->
           <div class="document-section">
-            <h4>Client Documents</h4>
+            <h4>We Send Client Documents</h4>
             <div class="status-info">
               <span class="status-label">Status:</span>
               <span :class="['status-value', props.car.date_send_documents ? 'sent' : 'pending']">

@@ -184,11 +184,11 @@ const fetchTransfers = async () => {
               WHERE id_transfer = t.id
             ), 0
           ) as total_client_amounts
-        FROM transfers t
+      FROM transfers t
         LEFT JOIN banks b ON t.id_bank = b.id
-        WHERE t.id_user_do_transfer = ? OR t.id_user_receive_transfer = ?
-        ORDER BY t.date_do_transfer DESC
-      `,
+      WHERE t.id_user_do_transfer = ? OR t.id_user_receive_transfer = ?
+      ORDER BY t.date_do_transfer DESC
+    `,
       params: [user.value.id, user.value.id],
     })
     if (result.success) {
@@ -245,16 +245,16 @@ const updateTransfer = async () => {
 
     const result = await callApi({
       query: `
-        UPDATE transfers 
-        SET amount_sending_da = ?, 
-            rate = ?,
-            amount_received_usd = ?,
+      UPDATE transfers 
+      SET amount_sending_da = ?, 
+          rate = ?,
+          amount_received_usd = ?,
             notes = ?,
             id_bank = ?,
             date_do_transfer = ?,
             ref_pi_transfer = ?
-        WHERE id = ? ${!isAdmin.value ? 'AND date_receive IS NULL' : ''}
-      `,
+      WHERE id = ? ${!isAdmin.value ? 'AND date_receive IS NULL' : ''}
+    `,
       params: [
         editForm.value.amount_sending_da,
         editForm.value.rate,
@@ -355,11 +355,11 @@ const createTransfer = async () => {
 
     const result = await callApi({
       query: `
-        INSERT INTO transfers (
-          id_user_do_transfer, date_do_transfer, amount_sending_da, 
+      INSERT INTO transfers (
+        id_user_do_transfer, date_do_transfer, amount_sending_da, 
           rate, amount_received_usd, notes, id_bank, ref_pi_transfer
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `,
+    `,
       params: [
         user.value.id,
         newTransfer.value.date_do_transfer,

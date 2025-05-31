@@ -207,7 +207,8 @@ const fetchCarsStock = async () => {
       LEFT JOIN loading_ports lp ON cs.id_port_loading = lp.id
       LEFT JOIN discharge_ports dp ON cs.id_port_discharge = dp.id
       LEFT JOIN warehouses w ON cs.id_warehouse = w.id
-      WHERE cs.hidden = 0
+      WHERE cs.hidden = 0   
+      AND cs.date_send_documents IS NULL
     `
 
     const params = []
@@ -345,10 +346,6 @@ const fetchCarsStock = async () => {
 
         if (adv.has_export_license) {
           query += ` AND cs.export_lisence_ref IS NOT NULL AND cs.export_lisence_ref != ''`
-        }
-
-        if (adv.documents_sent) {
-          query += ` AND cs.date_send_documents IS NOT NULL`
         }
 
         if (adv.is_loaded) {
@@ -684,6 +681,7 @@ defineExpose({
       :show="showDocumentsForm"
       @close="handleDocumentsClose"
       @save="handleDocumentsSave"
+      @documents-sent="fetchCarsStock"
     />
 
     <CarLoadForm
