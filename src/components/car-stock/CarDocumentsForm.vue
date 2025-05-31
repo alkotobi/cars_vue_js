@@ -1,16 +1,17 @@
 <script setup>
 import { ref, defineProps, defineEmits, computed } from 'vue'
 import { useApi } from '../../composables/useApi'
+import { ElMessageBox } from 'element-plus'
 
 const props = defineProps({
   car: {
     type: Object,
-    required: true
+    required: true,
   },
   show: {
     type: Boolean,
-    default: false
-  }
+    default: false,
+  },
 })
 
 const emit = defineEmits(['close', 'save'])
@@ -26,22 +27,32 @@ const exportLicenseRef = ref(props.car.export_lisence_ref || '')
 const handleGetBL = async () => {
   if (props.car.date_get_bl) return
 
-  loading.value = true
-  error.value = null
-  success.value = null
-
   try {
+    await ElMessageBox.confirm(
+      'Are you sure you want to mark the BL as received?',
+      'Confirm Action',
+      {
+        confirmButtonText: 'Yes',
+        cancelButtonText: 'No',
+        type: 'warning',
+      },
+    )
+
+    loading.value = true
+    error.value = null
+    success.value = null
+
     const currentDate = new Date().toISOString().split('T')[0]
     const result = await callApi({
       query: 'UPDATE cars_stock SET date_get_bl = ? WHERE id = ?',
-      params: [currentDate, props.car.id]
+      params: [currentDate, props.car.id],
     })
 
     if (result.success) {
       success.value = 'BL received date updated'
-      const updatedCar = { 
+      const updatedCar = {
         ...props.car,
-        date_get_bl: currentDate
+        date_get_bl: currentDate,
       }
       Object.assign(props.car, updatedCar)
       emit('save', updatedCar)
@@ -49,7 +60,9 @@ const handleGetBL = async () => {
       throw new Error(result.error || 'Failed to update BL received date')
     }
   } catch (err) {
-    error.value = err.message || 'An error occurred'
+    if (err !== 'cancel') {
+      error.value = err.message || 'An error occurred'
+    }
   } finally {
     loading.value = false
   }
@@ -59,22 +72,32 @@ const handleGetBL = async () => {
 const handleFreightPaid = async () => {
   if (props.car.date_pay_freight) return
 
-  loading.value = true
-  error.value = null
-  success.value = null
-
   try {
+    await ElMessageBox.confirm(
+      'Are you sure you want to mark the freight as paid?',
+      'Confirm Action',
+      {
+        confirmButtonText: 'Yes',
+        cancelButtonText: 'No',
+        type: 'warning',
+      },
+    )
+
+    loading.value = true
+    error.value = null
+    success.value = null
+
     const currentDate = new Date().toISOString().split('T')[0]
     const result = await callApi({
       query: 'UPDATE cars_stock SET date_pay_freight = ? WHERE id = ?',
-      params: [currentDate, props.car.id]
+      params: [currentDate, props.car.id],
     })
 
     if (result.success) {
       success.value = 'Freight payment date updated'
-      const updatedCar = { 
+      const updatedCar = {
         ...props.car,
-        date_pay_freight: currentDate
+        date_pay_freight: currentDate,
       }
       Object.assign(props.car, updatedCar)
       emit('save', updatedCar)
@@ -82,7 +105,9 @@ const handleFreightPaid = async () => {
       throw new Error(result.error || 'Failed to update freight payment date')
     }
   } catch (err) {
-    error.value = err.message || 'An error occurred'
+    if (err !== 'cancel') {
+      error.value = err.message || 'An error occurred'
+    }
   } finally {
     loading.value = false
   }
@@ -92,22 +117,32 @@ const handleFreightPaid = async () => {
 const handleDocsFromSupplier = async () => {
   if (props.car.date_get_documents_from_supp) return
 
-  loading.value = true
-  error.value = null
-  success.value = null
-
   try {
+    await ElMessageBox.confirm(
+      'Are you sure you want to mark the documents as received from supplier?',
+      'Confirm Action',
+      {
+        confirmButtonText: 'Yes',
+        cancelButtonText: 'No',
+        type: 'warning',
+      },
+    )
+
+    loading.value = true
+    error.value = null
+    success.value = null
+
     const currentDate = new Date().toISOString().split('T')[0]
     const result = await callApi({
       query: 'UPDATE cars_stock SET date_get_documents_from_supp = ? WHERE id = ?',
-      params: [currentDate, props.car.id]
+      params: [currentDate, props.car.id],
     })
 
     if (result.success) {
       success.value = 'Documents from supplier date updated'
-      const updatedCar = { 
+      const updatedCar = {
         ...props.car,
-        date_get_documents_from_supp: currentDate
+        date_get_documents_from_supp: currentDate,
       }
       Object.assign(props.car, updatedCar)
       emit('save', updatedCar)
@@ -115,7 +150,9 @@ const handleDocsFromSupplier = async () => {
       throw new Error(result.error || 'Failed to update documents from supplier date')
     }
   } catch (err) {
-    error.value = err.message || 'An error occurred'
+    if (err !== 'cancel') {
+      error.value = err.message || 'An error occurred'
+    }
   } finally {
     loading.value = false
   }
@@ -125,22 +162,32 @@ const handleDocsFromSupplier = async () => {
 const handleDocsSentToClient = async () => {
   if (props.car.date_send_documents) return
 
-  loading.value = true
-  error.value = null
-  success.value = null
-
   try {
+    await ElMessageBox.confirm(
+      'Are you sure you want to mark the documents as sent to client?',
+      'Confirm Action',
+      {
+        confirmButtonText: 'Yes',
+        cancelButtonText: 'No',
+        type: 'warning',
+      },
+    )
+
+    loading.value = true
+    error.value = null
+    success.value = null
+
     const currentDate = new Date().toISOString().split('T')[0]
     const result = await callApi({
       query: 'UPDATE cars_stock SET date_send_documents = ? WHERE id = ?',
-      params: [currentDate, props.car.id]
+      params: [currentDate, props.car.id],
     })
 
     if (result.success) {
       success.value = 'Documents sent to client date updated'
-      const updatedCar = { 
+      const updatedCar = {
         ...props.car,
-        date_send_documents: currentDate
+        date_send_documents: currentDate,
       }
       Object.assign(props.car, updatedCar)
       emit('save', updatedCar)
@@ -148,7 +195,9 @@ const handleDocsSentToClient = async () => {
       throw new Error(result.error || 'Failed to update documents sent date')
     }
   } catch (err) {
-    error.value = err.message || 'An error occurred'
+    if (err !== 'cancel') {
+      error.value = err.message || 'An error occurred'
+    }
   } finally {
     loading.value = false
   }
@@ -156,21 +205,31 @@ const handleDocsSentToClient = async () => {
 
 // Handle export license update
 const handleExportLicenseUpdate = async () => {
-  loading.value = true
-  error.value = null
-  success.value = null
-
   try {
+    await ElMessageBox.confirm(
+      'Are you sure you want to update the export license reference?',
+      'Confirm Action',
+      {
+        confirmButtonText: 'Yes',
+        cancelButtonText: 'No',
+        type: 'warning',
+      },
+    )
+
+    loading.value = true
+    error.value = null
+    success.value = null
+
     const result = await callApi({
       query: 'UPDATE cars_stock SET export_lisence_ref = ? WHERE id = ?',
-      params: [exportLicenseRef.value, props.car.id]
+      params: [exportLicenseRef.value, props.car.id],
     })
 
     if (result.success) {
       success.value = 'Export license reference updated'
-      const updatedCar = { 
+      const updatedCar = {
         ...props.car,
-        export_lisence_ref: exportLicenseRef.value
+        export_lisence_ref: exportLicenseRef.value,
       }
       Object.assign(props.car, updatedCar)
       emit('save', updatedCar)
@@ -178,7 +237,9 @@ const handleExportLicenseUpdate = async () => {
       throw new Error(result.error || 'Failed to update export license reference')
     }
   } catch (err) {
-    error.value = err.message || 'An error occurred'
+    if (err !== 'cancel') {
+      error.value = err.message || 'An error occurred'
+    }
   } finally {
     loading.value = false
   }
@@ -214,13 +275,15 @@ const closeModal = () => {
             </div>
             <div v-if="props.car.date_get_bl" class="date-info">
               <span class="date-label">Received Date:</span>
-              <span class="date-value">{{ new Date(props.car.date_get_bl).toLocaleDateString() }}</span>
+              <span class="date-value">{{
+                new Date(props.car.date_get_bl).toLocaleDateString()
+              }}</span>
             </div>
-            <button 
-              class="action-btn get-bl-btn" 
+            <button
+              class="action-btn get-bl-btn"
               @click="handleGetBL"
               :disabled="loading || !!props.car.date_get_bl"
-              :class="{ 'disabled': !!props.car.date_get_bl }"
+              :class="{ disabled: !!props.car.date_get_bl }"
             >
               {{ loading ? 'Processing...' : 'We Get BL' }}
             </button>
@@ -237,13 +300,15 @@ const closeModal = () => {
             </div>
             <div v-if="props.car.date_pay_freight" class="date-info">
               <span class="date-label">Payment Date:</span>
-              <span class="date-value">{{ new Date(props.car.date_pay_freight).toLocaleDateString() }}</span>
+              <span class="date-value">{{
+                new Date(props.car.date_pay_freight).toLocaleDateString()
+              }}</span>
             </div>
-            <button 
-              class="action-btn freight-btn" 
+            <button
+              class="action-btn freight-btn"
               @click="handleFreightPaid"
               :disabled="loading || !!props.car.date_pay_freight"
-              :class="{ 'disabled': !!props.car.date_pay_freight }"
+              :class="{ disabled: !!props.car.date_pay_freight }"
             >
               {{ loading ? 'Processing...' : 'Freight Paid' }}
             </button>
@@ -254,19 +319,26 @@ const closeModal = () => {
             <h4>Supplier Documents</h4>
             <div class="status-info">
               <span class="status-label">Status:</span>
-              <span :class="['status-value', props.car.date_get_documents_from_supp ? 'received' : 'pending']">
+              <span
+                :class="[
+                  'status-value',
+                  props.car.date_get_documents_from_supp ? 'received' : 'pending',
+                ]"
+              >
                 {{ props.car.date_get_documents_from_supp ? 'Received' : 'Pending' }}
               </span>
             </div>
             <div v-if="props.car.date_get_documents_from_supp" class="date-info">
               <span class="date-label">Received Date:</span>
-              <span class="date-value">{{ new Date(props.car.date_get_documents_from_supp).toLocaleDateString() }}</span>
+              <span class="date-value">{{
+                new Date(props.car.date_get_documents_from_supp).toLocaleDateString()
+              }}</span>
             </div>
-            <button 
-              class="action-btn supplier-docs-btn" 
+            <button
+              class="action-btn supplier-docs-btn"
               @click="handleDocsFromSupplier"
               :disabled="loading || !!props.car.date_get_documents_from_supp"
-              :class="{ 'disabled': !!props.car.date_get_documents_from_supp }"
+              :class="{ disabled: !!props.car.date_get_documents_from_supp }"
             >
               {{ loading ? 'Processing...' : 'We Get Docs from Supplier' }}
             </button>
@@ -283,13 +355,15 @@ const closeModal = () => {
             </div>
             <div v-if="props.car.date_send_documents" class="date-info">
               <span class="date-label">Sent Date:</span>
-              <span class="date-value">{{ new Date(props.car.date_send_documents).toLocaleDateString() }}</span>
+              <span class="date-value">{{
+                new Date(props.car.date_send_documents).toLocaleDateString()
+              }}</span>
             </div>
-            <button 
-              class="action-btn client-docs-btn" 
+            <button
+              class="action-btn client-docs-btn"
               @click="handleDocsSentToClient"
               :disabled="loading || !!props.car.date_send_documents"
-              :class="{ 'disabled': !!props.car.date_send_documents }"
+              :class="{ disabled: !!props.car.date_send_documents }"
             >
               {{ loading ? 'Processing...' : 'Documents Sent to Client' }}
             </button>
@@ -302,7 +376,7 @@ const closeModal = () => {
           <div class="form-group">
             <label for="export-license">Reference Number:</label>
             <div class="input-group">
-              <input 
+              <input
                 type="text"
                 id="export-license"
                 v-model="exportLicenseRef"
@@ -310,11 +384,7 @@ const closeModal = () => {
                 class="input-field"
                 :disabled="loading"
               />
-              <button 
-                class="update-btn" 
-                @click="handleExportLicenseUpdate"
-                :disabled="loading"
-              >
+              <button class="update-btn" @click="handleExportLicenseUpdate" :disabled="loading">
                 Update
               </button>
             </div>
@@ -330,13 +400,7 @@ const closeModal = () => {
       </div>
 
       <div class="modal-footer">
-        <button 
-          class="close-btn-secondary" 
-          @click="closeModal"
-          :disabled="loading"
-        >
-          Close
-        </button>
+        <button class="close-btn-secondary" @click="closeModal" :disabled="loading">Close</button>
       </div>
     </div>
   </div>
@@ -412,7 +476,8 @@ const closeModal = () => {
   margin-bottom: 8px;
 }
 
-.status-label, .date-label {
+.status-label,
+.date-label {
   font-weight: 500;
   color: #6b7280;
 }
@@ -421,7 +486,9 @@ const closeModal = () => {
   font-weight: 600;
 }
 
-.received, .paid, .sent {
+.received,
+.paid,
+.sent {
   color: #059669;
 }
 
@@ -573,4 +640,4 @@ button:disabled {
   opacity: 0.7;
   cursor: not-allowed;
 }
-</style> 
+</style>

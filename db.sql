@@ -7,7 +7,7 @@
 #
 # Host: 216.219.81.100 (MySQL 5.5.5-10.6.21-MariaDB)
 # Database: merhab_cars
-# Generation Time: 2025-05-25 18:02:32 +0000
+# Generation Time: 2025-05-30 16:59:07 +0000
 # ************************************************************
 
 
@@ -82,6 +82,7 @@ CREATE TABLE `buy_details` (
   `is_used_car` tinyint(1) DEFAULT 0,
   `id_buy_bill` int(11) DEFAULT NULL,
   `price_sell` decimal(10,2) DEFAULT NULL,
+  `is_big_car` tinyint(1) DEFAULT 0,
   PRIMARY KEY (`id`),
   KEY `id_car_name` (`id_car_name`),
   KEY `id_color` (`id_color`),
@@ -158,6 +159,8 @@ CREATE TABLE `cars_stock` (
   `rate` decimal(10,2) DEFAULT NULL,
   `date_get_bl` date DEFAULT NULL,
   `date_pay_freight` date DEFAULT NULL,
+  `is_used_car` tinyint(1) DEFAULT NULL,
+  `is_big_car` tinyint(1) DEFAULT 0,
   PRIMARY KEY (`id`),
   KEY `id_client` (`id_client`),
   KEY `id_port_loading` (`id_port_loading`),
@@ -179,10 +182,12 @@ CREATE TABLE `clients` (
   `name` varchar(255) NOT NULL,
   `address` varchar(255) DEFAULT NULL,
   `email` varchar(255) DEFAULT NULL,
-  `mobiles` varchar(255) NOT NULL,
+  `mobiles` varchar(255) DEFAULT 'please provide mobile',
   `id_copy_path` varchar(255) DEFAULT NULL,
   `id_no` varchar(255) DEFAULT NULL,
   `is_broker` tinyint(1) DEFAULT 0,
+  `is_client` tinyint(1) DEFAULT NULL,
+  `notes` text DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `client_name_unic` (`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
@@ -198,6 +203,19 @@ CREATE TABLE `colors` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `color` (`color`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+
+
+# Dump of table defaults
+# ------------------------------------------------------------
+
+CREATE TABLE `defaults` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `rate` decimal(10,2) DEFAULT NULL,
+  `freight_small` decimal(10,2) DEFAULT NULL,
+  `freight_big` decimal(10,2) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_general_ci;
 
 
 
@@ -290,6 +308,7 @@ CREATE TABLE `sell_bill` (
   `id_user` int(11) DEFAULT NULL,
   `path_pi` varchar(255) DEFAULT NULL,
   `bill_ref` varchar(255) DEFAULT NULL,
+  `is_batch_sell` tinyint(1) DEFAULT 0,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 
@@ -327,6 +346,25 @@ CREATE TABLE `suppliers` (
 
 
 
+# Dump of table transfer_details
+# ------------------------------------------------------------
+
+CREATE TABLE `transfer_details` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `id_transfer` int(11) DEFAULT NULL,
+  `amount` decimal(10,2) DEFAULT NULL,
+  `date` datetime DEFAULT NULL,
+  `client_name` varchar(255) DEFAULT NULL,
+  `client_mobile` varchar(255) DEFAULT NULL,
+  `rate` decimal(10,2) DEFAULT NULL,
+  `description` varchar(255) DEFAULT NULL,
+  `notes` text DEFAULT NULL,
+  `id_client` int(11) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+
+
 # Dump of table transfers
 # ------------------------------------------------------------
 
@@ -342,6 +380,8 @@ CREATE TABLE `transfers` (
   `details_transfer` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`details_transfer`)),
   `notes` text DEFAULT NULL,
   `receiver_notes` text DEFAULT NULL,
+  `id_bank` int(11) DEFAULT NULL,
+  `ref_pi_transfer` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `id_user_do_transfer` (`id_user_do_transfer`),
   CONSTRAINT `transfers_ibfk_1` FOREIGN KEY (`id_user_do_transfer`) REFERENCES `users` (`id`)

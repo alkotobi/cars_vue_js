@@ -6,6 +6,7 @@ const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1'
 
 // Set API base URL based on environment
 const API_BASE_URL = isLocalhost ? 'http://localhost:8000/api' : 'https://www.merhab.com/api'
+
 const API_URL = `${API_BASE_URL}/api.php`
 const UPLOAD_URL = `${API_BASE_URL}/upload.php`
 

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import { useApi } from '../composables/useApi'
 import { ElSelect, ElOption } from 'element-plus'
 import 'element-plus/dist/index.css'
@@ -50,6 +50,8 @@ const detailForm = ref({
   id_client: null,
 })
 
+const user = ref(JSON.parse(localStorage.getItem('user')))
+const isAdmin = computed(() => user.value?.role_id === 1)
 onMounted(() => {
   console.log('TransferDetails mounted, transferId:', props.transferId)
   if (props.transferId) {
@@ -462,7 +464,7 @@ const addNewClient = async () => {
                 />
               </el-select>
             </div>
-            <div class="form-group">
+            <div v-if="isAdmin" class="form-group">
               <label><i class="fas fa-user"></i> Client Name:</label>
               <input
                 type="text"
