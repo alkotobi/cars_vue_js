@@ -109,7 +109,7 @@ const fetchBillData = async () => {
 
       console.log('Cars query params:', [props.billId])
       console.log('Cars result:', carsResult)
-
+      
       if (carsResult.success) {
         carsData.value = carsResult.data
         console.log('Cars data with rates:', carsData.value)
@@ -135,21 +135,21 @@ const calculateTotal = () => {
   return carsData.value
     .reduce((total, car) => {
       let myPrice
-      if (props.options.paymentTerms.toLowerCase() === 'cfr') {
+    if (props.options.paymentTerms.toLowerCase() === 'cfr') {
         myPrice = (parseFloat(car.price_cell) || 0) + (parseFloat(car.freight) || 0)
-      } else {
+    } else {
         myPrice = parseFloat(car.price_cell) || 0
-      }
-
-      // Convert to selected currency
+    }
+    
+    // Convert to selected currency
       if (props.options.currency.toUpperCase() === 'DA') {
         const rate = parseFloat(car.rate)
-        if (!rate) {
+      if (!rate) {
           console.warn(`No rate found for car ID ${car.id}`)
           return total
-        }
-        return total + myPrice * rate
       }
+        return total + myPrice * rate
+    }
       return total + myPrice
     }, 0)
     .toFixed(2)
@@ -162,7 +162,7 @@ const calculateCarPrice = (car) => {
   } else {
     myPrice = parseFloat(car.price_cell) || 0
   }
-
+  
   // Convert to selected currency
   if (props.options.currency.toUpperCase() === 'DA') {
     const rate = parseFloat(car.rate)
@@ -209,31 +209,31 @@ const numberToWords = (num) => {
     'Eighteen',
     'Nineteen',
   ]
-
+  
   const convertLessThanOneThousand = (n) => {
     if (n === 0) return ''
-
+    
     if (n < 10) return ones[n]
-
+    
     if (n < 20) return teens[n - 10]
-
+    
     if (n < 100) {
       return tens[Math.floor(n / 10)] + (n % 10 ? ' ' + ones[n % 10] : '')
     }
-
+    
     return (
       ones[Math.floor(n / 100)] +
       ' Hundred' +
       (n % 100 ? ' and ' + convertLessThanOneThousand(n % 100) : '')
     )
   }
-
+  
   if (num === 0) return 'Zero'
-
+  
   const parts = num.toString().split('.')
   let wholePart = parseInt(parts[0])
   let result = ''
-
+  
   if (wholePart === 0) {
     result = 'Zero'
   } else {
@@ -242,23 +242,23 @@ const numberToWords = (num) => {
       result += convertLessThanOneThousand(Math.floor(wholePart / 1000000000)) + ' Billion '
       wholePart %= 1000000000
     }
-
+    
     // Millions
     if (wholePart >= 1000000) {
       result += convertLessThanOneThousand(Math.floor(wholePart / 1000000)) + ' Million '
       wholePart %= 1000000
     }
-
+    
     // Thousands
     if (wholePart >= 1000) {
       result += convertLessThanOneThousand(Math.floor(wholePart / 1000)) + ' Thousand '
       wholePart %= 1000
     }
-
+    
     // Hundreds and remaining
     result += convertLessThanOneThousand(wholePart)
   }
-
+  
   // Handle decimal part
   if (parts.length > 1) {
     const decimalPart = parts[1].padEnd(2, '0').substring(0, 2)
@@ -266,7 +266,7 @@ const numberToWords = (num) => {
       result += ' and ' + decimalPart + '/100'
     }
   }
-
+  
   return result.trim()
 }
 
@@ -666,12 +666,12 @@ onMounted(() => {
   body {
     background: none;
   }
-
+  
   .print-document {
     padding: 0;
     margin: 0;
   }
-
+  
   .loading,
   .error {
     display: none;
@@ -830,4 +830,4 @@ onMounted(() => {
     position: fixed;
   }
 }
-</style>
+</style> 

@@ -14,6 +14,7 @@ import SellView from './SellView.vue'
 import SellBillsView from './SellBillsView.vue'
 import WarehousesView from './WarehousesView.vue'
 import StatisticsView from './StatisticsView.vue'
+import FinishedCarsTable from '../components/car-stock/FinishedCarsTable.vue'
 
 const router = useRouter()
 const activeView = ref(null)
@@ -33,6 +34,7 @@ const isProcessing = ref({
   suppliers: false,
   warehouses: false,
   statistics: false,
+  finishedOrders: false,
 })
 
 const navigateTo = async (view) => {
@@ -172,6 +174,23 @@ const handleStatisticsClick = async () => {
       <div class="sidebar-bottom">
         <div class="sidebar-section-title"><i class="fas fa-cog"></i> Settings</div>
         <button
+          v-if="canCCarStock"
+          @click="navigateTo('finished-orders')"
+          :class="{
+            active: activeView === 'finished-orders',
+            processing: isProcessing.finishedOrders,
+          }"
+          class="sidebar-btn finished-orders-btn"
+          :disabled="isProcessing.finishedOrders"
+        >
+          <i class="fas fa-check-circle"></i>
+          <span>Finished Orders</span>
+          <i
+            v-if="isProcessing.finishedOrders"
+            class="fas fa-spinner fa-spin loading-indicator"
+          ></i>
+        </button>
+        <button
           v-if="canPurchaseCars"
           @click="navigateTo('models')"
           :class="{ active: activeView === 'models', processing: isProcessing.models }"
@@ -277,19 +296,20 @@ const handleStatisticsClick = async () => {
           <i class="fas fa-hand-point-left fa-2x"></i>
           <p>Please select an option from the sidebar</p>
         </div>
-        <BuyView v-if="activeView === 'buy'" />
-        <SellView v-if="activeView === 'sell'" />
-        <SellBillsView v-if="activeView === 'sell-bills'" />
         <CarsStock v-if="activeView === 'stock'" />
+        <ClientsView v-if="activeView === 'clients'" />
+        <BrokersView v-if="activeView === 'brokers'" />
+        <SuppliersView v-if="activeView === 'suppliers'" />
         <CarModelsView v-if="activeView === 'models'" />
         <ColorsView v-if="activeView === 'colors'" />
         <DischargePortsView v-if="activeView === 'discharge-ports'" />
         <LoadingPortsView v-if="activeView === 'loading-ports'" />
-        <ClientsView v-if="activeView === 'clients'" />
-        <BrokersView v-if="activeView === 'brokers'" />
-        <SuppliersView v-if="activeView === 'suppliers'" />
+        <BuyView v-if="activeView === 'buy'" />
+        <SellView v-if="activeView === 'sell'" />
+        <SellBillsView v-if="activeView === 'sell-bills'" />
         <WarehousesView v-if="activeView === 'warehouses'" />
         <StatisticsView v-if="activeView === 'statistics'" />
+        <FinishedCarsTable v-if="activeView === 'finished-orders'" />
       </div>
       <div class="copyright">© Merhab Noureddine 2025</div>
     </div>
@@ -547,5 +567,18 @@ h2 {
 
 .sidebar-btn.statistics-btn i:not(.loading-indicator) {
   color: #ddd6fe;
+}
+
+.finished-orders-btn {
+  background-color: #10b981;
+  color: white;
+}
+
+.finished-orders-btn:hover:not(:disabled) {
+  background-color: #059669;
+}
+
+.finished-orders-btn.active {
+  background-color: #047857;
 }
 </style>
