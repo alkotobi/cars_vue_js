@@ -298,20 +298,19 @@ onMounted(() => {
           </div>
         </div>
         <div class="document-info">
-          <h2>
-            {{
-              options.documentType === 'contract'
-                ? 'SALE CONTRACT'
-                : options.documentType === 'invoice'
-                  ? 'INVOICE'
-                  : 'PROFORMA INVOICE'
-            }}
-          </h2>
           <p>Ref: {{ billData.bill_ref }}</p>
           <p>Date: {{ formatDate(billData.date_sell) }}</p>
         </div>
       </div>
-
+      <h2 style="text-align: center">
+        {{
+          options.documentType === 'contract'
+            ? 'SALE CONTRACT'
+            : options.documentType === 'invoice'
+              ? 'INVOICE'
+              : 'PROFORMA INVOICE'
+        }}
+      </h2>
       <!-- Broker Info -->
       <div class="section">
         <h3>Buyer Information</h3>
