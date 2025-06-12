@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, watch, defineProps, defineEmits, computed } from 'vue'
 import { useApi } from '../../composables/useApi'
-import { ElSelect, ElOption } from 'element-plus'
+import { ElSelect, ElOption, ElDialog, ElButton, ElInput, ElCheckbox } from 'element-plus'
 import 'element-plus/dist/index.css'
 
 const props = defineProps({
@@ -23,7 +23,7 @@ const isAdmin = computed(() => user.value?.role_id === 1)
 
 const emit = defineEmits(['close', 'assign-success'])
 
-const { callApi } = useApi()
+const { callApi, uploadFile } = useApi()
 const loading = ref(false)
 const error = ref(null)
 const clients = ref([])
@@ -46,6 +46,21 @@ const formData = ref({
 
 // Add ref for CFR DA input
 const cfrDaInput = ref(null)
+
+// New client functionality
+const showAddDialog = ref(false)
+const selectedFile = ref(null)
+const validationError = ref('')
+const newClient = ref({
+  name: '',
+  address: '',
+  email: '',
+  mobiles: '',
+  id_no: '',
+  is_client: true,
+  is_broker: false,
+  notes: '',
+})
 
 // Add function to calculate price from CFR DA
 const calculatePriceFromCFRDA = (cfrDa, rate, freight) => {
@@ -395,6 +410,106 @@ const calculateProfit = () => {
   return (sellPrice - buyPrice - freightCost).toFixed(2)
 }
 
+// New client functionality
+const validateEmail = (email) => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  return emailRegex.test(email)
+}
+
+const handleFileChange = (event) => {
+  const file = event.target.files[0]
+  selectedFile.value = file
+}
+
+const addClient = async () => {
+  if (isSubmitting.value) return
+
+  validationError.value = ''
+
+  if (!newClient.value.mobiles) {
+    validationError.value = 'Mobile number is required'
+    return
+  }
+
+  if (!newClient.value.id_no) {
+    validationError.value = 'ID number is required'
+    return
+  }
+
+  if (!selectedFile.value) {
+    validationError.value = 'ID Document is required'
+    return
+  }
+
+  if (newClient.value.email && !validateEmail(newClient.value.email)) {
+    validationError.value = 'Please enter a valid email address'
+    return
+  }
+
+  try {
+    isSubmitting.value = true
+    const result = await callApi({
+      query: `
+        INSERT INTO clients (name, address, email, mobiles, id_no, is_broker, is_client, notes)
+        VALUES (?, ?, ?, ?, ?, ?, 1, ?)
+      `,
+      params: [
+        newClient.value.name,
+        newClient.value.address,
+        newClient.value.email,
+        newClient.value.mobiles,
+        newClient.value.id_no,
+        newClient.value.is_broker ? 1 : 0,
+        newClient.value.notes,
+      ],
+    })
+
+    if (result.success) {
+      const clientId = result.lastInsertId
+      if (selectedFile.value) {
+        try {
+          const filename = `${clientId}.${selectedFile.value.name.split('.').pop()}`
+          const uploadResult = await uploadFile(selectedFile.value, 'ids', filename)
+
+          if (uploadResult.success) {
+            const updateResult = await callApi({
+              query: 'UPDATE clients SET id_copy_path = ? WHERE id = ?',
+              params: [uploadResult.relativePath, clientId],
+            })
+
+            if (updateResult.success) {
+              formData.value.id_client = clientId
+              await fetchClients()
+            }
+          }
+        } catch (err) {
+          console.error('Error uploading file:', err)
+          error.value = 'Client created but failed to upload ID document'
+        }
+      }
+
+      showAddDialog.value = false
+      validationError.value = ''
+      selectedFile.value = null
+      newClient.value = {
+        name: '',
+        address: '',
+        email: '',
+        mobiles: '',
+        id_no: '',
+        is_client: true,
+        is_broker: false,
+        notes: '',
+      }
+    }
+  } catch (err) {
+    console.error('Error adding client:', err)
+    error.value = 'Failed to add client'
+  } finally {
+    isSubmitting.value = false
+  }
+}
+
 onMounted(() => {
   fetchClients()
   fetchDischargePorts()
@@ -461,30 +576,36 @@ onMounted(() => {
             <i class="fas fa-user"></i>
             Client: <span class="required">*</span>
           </label>
-          <el-select
-            v-model="formData.id_client"
-            filterable
-            remote
-            :remote-method="remoteMethod"
-            :loading="loading"
-            placeholder="Select or search client"
-            style="width: 100%"
-            @change="handleClientChange"
-          >
-            <el-option
-              v-for="client in filteredClients"
-              :key="client.id"
-              :label="client.name"
-              :value="client.id"
+          <div class="client-select-wrapper">
+            <el-select
+              v-model="formData.id_client"
+              filterable
+              remote
+              :remote-method="remoteMethod"
+              :loading="loading"
+              placeholder="Select or search client"
+              style="width: 100%"
+              @change="handleClientChange"
             >
-              <i class="fas fa-user"></i>
-              {{ client.name }}
-              <small v-if="client.mobiles">
-                <i class="fas fa-phone"></i>
-                {{ client.mobiles }}
-              </small>
-            </el-option>
-          </el-select>
+              <el-option
+                v-for="client in filteredClients"
+                :key="client.id"
+                :label="client.name"
+                :value="client.id"
+              >
+                <i class="fas fa-user"></i>
+                {{ client.name }}
+                <small v-if="client.mobiles">
+                  <i class="fas fa-phone"></i>
+                  {{ client.mobiles }}
+                </small>
+              </el-option>
+            </el-select>
+            <el-button type="primary" @click="showAddDialog = true" class="new-client-btn">
+              <i class="fas fa-plus"></i>
+              New
+            </el-button>
+          </div>
         </div>
 
         <div class="form-group">
@@ -622,6 +743,73 @@ onMounted(() => {
       </form>
     </div>
   </div>
+
+  <!-- New Client Dialog -->
+  <el-dialog
+    v-model="showAddDialog"
+    title="Add New Client"
+    width="60%"
+    :close-on-click-modal="false"
+    append-to-body
+  >
+    <div v-if="validationError" class="error">{{ validationError }}</div>
+
+    <div class="form-container">
+      <div class="form-group">
+        <label>Name</label>
+        <el-input v-model="newClient.name" placeholder="Enter client name" />
+      </div>
+
+      <div class="form-group">
+        <label>Address</label>
+        <el-input v-model="newClient.address" placeholder="Enter address" />
+      </div>
+
+      <div class="form-group">
+        <label>Email</label>
+        <el-input v-model="newClient.email" placeholder="Enter email" type="email" />
+      </div>
+
+      <div class="form-group">
+        <label>Mobile Numbers*</label>
+        <el-input v-model="newClient.mobiles" placeholder="Enter mobile numbers" />
+      </div>
+
+      <div class="form-group">
+        <label>ID Number*</label>
+        <el-input v-model="newClient.id_no" placeholder="Enter ID number" />
+      </div>
+
+      <div class="form-group">
+        <label>ID Document Copy*</label>
+        <input type="file" @change="handleFileChange" accept="image/*,.pdf" class="file-input" />
+      </div>
+
+      <div class="form-group">
+        <label>Notes</label>
+        <el-input
+          v-model="newClient.notes"
+          type="textarea"
+          placeholder="Enter any additional notes"
+          :rows="3"
+        />
+      </div>
+
+      <div class="form-group">
+        <el-checkbox v-model="newClient.is_broker">Is Broker</el-checkbox>
+      </div>
+    </div>
+
+    <template #footer>
+      <div class="dialog-footer">
+        <el-button @click="showAddDialog = false">Cancel</el-button>
+        <el-button type="primary" @click="addClient" :loading="isSubmitting">
+          <i class="fas fa-save"></i>
+          Add Client
+        </el-button>
+      </div>
+    </template>
+  </el-dialog>
 </template>
 
 <style scoped>
@@ -980,5 +1168,31 @@ button:hover:not(:disabled) i {
 
 .input-with-info input {
   flex: 1;
+}
+
+.client-select-wrapper {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+
+.new-client-btn {
+  white-space: nowrap;
+  height: 32px;
+  padding: 0 12px;
+}
+
+.file-input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 1rem;
 }
 </style>

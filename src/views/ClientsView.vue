@@ -208,7 +208,7 @@ const addClient = async () => {
         newClient.value.email,
         newClient.value.mobiles,
         newClient.value.id_no,
-        newClient.value.is_broker,
+        newClient.value.is_broker ? 1 : 0,
         newClient.value.notes,
       ],
     })
@@ -320,7 +320,7 @@ const updateClient = async () => {
         editingClient.value.email,
         editingClient.value.mobiles,
         editingClient.value.id_no,
-        editingClient.value.is_broker,
+        editingClient.value.is_broker ? 1 : 0,
         editingClient.value.notes,
         editingClient.value.id,
       ],
