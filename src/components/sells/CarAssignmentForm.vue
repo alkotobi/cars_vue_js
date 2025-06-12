@@ -110,7 +110,6 @@ const fetchClients = async () => {
       query: `
         SELECT id, name
         FROM clients
-        WHERE is_client = 1
         ORDER BY name ASC
       `,
       params: [],

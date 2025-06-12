@@ -110,6 +110,16 @@ const router = createRouter({
       component: PrintPage,
     },
     {
+      path: '/clients',
+      name: 'clients',
+      component: () => import('../views/ClientsView.vue'),
+    },
+    {
+      path: '/clients/:id',
+      name: 'client-details',
+      component: () => import('../views/ClientDetailsView.vue'),
+    },
+    {
       path: '/cashier',
       name: 'cashier',
       component: () => import('../views/CashierView.vue'),
@@ -166,6 +176,10 @@ const router = createRouter({
 // Navigation guard for authentication and admin routes
 router.beforeEach((to, from, next) => {
   const publicPages = ['/login']
+  // Check if the current route is a client details page
+  if (to.name === 'client-details') {
+    return next()
+  }
   const authRequired = !publicPages.includes(to.path)
   const user = localStorage.getItem('user')
   const userData = user ? JSON.parse(user) : null

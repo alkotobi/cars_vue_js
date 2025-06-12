@@ -22,12 +22,21 @@ export const useApi = () => {
     error.value = null
 
     try {
+      // Get user token if not a public route
+      const user = !data.requiresAuth ? null : localStorage.getItem('user')
+      const userData = user ? JSON.parse(user) : null
+
+      const requestData = {
+        ...data,
+        token: userData?.token,
+      }
+
       const response = await fetch(API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify(requestData),
       })
 
       const result = await response.json()

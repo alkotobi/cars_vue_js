@@ -607,15 +607,19 @@ onMounted(() => {
               </span>
               <span v-else class="no-notes">No notes</span>
             </td>
-            <td>
-              <button @click="editClient(client)" class="btn edit-btn">
+            <td class="actions">
+              <button @click="editClient(client)" class="action-btn edit">
                 <i class="fas fa-edit"></i>
                 Edit
               </button>
-              <button v-if="isAdmin" @click="deleteClient(client)" class="btn delete-btn">
+              <button v-if="isAdmin" @click="deleteClient(client)" class="action-btn delete">
                 <i class="fas fa-trash"></i>
                 Delete
               </button>
+              <router-link :to="`/clients/${client.id}`" class="action-btn details">
+                <i class="fas fa-info-circle"></i>
+                Details
+              </router-link>
             </td>
           </tr>
         </tbody>
@@ -1515,5 +1519,24 @@ onMounted(() => {
 
 .sortable i:last-child {
   opacity: 1;
+}
+
+.action-btn.details {
+  background-color: #e3f2fd;
+  color: #1976d2;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 0.9em;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.action-btn.details:hover {
+  background-color: #bbdefb;
 }
 </style>

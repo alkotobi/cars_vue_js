@@ -84,11 +84,11 @@ const unassignCar = async (carId) => {
   if (!confirm('Are you sure you want to unassign this car from the sell bill?')) {
     return
   }
-  
+
   isProcessing.value = true
   loading.value = true
   error.value = null
-  
+
   try {
     const result = await callApi({
       query: `
@@ -102,11 +102,11 @@ const unassignCar = async (carId) => {
       `,
       params: [carId],
     })
-    
+
     if (result.success) {
       // Refresh the cars list for this component
       await fetchCarsByBillId(props.sellBillId)
-      
+
       // Emit refresh event to parent to update other components
       emit('refresh')
     } else {
@@ -149,7 +149,6 @@ const fetchClients = async () => {
       query: `
         SELECT id, name, mobiles
         FROM clients
-        WHERE is_broker = 0
         ORDER BY name ASC
       `,
       params: [],
@@ -303,10 +302,10 @@ const fetchCarsByBillId = async (billId) => {
     cars.value = []
     return
   }
-  
+
   loading.value = true
   error.value = null
-  
+
   try {
     const result = await callApi({
       query: `
@@ -338,7 +337,7 @@ const fetchCarsByBillId = async (billId) => {
       `,
       params: [billId],
     })
-    
+
     if (result.success) {
       cars.value = result.data
     } else {
@@ -355,11 +354,11 @@ const fetchCarsByBillId = async (billId) => {
 watch(
   () => props.sellBillId,
   (newId) => {
-  if (newId) {
-    fetchCarsByBillId(newId)
-  } else {
-    cars.value = []
-  }
+    if (newId) {
+      fetchCarsByBillId(newId)
+    } else {
+      cars.value = []
+    }
   },
   { immediate: true },
 )
@@ -531,17 +530,17 @@ defineExpose({
         </div>
       </div>
     </div>
-    
+
     <div v-if="error" class="error-message">
       <i class="fas fa-exclamation-circle"></i>
       {{ error }}
     </div>
-    
+
     <div v-else-if="!sellBillId" class="no-selection">
       <i class="fas fa-hand-pointer fa-2x"></i>
       <p>Please select a sell bill to view its cars</p>
     </div>
-    
+
     <div v-else-if="cars.length === 0" class="no-data">
       <i class="fas fa-car fa-2x"></i>
       <p>No cars found in this bill</p>
@@ -551,7 +550,7 @@ defineExpose({
       <i class="fas fa-filter fa-2x"></i>
       <p>No cars match the current filters</p>
     </div>
-    
+
     <table v-else class="cars-table">
       <thead>
         <tr>
