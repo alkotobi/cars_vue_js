@@ -456,163 +456,165 @@ const selectTransfer = (transfer) => {
 
     <!-- Table Section -->
     <div v-if="isLoading" class="loading">Loading transfers...</div>
-    <table v-else>
-      <thead>
-        <tr>
-          <th @click="toggleSort('sender_name')" class="sortable">
-            Sender
-            <i
-              :class="[
-                'fas',
-                sortConfig.field === 'sender_name'
-                  ? sortConfig.direction === 'asc'
-                    ? 'fa-sort-up'
-                    : 'fa-sort-down'
-                  : 'fa-sort',
-              ]"
-            ></i>
-          </th>
-          <th @click="toggleSort('date_do_transfer')" class="sortable">
-            Date Sent
-            <i
-              :class="[
-                'fas',
-                sortConfig.field === 'date_do_transfer'
-                  ? sortConfig.direction === 'asc'
-                    ? 'fa-sort-up'
-                    : 'fa-sort-down'
-                  : 'fa-sort',
-              ]"
-            ></i>
-          </th>
-          <th @click="toggleSort('ref_pi_transfer')" class="sortable">
-            PI Reference
-            <i
-              :class="[
-                'fas',
-                sortConfig.field === 'ref_pi_transfer'
-                  ? sortConfig.direction === 'asc'
-                    ? 'fa-sort-up'
-                    : 'fa-sort-down'
-                  : 'fa-sort',
-              ]"
-            ></i>
-          </th>
-          <th @click="toggleSort('amount_sending_da')" class="sortable">
-            Amount DA
-            <i
-              :class="[
-                'fas',
-                sortConfig.field === 'amount_sending_da'
-                  ? sortConfig.direction === 'asc'
-                    ? 'fa-sort-up'
-                    : 'fa-sort-down'
-                  : 'fa-sort',
-              ]"
-            ></i>
-          </th>
-          <th @click="toggleSort('rate')" class="sortable">
-            Rate
-            <i
-              :class="[
-                'fas',
-                sortConfig.field === 'rate'
-                  ? sortConfig.direction === 'asc'
-                    ? 'fa-sort-up'
-                    : 'fa-sort-down'
-                  : 'fa-sort',
-              ]"
-            ></i>
-          </th>
-          <th>Bank</th>
-          <th>Account</th>
-          <th>Sender Notes</th>
-          <th @click="toggleSort('receiver_name')" class="sortable">
-            Receiver
-            <i
-              :class="[
-                'fas',
-                sortConfig.field === 'receiver_name'
-                  ? sortConfig.direction === 'asc'
-                    ? 'fa-sort-up'
-                    : 'fa-sort-down'
-                  : 'fa-sort',
-              ]"
-            ></i>
-          </th>
-          <th @click="toggleSort('date_receive')" class="sortable">
-            Date Received
-            <i
-              :class="[
-                'fas',
-                sortConfig.field === 'date_receive'
-                  ? sortConfig.direction === 'asc'
-                    ? 'fa-sort-up'
-                    : 'fa-sort-down'
-                  : 'fa-sort',
-              ]"
-            ></i>
-          </th>
-          <th @click="toggleSort('amount_received_usd')" class="sortable">
-            Received USD
-            <i
-              :class="[
-                'fas',
-                sortConfig.field === 'amount_received_usd'
-                  ? sortConfig.direction === 'asc'
-                    ? 'fa-sort-up'
-                    : 'fa-sort-down'
-                  : 'fa-sort',
-              ]"
-            ></i>
-          </th>
-          <th>Receiver Notes</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr
-          v-for="transfer in filteredTransfers"
-          :key="transfer.id"
-          :class="{
-            'not-received': !transfer.date_receive,
-            'amount-mismatch':
-              transfer.date_receive &&
-              calculateUSD(transfer.amount_sending_da, transfer.rate) !==
-                transfer.amount_received_usd,
-            selected: selectedTransfer && selectedTransfer.id === transfer.id,
-          }"
-          @click="selectTransfer(transfer)"
-        >
-          <td>{{ transfer.sender_name }}</td>
-          <td class="date-cell">{{ new Date(transfer.date_do_transfer).toLocaleString() }}</td>
-          <td>{{ transfer.ref_pi_transfer || '-' }}</td>
-          <td>{{ transfer.amount_sending_da }}</td>
-          <td>{{ transfer.rate }}</td>
-          <td>
-            <div v-if="transfer.company_name" class="bank-cell">
-              <strong>{{ transfer.company_name }}</strong
-              ><br />
-              <small>{{ transfer.bank_name }}</small>
-            </div>
-            <span v-else>-</span>
-          </td>
-          <td>
-            <div v-if="transfer.bank_account" class="bank-cell">
-              {{ transfer.bank_account }}<br />
-              <small class="swift">{{ transfer.swift_code }}</small>
-            </div>
-            <span v-else>-</span>
-          </td>
-          <td>{{ transfer.notes || '-' }}</td>
-          <td>{{ transfer.receiver_name || '-' }}</td>
-          <td class="date-cell">
-            {{ transfer.date_receive ? new Date(transfer.date_receive).toLocaleString() : '-' }}
-          </td>
-          <td>{{ transfer.amount_received_usd ? `$${transfer.amount_received_usd}` : '-' }}</td>
-          <td>{{ transfer.receiver_notes || '-' }}</td>
-        </tr>
-      </tbody>
-    </table>
+    <div v-else class="table-scroll">
+      <table class="table-container">
+        <thead>
+          <tr>
+            <th @click="toggleSort('sender_name')" class="sortable">
+              Sender
+              <i
+                :class="[
+                  'fas',
+                  sortConfig.field === 'sender_name'
+                    ? sortConfig.direction === 'asc'
+                      ? 'fa-sort-up'
+                      : 'fa-sort-down'
+                    : 'fa-sort',
+                ]"
+              ></i>
+            </th>
+            <th @click="toggleSort('date_do_transfer')" class="sortable">
+              Date Sent
+              <i
+                :class="[
+                  'fas',
+                  sortConfig.field === 'date_do_transfer'
+                    ? sortConfig.direction === 'asc'
+                      ? 'fa-sort-up'
+                      : 'fa-sort-down'
+                    : 'fa-sort',
+                ]"
+              ></i>
+            </th>
+            <th @click="toggleSort('ref_pi_transfer')" class="sortable">
+              PI Reference
+              <i
+                :class="[
+                  'fas',
+                  sortConfig.field === 'ref_pi_transfer'
+                    ? sortConfig.direction === 'asc'
+                      ? 'fa-sort-up'
+                      : 'fa-sort-down'
+                    : 'fa-sort',
+                ]"
+              ></i>
+            </th>
+            <th @click="toggleSort('amount_sending_da')" class="sortable">
+              Amount DA
+              <i
+                :class="[
+                  'fas',
+                  sortConfig.field === 'amount_sending_da'
+                    ? sortConfig.direction === 'asc'
+                      ? 'fa-sort-up'
+                      : 'fa-sort-down'
+                    : 'fa-sort',
+                ]"
+              ></i>
+            </th>
+            <th @click="toggleSort('rate')" class="sortable">
+              Rate
+              <i
+                :class="[
+                  'fas',
+                  sortConfig.field === 'rate'
+                    ? sortConfig.direction === 'asc'
+                      ? 'fa-sort-up'
+                      : 'fa-sort-down'
+                    : 'fa-sort',
+                ]"
+              ></i>
+            </th>
+            <th>Bank</th>
+            <th>Account</th>
+            <th>Sender Notes</th>
+            <th @click="toggleSort('receiver_name')" class="sortable">
+              Receiver
+              <i
+                :class="[
+                  'fas',
+                  sortConfig.field === 'receiver_name'
+                    ? sortConfig.direction === 'asc'
+                      ? 'fa-sort-up'
+                      : 'fa-sort-down'
+                    : 'fa-sort',
+                ]"
+              ></i>
+            </th>
+            <th @click="toggleSort('date_receive')" class="sortable">
+              Date Received
+              <i
+                :class="[
+                  'fas',
+                  sortConfig.field === 'date_receive'
+                    ? sortConfig.direction === 'asc'
+                      ? 'fa-sort-up'
+                      : 'fa-sort-down'
+                    : 'fa-sort',
+                ]"
+              ></i>
+            </th>
+            <th @click="toggleSort('amount_received_usd')" class="sortable">
+              Received USD
+              <i
+                :class="[
+                  'fas',
+                  sortConfig.field === 'amount_received_usd'
+                    ? sortConfig.direction === 'asc'
+                      ? 'fa-sort-up'
+                      : 'fa-sort-down'
+                    : 'fa-sort',
+                ]"
+              ></i>
+            </th>
+            <th>Receiver Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            v-for="transfer in filteredTransfers"
+            :key="transfer.id"
+            :class="{
+              'not-received': !transfer.date_receive,
+              'amount-mismatch':
+                transfer.date_receive &&
+                calculateUSD(transfer.amount_sending_da, transfer.rate) !==
+                  transfer.amount_received_usd,
+              selected: selectedTransfer && selectedTransfer.id === transfer.id,
+            }"
+            @click="selectTransfer(transfer)"
+          >
+            <td>{{ transfer.sender_name }}</td>
+            <td class="date-cell">{{ new Date(transfer.date_do_transfer).toLocaleString() }}</td>
+            <td>{{ transfer.ref_pi_transfer || '-' }}</td>
+            <td>{{ transfer.amount_sending_da }}</td>
+            <td>{{ transfer.rate }}</td>
+            <td>
+              <div v-if="transfer.company_name" class="bank-cell">
+                <strong>{{ transfer.company_name }}</strong
+                ><br />
+                <small>{{ transfer.bank_name }}</small>
+              </div>
+              <span v-else>-</span>
+            </td>
+            <td>
+              <div v-if="transfer.bank_account" class="bank-cell">
+                {{ transfer.bank_account }}<br />
+                <small class="swift">{{ transfer.swift_code }}</small>
+              </div>
+              <span v-else>-</span>
+            </td>
+            <td>{{ transfer.notes || '-' }}</td>
+            <td>{{ transfer.receiver_name || '-' }}</td>
+            <td class="date-cell">
+              {{ transfer.date_receive ? new Date(transfer.date_receive).toLocaleString() : '-' }}
+            </td>
+            <td>{{ transfer.amount_received_usd ? `$${transfer.amount_received_usd}` : '-' }}</td>
+            <td>{{ transfer.receiver_notes || '-' }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
     <!-- Edit Dialog -->
     <div v-if="showEditDialog" class="dialog-overlay">
@@ -892,6 +894,9 @@ tr:hover td {
   border-radius: 4px;
   font-size: 0.9em;
 }
+.table-container {
+  padding: 4em;
+}
 
 .action-buttons {
   display: flex;
@@ -1160,7 +1165,8 @@ td:nth-child(10) /* Date Received */ {
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 16px;
   align-items: end;
-  padding: 2em;
+
+  margin: 50px 0px 0px 0px;
 }
 
 .filter-group {
@@ -1363,5 +1369,31 @@ tr.selected:hover {
 
 .filters .filter-group {
   margin-bottom: 1rem;
+}
+
+.table-container thead th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: white;
+}
+
+.table-scroll {
+  max-height: 60vh;
+  overflow-y: auto;
+  width: 100%;
+  margin: 50px 0px 0px 0px;
+}
+
+.table-container {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table-container th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: white;
 }
 </style>
