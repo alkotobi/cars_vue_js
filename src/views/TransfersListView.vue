@@ -742,11 +742,9 @@ const selectTransfer = (transfer) => {
 
 <style scoped>
 .transfers-list {
-  padding: 30px;
-  width: 95%;
-  max-width: 1600px;
-  margin: 0 auto;
-  padding-bottom: 80px;
+  padding: 1rem;
+  max-width: 100%;
+  padding-top: 180px; /* More space for toolbar + filters */
 }
 
 h1 {
@@ -1162,6 +1160,7 @@ td:nth-child(10) /* Date Received */ {
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 16px;
   align-items: end;
+  padding: 2em;
 }
 
 .filter-group {
@@ -1238,14 +1237,18 @@ td:nth-child(10) /* Date Received */ {
 }
 
 .toolbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 1rem;
   background: white;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  margin-bottom: 1rem;
+  border-bottom: 1px solid #e0e0e0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .toolbar-left,
@@ -1334,5 +1337,31 @@ tr.selected:hover {
   word-wrap: break-word;
   min-width: 150px;
   max-width: 150px;
+}
+
+.filters {
+  position: fixed;
+  top: 60px; /* Position below toolbar */
+  left: 0;
+  right: 0;
+  z-index: 999;
+  background: white;
+  padding: 1.5rem 2rem 1.5rem 2rem;
+  border-bottom: 1px solid #e0e0e0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  width: 100vw;
+  max-width: 100vw;
+  overflow-x: auto;
+}
+
+.filters label {
+  color: #333;
+  font-weight: 500;
+  margin-bottom: 0.25rem;
+  display: block;
+}
+
+.filters .filter-group {
+  margin-bottom: 1rem;
 }
 </style>
