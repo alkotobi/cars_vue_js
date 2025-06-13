@@ -15,6 +15,7 @@ const showDetailsDialog = ref(false)
 const selectedTransferForDetails = ref(null)
 const user = ref(null)
 const selectedTransfers = ref([])
+const error = ref(null)
 
 const editForm = ref({
   amount_sending_da: '',
@@ -201,19 +202,40 @@ onMounted(() => {
 })
 
 const deleteTransfer = async (transfer) => {
-  if (processingTransferId.value) return // Prevent double delete
-  if (!confirm('Are you sure you want to delete this transfer permanently?')) return
+  if (!isAdmin.value) {
+    error.value = 'Only admin can delete transfers'
+    return
+  }
+
+  if (processingTransferId.value === transfer.id) return
+  if (!confirm('Are you sure you want to delete this transfer?')) return
 
   processingTransferId.value = transfer.id
+
   try {
+    // First delete transfer details
+    const deleteDetailsResult = await callApi({
+      query: 'DELETE FROM transfer_details WHERE id_transfer = ?',
+      params: [transfer.id],
+    })
+
+    if (!deleteDetailsResult.success) {
+      throw new Error('Failed to delete transfer details')
+    }
+
+    // Then delete the transfer
     const result = await callApi({
-      query: `DELETE FROM transfers WHERE id = ?`,
+      query: 'DELETE FROM transfers WHERE id = ?',
       params: [transfer.id],
     })
 
     if (result.success) {
       await fetchTransfers()
+      selectedTransfer.value = null // Clear selection after deletion
     }
+  } catch (err) {
+    console.error('Delete transfer error:', err)
+    error.value = err.message || 'An error occurred while deleting'
   } finally {
     processingTransferId.value = null
   }
@@ -346,9 +368,9 @@ const selectTransfer = (transfer) => {
   <div class="transfers-list">
     <div class="toolbar">
       <div class="toolbar-left">
-        <button @click="openAddDialog" class="btn add-btn">
-          <i class="fas fa-plus"></i>
-          Add Transfer
+        <button @click="$router.push('/transfers')" class="btn back-btn">
+          <i class="fas fa-arrow-left"></i>
+          Return to Transfers
         </button>
       </div>
       <div class="toolbar-right">
@@ -736,7 +758,7 @@ h1 {
 
 .back-btn {
   padding: 10px 20px;
-  background-color: #4b5563;
+  background-color: #6c757d;
   color: white;
   border: none;
   border-radius: 8px;
@@ -750,7 +772,7 @@ h1 {
 }
 
 .back-btn:hover {
-  background-color: #374151;
+  background-color: #5a6268;
   transform: translateX(-2px);
 }
 
@@ -1249,13 +1271,9 @@ td:nth-child(10) /* Date Received */ {
   cursor: not-allowed;
 }
 
-.add-btn {
-  background-color: #4caf50;
-  color: white;
-}
-
+.add-btn,
 .add-btn:hover:not(:disabled) {
-  background-color: #45a049;
+  display: none;
 }
 
 .edit-btn {
