@@ -156,6 +156,49 @@ const can_load_car = computed(() => {
 const showAdvancedFilter = ref(false)
 const advancedFilters = ref({})
 
+// Add sorting state
+const sortConfig = ref({
+  key: 'id',
+  direction: 'desc',
+})
+
+// Add sort function
+const toggleSort = (key) => {
+  if (sortConfig.value.key === key) {
+    sortConfig.value.direction = sortConfig.value.direction === 'asc' ? 'desc' : 'asc'
+  } else {
+    sortConfig.value.key = key
+    sortConfig.value.direction = 'asc'
+  }
+}
+
+// Add sorted cars computed property
+const sortedCars = computed(() => {
+  if (!cars.value) return []
+
+  return [...cars.value].sort((a, b) => {
+    let aVal = a[sortConfig.value.key]
+    let bVal = b[sortConfig.value.key]
+
+    // Handle numeric values
+    if (['id', 'price_cell', 'freight', 'rate', 'buy_price'].includes(sortConfig.value.key)) {
+      aVal = parseFloat(aVal) || 0
+      bVal = parseFloat(bVal) || 0
+    }
+
+    // Handle null values
+    if (aVal == null) return 1
+    if (bVal == null) return -1
+
+    // Compare values
+    if (sortConfig.value.direction === 'asc') {
+      return aVal > bVal ? 1 : aVal < bVal ? -1 : 0
+    } else {
+      return aVal < bVal ? 1 : aVal > bVal ? -1 : 0
+    }
+  })
+})
+
 const fetchCarsStock = async () => {
   loading.value = true
   error.value = null
@@ -722,25 +765,85 @@ defineExpose({
       <table class="cars-table">
         <thead>
           <tr>
-            <th>ID</th>
-            <th>Car</th>
-            <th>Color</th>
-            <th>VIN</th>
-            <th>Loading Port</th>
-            <th>Discharge Port</th>
-            <th>Freight</th>
-            <th>Price</th>
-            <th>Loading Date</th>
+            <th @click="toggleSort('id')" class="sortable">
+              ID
+              <span v-if="sortConfig.key === 'id'" class="sort-indicator">
+                {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
+              </span>
+            </th>
+            <th @click="toggleSort('car_name')" class="sortable">
+              Car
+              <span v-if="sortConfig.key === 'car_name'" class="sort-indicator">
+                {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
+              </span>
+            </th>
+            <th @click="toggleSort('color')" class="sortable">
+              Color
+              <span v-if="sortConfig.key === 'color'" class="sort-indicator">
+                {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
+              </span>
+            </th>
+            <th @click="toggleSort('vin')" class="sortable">
+              VIN
+              <span v-if="sortConfig.key === 'vin'" class="sort-indicator">
+                {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
+              </span>
+            </th>
+            <th @click="toggleSort('loading_port')" class="sortable">
+              Loading Port
+              <span v-if="sortConfig.key === 'loading_port'" class="sort-indicator">
+                {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
+              </span>
+            </th>
+            <th @click="toggleSort('discharge_port')" class="sortable">
+              Discharge Port
+              <span v-if="sortConfig.key === 'discharge_port'" class="sort-indicator">
+                {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
+              </span>
+            </th>
+            <th @click="toggleSort('freight')" class="sortable">
+              Freight
+              <span v-if="sortConfig.key === 'freight'" class="sort-indicator">
+                {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
+              </span>
+            </th>
+            <th @click="toggleSort('price_cell')" class="sortable">
+              Price
+              <span v-if="sortConfig.key === 'price_cell'" class="sort-indicator">
+                {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
+              </span>
+            </th>
+            <th @click="toggleSort('date_loding')" class="sortable">
+              Loading Date
+              <span v-if="sortConfig.key === 'date_loding'" class="sort-indicator">
+                {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
+              </span>
+            </th>
             <th>Status</th>
-            <th>Notes</th>
-            <th>Client</th>
-            <th>Warehouse</th>
+            <th @click="toggleSort('notes')" class="sortable">
+              Notes
+              <span v-if="sortConfig.key === 'notes'" class="sort-indicator">
+                {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
+              </span>
+            </th>
+            <th @click="toggleSort('client_name')" class="sortable">
+              Client
+              <span v-if="sortConfig.key === 'client_name'" class="sort-indicator">
+                {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
+              </span>
+            </th>
+            <th @click="toggleSort('warehouse_name')" class="sortable">
+              Warehouse
+              <span v-if="sortConfig.key === 'warehouse_name'" class="sort-indicator">
+                {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
+              </span>
+            </th>
             <th>Documents</th>
             <th>Actions</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="car in cars" :key="car.id" :class="{ 'used-car': car.is_used_car }">
+          <tr v-for="car in sortedCars" :key="car.id" :class="{ 'used-car': car.is_used_car }">
             <td>#{{ car.id }}</td>
             <td>{{ car.car_name }}</td>
             <td>{{ car.color }}</td>
@@ -1290,5 +1393,25 @@ defineExpose({
   border-radius: 4px;
   padding: 8px;
   margin: -8px;
+}
+
+.sortable {
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  padding-right: 20px;
+}
+
+.sortable:hover {
+  background-color: #f0f0f0;
+}
+
+.sort-indicator {
+  position: absolute;
+  right: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.8em;
+  color: #0d6efd;
 }
 </style>
