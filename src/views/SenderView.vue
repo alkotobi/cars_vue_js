@@ -281,28 +281,42 @@ const updateTransfer = async () => {
 }
 
 const deleteTransfer = async (transfer) => {
-  if (!isAdmin.value) {
-    error.value = 'Only admin can delete transfers'
+  if (!confirm('Are you sure you want to delete this transfer? This action cannot be undone.')) {
     return
   }
 
-  if (processingTransferId.value === transfer.id) return
-  if (!confirm('Are you sure you want to delete this transfer?')) return
-
+  if (isProcessing.value) return
+  isProcessing.value = true
   processingTransferId.value = transfer.id
+
   try {
-    const result = await callApi({
-      query: 'DELETE FROM transfers WHERE id = ?',
+    // First delete transfer details
+    const deleteDetailsResult = await callApi({
+      query: 'DELETE FROM transfer_details WHERE id_transfer = ?',
       params: [transfer.id],
     })
 
-    if (result.success) {
-      await fetchTransfers()
+    if (!deleteDetailsResult.success) {
+      throw new Error('Failed to delete transfer details')
     }
+
+    // Then delete the transfer
+    const deleteTransferResult = await callApi({
+      query: 'DELETE FROM transfers WHERE id = ? AND id_user_receive_transfer IS NULL',
+      params: [transfer.id],
+    })
+
+    if (!deleteTransferResult.success) {
+      throw new Error('Failed to delete transfer')
+    }
+
+    // Refresh the transfers list
+    await fetchTransfers()
   } catch (err) {
-    console.error('Delete transfer error:', err)
-    error.value = err.message || 'An error occurred while deleting'
+    console.error('Error deleting transfer:', err)
+    error.value = 'Failed to delete transfer'
   } finally {
+    isProcessing.value = false
     processingTransferId.value = null
   }
 }
@@ -637,7 +651,7 @@ onMounted(() => {
                   <i class="fas fa-edit"></i>
                 </button>
                 <button
-                  v-if="isAdmin"
+                  v-if="!transfer.date_receive"
                   @click="deleteTransfer(transfer)"
                   class="btn delete-btn"
                   title="Delete Transfer"
@@ -989,8 +1003,11 @@ th {
 }
 
 .delete-btn {
-  background-color: #f44336;
-  color: white;
+  background-color: #dc3545;
+}
+
+.delete-btn:hover {
+  background-color: #c82333;
 }
 
 .btn:hover {
