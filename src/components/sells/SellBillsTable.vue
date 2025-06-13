@@ -120,7 +120,7 @@ const fetchSellBills = async () => {
           WHERE cs.id_sell = sb.id
         ) as total_cfr
       FROM sell_bill sb
-      LEFT JOIN clients c ON sb.id_broker = c.id AND c.is_broker = 1
+      LEFT JOIN clients c ON sb.id_broker = c.id
       LEFT JOIN users u ON sb.id_user = u.id
       ORDER BY sb.date_sell DESC
     `
@@ -135,7 +135,7 @@ const fetchSellBills = async () => {
           WHERE cs.id_sell = sb.id
         ) as total_cfr
       FROM sell_bill sb
-      LEFT JOIN clients c ON sb.id_broker = c.id AND c.is_broker = 1
+      LEFT JOIN clients c ON sb.id_broker = c.id
       LEFT JOIN users u ON sb.id_user = u.id
       WHERE sb.id_user = ?
       ORDER BY sb.date_sell DESC
@@ -734,7 +734,7 @@ defineExpose({ fetchSellBills })
 @media (max-width: 768px) {
   .filters-grid {
     grid-template-columns: 1fr;
-}
+  }
 }
 
 /* Add sorting styles */
