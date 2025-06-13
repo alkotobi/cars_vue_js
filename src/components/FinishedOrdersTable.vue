@@ -21,7 +21,7 @@ const fetchFinishedOrders = async () => {
   loading.value = true
   try {
     const result = await callApi({
-      query: `SELECT cs.*, c.name as client_name FROM cars_stock cs LEFT JOIN clients c ON cs.id_client = c.id WHERE cs.date_send_documents IS NOT NULL ORDER BY cs.date_send_documents DESC`,
+      query: `SELECT cs.*, c.name FROM cars_stock cs LEFT JOIN clients c ON cs.id_client = c.id WHERE cs.date_send_documents IS NOT NULL ORDER BY cs.date_send_documents DESC`,
       params: [],
     })
     if (result.success) {
@@ -43,7 +43,7 @@ const filteredAndSorted = computed(() => {
   }
   if (filters.value.client) {
     data = data.filter((car) =>
-      (car.client_name || '').toLowerCase().includes(filters.value.client.toLowerCase()),
+      (car.name || '').toLowerCase().includes(filters.value.client.toLowerCase()),
     )
   }
   if (filters.value.date) {
