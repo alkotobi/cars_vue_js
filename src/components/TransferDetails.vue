@@ -407,7 +407,7 @@ const addNewClient = async () => {
               <td>{{ new Date(detail.date).toLocaleString() }}</td>
               <td>{{ detail.client_name }}</td>
               <td>{{ detail.client_mobile || '-' }}</td>
-              <td class="amount-cell">${{ Number(detail.amount).toFixed(2) }}</td>
+              <td class="amount-cell">DA {{ Number(detail.amount).toFixed(2) }}</td>
               <td>{{ detail.rate }}</td>
               <td>{{ detail.description || '-' }}</td>
               <td>{{ detail.notes || '-' }}</td>
