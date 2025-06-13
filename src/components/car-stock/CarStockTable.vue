@@ -240,7 +240,8 @@ const fetchCarsStock = async () => {
         bd.price_sell as buy_price,
         w.warhouse_name as warehouse_name,
         bb.bill_ref as buy_bill_ref,
-        cs.is_used_car
+        cs.is_used_car,
+        c.id_no as client_id_no
       FROM cars_stock cs
       LEFT JOIN clients c ON cs.id_client = c.id
       LEFT JOIN buy_details bd ON cs.id_buy_details = bd.id
@@ -872,7 +873,12 @@ defineExpose({
               </span>
             </td>
             <td class="notes-cell" :title="car.notes">{{ car.notes || '-' }}</td>
-            <td>{{ car.client_name || '-' }}</td>
+            <td>
+              <div class="client-info">
+                <div>{{ car.client_name || '-' }}</div>
+                <div class="client-id">{{ car.client_id_no || '-' }}</div>
+              </div>
+            </td>
             <td>{{ car.warehouse_name || '-' }}</td>
             <td class="documents-cell">
               <div class="document-links">
@@ -1413,5 +1419,16 @@ defineExpose({
   transform: translateY(-50%);
   font-size: 0.8em;
   color: #0d6efd;
+}
+
+.client-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.client-id {
+  font-size: 0.85em;
+  color: #666;
 }
 </style>
