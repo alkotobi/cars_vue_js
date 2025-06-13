@@ -365,6 +365,121 @@ const selectTransfer = (transfer) => {
 </script>
 
 <template>
+  <!-- Edit Dialog -->
+  <div v-if="showEditDialog" class="dialog-overlay">
+    <div class="dialog">
+      <h2>Edit Transfer</h2>
+      <div v-if="formError" class="error-message">
+        <i class="fas fa-exclamation-circle"></i>
+        {{ formError }}
+      </div>
+      <form @submit.prevent="updateTransfer">
+        <div class="form-grid">
+          <!-- Left Column -->
+          <div class="form-column">
+            <div class="form-group">
+              <label>Amount (DA):</label>
+              <input
+                type="number"
+                v-model.number="editForm.amount_sending_da"
+                step="0.01"
+                min="0.01"
+                required
+                class="input-field"
+              />
+            </div>
+            <div class="form-group">
+              <label>Rate:</label>
+              <input
+                type="number"
+                v-model.number="editForm.rate"
+                step="0.0001"
+                min="0.0001"
+                required
+                class="input-field"
+              />
+            </div>
+            <div class="form-group">
+              <label>Bank Account:</label>
+              <select v-model="editForm.id_bank" class="input-field" required>
+                <option value="">Select a bank account</option>
+                <option v-for="bank in banks" :key="bank.id" :value="bank.id">
+                  {{ bank.company_name }} - {{ bank.bank_name }} ({{ bank.bank_account }})
+                </option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Notes:</label>
+              <textarea v-model="editForm.notes" class="input-field" />
+            </div>
+          </div>
+
+          <!-- Right Column -->
+          <div class="form-column">
+            <div class="form-group">
+              <label>Received USD:</label>
+              <input
+                type="number"
+                v-model.number="editForm.amount_received_usd"
+                step="0.01"
+                min="0"
+                class="input-field"
+              />
+            </div>
+            <div class="form-group">
+              <label>Receiver Notes:</label>
+              <textarea v-model="editForm.receiver_notes" class="input-field" />
+            </div>
+            <div class="form-group">
+              <label><i class="fas fa-hashtag"></i> PI Reference:</label>
+              <input
+                type="text"
+                v-model="editForm.ref_pi_transfer"
+                class="input-field"
+                placeholder="Enter PI reference..."
+              />
+            </div>
+          </div>
+        </div>
+
+        <!-- Bank Details Section - Full Width -->
+        <div v-if="editForm.id_bank" class="bank-details">
+          <div class="bank-info">
+            <p><strong>Selected Bank Details:</strong></p>
+            <p v-if="selectedBankInEdit">
+              Company: {{ selectedBankInEdit.company_name }}<br />
+              Bank: {{ selectedBankInEdit.bank_name }}<br />
+              Account: {{ selectedBankInEdit.bank_account }}<br />
+              Swift: {{ selectedBankInEdit.swift_code }}<br />
+              Address: {{ selectedBankInEdit.bank_address }}
+            </p>
+          </div>
+        </div>
+
+        <div class="dialog-actions">
+          <button
+            type="submit"
+            class="btn save-btn"
+            :disabled="processingTransferId === selectedTransfer?.id"
+          >
+            <i class="fas fa-save"></i>
+            <span v-if="processingTransferId === selectedTransfer?.id">
+              <i class="fas fa-spinner fa-spin"></i> Saving...
+            </span>
+            <span v-else>Save</span>
+          </button>
+          <button
+            type="button"
+            @click="showEditDialog = false"
+            class="btn cancel-btn"
+            :disabled="processingTransferId === selectedTransfer?.id"
+          >
+            <i class="fas fa-times"></i> Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
   <div class="transfers-list">
     <div class="toolbar">
       <div class="toolbar-left">
@@ -616,122 +731,6 @@ const selectTransfer = (transfer) => {
       </table>
     </div>
 
-    <!-- Edit Dialog -->
-    <div v-if="showEditDialog" class="dialog-overlay">
-      <div class="dialog">
-        <h2>Edit Transfer</h2>
-        <div v-if="formError" class="error-message">
-          <i class="fas fa-exclamation-circle"></i>
-          {{ formError }}
-        </div>
-        <form @submit.prevent="updateTransfer">
-          <div class="form-grid">
-            <!-- Left Column -->
-            <div class="form-column">
-              <div class="form-group">
-                <label>Amount (DA):</label>
-                <input
-                  type="number"
-                  v-model.number="editForm.amount_sending_da"
-                  step="0.01"
-                  min="0.01"
-                  required
-                  class="input-field"
-                />
-              </div>
-              <div class="form-group">
-                <label>Rate:</label>
-                <input
-                  type="number"
-                  v-model.number="editForm.rate"
-                  step="0.0001"
-                  min="0.0001"
-                  required
-                  class="input-field"
-                />
-              </div>
-              <div class="form-group">
-                <label>Bank Account:</label>
-                <select v-model="editForm.id_bank" class="input-field" required>
-                  <option value="">Select a bank account</option>
-                  <option v-for="bank in banks" :key="bank.id" :value="bank.id">
-                    {{ bank.company_name }} - {{ bank.bank_name }} ({{ bank.bank_account }})
-                  </option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label>Notes:</label>
-                <textarea v-model="editForm.notes" class="input-field" />
-              </div>
-            </div>
-
-            <!-- Right Column -->
-            <div class="form-column">
-              <div class="form-group">
-                <label>Received USD:</label>
-                <input
-                  type="number"
-                  v-model.number="editForm.amount_received_usd"
-                  step="0.01"
-                  min="0"
-                  class="input-field"
-                />
-              </div>
-              <div class="form-group">
-                <label>Receiver Notes:</label>
-                <textarea v-model="editForm.receiver_notes" class="input-field" />
-              </div>
-              <div class="form-group">
-                <label><i class="fas fa-hashtag"></i> PI Reference:</label>
-                <input
-                  type="text"
-                  v-model="editForm.ref_pi_transfer"
-                  class="input-field"
-                  placeholder="Enter PI reference..."
-                />
-              </div>
-            </div>
-          </div>
-
-          <!-- Bank Details Section - Full Width -->
-          <div v-if="editForm.id_bank" class="bank-details">
-            <div class="bank-info">
-              <p><strong>Selected Bank Details:</strong></p>
-              <p v-if="selectedBankInEdit">
-                Company: {{ selectedBankInEdit.company_name }}<br />
-                Bank: {{ selectedBankInEdit.bank_name }}<br />
-                Account: {{ selectedBankInEdit.bank_account }}<br />
-                Swift: {{ selectedBankInEdit.swift_code }}<br />
-                Address: {{ selectedBankInEdit.bank_address }}
-              </p>
-            </div>
-          </div>
-
-          <div class="dialog-actions">
-            <button
-              type="submit"
-              class="btn save-btn"
-              :disabled="processingTransferId === selectedTransfer?.id"
-            >
-              <i class="fas fa-save"></i>
-              <span v-if="processingTransferId === selectedTransfer?.id">
-                <i class="fas fa-spinner fa-spin"></i> Saving...
-              </span>
-              <span v-else>Save</span>
-            </button>
-            <button
-              type="button"
-              @click="showEditDialog = false"
-              class="btn cancel-btn"
-              :disabled="processingTransferId === selectedTransfer?.id"
-            >
-              <i class="fas fa-times"></i> Cancel
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-
     <TransferDetails
       v-if="showDetailsDialog"
       :transfer-id="selectedTransferForDetails?.id"
@@ -961,6 +960,8 @@ tr:hover td {
 }
 
 .dialog-overlay {
+  z-index: 3000 !important;
+  top: 120px !important; /* Adjust if your toolbar+filters are taller */
   position: fixed;
   top: 0;
   left: 0;
