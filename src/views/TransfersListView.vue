@@ -14,6 +14,7 @@ const processingTransferId = ref(null)
 const showDetailsDialog = ref(false)
 const selectedTransferForDetails = ref(null)
 const user = ref(null)
+const selectedTransfers = ref([])
 
 const editForm = ref({
   amount_sending_da: '',
@@ -307,14 +308,83 @@ const clearFilters = () => {
     status: '',
   }
 }
+
+const toggleTransferSelection = (transferId) => {
+  const index = selectedTransfers.value.indexOf(transferId)
+  if (index === -1) {
+    selectedTransfers.value.push(transferId)
+  } else {
+    selectedTransfers.value.splice(index, 1)
+  }
+}
+
+const getSelectedTransfer = () => {
+  if (selectedTransfers.value.length !== 1) return null
+  return transfers.value.find((t) => t.id === selectedTransfers.value[0])
+}
+
+const deleteSelectedTransfers = async () => {
+  if (!confirm(`Are you sure you want to delete ${selectedTransfers.value.length} transfer(s)?`)) {
+    return
+  }
+
+  for (const transferId of selectedTransfers.value) {
+    const transfer = transfers.value.find((t) => t.id === transferId)
+    if (transfer) {
+      await deleteTransfer(transfer)
+    }
+  }
+  selectedTransfers.value = []
+}
+
+const selectTransfer = (transfer) => {
+  selectedTransfer.value = transfer
+}
 </script>
 
 <template>
-  <div class="transfers-list-view">
-    <h1>All Transfers List</h1>
-    <button @click="$router.push('/transfers')" class="back-btn">← Return to Transfers</button>
+  <div class="transfers-list">
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <button @click="openAddDialog" class="btn add-btn">
+          <i class="fas fa-plus"></i>
+          Add Transfer
+        </button>
+      </div>
+      <div class="toolbar-right">
+        <button
+          @click="openEditDialog(selectedTransfer)"
+          class="btn edit-btn"
+          :disabled="!selectedTransfer || !isAdmin"
+        >
+          <i class="fas fa-edit"></i>
+          Edit
+        </button>
+        <button
+          @click="openDetailsDialog(selectedTransfer)"
+          class="btn details-btn"
+          :disabled="!selectedTransfer"
+        >
+          <i class="fas fa-list-ul"></i>
+          Details
+        </button>
+        <button
+          @click="deleteTransfer(selectedTransfer)"
+          class="btn delete-btn"
+          :disabled="!selectedTransfer || !isAdmin"
+        >
+          <i class="fas fa-trash"></i>
+          Delete
+        </button>
+        <button @click="clearFilters" class="btn clear-btn">
+          <i class="fas fa-times"></i>
+          Clear Filters
+        </button>
+      </div>
+    </div>
 
-    <div class="filters-section">
+    <!-- Filters Section -->
+    <div class="filters">
       <div class="filters-grid">
         <div class="filter-group">
           <label><i class="fas fa-user"></i> Sender</label>
@@ -359,209 +429,168 @@ const clearFilters = () => {
             <option value="pending">Pending</option>
           </select>
         </div>
-        <button @click="clearFilters" class="btn clear-btn">
-          <i class="fas fa-times"></i> Clear Filters
-        </button>
       </div>
     </div>
 
-    <div class="transfers-table">
-      <div v-if="isLoading" class="loading-overlay">
-        <i class="fas fa-spinner fa-spin"></i>
-        Loading transfers...
-      </div>
-      <table>
-        <thead>
-          <tr>
-            <th @click="toggleSort('sender_name')" class="sortable">
-              Sender
-              <i
-                :class="[
-                  'fas',
-                  sortConfig.field === 'sender_name'
-                    ? sortConfig.direction === 'asc'
-                      ? 'fa-sort-up'
-                      : 'fa-sort-down'
-                    : 'fa-sort',
-                ]"
-              ></i>
-            </th>
-            <th @click="toggleSort('date_do_transfer')" class="sortable">
-              Date Sent
-              <i
-                :class="[
-                  'fas',
-                  sortConfig.field === 'date_do_transfer'
-                    ? sortConfig.direction === 'asc'
-                      ? 'fa-sort-up'
-                      : 'fa-sort-down'
-                    : 'fa-sort',
-                ]"
-              ></i>
-            </th>
-            <th @click="toggleSort('ref_pi_transfer')" class="sortable">
-              PI Reference
-              <i
-                :class="[
-                  'fas',
-                  sortConfig.field === 'ref_pi_transfer'
-                    ? sortConfig.direction === 'asc'
-                      ? 'fa-sort-up'
-                      : 'fa-sort-down'
-                    : 'fa-sort',
-                ]"
-              ></i>
-            </th>
-            <th @click="toggleSort('amount_sending_da')" class="sortable">
-              Amount DA
-              <i
-                :class="[
-                  'fas',
-                  sortConfig.field === 'amount_sending_da'
-                    ? sortConfig.direction === 'asc'
-                      ? 'fa-sort-up'
-                      : 'fa-sort-down'
-                    : 'fa-sort',
-                ]"
-              ></i>
-            </th>
-            <th @click="toggleSort('rate')" class="sortable">
-              Rate
-              <i
-                :class="[
-                  'fas',
-                  sortConfig.field === 'rate'
-                    ? sortConfig.direction === 'asc'
-                      ? 'fa-sort-up'
-                      : 'fa-sort-down'
-                    : 'fa-sort',
-                ]"
-              ></i>
-            </th>
-            <th>Bank</th>
-            <th>Account</th>
-            <th>Sender Notes</th>
-            <th @click="toggleSort('receiver_name')" class="sortable">
-              Receiver
-              <i
-                :class="[
-                  'fas',
-                  sortConfig.field === 'receiver_name'
-                    ? sortConfig.direction === 'asc'
-                      ? 'fa-sort-up'
-                      : 'fa-sort-down'
-                    : 'fa-sort',
-                ]"
-              ></i>
-            </th>
-            <th @click="toggleSort('date_receive')" class="sortable">
-              Date Received
-              <i
-                :class="[
-                  'fas',
-                  sortConfig.field === 'date_receive'
-                    ? sortConfig.direction === 'asc'
-                      ? 'fa-sort-up'
-                      : 'fa-sort-down'
-                    : 'fa-sort',
-                ]"
-              ></i>
-            </th>
-            <th @click="toggleSort('amount_received_usd')" class="sortable">
-              Received USD
-              <i
-                :class="[
-                  'fas',
-                  sortConfig.field === 'amount_received_usd'
-                    ? sortConfig.direction === 'asc'
-                      ? 'fa-sort-up'
-                      : 'fa-sort-down'
-                    : 'fa-sort',
-                ]"
-              ></i>
-            </th>
-            <th>Receiver Notes</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="transfer in filteredTransfers"
-            :key="transfer.id"
-            :class="{
-              'not-received': !transfer.date_receive,
-              'amount-mismatch':
-                transfer.date_receive &&
-                calculateUSD(transfer.amount_sending_da, transfer.rate) !==
-                  transfer.amount_received_usd,
-            }"
-          >
-            <td>{{ transfer.sender_name }}</td>
-            <td>{{ new Date(transfer.date_do_transfer).toLocaleString() }}</td>
-            <td>{{ transfer.ref_pi_transfer || '-' }}</td>
-            <td>{{ transfer.amount_sending_da }}</td>
-            <td>{{ transfer.rate }}</td>
-            <td>
-              <div v-if="transfer.company_name" class="bank-cell">
-                <strong>{{ transfer.company_name }}</strong
-                ><br />
-                <small>{{ transfer.bank_name }}</small>
-              </div>
-              <span v-else>-</span>
-            </td>
-            <td>
-              <div v-if="transfer.bank_account" class="bank-cell">
-                {{ transfer.bank_account }}<br />
-                <small class="swift">{{ transfer.swift_code }}</small>
-              </div>
-              <span v-else>-</span>
-            </td>
-            <td>{{ transfer.notes || '-' }}</td>
-            <td>{{ transfer.receiver_name || '-' }}</td>
-            <td>
-              {{ transfer.date_receive ? new Date(transfer.date_receive).toLocaleString() : '-' }}
-            </td>
-            <td>{{ transfer.amount_received_usd ? `$${transfer.amount_received_usd}` : '-' }}</td>
-            <td>{{ transfer.receiver_notes || '-' }}</td>
-            <td>
-              <div class="action-buttons">
-                <button
-                  :disabled="!isAdmin"
-                  @click="openEditDialog(transfer)"
-                  class="btn edit-btn"
-                  :class="{ disabled: !isAdmin }"
-                >
-                  <i class="fas fa-edit"></i>
-                  <span v-if="processingTransferId === transfer.id">
-                    <i class="fas fa-spinner fa-spin"></i>
-                  </span>
-                  <span v-else>Edit</span>
-                </button>
-                <button
-                  :disabled="!isAdmin"
-                  @click="deleteTransfer(transfer)"
-                  class="btn delete-btn"
-                  :class="{ disabled: !isAdmin }"
-                >
-                  <i class="fas fa-trash"></i>
-                  <span v-if="processingTransferId === transfer.id">
-                    <i class="fas fa-spinner fa-spin"></i>
-                  </span>
-                  <span v-else>Delete</span>
-                </button>
-                <button
-                  @click="openDetailsDialog(transfer)"
-                  class="btn details-btn"
-                  title="View Details"
-                >
-                  <i class="fas fa-list-ul"></i>
-                </button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <!-- Table Section -->
+    <div v-if="isLoading" class="loading">Loading transfers...</div>
+    <table v-else>
+      <thead>
+        <tr>
+          <th @click="toggleSort('sender_name')" class="sortable">
+            Sender
+            <i
+              :class="[
+                'fas',
+                sortConfig.field === 'sender_name'
+                  ? sortConfig.direction === 'asc'
+                    ? 'fa-sort-up'
+                    : 'fa-sort-down'
+                  : 'fa-sort',
+              ]"
+            ></i>
+          </th>
+          <th @click="toggleSort('date_do_transfer')" class="sortable">
+            Date Sent
+            <i
+              :class="[
+                'fas',
+                sortConfig.field === 'date_do_transfer'
+                  ? sortConfig.direction === 'asc'
+                    ? 'fa-sort-up'
+                    : 'fa-sort-down'
+                  : 'fa-sort',
+              ]"
+            ></i>
+          </th>
+          <th @click="toggleSort('ref_pi_transfer')" class="sortable">
+            PI Reference
+            <i
+              :class="[
+                'fas',
+                sortConfig.field === 'ref_pi_transfer'
+                  ? sortConfig.direction === 'asc'
+                    ? 'fa-sort-up'
+                    : 'fa-sort-down'
+                  : 'fa-sort',
+              ]"
+            ></i>
+          </th>
+          <th @click="toggleSort('amount_sending_da')" class="sortable">
+            Amount DA
+            <i
+              :class="[
+                'fas',
+                sortConfig.field === 'amount_sending_da'
+                  ? sortConfig.direction === 'asc'
+                    ? 'fa-sort-up'
+                    : 'fa-sort-down'
+                  : 'fa-sort',
+              ]"
+            ></i>
+          </th>
+          <th @click="toggleSort('rate')" class="sortable">
+            Rate
+            <i
+              :class="[
+                'fas',
+                sortConfig.field === 'rate'
+                  ? sortConfig.direction === 'asc'
+                    ? 'fa-sort-up'
+                    : 'fa-sort-down'
+                  : 'fa-sort',
+              ]"
+            ></i>
+          </th>
+          <th>Bank</th>
+          <th>Account</th>
+          <th>Sender Notes</th>
+          <th @click="toggleSort('receiver_name')" class="sortable">
+            Receiver
+            <i
+              :class="[
+                'fas',
+                sortConfig.field === 'receiver_name'
+                  ? sortConfig.direction === 'asc'
+                    ? 'fa-sort-up'
+                    : 'fa-sort-down'
+                  : 'fa-sort',
+              ]"
+            ></i>
+          </th>
+          <th @click="toggleSort('date_receive')" class="sortable">
+            Date Received
+            <i
+              :class="[
+                'fas',
+                sortConfig.field === 'date_receive'
+                  ? sortConfig.direction === 'asc'
+                    ? 'fa-sort-up'
+                    : 'fa-sort-down'
+                  : 'fa-sort',
+              ]"
+            ></i>
+          </th>
+          <th @click="toggleSort('amount_received_usd')" class="sortable">
+            Received USD
+            <i
+              :class="[
+                'fas',
+                sortConfig.field === 'amount_received_usd'
+                  ? sortConfig.direction === 'asc'
+                    ? 'fa-sort-up'
+                    : 'fa-sort-down'
+                  : 'fa-sort',
+              ]"
+            ></i>
+          </th>
+          <th>Receiver Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr
+          v-for="transfer in filteredTransfers"
+          :key="transfer.id"
+          :class="{
+            'not-received': !transfer.date_receive,
+            'amount-mismatch':
+              transfer.date_receive &&
+              calculateUSD(transfer.amount_sending_da, transfer.rate) !==
+                transfer.amount_received_usd,
+            selected: selectedTransfer && selectedTransfer.id === transfer.id,
+          }"
+          @click="selectTransfer(transfer)"
+        >
+          <td>{{ transfer.sender_name }}</td>
+          <td class="date-cell">{{ new Date(transfer.date_do_transfer).toLocaleString() }}</td>
+          <td>{{ transfer.ref_pi_transfer || '-' }}</td>
+          <td>{{ transfer.amount_sending_da }}</td>
+          <td>{{ transfer.rate }}</td>
+          <td>
+            <div v-if="transfer.company_name" class="bank-cell">
+              <strong>{{ transfer.company_name }}</strong
+              ><br />
+              <small>{{ transfer.bank_name }}</small>
+            </div>
+            <span v-else>-</span>
+          </td>
+          <td>
+            <div v-if="transfer.bank_account" class="bank-cell">
+              {{ transfer.bank_account }}<br />
+              <small class="swift">{{ transfer.swift_code }}</small>
+            </div>
+            <span v-else>-</span>
+          </td>
+          <td>{{ transfer.notes || '-' }}</td>
+          <td>{{ transfer.receiver_name || '-' }}</td>
+          <td class="date-cell">
+            {{ transfer.date_receive ? new Date(transfer.date_receive).toLocaleString() : '-' }}
+          </td>
+          <td>{{ transfer.amount_received_usd ? `$${transfer.amount_received_usd}` : '-' }}</td>
+          <td>{{ transfer.receiver_notes || '-' }}</td>
+        </tr>
+      </tbody>
+    </table>
 
     <!-- Edit Dialog -->
     <div v-if="showEditDialog" class="dialog-overlay">
@@ -690,11 +719,12 @@ const clearFilters = () => {
 </template>
 
 <style scoped>
-.transfers-list-view {
+.transfers-list {
   padding: 30px;
   width: 95%;
   max-width: 1600px;
   margin: 0 auto;
+  padding-bottom: 80px;
 }
 
 h1 {
@@ -740,6 +770,7 @@ table {
   border-collapse: separate;
   border-spacing: 0;
   font-size: 0.95em;
+  table-layout: fixed;
 }
 
 th {
@@ -749,14 +780,71 @@ th {
   padding: 16px;
   text-align: left;
   border-bottom: 2px solid #e5e7eb;
-  white-space: nowrap;
+  white-space: normal;
+  word-wrap: break-word;
 }
 
 td {
   padding: 14px 16px;
   border-bottom: 1px solid #f1f5f9;
   color: #4b5563;
+  white-space: normal;
+  word-wrap: break-word;
 }
+
+/* Column widths */
+th:nth-child(1),
+td:nth-child(1) {
+  width: 10%;
+} /* Sender */
+th:nth-child(2),
+td:nth-child(2) {
+  width: 10%;
+} /* Date Sent */
+th:nth-child(3),
+td:nth-child(3) {
+  width: 8%;
+} /* PI Reference */
+th:nth-child(4),
+td:nth-child(4) {
+  width: 8%;
+} /* Amount DA */
+th:nth-child(5),
+td:nth-child(5) {
+  width: 6%;
+} /* Rate */
+th:nth-child(6),
+td:nth-child(6) {
+  width: 12%;
+} /* Bank */
+th:nth-child(7),
+td:nth-child(7) {
+  width: 12%;
+} /* Account */
+th:nth-child(8),
+td:nth-child(8) {
+  width: 8%;
+} /* Sender Notes */
+th:nth-child(9),
+td:nth-child(9) {
+  width: 10%;
+} /* Receiver */
+th:nth-child(10),
+td:nth-child(10) {
+  width: 10%;
+} /* Date Received */
+th:nth-child(11),
+td:nth-child(11) {
+  width: 8%;
+} /* Received USD */
+th:nth-child(12),
+td:nth-child(12) {
+  width: 8%;
+} /* Receiver Notes */
+th:nth-child(13),
+td:nth-child(13) {
+  width: 10%;
+} /* Actions */
 
 tr:hover td {
   background-color: #f8fafc;
@@ -977,7 +1065,7 @@ td:nth-child(10) /* Date Received */ {
 }
 
 @media (max-width: 1400px) {
-  .transfers-list-view {
+  .transfers-list {
     width: 98%;
     padding: 20px;
   }
@@ -989,7 +1077,7 @@ td:nth-child(10) /* Date Received */ {
 }
 
 @media print {
-  .transfers-list-view {
+  .transfers-list {
     width: 100%;
     padding: 0;
   }
@@ -1019,10 +1107,6 @@ td:nth-child(10) /* Date Received */ {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-}
-
-.btn i {
-  font-size: 0.9em;
 }
 
 .btn.disabled {
@@ -1129,5 +1213,108 @@ td:nth-child(10) /* Date Received */ {
     padding: 20px;
     width: 95%;
   }
+}
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.toolbar-left,
+.toolbar-right {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.add-btn {
+  background-color: #4caf50;
+  color: white;
+}
+
+.add-btn:hover:not(:disabled) {
+  background-color: #45a049;
+}
+
+.edit-btn {
+  background-color: #4caf50;
+  color: white;
+}
+
+.edit-btn:hover:not(:disabled) {
+  background-color: #45a049;
+}
+
+.details-btn {
+  background-color: #2196f3;
+  color: white;
+}
+
+.details-btn:hover:not(:disabled) {
+  background-color: #1976d2;
+}
+
+.delete-btn {
+  background-color: #f44336;
+  color: white;
+}
+
+.delete-btn:hover:not(:disabled) {
+  background-color: #da190b;
+}
+
+.clear-btn {
+  background-color: #f44336;
+  color: white;
+}
+
+.clear-btn:hover:not(:disabled) {
+  background-color: #da190b;
+}
+
+tr {
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+tr:hover {
+  background-color: #f5f5f5;
+}
+
+tr.selected {
+  background-color: #e3f2fd;
+}
+
+tr.selected:hover {
+  background-color: #bbdefb;
+}
+
+.date-cell {
+  white-space: normal !important;
+  word-wrap: break-word;
+  min-width: 150px;
+  max-width: 150px;
 }
 </style>
