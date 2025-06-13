@@ -14,6 +14,8 @@ import SellView from './SellView.vue'
 import SellBillsView from './SellBillsView.vue'
 import WarehousesView from './WarehousesView.vue'
 import StatisticsView from './StatisticsView.vue'
+import { useApi } from '../composables/useApi'
+import FinishedOrdersTable from '../components/FinishedOrdersTable.vue'
 
 const router = useRouter()
 const activeView = ref(null)
@@ -34,6 +36,11 @@ const isProcessing = ref({
   warehouses: false,
   statistics: false,
 })
+
+const { callApi } = useApi()
+const showFinishedOrders = ref(false)
+const finishedOrders = ref([])
+const finishedOrdersLoading = ref(false)
 
 const navigateTo = async (view) => {
   if (isProcessing.value[view]) return
@@ -97,6 +104,29 @@ const handleStatisticsClick = async () => {
   } finally {
     isProcessing.value.statistics = false
   }
+}
+
+const fetchFinishedOrders = async () => {
+  finishedOrdersLoading.value = true
+  try {
+    const result = await callApi({
+      query: `SELECT * FROM cars_stock WHERE date_send_documents IS NOT NULL ORDER BY date_send_documents DESC`,
+      params: [],
+    })
+    if (result.success) {
+      finishedOrders.value = result.data
+    }
+  } finally {
+    finishedOrdersLoading.value = false
+  }
+}
+
+const handleFinishedOrdersClick = async () => {
+  showFinishedOrders.value = true
+  await fetchFinishedOrders()
+}
+const handleReturnToMain = () => {
+  showFinishedOrders.value = false
 }
 </script>
 
@@ -166,6 +196,14 @@ const handleStatisticsClick = async () => {
           <i class="fas fa-chart-bar"></i>
           <span>Statistics</span>
           <i v-if="isProcessing.statistics" class="fas fa-spinner fa-spin loading-indicator"></i>
+        </button>
+        <button
+          @click="showFinishedOrders = true"
+          :class="{ active: showFinishedOrders }"
+          class="sidebar-btn finished-orders-btn"
+        >
+          <i class="fas fa-check-circle"></i>
+          <span>Finished Orders</span>
         </button>
       </div>
 
@@ -273,23 +311,26 @@ const handleStatisticsClick = async () => {
         Cars Management
       </h1>
       <div class="content">
-        <div v-if="!activeView" class="empty-state">
-          <i class="fas fa-hand-point-left fa-2x"></i>
-          <p>Please select an option from the sidebar</p>
+        <FinishedOrdersTable v-if="showFinishedOrders" @close="showFinishedOrders = false" />
+        <div v-else>
+          <div v-if="!activeView" class="empty-state">
+            <i class="fas fa-hand-point-left fa-2x"></i>
+            <p>Please select an option from the sidebar</p>
+          </div>
+          <BuyView v-if="activeView === 'buy'" />
+          <SellView v-if="activeView === 'sell'" />
+          <SellBillsView v-if="activeView === 'sell-bills'" />
+          <CarsStock v-if="activeView === 'stock'" />
+          <CarModelsView v-if="activeView === 'models'" />
+          <ColorsView v-if="activeView === 'colors'" />
+          <DischargePortsView v-if="activeView === 'discharge-ports'" />
+          <LoadingPortsView v-if="activeView === 'loading-ports'" />
+          <ClientsView v-if="activeView === 'clients'" />
+          <BrokersView v-if="activeView === 'brokers'" />
+          <SuppliersView v-if="activeView === 'suppliers'" />
+          <WarehousesView v-if="activeView === 'warehouses'" />
+          <StatisticsView v-if="activeView === 'statistics'" />
         </div>
-        <BuyView v-if="activeView === 'buy'" />
-        <SellView v-if="activeView === 'sell'" />
-        <SellBillsView v-if="activeView === 'sell-bills'" />
-        <CarsStock v-if="activeView === 'stock'" />
-        <CarModelsView v-if="activeView === 'models'" />
-        <ColorsView v-if="activeView === 'colors'" />
-        <DischargePortsView v-if="activeView === 'discharge-ports'" />
-        <LoadingPortsView v-if="activeView === 'loading-ports'" />
-        <ClientsView v-if="activeView === 'clients'" />
-        <BrokersView v-if="activeView === 'brokers'" />
-        <SuppliersView v-if="activeView === 'suppliers'" />
-        <WarehousesView v-if="activeView === 'warehouses'" />
-        <StatisticsView v-if="activeView === 'statistics'" />
       </div>
       <div class="copyright">© Merhab Noureddine 2025</div>
     </div>
@@ -547,5 +588,39 @@ h2 {
 
 .sidebar-btn.statistics-btn i:not(.loading-indicator) {
   color: #ddd6fe;
+}
+
+.finished-orders-btn {
+  background: #e8f5e9;
+  color: #388e3c;
+}
+.finished-orders-btn.active {
+  background: #388e3c;
+  color: #fff;
+}
+.finished-orders-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1.5rem;
+}
+.finished-orders-table th, .finished-orders-table td {
+  border: 1px solid #e0e0e0;
+  padding: 0.75rem 1rem;
+  text-align: left;
+}
+.finished-orders-table th {
+  background: #f8f9fa;
+}
+.return-btn {
+  margin-bottom: 1rem;
+  background: #eee;
+  color: #333;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.return-btn:hover {
+  background: #ddd;
 }
 </style>
