@@ -8,6 +8,10 @@ const props = defineProps({
   onEdit: Function,
   onDelete: Function,
   onSelect: Function,
+  selectedBillId: {
+    type: Number,
+    default: null,
+  },
 })
 const user = ref(null)
 const isAdmin = computed(() => user.value?.role_id === 1)
@@ -312,6 +316,15 @@ const handleSort = (field) => {
     sortConfig.value.direction = 'desc'
   }
 }
+
+// Watch for changes in the selectedBillId prop
+watch(
+  () => props.selectedBillId,
+  (newId) => {
+    selectedBillId.value = newId
+  },
+  { immediate: true },
+)
 
 // Expose the fetchSellBills method to parent component
 defineExpose({ fetchSellBills })

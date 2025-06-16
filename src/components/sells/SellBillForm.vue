@@ -45,16 +45,16 @@ const formData = ref({
 watch(
   () => props.billData,
   (newData) => {
-  if (newData) {
-    formData.value = { ...newData }
-    // Ensure date is in the correct format for the date input
-    if (formData.value.date_sell) {
-      const date = new Date(formData.value.date_sell)
-      if (!isNaN(date)) {
-        formData.value.date_sell = date.toISOString().split('T')[0]
+    if (newData) {
+      formData.value = { ...newData }
+      // Ensure date is in the correct format for the date input
+      if (formData.value.date_sell) {
+        const date = new Date(formData.value.date_sell)
+        if (!isNaN(date)) {
+          formData.value.date_sell = date.toISOString().split('T')[0]
+        }
       }
     }
-  }
   },
   { immediate: true },
 )
@@ -69,7 +69,7 @@ const fetchBrokers = async () => {
       `,
       params: [],
     })
-    
+
     if (result.success) {
       brokers.value = result.data
       filteredBrokers.value = result.data
@@ -102,17 +102,17 @@ const saveBill = async () => {
   if (isSubmitting.value) {
     return
   }
-  
+
   try {
     isSubmitting.value = true
     loading.value = true
     error.value = null
-    
+
     let result
-    
+
     if (props.mode === 'add') {
       console.log('User data:', user.value)
-      
+
       // First insert the bill to get the ID
       result = await callApi({
         query: `
@@ -127,7 +127,7 @@ const saveBill = async () => {
           formData.value.is_batch_sell ? 1 : 0,
         ],
       })
-      
+
       console.log('Insert result:', result)
       console.log('Insert result:', result.success && result.lastInsertId)
       if (result.success && result.lastInsertId) {
@@ -137,16 +137,16 @@ const saveBill = async () => {
         const date = new Date(formData.value.date_sell)
         const dateStr = date
           .toLocaleDateString('en-GB', {
-          day: '2-digit',
-          month: '2-digit',
+            day: '2-digit',
+            month: '2-digit',
             year: '2-digit',
           })
           .replace(/\//g, '')
         const billId = result.lastInsertId.toString().padStart(3, '0')
         const billRef = `${username}${userId}${dateStr}${billId}`
-        
+
         console.log('Generated bill_ref:', billRef)
-        
+
         // Update the bill with the generated bill_ref
         const updateResult = await callApi({
           query: `
@@ -156,9 +156,9 @@ const saveBill = async () => {
           `,
           params: [billRef, result.lastInsertId],
         })
-        
+
         console.log('Update result:', updateResult)
-        
+
         if (!updateResult.success) {
           console.error('Failed to update bill_ref:', updateResult.error)
           error.value = 'Failed to update bill reference'
@@ -181,7 +181,7 @@ const saveBill = async () => {
           `,
           params: [result.lastInsertId],
         })
-        
+
         console.log('Fetch result:', fetchResult)
 
         if (fetchResult.success && fetchResult.data.length > 0) {
@@ -208,11 +208,11 @@ const saveBill = async () => {
           formData.value.id,
         ],
       })
-    
-    if (result.success) {
-      emit('save', result.data)
-    } else {
-      error.value = result.error || `Failed to ${props.mode} sell bill`
+
+      if (result.success) {
+        emit('save', result.data)
+      } else {
+        error.value = result.error || `Failed to ${props.mode} sell bill`
       }
     }
   } catch (err) {
@@ -247,12 +247,12 @@ onMounted(() => {
       <i class="fas fa-file-invoice-dollar"></i>
       {{ mode === 'add' ? 'Add New Sell Bill' : 'Edit Sell Bill' }}
     </h3>
-    
+
     <div v-if="error" class="error-message">
       <i class="fas fa-exclamation-circle"></i>
       {{ error }}
     </div>
-    
+
     <form @submit.prevent="saveBill" class="form-content">
       <div class="form-group">
         <label for="broker">
@@ -283,7 +283,7 @@ onMounted(() => {
           </el-option>
         </el-select>
       </div>
-      
+
       <div class="form-group">
         <label for="date">
           <i class="fas fa-calendar"></i>
@@ -310,7 +310,7 @@ onMounted(() => {
           placeholder="Enter any additional notes..."
         ></textarea>
       </div>
-      
+
       <div class="form-group">
         <div class="checkbox-wrapper">
           <input
@@ -322,7 +322,7 @@ onMounted(() => {
           <label for="is_batch_sell" class="checkbox-label">Batch Sell</label>
         </div>
       </div>
-      
+
       <div class="form-actions">
         <button type="button" @click="$emit('cancel')" :disabled="isSubmitting" class="cancel-btn">
           <i class="fas fa-times"></i>

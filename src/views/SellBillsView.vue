@@ -18,6 +18,9 @@ const sellBillCarsTableRef = ref(null)
 // Add user and isAdmin
 const user = ref(null)
 const isAdmin = computed(() => user.value?.role_id === 1)
+const can_create_sell_bill = computed(
+  () => user.value?.permissions?.includes('create_sell_bill') || isAdmin.value,
+)
 
 onMounted(() => {
   const userStr = localStorage.getItem('user')
@@ -123,15 +126,21 @@ const handleDeleteBill = async (id) => {
   }
 }
 
-const handleSave = () => {
-  console.log('handleSave called')
+const handleSave = async (savedBill) => {
+  console.log('handleSave called with bill:', savedBill)
   showAddDialog.value = false
   showEditDialog.value = false
 
   // Refresh the table
   if (sellBillsTableRef.value) {
     console.log('Refreshing table')
-    sellBillsTableRef.value.fetchSellBills()
+    await sellBillsTableRef.value.fetchSellBills()
+
+    // After refresh, select the newly created bill
+    if (savedBill && savedBill.id) {
+      console.log('Selecting new bill:', savedBill.id)
+      handleSelectBill(savedBill.id)
+    }
   } else {
     console.warn('sellBillsTableRef is null')
   }
@@ -160,7 +169,14 @@ const handleCarsTableRefresh = async () => {
     <div class="header">
       <h2>Sell Bills Management</h2>
       <div class="header-actions">
-        <button @click="openAddDialog" class="add-btn">Add Sell Bill</button>
+        <button
+          v-if="can_create_sell_bill"
+          @click="showAddDialog = true"
+          class="add-btn"
+          :disabled="isProcessing"
+        >
+          <i class="fas fa-plus"></i> Add Sell Bill
+        </button>
       </div>
     </div>
 
@@ -172,6 +188,7 @@ const handleCarsTableRefresh = async () => {
         :onSelect="handleSelectBill"
         @select-bill="handleSelectBill"
         :isAdmin="isAdmin"
+        :selectedBillId="selectedBillId"
       />
 
       <SellBillCarsTable
@@ -186,12 +203,7 @@ const handleCarsTableRefresh = async () => {
     <!-- Add Dialog -->
     <div v-if="showAddDialog" class="dialog-overlay">
       <div class="dialog">
-        <SellBillForm
-          mode="add"
-          :billData="editingBill"
-          @save="handleSave"
-          @cancel="showAddDialog = false"
-        />
+        <SellBillForm mode="add" @save="handleSave" @cancel="showAddDialog = false" />
       </div>
     </div>
 
@@ -211,7 +223,7 @@ const handleCarsTableRefresh = async () => {
 
 <style scoped>
 .sell-bills-view {
-  width: 100%;
+  padding: 20px;
 }
 
 .header {
@@ -221,13 +233,9 @@ const handleCarsTableRefresh = async () => {
   margin-bottom: 20px;
 }
 
-.add-btn {
-  background-color: #10b981;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  padding: 8px 16px;
-  cursor: pointer;
+.header h2 {
+  margin: 0;
+  color: #2c3e50;
 }
 
 .header-actions {
@@ -235,10 +243,33 @@ const handleCarsTableRefresh = async () => {
   gap: 10px;
 }
 
+.add-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background-color: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s;
+}
+
+.add-btn:hover {
+  background-color: #45a049;
+}
+
+.add-btn:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
+
 .content {
-  background-color: white;
-  border-radius: 8px;
-  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
 .dialog-overlay {
@@ -255,12 +286,11 @@ const handleCarsTableRefresh = async () => {
 }
 
 .dialog {
-  background-color: white;
-  border-radius: 8px;
+  background: white;
   padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
   width: 90%;
-  max-width: 600px;
-  max-height: 90vh;
-  overflow-y: auto;
+  max-width: 500px;
 }
 </style>
