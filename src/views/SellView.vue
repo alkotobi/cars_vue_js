@@ -31,7 +31,7 @@ const editingSellBill = ref({
   id: null,
   id_broker: null,
   date_sell: '',
-  notes: ''
+  notes: '',
 })
 
 // Add new refs for car edit dialog
@@ -41,16 +41,19 @@ const editingCar = ref(null)
 const newSellBill = ref({
   id_broker: null,
   date_sell: new Date().toISOString().split('T')[0], // Today's date in YYYY-MM-DD format
-  notes: ''
+  notes: '',
 })
 
 // Add ref for brokers list
 const brokers = ref([])
 
+// Add ref for cars table
+const carsTableRef = ref(null)
+
 const fetchSellBills = async () => {
   loading.value = true
   error.value = null
-  
+
   try {
     const result = await callApi({
       query: `
@@ -64,9 +67,9 @@ const fetchSellBills = async () => {
         LEFT JOIN clients c ON sb.id_broker = c.id AND c.is_broker = 1
         ORDER BY sb.date_sell DESC
       `,
-      params: []
+      params: [],
     })
-    
+
     if (result.success) {
       sellBills.value = result.data
     } else {
@@ -88,9 +91,9 @@ const fetchBrokers = async () => {
         WHERE is_broker = 1
         ORDER BY name ASC
       `,
-      params: []
+      params: [],
     })
-    
+
     if (result.success) {
       brokers.value = result.data
     }
@@ -102,11 +105,19 @@ const fetchBrokers = async () => {
 const selectBill = async (bill) => {
   selectedBillId.value = bill.id
   await fetchCarStock(bill.id)
+  // Scroll to cars table after a short delay to ensure it's rendered
+  setTimeout(() => {
+    if (carsTableRef.value) {
+      const yOffset = -20 // Offset to account for any fixed headers
+      const y = carsTableRef.value.getBoundingClientRect().top + window.pageYOffset + yOffset
+      window.scrollTo({ top: y, behavior: 'smooth' })
+    }
+  }, 300) // Increased delay to ensure content is loaded
 }
 
 const fetchCarStock = async (sellBillId) => {
   stockLoading.value = true
-  
+
   try {
     const result = await callApi({
       query: `
@@ -137,9 +148,9 @@ const fetchCarStock = async (sellBillId) => {
         WHERE cs.id_sell = ? AND cs.hidden = 0
         ORDER BY cs.id DESC
       `,
-      params: [sellBillId]
+      params: [sellBillId],
     })
-    
+
     if (result.success) {
       carsStock.value = result.data
     } else {
@@ -154,7 +165,7 @@ const fetchCarStock = async (sellBillId) => {
 
 const fetchAvailableCars = async () => {
   availableCarsLoading.value = true
-  
+
   try {
     const result = await callApi({
       query: `
@@ -181,9 +192,9 @@ const fetchAvailableCars = async () => {
         WHERE cs.id_sell IS NULL AND cs.hidden = 0
         ORDER BY cs.id DESC
       `,
-      params: []
+      params: [],
     })
-    
+
     if (result.success) {
       availableCars.value = result.data
     } else {
@@ -201,29 +212,25 @@ const addSellBill = async () => {
   if (isSubmittingBill.value) {
     return
   }
-  
+
   try {
     isSubmittingBill.value = true
-    
+
     const result = await callApi({
       query: `
         INSERT INTO sell_bill (id_broker, date_sell, notes)
         VALUES (?, ?, ?)
       `,
-      params: [
-        newSellBill.value.id_broker,
-        newSellBill.value.date_sell,
-        newSellBill.value.notes
-      ]
+      params: [newSellBill.value.id_broker, newSellBill.value.date_sell, newSellBill.value.notes],
     })
-    
+
     if (result.success) {
       showAddDialog.value = false
       // Reset form
       newSellBill.value = {
         id_broker: null,
         date_sell: new Date().toISOString().split('T')[0],
-        notes: ''
+        notes: '',
       }
       // Refresh the list
       await fetchSellBills()
@@ -242,9 +249,9 @@ const fetchLoadingPorts = async () => {
   try {
     const result = await callApi({
       query: 'SELECT * FROM loading_ports ORDER BY loading_port ASC',
-      params: []
+      params: [],
     })
-    
+
     if (result.success) {
       loadingPorts.value = result.data
     }
@@ -258,9 +265,9 @@ const fetchDischargePorts = async () => {
   try {
     const result = await callApi({
       query: 'SELECT * FROM discharge_ports ORDER BY discharge_port ASC',
-      params: []
+      params: [],
     })
-    
+
     if (result.success) {
       dischargePorts.value = result.data
     }
@@ -274,9 +281,9 @@ const fetchClients = async () => {
   try {
     const result = await callApi({
       query: 'SELECT * FROM clients WHERE is_broker = 0 ORDER BY name ASC',
-      params: []
+      params: [],
     })
-    
+
     if (result.success) {
       clients.value = result.data
     }
@@ -296,31 +303,31 @@ const assignCarToBill = async () => {
   if (isSubmittingAssignment.value) {
     return
   }
-  
+
   if (!selectedBillId.value) {
     alert('Please select a bill first')
     return
   }
-  
+
   // Validate required fields
   if (!carToAssign.value.id_client) {
     alert('Client name is required')
     return
   }
-  
+
   if (!carToAssign.value.id_port_discharge) {
     alert('Discharge port is required')
     return
   }
-  
+
   if (!carToAssign.value.price_cell) {
     alert('Selling price is required')
     return
   }
-  
+
   try {
     isSubmittingAssignment.value = true
-    
+
     const result = await callApi({
       query: `
         UPDATE cars_stock 
@@ -333,16 +340,16 @@ const assignCarToBill = async () => {
         WHERE id = ?
       `,
       params: [
-        selectedBillId.value, 
+        selectedBillId.value,
         carToAssign.value.id_client,
         carToAssign.value.vin,
         carToAssign.value.id_port_loading,
         carToAssign.value.id_port_discharge,
         carToAssign.value.price_cell,
-        carToAssign.value.id
-      ]
+        carToAssign.value.id,
+      ],
     })
-    
+
     if (result.success) {
       showAssignDialog.value = false
       // Refresh both car lists
@@ -369,9 +376,9 @@ const unassignCar = async (carId) => {
             id_sell = NULL
         WHERE id = ?
       `,
-      params: [carId]
+      params: [carId],
     })
-    
+
     if (result.success) {
       // Refresh both car lists
       await fetchCarStock(selectedBillId.value)
@@ -388,15 +395,15 @@ const unassignCar = async (carId) => {
 const openEditDialog = (bill, event) => {
   // Stop the click event from propagating to the row
   event.stopPropagation()
-  
+
   // Set the editing bill data
   editingSellBill.value = {
     id: bill.id,
     id_broker: bill.id_broker,
     date_sell: bill.date_sell.split('T')[0], // Format date for input
-    notes: bill.notes || ''
+    notes: bill.notes || '',
   }
-  
+
   showEditDialog.value = true
 }
 
@@ -406,10 +413,10 @@ const updateSellBill = async () => {
   if (isSubmittingUpdate.value) {
     return
   }
-  
+
   try {
     isSubmittingUpdate.value = true
-    
+
     const result = await callApi({
       query: `
         UPDATE sell_bill 
@@ -422,15 +429,15 @@ const updateSellBill = async () => {
         editingSellBill.value.id_broker,
         editingSellBill.value.date_sell,
         editingSellBill.value.notes,
-        editingSellBill.value.id
-      ]
+        editingSellBill.value.id,
+      ],
     })
-    
+
     if (result.success) {
       showEditDialog.value = false
       // Refresh the list
       await fetchSellBills()
-      
+
       // If the edited bill was selected, refresh its data
       if (selectedBillId.value === editingSellBill.value.id) {
         await fetchCarStock(selectedBillId.value)
@@ -449,12 +456,16 @@ const updateSellBill = async () => {
 const deleteSellBill = async (billId, event) => {
   // Stop the click event from propagating to the row
   event.stopPropagation()
-  
+
   // Confirm deletion
-  if (!confirm('Are you sure you want to delete this sell bill? This will also unassign all cars from this bill.')) {
+  if (
+    !confirm(
+      'Are you sure you want to delete this sell bill? This will also unassign all cars from this bill.',
+    )
+  ) {
     return
   }
-  
+
   try {
     // First, unassign all cars from this bill
     const unassignResult = await callApi({
@@ -463,30 +474,30 @@ const deleteSellBill = async (billId, event) => {
         SET id_sell = NULL 
         WHERE id_sell = ?
       `,
-      params: [billId]
+      params: [billId],
     })
-    
+
     if (!unassignResult.success) {
       error.value = unassignResult.error || 'Failed to unassign cars from bill'
       return
     }
-    
+
     // Then delete the bill
     const deleteResult = await callApi({
       query: `
         DELETE FROM sell_bill 
         WHERE id = ?
       `,
-      params: [billId]
+      params: [billId],
     })
-    
+
     if (deleteResult.success) {
       // If the deleted bill was selected, clear selection
       if (selectedBillId.value === billId) {
         selectedBillId.value = null
         carsStock.value = []
       }
-      
+
       // Refresh the lists
       await fetchSellBills()
       await fetchAvailableCars()
@@ -516,15 +527,15 @@ const editCar = (car) => {
 // Add function to update car
 const updateCar = async () => {
   if (!editingCar.value) return
-  
+
   // Prevent multiple submissions
   if (isSubmittingUpdate.value) {
     return
   }
-  
+
   try {
     isSubmittingUpdate.value = true
-    
+
     const result = await callApi({
       query: `
         UPDATE cars_stock 
@@ -543,10 +554,10 @@ const updateCar = async () => {
         editingCar.value.id_port_discharge,
         editingCar.value.price_cell,
         editingCar.value.notes,
-        editingCar.value.id
-      ]
+        editingCar.value.id,
+      ],
     })
-    
+
     if (result.success) {
       showCarEditDialog.value = false
       await fetchCarStock(selectedBillId.value)
@@ -565,20 +576,18 @@ const updateCar = async () => {
   <div class="sell-view">
     <div class="header">
       <h2>Sell Bills Management</h2>
-      <button class="add-btn" @click="showAddDialog = true">
-        Add New Sell Bill
-      </button>
+      <button class="add-btn" @click="showAddDialog = true">Add New Sell Bill</button>
     </div>
-    
+
     <div v-if="selectedBillId" class="selected-bill">
       Selected Bill ID: <span class="bill-id">{{ selectedBillId }}</span>
     </div>
-    
+
     <div class="content">
       <div v-if="loading" class="loading">Loading...</div>
-      
+
       <div v-else-if="error" class="error">{{ error }}</div>
-      
+
       <div v-else class="tables-container">
         <!-- Sell Bills Table -->
         <div class="sell-bills-table">
@@ -594,11 +603,11 @@ const updateCar = async () => {
               </tr>
             </thead>
             <tbody>
-              <tr 
-                v-for="bill in sellBills" 
-                :key="bill.id" 
+              <tr
+                v-for="bill in sellBills"
+                :key="bill.id"
                 @click="selectBill(bill)"
-                :class="{ 'selected': selectedBillId === bill.id }"
+                :class="{ selected: selectedBillId === bill.id }"
               >
                 <td>{{ bill.id }}</td>
                 <td>{{ new Date(bill.date_sell).toLocaleDateString() }}</td>
@@ -606,15 +615,17 @@ const updateCar = async () => {
                 <td>{{ bill.notes || 'N/A' }}</td>
                 <td>
                   <button @click="openEditDialog(bill, $event)" class="btn edit-btn">Edit</button>
-                  <button class="btn delete-btn" @click="deleteSellBill(bill.id, $event)">Delete</button>
+                  <button class="btn delete-btn" @click="deleteSellBill(bill.id, $event)">
+                    Delete
+                  </button>
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
-        
+
         <!-- Car Stock Table for Selected Bill -->
-        <div class="car-stock-table" v-if="selectedBillId">
+        <div class="car-stock-table" v-if="selectedBillId" ref="carsTableRef">
           <h3>Cars in Selected Bill</h3>
           <div v-if="stockLoading" class="loading">Loading cars...</div>
           <div v-else-if="carsStock.length === 0" class="no-data">
@@ -647,7 +658,7 @@ const updateCar = async () => {
                 <td>{{ car.discharge_port || 'N/A' }}</td>
                 <td>${{ car.buy_price || 0 }}</td>
                 <td>${{ car.price_cell || 0 }}</td>
-                <td>${{ (car.price_cell - car.buy_price) || 0 }}</td>
+                <td>${{ car.price_cell - car.buy_price || 0 }}</td>
                 <td>
                   <button @click="editCar(car)" class="edit-btn">Edit</button>
                   <button @click="unassignCar(car.id)" class="unassign-btn">Unassign</button>
@@ -656,7 +667,7 @@ const updateCar = async () => {
             </tbody>
           </table>
         </div>
-        
+
         <!-- Available Cars Table -->
         <div class="available-cars-table" v-if="selectedBillId">
           <h3>Available Cars</h3>
@@ -679,7 +690,7 @@ const updateCar = async () => {
                 <td>{{ car.vin || 'N/A' }}</td>
                 <td>${{ car.buy_price || 0 }}</td>
                 <td>${{ car.price_cell || 0 }}</td>
-                <td>${{ (car.price_cell - car.buy_price) || 0 }}</td>
+                <td>${{ car.price_cell - car.buy_price || 0 }}</td>
                 <td>
                   <button @click="openAssignDialog(car)" class="assign-btn">Assign to Bill</button>
                 </td>
@@ -689,7 +700,7 @@ const updateCar = async () => {
         </div>
       </div>
     </div>
-    
+
     <!-- Add Assignment Dialog -->
     <div class="dialog-overlay" v-if="showAssignDialog">
       <div class="dialog">
@@ -698,30 +709,36 @@ const updateCar = async () => {
           <label for="client">Client: <span class="required">*</span></label>
           <select id="client" v-model="carToAssign.id_client" required>
             <option value="">Select Client</option>
-            <option v-for="client in clients" :key="client.id" :value="client.id">{{ client.name }}</option>
+            <option v-for="client in clients" :key="client.id" :value="client.id">
+              {{ client.name }}
+            </option>
           </select>
         </div>
         <div class="form-group">
           <label for="vin">VIN:</label>
-          <input type="text" id="vin" v-model="carToAssign.vin">
+          <input type="text" id="vin" v-model="carToAssign.vin" />
         </div>
         <div class="form-group">
           <label for="loading-port">Loading Port:</label>
           <select id="loading-port" v-model="carToAssign.id_port_loading">
             <option value="">Select Loading Port</option>
-            <option v-for="port in loadingPorts" :key="port.id" :value="port.id">{{ port.loading_port }}</option>
+            <option v-for="port in loadingPorts" :key="port.id" :value="port.id">
+              {{ port.loading_port }}
+            </option>
           </select>
         </div>
         <div class="form-group">
           <label for="discharge-port">Discharge Port: <span class="required">*</span></label>
           <select id="discharge-port" v-model="carToAssign.id_port_discharge" required>
             <option value="">Select Discharge Port</option>
-            <option v-for="port in dischargePorts" :key="port.id" :value="port.id">{{ port.discharge_port }}</option>
+            <option v-for="port in dischargePorts" :key="port.id" :value="port.id">
+              {{ port.discharge_port }}
+            </option>
           </select>
         </div>
         <div class="form-group">
           <label for="sell-price">Sell Price: <span class="required">*</span></label>
-          <input type="number" id="sell-price" v-model="carToAssign.price_cell" required>
+          <input type="number" id="sell-price" v-model="carToAssign.price_cell" required />
         </div>
         <div class="dialog-buttons">
           <button @click="assignCarToBill" class="primary">Assign</button>
@@ -729,12 +746,12 @@ const updateCar = async () => {
         </div>
       </div>
     </div>
-    
+
     <!-- Add Sell Bill Dialog -->
     <div v-if="showAddDialog" class="dialog-overlay">
       <div class="dialog">
         <h3>Add New Sell Bill</h3>
-        
+
         <div class="form-group">
           <label for="broker">Broker:</label>
           <select id="broker" v-model="newSellBill.id_broker">
@@ -744,17 +761,17 @@ const updateCar = async () => {
             </option>
           </select>
         </div>
-        
+
         <div class="form-group">
           <label for="date">Date:</label>
-          <input type="date" id="date" v-model="newSellBill.date_sell">
+          <input type="date" id="date" v-model="newSellBill.date_sell" />
         </div>
-        
+
         <div class="form-group">
           <label for="notes">Notes:</label>
           <textarea id="notes" v-model="newSellBill.notes"></textarea>
         </div>
-        
+
         <div class="dialog-buttons">
           <button @click="showAddDialog = false">Cancel</button>
           <button @click="addSellBill" class="primary">Add</button>
@@ -776,7 +793,7 @@ const updateCar = async () => {
         </div>
         <div class="form-group">
           <label for="edit-car-vin">VIN:</label>
-          <input type="text" id="edit-car-vin" v-model="editingCar.vin">
+          <input type="text" id="edit-car-vin" v-model="editingCar.vin" />
         </div>
         <div class="form-group">
           <label for="edit-car-loading-port">Loading Port:</label>
@@ -798,7 +815,7 @@ const updateCar = async () => {
         </div>
         <div class="form-group">
           <label for="edit-car-price">Selling Price:</label>
-          <input type="number" id="edit-car-price" v-model="editingCar.price_cell">
+          <input type="number" id="edit-car-price" v-model="editingCar.price_cell" />
         </div>
         <div class="form-group">
           <label for="edit-car-notes">Notes:</label>
@@ -810,7 +827,7 @@ const updateCar = async () => {
         </div>
       </div>
     </div>
-    
+
     <!-- Assign Car Dialog -->
     <div class="dialog-overlay" v-if="showAssignDialog">
       <div class="dialog">
@@ -819,30 +836,36 @@ const updateCar = async () => {
           <label for="client">Client: <span class="required">*</span></label>
           <select id="client" v-model="carToAssign.id_client" required>
             <option value="">Select Client</option>
-            <option v-for="client in clients" :key="client.id" :value="client.id">{{ client.name }}</option>
+            <option v-for="client in clients" :key="client.id" :value="client.id">
+              {{ client.name }}
+            </option>
           </select>
         </div>
         <div class="form-group">
           <label for="vin">VIN:</label>
-          <input type="text" id="vin" v-model="carToAssign.vin">
+          <input type="text" id="vin" v-model="carToAssign.vin" />
         </div>
         <div class="form-group">
           <label for="loading-port">Loading Port:</label>
           <select id="loading-port" v-model="carToAssign.id_port_loading">
             <option value="">Select Loading Port</option>
-            <option v-for="port in loadingPorts" :key="port.id" :value="port.id">{{ port.loading_port }}</option>
+            <option v-for="port in loadingPorts" :key="port.id" :value="port.id">
+              {{ port.loading_port }}
+            </option>
           </select>
         </div>
         <div class="form-group">
           <label for="discharge-port">Discharge Port: <span class="required">*</span></label>
           <select id="discharge-port" v-model="carToAssign.id_port_discharge" required>
             <option value="">Select Discharge Port</option>
-            <option v-for="port in dischargePorts" :key="port.id" :value="port.id">{{ port.discharge_port }}</option>
+            <option v-for="port in dischargePorts" :key="port.id" :value="port.id">
+              {{ port.discharge_port }}
+            </option>
           </select>
         </div>
         <div class="form-group">
           <label for="sell-price">Sell Price: <span class="required">*</span></label>
-          <input type="number" id="sell-price" v-model="carToAssign.price_cell" required>
+          <input type="number" id="sell-price" v-model="carToAssign.price_cell" required />
         </div>
         <div class="dialog-buttons">
           <button @click="assignCarToBill" class="primary">Assign</button>
@@ -850,12 +873,12 @@ const updateCar = async () => {
         </div>
       </div>
     </div>
-    
+
     <!-- Add Sell Bill Dialog -->
     <div v-if="showAddDialog" class="dialog-overlay">
       <div class="dialog">
         <h3>Add New Sell Bill</h3>
-        
+
         <div class="form-group">
           <label for="broker">Broker:</label>
           <select id="broker" v-model="newSellBill.id_broker">
@@ -865,17 +888,17 @@ const updateCar = async () => {
             </option>
           </select>
         </div>
-        
+
         <div class="form-group">
           <label for="date">Date:</label>
-          <input type="date" id="date" v-model="newSellBill.date_sell">
+          <input type="date" id="date" v-model="newSellBill.date_sell" />
         </div>
-        
+
         <div class="form-group">
           <label for="notes">Notes:</label>
           <textarea id="notes" v-model="newSellBill.notes"></textarea>
         </div>
-        
+
         <div class="dialog-buttons">
           <button @click="showAddDialog = false">Cancel</button>
           <button @click="addSellBill" class="primary">Add</button>
@@ -886,7 +909,7 @@ const updateCar = async () => {
     <div v-if="showEditDialog" class="dialog-overlay">
       <div class="dialog">
         <h3>Edit Sell Bill</h3>
-        
+
         <div class="form-group">
           <label for="edit-broker">Broker:</label>
           <select id="edit-broker" v-model="editingSellBill.id_broker">
@@ -896,17 +919,17 @@ const updateCar = async () => {
             </option>
           </select>
         </div>
-        
+
         <div class="form-group">
           <label for="edit-date">Date:</label>
-          <input type="date" id="edit-date" v-model="editingSellBill.date_sell">
+          <input type="date" id="edit-date" v-model="editingSellBill.date_sell" />
         </div>
-        
+
         <div class="form-group">
           <label for="edit-notes">Notes:</label>
           <textarea id="edit-notes" v-model="editingSellBill.notes"></textarea>
         </div>
-        
+
         <div class="dialog-buttons">
           <button @click="showEditDialog = false">Cancel</button>
           <button @click="updateSellBill" class="primary">Update</button>
@@ -929,7 +952,7 @@ const updateCar = async () => {
 }
 
 .add-btn {
-  background-color: #4CAF50;
+  background-color: #4caf50;
   color: white;
   border: none;
   padding: 10px 15px;
@@ -961,7 +984,8 @@ table {
   margin-top: 10px;
 }
 
-th, td {
+th,
+td {
   border: 1px solid #ddd;
   padding: 8px;
   text-align: left;
@@ -988,7 +1012,8 @@ tr.selected {
   cursor: pointer;
 }
 
-.no-selection, .no-data {
+.no-selection,
+.no-data {
   padding: 20px;
   text-align: center;
   color: #6c757d;
@@ -996,7 +1021,8 @@ tr.selected {
   border-radius: 4px;
 }
 
-.loading, .error {
+.loading,
+.error {
   padding: 20px;
   text-align: center;
 }
@@ -1060,7 +1086,7 @@ tr.selected {
 }
 
 .dialog-buttons button.primary {
-  background-color: #4CAF50;
+  background-color: #4caf50;
   color: white;
 }
 .edit-btn {
@@ -1113,6 +1139,4 @@ tr.selected {
 .unassign-btn:hover {
   background-color: #f50303;
 }
-
-
 </style>

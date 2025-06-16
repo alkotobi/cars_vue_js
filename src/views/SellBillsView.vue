@@ -33,6 +33,16 @@ const handleSelectBill = (billId) => {
   if (unassignedCarsTableRef.value) {
     unassignedCarsTableRef.value.setSellBillId(billId)
   }
+
+  // Scroll to cars table after a short delay to ensure it's rendered
+  setTimeout(() => {
+    if (sellBillCarsTableRef.value) {
+      const element = sellBillCarsTableRef.value.$el
+      const yOffset = -20 // Offset to account for any fixed headers
+      const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset
+      window.scrollTo({ top: y, behavior: 'smooth' })
+    }
+  }, 300)
 }
 
 const openAddDialog = () => {
