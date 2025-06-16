@@ -57,7 +57,7 @@ const can_edit_sell_bill = computed(() => {
 })
 
 const sortConfig = ref({
-  field: 'date_sell',
+  field: 'id',
   direction: 'desc',
 })
 
