@@ -94,6 +94,42 @@ const sortedBills = computed(() => {
   })
 })
 
+// Add computed property for sorted and limited bills
+const sortedAndLimitedBills = computed(() => {
+  if (!sellBills.value.length) return []
+
+  const sorted = [...sellBills.value].sort((a, b) => {
+    let aValue = a[sortConfig.value.field]
+    let bValue = b[sortConfig.value.field]
+
+    // Handle date comparison
+    if (sortConfig.value.field === 'date_sell') {
+      aValue = new Date(aValue).getTime()
+      bValue = new Date(bValue).getTime()
+    }
+
+    // Handle numeric fields
+    if (sortConfig.value.field === 'id') {
+      aValue = Number(aValue)
+      bValue = Number(bValue)
+    }
+
+    // Handle null values
+    if (aValue === null || aValue === undefined) aValue = ''
+    if (bValue === null || bValue === undefined) bValue = ''
+
+    // Compare values based on direction
+    if (sortConfig.value.direction === 'asc') {
+      return aValue > bValue ? 1 : -1
+    } else {
+      return aValue < bValue ? 1 : -1
+    }
+  })
+
+  // Limit to 10 rows
+  return sorted.slice(0, 10)
+})
+
 onMounted(() => {
   const userStr = localStorage.getItem('user')
   if (userStr) {
@@ -354,112 +390,114 @@ defineExpose({ fetchSellBills })
       {{ error }}
     </div>
 
-    <div v-else-if="sellBills.length === 0" class="no-data">
+    <div v-else-if="sortedAndLimitedBills.length === 0" class="no-data">
       <i class="fas fa-inbox fa-2x"></i>
       <p>No sell bills found</p>
     </div>
 
-    <table v-else class="sell-bills-table">
-      <thead>
-        <tr>
-          <th @click="handleSort('id')" class="sortable">
-            <i class="fas fa-hashtag"></i> ID
-            <i
-              v-if="sortConfig.field === 'id'"
-              :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
-            ></i>
-          </th>
-          <th @click="handleSort('bill_ref')" class="sortable">
-            <i class="fas fa-barcode"></i> Reference
-            <i
-              v-if="sortConfig.field === 'bill_ref'"
-              :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
-            ></i>
-          </th>
-          <th @click="handleSort('date_sell')" class="sortable">
-            <i class="fas fa-calendar"></i> Date
-            <i
-              v-if="sortConfig.field === 'date_sell'"
-              :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
-            ></i>
-          </th>
-          <th @click="handleSort('broker_name')" class="sortable">
-            <i class="fas fa-user-tie"></i> Broker
-            <i
-              v-if="sortConfig.field === 'broker_name'"
-              :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
-            ></i>
-          </th>
-          <th @click="handleSort('created_by')" class="sortable">
-            <i class="fas fa-user"></i> Created By
-            <i
-              v-if="sortConfig.field === 'created_by'"
-              :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
-            ></i>
-          </th>
-          <th @click="handleSort('notes')" class="sortable">
-            <i class="fas fa-sticky-note"></i> Notes
-            <i
-              v-if="sortConfig.field === 'notes'"
-              :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
-            ></i>
-          </th>
-          <th><i class="fas fa-cog"></i> Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr
-          v-for="bill in sortedBills"
-          :key="bill.id"
-          @click="selectBill(bill)"
-          :class="{ selected: selectedBillId === bill.id }"
-        >
-          <td>{{ bill.id }}</td>
-          <td>{{ bill.bill_ref || 'N/A' }}</td>
-          <td>{{ new Date(bill.date_sell).toLocaleDateString() }}</td>
-          <td>{{ bill.broker_name || 'N/A' }}</td>
-          <td>{{ bill.created_by || 'N/A' }}</td>
-          <td>{{ bill.notes || 'N/A' }}</td>
-          <td class="actions">
-            <button
-              v-if="can_edit_sell_bill"
-              @click.stop="handleEdit(bill)"
-              :disabled="isProcessing"
-              class="btn edit-btn"
-              title="Edit Bill"
-            >
-              <i class="fas fa-edit"></i>
-            </button>
-            <button
-              v-if="can_delete_sell_bill"
-              @click.stop="handleDelete(bill.id)"
-              :disabled="isProcessing"
-              class="btn delete-btn"
-              title="Delete Bill"
-            >
-              <i class="fas fa-trash-alt"></i>
-            </button>
-            <button
-              @click.stop="handlePrint(bill.id)"
-              :disabled="isProcessing"
-              class="btn print-btn"
-              title="Print Bill"
-            >
-              <i class="fas fa-print"></i>
-            </button>
-            <button
-              v-if="can_c_sell_payments"
-              @click.stop="handlePayments(bill.id)"
-              :disabled="isProcessing"
-              class="btn payment-btn"
-              title="View Payments"
-            >
-              <i class="fas fa-money-bill-wave"></i>
-            </button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+    <div v-else class="table-container">
+      <table class="sell-bills-table">
+        <thead>
+          <tr>
+            <th @click="handleSort('id')" class="sortable">
+              <i class="fas fa-hashtag"></i> ID
+              <i
+                v-if="sortConfig.field === 'id'"
+                :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
+              ></i>
+            </th>
+            <th @click="handleSort('bill_ref')" class="sortable">
+              <i class="fas fa-barcode"></i> Reference
+              <i
+                v-if="sortConfig.field === 'bill_ref'"
+                :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
+              ></i>
+            </th>
+            <th @click="handleSort('date_sell')" class="sortable">
+              <i class="fas fa-calendar"></i> Date
+              <i
+                v-if="sortConfig.field === 'date_sell'"
+                :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
+              ></i>
+            </th>
+            <th @click="handleSort('broker_name')" class="sortable">
+              <i class="fas fa-user-tie"></i> Broker
+              <i
+                v-if="sortConfig.field === 'broker_name'"
+                :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
+              ></i>
+            </th>
+            <th @click="handleSort('created_by')" class="sortable">
+              <i class="fas fa-user"></i> Created By
+              <i
+                v-if="sortConfig.field === 'created_by'"
+                :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
+              ></i>
+            </th>
+            <th @click="handleSort('notes')" class="sortable">
+              <i class="fas fa-sticky-note"></i> Notes
+              <i
+                v-if="sortConfig.field === 'notes'"
+                :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
+              ></i>
+            </th>
+            <th><i class="fas fa-cog"></i> Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            v-for="bill in sortedAndLimitedBills"
+            :key="bill.id"
+            @click="selectBill(bill)"
+            :class="{ selected: selectedBillId === bill.id }"
+          >
+            <td>{{ bill.id }}</td>
+            <td>{{ bill.bill_ref || 'N/A' }}</td>
+            <td>{{ new Date(bill.date_sell).toLocaleDateString() }}</td>
+            <td>{{ bill.broker_name || 'N/A' }}</td>
+            <td>{{ bill.created_by || 'N/A' }}</td>
+            <td>{{ bill.notes || 'N/A' }}</td>
+            <td class="actions">
+              <button
+                v-if="can_edit_sell_bill"
+                @click.stop="handleEdit(bill)"
+                :disabled="isProcessing"
+                class="btn edit-btn"
+                title="Edit Bill"
+              >
+                <i class="fas fa-edit"></i>
+              </button>
+              <button
+                v-if="can_delete_sell_bill"
+                @click.stop="handleDelete(bill.id)"
+                :disabled="isProcessing"
+                class="btn delete-btn"
+                title="Delete Bill"
+              >
+                <i class="fas fa-trash-alt"></i>
+              </button>
+              <button
+                @click.stop="handlePrint(bill.id)"
+                :disabled="isProcessing"
+                class="btn print-btn"
+                title="Print Bill"
+              >
+                <i class="fas fa-print"></i>
+              </button>
+              <button
+                v-if="can_c_sell_payments"
+                @click.stop="handlePayments(bill.id)"
+                :disabled="isProcessing"
+                class="btn payment-btn"
+                title="View Payments"
+              >
+                <i class="fas fa-money-bill-wave"></i>
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
     <SellBillPrintOption
       :visible="showPrintOptions"
@@ -760,5 +798,12 @@ defineExpose({ fetchSellBills })
 
 .sortable:hover i:last-child {
   opacity: 1;
+}
+
+.table-container {
+  max-height: 400px; /* Limit the height */
+  overflow-y: auto; /* Make it scrollable */
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
 }
 </style>
