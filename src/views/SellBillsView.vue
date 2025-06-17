@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useApi } from '../composables/useApi'
 import SellBillsTable from '../components/sells/SellBillsTable.vue'
 import SellBillForm from '../components/sells/SellBillForm.vue'
@@ -19,15 +19,31 @@ const sellBillCarsTableRef = ref(null)
 const user = ref(null)
 const isAdmin = computed(() => user.value?.role_id === 1)
 const can_create_sell_bill = computed(
-  () => user.value?.permissions?.includes('create_sell_bill') || isAdmin.value,
+  () =>
+    user.value?.permissions?.some((p) => p.permission_name === 'can_sell_cars') || isAdmin.value,
 )
 
 onMounted(() => {
   const userStr = localStorage.getItem('user')
   if (userStr) {
     user.value = JSON.parse(userStr)
+    console.log('[DEBUG] Loaded user from localStorage:', user.value)
+    console.log('[DEBUG] User permissions:', user.value.permissions)
+  } else {
+    console.log('[DEBUG] No user found in localStorage')
   }
 })
+
+watch(
+  can_create_sell_bill,
+  (val) => {
+    console.log('[DEBUG] can_create_sell_bill changed:', val)
+    if (user.value) {
+      console.log('[DEBUG] Current user permissions:', user.value.permissions)
+    }
+  },
+  { immediate: true },
+)
 
 const handleSelectBill = (billId) => {
   selectedBillId.value = billId
