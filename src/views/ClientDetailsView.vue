@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useApi } from '../composables/useApi'
 import { ElMessage } from 'element-plus'
@@ -11,7 +11,8 @@ const clientCars = ref([])
 const isLoading = ref(false)
 const shareUrl = ref(window.location.href)
 const isDev = ref(process.env.NODE_ENV === 'development')
-
+const user = ref(JSON.parse(localStorage.getItem('user')))
+const isAdmin = computed(() => user.value?.role_id === 1)
 const copyToClipboard = async () => {
   try {
     await navigator.clipboard.writeText(shareUrl.value)
@@ -238,13 +239,6 @@ onMounted(() => {
         </h3>
         <div class="cars-grid">
           <div v-for="car in clientCars" :key="car.id" class="car-card">
-            <div class="car-images" v-if="car.path_documents">
-              <img
-                :src="getFileUrl(car.path_documents)"
-                :alt="(car.brand || 'Unknown') + ' ' + (car.model || '')"
-                @error="$event.target.src = 'https://via.placeholder.com/300x200?text=No+Image'"
-              />
-            </div>
             <div class="car-details">
               <h4>{{ car.brand || 'Unknown Brand' }} {{ car.model || '' }}</h4>
               <div class="car-info-grid">
@@ -348,11 +342,11 @@ onMounted(() => {
                   <label>Price:</label>
                   <span>{{ formatCurrency(car.price_cell || 0) }}</span>
                 </div>
-                <div class="car-info-item">
+                <div v-if="false" class="car-info-item">
                   <label>Paid:</label>
                   <span>{{ formatCurrency(car.total_paid || 0) }}</span>
                 </div>
-                <div class="car-info-item">
+                <div v-if="false" class="car-info-item">
                   <label>Balance:</label>
                   <span
                     :class="{ 'text-danger': (car.price_cell || 0) - (car.total_paid || 0) > 0 }"
@@ -398,7 +392,7 @@ onMounted(() => {
                     Sell PI
                   </a>
                   <a
-                    v-if="car.buy_pi_path"
+                    v-if="car.buy_pi_path && isAdmin"
                     :href="getFileUrl(car.buy_pi_path)"
                     target="_blank"
                     class="document-link"

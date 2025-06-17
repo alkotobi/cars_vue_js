@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useApi } from '../composables/useApi'
 
@@ -70,12 +70,34 @@ const fetchData = async () => {
   }
 }
 
+const amountUsd = computed(() => {
+  if (!cars.value.length) return 'N/A'
+  let sum = 0
+  for (const car of cars.value) {
+    if (car.price_cell != null && car.freight != null) {
+      sum += Number(car.price_cell) + Number(car.freight)
+    }
+  }
+  return sum ? sum : 'N/A'
+})
+
+const amountDa = computed(() => {
+  if (!cars.value.length) return 'N/A'
+  let sum = 0
+  for (const car of cars.value) {
+    if (car.price_cell != null && car.freight != null && car.rate != null) {
+      sum += (Number(car.price_cell) + Number(car.freight)) * Number(car.rate)
+    }
+  }
+  return sum ? sum : 'N/A'
+})
+
 onMounted(fetchData)
 </script>
 
 <template>
   <div class="sell-bill-details-view">
-    <button class="back-btn" @click="router.back()">&larr; Back</button>
+    <button v-if="false" class="back-btn" @click="router.back()">&larr; Back</button>
     <h2>Sell Bill Details</h2>
     <div v-if="loading" class="loading">Loading...</div>
     <div v-else-if="error" class="error">{{ error }}</div>
@@ -87,11 +109,9 @@ onMounted(fetchData)
           <strong>Date:</strong>
           {{ bill.date_sell ? new Date(bill.date_sell).toLocaleDateString() : 'N/A' }}
         </div>
-        <div>
-          <strong>Amount:</strong>
-          {{ bill.amount !== null && bill.amount !== undefined ? bill.amount : 'N/A' }}
-        </div>
-        <div>
+        <div><strong>Amount USD:</strong> {{ amountUsd }}</div>
+        <div><strong>Amount DA:</strong> {{ amountDa }}</div>
+        <div v-if="false">
           <strong>Received:</strong>
           {{ bill.received !== null && bill.received !== undefined ? bill.received : 'N/A' }}
         </div>
