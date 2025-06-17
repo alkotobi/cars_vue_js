@@ -616,7 +616,7 @@ onMounted(() => {
                 <i class="fas fa-trash"></i>
                 Delete
               </button>
-              <router-link :to="`/clients/${client.id}`" class="action-btn details">
+              <router-link :to="`/clients/${client.id}`" class="action-btn details" target="_blank">
                 <i class="fas fa-info-circle"></i>
                 Details
               </router-link>

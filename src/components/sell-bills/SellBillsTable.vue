@@ -185,3 +185,4 @@ const handleDelete = (bill) => {
   opacity: 0.8;
 }
 </style>
+ 

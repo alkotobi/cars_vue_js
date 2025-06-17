@@ -313,23 +313,23 @@ const handleReturnToMain = () => {
       <div class="content">
         <FinishedOrdersTable v-if="showFinishedOrders" @close="showFinishedOrders = false" />
         <div v-else>
-          <div v-if="!activeView" class="empty-state">
-            <i class="fas fa-hand-point-left fa-2x"></i>
-            <p>Please select an option from the sidebar</p>
-          </div>
-          <BuyView v-if="activeView === 'buy'" />
-          <SellView v-if="activeView === 'sell'" />
-          <SellBillsView v-if="activeView === 'sell-bills'" />
-          <CarsStock v-if="activeView === 'stock'" />
-          <CarModelsView v-if="activeView === 'models'" />
-          <ColorsView v-if="activeView === 'colors'" />
-          <DischargePortsView v-if="activeView === 'discharge-ports'" />
-          <LoadingPortsView v-if="activeView === 'loading-ports'" />
-          <ClientsView v-if="activeView === 'clients'" />
-          <BrokersView v-if="activeView === 'brokers'" />
-          <SuppliersView v-if="activeView === 'suppliers'" />
-          <WarehousesView v-if="activeView === 'warehouses'" />
-          <StatisticsView v-if="activeView === 'statistics'" />
+        <div v-if="!activeView" class="empty-state">
+          <i class="fas fa-hand-point-left fa-2x"></i>
+          <p>Please select an option from the sidebar</p>
+        </div>
+        <BuyView v-if="activeView === 'buy'" />
+        <SellView v-if="activeView === 'sell'" />
+        <SellBillsView v-if="activeView === 'sell-bills'" />
+        <CarsStock v-if="activeView === 'stock'" />
+        <CarModelsView v-if="activeView === 'models'" />
+        <ColorsView v-if="activeView === 'colors'" />
+        <DischargePortsView v-if="activeView === 'discharge-ports'" />
+        <LoadingPortsView v-if="activeView === 'loading-ports'" />
+        <ClientsView v-if="activeView === 'clients'" />
+        <BrokersView v-if="activeView === 'brokers'" />
+        <SuppliersView v-if="activeView === 'suppliers'" />
+        <WarehousesView v-if="activeView === 'warehouses'" />
+        <StatisticsView v-if="activeView === 'statistics'" />
         </div>
       </div>
       <div class="copyright">© Merhab Noureddine 2025</div>
