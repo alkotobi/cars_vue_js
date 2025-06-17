@@ -72,6 +72,11 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/sell-bills/:id',
+      name: 'sell-bill-details',
+      component: () => import('../views/SellBillDetailsView.vue'),
+    },
+    {
       path: '/buy-payments/:id',
       name: 'buy-payments',
       component: BuyBillPaymentsView,

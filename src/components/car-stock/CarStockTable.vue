@@ -654,6 +654,12 @@ const handleAdvancedFilters = (filters) => {
   props.filters.advanced = filters
 }
 
+function openSellBillTab(car) {
+  if (car.id_sell) {
+    window.open(`/sell-bills/${car.id_sell}`, '_blank')
+  }
+}
+
 onMounted(() => {
   const userStr = localStorage.getItem('user')
   if (userStr) {
@@ -1027,6 +1033,12 @@ defineExpose({
                         v-if="isProcessing.load"
                         class="fas fa-spinner fa-spin loading-indicator"
                       ></i>
+                    </button>
+                  </li>
+                  <li>
+                    <button @click="openSellBillTab(car)" :disabled="!car.id_sell">
+                      <i class="fas fa-file-invoice-dollar"></i>
+                      <span>Sell Bill</span>
                     </button>
                   </li>
                 </ul>
