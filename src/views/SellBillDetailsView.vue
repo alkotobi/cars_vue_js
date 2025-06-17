@@ -20,6 +20,12 @@ function isImageFile(path) {
   return ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension)
 }
 
+function handleImageClick(path) {
+  if (path) {
+    window.open(getFileUrl(path), '_blank')
+  }
+}
+
 const fetchData = async () => {
   loading.value = true
   error.value = null
@@ -135,7 +141,7 @@ onMounted(fetchData)
               <div
                 v-if="car.client_id_copy && isImageFile(car.client_id_copy)"
                 class="image-preview"
-                @click="() => window.open(getFileUrl(car.client_id_copy), '_blank')"
+                @click="handleImageClick(car.client_id_copy)"
               >
                 <img :src="getFileUrl(car.client_id_copy)" alt="Client ID" />
               </div>
