@@ -50,7 +50,8 @@ const fetchData = async () => {
     const carsResult = await callApi({
       query: `SELECT cs.*, cn.car_name, dp.discharge_port, cl.name as client_name, cl.id_copy_path as client_id_copy
               FROM cars_stock cs
-              LEFT JOIN cars_names cn ON cs.id_buy_details = cn.id
+              LEFT JOIN buy_details bd ON cs.id_buy_details = bd.id
+              LEFT JOIN cars_names cn ON bd.id_car_name = cn.id
               LEFT JOIN discharge_ports dp ON cs.id_port_discharge = dp.id
               LEFT JOIN clients cl ON cs.id_client = cl.id
               WHERE cs.id_sell = ?`,
