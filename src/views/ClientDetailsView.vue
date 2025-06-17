@@ -64,6 +64,7 @@ const fetchClientDetails = async () => {
             b.brand,
             c.color,
             dp.discharge_port,
+            cs.container_ref,
             COALESCE(
               (SELECT SUM(sp.amount_da) 
                FROM sell_bill sb 
@@ -361,6 +362,10 @@ onMounted(() => {
                 <div v-if="car.is_big_car" class="car-info-item">
                   <label>Size:</label>
                   <span class="badge big">Big Car</span>
+                </div>
+                <div class="car-info-item">
+                  <label>Container Ref:</label>
+                  <span>{{ car.container_ref || 'Not provided' }}</span>
                 </div>
               </div>
               <div class="car-status" :class="car.status.toLowerCase()">
