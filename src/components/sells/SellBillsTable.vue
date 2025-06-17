@@ -130,8 +130,7 @@ const sortedAndLimitedBills = computed(() => {
     }
   })
 
-  // Limit to 10 rows
-  return sorted.slice(0, 10)
+  return sorted
 })
 
 onMounted(() => {
@@ -185,6 +184,7 @@ const fetchSellBills = async () => {
     const result = await callApi({ query, params })
 
     if (result.success) {
+      console.log(result.data.length)
       allSellBills.value = result.data.map((bill) => ({
         ...bill,
         total_cfr: Number(bill.total_cfr) || 0,
