@@ -127,54 +127,15 @@ const handleFileUpload = async (file, type) => {
 
     // Get the file extension
     const fileExtension = getFileExtension(file)
+    const filename = `${type}_${Date.now()}.${fileExtension}`
 
-    // Create FormData
-    const formData = new FormData()
-    formData.append('file', file)
-    formData.append('destination_folder', `cars/${props.car.id}/${type}`)
-    formData.append('custom_filename', `${type}_${Date.now()}.${fileExtension}`)
+    const result = await uploadFile(file, `cars/${props.car.id}/${type}`, filename)
 
-    // Create promise to handle XHR
-    const uploadPromise = new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest()
-
-      // Handle progress
-      xhr.upload.addEventListener('progress', (event) => {
-        if (event.lengthComputable) {
-          uploadProgress.value[type] = Math.round((event.loaded * 100) / event.total)
-        }
-      })
-
-      // Handle response
-      xhr.onload = () => {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          try {
-            const response = JSON.parse(xhr.responseText)
-            if (response.success) {
-              resolve(response)
-            } else {
-              reject(new Error(response.message || `Failed to upload ${type} file`))
-            }
-          } catch (e) {
-            reject(new Error('Invalid server response'))
-          }
-        } else {
-          reject(new Error(`HTTP Error: ${xhr.status}`))
-        }
-      }
-
-      // Handle network errors
-      xhr.onerror = () => {
-        reject(new Error('Network error occurred'))
-      }
-
-      // Open and send request
-      xhr.open('POST', '/api/upload.php')
-      xhr.send(formData)
-    })
-
-    const result = await uploadPromise
-    return result.file_path
+    if (result.success) {
+      return result.relativePath
+    } else {
+      throw new Error(result.error || `Failed to upload ${type} file`)
+    }
   } catch (err) {
     console.error('Upload error:', err)
     throw new Error(`Error uploading ${type}: ${err.message}`)
@@ -300,14 +261,14 @@ const closeModal = () => {
 const handleDragOver = (event, dragRef) => {
   event.preventDefault()
   if (typeof dragRef === 'object' && dragRef !== null) {
-  dragRef.value = true
+    dragRef.value = true
   }
 }
 
 const handleDragLeave = (event, dragRef) => {
   event.preventDefault()
   if (typeof dragRef === 'object' && dragRef !== null) {
-  dragRef.value = false
+    dragRef.value = false
   }
 }
 
@@ -347,7 +308,7 @@ const handleFileChange = (event, type) => {
 const handleDrop = (event, type, dragRef) => {
   event.preventDefault()
   if (typeof dragRef === 'object' && dragRef !== null) {
-  dragRef.value = false
+    dragRef.value = false
   }
 
   const file = event.dataTransfer.files?.[0]
