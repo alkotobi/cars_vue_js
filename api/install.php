@@ -174,6 +174,7 @@ try {
         `date_pay_freight` date DEFAULT NULL,
         `is_used_car` tinyint(1) DEFAULT NULL,
         `is_big_car` tinyint(1) DEFAULT 0,
+        `container_ref` varchar(255) DEFAULT NULL,
         PRIMARY KEY (`id`),
         KEY `id_client` (`id_client`),
         KEY `id_port_loading` (`id_port_loading`),

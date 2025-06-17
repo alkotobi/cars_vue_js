@@ -241,7 +241,8 @@ const fetchCarsStock = async () => {
         w.warhouse_name as warehouse_name,
         bb.bill_ref as buy_bill_ref,
         cs.is_used_car,
-        c.id_no as client_id_no
+        c.id_no as client_id_no,
+        cs.container_ref
       FROM cars_stock cs
       LEFT JOIN clients c ON cs.id_client = c.id
       LEFT JOIN buy_details bd ON cs.id_buy_details = bd.id
@@ -856,7 +857,14 @@ defineExpose({
             <td>{{ car.color }}</td>
             <td>{{ car.vin || '-' }}</td>
             <td>{{ car.loading_port || '-' }}</td>
-            <td>{{ car.discharge_port || '-' }}</td>
+            <td>
+              <div>
+                {{ car.discharge_port || '-' }}
+                <div v-if="car.container_ref" style="font-size: 0.9em; color: #6b7280">
+                  {{ car.container_ref }}
+                </div>
+              </div>
+            </td>
             <td>${{ car.freight || '0' }}</td>
             <td>${{ car.price_cell || '0' }}</td>
             <td>{{ car.date_loding ? new Date(car.date_loding).toLocaleDateString() : '-' }}</td>

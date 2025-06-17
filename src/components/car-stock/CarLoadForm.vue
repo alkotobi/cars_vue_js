@@ -19,8 +19,15 @@ const { callApi } = useApi()
 const loading = ref(false)
 const error = ref(null)
 const success = ref(false)
+const containerRef = ref(props.car.container_ref || '')
+const containerRefError = ref('')
 
 const handleLoad = async () => {
+  containerRefError.value = ''
+  if (!containerRef.value.trim()) {
+    containerRefError.value = 'Container Ref is required.'
+    return
+  }
   if (props.car.date_loding) return
 
   try {
@@ -39,14 +46,15 @@ const handleLoad = async () => {
 
     const currentDate = new Date().toISOString().split('T')[0]
     const result = await callApi({
-      query: 'UPDATE cars_stock SET date_loding = ? WHERE id = ?',
-      params: [currentDate, props.car.id],
+      query: 'UPDATE cars_stock SET date_loding = ?, container_ref = ? WHERE id = ?',
+      params: [currentDate, containerRef.value, props.car.id],
     })
 
     if (result.success) {
       const updatedCar = {
         ...props.car,
         date_loding: currentDate,
+        container_ref: containerRef.value,
       }
       Object.assign(props.car, updatedCar)
       success.value = true
@@ -95,6 +103,20 @@ const closeModal = () => {
             <span class="date-value">{{
               new Date(props.car.date_loding).toLocaleDateString()
             }}</span>
+          </div>
+          <div class="form-group">
+            <label for="container-ref"
+              ><strong>Container Ref</strong> <span style="color: red">*</span></label
+            >
+            <input
+              id="container-ref"
+              v-model="containerRef"
+              type="text"
+              class="form-control"
+              :disabled="loading || !!props.car.date_loding"
+              required
+            />
+            <div v-if="containerRefError" class="error-message">{{ containerRefError }}</div>
           </div>
           <button
             class="action-btn load-btn"
