@@ -5,13 +5,20 @@ import { useApi } from '../composables/useApi'
 
 const route = useRoute()
 const router = useRouter()
-const { callApi } = useApi()
+const { callApi, getFileUrl } = useApi()
 
 const billId = route.params.id
 const bill = ref(null)
 const cars = ref([])
 const loading = ref(true)
 const error = ref(null)
+
+// Helper to check if a file is an image
+function isImageFile(path) {
+  if (!path) return false
+  const extension = path.split('.').pop().toLowerCase()
+  return ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension)
+}
 
 const fetchData = async () => {
   loading.value = true
@@ -35,10 +42,11 @@ const fetchData = async () => {
     }
     // Fetch cars in this sell bill with car name, freight, price CFR DA, discharge port
     const carsResult = await callApi({
-      query: `SELECT cs.*, cn.car_name, dp.discharge_port
+      query: `SELECT cs.*, cn.car_name, dp.discharge_port, cl.name as client_name, cl.id_copy_path as client_id_copy
               FROM cars_stock cs
               LEFT JOIN cars_names cn ON cs.id_buy_details = cn.id
               LEFT JOIN discharge_ports dp ON cs.id_port_discharge = dp.id
+              LEFT JOIN clients cl ON cs.id_client = cl.id
               WHERE cs.id_sell = ?`,
       params: [billId],
       requiresAuth: false,
@@ -95,6 +103,8 @@ onMounted(fetchData)
             <th>Rate</th>
             <th>Price CFR DA</th>
             <th>Discharge Port</th>
+            <th>Client</th>
+            <th>Client ID</th>
             <th>Notes</th>
           </tr>
         </thead>
@@ -120,6 +130,29 @@ onMounted(fetchData)
               }}
             </td>
             <td>{{ car.discharge_port || 'N/A' }}</td>
+            <td>{{ car.client_name || 'N/A' }}</td>
+            <td class="id-document-cell">
+              <div
+                v-if="car.client_id_copy && isImageFile(car.client_id_copy)"
+                class="image-preview"
+                @click="() => window.open(getFileUrl(car.client_id_copy), '_blank')"
+              >
+                <img :src="getFileUrl(car.client_id_copy)" alt="Client ID" />
+              </div>
+              <a
+                v-else-if="car.client_id_copy"
+                :href="getFileUrl(car.client_id_copy)"
+                target="_blank"
+                class="document-link"
+              >
+                <i class="fas fa-file-download"></i>
+                View Document
+              </a>
+              <span v-else class="no-document">
+                <i class="fas fa-times-circle"></i>
+                No ID
+              </span>
+            </td>
             <td>{{ car.notes || 'N/A' }}</td>
           </tr>
         </tbody>
@@ -182,5 +215,51 @@ onMounted(fetchData)
     font-size: 0.95em;
     padding: 6px;
   }
+}
+.id-document-cell {
+  width: 120px;
+  text-align: center;
+}
+.image-preview {
+  width: 60px;
+  height: 40px;
+  margin: 0 auto;
+  cursor: pointer;
+  overflow: hidden;
+  border-radius: 4px;
+  border: 1px solid #d1d5db;
+  transition: transform 0.2s;
+}
+.image-preview:hover {
+  transform: scale(1.05);
+}
+.image-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.document-link {
+  color: #3b82f6;
+  text-decoration: none;
+  font-size: 0.9em;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  transition: color 0.2s;
+}
+.document-link:hover {
+  color: #2563eb;
+  text-decoration: underline;
+}
+.no-document {
+  color: #6b7280;
+  font-size: 0.9em;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.no-document i {
+  color: #ef4444;
 }
 </style>
