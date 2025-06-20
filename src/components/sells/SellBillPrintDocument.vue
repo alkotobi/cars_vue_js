@@ -406,7 +406,6 @@ onMounted(() => {
           <!-- Payment Terms -->
           <div class="term-item">
             <p class="english">1. Payment must be made in full before vehicle delivery.</p>
-            <p class="arabic">١. يجب دفع المبلغ كاملاً قبل تسليم السيارة.</p>
             <p class="chinese">1. 车辆交付前必须全额付款。</p>
           </div>
 
@@ -414,9 +413,6 @@ onMounted(() => {
           <div class="term-item">
             <p class="english">
               2. Delivery will be made within the agreed timeframe after receipt of full payment.
-            </p>
-            <p class="arabic">
-              ٢. سيتم التسليم خلال الإطار الزمني المتفق عليه بعد استلام الدفعة الكاملة.
             </p>
             <p class="chinese">2. 收到全额付款后，将在约定的时间范围内交付。</p>
           </div>
@@ -426,7 +422,6 @@ onMounted(() => {
             <p class="english">
               3. All vehicle documentation will be provided as per export requirements.
             </p>
-            <p class="arabic">٣. سيتم توفير جميع وثائق السيارة وفقاً لمتطلبات التصدير.</p>
             <p class="chinese">3. 将按照出口要求提供所有车辆文件。</p>
           </div>
 
@@ -436,10 +431,6 @@ onMounted(() => {
               4. In case of any customs issues related to modified export license usage, while we
               will assist in resolving the matter with customs authorities, we bear no legal
               responsibility for such complications.
-            </p>
-            <p class="arabic">
-              ٤. في حالة وجود أي مشاكل جمركية تتعلق باستخدام رخصة التصدير المعدلة، وبينما سنساعد في
-              حل المسألة مع السلطات الجمركية، فإننا لا نتحمل أي مسؤولية قانونية عن هذه المضاعفات.
             </p>
             <p class="chinese">
               4.
@@ -453,7 +444,6 @@ onMounted(() => {
               5. The buyer acknowledges having inspected the vehicle and accepts its condition at
               the time of purchase.
             </p>
-            <p class="arabic">٥. يقر المشتري بأنه قد فحص السيارة ويقبل حالتها وقت الشراء.</p>
             <p class="chinese">5. 买方确认已检查车辆并接受其购买时的状况。</p>
           </div>
 
@@ -462,10 +452,6 @@ onMounted(() => {
             <p class="english">
               6. Any disputes arising from this contract shall be resolved through mutual
               negotiation or applicable legal channels.
-            </p>
-            <p class="arabic">
-              ٦. يتم حل أي نزاعات تنشأ عن هذا العقد من خلال التفاوض المتبادل أو القنوات القانونية
-              المعمول بها.
             </p>
             <p class="chinese">6. 本合同引起的任何争议应通过双方协商或适用的法律途径解决。</p>
           </div>
@@ -476,10 +462,6 @@ onMounted(() => {
               7. If freight costs increase by more than USD 200 on the loading day, the client is
               responsible for paying the difference.
             </p>
-            <p class="arabic">
-              ٧. إذا زادت تكاليف الشحن بأكثر من ٢٠٠ دولار أمريكي في يوم التحميل، يتحمل العميل
-              مسؤولية دفع الفرق.
-            </p>
             <p class="chinese">7. 如果装运当天的运费增加超过200美元，客户需要支付差额。</p>
           </div>
 
@@ -488,10 +470,6 @@ onMounted(() => {
             <p class="english">
               8. The client is responsible for any additional costs resulting from new Chinese taxes
               or policy changes implemented after the contract date.
-            </p>
-            <p class="arabic">
-              ٨. يتحمل العميل مسؤولية أي تكاليف إضافية ناتجة عن الضرائب الصينية الجديدة أو تغييرات
-              السياسة المطبقة بعد تاريخ العقد.
             </p>
             <p class="chinese">
               8. 合同日期之后实施的任何新的中国税收或政策变化所产生的额外费用由客户承担。
@@ -505,13 +483,30 @@ onMounted(() => {
               shipping companies or Chinese government regulations on the loading day will be the
               client's responsibility.
             </p>
-            <p class="arabic">
-              ٩. السعر المتفق عليه صالح اعتباراً من تاريخ الاتفاق. أي تغييرات في الأسعار بسبب شركات
-              الشحن أو اللوائح الحكومية الصينية في يوم التحميل تكون مسؤولية العميل.
-            </p>
             <p class="chinese">
               9.
               约定价格自协议日期起有效。装运当天因航运公司或中国政府法规造成的任何价格变化由客户承担。
+            </p>
+          </div>
+
+          <!-- Shipping Time Disclaimer -->
+          <div class="term-item">
+            <p class="english">
+              10. The parties hereto expressly acknowledge and agree that shipping and delivery
+              timelines, schedules, and estimated arrival dates are provided for informational
+              purposes only and are subject to modification, delay, or cancellation due to
+              circumstances beyond the seller's reasonable control. Such circumstances include,
+              without limitation, customs clearance delays, adverse weather conditions, port
+              congestion, shipping line schedule modifications, force majeure events, governmental
+              actions, labor disputes, equipment failures, or other unforeseeable events. The seller
+              shall not be liable for any direct, indirect, incidental, consequential, or punitive
+              damages arising from such delays, and the buyer hereby expressly waives, releases, and
+              discharges any and all claims, demands, actions, causes of action, damages, costs,
+              expenses, or compensation of any nature whatsoever arising therefrom.
+            </p>
+            <p class="chinese">
+              10.
+              本协议双方明确确认并同意，运输和交付时间、日程安排及预计到达日期仅供参考，可能因超出卖方合理控制范围的情况而修改、延迟或取消。此类情况包括但不限于海关清关延迟、恶劣天气条件、港口拥堵、航运公司时刻表变更、不可抗力事件、政府行为、劳资纠纷、设备故障或其他不可预见事件。卖方对此类延迟造成的任何直接、间接、偶然、后果性或惩罚性损害不承担责任，买方特此明确放弃、免除和解除由此产生的任何性质的所有索赔、要求、诉讼、诉因、损害、费用、开支或补偿。
             </p>
           </div>
         </div>
@@ -741,6 +736,7 @@ onMounted(() => {
 .contract-terms {
   margin: 30px 0;
   page-break-inside: avoid;
+  font-size: x-small;
 }
 
 .terms-list {
