@@ -43,6 +43,7 @@ const advancedFilters = ref({
   status: '',
   client: '',
   warehouse: '',
+  container_ref: '',
 })
 
 // Fetch reference data for filter dropdowns
@@ -420,6 +421,21 @@ fetchReferenceData()
               {{ warehouse.warhouse_name }}
             </option>
           </select>
+        </div>
+
+        <!-- Container Reference Filter -->
+        <div class="filter-field">
+          <label for="container-ref-filter">
+            <i class="fas fa-box"></i>
+            Container Ref
+          </label>
+          <input
+            id="container-ref-filter"
+            type="text"
+            v-model="advancedFilters.container_ref"
+            placeholder="Container Reference"
+            :disabled="isProcessing.advanced"
+          />
         </div>
 
         <!-- Add the Apply and Reset buttons at the bottom -->

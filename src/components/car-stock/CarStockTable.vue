@@ -46,6 +46,7 @@ const props = defineProps({
         documents_sent: false,
         is_loaded: false,
         has_vin: false,
+        container_ref: '',
       },
     }),
   },
@@ -381,6 +382,12 @@ const fetchCarsStock = async () => {
         if (adv.warehouse && adv.warehouse.trim() !== '') {
           query += ` AND w.warhouse_name = ?`
           params.push(adv.warehouse.trim())
+        }
+
+        // Container Reference filter
+        if (adv.container_ref && adv.container_ref.trim() !== '') {
+          query += ` AND cs.container_ref LIKE ?`
+          params.push(`%${adv.container_ref.trim()}%`)
         }
 
         // Document status filters
