@@ -42,6 +42,7 @@ const formData = ref({
   freight: null,
   rate: null,
   notes: '',
+  is_tmp_client: 0,
 })
 
 // Add ref for CFR DA input
@@ -328,7 +329,8 @@ const assignCar = async () => {
             date_sell = ?,
             id_sell_pi = ?,
             rate = ?,
-            notes = ?
+            notes = ?,
+            is_tmp_client = ?
         WHERE id = ?
       `,
       params: [
@@ -341,6 +343,7 @@ const assignCar = async () => {
         billRef,
         formData.value.rate || null,
         formData.value.notes || null,
+        formData.value.is_tmp_client,
         props.carId,
       ],
     })
@@ -394,6 +397,7 @@ const resetForm = () => {
     freight: null,
     rate: currentRate, // Keep the default rate
     notes: '',
+    is_tmp_client: 0,
   }
   error.value = null
 }
@@ -716,6 +720,21 @@ onMounted(() => {
             class="textarea-field"
             :disabled="isSubmitting"
           ></textarea>
+        </div>
+
+        <div v-if="isAdmin" class="form-group">
+          <label class="checkbox-label">
+            <input
+              type="checkbox"
+              v-model="formData.is_tmp_client"
+              :true-value="1"
+              :false-value="0"
+              :disabled="isSubmitting"
+            />
+            <i class="fas fa-clock"></i>
+            Temporary Client
+          </label>
+          <small class="help-text">Mark this client as temporary for this assignment</small>
         </div>
 
         <div
@@ -1193,5 +1212,34 @@ button:hover:not(:disabled) i {
   justify-content: flex-end;
   gap: 1rem;
   margin-top: 1rem;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  font-weight: 500;
+  color: #374151;
+}
+
+.checkbox-label input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #3b82f6;
+}
+
+.checkbox-label input[type='checkbox']:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.help-text {
+  color: #6b7280;
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+  margin-left: 24px;
 }
 </style>

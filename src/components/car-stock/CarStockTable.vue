@@ -54,6 +54,7 @@ const props = defineProps({
         warehouse_status: '',
         bill_ref: '',
         sell_bill_ref: '',
+        tmp_client_status: '',
       },
     }),
   },
@@ -454,6 +455,15 @@ const fetchCarsStock = async () => {
         if (adv.sell_bill_ref && adv.sell_bill_ref.trim() !== '') {
           query += ` AND sb.bill_ref LIKE ?`
           params.push(`%${adv.sell_bill_ref.trim()}%`)
+        }
+
+        // Temporary Client Status filter
+        if (adv.tmp_client_status && adv.tmp_client_status.trim() !== '') {
+          if (adv.tmp_client_status === 'tmp') {
+            query += ` AND cs.is_tmp_client = 1`
+          } else if (adv.tmp_client_status === 'permanent') {
+            query += ` AND cs.is_tmp_client = 0`
+          }
         }
 
         if (adv.has_bl) {

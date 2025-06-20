@@ -92,7 +92,8 @@ const handleDeleteBill = async (id) => {
             id_client = NULL,
             id_port_discharge = NULL,
             freight = NULL,
-            id_sell_pi = NULL
+            id_sell_pi = NULL,
+            is_tmp_client = 0
         WHERE id_sell = ?
       `,
       params: [id],

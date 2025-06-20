@@ -46,7 +46,11 @@ watch(
   () => props.billData,
   (newData) => {
     if (newData) {
-      formData.value = { ...newData }
+      formData.value = {
+        ...newData,
+        // Convert is_batch_sell from database format (0/1) to boolean
+        is_batch_sell: Boolean(newData.is_batch_sell),
+      }
       // Ensure date is in the correct format for the date input
       if (formData.value.date_sell) {
         const date = new Date(formData.value.date_sell)

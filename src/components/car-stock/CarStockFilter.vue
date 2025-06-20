@@ -51,6 +51,7 @@ const advancedFilters = ref({
   warehouse_status: '',
   bill_ref: '',
   sell_bill_ref: '',
+  tmp_client_status: '',
 })
 
 // Fetch reference data for filter dropdowns
@@ -556,6 +557,23 @@ fetchReferenceData()
             placeholder="Sell Bill Reference"
             :disabled="isProcessing.advanced"
           />
+        </div>
+
+        <!-- Temporary Client Status Filter -->
+        <div class="filter-field">
+          <label for="tmp-client-status-filter">
+            <i class="fas fa-user-clock"></i>
+            Temporary Client
+          </label>
+          <select
+            id="tmp-client-status-filter"
+            v-model="advancedFilters.tmp_client_status"
+            :disabled="isProcessing.advanced"
+          >
+            <option value="">All</option>
+            <option value="tmp">Temporary Client</option>
+            <option value="permanent">Permanent Client</option>
+          </select>
         </div>
 
         <!-- Add the Apply and Reset buttons at the bottom -->

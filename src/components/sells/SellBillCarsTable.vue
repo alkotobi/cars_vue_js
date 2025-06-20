@@ -33,6 +33,7 @@ const editFormData = ref({
   freight: null,
   rate: null,
   notes: null,
+  is_tmp_client: 0,
 })
 
 const filteredClients = ref([])
@@ -97,7 +98,8 @@ const unassignCar = async (carId) => {
             id_client = NULL, 
             id_port_discharge = NULL, 
             freight = NULL,
-            id_sell_pi = NULL
+            id_sell_pi = NULL,
+            is_tmp_client = 0
         WHERE id = ?
       `,
       params: [carId],
@@ -217,6 +219,7 @@ const handleEdit = async (car) => {
         freight: carData.freight,
         rate: carData.rate,
         notes: carData.notes,
+        is_tmp_client: carData.is_tmp_client,
       }
 
       // Calculate initial CFR DA
@@ -256,7 +259,8 @@ const handleSaveEdit = async () => {
             price_cell = ?,
             freight = ?,
             rate = ?,
-            notes = ?
+            notes = ?,
+            is_tmp_client = ?
         WHERE id = ?
       `,
       params: [
@@ -266,6 +270,7 @@ const handleSaveEdit = async () => {
         editFormData.value.freight,
         editFormData.value.rate,
         editFormData.value.notes || null,
+        editFormData.value.is_tmp_client,
         editingCar.value.id,
       ],
     })
@@ -743,6 +748,21 @@ defineExpose({
               class="textarea-field"
               :disabled="isProcessing"
             ></textarea>
+          </div>
+
+          <div v-if="isAdmin" class="form-group">
+            <label class="checkbox-label">
+              <input
+                type="checkbox"
+                v-model="editFormData.is_tmp_client"
+                :true-value="1"
+                :false-value="0"
+                :disabled="isProcessing"
+              />
+              <i class="fas fa-clock"></i>
+              Temporary Client
+            </label>
+            <small class="help-text">Mark this client as temporary for this assignment</small>
           </div>
 
           <div class="form-group">
@@ -1234,5 +1254,34 @@ button:disabled {
 /* Add transition for filtered rows */
 .cars-table tbody tr {
   transition: opacity 0.2s;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  font-weight: 500;
+  color: #374151;
+}
+
+.checkbox-label input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #3b82f6;
+}
+
+.checkbox-label input[type='checkbox']:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.help-text {
+  color: #6b7280;
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+  margin-left: 24px;
 }
 </style>

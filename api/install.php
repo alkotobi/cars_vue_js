@@ -175,6 +175,7 @@ try {
         `is_used_car` tinyint(1) DEFAULT NULL,
         `is_big_car` tinyint(1) DEFAULT 0,
         `container_ref` varchar(255) DEFAULT NULL,
+        `is_tmp_client` tinyint(1) DEFAULT 0,
         PRIMARY KEY (`id`),
         KEY `id_client` (`id_client`),
         KEY `id_port_loading` (`id_port_loading`),
