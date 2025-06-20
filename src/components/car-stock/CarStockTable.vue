@@ -9,6 +9,7 @@ import CarWarehouseForm from './CarWarehouseForm.vue'
 import CarDocumentsForm from './CarDocumentsForm.vue'
 import CarLoadForm from './CarLoadForm.vue'
 import AdvancedFilter from './AdvancedFilter.vue'
+import { useRouter } from 'vue-router'
 
 const isDropdownOpen = ref({})
 const props = defineProps({
@@ -198,6 +199,16 @@ const sortedCars = computed(() => {
     }
   })
 })
+
+// Add new refs for teleport dropdown
+const teleportDropdown = ref({
+  isOpen: false,
+  carId: null,
+  position: { x: 0, y: 0 },
+  buttonElement: null,
+})
+
+const router = useRouter()
 
 const fetchCarsStock = async () => {
   loading.value = true
@@ -434,30 +445,71 @@ const handleEdit = async (car) => {
 }
 
 const toggleDropdown = (carId, event) => {
-  // Prevent the click from bubbling up to the document
-  event.stopPropagation()
+  // Keep existing dropdown logic
+  if (isDropdownOpen.value[carId]) {
+    isDropdownOpen.value[carId] = false
+  } else {
+    // Close all other dropdowns
+    Object.keys(isDropdownOpen.value).forEach((id) => {
+      isDropdownOpen.value[id] = false
+    })
+    isDropdownOpen.value[carId] = true
+  }
+}
 
-  // Close all other dropdowns
-  const newDropdownState = {}
-  newDropdownState[carId] = !isDropdownOpen.value[carId]
-  isDropdownOpen.value = newDropdownState
+// Add teleport dropdown functions
+const openTeleportDropdown = (carId, event) => {
+  const button = event.currentTarget
+  const rect = button.getBoundingClientRect()
+
+  teleportDropdown.value = {
+    isOpen: true,
+    carId: carId,
+    position: {
+      x: rect.left,
+      y: rect.bottom + window.scrollY,
+    },
+    buttonElement: button,
+  }
+
+  // Close the regular dropdown
+  isDropdownOpen.value[carId] = false
+}
+
+const closeTeleportDropdown = () => {
+  teleportDropdown.value.isOpen = false
+  teleportDropdown.value.carId = null
+}
+
+// Add click outside handler
+const handleClickOutside = (event) => {
+  if (teleportDropdown.value.isOpen) {
+    const dropdown = document.querySelector('.teleport-dropdown')
+    const button = teleportDropdown.value.buttonElement
+
+    if (dropdown && !dropdown.contains(event.target) && button && !button.contains(event.target)) {
+      closeTeleportDropdown()
+    }
+  }
+}
+
+// Add scroll handler to close dropdown
+const handleScroll = () => {
+  if (teleportDropdown.value.isOpen) {
+    closeTeleportDropdown()
+  }
+}
+
+// Helper function to get car by ID
+const getCarById = (carId) => {
+  return cars.value.find((car) => car.id === carId)
 }
 
 // Add new methods for VIN editing
-const handleVINAction = async (car) => {
-  if (!can_edit_vin.value) {
-    alert('You do not have permission to edit VIN numbers')
-    return
-  }
-  if (isProcessing.value.vin) return
-  isProcessing.value.vin = true
-  try {
-    selectedCar.value = car
-    showVinEditForm.value = true
-    isDropdownOpen.value[car.id] = false
-  } finally {
-    isProcessing.value.vin = false
-  }
+const handleVINAction = (car) => {
+  closeTeleportDropdown()
+  selectedCar.value = car
+  showVinEditForm.value = true
 }
 
 const handleVinSave = (updatedCar) => {
@@ -469,20 +521,10 @@ const handleVinSave = (updatedCar) => {
 }
 
 // Add new methods for file upload
-const handleFilesAction = async (car) => {
-  if (!can_upload_car_files.value) {
-    alert('You do not have permission to upload car files')
-    return
-  }
-  if (isProcessing.value.files) return
-  isProcessing.value.files = true
-  try {
-    selectedCar.value = car
-    showFilesUploadForm.value = true
-    isDropdownOpen.value[car.id] = false
-  } finally {
-    isProcessing.value.files = false
-  }
+const handleFilesAction = (car) => {
+  closeTeleportDropdown()
+  selectedCar.value = car
+  showFilesUploadForm.value = true
 }
 
 const handleFilesSave = (updatedCar) => {
@@ -494,20 +536,10 @@ const handleFilesSave = (updatedCar) => {
 }
 
 // Add new methods for ports editing
-const handlePortsAction = async (car) => {
-  if (!can_edit_cars_ports.value) {
-    alert('You do not have permission to edit car ports')
-    return
-  }
-  if (isProcessing.value.ports) return
-  isProcessing.value.ports = true
-  try {
-    selectedCar.value = car
-    showPortsEditForm.value = true
-    isDropdownOpen.value[car.id] = false
-  } finally {
-    isProcessing.value.ports = false
-  }
+const handlePortsAction = (car) => {
+  closeTeleportDropdown()
+  selectedCar.value = car
+  showPortsEditForm.value = true
 }
 
 const handlePortsSave = (updatedCar) => {
@@ -519,20 +551,10 @@ const handlePortsSave = (updatedCar) => {
 }
 
 // Add new methods for money editing
-const handleMoneyAction = async (car) => {
-  if (!can_edit_car_money.value) {
-    alert('You do not have permission to edit car money fields')
-    return
-  }
-  if (isProcessing.value.money) return
-  isProcessing.value.money = true
-  try {
-    selectedCar.value = car
-    showMoneyEditForm.value = true
-    isDropdownOpen.value[car.id] = false
-  } finally {
-    isProcessing.value.money = false
-  }
+const handleMoneyAction = (car) => {
+  closeTeleportDropdown()
+  selectedCar.value = car
+  showMoneyEditForm.value = true
 }
 
 const handleMoneySave = (updatedCar) => {
@@ -544,20 +566,10 @@ const handleMoneySave = (updatedCar) => {
 }
 
 // Add new method for warehouse action
-const handleWarehouseAction = async (car) => {
-  if (!can_edit_warehouse.value) {
-    alert('You do not have permission to edit warehouse')
-    return
-  }
-  if (isProcessing.value.warehouse) return
-  isProcessing.value.warehouse = true
-  try {
-    selectedCar.value = car
-    showWarehouseForm.value = true
-    isDropdownOpen.value[car.id] = false
-  } finally {
-    isProcessing.value.warehouse = false
-  }
+const handleWarehouseAction = (car) => {
+  closeTeleportDropdown()
+  selectedCar.value = car
+  showWarehouseForm.value = true
 }
 
 const handleWarehouseSave = (updatedCar) => {
@@ -569,20 +581,10 @@ const handleWarehouseSave = (updatedCar) => {
 }
 
 // Add new method for documents action
-const handleDocumentsClick = async (car) => {
-  if (!can_edit_car_documents.value) {
-    alert('You do not have permission to edit car documents')
-    return
-  }
-  if (isProcessing.value.documents) return
-  isProcessing.value.documents = true
-  try {
-    selectedCarForDocuments.value = car
-    showDocumentsForm.value = true
-    isDropdownOpen.value[car.id] = false
-  } finally {
-    isProcessing.value.documents = false
-  }
+const handleDocumentsClick = (car) => {
+  closeTeleportDropdown()
+  selectedCarForDocuments.value = car
+  showDocumentsForm.value = true
 }
 
 const handleDocumentsClose = () => {
@@ -599,20 +601,10 @@ const handleDocumentsSave = (updatedCar) => {
 }
 
 // Add new methods for load action
-const handleLoadClick = async (car) => {
-  if (!can_load_car.value) {
-    alert('You do not have permission to load cars')
-    return
-  }
-  if (isProcessing.value.load) return
-  isProcessing.value.load = true
-  try {
-    selectedCarForLoad.value = car
-    showLoadForm.value = true
-    isDropdownOpen.value[car.id] = false
-  } finally {
-    isProcessing.value.load = false
-  }
+const handleLoadClick = (car) => {
+  closeTeleportDropdown()
+  selectedCarForLoad.value = car
+  showLoadForm.value = true
 }
 
 const handleLoadClose = () => {
@@ -633,21 +625,6 @@ const closeAllDropdowns = () => {
   isDropdownOpen.value = {}
 }
 
-const handleClickOutside = (event) => {
-  const dropdowns = document.querySelectorAll('.dropdown')
-  let clickedOutside = true
-
-  dropdowns.forEach((dropdown) => {
-    if (dropdown.contains(event.target)) {
-      clickedOutside = false
-    }
-  })
-
-  if (clickedOutside) {
-    closeAllDropdowns()
-  }
-}
-
 const handleAdvancedFilters = (filters) => {
   advancedFilters.value = filters
   showAdvancedFilter.value = false
@@ -655,9 +632,10 @@ const handleAdvancedFilters = (filters) => {
   props.filters.advanced = filters
 }
 
-function openSellBillTab(car) {
+const openSellBillTab = (car) => {
+  closeTeleportDropdown()
   if (car.id_sell) {
-    window.open(`/sell-bills/${car.id_sell}`, '_blank')
+    router.push(`/sell-bills/${car.id_sell}`)
   }
 }
 
@@ -665,16 +643,18 @@ onMounted(() => {
   const userStr = localStorage.getItem('user')
   if (userStr) {
     user.value = JSON.parse(userStr)
-    fetchCarsStock()
   }
+  fetchCarsStock()
 
-  // Add click outside listener
+  // Add event listeners for teleport dropdown
   document.addEventListener('click', handleClickOutside)
+  document.addEventListener('scroll', handleScroll, true)
 })
 
-// Add onUnmounted to clean up the event listener
 onUnmounted(() => {
+  // Remove event listeners
   document.removeEventListener('click', handleClickOutside)
+  document.removeEventListener('scroll', handleScroll, true)
 })
 
 // Expose the fetchCarsStock method to parent components
@@ -927,10 +907,6 @@ defineExpose({
                 <i v-if="isProcessing.edit" class="fas fa-spinner fa-spin loading-indicator"></i>
               </button>
               <div class="dropdown">
-                <button @click="toggleDropdown(car.id, $event)" class="dropdown-toggle">
-                  <i class="fas fa-ellipsis-v"></i>
-                  Actions
-                </button>
                 <ul v-if="isDropdownOpen[car.id]" class="dropdown-menu">
                   <li>
                     <button
@@ -1041,12 +1017,127 @@ defineExpose({
                   </li>
                 </ul>
               </div>
+
+              <!-- Teleport Dropdown Button (Alternative) -->
+              <button
+                @click="openTeleportDropdown(car.id, $event)"
+                class="teleport-dropdown-toggle"
+                title="Actions (Teleport)"
+              >
+                <i class="fas fa-ellipsis-h"></i>
+              </button>
             </td>
           </tr>
         </tbody>
       </table>
     </div>
   </div>
+
+  <!-- Teleport Dropdown Menu -->
+  <teleport to="body">
+    <div
+      v-if="teleportDropdown.isOpen"
+      class="teleport-dropdown"
+      :style="{
+        position: 'absolute',
+        left: teleportDropdown.position.x + 'px',
+        top: teleportDropdown.position.y + 'px',
+        zIndex: 9999,
+      }"
+    >
+      <ul class="teleport-dropdown-menu">
+        <li>
+          <button
+            @click="handleVINAction(getCarById(teleportDropdown.carId))"
+            :disabled="!can_edit_vin || isProcessing.vin"
+            :class="{ disabled: !can_edit_vin, processing: isProcessing.vin }"
+          >
+            <i class="fas fa-barcode"></i>
+            <span>VIN</span>
+            <i v-if="isProcessing.vin" class="fas fa-spinner fa-spin loading-indicator"></i>
+          </button>
+        </li>
+        <li>
+          <button
+            @click="handleFilesAction(getCarById(teleportDropdown.carId))"
+            :disabled="!can_upload_car_files || isProcessing.files"
+            :class="{ disabled: !can_upload_car_files, processing: isProcessing.files }"
+          >
+            <i class="fas fa-file-upload"></i>
+            <span>Files</span>
+            <i v-if="isProcessing.files" class="fas fa-spinner fa-spin loading-indicator"></i>
+          </button>
+        </li>
+        <li>
+          <button
+            @click="handlePortsAction(getCarById(teleportDropdown.carId))"
+            :disabled="!can_edit_cars_ports || isProcessing.ports"
+            :class="{ disabled: !can_edit_cars_ports, processing: isProcessing.ports }"
+          >
+            <i class="fas fa-anchor"></i>
+            <span>Ports</span>
+            <i v-if="isProcessing.ports" class="fas fa-spinner fa-spin loading-indicator"></i>
+          </button>
+        </li>
+        <li>
+          <button
+            @click="handleMoneyAction(getCarById(teleportDropdown.carId))"
+            :disabled="!can_edit_car_money || isProcessing.money"
+            :class="{ disabled: !can_edit_car_money, processing: isProcessing.money }"
+          >
+            <i class="fas fa-dollar-sign"></i>
+            <span>Money</span>
+            <i v-if="isProcessing.money" class="fas fa-spinner fa-spin loading-indicator"></i>
+          </button>
+        </li>
+        <li>
+          <button
+            @click="handleWarehouseAction(getCarById(teleportDropdown.carId))"
+            :disabled="!can_edit_warehouse || isProcessing.warehouse"
+            :class="{ disabled: !can_edit_warehouse, processing: isProcessing.warehouse }"
+          >
+            <i class="fas fa-warehouse"></i>
+            <span>Warehouse</span>
+            <i v-if="isProcessing.warehouse" class="fas fa-spinner fa-spin loading-indicator"></i>
+          </button>
+        </li>
+        <li>
+          <button
+            @click="handleDocumentsClick(getCarById(teleportDropdown.carId))"
+            :disabled="!can_edit_car_documents || isProcessing.documents"
+            :class="{
+              disabled: !can_edit_car_documents,
+              processing: isProcessing.documents,
+            }"
+          >
+            <i class="fas fa-file-alt"></i>
+            <span>Car Documents</span>
+            <i v-if="isProcessing.documents" class="fas fa-spinner fa-spin loading-indicator"></i>
+          </button>
+        </li>
+        <li>
+          <button
+            @click="handleLoadClick(getCarById(teleportDropdown.carId))"
+            :disabled="!can_load_car || isProcessing.load"
+            :class="{ disabled: !can_load_car, processing: isProcessing.load }"
+          >
+            <i class="fas fa-truck-loading"></i>
+            <span>Load</span>
+            <i v-if="isProcessing.load" class="fas fa-spinner fa-spin loading-indicator"></i>
+          </button>
+        </li>
+        <li>
+          <button
+            @click="openSellBillTab(getCarById(teleportDropdown.carId))"
+            :disabled="!getCarById(teleportDropdown.carId)?.id_sell"
+          >
+            <i class="fas fa-file-invoice-dollar"></i>
+            <span>Sell Bill</span>
+          </button>
+        </li>
+      </ul>
+    </div>
+  </teleport>
 </template>
 
 <style scoped>
@@ -1442,12 +1533,6 @@ defineExpose({
   color: #666;
 }
 
-.car-details-cell {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
 .car-name {
   font-weight: 600;
 }
@@ -1460,5 +1545,86 @@ defineExpose({
 .car-color {
   font-size: 0.85em;
   color: #666;
+}
+
+/* Loading indicator styles */
+.loading-indicator {
+  margin-left: 8px;
+  color: #409eff;
+}
+
+/* Teleport Dropdown Styles */
+.teleport-dropdown-toggle {
+  background: #f5f7fa;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  padding: 6px 10px;
+  cursor: pointer;
+  margin-left: 8px;
+  transition: all 0.3s;
+}
+
+.teleport-dropdown-toggle:hover {
+  background: #ecf5ff;
+  border-color: #409eff;
+  color: #409eff;
+}
+
+.teleport-dropdown {
+  background: white;
+  border: 1px solid #dcdfe6;
+  border-radius: 6px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  min-width: 160px;
+  z-index: 9999;
+}
+
+.teleport-dropdown-menu {
+  list-style: none;
+  margin: 0;
+  padding: 8px 0;
+}
+
+.teleport-dropdown-menu li {
+  margin: 0;
+}
+
+.teleport-dropdown-menu button {
+  width: 100%;
+  text-align: left;
+  padding: 8px 16px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #606266;
+  transition: background-color 0.2s;
+}
+
+.teleport-dropdown-menu button:hover:not(:disabled) {
+  background-color: #f5f7fa;
+  color: #409eff;
+}
+
+.teleport-dropdown-menu button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.teleport-dropdown-menu button.processing {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.teleport-dropdown-menu button.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.teleport-dropdown-menu .loading-indicator {
+  margin-left: auto;
 }
 </style>
