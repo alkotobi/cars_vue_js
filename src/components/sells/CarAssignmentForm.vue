@@ -20,7 +20,10 @@ const props = defineProps({
 })
 const user = ref(JSON.parse(localStorage.getItem('user')))
 const isAdmin = computed(() => user.value?.role_id === 1)
-
+const can_assign_to_tmp_clients = computed(
+  () =>
+    user.value?.permissions?.some((p) => p.permission_name === 'can_assign_to_tmp_clients') || isAdmin.value,
+)
 const emit = defineEmits(['close', 'assign-success'])
 
 const { callApi, uploadFile } = useApi()
@@ -722,7 +725,7 @@ onMounted(() => {
           ></textarea>
         </div>
 
-        <div v-if="isAdmin" class="form-group">
+        <div v-if="can_assign_to_tmp_clients" class="form-group">
           <label class="checkbox-label">
             <input
               type="checkbox"

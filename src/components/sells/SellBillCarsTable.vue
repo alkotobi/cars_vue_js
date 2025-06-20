@@ -14,7 +14,11 @@ const props = defineProps({
 const emit = defineEmits(['refresh'])
 const user = ref(null)
 const isAdmin = computed(() => user.value?.role_id === 1)
-
+const can_assign_to_tmp_clients = computed(
+  () =>
+    user.value?.permissions?.some((p) => p.permission_name === 'can_assign_to_tmp_clients') ||
+    isAdmin.value,
+)
 const { callApi } = useApi()
 const cars = ref([])
 const loading = ref(false)
@@ -750,7 +754,7 @@ defineExpose({
             ></textarea>
           </div>
 
-          <div v-if="isAdmin" class="form-group">
+          <div v-if="can_assign_to_tmp_clients" class="form-group">
             <label class="checkbox-label">
               <input
                 type="checkbox"

@@ -364,7 +364,11 @@ try {
         ('can_c_sell_payments', 'Can create new payment records for sales'),
         ('can_delete_sell_bill', 'Can delete sales invoices'),
         ('can_edit_sell_bill', 'Can modify sales invoice information'),
-        ('can_access_cashier', 'Can access cashier functions and operations')
+        ('can_access_cashier', 'Can access cashier functions and operations'),
+        ('can_purchase_cars', 'Can create and manage purchase orders for cars'),
+        ('can_sell_cars', 'Can create and manage sales invoices for cars'),
+        ('can_c_car_stock', 'Can view and manage car stock inventory'),
+        ('can_assign_to_tmp_clients', 'Can assign cars to temporary clients')
     ");
     $stmt->execute();
 
