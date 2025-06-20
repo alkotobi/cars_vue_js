@@ -14,6 +14,7 @@ const editingBill = ref(null)
 const sellBillsTableRef = ref(null)
 const unassignedCarsTableRef = ref(null)
 const sellBillCarsTableRef = ref(null)
+const isProcessing = ref(false)
 
 // Add user and isAdmin
 const user = ref(null)
@@ -27,23 +28,8 @@ onMounted(() => {
   const userStr = localStorage.getItem('user')
   if (userStr) {
     user.value = JSON.parse(userStr)
-    console.log('[DEBUG] Loaded user from localStorage:', user.value)
-    console.log('[DEBUG] User permissions:', user.value.permissions)
-  } else {
-    console.log('[DEBUG] No user found in localStorage')
   }
 })
-
-watch(
-  can_create_sell_bill,
-  (val) => {
-    console.log('[DEBUG] can_create_sell_bill changed:', val)
-    if (user.value) {
-      console.log('[DEBUG] Current user permissions:', user.value.permissions)
-    }
-  },
-  { immediate: true },
-)
 
 const handleSelectBill = (billId) => {
   selectedBillId.value = billId
@@ -65,6 +51,7 @@ const handleSelectBill = (billId) => {
 }
 
 const openAddDialog = () => {
+  isProcessing.value = true
   editingBill.value = {
     id_broker: null,
     date_sell: new Date().toISOString().split('T')[0],
@@ -72,11 +59,14 @@ const openAddDialog = () => {
     id_user: user.value?.id,
   }
   showAddDialog.value = true
+  isProcessing.value = false
 }
 
 const handleEditBill = (bill) => {
+  isProcessing.value = true
   editingBill.value = { ...bill }
   showEditDialog.value = true
+  isProcessing.value = false
 }
 
 const handleDeleteBill = async (id) => {
@@ -92,6 +82,7 @@ const handleDeleteBill = async (id) => {
     return
   }
 
+  isProcessing.value = true
   try {
     // First, unassign all cars from this bill
     const unassignResult = await callApi({
@@ -139,26 +130,30 @@ const handleDeleteBill = async (id) => {
   } catch (err) {
     console.error('Error deleting sell bill:', err)
     alert('Error deleting sell bill: ' + err.message)
+  } finally {
+    isProcessing.value = false
   }
 }
 
 const handleSave = async (savedBill) => {
-  console.log('handleSave called with bill:', savedBill)
+  isProcessing.value = true
   showAddDialog.value = false
   showEditDialog.value = false
 
-  // Refresh the table
-  if (sellBillsTableRef.value) {
-    console.log('Refreshing table')
-    await sellBillsTableRef.value.fetchSellBills()
+  try {
+    // Refresh the table
+    if (sellBillsTableRef.value) {
+      await sellBillsTableRef.value.fetchSellBills()
 
-    // After refresh, select the newly created bill
-    if (savedBill && savedBill.id) {
-      console.log('Selecting new bill:', savedBill.id)
-      handleSelectBill(savedBill.id)
+      // After refresh, select the newly created bill
+      if (savedBill && savedBill.id) {
+        handleSelectBill(savedBill.id)
+      }
     }
-  } else {
-    console.warn('sellBillsTableRef is null')
+  } catch (error) {
+    console.error('Error refreshing table:', error)
+  } finally {
+    isProcessing.value = false
   }
 }
 
