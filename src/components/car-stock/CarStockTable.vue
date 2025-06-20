@@ -717,7 +717,9 @@ const handleAdvancedFilters = (filters) => {
 const openSellBillTab = (car) => {
   closeTeleportDropdown()
   if (car.id_sell) {
-    router.push(`/sell-bills/${car.id_sell}`)
+    // Open in new tab using router.resolve
+    const route = router.resolve(`/sell-bills/${car.id_sell}`)
+    window.open(route.href, '_blank')
   }
 }
 
