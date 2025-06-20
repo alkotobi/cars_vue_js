@@ -44,6 +44,7 @@ const advancedFilters = ref({
   client: '',
   warehouse: '',
   container_ref: '',
+  loading_status: '',
 })
 
 // Fetch reference data for filter dropdowns
@@ -436,6 +437,23 @@ fetchReferenceData()
             placeholder="Container Reference"
             :disabled="isProcessing.advanced"
           />
+        </div>
+
+        <!-- Loading Status Filter -->
+        <div class="filter-field">
+          <label for="loading-status-filter">
+            <i class="fas fa-truck-loading"></i>
+            Loading Status
+          </label>
+          <select
+            id="loading-status-filter"
+            v-model="advancedFilters.loading_status"
+            :disabled="isProcessing.advanced"
+          >
+            <option value="">All</option>
+            <option value="loaded">Loaded</option>
+            <option value="not_loaded">Not Loaded</option>
+          </select>
         </div>
 
         <!-- Add the Apply and Reset buttons at the bottom -->

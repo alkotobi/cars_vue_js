@@ -47,6 +47,7 @@ const props = defineProps({
         is_loaded: false,
         has_vin: false,
         container_ref: '',
+        loading_status: '',
       },
     }),
   },
@@ -334,23 +335,23 @@ const fetchCarsStock = async () => {
         }
 
         // Freight range filter
-        if (adv.freight_min && adv.freight_min.trim() !== '') {
+        if (adv.freight_min && adv.freight_min.toString().trim() !== '') {
           query += ` AND cs.freight >= ?`
-          params.push(parseFloat(adv.freight_min.trim()))
+          params.push(parseFloat(adv.freight_min))
         }
-        if (adv.freight_max && adv.freight_max.trim() !== '') {
+        if (adv.freight_max && adv.freight_max.toString().trim() !== '') {
           query += ` AND cs.freight <= ?`
-          params.push(parseFloat(adv.freight_max.trim()))
+          params.push(parseFloat(adv.freight_max))
         }
 
         // Price range filter
-        if (adv.price_min && adv.price_min.trim() !== '') {
+        if (adv.price_min && adv.price_min.toString().trim() !== '') {
           query += ` AND cs.price_cell >= ?`
-          params.push(parseFloat(adv.price_min.trim()))
+          params.push(parseFloat(adv.price_min))
         }
-        if (adv.price_max && adv.price_max.trim() !== '') {
+        if (adv.price_max && adv.price_max.toString().trim() !== '') {
           query += ` AND cs.price_cell <= ?`
-          params.push(parseFloat(adv.price_max.trim()))
+          params.push(parseFloat(adv.price_max))
         }
 
         // Loading date range filter
@@ -388,6 +389,15 @@ const fetchCarsStock = async () => {
         if (adv.container_ref && adv.container_ref.trim() !== '') {
           query += ` AND cs.container_ref LIKE ?`
           params.push(`%${adv.container_ref.trim()}%`)
+        }
+
+        // Loading Status filter
+        if (adv.loading_status && adv.loading_status.trim() !== '') {
+          if (adv.loading_status === 'loaded') {
+            query += ` AND cs.date_loding IS NOT NULL`
+          } else if (adv.loading_status === 'not_loaded') {
+            query += ` AND cs.date_loding IS NULL`
+          }
         }
 
         // Document status filters
