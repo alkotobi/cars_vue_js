@@ -42,9 +42,15 @@ const advancedFilters = ref({
   loading_date_to: '',
   status: '',
   client: '',
+  client_id_no: '',
   warehouse: '',
   container_ref: '',
   loading_status: '',
+  documents_status: '',
+  bl_status: '',
+  warehouse_status: '',
+  bill_ref: '',
+  sell_bill_ref: '',
 })
 
 // Fetch reference data for filter dropdowns
@@ -402,6 +408,21 @@ fetchReferenceData()
           />
         </div>
 
+        <!-- Client ID Number Filter -->
+        <div class="filter-field">
+          <label for="client-id-no-filter">
+            <i class="fas fa-id-card"></i>
+            Client ID Number
+          </label>
+          <input
+            id="client-id-no-filter"
+            type="text"
+            v-model="advancedFilters.client_id_no"
+            placeholder="Client ID Number"
+            :disabled="isProcessing.advanced"
+          />
+        </div>
+
         <!-- Warehouse Filter -->
         <div class="filter-field">
           <label for="warehouse-filter">
@@ -454,6 +475,87 @@ fetchReferenceData()
             <option value="loaded">Loaded</option>
             <option value="not_loaded">Not Loaded</option>
           </select>
+        </div>
+
+        <!-- Documents Status Filter -->
+        <div class="filter-field">
+          <label for="documents-status-filter">
+            <i class="fas fa-file-alt"></i>
+            Documents Status
+          </label>
+          <select
+            id="documents-status-filter"
+            v-model="advancedFilters.documents_status"
+            :disabled="isProcessing.advanced"
+          >
+            <option value="">All</option>
+            <option value="received">Documents Received</option>
+            <option value="not_received">Documents Not Received</option>
+          </select>
+        </div>
+
+        <!-- BL Status Filter -->
+        <div class="filter-field">
+          <label for="bl-status-filter">
+            <i class="fas fa-ship"></i>
+            BL Status
+          </label>
+          <select
+            id="bl-status-filter"
+            v-model="advancedFilters.bl_status"
+            :disabled="isProcessing.advanced"
+          >
+            <option value="">All</option>
+            <option value="received">BL Received</option>
+            <option value="not_received">BL Not Received</option>
+          </select>
+        </div>
+
+        <!-- Warehouse Status Filter -->
+        <div class="filter-field">
+          <label for="warehouse-status-filter">
+            <i class="fas fa-warehouse"></i>
+            Warehouse Status
+          </label>
+          <select
+            id="warehouse-status-filter"
+            v-model="advancedFilters.warehouse_status"
+            :disabled="isProcessing.advanced"
+          >
+            <option value="">All</option>
+            <option value="in_warehouse">In Warehouse</option>
+            <option value="not_in_warehouse">Not In Warehouse</option>
+          </select>
+        </div>
+
+        <!-- Buy Bill Filter -->
+        <div class="filter-field">
+          <label for="bill-ref-filter">
+            <i class="fas fa-file-invoice"></i>
+            Buy Bill
+          </label>
+          <input
+            id="bill-ref-filter"
+            type="text"
+            v-model="advancedFilters.bill_ref"
+            placeholder="Buy Bill Reference"
+            :disabled="isProcessing.advanced"
+          />
+        </div>
+
+        <!-- Sell Bill Filter -->
+        <div class="filter-field">
+          <label for="sell-bill-ref-filter">
+            <i class="fas fa-file-invoice-dollar"></i>
+            Sell Bill
+          </label>
+          <input
+            id="sell-bill-ref-filter"
+            type="text"
+            v-model="advancedFilters.sell_bill_ref"
+            placeholder="Sell Bill Reference"
+            :disabled="isProcessing.advanced"
+          />
         </div>
 
         <!-- Add the Apply and Reset buttons at the bottom -->

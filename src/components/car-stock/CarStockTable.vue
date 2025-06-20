@@ -37,7 +37,9 @@ const props = defineProps({
         loading_date_to: '',
         status: '',
         client: '',
+        client_id_no: '',
         warehouse: '',
+        container_ref: '',
         has_bl: false,
         freight_paid: false,
         has_supplier_docs: false,
@@ -46,8 +48,12 @@ const props = defineProps({
         documents_sent: false,
         is_loaded: false,
         has_vin: false,
-        container_ref: '',
         loading_status: '',
+        documents_status: '',
+        bl_status: '',
+        warehouse_status: '',
+        bill_ref: '',
+        sell_bill_ref: '',
       },
     }),
   },
@@ -253,6 +259,7 @@ const fetchCarsStock = async () => {
         bd.price_sell as buy_price,
         w.warhouse_name as warehouse_name,
         bb.bill_ref as buy_bill_ref,
+        sb.bill_ref as sell_bill_ref,
         cs.is_used_car,
         c.id_no as client_id_no,
         cs.container_ref
@@ -260,6 +267,7 @@ const fetchCarsStock = async () => {
       LEFT JOIN clients c ON cs.id_client = c.id
       LEFT JOIN buy_details bd ON cs.id_buy_details = bd.id
       LEFT JOIN buy_bill bb ON bd.id_buy_bill = bb.id
+      LEFT JOIN sell_bill sb ON cs.id_sell = sb.id
       LEFT JOIN cars_names cn ON bd.id_car_name = cn.id
       LEFT JOIN colors clr ON bd.id_color = clr.id
       LEFT JOIN loading_ports lp ON cs.id_port_loading = lp.id
@@ -285,11 +293,14 @@ const fetchCarsStock = async () => {
             lp.loading_port LIKE ? OR
             dp.discharge_port LIKE ? OR
             c.name LIKE ? OR
-            w.warhouse_name LIKE ?
+            c.id_no LIKE ? OR
+            w.warhouse_name LIKE ? OR
+            bb.bill_ref LIKE ? OR
+            sb.bill_ref LIKE ?
           )
         `
-        // Add the search parameter 8 times (once for each field)
-        for (let i = 0; i < 8; i++) {
+        // Add the search parameter 11 times (once for each field)
+        for (let i = 0; i < 11; i++) {
           params.push(searchTerm)
         }
       }
@@ -379,6 +390,12 @@ const fetchCarsStock = async () => {
           params.push(adv.client.trim())
         }
 
+        // Client ID Number filter
+        if (adv.client_id_no && adv.client_id_no.trim() !== '') {
+          query += ` AND c.id_no LIKE ?`
+          params.push(`%${adv.client_id_no.trim()}%`)
+        }
+
         // Warehouse filter
         if (adv.warehouse && adv.warehouse.trim() !== '') {
           query += ` AND w.warhouse_name = ?`
@@ -400,7 +417,45 @@ const fetchCarsStock = async () => {
           }
         }
 
-        // Document status filters
+        // Documents Status filter
+        if (adv.documents_status && adv.documents_status.trim() !== '') {
+          if (adv.documents_status === 'received') {
+            query += ` AND cs.date_get_documents_from_supp IS NOT NULL`
+          } else if (adv.documents_status === 'not_received') {
+            query += ` AND cs.date_get_documents_from_supp IS NULL`
+          }
+        }
+
+        // BL Status filter
+        if (adv.bl_status && adv.bl_status.trim() !== '') {
+          if (adv.bl_status === 'received') {
+            query += ` AND cs.date_get_bl IS NOT NULL`
+          } else if (adv.bl_status === 'not_received') {
+            query += ` AND cs.date_get_bl IS NULL`
+          }
+        }
+
+        // Warehouse Status filter
+        if (adv.warehouse_status && adv.warehouse_status.trim() !== '') {
+          if (adv.warehouse_status === 'in_warehouse') {
+            query += ` AND cs.in_wharhouse_date IS NOT NULL`
+          } else if (adv.warehouse_status === 'not_in_warehouse') {
+            query += ` AND cs.in_wharhouse_date IS NULL`
+          }
+        }
+
+        // Bill Reference filter
+        if (adv.bill_ref && adv.bill_ref.trim() !== '') {
+          query += ` AND bb.bill_ref LIKE ?`
+          params.push(`%${adv.bill_ref.trim()}%`)
+        }
+
+        // Sell Bill Reference filter
+        if (adv.sell_bill_ref && adv.sell_bill_ref.trim() !== '') {
+          query += ` AND sb.bill_ref LIKE ?`
+          params.push(`%${adv.sell_bill_ref.trim()}%`)
+        }
+
         if (adv.has_bl) {
           query += ` AND cs.date_get_bl IS NOT NULL`
         }
@@ -842,6 +897,12 @@ defineExpose({
               <div class="car-name">{{ car.car_name }}</div>
               <div class="car-vin">{{ car.vin || 'VIN: Not set' }}</div>
               <div class="car-color">{{ car.color || 'Color: Not set' }}</div>
+              <div v-if="car.buy_bill_ref" class="car-buy-bill">
+                Buy Bill: {{ car.buy_bill_ref }}
+              </div>
+              <div v-if="car.sell_bill_ref" class="car-sell-bill">
+                Sell Bill: {{ car.sell_bill_ref }}
+              </div>
             </td>
             <td>{{ car.loading_port || '-' }}</td>
             <td>
@@ -1562,6 +1623,18 @@ defineExpose({
 .car-color {
   font-size: 0.85em;
   color: #666;
+}
+
+.car-buy-bill {
+  font-size: 0.85em;
+  color: #059669;
+  font-weight: 500;
+}
+
+.car-sell-bill {
+  font-size: 0.85em;
+  color: #dc2626;
+  font-weight: 500;
 }
 
 /* Loading indicator styles */
