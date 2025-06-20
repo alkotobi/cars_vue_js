@@ -780,20 +780,8 @@ defineExpose({
               </span>
             </th>
             <th @click="toggleSort('car_name')" class="sortable">
-              Car
+              Car Details
               <span v-if="sortConfig.key === 'car_name'" class="sort-indicator">
-                {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
-              </span>
-            </th>
-            <th @click="toggleSort('color')" class="sortable">
-              Color
-              <span v-if="sortConfig.key === 'color'" class="sort-indicator">
-                {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
-              </span>
-            </th>
-            <th @click="toggleSort('vin')" class="sortable">
-              VIN
-              <span v-if="sortConfig.key === 'vin'" class="sort-indicator">
                 {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
               </span>
             </th>
@@ -853,9 +841,11 @@ defineExpose({
         <tbody>
           <tr v-for="car in sortedCars" :key="car.id" :class="{ 'used-car': car.is_used_car }">
             <td>#{{ car.id }}</td>
-            <td>{{ car.car_name }}</td>
-            <td>{{ car.color }}</td>
-            <td>{{ car.vin || '-' }}</td>
+            <td class="car-details-cell">
+              <div class="car-name">{{ car.car_name }}</div>
+              <div class="car-vin">{{ car.vin || 'VIN: Not set' }}</div>
+              <div class="car-color">{{ car.color || 'Color: Not set' }}</div>
+            </td>
             <td>{{ car.loading_port || '-' }}</td>
             <td>
               <div>
@@ -1448,6 +1438,26 @@ defineExpose({
 }
 
 .client-id {
+  font-size: 0.85em;
+  color: #666;
+}
+
+.car-details-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.car-name {
+  font-weight: 600;
+}
+
+.car-vin {
+  font-size: 0.85em;
+  color: #666;
+}
+
+.car-color {
   font-size: 0.85em;
   color: #666;
 }
