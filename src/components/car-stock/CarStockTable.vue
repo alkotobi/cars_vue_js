@@ -8,7 +8,7 @@ import CarMoneyEditForm from './CarMoneyEditForm.vue'
 import CarWarehouseForm from './CarWarehouseForm.vue'
 import CarDocumentsForm from './CarDocumentsForm.vue'
 import CarLoadForm from './CarLoadForm.vue'
-import AdvancedFilter from './AdvancedFilter.vue'
+
 import { useRouter } from 'vue-router'
 
 const isDropdownOpen = ref({})
@@ -379,7 +379,7 @@ const fetchCarsStock = async () => {
 
         // Warehouse filter
         if (adv.warehouse && adv.warehouse.trim() !== '') {
-          query += ` AND w.name = ?`
+          query += ` AND w.warhouse_name = ?`
           params.push(adv.warehouse.trim())
         }
 
@@ -723,19 +723,19 @@ defineExpose({
       @save="handleLoadSave"
     />
 
-    <div class="table-actions">
+    <!-- <div class="table-actions">
       <button class="advanced-filter-btn" @click="showAdvancedFilter = true">
         <i class="fas fa-filter"></i>
         Advanced Filters
       </button>
-    </div>
+    </div> -->
 
-    <AdvancedFilter
+    <!-- <AdvancedFilter
       :show="showAdvancedFilter"
       :initial-filters="advancedFilters"
       @update:filters="handleAdvancedFilters"
       @close="showAdvancedFilter = false"
-    />
+    /> -->
 
     <div v-if="loading" class="loading">
       <i class="fas fa-spinner fa-spin"></i>

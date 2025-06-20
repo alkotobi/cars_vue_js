@@ -96,7 +96,7 @@ const fetchReferenceData = async () => {
 
     // Fetch warehouses
     const warehousesResult = await callApi({
-      query: 'SELECT id, name FROM warehouses ORDER BY name',
+      query: 'SELECT id, warhouse_name FROM warehouses ORDER BY warhouse_name',
       params: [],
     })
     if (warehousesResult.success) {
@@ -391,16 +391,13 @@ fetchReferenceData()
             <i class="fas fa-user"></i>
             Client
           </label>
-          <select
+          <input
             id="client-filter"
+            type="text"
             v-model="advancedFilters.client"
+            placeholder="Client Name"
             :disabled="isProcessing.advanced"
-          >
-            <option value="">All Clients</option>
-            <option v-for="client in clients" :key="client.id" :value="client.name">
-              {{ client.name }}
-            </option>
-          </select>
+          />
         </div>
 
         <!-- Warehouse Filter -->
@@ -415,8 +412,12 @@ fetchReferenceData()
             :disabled="isProcessing.advanced"
           >
             <option value="">All Warehouses</option>
-            <option v-for="warehouse in warehouses" :key="warehouse.id" :value="warehouse.name">
-              {{ warehouse.name }}
+            <option
+              v-for="warehouse in warehouses"
+              :key="warehouse.id"
+              :value="warehouse.warhouse_name"
+            >
+              {{ warehouse.warhouse_name }}
             </option>
           </select>
         </div>
