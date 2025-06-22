@@ -126,6 +126,11 @@ const handleFinishedOrdersClick = async () => {
 const handleReturnToMain = () => {
   showFinishedOrders.value = false
 }
+
+const openCarsStockInNewTab = () => {
+  const route = router.resolve({ name: 'cars-stock' })
+  window.open(route.href, '_blank')
+}
 </script>
 
 <template>
@@ -174,14 +179,13 @@ const handleReturnToMain = () => {
           <i v-if="isProcessing.sellBills" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
         <button
-          :disabled="!canCCarStock || isProcessing.stock"
-          @click="navigateTo('stock')"
-          :class="{ active: activeView === 'stock', processing: isProcessing.stock }"
+          :disabled="!canCCarStock"
+          @click="openCarsStockInNewTab"
           class="sidebar-btn stock-btn"
         >
           <i class="fas fa-warehouse"></i>
           <span>Cars Stock</span>
-          <i v-if="isProcessing.stock" class="fas fa-spinner fa-spin loading-indicator"></i>
+          <i class="fas fa-external-link-alt" style="margin-left: auto; font-size: 0.8em"></i>
         </button>
 
         <button
