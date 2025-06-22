@@ -15,6 +15,7 @@ const isProcessing = ref({
   billing: false,
   notifications: false,
   security: false,
+  advanced_sql: false,
 })
 
 // Check if user is admin
@@ -52,6 +53,16 @@ const setActiveSection = (section) => {
     activeSection.value = section
   } finally {
     isProcessing.value[section] = false
+  }
+}
+
+const navigateToAdvancedSql = () => {
+  if (isProcessing.value.advanced_sql) return
+  isProcessing.value.advanced_sql = true
+  try {
+    router.push('/advanced-sql')
+  } finally {
+    isProcessing.value.advanced_sql = false
   }
 }
 </script>
@@ -133,6 +144,19 @@ const setActiveSection = (section) => {
           <i class="fas fa-shield-alt"></i>
           <span>Security</span>
           <i v-if="isProcessing.security" class="fas fa-spinner fa-spin loading-indicator"></i>
+        </button>
+
+        <button
+          @click="navigateToAdvancedSql"
+          class="sidebar-btn"
+          :class="{
+            processing: isProcessing.advanced_sql,
+          }"
+          :disabled="isProcessing.advanced_sql"
+        >
+          <i class="fas fa-database"></i>
+          <span>Advanced SQL</span>
+          <i v-if="isProcessing.advanced_sql" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
       </div>
     </div>
@@ -325,6 +349,30 @@ const setActiveSection = (section) => {
   animation: spin 1s linear infinite;
 }
 
+.advanced-sql-section {
+  padding: 24px;
+}
+
+.advanced-sql-section h2 {
+  color: #1f2937;
+  font-size: 1.75rem;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.advanced-sql-section h2 i {
+  color: #6366f1;
+}
+
+.advanced-sql-section p {
+  color: #6b7280;
+  font-size: 1.1rem;
+  margin-bottom: 24px;
+  line-height: 1.6;
+}
+
 @media (max-width: 768px) {
   .params-view {
     flex-direction: column;
@@ -348,4 +396,3 @@ const setActiveSection = (section) => {
   }
 }
 </style>
- 

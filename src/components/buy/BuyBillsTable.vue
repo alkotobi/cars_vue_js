@@ -29,6 +29,7 @@ const filters = ref({
   supplier: '',
   billRef: '',
   status: '', // 'all', 'updated', 'pending'
+  isOrdered: '', // 'all', 'ordered', 'not_ordered'
 })
 
 // Add sorting state
@@ -63,6 +64,13 @@ const filteredAndSortedBills = computed(() => {
       result = result.filter((bill) => bill.is_stock_updated)
     } else if (filters.value.status === 'pending') {
       result = result.filter((bill) => !bill.is_stock_updated)
+    }
+  }
+  if (filters.value.isOrdered) {
+    if (filters.value.isOrdered === 'ordered') {
+      result = result.filter((bill) => bill.is_ordered === 1)
+    } else if (filters.value.isOrdered === 'not_ordered') {
+      result = result.filter((bill) => bill.is_ordered === 0)
     }
   }
 
@@ -105,6 +113,7 @@ const resetFilters = () => {
     supplier: '',
     billRef: '',
     status: '',
+    isOrdered: '',
   }
 }
 
@@ -187,6 +196,18 @@ const formatNumber = (value) => {
             <option value="">All</option>
             <option value="updated">Updated</option>
             <option value="pending">Pending</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label>
+            <i class="fas fa-info-circle"></i>
+            Is Ordered
+          </label>
+          <select v-model="filters.isOrdered" class="filter-input">
+            <option value="">All</option>
+            <option value="ordered">Ordered</option>
+            <option value="not_ordered">Not Ordered</option>
           </select>
         </div>
 
@@ -288,6 +309,7 @@ const formatNumber = (value) => {
             <th><i class="fas fa-check-circle"></i> Paid</th>
             <th><i class="fas fa-balance-scale"></i> Balance</th>
             <th><i class="fas fa-info-circle"></i> Status</th>
+            <th><i class="fas fa-shopping-cart"></i> Order Status</th>
             <th><i class="fas fa-file-pdf"></i> PI Document</th>
           </tr>
         </thead>
@@ -309,6 +331,12 @@ const formatNumber = (value) => {
               <span :class="bill.is_stock_updated ? 'status-updated' : 'status-pending'">
                 <i class="fas" :class="bill.is_stock_updated ? 'fa-check' : 'fa-clock'"></i>
                 {{ bill.is_stock_updated ? 'Updated' : 'Pending' }}
+              </span>
+            </td>
+            <td>
+              <span :class="bill.is_ordered ? 'status-ordered' : 'status-not_ordered'">
+                <i class="fas" :class="bill.is_ordered ? 'fa-check' : 'fa-times'"></i>
+                {{ bill.is_ordered ? 'Ordered' : 'Not Ordered' }}
               </span>
             </td>
             <td>
@@ -686,6 +714,37 @@ const formatNumber = (value) => {
 
 .status-updated:hover i,
 .status-pending:hover i {
+  transform: scale(1.1);
+}
+
+.status-ordered,
+.status-not_ordered {
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.status-ordered {
+  color: #059669;
+  background-color: #ecfdf5;
+}
+
+.status-not_ordered {
+  color: #dc2626;
+  background-color: #fef2f2;
+}
+
+.status-ordered i,
+.status-not_ordered i {
+  transition: transform 0.2s ease;
+}
+
+.status-ordered:hover i,
+.status-not_ordered:hover i {
   transform: scale(1.1);
 }
 

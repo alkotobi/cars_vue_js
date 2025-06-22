@@ -73,6 +73,38 @@ $postData = json_decode(file_get_contents('php://input'), true);
 // Check if this is a special action request
 if (isset($postData['action'])) {
     switch($postData['action']) {
+        case 'execute_sql':
+            // Check if user is admin (you may need to implement proper session/auth check)
+            // For now, we'll add basic security measures
+            if (!isset($postData['query']) || empty($postData['query'])) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'SQL query is required']);
+                exit;
+            }
+            
+            $query = $postData['query'];
+            
+            // Basic security: prevent multiple statements
+            if (strpos($query, ';') !== false && strpos($query, ';') !== strlen($query) - 1) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'Multiple statements not allowed']);
+                exit;
+            }
+            
+            // Execute the query
+            $result = executeQuery($query);
+            
+            if ($result['success']) {
+                if (isset($result['data'])) {
+                    echo json_encode(['success' => true, 'results' => $result['data']]);
+                } else {
+                    echo json_encode(['success' => true, 'message' => 'Query executed successfully']);
+                }
+            } else {
+                echo json_encode(['success' => false, 'message' => $result['error']]);
+            }
+            exit;
+
         case 'verify_password':
             if (!isset($postData['password']) || !isset($postData['hash'])) {
                 http_response_code(400);
