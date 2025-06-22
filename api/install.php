@@ -99,8 +99,9 @@ try {
 
     $pdo->exec("CREATE TABLE `adv_sql` (
     `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+    `name` varchar(255) NOT NULL,
     `stmt` text DEFAULT NULL,
-    `desc` varchar(255) DEFAULT NULL,
+    `desc` text DEFAULT NULL,
     `params` text CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`params`)),
     `param_values` text CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`param_values`)),
     PRIMARY KEY (`id`)

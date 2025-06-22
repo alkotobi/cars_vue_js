@@ -98,6 +98,10 @@ if (isset($postData['action'])) {
             if ($result['success']) {
                 if (isset($result['data'])) {
                     echo json_encode(['success' => true, 'results' => $result['data']]);
+                } else if (isset($result['affectedRows'])) {
+                    echo json_encode(['success' => true, 'affectedRows' => $result['affectedRows']]);
+                } else if (isset($result['lastInsertId'])) {
+                    echo json_encode(['success' => true, 'lastInsertId' => $result['lastInsertId']]);
                 } else {
                     echo json_encode(['success' => true, 'message' => 'Query executed successfully']);
                 }

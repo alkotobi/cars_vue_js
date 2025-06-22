@@ -45,10 +45,11 @@
               @click="executeQuery"
               class="btn btn-primary"
               :disabled="isProcessing || !sqlQuery.trim() || !areParametersValid"
-              :class="{ processing: isProcessing }"
+              :class="{ processing: isProcessing, 'requires-confirmation': isNonSelectQuery }"
             >
               <i class="fas fa-play"></i>
-              Execute Query
+              <span v-if="isNonSelectQuery">Execute (Confirmation Required)</span>
+              <span v-else>Execute Query</span>
               <i v-if="isProcessing" class="fas fa-spinner fa-spin loading-indicator"></i>
             </button>
           </div>
@@ -148,12 +149,18 @@
           </div>
         </div>
 
-        <div class="safety-warning" v-if="isDangerousQuery">
+        <div class="safety-warning" v-if="isDangerousQuery || isNonSelectQuery">
           <div class="warning-content">
             <i class="fas fa-exclamation-triangle"></i>
             <div class="warning-text">
-              <strong>Warning:</strong> This query may modify data. Please review carefully before
-              executing.
+              <strong>Warning:</strong>
+              <span v-if="isNonSelectQuery">
+                This is a {{ queryType }} query that will modify data in the database. You will be
+                asked to confirm before execution.
+              </span>
+              <span v-else>
+                This query may modify data. Please review carefully before executing.
+              </span>
             </div>
           </div>
         </div>
@@ -280,15 +287,97 @@
             <i class="fas fa-times"></i>
           </button>
         </div>
+
+        <!-- Filters Section -->
+        <div class="dialog-filters">
+          <div class="filter-row">
+            <div class="filter-group">
+              <label for="template-search" class="filter-label">
+                <i class="fas fa-search"></i>
+                Search
+              </label>
+              <input
+                id="template-search"
+                v-model="templateFilters.search"
+                type="text"
+                class="filter-input"
+                placeholder="Search by name, description, or query..."
+              />
+            </div>
+
+            <div class="filter-group">
+              <label for="query-type-filter" class="filter-label">
+                <i class="fas fa-filter"></i>
+                Query Type
+              </label>
+              <select
+                id="query-type-filter"
+                v-model="templateFilters.queryType"
+                class="filter-select"
+              >
+                <option value="">All Types</option>
+                <option value="SELECT">SELECT</option>
+                <option value="INSERT">INSERT</option>
+                <option value="UPDATE">UPDATE</option>
+                <option value="DELETE">DELETE</option>
+                <option value="CREATE">CREATE</option>
+                <option value="ALTER">ALTER</option>
+                <option value="DROP">DROP</option>
+                <option value="OTHER">Other</option>
+              </select>
+            </div>
+
+            <div class="filter-group">
+              <label for="sort-by" class="filter-label">
+                <i class="fas fa-sort"></i>
+                Sort By
+              </label>
+              <select id="sort-by" v-model="templateFilters.sortBy" class="filter-select">
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+                <option value="name">Name A-Z</option>
+                <option value="name-desc">Name Z-A</option>
+                <option value="type">Query Type</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="filter-actions">
+            <button
+              @click="clearTemplateFilters"
+              class="btn btn-secondary btn-sm"
+              :disabled="!hasActiveFilters"
+            >
+              <i class="fas fa-eraser"></i>
+              Clear Filters
+            </button>
+            <span class="filter-count">
+              {{ filteredTemplates.length }} of {{ savedTemplates.length }} templates
+            </span>
+          </div>
+        </div>
+
         <div class="dialog-body">
           <div v-if="savedTemplates.length === 0" class="empty-templates">
             <i class="fas fa-bookmark fa-2x"></i>
             <p>No saved templates yet</p>
           </div>
+          <div v-else-if="filteredTemplates.length === 0" class="empty-templates">
+            <i class="fas fa-search fa-2x"></i>
+            <p>No templates match your filters</p>
+            <button @click="clearTemplateFilters" class="btn btn-primary btn-sm">
+              Clear Filters
+            </button>
+          </div>
           <div v-else class="templates-list">
-            <div v-for="template in savedTemplates" :key="template.id" class="template-item">
+            <div v-for="template in filteredTemplates" :key="template.id" class="template-item">
               <div class="template-info">
-                <h4>{{ template.name }}</h4>
+                <div class="template-header">
+                  <h4>{{ template.name }}</h4>
+                  <span class="template-type" :class="getQueryTypeClass(template.query)">
+                    {{ getQueryType(template.query) }}
+                  </span>
+                </div>
                 <p class="template-description">{{ template.description }}</p>
                 <p class="template-query">
                   {{ template.query.substring(0, 80) }}{{ template.query.length > 80 ? '...' : '' }}
@@ -324,6 +413,94 @@
         </div>
       </div>
     </div>
+
+    <!-- Save Template Dialog -->
+    <div v-if="showSaveDialog" class="dialog-overlay" @click="showSaveDialog = false">
+      <div class="dialog-content save-dialog" @click.stop>
+        <div class="dialog-header">
+          <h3>
+            <i class="fas fa-save"></i>
+            Save Query Template
+          </h3>
+          <button @click="showSaveDialog = false" class="dialog-close">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="dialog-body">
+          <form @submit.prevent="saveTemplate" class="save-form">
+            <div class="form-group">
+              <label for="template-name" class="form-label">
+                Template Name <span class="required-star">*</span>
+              </label>
+              <input
+                id="template-name"
+                v-model="saveForm.name"
+                type="text"
+                class="form-input"
+                :class="{ error: saveFormErrors.name }"
+                placeholder="Enter template name"
+                required
+              />
+              <div v-if="saveFormErrors.name" class="form-error">
+                {{ saveFormErrors.name }}
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="template-description" class="form-label"> Description </label>
+              <textarea
+                id="template-description"
+                v-model="saveForm.description"
+                class="form-textarea"
+                placeholder="Enter template description (optional)"
+                rows="3"
+              ></textarea>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">SQL Query</label>
+              <div class="query-preview">
+                <code>{{ sqlQuery }}</code>
+              </div>
+            </div>
+
+            <div v-if="detectedParameters.length > 0" class="form-group">
+              <label class="form-label">Parameters</label>
+              <div class="parameters-preview">
+                <div v-for="param in detectedParameters" :key="param" class="param-preview">
+                  <span class="param-name">{{ param }}</span>
+                  <span class="param-value" v-if="parameterValues[param]">
+                    = {{ parameterValues[param] }}
+                  </span>
+                  <span class="param-empty" v-else> (not set) </span>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button
+                type="button"
+                @click="showSaveDialog = false"
+                class="btn btn-secondary"
+                :disabled="isSaving"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                class="btn btn-primary"
+                :disabled="isSaving || !saveForm.name.trim()"
+                :class="{ processing: isSaving }"
+              >
+                <i class="fas fa-save"></i>
+                Save Template
+                <i v-if="isSaving" class="fas fa-spinner fa-spin loading-indicator"></i>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -346,6 +523,18 @@ const parameterMode = ref(false)
 const parameterValues = ref({})
 const showTemplatesDialog = ref(false)
 const savedTemplates = ref([])
+const showSaveDialog = ref(false)
+const isSaving = ref(false)
+const saveForm = ref({
+  name: '',
+  description: '',
+})
+const saveFormErrors = ref({})
+const templateFilters = ref({
+  search: '',
+  queryType: '',
+  sortBy: 'newest',
+})
 
 // Check if user is admin
 const currentUser = computed(() => {
@@ -412,6 +601,39 @@ const isDangerousQuery = computed(() => {
   return dangerousKeywords.some((keyword) => query.includes(keyword))
 })
 
+// Check if query is a non-SELECT query
+const isNonSelectQuery = computed(() => {
+  if (!sqlQuery.value.trim()) return false
+
+  const queryType = sqlQuery.value.trim().toUpperCase()
+  return (
+    !queryType.startsWith('SELECT') &&
+    (queryType.startsWith('INSERT') ||
+      queryType.startsWith('UPDATE') ||
+      queryType.startsWith('DELETE') ||
+      queryType.startsWith('DROP') ||
+      queryType.startsWith('CREATE') ||
+      queryType.startsWith('ALTER') ||
+      queryType.startsWith('TRUNCATE'))
+  )
+})
+
+// Get query type for display
+const queryType = computed(() => {
+  if (!sqlQuery.value.trim()) return ''
+
+  const query = sqlQuery.value.trim().toUpperCase()
+  if (query.startsWith('SELECT')) return 'SELECT'
+  if (query.startsWith('INSERT')) return 'INSERT'
+  if (query.startsWith('UPDATE')) return 'UPDATE'
+  if (query.startsWith('DELETE')) return 'DELETE'
+  if (query.startsWith('DROP')) return 'DROP'
+  if (query.startsWith('CREATE')) return 'CREATE'
+  if (query.startsWith('ALTER')) return 'ALTER'
+  if (query.startsWith('TRUNCATE')) return 'TRUNCATE'
+  return 'OTHER'
+})
+
 // Watch for parameter changes and update parameterValues
 watch(
   detectedParameters,
@@ -457,7 +679,7 @@ onMounted(async () => {
 const loadTemplatesFromDatabase = async () => {
   try {
     const result = await callApi({
-      query: 'SELECT id, stmt, `desc`, params, param_values FROM adv_sql ORDER BY id DESC',
+      query: 'SELECT id, name, stmt, `desc`, params, param_values FROM adv_sql ORDER BY id DESC',
       requiresAuth: true,
     })
 
@@ -468,7 +690,7 @@ const loadTemplatesFromDatabase = async () => {
 
         return {
           id: template.id.toString(),
-          name: template.desc || `Template ${template.id}`,
+          name: template.name || `Template ${template.id}`,
           description: template.desc || '',
           query: template.stmt,
           params: params,
@@ -517,6 +739,36 @@ const clearParameters = () => {
 
 const executeQuery = async () => {
   if (isProcessing.value || !sqlQuery.value.trim()) return
+
+  // Check if this is a non-SELECT query and ask for confirmation
+  const queryType = sqlQuery.value.trim().toUpperCase()
+  const isNonSelectQuery =
+    !queryType.startsWith('SELECT') &&
+    (queryType.startsWith('INSERT') ||
+      queryType.startsWith('UPDATE') ||
+      queryType.startsWith('DELETE') ||
+      queryType.startsWith('DROP') ||
+      queryType.startsWith('CREATE') ||
+      queryType.startsWith('ALTER') ||
+      queryType.startsWith('TRUNCATE'))
+
+  if (isNonSelectQuery) {
+    try {
+      await ElMessageBox.confirm(
+        `This query will modify data in the database. Are you sure you want to execute this ${queryType.split(' ')[0]} statement?`,
+        'Confirm Database Modification',
+        {
+          confirmButtonText: 'Execute',
+          cancelButtonText: 'Cancel',
+          type: 'warning',
+          dangerouslyUseHTMLString: false,
+        },
+      )
+    } catch (err) {
+      // User cancelled
+      return
+    }
+  }
 
   isProcessing.value = true
   error.value = null
@@ -570,7 +822,13 @@ const executeQuery = async () => {
       // Add to history
       addToHistory(sqlQuery.value, true)
 
-      ElMessage.success(`Query executed successfully. ${queryResults.value.length} rows returned.`)
+      if (isNonSelectQuery) {
+        ElMessage.success(`Query executed successfully. ${data.affectedRows || 0} rows affected.`)
+      } else {
+        ElMessage.success(
+          `Query executed successfully. ${queryResults.value.length} rows returned.`,
+        )
+      }
     } else {
       error.value = data.message || 'An error occurred while executing the query.'
       addToHistory(sqlQuery.value, false)
@@ -641,60 +899,15 @@ const saveAsTemplate = async () => {
     }
   }
 
-  try {
-    const { value: name } = await ElMessageBox.prompt(
-      'Enter template name:',
-      'Save Query Template',
-      {
-        confirmButtonText: 'Save',
-        cancelButtonText: 'Cancel',
-        inputPattern: /\S+/,
-        inputErrorMessage: 'Template name cannot be empty',
-      },
-    )
-
-    const { value: description } = await ElMessageBox.prompt(
-      'Enter template description (optional):',
-      'Template Description',
-      {
-        confirmButtonText: 'Save',
-        cancelButtonText: 'Cancel',
-        inputValue: '',
-      },
-    )
-
-    // Prepare parameter values to save
-    const paramValuesToSave = {}
-    detectedParameters.value.forEach((param) => {
-      if (parameterValues.value[param] && parameterValues.value[param].trim() !== '') {
-        paramValuesToSave[param] = parameterValues.value[param].trim()
-      }
-    })
-
-    // Save to database
-    const result = await callApi({
-      query: 'INSERT INTO adv_sql (stmt, `desc`, params, param_values) VALUES (?, ?, ?, ?)',
-      params: [
-        sqlQuery.value,
-        description || name,
-        JSON.stringify(detectedParameters.value),
-        JSON.stringify(paramValuesToSave),
-      ],
-      requiresAuth: true,
-    })
-
-    if (result.success) {
-      ElMessage.success('Template saved successfully.')
-      // Reload templates from database
-      await loadTemplatesFromDatabase()
-    } else {
-      ElMessage.error('Failed to save template: ' + (result.message || 'Unknown error'))
-    }
-  } catch (err) {
-    if (err.message !== 'User cancelled') {
-      ElMessage.error('Failed to save template: ' + err.message)
-    }
+  // Reset form and errors
+  saveForm.value = {
+    name: '',
+    description: '',
   }
+  saveFormErrors.value = {}
+
+  // Show save dialog
+  showSaveDialog.value = true
 }
 
 const loadTemplate = (template) => {
@@ -800,6 +1013,130 @@ const copyResults = async () => {
 const formatTime = (timestamp) => {
   const date = new Date(timestamp)
   return date.toLocaleString()
+}
+
+const saveTemplate = async () => {
+  // Validate form
+  saveFormErrors.value = {}
+
+  if (!saveForm.value.name.trim()) {
+    saveFormErrors.value.name = 'Template name is required'
+    return
+  }
+
+  isSaving.value = true
+
+  try {
+    // Prepare parameter values to save
+    const paramValuesToSave = {}
+    detectedParameters.value.forEach((param) => {
+      if (parameterValues.value[param] && parameterValues.value[param].trim() !== '') {
+        paramValuesToSave[param] = parameterValues.value[param].trim()
+      }
+    })
+
+    // Save to database
+    const result = await callApi({
+      query:
+        'INSERT INTO adv_sql (name, stmt, `desc`, params, param_values) VALUES (?, ?, ?, ?, ?)',
+      params: [
+        saveForm.value.name,
+        sqlQuery.value,
+        saveForm.value.description || '',
+        JSON.stringify(detectedParameters.value),
+        JSON.stringify(paramValuesToSave),
+      ],
+      requiresAuth: true,
+    })
+
+    if (result.success) {
+      ElMessage.success('Template saved successfully.')
+      showSaveDialog.value = false
+      // Reload templates from database
+      await loadTemplatesFromDatabase()
+    } else {
+      ElMessage.error('Failed to save template: ' + (result.message || 'Unknown error'))
+    }
+  } catch (err) {
+    ElMessage.error('Failed to save template: ' + err.message)
+  } finally {
+    isSaving.value = false
+  }
+}
+
+const getQueryTypeClass = (query) => {
+  const type = query.trim().toUpperCase()
+  if (type.startsWith('SELECT')) return 'type-select'
+  if (type.startsWith('INSERT')) return 'type-insert'
+  if (type.startsWith('UPDATE')) return 'type-update'
+  if (type.startsWith('DELETE')) return 'type-delete'
+  if (type.startsWith('DROP')) return 'type-drop'
+  if (type.startsWith('CREATE')) return 'type-create'
+  if (type.startsWith('ALTER')) return 'type-alter'
+  if (type.startsWith('TRUNCATE')) return 'type-truncate'
+  return 'type-other'
+}
+
+const getQueryType = (query) => {
+  const type = query.trim().toUpperCase()
+  if (type.startsWith('SELECT')) return 'SELECT'
+  if (type.startsWith('INSERT')) return 'INSERT'
+  if (type.startsWith('UPDATE')) return 'UPDATE'
+  if (type.startsWith('DELETE')) return 'DELETE'
+  if (type.startsWith('DROP')) return 'DROP'
+  if (type.startsWith('CREATE')) return 'CREATE'
+  if (type.startsWith('ALTER')) return 'ALTER'
+  if (type.startsWith('TRUNCATE')) return 'TRUNCATE'
+  return 'OTHER'
+}
+
+const filteredTemplates = computed(() => {
+  const filters = templateFilters.value
+  let filtered = savedTemplates.value.filter((template) => {
+    const searchTerm = filters.search.toLowerCase()
+    const nameMatch = template.name.toLowerCase().includes(searchTerm)
+    const descriptionMatch = template.description.toLowerCase().includes(searchTerm)
+    const queryMatch = template.query.toLowerCase().includes(searchTerm)
+    const searchMatch = nameMatch || descriptionMatch || queryMatch
+
+    const typeMatch = filters.queryType === '' || getQueryType(template.query) === filters.queryType
+
+    return searchMatch && typeMatch
+  })
+
+  // Apply sorting
+  switch (filters.sortBy) {
+    case 'newest':
+      filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      break
+    case 'oldest':
+      filtered.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+      break
+    case 'name':
+      filtered.sort((a, b) => a.name.localeCompare(b.name))
+      break
+    case 'name-desc':
+      filtered.sort((a, b) => b.name.localeCompare(a.name))
+      break
+    case 'type':
+      filtered.sort((a, b) => getQueryType(a.query).localeCompare(getQueryType(b.query)))
+      break
+  }
+
+  return filtered
+})
+
+const hasActiveFilters = computed(() => {
+  const filters = templateFilters.value
+  return filters.search.length > 0 || filters.queryType.length > 0 || filters.sortBy.length > 0
+})
+
+const clearTemplateFilters = () => {
+  templateFilters.value = {
+    search: '',
+    queryType: '',
+    sortBy: 'newest',
+  }
 }
 </script>
 
@@ -952,6 +1289,16 @@ const formatTime = (timestamp) => {
 
 .btn.processing {
   background: #6b7280;
+}
+
+.btn.requires-confirmation {
+  background: #f59e0b;
+  border: 2px solid #d97706;
+}
+
+.btn.requires-confirmation:hover:not(:disabled) {
+  background: #d97706;
+  transform: translateY(-1px);
 }
 
 .query-input-container {
@@ -1420,13 +1767,18 @@ const formatTime = (timestamp) => {
 
 .empty-templates {
   text-align: center;
-  padding: 40px;
+  padding: 40px 20px;
   color: #6b7280;
 }
 
 .empty-templates i {
   margin-bottom: 16px;
   opacity: 0.5;
+}
+
+.empty-templates p {
+  margin-bottom: 16px;
+  font-size: 16px;
 }
 
 .templates-list {
@@ -1436,61 +1788,301 @@ const formatTime = (timestamp) => {
 }
 
 .template-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  padding: 16px;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
-  background: #f9fafb;
+  padding: 16px;
+  margin-bottom: 12px;
+  background: white;
+  transition: all 0.2s;
 }
 
-.template-info h4 {
-  margin: 0 0 8px 0;
+.template-item:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+}
+
+.template-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.template-header h4 {
+  margin: 0;
   color: #1f2937;
   font-size: 16px;
   font-weight: 600;
 }
 
+.template-type {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.type-select {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
+.type-insert {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.type-update {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.type-delete {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.type-drop {
+  background-color: #f3e8ff;
+  color: #7c3aed;
+}
+
+.type-create {
+  background-color: #e0f2fe;
+  color: #0c4a6e;
+}
+
+.type-alter {
+  background-color: #f0f9ff;
+  color: #0c4a6e;
+}
+
+.type-truncate {
+  background-color: #fef2f2;
+  color: #dc2626;
+}
+
+.type-other {
+  background-color: #f3f4f6;
+  color: #374151;
+}
+
 .template-description {
-  margin: 0 0 8px 0;
   color: #6b7280;
   font-size: 14px;
+  margin: 8px 0;
 }
 
 .template-query {
-  margin: 0;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-  font-size: 12px;
-  color: #374151;
-  background: white;
+  font-family: 'Courier New', monospace;
+  background-color: #f9fafb;
   padding: 8px;
   border-radius: 4px;
-  border: 1px solid #e5e7eb;
+  font-size: 12px;
+  color: #374151;
+  margin: 8px 0;
+  border-left: 3px solid #e5e7eb;
 }
 
 .template-params {
   margin-top: 8px;
-  padding: 8px;
-  border: 1px solid #e5e7eb;
-  border-radius: 4px;
-  background: #f9fafb;
+  font-size: 12px;
 }
 
 .param-values {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   gap: 4px;
+  margin-top: 4px;
 }
 
 .param-value {
-  font-size: 12px;
+  background-color: #f3f4f6;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 11px;
   color: #374151;
 }
 
 .template-actions {
   display: flex;
   gap: 8px;
+  margin-top: 12px;
+}
+
+.save-dialog {
+  max-width: 700px;
+}
+
+.save-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.form-input {
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: border-color 0.2s;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+.form-input.error {
+  border-color: #ef4444;
+  background-color: #fef2f2;
+}
+
+.form-textarea {
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+  transition: border-color 0.2s;
+}
+
+.form-textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+.form-error {
+  font-size: 12px;
+  color: #ef4444;
+  margin-top: 4px;
+}
+
+.query-preview {
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 12px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 13px;
+  color: #374151;
+  max-height: 100px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.parameters-preview {
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.param-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.param-name {
+  font-weight: 500;
+  color: #374151;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+.param-value {
+  color: #10b981;
+  font-weight: 500;
+}
+
+.param-empty {
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.dialog-filters {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.filter-row {
+  display: flex;
+  gap: 12px;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filter-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.filter-input {
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: border-color 0.2s;
+}
+
+.filter-select {
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: border-color 0.2s;
+}
+
+.filter-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.filter-count {
+  font-size: 12px;
+  color: #6b7280;
 }
 
 @media (max-width: 768px) {
@@ -1554,6 +2146,58 @@ const formatTime = (timestamp) => {
     flex-direction: column;
     gap: 4px;
     align-items: flex-start;
+  }
+
+  .sql-container {
+    flex-direction: column;
+  }
+
+  .sql-input {
+    width: 100%;
+    min-height: 200px;
+  }
+
+  .sql-results {
+    width: 100%;
+    margin-top: 20px;
+  }
+
+  .dialog-content {
+    width: 95%;
+    max-height: 90vh;
+  }
+
+  .dialog-filters {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .filter-row {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .filter-group {
+    width: 100%;
+  }
+
+  .filter-actions {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .template-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .template-actions {
+    flex-direction: column;
+  }
+
+  .template-actions .btn {
+    width: 100%;
   }
 }
 </style>
