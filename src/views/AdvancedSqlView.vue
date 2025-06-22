@@ -738,20 +738,10 @@ const clearParameters = () => {
 }
 
 const executeQuery = async () => {
-  console.log('=== EXECUTE QUERY DEBUG START ===')
-  console.log('1. Function called with sqlQuery:', sqlQuery.value)
-  console.log('2. isProcessing:', isProcessing.value)
-  console.log('3. sqlQuery.trim():', sqlQuery.value.trim())
-
-  if (isProcessing.value || !sqlQuery.value.trim()) {
-    console.log('4. Early return - isProcessing or empty query')
-    return
-  }
+  if (isProcessing.value || !sqlQuery.value.trim()) return
 
   // Check if this is a non-SELECT query and ask for confirmation
   const queryType = sqlQuery.value.trim().toUpperCase()
-  console.log('5. Query type detected:', queryType)
-
   const isNonSelectQuery =
     !queryType.startsWith('SELECT') &&
     (queryType.startsWith('INSERT') ||
@@ -762,10 +752,7 @@ const executeQuery = async () => {
       queryType.startsWith('ALTER') ||
       queryType.startsWith('TRUNCATE'))
 
-  console.log('6. isNonSelectQuery:', isNonSelectQuery)
-
   if (isNonSelectQuery) {
-    console.log('7. Non-SELECT query detected, asking for confirmation')
     try {
       await ElMessageBox.confirm(
         `This query will modify data in the database. Are you sure you want to execute this ${queryType.split(' ')[0]} statement?`,
@@ -777,9 +764,8 @@ const executeQuery = async () => {
           dangerouslyUseHTMLString: false,
         },
       )
-      console.log('8. User confirmed non-SELECT query')
     } catch (err) {
-      console.log('8. User cancelled non-SELECT query')
+      // User cancelled
       return
     }
   }
@@ -790,52 +776,30 @@ const executeQuery = async () => {
   executionTime.value = null
 
   const startTime = Date.now()
-  console.log('9. Starting query execution at:', new Date().toISOString())
 
   try {
     let finalQuery = sqlQuery.value
     let params = []
 
-    console.log('10. Parameter mode:', parameterMode.value)
-    console.log('11. Detected parameters:', detectedParameters.value)
-
     // If in parameter mode, replace parameters with values
     if (parameterMode.value && detectedParameters.value.length > 0) {
-      console.log('12. Processing parameters...')
-
       // Check if all parameters have values
       const missingParams = detectedParameters.value.filter(
         (param) => !parameterValues.value[param] || parameterValues.value[param].trim() === '',
       )
 
-      console.log('13. Missing parameters:', missingParams)
-      console.log('14. Parameter values:', parameterValues.value)
-
       if (missingParams.length > 0) {
         error.value = `Missing parameter values: ${missingParams.join(', ')}`
-        console.log('15. Error - missing parameters:', error.value)
         ElMessage.error(error.value)
         return
       }
 
       // Replace parameters with placeholders and collect values
       detectedParameters.value.forEach((param, index) => {
-        console.log(`16. Replacing parameter ${param} with ?`)
         finalQuery = finalQuery.replace(new RegExp(`:${param}`, 'g'), '?')
         params.push(parameterValues.value[param])
       })
-
-      console.log('17. Final query after parameter replacement:', finalQuery)
-      console.log('18. Parameters array:', params)
     }
-
-    console.log('19. About to call API with:')
-    console.log('   - action: execute_sql')
-    console.log('   - query:', finalQuery)
-    console.log('   - params:', params)
-    console.log('   - requiresAuth: true')
-
-    console.log('19a. callApi function available:', typeof callApi)
 
     const response = await callApi({
       action: 'execute_sql',
@@ -844,17 +808,9 @@ const executeQuery = async () => {
       requiresAuth: true,
     })
 
-    console.log('20. API response received:', response)
-    console.log('20a. Response type:', typeof response)
-    console.log('20b. Response keys:', Object.keys(response))
-
     if (response.success) {
-      console.log('21. Query executed successfully')
       queryResults.value = response.results || []
       executionTime.value = Date.now() - startTime
-
-      console.log('22. Results:', queryResults.value)
-      console.log('23. Execution time:', executionTime.value)
 
       // Add to history
       addToHistory(sqlQuery.value, true)
@@ -869,22 +825,16 @@ const executeQuery = async () => {
         )
       }
     } else {
-      console.log('24. Query failed with response:', response)
       error.value = response.message || 'An error occurred while executing the query.'
       addToHistory(sqlQuery.value, false)
       ElMessage.error(error.value)
     }
   } catch (err) {
-    console.log('25. Exception caught:', err)
-    console.log('26. Error message:', err.message)
-    console.log('27. Error stack:', err.stack)
     error.value = 'Network error: Unable to execute query.'
     addToHistory(sqlQuery.value, false)
     ElMessage.error(error.value)
   } finally {
-    console.log('28. Finally block - setting isProcessing to false')
     isProcessing.value = false
-    console.log('=== EXECUTE QUERY DEBUG END ===')
   }
 }
 

@@ -1082,6 +1082,8 @@ onMounted(() => {
   justify-content: center;
   align-items: center;
   z-index: 1000;
+  padding: 20px;
+  overflow-y: auto;
 }
 
 .dialog {
@@ -1091,6 +1093,9 @@ onMounted(() => {
   min-width: 400px;
   max-width: 600px;
   width: 100%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
@@ -1099,6 +1104,7 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+  flex-shrink: 0;
 }
 
 .dialog-header h3 {
@@ -1121,6 +1127,7 @@ onMounted(() => {
   padding: 4px;
   font-size: 1.2em;
   transition: color 0.2s;
+  flex-shrink: 0;
 }
 
 .close-btn:hover {
@@ -1132,6 +1139,9 @@ onMounted(() => {
   flex-direction: column;
   gap: 16px;
   margin-bottom: 20px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
 }
 
 .input-group {
@@ -1225,6 +1235,9 @@ onMounted(() => {
   justify-content: flex-end;
   gap: 12px;
   margin-top: 24px;
+  flex-shrink: 0;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
 }
 
 .id-document-cell {
@@ -1538,5 +1551,91 @@ onMounted(() => {
 
 .action-btn.details:hover {
   background-color: #bbdefb;
+}
+
+/* Responsive styles for mobile devices */
+@media (max-width: 768px) {
+  .clients-view {
+    padding: 10px;
+    width: 100%;
+  }
+
+  .dialog-overlay {
+    padding: 10px;
+  }
+
+  .dialog {
+    min-width: 300px;
+    max-width: 100%;
+    max-height: 95vh;
+    padding: 16px;
+  }
+
+  .dialog-header {
+    margin-bottom: 16px;
+  }
+
+  .dialog-header h3 {
+    font-size: 1.1rem;
+  }
+
+  .form-group {
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .dialog-actions {
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 16px;
+  }
+
+  .dialog-actions .btn {
+    width: 100%;
+    justify-content: center;
+    padding: 12px;
+    font-size: 1rem;
+  }
+
+  .input-field {
+    padding: 12px 12px 12px 40px;
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+
+  .textarea-field {
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+
+  .filters-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .clients-table {
+    font-size: 0.9rem;
+  }
+
+  .clients-table th,
+  .clients-table td {
+    padding: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .dialog {
+    padding: 12px;
+  }
+
+  .dialog-header h3 {
+    font-size: 1rem;
+  }
+
+  .input-field {
+    padding: 10px 10px 10px 35px;
+  }
+
+  .btn {
+    padding: 8px 12px;
+    font-size: 0.9rem;
+  }
 }
 </style>
