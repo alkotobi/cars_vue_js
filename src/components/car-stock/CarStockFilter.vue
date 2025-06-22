@@ -134,6 +134,13 @@ const applyBasicFilter = async () => {
   }
 }
 
+// Handle Enter key press for basic filter
+const handleBasicFilterKeydown = async (event) => {
+  if (event.key === 'Enter') {
+    await applyBasicFilter()
+  }
+}
+
 // Apply advanced filters
 const applyAdvancedFilters = async () => {
   if (isProcessing.value.advanced) return
@@ -179,11 +186,20 @@ fetchReferenceData()
           <input
             type="text"
             v-model="basicFilter"
-            placeholder="Search by ID, Car, Color, VIN, Ports, Client..."
-            @input="applyBasicFilter"
+            placeholder="Search by ID, Car, Color, VIN, Ports, Client... (Press Enter)"
+            @keydown="handleBasicFilterKeydown"
             :disabled="isProcessing.basic"
           />
-          <i v-if="isProcessing.basic" class="fas fa-spinner fa-spin loading-indicator"></i>
+          <button
+            @click="applyBasicFilter"
+            class="search-btn"
+            :disabled="isProcessing.basic"
+            :class="{ processing: isProcessing.basic }"
+            title="Press Enter or click to search"
+          >
+            <i class="fas fa-search"></i>
+            <i v-if="isProcessing.basic" class="fas fa-spinner fa-spin loading-indicator"></i>
+          </button>
         </div>
         <div class="filter-actions">
           <button
@@ -627,6 +643,8 @@ fetchReferenceData()
 .filter-input {
   flex: 1;
   position: relative;
+  display: flex;
+  align-items: center;
 }
 
 .search-icon {
@@ -635,14 +653,58 @@ fetchReferenceData()
   top: 50%;
   transform: translateY(-50%);
   color: #6b7280;
+  z-index: 2;
 }
 
 .filter-input input {
   width: 100%;
-  padding: 10px 36px;
+  padding: 10px 36px 10px 36px;
   border: 1px solid #ddd;
   border-radius: 4px;
   font-size: 14px;
+  border-right: none;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.search-btn {
+  padding: 10px 16px;
+  background-color: #3b82f6;
+  color: white;
+  border: 1px solid #3b82f6;
+  border-radius: 0 4px 4px 0;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+  min-width: 44px;
+  justify-content: center;
+}
+
+.search-btn:hover:not(:disabled) {
+  background-color: #2563eb;
+  border-color: #2563eb;
+}
+
+.search-btn:disabled {
+  background-color: #9ca3af;
+  border-color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.search-btn.processing {
+  position: relative;
+  pointer-events: none;
+}
+
+.search-btn.processing::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: inherit;
 }
 
 .filter-input .loading-indicator {
@@ -821,6 +883,25 @@ button:disabled {
   .toggle-btn,
   .reset-btn {
     flex: 1;
+  }
+
+  .filter-input {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .filter-input input {
+    border-radius: 4px;
+    border-right: 1px solid #ddd;
+  }
+
+  .search-btn {
+    border-radius: 4px;
+    width: 100%;
+    justify-content: center;
+    padding: 12px 16px;
+    font-size: 16px;
+    min-height: 44px;
   }
 }
 </style>
