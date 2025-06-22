@@ -1,5 +1,5 @@
 <script setup>
-import { ref, defineEmits } from 'vue'
+import { ref, defineEmits, watch } from 'vue'
 import { useApi } from '../../composables/useApi'
 
 const emit = defineEmits(['filter'])
@@ -30,6 +30,19 @@ const useAndOperator = ref(true) // Default to AND operator
 
 // Advanced filter state
 const showAdvancedFilter = ref(false)
+
+// Watch for changes in showAdvancedFilter and handle express filter accordingly
+watch(showAdvancedFilter, (newValue) => {
+  if (newValue) {
+    // When showing advanced filter: clear and disable express filter
+    basicFilter.value = ''
+    // The input will be disabled via the template
+  } else {
+    // When hiding advanced filter: enable express filter (input will be enabled via template)
+    // Don't clear the filter here as user might want to keep their search
+  }
+})
+
 const advancedFilters = ref({
   id: '',
   car_name: '',
@@ -202,12 +215,12 @@ fetchReferenceData()
             v-model="basicFilter"
             placeholder="Search: ID, Car, Color, VIN, Ports, Client... (Multiple words = AND/OR search)"
             @keydown="handleBasicFilterKeydown"
-            :disabled="isProcessing.basic"
+            :disabled="isProcessing.basic || showAdvancedFilter"
           />
           <button
             @click="applyBasicFilter"
             class="search-btn"
-            :disabled="isProcessing.basic"
+            :disabled="isProcessing.basic || showAdvancedFilter"
             :class="{ processing: isProcessing.basic }"
             :title="`Press Enter or click to search. Multiple words will be combined with ${useAndOperator ? 'AND' : 'OR'} operator.`"
           >
@@ -217,10 +230,14 @@ fetchReferenceData()
         </div>
         <div class="operator-choice">
           <label class="operator-checkbox">
-            <input type="checkbox" v-model="useAndOperator" :disabled="isProcessing.basic" />
+            <input
+              type="checkbox"
+              v-model="useAndOperator"
+              :disabled="isProcessing.basic || showAdvancedFilter"
+            />
             <span class="checkbox-label">
               <i class="fas fa-link"></i>
-              Use AND operator (all words must match)
+              If checked all words must mached
             </span>
           </label>
           <span class="operator-hint"> {{ useAndOperator ? 'AND' : 'OR' }} mode </span>
