@@ -283,26 +283,65 @@ const fetchCarsStock = async () => {
     // Apply filters if they exist
     if (props.filters) {
       // Basic filter (search across multiple fields)
-      if (props.filters.basic && props.filters.basic.trim() !== '') {
-        const searchTerm = `%${props.filters.basic.trim()}%`
-        query += `
-          AND (
-            cs.id LIKE ? OR
-            cn.car_name LIKE ? OR
-            clr.color LIKE ? OR
-            cs.vin LIKE ? OR
-            lp.loading_port LIKE ? OR
-            dp.discharge_port LIKE ? OR
-            c.name LIKE ? OR
-            c.id_no LIKE ? OR
-            w.warhouse_name LIKE ? OR
-            bb.bill_ref LIKE ? OR
-            sb.bill_ref LIKE ?
-          )
-        `
-        // Add the search parameter 11 times (once for each field)
-        for (let i = 0; i < 11; i++) {
-          params.push(searchTerm)
+      if (props.filters.basic && props.filters.basic.length > 0) {
+        // Handle both string (backward compatibility) and array of words
+        const searchTerms = Array.isArray(props.filters.basic)
+          ? props.filters.basic
+          : [props.filters.basic]
+
+        // Determine the operator to use (default to AND if not specified)
+        const operator = props.filters.basicOperator || 'AND'
+
+        if (searchTerms.length === 1) {
+          // Single word search - use OR across all fields
+          const term = `%${searchTerms[0].trim()}%`
+          query += `
+            AND (
+              cs.id LIKE ? OR
+              cn.car_name LIKE ? OR
+              clr.color LIKE ? OR
+              cs.vin LIKE ? OR
+              lp.loading_port LIKE ? OR
+              dp.discharge_port LIKE ? OR
+              c.name LIKE ? OR
+              c.id_no LIKE ? OR
+              w.warhouse_name LIKE ? OR
+              bb.bill_ref LIKE ? OR
+              sb.bill_ref LIKE ?
+            )
+          `
+          // Add the search parameter 11 times (once for each field)
+          for (let i = 0; i < 11; i++) {
+            params.push(term)
+          }
+        } else {
+          // Multiple words - use the specified operator
+          const conditions = searchTerms.map((searchTerm) => {
+            const term = `%${searchTerm.trim()}%`
+            return `(
+              cs.id LIKE ? OR
+              cn.car_name LIKE ? OR
+              clr.color LIKE ? OR
+              cs.vin LIKE ? OR
+              lp.loading_port LIKE ? OR
+              dp.discharge_port LIKE ? OR
+              c.name LIKE ? OR
+              c.id_no LIKE ? OR
+              w.warhouse_name LIKE ? OR
+              bb.bill_ref LIKE ? OR
+              sb.bill_ref LIKE ?
+            )`
+          })
+
+          query += ` AND (${conditions.join(` ${operator} `)})`
+
+          // Add parameters for each search term (11 parameters per term)
+          searchTerms.forEach((searchTerm) => {
+            const term = `%${searchTerm.trim()}%`
+            for (let i = 0; i < 11; i++) {
+              params.push(term)
+            }
+          })
         }
       }
 

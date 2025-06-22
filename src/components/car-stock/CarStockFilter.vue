@@ -25,6 +25,9 @@ const warehouses = ref([])
 // Basic filter
 const basicFilter = ref('')
 
+// Add operator choice for multi-word search
+const useAndOperator = ref(true) // Default to AND operator
+
 // Advanced filter state
 const showAdvancedFilter = ref(false)
 const advancedFilters = ref({
@@ -128,7 +131,18 @@ const applyBasicFilter = async () => {
       await resetFilters()
       return
     }
-    emit('filter', { basic: basicFilter.value, advanced: null })
+
+    // Split the search term into multiple words and filter out empty strings
+    const searchWords = basicFilter.value
+      .trim()
+      .split(/\s+/)
+      .filter((word) => word.length > 0)
+
+    emit('filter', {
+      basic: searchWords,
+      basicOperator: useAndOperator.value ? 'AND' : 'OR',
+      advanced: null,
+    })
   } finally {
     isProcessing.value.basic = false
   }
@@ -186,7 +200,7 @@ fetchReferenceData()
           <input
             type="text"
             v-model="basicFilter"
-            placeholder="Search by ID, Car, Color, VIN, Ports, Client... (Press Enter)"
+            placeholder="Search: ID, Car, Color, VIN, Ports, Client... (Multiple words = AND/OR search)"
             @keydown="handleBasicFilterKeydown"
             :disabled="isProcessing.basic"
           />
@@ -195,11 +209,21 @@ fetchReferenceData()
             class="search-btn"
             :disabled="isProcessing.basic"
             :class="{ processing: isProcessing.basic }"
-            title="Press Enter or click to search"
+            :title="`Press Enter or click to search. Multiple words will be combined with ${useAndOperator ? 'AND' : 'OR'} operator.`"
           >
             <i class="fas fa-search"></i>
             <i v-if="isProcessing.basic" class="fas fa-spinner fa-spin loading-indicator"></i>
           </button>
+        </div>
+        <div class="operator-choice">
+          <label class="operator-checkbox">
+            <input type="checkbox" v-model="useAndOperator" :disabled="isProcessing.basic" />
+            <span class="checkbox-label">
+              <i class="fas fa-link"></i>
+              Use AND operator (all words must match)
+            </span>
+          </label>
+          <span class="operator-hint"> {{ useAndOperator ? 'AND' : 'OR' }} mode </span>
         </div>
         <div class="filter-actions">
           <button
@@ -714,6 +738,28 @@ fetchReferenceData()
   transform: translateY(-50%);
 }
 
+.search-help {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 8px 12px;
+  background-color: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #0369a1;
+}
+
+.search-help i {
+  color: #0284c7;
+  flex-shrink: 0;
+}
+
+.search-help span {
+  line-height: 1.4;
+}
+
 .filter-actions {
   display: flex;
   gap: 8px;
@@ -903,5 +949,90 @@ button:disabled {
     font-size: 16px;
     min-height: 44px;
   }
+
+  .search-help {
+    font-size: 11px;
+    padding: 6px 10px;
+  }
 }
+
+/* Operator choice styles */
+.operator-choice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.operator-checkbox {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+  gap: 8px;
+}
+
+.operator-checkbox input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--primary-color);
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+  color: var(--text-color);
+}
+
+.checkbox-label i {
+  color: var(--primary-color);
+  font-size: 0.8rem;
+}
+
+.operator-hint {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--primary-color);
+  background: rgba(var(--primary-color-rgb), 0.1);
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(var(--primary-color-rgb), 0.2);
+}
+
+/* Responsive styles for operator choice */
+@media (max-width: 768px) {
+  .operator-choice {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .operator-hint {
+    align-self: flex-end;
+  }
+}
+
+@media (max-width: 480px) {
+  .operator-choice {
+    padding: 6px 8px;
+  }
+
+  .checkbox-label {
+    font-size: 0.85rem;
+  }
+
+  .operator-hint {
+    font-size: 0.75rem;
+    padding: 3px 6px;
+  }
+}
+
+/* Search help styles */
 </style>
