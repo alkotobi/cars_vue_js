@@ -129,6 +129,7 @@ const openEditDialog = (bill) => {
     bill_ref: bill.bill_ref || '',
     pi_path: bill.pi_path || '',
     pi_file: null,
+    is_ordered: bill.is_ordered,
   }
   showEditDialog.value = true
 }
@@ -141,6 +142,7 @@ const openAddDialog = () => {
     bill_ref: '',
     pi_path: '',
     pi_file: null,
+    is_ordered: 1,
   }
   showAddDialog.value = true
 }
@@ -153,6 +155,7 @@ const newPurchase = ref({
   bill_ref: '',
   pi_path: '',
   pi_file: null,
+  is_ordered: 1,
 })
 
 const newDetail = ref({
@@ -241,14 +244,15 @@ const addPurchase = async () => {
 
     const result = await callApi({
       query: `
-        INSERT INTO buy_bill (id_supplier, date_buy, bill_ref, pi_path)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO buy_bill (id_supplier, date_buy, bill_ref, pi_path, is_ordered)
+        VALUES (?, ?, ?, ?, ?)
       `,
       params: [
         newPurchase.value.id_supplier,
         newPurchase.value.date_buy,
         newPurchase.value.bill_ref,
         newPurchase.value.pi_path,
+        newPurchase.value.is_ordered,
       ],
     })
 
@@ -262,6 +266,7 @@ const addPurchase = async () => {
         bill_ref: '',
         pi_path: '',
         pi_file: null,
+        is_ordered: 1,
       }
     } else {
       throw new Error(result.error || 'Failed to add purchase')
@@ -321,7 +326,7 @@ const updatePurchase = async () => {
     const result = await callApi({
       query: `
         UPDATE buy_bill 
-        SET id_supplier = ?, date_buy = ?, bill_ref = ?, pi_path = ?
+        SET id_supplier = ?, date_buy = ?, bill_ref = ?, pi_path = ?, is_ordered = ?
         WHERE id = ?
       `,
       params: [
@@ -329,6 +334,7 @@ const updatePurchase = async () => {
         newPurchase.value.date_buy,
         newPurchase.value.bill_ref,
         newPurchase.value.pi_path,
+        newPurchase.value.is_ordered,
         editingBill.value.id,
       ],
     })
@@ -344,6 +350,7 @@ const updatePurchase = async () => {
         bill_ref: '',
         pi_path: '',
         pi_file: null,
+        is_ordered: 1,
       }
     } else {
       throw new Error(result.error || 'Failed to update purchase')
@@ -669,6 +676,19 @@ const openPayments = (bill) => {
             </a>
           </div>
 
+          <div v-if="isAdmin" class="form-group checkbox">
+            <label>
+              <input
+                type="checkbox"
+                v-model="newPurchase.is_ordered"
+                :true-value="1"
+                :false-value="0"
+              />
+              Order Confirmed
+            </label>
+            <small class="help-text">Mark this purchase as confirmed order</small>
+          </div>
+
           <div class="dialog-buttons">
             <button type="button" @click="showAddDialog = false" class="cancel-btn">Cancel</button>
             <button type="submit" class="submit-btn" :disabled="isSubmittingPurchase">
@@ -728,6 +748,19 @@ const openPayments = (bill) => {
             <div v-if="!newPurchase.pi_path && !newPurchase.pi_file" class="validation-message">
               PI document is required
             </div>
+          </div>
+
+          <div v-if="isAdmin" class="form-group checkbox">
+            <label>
+              <input
+                type="checkbox"
+                v-model="newPurchase.is_ordered"
+                :true-value="1"
+                :false-value="0"
+              />
+              Order Confirmed
+            </label>
+            <small class="help-text">Mark this purchase as confirmed order</small>
           </div>
 
           <div class="dialog-buttons">
@@ -1180,5 +1213,13 @@ h3 {
   to {
     transform: rotate(360deg);
   }
+}
+
+.help-text {
+  color: #6b7280;
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+  margin-left: 24px;
+  display: block;
 }
 </style>

@@ -379,9 +379,9 @@ const fetchCarsStock = async () => {
         // Status filter (Available/Sold)
         if (adv.status && adv.status.trim() !== '') {
           if (adv.status === 'available') {
-            query += ` AND (cs.date_sell IS NULL AND cs.id_client IS NULL)`
+            query += ` AND cs.id_sell IS NULL`
           } else if (adv.status === 'sold') {
-            query += ` AND (cs.date_sell IS NOT NULL OR cs.id_client IS NOT NULL)`
+            query += ` AND cs.id_sell IS NOT NULL`
           }
         }
 
@@ -931,18 +931,18 @@ defineExpose({
             <td>
               <span
                 :class="{
-                  'status-sold': car.date_sell || car.id_client,
-                  'status-available': !car.date_sell && !car.id_client,
+                  'status-sold': car.id_sell,
+                  'status-available': !car.id_sell,
                   'status-used': car.is_used_car,
                 }"
               >
                 <i
                   :class="[
-                    car.date_sell || car.id_client ? 'fas fa-check-circle' : 'fas fa-clock',
+                    car.id_sell ? 'fas fa-check-circle' : 'fas fa-clock',
                     car.is_used_car ? 'fas fa-history' : '',
                   ]"
                 ></i>
-                {{ car.date_sell || car.id_client ? 'Sold' : 'Available' }}
+                {{ car.id_sell ? 'Sold' : 'Available' }}
                 {{ car.is_used_car ? '(Used)' : '' }}
               </span>
             </td>
