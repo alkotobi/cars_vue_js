@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, watch, defineProps, defineEmits } from 'vue'
+import { ref, onMounted, watch, defineProps, defineEmits, computed } from 'vue'
 import { useApi } from '../../composables/useApi'
 import { ElSelect, ElOption } from 'element-plus'
 import 'element-plus/dist/index.css'
@@ -17,16 +17,20 @@ const props = defineProps({
       id_broker: null,
       date_sell: new Date().toISOString().split('T')[0],
       notes: '',
+      id_user: null,
     }),
   },
 })
 const user = ref(null)
+const isAdmin = computed(() => user.value?.role_id === 1)
 
 const emit = defineEmits(['save', 'cancel'])
 
 const { callApi } = useApi()
 const brokers = ref([])
 const filteredBrokers = ref([])
+const users = ref([])
+const filteredUsers = ref([])
 const loading = ref(false)
 const error = ref(null)
 
@@ -39,6 +43,7 @@ const formData = ref({
   date_sell: new Date().toISOString().split('T')[0],
   notes: '',
   is_batch_sell: false,
+  id_user: null,
 })
 
 // Watch for changes in billData prop
@@ -85,6 +90,28 @@ const fetchBrokers = async () => {
   }
 }
 
+const fetchUsers = async () => {
+  try {
+    const result = await callApi({
+      query: `
+        SELECT id, username, email
+        FROM users
+        ORDER BY username ASC
+      `,
+      params: [],
+    })
+
+    if (result.success) {
+      users.value = result.data
+      filteredUsers.value = result.data
+    } else {
+      error.value = result.error || 'Failed to fetch users'
+    }
+  } catch (err) {
+    error.value = err.message || 'An error occurred'
+  }
+}
+
 const remoteMethod = (query) => {
   if (query) {
     // Filter the existing brokers data
@@ -94,6 +121,18 @@ const remoteMethod = (query) => {
   } else {
     // If no query, show all brokers
     filteredBrokers.value = brokers.value
+  }
+}
+
+const remoteMethodUsers = (query) => {
+  if (query) {
+    // Filter the existing users data
+    filteredUsers.value = users.value.filter((user) =>
+      user.username.toLowerCase().includes(query.toLowerCase()),
+    )
+  } else {
+    // If no query, show all users
+    filteredUsers.value = users.value
   }
 }
 
@@ -127,7 +166,7 @@ const saveBill = async () => {
           formData.value.id_broker || null,
           formData.value.date_sell,
           formData.value.notes || '',
-          user.value?.id || null,
+          formData.value.id_user || null,
           formData.value.is_batch_sell ? 1 : 0,
         ],
       })
@@ -201,7 +240,7 @@ const saveBill = async () => {
       result = await callApi({
         query: `
           UPDATE sell_bill
-          SET id_broker = ?, date_sell = ?, notes = ?, is_batch_sell = ?
+          SET id_broker = ?, date_sell = ?, notes = ?, is_batch_sell = ?, id_user = ?
           WHERE id = ?
         `,
         params: [
@@ -209,6 +248,7 @@ const saveBill = async () => {
           formData.value.date_sell,
           formData.value.notes || '',
           formData.value.is_batch_sell ? 1 : 0,
+          formData.value.id_user || null,
           formData.value.id,
         ],
       })
@@ -235,6 +275,7 @@ onMounted(() => {
     user.value = JSON.parse(userStr)
     console.log('Parsed user:', user.value) // Debug parsed user
     fetchBrokers()
+    fetchUsers()
   }
 })
 </script>
@@ -283,6 +324,36 @@ onMounted(() => {
             <small v-if="broker.mobiles">
               <i class="fas fa-phone"></i>
               {{ broker.mobiles }}
+            </small>
+          </el-option>
+        </el-select>
+      </div>
+
+      <div v-if="isAdmin" class="form-group">
+        <label for="user">
+          <i class="fas fa-user"></i>
+          User:
+        </label>
+        <el-select
+          v-model="formData.id_user"
+          filterable
+          remote
+          :remote-method="remoteMethodUsers"
+          :loading="loading"
+          placeholder="Select a user"
+          class="user-select"
+        >
+          <el-option
+            v-for="user in filteredUsers"
+            :key="user.id"
+            :label="user.username"
+            :value="user.id"
+          >
+            <i class="fas fa-user"></i>
+            {{ user.username }}
+            <small v-if="user.email">
+              <i class="fas fa-envelope"></i>
+              {{ user.email }}
             </small>
           </el-option>
         </el-select>
@@ -406,6 +477,10 @@ onMounted(() => {
 }
 
 .broker-select {
+  width: 100%;
+}
+
+.user-select {
   width: 100%;
 }
 
