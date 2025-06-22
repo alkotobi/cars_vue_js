@@ -196,6 +196,25 @@ const sortedCars = computed(() => {
       bVal = parseFloat(bVal) || 0
     }
 
+    // Handle status field (Sold comes after Available alphabetically, but we want Available first)
+    if (sortConfig.value.key === 'status') {
+      // Define status priority (Available = 1, Sold = 2)
+      const getStatusPriority = (status) => {
+        if (status === 'Available') return 1
+        if (status === 'Sold') return 2
+        return 3 // for any other values
+      }
+
+      const aPriority = getStatusPriority(aVal)
+      const bPriority = getStatusPriority(bVal)
+
+      if (sortConfig.value.direction === 'asc') {
+        return aPriority - bPriority
+      } else {
+        return bPriority - aPriority
+      }
+    }
+
     // Handle null values
     if (aVal == null) return 1
     if (bVal == null) return -1
@@ -263,7 +282,11 @@ const fetchCarsStock = async () => {
         sb.bill_ref as sell_bill_ref,
         cs.is_used_car,
         c.id_no as client_id_no,
-        cs.container_ref
+        cs.container_ref,
+        CASE 
+          WHEN cs.id_sell IS NOT NULL THEN 'Sold'
+          ELSE 'Available'
+        END as status
       FROM cars_stock cs
       LEFT JOIN clients c ON cs.id_client = c.id
       LEFT JOIN buy_details bd ON cs.id_buy_details = bd.id
@@ -417,6 +440,7 @@ const fetchCarsStock = async () => {
 
         // Status filter (Available/Sold)
         if (adv.status && adv.status.trim() !== '') {
+          console.log('Status filter value:', adv.status) // Debug
           if (adv.status === 'available') {
             query += ` AND cs.id_sell IS NULL`
           } else if (adv.status === 'sold') {
@@ -534,9 +558,6 @@ const fetchCarsStock = async () => {
         }
       }
     }
-
-    // Add the ORDER BY clause
-    query += ` ORDER BY cs.id DESC`
 
     const result = await callApi({
       query,
@@ -918,7 +939,12 @@ defineExpose({
                 {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
               </span>
             </th>
-            <th>Status</th>
+            <th @click="toggleSort('status')" class="sortable">
+              Status
+              <span v-if="sortConfig.key === 'status'" class="sort-indicator">
+                {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
+              </span>
+            </th>
             <th @click="toggleSort('notes')" class="sortable">
               Notes
               <span v-if="sortConfig.key === 'notes'" class="sort-indicator">
