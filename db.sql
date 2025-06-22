@@ -436,6 +436,17 @@ CREATE TABLE `warehouses` (
 
 
 
+# Advanced SQL Templates Table
+CREATE TABLE `adv_sql` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `stmt` text DEFAULT NULL,
+  `desc` varchar(255) DEFAULT NULL,
+  `params` text CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`params`)),
+  `param_values` text CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`param_values`)),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+
 
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;

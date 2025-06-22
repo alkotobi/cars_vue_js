@@ -83,6 +83,7 @@ if (isset($postData['action'])) {
             }
             
             $query = $postData['query'];
+            $params = isset($postData['params']) ? $postData['params'] : [];
             
             // Basic security: prevent multiple statements
             if (strpos($query, ';') !== false && strpos($query, ';') !== strlen($query) - 1) {
@@ -91,8 +92,8 @@ if (isset($postData['action'])) {
                 exit;
             }
             
-            // Execute the query
-            $result = executeQuery($query);
+            // Execute the query with parameters
+            $result = executeQuery($query, $params);
             
             if ($result['success']) {
                 if (isset($result['data'])) {

@@ -28,6 +28,15 @@
             SQL Query Editor
           </h3>
           <div class="editor-actions">
+            <button
+              @click="toggleParameterMode"
+              class="btn"
+              :class="parameterMode ? 'btn-primary' : 'btn-secondary'"
+              :disabled="isProcessing"
+            >
+              <i class="fas fa-sliders-h"></i>
+              {{ parameterMode ? 'Simple Mode' : 'Parameter Mode' }}
+            </button>
             <button @click="clearQuery" class="btn btn-secondary" :disabled="isProcessing">
               <i class="fas fa-eraser"></i>
               Clear
@@ -35,7 +44,7 @@
             <button
               @click="executeQuery"
               class="btn btn-primary"
-              :disabled="isProcessing || !sqlQuery.trim()"
+              :disabled="isProcessing || !sqlQuery.trim() || !areParametersValid"
               :class="{ processing: isProcessing }"
             >
               <i class="fas fa-play"></i>
@@ -48,7 +57,11 @@
         <div class="query-input-container">
           <textarea
             v-model="sqlQuery"
-            placeholder="Enter your SQL query here..."
+            :placeholder="
+              parameterMode
+                ? 'Enter your SQL query with parameters like :param1, :param2...'
+                : 'Enter your SQL query here...'
+            "
             class="sql-textarea"
             :disabled="isProcessing"
             @keydown.ctrl.enter="executeQuery"
@@ -60,6 +73,78 @@
               Press Ctrl+Enter (or Cmd+Enter) to execute
             </span>
             <span class="query-length">{{ sqlQuery.length }} characters</span>
+          </div>
+        </div>
+
+        <!-- Parameter Input Section -->
+        <div v-if="parameterMode && detectedParameters.length > 0" class="parameters-section">
+          <div class="parameters-header">
+            <h4>
+              <i class="fas fa-sliders-h"></i>
+              Query Parameters ({{ detectedParameters.length }})
+              <span class="required-indicator">* Required</span>
+              <span v-if="hasLoadedParameters" class="loaded-indicator">
+                <i class="fas fa-check-circle"></i>
+                Loaded from template
+              </span>
+            </h4>
+            <button
+              @click="clearParameters"
+              class="btn btn-secondary btn-sm"
+              :disabled="isProcessing"
+            >
+              <i class="fas fa-eraser"></i>
+              Clear All
+            </button>
+          </div>
+          <div class="parameters-grid">
+            <div v-for="param in detectedParameters" :key="param" class="parameter-input">
+              <label :for="`param-${param}`" class="parameter-label">
+                {{ param }}
+                <span class="required-star">*</span>
+              </label>
+              <input
+                :id="`param-${param}`"
+                v-model="parameterValues[param]"
+                type="text"
+                class="parameter-field"
+                :class="{ error: isParameterError(param) }"
+                :placeholder="`Enter value for ${param}`"
+                :disabled="isProcessing"
+                required
+              />
+              <div v-if="isParameterError(param)" class="parameter-error">
+                This parameter is required
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Query Templates Section -->
+        <div v-if="parameterMode" class="templates-section">
+          <div class="templates-header">
+            <h4>
+              <i class="fas fa-bookmark"></i>
+              Query Templates
+            </h4>
+            <div class="template-actions">
+              <button
+                @click="saveAsTemplate"
+                class="btn btn-secondary btn-sm"
+                :disabled="isProcessing || !sqlQuery.trim()"
+              >
+                <i class="fas fa-save"></i>
+                Save Template
+              </button>
+              <button
+                @click="showTemplatesDialog = true"
+                class="btn btn-secondary btn-sm"
+                :disabled="isProcessing"
+              >
+                <i class="fas fa-folder-open"></i>
+                Load Template
+              </button>
+            </div>
           </div>
         </div>
 
@@ -182,15 +267,74 @@
         </div>
       </div>
     </div>
+
+    <!-- Templates Dialog -->
+    <div v-if="showTemplatesDialog" class="dialog-overlay" @click="showTemplatesDialog = false">
+      <div class="dialog-content" @click.stop>
+        <div class="dialog-header">
+          <h3>
+            <i class="fas fa-bookmark"></i>
+            Saved Query Templates
+          </h3>
+          <button @click="showTemplatesDialog = false" class="dialog-close">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="dialog-body">
+          <div v-if="savedTemplates.length === 0" class="empty-templates">
+            <i class="fas fa-bookmark fa-2x"></i>
+            <p>No saved templates yet</p>
+          </div>
+          <div v-else class="templates-list">
+            <div v-for="template in savedTemplates" :key="template.id" class="template-item">
+              <div class="template-info">
+                <h4>{{ template.name }}</h4>
+                <p class="template-description">{{ template.description }}</p>
+                <p class="template-query">
+                  {{ template.query.substring(0, 80) }}{{ template.query.length > 80 ? '...' : '' }}
+                </p>
+                <div
+                  v-if="template.paramValues && Object.keys(template.paramValues).length > 0"
+                  class="template-params"
+                >
+                  <strong>Saved Parameters:</strong>
+                  <div class="param-values">
+                    <span
+                      v-for="(value, param) in template.paramValues"
+                      :key="param"
+                      class="param-value"
+                    >
+                      {{ param }}: {{ value }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div class="template-actions">
+                <button @click="loadTemplate(template)" class="btn btn-primary btn-sm">
+                  <i class="fas fa-edit"></i>
+                  Load
+                </button>
+                <button @click="deleteTemplate(template.id)" class="btn btn-secondary btn-sm">
+                  <i class="fas fa-trash"></i>
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { useApi } from '../composables/useApi.js'
 
 const router = useRouter()
+const { callApi, loading: apiLoading, error: apiError } = useApi()
 const loading = ref(false)
 const isProcessing = ref(false)
 const sqlQuery = ref('')
@@ -198,6 +342,10 @@ const queryResults = ref(null)
 const error = ref(null)
 const executionTime = ref(null)
 const queryHistory = ref([])
+const parameterMode = ref(false)
+const parameterValues = ref({})
+const showTemplatesDialog = ref(false)
+const savedTemplates = ref([])
 
 // Check if user is admin
 const currentUser = computed(() => {
@@ -207,6 +355,42 @@ const currentUser = computed(() => {
 
 const isAdmin = computed(() => {
   return currentUser.value?.role_id === 1
+})
+
+// Detect parameters in SQL query
+const detectedParameters = computed(() => {
+  if (!sqlQuery.value) return []
+
+  const paramRegex = /:([a-zA-Z_][a-zA-Z0-9_]*)/g
+  const matches = sqlQuery.value.match(paramRegex) || []
+  const uniqueParams = [...new Set(matches.map((match) => match.substring(1)))]
+
+  return uniqueParams
+})
+
+// Check if parameter has error (empty or whitespace)
+const isParameterError = (param) => {
+  return (
+    parameterMode.value &&
+    detectedParameters.value.includes(param) &&
+    (!parameterValues.value[param] || parameterValues.value[param].trim() === '')
+  )
+}
+
+// Check if all parameters are valid
+const areParametersValid = computed(() => {
+  if (!parameterMode.value || detectedParameters.value.length === 0) return true
+  return detectedParameters.value.every(
+    (param) => parameterValues.value[param] && parameterValues.value[param].trim() !== '',
+  )
+})
+
+// Check if parameters are loaded from a template
+const hasLoadedParameters = computed(() => {
+  if (!parameterMode.value || detectedParameters.value.length === 0) return false
+  return detectedParameters.value.some(
+    (param) => parameterValues.value[param] && parameterValues.value[param].trim() !== '',
+  )
 })
 
 // Check if query is potentially dangerous
@@ -228,13 +412,35 @@ const isDangerousQuery = computed(() => {
   return dangerousKeywords.some((keyword) => query.includes(keyword))
 })
 
-// Load query history from localStorage
-onMounted(() => {
+// Watch for parameter changes and update parameterValues
+watch(
+  detectedParameters,
+  (newParams) => {
+    // Remove parameters that no longer exist
+    Object.keys(parameterValues.value).forEach((param) => {
+      if (!newParams.includes(param)) {
+        delete parameterValues.value[param]
+      }
+    })
+
+    // Add new parameters with empty values
+    newParams.forEach((param) => {
+      if (!(param in parameterValues.value)) {
+        parameterValues.value[param] = ''
+      }
+    })
+  },
+  { immediate: true },
+)
+
+// Load data from localStorage and database
+onMounted(async () => {
   if (!isAdmin.value) {
     router.push('/dashboard')
     return
   }
 
+  // Load query history from localStorage
   const savedHistory = localStorage.getItem('sqlQueryHistory')
   if (savedHistory) {
     try {
@@ -243,7 +449,39 @@ onMounted(() => {
       console.error('Error loading query history:', e)
     }
   }
+
+  // Load templates from database
+  await loadTemplatesFromDatabase()
 })
+
+const loadTemplatesFromDatabase = async () => {
+  try {
+    const result = await callApi({
+      query: 'SELECT id, stmt, `desc`, params, param_values FROM adv_sql ORDER BY id DESC',
+      requiresAuth: true,
+    })
+
+    if (result.success && result.data) {
+      savedTemplates.value = result.data.map((template) => {
+        const params = template.params ? JSON.parse(template.params) : []
+        const paramValues = template.param_values ? JSON.parse(template.param_values) : {}
+
+        return {
+          id: template.id.toString(),
+          name: template.desc || `Template ${template.id}`,
+          description: template.desc || '',
+          query: template.stmt,
+          params: params,
+          paramValues: paramValues,
+          created: new Date().toISOString(), // We don't have created date in DB, so use current time
+        }
+      })
+    }
+  } catch (err) {
+    console.error('Error loading templates from database:', err)
+    ElMessage.error('Failed to load templates from database')
+  }
+}
 
 const returnToDashboard = async () => {
   if (isProcessing.value) return
@@ -255,11 +493,26 @@ const returnToDashboard = async () => {
   }
 }
 
+const toggleParameterMode = () => {
+  parameterMode.value = !parameterMode.value
+  if (!parameterMode.value) {
+    parameterValues.value = {}
+  }
+}
+
 const clearQuery = () => {
   sqlQuery.value = ''
   queryResults.value = null
   error.value = null
   executionTime.value = null
+  parameterValues.value = {}
+}
+
+const clearParameters = () => {
+  parameterValues.value = {}
+  Object.keys(parameterValues.value).forEach((key) => {
+    parameterValues.value[key] = ''
+  })
 }
 
 const executeQuery = async () => {
@@ -273,6 +526,29 @@ const executeQuery = async () => {
   const startTime = Date.now()
 
   try {
+    let finalQuery = sqlQuery.value
+    let params = []
+
+    // If in parameter mode, replace parameters with values
+    if (parameterMode.value && detectedParameters.value.length > 0) {
+      // Check if all parameters have values
+      const missingParams = detectedParameters.value.filter(
+        (param) => !parameterValues.value[param] || parameterValues.value[param].trim() === '',
+      )
+
+      if (missingParams.length > 0) {
+        error.value = `Missing parameter values: ${missingParams.join(', ')}`
+        ElMessage.error(error.value)
+        return
+      }
+
+      // Replace parameters with placeholders and collect values
+      detectedParameters.value.forEach((param, index) => {
+        finalQuery = finalQuery.replace(new RegExp(`:${param}`, 'g'), '?')
+        params.push(parameterValues.value[param])
+      })
+    }
+
     const response = await fetch('/api/api.php', {
       method: 'POST',
       headers: {
@@ -280,7 +556,8 @@ const executeQuery = async () => {
       },
       body: JSON.stringify({
         action: 'execute_sql',
-        query: sqlQuery.value,
+        query: finalQuery,
+        params: params,
       }),
     })
 
@@ -331,12 +608,146 @@ const loadQuery = (query) => {
   queryResults.value = null
   error.value = null
   executionTime.value = null
+
+  // Check if the loaded query has parameters and enable parameter mode
+  const paramRegex = /:([a-zA-Z_][a-zA-Z0-9_]*)/g
+  const matches = query.match(paramRegex) || []
+  if (matches.length > 0) {
+    parameterMode.value = true
+  }
+
+  // Clear parameter values when loading from history
+  parameterValues.value = {}
 }
 
 const clearHistory = () => {
   queryHistory.value = []
   localStorage.removeItem('sqlQueryHistory')
   ElMessage.success('Query history cleared.')
+}
+
+const saveAsTemplate = async () => {
+  if (!sqlQuery.value.trim()) return
+
+  // Check if all parameters have values
+  if (parameterMode.value && detectedParameters.value.length > 0) {
+    const missingParams = detectedParameters.value.filter(
+      (param) => !parameterValues.value[param] || parameterValues.value[param].trim() === '',
+    )
+
+    if (missingParams.length > 0) {
+      ElMessage.error(`Please fill in all required parameters: ${missingParams.join(', ')}`)
+      return
+    }
+  }
+
+  try {
+    const { value: name } = await ElMessageBox.prompt(
+      'Enter template name:',
+      'Save Query Template',
+      {
+        confirmButtonText: 'Save',
+        cancelButtonText: 'Cancel',
+        inputPattern: /\S+/,
+        inputErrorMessage: 'Template name cannot be empty',
+      },
+    )
+
+    const { value: description } = await ElMessageBox.prompt(
+      'Enter template description (optional):',
+      'Template Description',
+      {
+        confirmButtonText: 'Save',
+        cancelButtonText: 'Cancel',
+        inputValue: '',
+      },
+    )
+
+    // Prepare parameter values to save
+    const paramValuesToSave = {}
+    detectedParameters.value.forEach((param) => {
+      if (parameterValues.value[param] && parameterValues.value[param].trim() !== '') {
+        paramValuesToSave[param] = parameterValues.value[param].trim()
+      }
+    })
+
+    // Save to database
+    const result = await callApi({
+      query: 'INSERT INTO adv_sql (stmt, `desc`, params, param_values) VALUES (?, ?, ?, ?)',
+      params: [
+        sqlQuery.value,
+        description || name,
+        JSON.stringify(detectedParameters.value),
+        JSON.stringify(paramValuesToSave),
+      ],
+      requiresAuth: true,
+    })
+
+    if (result.success) {
+      ElMessage.success('Template saved successfully.')
+      // Reload templates from database
+      await loadTemplatesFromDatabase()
+    } else {
+      ElMessage.error('Failed to save template: ' + (result.message || 'Unknown error'))
+    }
+  } catch (err) {
+    if (err.message !== 'User cancelled') {
+      ElMessage.error('Failed to save template: ' + err.message)
+    }
+  }
+}
+
+const loadTemplate = (template) => {
+  sqlQuery.value = template.query
+  showTemplatesDialog.value = false
+
+  // Enable parameter mode if the template has parameters
+  if (template.params && template.params.length > 0) {
+    parameterMode.value = true
+  }
+
+  // Restore parameter values if they exist
+  if (template.paramValues && Object.keys(template.paramValues).length > 0) {
+    parameterValues.value = { ...template.paramValues }
+  } else {
+    // Clear parameter values if no saved values
+    parameterValues.value = {}
+  }
+
+  ElMessage.success(`Template "${template.name}" loaded.`)
+}
+
+const deleteTemplate = async (templateId) => {
+  try {
+    await ElMessageBox.confirm(
+      'Are you sure you want to delete this template?',
+      'Delete Template',
+      {
+        confirmButtonText: 'Delete',
+        cancelButtonText: 'Cancel',
+        type: 'warning',
+      },
+    )
+
+    // Delete from database
+    const result = await callApi({
+      query: 'DELETE FROM adv_sql WHERE id = ?',
+      params: [templateId],
+      requiresAuth: true,
+    })
+
+    if (result.success) {
+      ElMessage.success('Template deleted successfully.')
+      // Reload templates from database
+      await loadTemplatesFromDatabase()
+    } else {
+      ElMessage.error('Failed to delete template: ' + (result.message || 'Unknown error'))
+    }
+  } catch (err) {
+    if (err.message !== 'User cancelled') {
+      ElMessage.error('Failed to delete template: ' + err.message)
+    }
+  }
 }
 
 const exportToCSV = () => {
@@ -509,6 +920,11 @@ const formatTime = (timestamp) => {
   transition: all 0.2s;
 }
 
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
 .btn-primary {
   background: #10b981;
   color: white;
@@ -582,6 +998,132 @@ const formatTime = (timestamp) => {
 
 .query-length {
   font-weight: 500;
+}
+
+.parameters-section {
+  padding: 20px;
+  border-top: 1px solid #e5e7eb;
+  background: #f8fafc;
+}
+
+.parameters-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.parameters-header h4 {
+  margin: 0;
+  color: #1f2937;
+  font-size: 16px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.parameters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 16px;
+}
+
+.parameter-input {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.parameter-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.required-star {
+  color: #ef4444;
+  font-weight: bold;
+}
+
+.required-indicator {
+  font-size: 12px;
+  color: #ef4444;
+  font-weight: 500;
+  margin-left: 8px;
+}
+
+.loaded-indicator {
+  font-size: 12px;
+  color: #10b981;
+  font-weight: 500;
+  margin-left: 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.loaded-indicator i {
+  font-size: 14px;
+}
+
+.parameter-field {
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: border-color 0.2s;
+}
+
+.parameter-field:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+.parameter-field.error {
+  border-color: #ef4444;
+  background-color: #fef2f2;
+}
+
+.parameter-field:disabled {
+  background: #f9fafb;
+  cursor: not-allowed;
+}
+
+.parameter-error {
+  font-size: 12px;
+  color: #ef4444;
+  margin-top: 4px;
+}
+
+.templates-section {
+  padding: 20px;
+  border-top: 1px solid #e5e7eb;
+  background: #f8fafc;
+}
+
+.templates-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.templates-header h4 {
+  margin: 0;
+  color: #1f2937;
+  font-size: 16px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.template-actions {
+  display: flex;
+  gap: 8px;
 }
 
 .safety-warning {
@@ -811,6 +1353,146 @@ const formatTime = (timestamp) => {
   color: #991b1b;
 }
 
+/* Dialog Styles */
+.dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.dialog-content {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
+  overflow: hidden;
+}
+
+.dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.dialog-header h3 {
+  margin: 0;
+  color: #1f2937;
+  font-size: 18px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dialog-close {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.dialog-close:hover {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.dialog-body {
+  padding: 20px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.empty-templates {
+  text-align: center;
+  padding: 40px;
+  color: #6b7280;
+}
+
+.empty-templates i {
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.templates-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.template-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f9fafb;
+}
+
+.template-info h4 {
+  margin: 0 0 8px 0;
+  color: #1f2937;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.template-description {
+  margin: 0 0 8px 0;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.template-query {
+  margin: 0;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 12px;
+  color: #374151;
+  background: white;
+  padding: 8px;
+  border-radius: 4px;
+  border: 1px solid #e5e7eb;
+}
+
+.template-params {
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  background: #f9fafb;
+}
+
+.param-values {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.param-value {
+  font-size: 12px;
+  color: #374151;
+}
+
+.template-actions {
+  display: flex;
+  gap: 8px;
+}
+
 @media (max-width: 768px) {
   .advanced-sql-view {
     padding: 10px;
@@ -838,6 +1520,29 @@ const formatTime = (timestamp) => {
   .btn {
     flex: 1;
     justify-content: center;
+  }
+
+  .parameters-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .templates-header {
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+  }
+
+  .template-actions {
+    justify-content: stretch;
+  }
+
+  .template-item {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .template-actions {
+    justify-content: stretch;
   }
 
   .results-info {

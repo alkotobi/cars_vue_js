@@ -96,6 +96,15 @@ try {
         KEY `id_supplier` (`id_supplier`)
     ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci");
 
+
+    $pdo->exec("CREATE TABLE `adv_sql` (
+    `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+    `stmt` text DEFAULT NULL,
+    `desc` varchar(255) DEFAULT NULL,
+    `params` text CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`params`)),
+    `param_values` text CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`param_values`)),
+    PRIMARY KEY (`id`)
+  ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;");
     // Create buy_details table
     $pdo->exec("CREATE TABLE IF NOT EXISTS `buy_details` (
         `id` int(11) NOT NULL AUTO_INCREMENT,
