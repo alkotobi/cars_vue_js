@@ -215,7 +215,12 @@ const handleCarsTableRefresh = async () => {
     <!-- Add Dialog -->
     <div v-if="showAddDialog" class="dialog-overlay">
       <div class="dialog">
-        <SellBillForm mode="add" @save="handleSave" @cancel="showAddDialog = false" />
+        <SellBillForm
+          mode="add"
+          :billData="editingBill"
+          @save="handleSave"
+          @cancel="showAddDialog = false"
+        />
       </div>
     </div>
 

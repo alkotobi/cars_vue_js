@@ -56,6 +56,12 @@ watch(
         // Convert is_batch_sell from database format (0/1) to boolean
         is_batch_sell: Boolean(newData.is_batch_sell),
       }
+
+      // For non-admin users, always set id_user to current user's ID
+      if (!isAdmin.value && user.value?.id) {
+        formData.value.id_user = user.value.id
+      }
+
       // Ensure date is in the correct format for the date input
       if (formData.value.date_sell) {
         const date = new Date(formData.value.date_sell)
@@ -66,6 +72,17 @@ watch(
     }
   },
   { immediate: true },
+)
+
+// Watch for changes in isAdmin to ensure id_user is set correctly
+watch(
+  () => isAdmin.value,
+  (newIsAdmin) => {
+    // For non-admin users, ensure id_user is set to current user's ID
+    if (!newIsAdmin && user.value?.id) {
+      formData.value.id_user = user.value.id
+    }
+  },
 )
 
 const fetchBrokers = async () => {
@@ -274,6 +291,12 @@ onMounted(() => {
   if (userStr) {
     user.value = JSON.parse(userStr)
     console.log('Parsed user:', user.value) // Debug parsed user
+
+    // For non-admin users, ensure id_user is set to current user's ID
+    if (!isAdmin.value && user.value?.id) {
+      formData.value.id_user = user.value.id
+    }
+
     fetchBrokers()
     fetchUsers()
   }
