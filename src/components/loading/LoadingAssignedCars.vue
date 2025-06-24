@@ -216,7 +216,7 @@ const unassignCar = async (car) => {
 
   try {
     const result = await callApi({
-      query: 'UPDATE cars_stock SET id_loaded_container = NULL WHERE id = ?',
+      query: 'UPDATE cars_stock SET id_loaded_container = NULL, container_ref = NULL WHERE id = ?',
       params: [car.id],
     })
 

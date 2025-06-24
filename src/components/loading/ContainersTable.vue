@@ -432,7 +432,7 @@
 </template>
 
 <script setup>
-import { ref, watch, defineExpose } from 'vue'
+import { ref, watch, defineExpose, onMounted } from 'vue'
 import { useApi } from '@/composables/useApi'
 
 const props = defineProps({
@@ -548,7 +548,7 @@ const fetchAvailableContainers = async () => {
   }
 }
 
-const openAddDialog = () => {
+const openAddDialog = async () => {
   isEditing.value = false
   formData.value = {
     id_container: '',
@@ -558,10 +558,12 @@ const openAddDialog = () => {
     date_on_board: '',
     note: '',
   }
+  // Fetch available containers for the dropdown
+  await fetchAvailableContainers()
   showDialog.value = true
 }
 
-const editContainer = (container) => {
+const editContainer = async (container) => {
   console.log('Editing container:', container)
   isEditing.value = true
   formData.value = {
@@ -574,6 +576,8 @@ const editContainer = (container) => {
     note: container.note || '',
   }
   console.log('Form data set to:', formData.value)
+  // Fetch available containers for the dropdown
+  await fetchAvailableContainers()
   showDialog.value = true
 }
 
@@ -752,6 +756,12 @@ const handleContainerClick = (container) => {
 }
 
 const setOnBoard = (container) => {
+  // Check if container reference is null or empty
+  if (!container.ref_container || container.ref_container.trim() === '') {
+    alert('Cannot set container on board. Please set the container reference first.')
+    return
+  }
+
   // Check if container has assigned cars
   if (container.assigned_cars_count === 0) {
     alert('Cannot set container on board. No cars are assigned to this container.')
@@ -818,6 +828,9 @@ const getOnBoardButtonTitle = (container) => {
   if (container.date_on_board) {
     return 'Container is already on board'
   }
+  if (!container.ref_container || container.ref_container.trim() === '') {
+    return 'Set container reference first'
+  }
   if (container.assigned_cars_count === 0) {
     return 'No cars assigned to this container'
   }
@@ -836,6 +849,11 @@ watch(
   },
   { immediate: true },
 )
+
+// Fetch available containers when component mounts
+onMounted(() => {
+  fetchAvailableContainers()
+})
 
 // Expose methods to parent component
 defineExpose({

@@ -19,6 +19,85 @@
       </div>
     </div>
 
+    <!-- Filters Section -->
+    <div class="filters-section">
+      <div class="filters-row">
+        <div class="filter-group">
+          <label for="carNameFilter">
+            <i class="fas fa-car"></i>
+            Car Name
+          </label>
+          <input
+            type="text"
+            id="carNameFilter"
+            v-model="filters.carName"
+            placeholder="Filter by car name..."
+            @input="applyFilters"
+          />
+        </div>
+        <div class="filter-group">
+          <label for="colorFilter">
+            <i class="fas fa-palette"></i>
+            Color
+          </label>
+          <input
+            type="text"
+            id="colorFilter"
+            v-model="filters.color"
+            placeholder="Filter by color..."
+            @input="applyFilters"
+          />
+        </div>
+        <div class="filter-group">
+          <label for="vinFilter">
+            <i class="fas fa-barcode"></i>
+            VIN
+          </label>
+          <input
+            type="text"
+            id="vinFilter"
+            v-model="filters.vin"
+            placeholder="Filter by VIN..."
+            @input="applyFilters"
+          />
+        </div>
+      </div>
+      <div class="filters-row">
+        <div class="filter-group">
+          <label for="clientNameFilter">
+            <i class="fas fa-user"></i>
+            Client Name
+          </label>
+          <input
+            type="text"
+            id="clientNameFilter"
+            v-model="filters.clientName"
+            placeholder="Filter by client name..."
+            @input="applyFilters"
+          />
+        </div>
+        <div class="filter-group">
+          <label for="clientIdFilter">
+            <i class="fas fa-id-card"></i>
+            Client ID No
+          </label>
+          <input
+            type="text"
+            id="clientIdFilter"
+            v-model="filters.clientId"
+            placeholder="Filter by client ID..."
+            @input="applyFilters"
+          />
+        </div>
+        <div class="filter-actions">
+          <button @click="clearFilters" class="clear-filters-btn">
+            <i class="fas fa-times"></i>
+            Clear Filters
+          </button>
+        </div>
+      </div>
+    </div>
+
     <div class="table-wrapper">
       <div v-if="loading" class="loading-overlay">
         <i class="fas fa-spinner fa-spin fa-2x"></i>
@@ -73,7 +152,10 @@
                     class="client-id-image"
                     @click.stop="openClientId(car.id_copy_path)"
                   />
-                  <span class="client-name">{{ car.client_name }}</span>
+                  <div class="client-details">
+                    <span class="client-name">{{ car.client_name }}</span>
+                    <span class="client-id-no">{{ car.client_id_no || 'No ID' }}</span>
+                  </div>
                 </div>
                 <span v-else class="no-client">-</span>
               </td>
@@ -102,13 +184,16 @@
     </div>
 
     <div class="table-footer">
-      <span class="record-count"> Showing {{ unassignedCars.length }} unassigned cars </span>
+      <span class="record-count">
+        Showing {{ unassignedCars.length }} of {{ allUnassignedCars.length }} unassigned cars
+        <span v-if="hasActiveFilters" class="filter-indicator">(filtered)</span>
+      </span>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useApi } from '@/composables/useApi'
 
 const props = defineProps({
@@ -127,10 +212,29 @@ const emit = defineEmits(['car-assigned'])
 const { callApi, getFileUrl } = useApi()
 
 const unassignedCars = ref([])
+const allUnassignedCars = ref([])
 const loading = ref(false)
 const error = ref(null)
 const selectedCarId = ref(null)
 const isAssigning = ref(false)
+const filters = ref({
+  carName: '',
+  color: '',
+  vin: '',
+  clientName: '',
+  clientId: '',
+})
+
+// Computed property to check if any filters are active
+const hasActiveFilters = computed(() => {
+  return (
+    filters.value.carName ||
+    filters.value.color ||
+    filters.value.vin ||
+    filters.value.clientName ||
+    filters.value.clientId
+  )
+})
 
 const fetchUnassignedCars = async () => {
   loading.value = true
@@ -148,7 +252,8 @@ const fetchUnassignedCars = async () => {
           cs.id_sell,
           cs.id_client,
           cl.name as client_name,
-          cl.id_copy_path
+          cl.id_copy_path,
+          cl.id_no as client_id_no
         FROM cars_stock cs
         LEFT JOIN buy_details bd ON cs.id_buy_details = bd.id
         LEFT JOIN cars_names cn ON bd.id_car_name = cn.id
@@ -164,6 +269,8 @@ const fetchUnassignedCars = async () => {
 
     if (result.success) {
       unassignedCars.value = result.data || []
+      allUnassignedCars.value = result.data || []
+      applyFilters() // Apply any existing filters
     } else {
       error.value = result.error || 'Failed to load unassigned cars'
     }
@@ -202,7 +309,7 @@ const assignCar = async (car) => {
   // Check if the selected container is already on board
   try {
     const containerResult = await callApi({
-      query: 'SELECT date_on_board FROM loaded_containers WHERE id = ?',
+      query: 'SELECT date_on_board, ref_container FROM loaded_containers WHERE id = ?',
       params: [props.selectedLoadedContainerId],
     })
 
@@ -227,9 +334,22 @@ const assignCar = async (car) => {
   isAssigning.value = true
 
   try {
+    // Get the container reference first
+    const containerResult = await callApi({
+      query: 'SELECT ref_container FROM loaded_containers WHERE id = ?',
+      params: [props.selectedLoadedContainerId],
+    })
+
+    if (!containerResult.success || !containerResult.data || containerResult.data.length === 0) {
+      error.value = 'Failed to get container reference'
+      return
+    }
+
+    const containerRef = containerResult.data[0].ref_container
+
     const result = await callApi({
-      query: 'UPDATE cars_stock SET id_loaded_container = ? WHERE id = ?',
-      params: [props.selectedLoadedContainerId, car.id],
+      query: 'UPDATE cars_stock SET id_loaded_container = ?, container_ref = ? WHERE id = ?',
+      params: [props.selectedLoadedContainerId, containerRef, car.id],
     })
 
     if (result.success) {
@@ -252,6 +372,63 @@ const getAssignButtonTitle = () => {
     return 'Container is already on board'
   }
   return 'Assign to Container'
+}
+
+const applyFilters = () => {
+  let filteredCars = [...allUnassignedCars.value]
+
+  // Filter by car name
+  if (filters.value.carName) {
+    filteredCars = filteredCars.filter(
+      (car) =>
+        car.car_name && car.car_name.toLowerCase().includes(filters.value.carName.toLowerCase()),
+    )
+  }
+
+  // Filter by color
+  if (filters.value.color) {
+    filteredCars = filteredCars.filter(
+      (car) => car.color && car.color.toLowerCase().includes(filters.value.color.toLowerCase()),
+    )
+  }
+
+  // Filter by VIN
+  if (filters.value.vin) {
+    filteredCars = filteredCars.filter(
+      (car) => car.vin && car.vin.toLowerCase().includes(filters.value.vin.toLowerCase()),
+    )
+  }
+
+  // Filter by client name
+  if (filters.value.clientName) {
+    filteredCars = filteredCars.filter(
+      (car) =>
+        car.client_name &&
+        car.client_name.toLowerCase().includes(filters.value.clientName.toLowerCase()),
+    )
+  }
+
+  // Filter by client ID number
+  if (filters.value.clientId) {
+    filteredCars = filteredCars.filter(
+      (car) =>
+        car.client_id_no &&
+        car.client_id_no.toLowerCase().includes(filters.value.clientId.toLowerCase()),
+    )
+  }
+
+  unassignedCars.value = filteredCars
+}
+
+const clearFilters = () => {
+  filters.value = {
+    carName: '',
+    color: '',
+    vin: '',
+    clientName: '',
+    clientId: '',
+  }
+  unassignedCars.value = [...allUnassignedCars.value]
 }
 
 onMounted(() => {
@@ -472,10 +649,20 @@ defineExpose({
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
+.client-details {
+  display: flex;
+  flex-direction: column;
+}
+
 .client-name {
   font-weight: 500;
   color: #374151;
   font-size: 0.9rem;
+}
+
+.client-id-no {
+  color: #6b7280;
+  font-size: 0.8rem;
 }
 
 .no-client {
@@ -577,5 +764,85 @@ defineExpose({
 .record-count {
   color: #6b7280;
   font-size: 0.9rem;
+}
+
+.filters-section {
+  padding: 16px 20px;
+  border-bottom: 1px solid #e5e7eb;
+  background-color: #f8fafc;
+}
+
+.filters-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filter-group label {
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.filter-group label i {
+  color: #6b7280;
+}
+
+.filter-group input {
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  transition: border-color 0.2s;
+}
+
+.filter-group input:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+.filter-actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.clear-filters-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background-color: #f8fafc;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.clear-filters-btn:hover:not(:disabled) {
+  background-color: #f3f4f6;
+}
+
+.clear-filters-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.filter-indicator {
+  color: #3498db;
+  font-weight: 500;
 }
 </style>
