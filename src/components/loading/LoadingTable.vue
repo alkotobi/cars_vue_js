@@ -224,6 +224,7 @@
               :key="record.id"
               @click="selectLoadingRecord(record.id)"
               :class="{ 'selected-row': selectedLoadingId === record.id }"
+              :data-record-id="record.id"
               class="table-row"
             >
               <td class="id-cell">#{{ record.id }}</td>
@@ -684,7 +685,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, nextTick } from 'vue'
 import { useApi } from '@/composables/useApi'
 import ContainersTable from './ContainersTable.vue'
 import LoadingAssignedCars from './LoadingAssignedCars.vue'
@@ -1190,8 +1191,73 @@ const saveRecord = async () => {
     }
 
     if (result.success) {
+      console.log('Save successful, result:', result)
+      console.log('isEditing:', isEditing.value)
+      console.log('insertId:', result.lastInsertId)
+
       closeDialog()
+
+      // If this was a new record, get the saved record data
+      let savedRecord = null
+      if (!isEditing.value && result.lastInsertId) {
+        console.log('Fetching new record data for ID:', result.lastInsertId)
+        // For new records, we need to fetch the complete record data
+        const fetchResult = await callApi({
+          query: `
+            SELECT l.*, 
+                   sl.name as shipping_line_name,
+                   lp.loading_port as loading_port_name,
+                   dp.discharge_port as discharge_port_name
+            FROM loading l
+            LEFT JOIN shipping_lines sl ON l.id_shipping_line = sl.id
+            LEFT JOIN loading_ports lp ON l.id_loading_port = lp.id
+            LEFT JOIN discharge_ports dp ON l.id_discharge_port = dp.id
+            WHERE l.id = ?
+          `,
+          params: [result.lastInsertId],
+        })
+
+        console.log('Fetch result:', fetchResult)
+
+        if (fetchResult.success && fetchResult.data.length > 0) {
+          savedRecord = fetchResult.data[0]
+          console.log('Saved record data:', savedRecord)
+        }
+      } else if (isEditing.value) {
+        console.log('Using edited record data')
+        // For edited records, use the current form data with the record ID
+        savedRecord = {
+          id: editingRecord.value.id,
+          ...formData.value,
+        }
+        console.log('Edited record data:', savedRecord)
+      }
+
+      console.log('About to refresh data')
       await refreshData()
+      console.log('Data refreshed, loadingRecords length:', loadingRecords.value.length)
+
+      // If we have a saved record, select it after the data is refreshed
+      if (savedRecord) {
+        console.log('Setting selectedLoadingId to:', savedRecord.id)
+        selectedLoadingId.value = savedRecord.id
+        // Scroll to the newly added/edited record
+        nextTick(() => {
+          console.log('Looking for element with data-record-id:', savedRecord.id)
+          const recordElement = document.querySelector(`[data-record-id="${savedRecord.id}"]`)
+          console.log('Found element:', recordElement)
+          if (recordElement) {
+            recordElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            // Add highlight effect
+            recordElement.classList.add('highlight-new-record')
+            setTimeout(() => {
+              recordElement.classList.remove('highlight-new-record')
+            }, 3000)
+          }
+        })
+      } else {
+        console.log('No saved record to select')
+      }
     } else {
       alert('Failed to save record: ' + result.error)
     }
@@ -2723,6 +2789,26 @@ onMounted(() => {
     flex-direction: column;
     gap: 12px;
     align-items: flex-start;
+  }
+}
+
+/* Highlight effect for newly added records */
+.highlight-new-record {
+  animation: highlightNewRecord 3s ease-in-out;
+}
+
+@keyframes highlightNewRecord {
+  0% {
+    background-color: #d4edda;
+    border-left: 4px solid #28a745;
+  }
+  50% {
+    background-color: #d1ecf1;
+    border-left: 4px solid #17a2b8;
+  }
+  100% {
+    background-color: transparent;
+    border-left: none;
   }
 }
 </style>
