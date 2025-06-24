@@ -111,15 +111,9 @@
     </div>
 
     <div class="table-footer">
-      <div class="record-count">
-        Showing {{ loadingRecords.length }} of {{ totalRecords }} records
-      </div>
-      <div class="view-all-link">
-        <a href="#" @click.prevent="viewAllRecords">
-          <i class="fas fa-external-link-alt"></i>
-          View All Records
-        </a>
-      </div>
+      <span class="record-count">
+        Showing {{ Math.min(loadingRecords.length, 5) }} of {{ totalRecords }} records
+      </span>
     </div>
 
     <!-- Add/Edit Dialog -->
@@ -1149,7 +1143,7 @@ onMounted(() => {
 
 .table-wrapper {
   position: relative;
-  max-height: 400px;
+  max-height: 200px;
   overflow-y: auto;
 }
 
