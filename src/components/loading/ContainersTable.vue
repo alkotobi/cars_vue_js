@@ -77,7 +77,17 @@
             >
               <td class="id-cell">#{{ container.id }}</td>
               <td class="container-cell">{{ container.container_name || '-' }}</td>
-              <td class="ref-cell">{{ container.ref_container || '-' }}</td>
+              <td class="ref-cell">
+                <div class="ref-content">
+                  <span v-if="container.ref_container && container.ref_container.trim()">
+                    {{ container.ref_container }}
+                  </span>
+                  <span v-else class="no-ref-error">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    No Reference
+                  </span>
+                </div>
+              </td>
               <td class="date-cell">{{ formatDate(container.date_departed) }}</td>
               <td class="date-cell">{{ formatDate(container.date_loaded) }}</td>
               <td class="date-cell">{{ formatDate(container.date_on_board) }}</td>
@@ -614,6 +624,11 @@ const saveContainer = async () => {
         ? formData.value.date_on_board
         : null
 
+    const newContainerRef =
+      formData.value.ref_container && formData.value.ref_container.trim()
+        ? formData.value.ref_container
+        : null
+
     const query = isEditing.value
       ? 'UPDATE loaded_containers SET id_container = ?, ref_container = ?, date_departed = ?, date_loaded = ?, date_on_board = ?, note = ? WHERE id = ?'
       : 'INSERT INTO loaded_containers (id_loading, id_container, ref_container, date_departed, date_loaded, date_on_board, note) VALUES (?, ?, ?, ?, ?, ?, ?)'
@@ -621,9 +636,7 @@ const saveContainer = async () => {
     const params = isEditing.value
       ? [
           formData.value.id_container,
-          formData.value.ref_container && formData.value.ref_container.trim()
-            ? formData.value.ref_container
-            : null,
+          newContainerRef,
           dateDeparted,
           dateLoaded,
           dateOnBoard,
@@ -633,9 +646,7 @@ const saveContainer = async () => {
       : [
           props.selectedLoadingId,
           formData.value.id_container,
-          formData.value.ref_container && formData.value.ref_container.trim()
-            ? formData.value.ref_container
-            : null,
+          newContainerRef,
           dateDeparted,
           dateLoaded,
           dateOnBoard,
@@ -645,6 +656,25 @@ const saveContainer = async () => {
     const result = await callApi({ query, params })
 
     if (result.success) {
+      // If editing and container reference changed, update all associated cars
+      if (isEditing.value && newContainerRef !== null) {
+        try {
+          const updateCarsResult = await callApi({
+            query: 'UPDATE cars_stock SET container_ref = ? WHERE id_loaded_container = ?',
+            params: [newContainerRef, formData.value.id],
+          })
+
+          if (!updateCarsResult.success) {
+            console.warn(
+              'Failed to update container_ref for associated cars:',
+              updateCarsResult.error,
+            )
+          }
+        } catch (err) {
+          console.warn('Error updating container_ref for associated cars:', err)
+        }
+      }
+
       await fetchContainers()
       closeDialog()
     } else {
@@ -1065,9 +1095,29 @@ defineExpose({
   padding: 2px 6px;
 }
 
-/* .selected-row .ref-cell {
-  background-color: #e5e7eb;
-} */
+.ref-content {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.no-ref-error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #dc2626;
+  font-size: 0.85rem;
+  font-weight: 500;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 4px;
+  padding: 4px 8px;
+}
+
+.no-ref-error i {
+  color: #dc2626;
+  font-size: 0.8rem;
+}
 
 .date-cell {
   color: #6b7280;

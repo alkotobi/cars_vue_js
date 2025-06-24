@@ -225,6 +225,13 @@ const filters = ref({
   clientId: '',
 })
 
+// VIN dialog state
+const showVinDialog = ref(false)
+const vinInput = ref('')
+const carToAssign = ref(null)
+const isSubmittingVin = ref(false)
+const vinError = ref('')
+
 // Computed property to check if any filters are active
 const hasActiveFilters = computed(() => {
   return (

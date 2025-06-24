@@ -11,6 +11,15 @@
           <span>Add Record</span>
         </button>
         <button
+          @click="printLoadingRecord"
+          class="print-btn"
+          :disabled="!selectedLoadingId || loading"
+          title="Print Loading Record"
+        >
+          <i class="fas fa-print"></i>
+          <span>Print</span>
+        </button>
+        <button
           @click="refreshData"
           class="refresh-btn"
           :disabled="loading"
@@ -1156,6 +1165,402 @@ const refreshSelectedContainerStatus = async () => {
   }
 }
 
+const printLoadingRecord = async () => {
+  if (!selectedLoadingId.value) {
+    alert('Please select a loading record first')
+    return
+  }
+
+  try {
+    // Get the loading record details
+    const loadingRecord = loadingRecords.value.find(
+      (record) => record.id === selectedLoadingId.value,
+    )
+    if (!loadingRecord) {
+      alert('Loading record not found')
+      return
+    }
+
+    // Get all containers and their assigned cars for this loading
+    const result = await callApi({
+      query: `
+        SELECT 
+          lc.id as loaded_container_id,
+          lc.ref_container,
+          lc.date_departed,
+          lc.date_loaded,
+          lc.date_on_board,
+          lc.note as container_note,
+          c.name as container_name,
+          cs.id as car_id,
+          cs.vin,
+          cs.price_cell,
+          cn.car_name,
+          clr.color,
+          cl.name as client_name,
+          cl.id_no as client_id_no,
+          cl.id_copy_path
+        FROM loaded_containers lc
+        LEFT JOIN containers c ON lc.id_container = c.id
+        LEFT JOIN cars_stock cs ON lc.id = cs.id_loaded_container
+        LEFT JOIN buy_details bd ON cs.id_buy_details = bd.id
+        LEFT JOIN cars_names cn ON bd.id_car_name = cn.id
+        LEFT JOIN colors clr ON bd.id_color = clr.id
+        LEFT JOIN clients cl ON cs.id_client = cl.id
+        WHERE lc.id_loading = ?
+        ORDER BY lc.id, cs.id
+      `,
+      params: [selectedLoadingId.value],
+    })
+
+    if (!result.success) {
+      alert('Failed to load container data')
+      return
+    }
+
+    // Group cars by containers
+    const containersData = {}
+    result.data.forEach((row) => {
+      if (!containersData[row.loaded_container_id]) {
+        containersData[row.loaded_container_id] = {
+          id: row.loaded_container_id,
+          name: row.container_name,
+          ref_container: row.ref_container,
+          date_departed: row.date_departed,
+          date_loaded: row.date_loaded,
+          date_on_board: row.date_on_board,
+          note: row.container_note,
+          cars: [],
+        }
+      }
+      if (row.car_id) {
+        containersData[row.loaded_container_id].cars.push({
+          id: row.car_id,
+          vin: row.vin,
+          car_name: row.car_name,
+          color: row.color,
+          price_cell: row.price_cell,
+          client_name: row.client_name,
+          client_id_no: row.client_id_no,
+          id_copy_path: row.id_copy_path,
+        })
+      }
+    })
+
+    // Create the print content
+    const printContent = generatePrintContent(loadingRecord, containersData)
+
+    // Open new tab with print content (no automatic print dialog)
+    const printWindow = window.open('', '_blank')
+    printWindow.document.write(printContent)
+    printWindow.document.close()
+  } catch (err) {
+    console.error('Error generating print content:', err)
+    alert('Error generating print content')
+  }
+}
+
+const generatePrintContent = (loadingRecord, containersData) => {
+  const containers = Object.values(containersData)
+  const totalCars = containers.reduce((sum, container) => sum + container.cars.length, 0)
+
+  // Get the current hostname for API URL construction
+  const hostname = window.location.hostname
+  const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1'
+  const API_BASE_URL = isLocalhost ? 'http://localhost:8000/api' : 'https://www.merhab.com/api'
+  const UPLOAD_URL = `${API_BASE_URL}/upload.php`
+
+  const getFileUrl = (path) => {
+    if (!path) return ''
+    if (path.startsWith('http')) return path
+    let processedPath = path.replace(/^\/+/, '')
+    if (
+      processedPath.includes('upload.php?path=') ||
+      processedPath.includes('upload_simple.php?path=')
+    ) {
+      const match = processedPath.match(/path=(.+)$/)
+      if (match) {
+        processedPath = decodeURIComponent(match[1])
+      }
+    }
+    return `${UPLOAD_URL}?path=${encodeURIComponent(processedPath)}`
+  }
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Loading Record #${loadingRecord.id} - Print</title>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          margin: 20px;
+          line-height: 1.4;
+        }
+        .header {
+          text-align: center;
+          margin-bottom: 30px;
+          border-bottom: 2px solid #333;
+          padding-bottom: 20px;
+        }
+        .header h1 {
+          margin: 0;
+          color: #333;
+          font-size: 24px;
+        }
+        .loading-info {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 20px;
+          margin-bottom: 30px;
+          background: #f8f9fa;
+          padding: 20px;
+          border-radius: 8px;
+        }
+        .info-group {
+          margin-bottom: 15px;
+        }
+        .info-label {
+          font-weight: bold;
+          color: #555;
+          margin-bottom: 5px;
+        }
+        .info-value {
+          color: #333;
+        }
+        .container-section {
+          margin-bottom: 40px;
+          page-break-inside: avoid;
+        }
+        .container-header {
+          background: #e3f2fd;
+          padding: 15px;
+          border-radius: 8px;
+          margin-bottom: 15px;
+          border-left: 4px solid #2196f3;
+        }
+        .container-title {
+          font-size: 18px;
+          font-weight: bold;
+          margin: 0 0 10px 0;
+          color: #1976d2;
+        }
+        .cars-table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-top: 10px;
+        }
+        .cars-table th {
+          background: #f5f5f5;
+          padding: 10px;
+          text-align: left;
+          border: 1px solid #ddd;
+          font-weight: bold;
+        }
+        .cars-table td {
+          padding: 8px 10px;
+          border: 1px solid #ddd;
+          vertical-align: top;
+        }
+        .cars-table tr:nth-child(even) {
+          background: #f9f9f9;
+        }
+        .client-id-image {
+          width: 100px;
+          height: 70px;
+          object-fit: cover;
+          border-radius: 6px;
+          border: 2px solid #ddd;
+          cursor: pointer;
+        }
+        .client-info {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .client-details {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+        .client-name {
+          font-weight: 500;
+        }
+        .client-id-no {
+          font-size: 0.85rem;
+          color: #666;
+        }
+        .summary {
+          margin-top: 30px;
+          padding: 20px;
+          background: #e8f5e8;
+          border-radius: 8px;
+          border-left: 4px solid #4caf50;
+        }
+        .summary h3 {
+          margin: 0 0 15px 0;
+          color: #2e7d32;
+        }
+        .summary-stats {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+          gap: 15px;
+        }
+        .stat-item {
+          text-align: center;
+        }
+        .stat-number {
+          font-size: 24px;
+          font-weight: bold;
+          color: #2e7d32;
+        }
+        .stat-label {
+          font-size: 12px;
+          color: #666;
+          text-transform: uppercase;
+        }
+        @media print {
+          body { margin: 0; }
+          .container-section { page-break-inside: avoid; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>Loading Record #${loadingRecord.id}</h1>
+        <p>Generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}</p>
+      </div>
+
+      <div class="loading-info">
+        <div class="info-group">
+          <div class="info-label">Operation Date:</div>
+          <div class="info-value">${loadingRecord.date_loading ? new Date(loadingRecord.date_loading).toLocaleDateString() : 'Not set'}</div>
+        </div>
+        <div class="info-group">
+          <div class="info-label">Shipping Line:</div>
+          <div class="info-value">${loadingRecord.shipping_line_name || 'Not set'}</div>
+        </div>
+        <div class="info-group">
+          <div class="info-label">Freight:</div>
+          <div class="info-value">${loadingRecord.freight ? `$${loadingRecord.freight}` : 'Not set'}</div>
+        </div>
+        <div class="info-group">
+          <div class="info-label">Loading Port:</div>
+          <div class="info-value">${loadingRecord.loading_port_name || 'Not set'}</div>
+        </div>
+        <div class="info-group">
+          <div class="info-label">Discharge Port:</div>
+          <div class="info-value">${loadingRecord.discharge_port_name || 'Not set'}</div>
+        </div>
+        <div class="info-group">
+          <div class="info-label">EDD:</div>
+          <div class="info-value">${loadingRecord.EDD ? new Date(loadingRecord.EDD).toLocaleDateString() : 'Not set'}</div>
+        </div>
+        <div class="info-group">
+          <div class="info-label">Loaded Date:</div>
+          <div class="info-value">${loadingRecord.date_loaded ? new Date(loadingRecord.date_loaded).toLocaleDateString() : 'Not set'}</div>
+        </div>
+        <div class="info-group">
+          <div class="info-label">Notes:</div>
+          <div class="info-value">${loadingRecord.note || 'No notes'}</div>
+        </div>
+      </div>
+
+      ${containers
+        .map(
+          (container) => `
+        <div class="container-section">
+          <div class="container-header">
+            <div class="container-title">
+              Container: ${container.name || 'Unnamed'} 
+              ${container.ref_container ? `(${container.ref_container})` : ''}
+            </div>
+          </div>
+          
+          ${
+            container.cars.length > 0
+              ? `
+            <table class="cars-table">
+              <thead>
+                <tr>
+                  <th>Car ID</th>
+                  <th>Car Name</th>
+                  <th>Color</th>
+                  <th>VIN</th>
+                  <th>Client</th>
+                  <th>Price</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${container.cars
+                  .map(
+                    (car) => `
+                  <tr>
+                    <td>#${car.id}</td>
+                    <td>${car.car_name || 'N/A'}</td>
+                    <td>${car.color || 'N/A'}</td>
+                    <td>${car.vin || 'N/A'}</td>
+                    <td>
+                      <div class="client-info">
+                        ${
+                          car.id_copy_path
+                            ? `
+                          <img 
+                            src="${getFileUrl(car.id_copy_path)}" 
+                            alt="Client ID" 
+                            class="client-id-image"
+                            onerror="this.style.display='none'"
+                          />
+                        `
+                            : ''
+                        }
+                        <div class="client-details">
+                          <div class="client-name">${car.client_name || 'N/A'}</div>
+                          <div class="client-id-no">${car.client_id_no || 'No ID'}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>${car.price_cell ? `$${car.price_cell}` : 'N/A'}</td>
+                  </tr>
+                `,
+                  )
+                  .join('')}
+              </tbody>
+            </table>
+          `
+              : '<p style="text-align: center; color: #666; font-style: italic;">No cars assigned to this container</p>'
+          }
+        </div>
+      `,
+        )
+        .join('')}
+
+      <div class="summary">
+        <h3>Summary</h3>
+        <div class="summary-stats">
+          <div class="stat-item">
+            <div class="stat-number">${containers.length}</div>
+            <div class="stat-label">Containers</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-number">${totalCars}</div>
+            <div class="stat-label">Total Cars</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-number">${containers.filter((c) => c.date_on_board).length}</div>
+            <div class="stat-label">On Board</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-number">${containers.filter((c) => !c.date_on_board).length}</div>
+            <div class="stat-label">Pending</div>
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>
+  `
+}
+
 onMounted(() => {
   Promise.all([refreshData(), fetchReferenceData()])
 })
@@ -1215,6 +1620,29 @@ onMounted(() => {
 }
 
 .add-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.print-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #3498db;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.print-btn:hover:not(:disabled) {
+  background: #2980b9;
+}
+
+.print-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
