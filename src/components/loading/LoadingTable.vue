@@ -60,7 +60,13 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="record in loadingRecords" :key="record.id" class="table-row">
+            <tr
+              v-for="record in loadingRecords"
+              :key="record.id"
+              @click="selectLoadingRecord(record.id)"
+              :class="{ 'selected-row': selectedLoadingId === record.id }"
+              class="table-row"
+            >
               <td class="id-cell">#{{ record.id }}</td>
               <td class="date-cell">
                 {{ record.date_loading ? formatDate(record.date_loading) : '-' }}
@@ -115,6 +121,8 @@
         Showing {{ Math.min(loadingRecords.length, 5) }} of {{ totalRecords }} records
       </span>
     </div>
+
+    <ContainersTable :selectedLoadingId="selectedLoadingId" />
 
     <!-- Add/Edit Dialog -->
     <div v-if="showDialog" class="dialog-overlay" @click.self="closeDialog">
@@ -502,7 +510,8 @@
 
 <script setup>
 import { ref, onMounted, watch } from 'vue'
-import { useApi } from '../../composables/useApi'
+import { useApi } from '@/composables/useApi'
+import ContainersTable from './ContainersTable.vue'
 
 const { callApi } = useApi()
 
@@ -522,6 +531,7 @@ const showShippingLineDialog = ref(false)
 const showLoadingPortDialog = ref(false)
 const showDischargePortDialog = ref(false)
 const isAddingItem = ref(false)
+const selectedLoadingId = ref(null)
 
 // Form data
 const formData = ref({
@@ -1047,6 +1057,10 @@ watch(
   { deep: true },
 )
 
+const selectLoadingRecord = (id) => {
+  selectedLoadingId.value = id
+}
+
 onMounted(() => {
   Promise.all([refreshData(), fetchReferenceData()])
 })
@@ -1212,6 +1226,15 @@ onMounted(() => {
 
 .loading-table tr:hover {
   background-color: #f9fafb;
+}
+
+.selected-row {
+  background-color: #e3f2fd !important;
+  border-left: 3px solid #3498db;
+}
+
+.table-row {
+  cursor: pointer;
 }
 
 .id-cell {
