@@ -1,7 +1,6 @@
 <script setup>
 import { ref, defineProps, defineEmits } from 'vue'
 import { useApi } from '../../composables/useApi'
-import { ElMessageBox } from 'element-plus'
 
 const props = defineProps({
   car: {
@@ -30,17 +29,11 @@ const handleLoad = async () => {
   }
   if (props.car.date_loding) return
 
-  try {
-    await ElMessageBox.confirm(
-      'Are you sure you want to mark this car as loaded?',
-      'Confirm Loading',
-      {
-        confirmButtonText: 'Yes, Load Car',
-        cancelButtonText: 'No',
-        type: 'warning',
-      },
-    )
+  // Use native browser confirmation instead of Element Plus
+  const confirmed = confirm('Are you sure you want to mark this car as loaded?')
+  if (!confirmed) return
 
+  try {
     loading.value = true
     error.value = null
 
@@ -66,9 +59,7 @@ const handleLoad = async () => {
       throw new Error(result.error || 'Failed to update loading date')
     }
   } catch (err) {
-    if (err !== 'cancel') {
-      error.value = err.message || 'An error occurred'
-    }
+    error.value = err.message || 'An error occurred'
   } finally {
     loading.value = false
   }
@@ -77,6 +68,8 @@ const handleLoad = async () => {
 const closeModal = () => {
   error.value = null
   success.value = false
+  containerRef.value = props.car.container_ref || ''
+  containerRefError.value = ''
   emit('close')
 }
 </script>
