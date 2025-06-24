@@ -1,11 +1,11 @@
 <template>
-  <div class="assigned-cars-container">
+  <div class="unassigned-cars-container">
     <div class="table-header">
       <h3>
         <i class="fas fa-car"></i>
-        Assigned Cars
+        Unassigned Cars
       </h3>
-      <div class="header-actions" v-if="selectedLoadedContainerId">
+      <div class="header-actions" v-if="unassignedCars.length > 0">
         <button
           @click="refreshData"
           class="refresh-btn"
@@ -19,37 +19,30 @@
       </div>
     </div>
 
-    <div v-if="!selectedLoadedContainerId" class="empty-state">
-      <i class="fas fa-mouse-pointer"></i>
-      <p>Click on a container line above to view assigned cars</p>
-    </div>
-
-    <div v-else class="table-wrapper">
+    <div class="table-wrapper">
       <div v-if="loading" class="loading-overlay">
-        <i class="fas fa-spinner fa-spin"></i>
-        <span>Loading assigned cars...</span>
+        <i class="fas fa-spinner fa-spin fa-2x"></i>
+        <span>Loading...</span>
       </div>
 
       <div v-else-if="error" class="error-message">
-        <i class="fas fa-exclamation-triangle"></i>
-        <span>{{ error }}</span>
+        <i class="fas fa-exclamation-circle"></i>
+        {{ error }}
       </div>
 
-      <div v-else-if="assignedCars.length === 0" class="empty-state">
-        <i class="fas fa-car-side"></i>
-        <p>No cars assigned to containers in this loading record</p>
+      <div v-else-if="unassignedCars.length === 0" class="empty-state">
+        <i class="fas fa-check-circle fa-2x"></i>
+        <p>All cars are assigned to containers</p>
       </div>
 
       <div v-else class="table-content">
-        <table class="assigned-cars-table">
+        <table class="unassigned-cars-table">
           <thead>
             <tr>
               <th>ID</th>
               <th>Car Name</th>
               <th>Color</th>
               <th>VIN</th>
-              <th>Container</th>
-              <th>Container Ref</th>
               <th>Client</th>
               <th>Price</th>
               <th>Status</th>
@@ -57,17 +50,15 @@
           </thead>
           <tbody>
             <tr
-              v-for="car in assignedCars"
+              v-for="car in unassignedCars"
               :key="car.id"
               class="table-row"
               @click="handleCarClick(car)"
             >
               <td class="id-cell">#{{ car.id }}</td>
               <td class="car-name-cell">{{ car.car_name || '-' }}</td>
-              <td class="color-cell">{{ car.color_name || '-' }}</td>
+              <td class="color-cell">{{ car.color || '-' }}</td>
               <td class="vin-cell">{{ car.vin || '-' }}</td>
-              <td class="container-cell">{{ car.container_name || '-' }}</td>
-              <td class="ref-cell">{{ car.container_ref || '-' }}</td>
               <td class="client-cell">
                 <div v-if="car.id_client && car.id_copy_path" class="client-info">
                   <img
@@ -93,35 +84,23 @@
     </div>
 
     <div class="table-footer">
-      <span class="record-count"> Showing {{ assignedCars.length }} assigned cars </span>
+      <span class="record-count"> Showing {{ unassignedCars.length }} unassigned cars </span>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useApi } from '@/composables/useApi'
-
-const props = defineProps({
-  selectedLoadedContainerId: {
-    type: Number,
-    default: null,
-  },
-})
 
 const { callApi, getFileUrl } = useApi()
 
-const assignedCars = ref([])
+const unassignedCars = ref([])
 const loading = ref(false)
 const error = ref(null)
 const selectedCarId = ref(null)
 
-const fetchAssignedCars = async () => {
-  if (!props.selectedLoadedContainerId) {
-    assignedCars.value = []
-    return
-  }
-
+const fetchUnassignedCars = async () => {
   loading.value = true
   error.value = null
 
@@ -133,11 +112,8 @@ const fetchAssignedCars = async () => {
           cn.car_name,
           c.color,
           cs.vin,
-          cont.name as container_name,
-          lc.ref_container as container_ref,
           cs.price_cell,
           cs.id_sell,
-          cs.id_loaded_container,
           cs.id_client,
           cl.name as client_name,
           cl.id_copy_path
@@ -145,29 +121,28 @@ const fetchAssignedCars = async () => {
         LEFT JOIN buy_details bd ON cs.id_buy_details = bd.id
         LEFT JOIN cars_names cn ON bd.id_car_name = cn.id
         LEFT JOIN colors c ON bd.id_color = c.id
-        LEFT JOIN loaded_containers lc ON cs.id_loaded_container = lc.id
-        LEFT JOIN containers cont ON lc.id_container = cont.id
         LEFT JOIN clients cl ON cs.id_client = cl.id
-        WHERE cs.id_loaded_container = ?
+        WHERE cs.id_loaded_container IS NULL 
+        AND cs.date_loding IS NULL
         ORDER BY cs.id DESC
       `,
-      params: [props.selectedLoadedContainerId],
+      params: [],
     })
 
     if (result.success) {
-      assignedCars.value = result.data || []
+      unassignedCars.value = result.data || []
     } else {
-      error.value = result.error || 'Failed to load assigned cars'
+      error.value = result.error || 'Failed to load unassigned cars'
     }
   } catch (err) {
-    error.value = 'Error loading assigned cars: ' + err.message
+    error.value = 'Error loading unassigned cars: ' + err.message
   } finally {
     loading.value = false
   }
 }
 
 const handleCarClick = (car) => {
-  console.log('Car clicked:', car.id)
+  console.log('Unassigned car clicked:', car.id)
   selectedCarId.value = car.id
 }
 
@@ -180,25 +155,16 @@ const getStatusClass = (idSell) => {
 }
 
 const refreshData = () => {
-  fetchAssignedCars()
+  fetchUnassignedCars()
 }
 
-// Watch for changes in selectedLoadedContainerId
-watch(
-  () => props.selectedLoadedContainerId,
-  (newId) => {
-    if (newId) {
-      fetchAssignedCars()
-    } else {
-      assignedCars.value = []
-    }
-  },
-  { immediate: true },
-)
+onMounted(() => {
+  fetchUnassignedCars()
+})
 </script>
 
 <style scoped>
-.assigned-cars-container {
+.unassigned-cars-container {
   background: white;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -225,7 +191,7 @@ watch(
 }
 
 .table-header h3 i {
-  color: #10b981;
+  color: #f59e0b;
 }
 
 .header-actions {
@@ -268,163 +234,119 @@ watch(
 }
 
 .loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.9);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 40px;
+  gap: 16px;
+  z-index: 10;
+}
+
+.loading-overlay i {
+  color: #3b82f6;
+}
+
+.loading-overlay span {
   color: #6b7280;
-  gap: 12px;
+  font-weight: 500;
 }
 
 .error-message {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 16px 20px;
-  background-color: #fee2e2;
+  padding: 20px;
+  text-align: center;
   color: #dc2626;
-  border-radius: 4px;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
   margin: 16px;
 }
 
+.error-message i {
+  margin-right: 8px;
+}
+
 .empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 40px;
+  padding: 40px 20px;
+  text-align: center;
   color: #6b7280;
-  gap: 12px;
 }
 
 .empty-state i {
-  color: #d1d5db;
-  font-size: 2rem;
+  margin-bottom: 16px;
+  color: #10b981;
+}
+
+.empty-state p {
+  margin: 0;
+  font-size: 1rem;
 }
 
 .table-content {
   overflow-x: auto;
 }
 
-.assigned-cars-table {
+.unassigned-cars-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.9rem;
 }
 
-.assigned-cars-table th {
+.unassigned-cars-table th {
   background-color: #f8fafc;
-  padding: 12px 8px;
+  padding: 12px 16px;
   text-align: left;
   font-weight: 600;
   color: #374151;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 2px solid #e5e7eb;
   position: sticky;
   top: 0;
-  z-index: 10;
+  z-index: 5;
 }
 
-.assigned-cars-table td {
-  padding: 12px 8px;
+.unassigned-cars-table td {
+  padding: 12px 16px;
   border-bottom: 1px solid #f3f4f6;
-  color: #374151;
+  vertical-align: middle;
+}
+
+.table-row {
+  cursor: pointer;
+  transition: background-color 0.2s;
 }
 
 .table-row:hover {
   background-color: #f9fafb;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
 }
 
 .table-row:active {
-  background-color: #e5e7eb;
-}
-
-.selected-row {
-  background-color: #dbeafe !important;
-  border-left: 4px solid #3b82f6;
-}
-
-.selected-row:hover {
-  background-color: #bfdbfe !important;
+  background-color: #f3f4f6;
 }
 
 .id-cell {
   font-weight: 600;
   color: #6b7280;
-  width: 60px;
+  font-family: monospace;
 }
 
 .car-name-cell {
   font-weight: 500;
+  color: #1f2937;
 }
 
 .color-cell {
-  color: #6b7280;
+  color: #374151;
 }
 
 .vin-cell {
   font-family: monospace;
-  background-color: #f3f4f6;
-  border-radius: 4px;
-  padding: 2px 6px;
-  font-size: 0.8rem;
-}
-
-.container-cell {
-  font-weight: 500;
-}
-
-.ref-cell {
-  font-family: monospace;
-  background-color: #f3f4f6;
-  border-radius: 4px;
-  padding: 2px 6px;
-}
-
-.selected-row .ref-cell {
-  background-color: #e5e7eb;
-}
-
-.price-cell {
-  font-weight: 500;
-  color: #059669;
-}
-
-.status-cell {
-  text-align: center;
-}
-
-.status-available {
-  display: inline-block;
-  padding: 2px 8px;
-  background-color: #dcfce7;
-  color: #166534;
-  border-radius: 12px;
-  font-size: 0.8rem;
-  font-weight: 500;
-}
-
-.status-sold {
-  display: inline-block;
-  padding: 2px 8px;
-  background-color: #fee2e2;
-  color: #dc2626;
-  border-radius: 12px;
-  font-size: 0.8rem;
-  font-weight: 500;
-}
-
-.table-footer {
-  padding: 12px 20px;
-  border-top: 1px solid #e5e7eb;
-  background-color: #f8fafc;
-}
-
-.record-count {
   color: #6b7280;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
 }
 
 .client-info {
@@ -457,5 +379,46 @@ watch(
 .no-client {
   color: #6b7280;
   font-style: italic;
+}
+
+.price-cell {
+  font-weight: 600;
+  color: #059669;
+}
+
+.status-cell {
+  text-align: center;
+}
+
+.status-available {
+  background-color: #d1fae5;
+  color: #065f46;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.status-sold {
+  background-color: #fee2e2;
+  color: #991b1b;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.table-footer {
+  padding: 12px 20px;
+  border-top: 1px solid #e5e7eb;
+  background-color: #f8fafc;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.record-count {
+  color: #6b7280;
+  font-size: 0.9rem;
 }
 </style>

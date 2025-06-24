@@ -127,6 +127,7 @@
       @container-click="handleContainerClick"
     />
     <LoadingAssignedCars :selectedLoadedContainerId="selectedLoadedContainerId" />
+    <UnassignedCars />
 
     <!-- Add/Edit Dialog -->
     <div v-if="showDialog" class="dialog-overlay" @click.self="closeDialog">
@@ -517,6 +518,7 @@ import { ref, onMounted, watch } from 'vue'
 import { useApi } from '@/composables/useApi'
 import ContainersTable from './ContainersTable.vue'
 import LoadingAssignedCars from './LoadingAssignedCars.vue'
+import UnassignedCars from './UnassignedCars.vue'
 
 const { callApi } = useApi()
 
