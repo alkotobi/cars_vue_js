@@ -156,6 +156,7 @@ const fetchUnassignedCars = async () => {
         LEFT JOIN clients cl ON cs.id_client = cl.id
         WHERE cs.id_loaded_container IS NULL 
         AND cs.date_loding IS NULL
+        AND cs.id_client IS NOT NULL
         ORDER BY cs.id DESC
       `,
       params: [],
