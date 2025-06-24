@@ -129,6 +129,7 @@ try {
   `date_departed` date DEFAULT NULL,
   `note` text DEFAULT NULL,
   `date_loaded` date DEFAULT NULL,
+  `date_on_board` date DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;");
 

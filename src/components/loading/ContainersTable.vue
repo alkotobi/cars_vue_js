@@ -30,17 +30,22 @@
 
     <div v-else class="table-wrapper">
       <div v-if="loading" class="loading-overlay">
-        <i class="fas fa-spinner fa-spin"></i>
-        <span>Loading containers...</span>
+        <i class="fas fa-spinner fa-spin fa-2x"></i>
+        <span>Loading...</span>
       </div>
 
       <div v-else-if="error" class="error-message">
-        <i class="fas fa-exclamation-triangle"></i>
-        <span>{{ error }}</span>
+        <i class="fas fa-exclamation-circle"></i>
+        {{ error }}
+      </div>
+
+      <div v-else-if="!props.selectedLoadingId" class="empty-state">
+        <i class="fas fa-mouse-pointer fa-2x"></i>
+        <p>Please select a loading record above to view containers</p>
       </div>
 
       <div v-else-if="containers.length === 0" class="empty-state">
-        <i class="fas fa-box-open"></i>
+        <i class="fas fa-box-open fa-2x"></i>
         <p>No containers found for this loading record</p>
         <button @click="openAddDialog" class="add-first-btn">
           <i class="fas fa-plus"></i>
@@ -57,6 +62,7 @@
               <th>Reference</th>
               <th>Date Departed</th>
               <th>Date Loaded</th>
+              <th>Date On Board</th>
               <th>Notes</th>
               <th>Actions</th>
             </tr>
@@ -74,6 +80,7 @@
               <td class="ref-cell">{{ container.ref_container || '-' }}</td>
               <td class="date-cell">{{ formatDate(container.date_departed) }}</td>
               <td class="date-cell">{{ formatDate(container.date_loaded) }}</td>
+              <td class="date-cell">{{ formatDate(container.date_on_board) }}</td>
               <td class="note-cell">{{ truncateText(container.note, 30) }}</td>
               <td class="actions-cell">
                 <div class="action-buttons">
@@ -83,6 +90,14 @@
                     title="Edit Container"
                   >
                     <i class="fas fa-edit"></i>
+                  </button>
+                  <button
+                    @click.stop="setOnBoard(container)"
+                    class="action-btn onboard-btn"
+                    :title="getOnBoardButtonTitle(container)"
+                    :disabled="container.date_on_board || container.assigned_cars_count === 0"
+                  >
+                    <i class="fas fa-ship"></i>
                   </button>
                   <button
                     @click.stop="deleteContainer(container)"
@@ -193,6 +208,21 @@
                 max="2100-12-31"
               />
             </div>
+          </div>
+
+          <div class="form-group">
+            <label for="date_on_board">
+              <i class="fas fa-calendar"></i>
+              Date On Board
+            </label>
+            <input
+              type="date"
+              id="date_on_board"
+              v-model="formData.date_on_board"
+              :disabled="isSubmitting"
+              min="1900-01-01"
+              max="2100-12-31"
+            />
           </div>
 
           <div class="form-group">
@@ -324,11 +354,85 @@
         </div>
       </div>
     </div>
+
+    <!-- On Board Dialog -->
+    <div v-if="showOnBoardDialog" class="dialog-overlay" @click.self="closeOnBoardDialog">
+      <div class="dialog">
+        <div class="dialog-header">
+          <h3>
+            <i class="fas fa-ship"></i>
+            Set Container On Board
+          </h3>
+          <button class="close-btn" @click="closeOnBoardDialog" :disabled="isSubmittingOnBoard">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+
+        <div class="dialog-content">
+          <div class="form-group">
+            <label for="onboard_date">
+              <i class="fas fa-calendar"></i>
+              Date On Board
+            </label>
+            <input
+              type="date"
+              id="onboard_date"
+              v-model="onBoardData.date_on_board"
+              required
+              :disabled="isSubmittingOnBoard"
+              min="1900-01-01"
+              max="2100-12-31"
+            />
+          </div>
+
+          <div class="form-group">
+            <label>
+              <i class="fas fa-info-circle"></i>
+              Container Information
+            </label>
+            <div class="info-display">
+              <p><strong>Container:</strong> {{ onBoardData.container_name }}</p>
+              <p><strong>Reference:</strong> {{ onBoardData.ref_container || 'N/A' }}</p>
+              <p><strong>Assigned Cars:</strong> {{ onBoardData.assigned_cars_count || 0 }}</p>
+            </div>
+          </div>
+
+          <div class="warning-message">
+            <i class="fas fa-exclamation-triangle"></i>
+            <p>
+              <strong>Warning:</strong> Once a container is set on board, cars cannot be unassigned
+              from it.
+            </p>
+          </div>
+        </div>
+
+        <div class="dialog-footer">
+          <button
+            type="button"
+            @click="closeOnBoardDialog"
+            class="cancel-btn"
+            :disabled="isSubmittingOnBoard"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            @click="confirmOnBoard"
+            class="confirm-btn"
+            :disabled="isSubmittingOnBoard"
+            :class="{ processing: isSubmittingOnBoard }"
+          >
+            <i v-if="isSubmittingOnBoard" class="fas fa-spinner fa-spin"></i>
+            <span>Set On Board</span>
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, defineExpose } from 'vue'
 import { useApi } from '@/composables/useApi'
 
 const props = defineProps({
@@ -349,10 +453,12 @@ const error = ref(null)
 const showDialog = ref(false)
 const showAddContainerDialog = ref(false)
 const showDeleteDialog = ref(false)
+const showOnBoardDialog = ref(false)
 const isEditing = ref(false)
 const isSubmitting = ref(false)
 const isAddingContainer = ref(false)
 const isDeleting = ref(false)
+const isSubmittingOnBoard = ref(false)
 const containerToDelete = ref(null)
 const selectedContainerId = ref(null)
 
@@ -361,11 +467,20 @@ const formData = ref({
   ref_container: '',
   date_departed: '',
   date_loaded: '',
+  date_on_board: '',
   note: '',
 })
 
 const newContainerData = ref({
   name: '',
+})
+
+const onBoardData = ref({
+  id: null,
+  date_on_board: '',
+  container_name: '',
+  ref_container: '',
+  assigned_cars_count: 0,
 })
 
 const fetchContainers = async () => {
@@ -389,10 +504,14 @@ const fetchContainers = async () => {
           lc.ref_container,
           lc.date_departed,
           lc.date_loaded,
-          lc.note
+          lc.date_on_board,
+          lc.note,
+          COUNT(cs.id) as assigned_cars_count
         FROM loaded_containers lc
         LEFT JOIN containers c ON lc.id_container = c.id
+        LEFT JOIN cars_stock cs ON lc.id = cs.id_loaded_container
         WHERE lc.id_loading = ?
+        GROUP BY lc.id
         ORDER BY lc.id DESC
       `,
       params: [props.selectedLoadingId],
@@ -436,6 +555,7 @@ const openAddDialog = () => {
     ref_container: '',
     date_departed: '',
     date_loaded: '',
+    date_on_board: '',
     note: '',
   }
   showDialog.value = true
@@ -450,6 +570,7 @@ const editContainer = (container) => {
     ref_container: container.ref_container || '',
     date_departed: container.date_departed || '',
     date_loaded: container.date_loaded || '',
+    date_on_board: container.date_on_board || '',
     note: container.note || '',
   }
   console.log('Form data set to:', formData.value)
@@ -463,6 +584,7 @@ const closeDialog = () => {
     ref_container: '',
     date_departed: '',
     date_loaded: '',
+    date_on_board: '',
     note: '',
   }
   isSubmitting.value = false
@@ -483,10 +605,14 @@ const saveContainer = async () => {
       formData.value.date_loaded && formData.value.date_loaded.trim()
         ? formData.value.date_loaded
         : null
+    const dateOnBoard =
+      formData.value.date_on_board && formData.value.date_on_board.trim()
+        ? formData.value.date_on_board
+        : null
 
     const query = isEditing.value
-      ? 'UPDATE loaded_containers SET id_container = ?, ref_container = ?, date_departed = ?, date_loaded = ?, note = ? WHERE id = ?'
-      : 'INSERT INTO loaded_containers (id_loading, id_container, ref_container, date_departed, date_loaded, note) VALUES (?, ?, ?, ?, ?, ?)'
+      ? 'UPDATE loaded_containers SET id_container = ?, ref_container = ?, date_departed = ?, date_loaded = ?, date_on_board = ?, note = ? WHERE id = ?'
+      : 'INSERT INTO loaded_containers (id_loading, id_container, ref_container, date_departed, date_loaded, date_on_board, note) VALUES (?, ?, ?, ?, ?, ?, ?)'
 
     const params = isEditing.value
       ? [
@@ -496,6 +622,7 @@ const saveContainer = async () => {
             : null,
           dateDeparted,
           dateLoaded,
+          dateOnBoard,
           formData.value.note && formData.value.note.trim() ? formData.value.note : null,
           formData.value.id,
         ]
@@ -507,6 +634,7 @@ const saveContainer = async () => {
             : null,
           dateDeparted,
           dateLoaded,
+          dateOnBoard,
           formData.value.note && formData.value.note.trim() ? formData.value.note : null,
         ]
 
@@ -623,19 +751,97 @@ const handleContainerClick = (container) => {
   emit('container-click', container.id)
 }
 
+const setOnBoard = (container) => {
+  // Check if container has assigned cars
+  if (container.assigned_cars_count === 0) {
+    alert('Cannot set container on board. No cars are assigned to this container.')
+    return
+  }
+
+  // Check if container is already on board
+  if (container.date_on_board) {
+    alert('Container is already on board.')
+    return
+  }
+
+  // Set today's date as default
+  const today = new Date().toISOString().split('T')[0]
+
+  onBoardData.value = {
+    id: container.id,
+    date_on_board: today,
+    container_name: container.container_name,
+    ref_container: container.ref_container,
+    assigned_cars_count: container.assigned_cars_count,
+  }
+  showOnBoardDialog.value = true
+}
+
+const closeOnBoardDialog = () => {
+  showOnBoardDialog.value = false
+  isSubmittingOnBoard.value = false
+}
+
+const confirmOnBoard = async () => {
+  if (isSubmittingOnBoard.value || !onBoardData.value.date_on_board) return
+
+  if (
+    !confirm(
+      `Are you sure you want to set container "${onBoardData.value.container_name}" on board for ${onBoardData.value.date_on_board}? This action cannot be undone.`,
+    )
+  ) {
+    return
+  }
+
+  isSubmittingOnBoard.value = true
+
+  try {
+    const result = await callApi({
+      query: 'UPDATE loaded_containers SET date_on_board = ? WHERE id = ?',
+      params: [onBoardData.value.date_on_board, onBoardData.value.id],
+    })
+
+    if (result.success) {
+      await fetchContainers()
+      closeOnBoardDialog()
+    } else {
+      error.value = result.error || 'Failed to set container on board'
+    }
+  } catch (err) {
+    error.value = 'Error setting container on board: ' + err.message
+  } finally {
+    isSubmittingOnBoard.value = false
+  }
+}
+
+const getOnBoardButtonTitle = (container) => {
+  if (container.date_on_board) {
+    return 'Container is already on board'
+  }
+  if (container.assigned_cars_count === 0) {
+    return 'No cars assigned to this container'
+  }
+  return 'Set On Board'
+}
+
 // Watch for changes in selectedLoadingId
 watch(
   () => props.selectedLoadingId,
   (newId) => {
     if (newId) {
       fetchContainers()
-      fetchAvailableContainers()
     } else {
       containers.value = []
     }
   },
   { immediate: true },
 )
+
+// Expose methods to parent component
+defineExpose({
+  fetchContainers,
+  fetchAvailableContainers,
+})
 </script>
 
 <style scoped>
@@ -743,32 +949,34 @@ watch(
 }
 
 .empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 40px;
+  padding: 40px 20px;
+  text-align: center;
   color: #6b7280;
-  gap: 12px;
 }
 
 .empty-state i {
+  margin-bottom: 16px;
   color: #d1d5db;
-  font-size: 2rem;
+}
+
+.empty-state p {
+  margin: 0 0 16px 0;
+  font-size: 1rem;
 }
 
 .add-first-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 16px;
+  padding: 10px 20px;
   background-color: #3498db;
   color: white;
   border: none;
   border-radius: 6px;
   font-size: 0.9rem;
+  font-weight: 500;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.2s;
 }
 
 .add-first-btn:hover {
@@ -882,6 +1090,28 @@ watch(
 
 .edit-btn:hover:not(:disabled) {
   background-color: #f59e0b;
+}
+
+.onboard-btn {
+  background-color: #3498db;
+  color: white;
+  border: 1px solid #2980b9;
+}
+
+.onboard-btn:hover:not(:disabled) {
+  background-color: #2980b9;
+}
+
+.onboard-btn:disabled {
+  background-color: #e5e7eb;
+  color: #9ca3af;
+  border-color: #d1d5db;
+  cursor: not-allowed;
+}
+
+.onboard-btn:disabled:hover {
+  background-color: #e5e7eb;
+  color: #9ca3af;
 }
 
 .delete-btn {
@@ -1102,5 +1332,42 @@ watch(
 .delete-message p {
   margin: 0 0 12px 0;
   color: #374151;
+}
+
+/* On Board Dialog Specific Styles */
+.info-display {
+  background-color: #f8fafc;
+  padding: 12px;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  margin-bottom: 16px;
+}
+
+.info-display p {
+  margin: 4px 0;
+  font-size: 0.9rem;
+  color: #374151;
+}
+
+.warning-message {
+  background-color: #fef3c7;
+  border: 1px solid #fbbf24;
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.warning-message i {
+  color: #d97706;
+  margin-top: 2px;
+}
+
+.warning-message p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #92400e;
 }
 </style>

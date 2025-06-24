@@ -20,7 +20,7 @@
     </div>
 
     <div v-if="!selectedLoadedContainerId" class="empty-state">
-      <i class="fas fa-mouse-pointer"></i>
+      <i class="fas fa-mouse-pointer fa-2x"></i>
       <p>Click on a container line above to view assigned cars</p>
     </div>
 
@@ -31,8 +31,8 @@
       </div>
 
       <div v-else-if="error" class="error-message">
-        <i class="fas fa-exclamation-triangle"></i>
-        <span>{{ error }}</span>
+        <i class="fas fa-exclamation-circle"></i>
+        {{ error }}
       </div>
 
       <div v-else-if="assignedCars.length === 0" class="empty-state">
@@ -92,8 +92,13 @@
                   <button
                     @click.stop="unassignCar(car)"
                     class="action-btn unassign-btn"
-                    title="Unassign from Container"
-                    :disabled="isUnassigning"
+                    :class="{ disabled: car.date_on_board }"
+                    :title="
+                      car.date_on_board
+                        ? `Container on board since ${car.date_on_board}`
+                        : 'Unassign from Container'
+                    "
+                    :disabled="isUnassigning || car.date_on_board"
                   >
                     <i class="fas fa-unlink"></i>
                   </button>
@@ -156,7 +161,8 @@ const fetchAssignedCars = async () => {
           cs.id_loaded_container,
           cs.id_client,
           cl.name as client_name,
-          cl.id_copy_path
+          cl.id_copy_path,
+          lc.date_on_board
         FROM cars_stock cs
         LEFT JOIN buy_details bd ON cs.id_buy_details = bd.id
         LEFT JOIN cars_names cn ON bd.id_car_name = cn.id
@@ -193,6 +199,14 @@ const openClientId = (path) => {
 
 const unassignCar = async (car) => {
   if (isUnassigning.value) return
+
+  // Check if container has date_on_board (container is on board)
+  if (car.date_on_board) {
+    alert(
+      `Cannot unassign car #${car.id}. Container is already on board (date: ${car.date_on_board})`,
+    )
+    return
+  }
 
   if (!confirm(`Are you sure you want to unassign car #${car.id} from this container?`)) {
     return
@@ -504,6 +518,18 @@ defineExpose({
 .unassign-btn:hover:not(:disabled) {
   background-color: #fde68a;
   color: #b45309;
+}
+
+.unassign-btn.disabled {
+  background-color: #f3f4f6;
+  color: #9ca3af;
+  border-color: #d1d5db;
+  cursor: not-allowed;
+}
+
+.unassign-btn.disabled:hover {
+  background-color: #f3f4f6;
+  color: #9ca3af;
 }
 
 .table-footer {

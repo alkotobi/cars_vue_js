@@ -30,6 +30,11 @@
         {{ error }}
       </div>
 
+      <div v-else-if="!props.selectedLoadedContainerId" class="empty-state">
+        <i class="fas fa-mouse-pointer fa-2x"></i>
+        <p>Please select a loading record above to view unassigned cars</p>
+      </div>
+
       <div v-else-if="unassignedCars.length === 0" class="empty-state">
         <i class="fas fa-check-circle fa-2x"></i>
         <p>All cars are assigned to containers</p>
@@ -83,8 +88,8 @@
                   <button
                     @click.stop="assignCar(car)"
                     class="action-btn assign-btn"
-                    title="Assign to Container"
-                    :disabled="isAssigning"
+                    :title="getAssignButtonTitle()"
+                    :disabled="isAssigning || props.selectedContainerOnBoard"
                   >
                     <i class="fas fa-link"></i>
                   </button>
@@ -110,6 +115,10 @@ const props = defineProps({
   selectedLoadedContainerId: {
     type: Number,
     default: null,
+  },
+  selectedContainerOnBoard: {
+    type: Boolean,
+    default: false,
   },
 })
 
@@ -189,6 +198,27 @@ const assignCar = async (car) => {
     return
   }
 
+  // Check if the selected container is already on board
+  try {
+    const containerResult = await callApi({
+      query: 'SELECT date_on_board FROM loaded_containers WHERE id = ?',
+      params: [props.selectedLoadedContainerId],
+    })
+
+    if (containerResult.success && containerResult.data && containerResult.data.length > 0) {
+      const container = containerResult.data[0]
+      if (container.date_on_board) {
+        alert(
+          `Cannot assign car to this container. Container is already on board since ${container.date_on_board}`,
+        )
+        return
+      }
+    }
+  } catch (err) {
+    error.value = 'Error checking container status: ' + err.message
+    return
+  }
+
   if (!confirm(`Are you sure you want to assign car #${car.id} to this container?`)) {
     return
   }
@@ -214,6 +244,13 @@ const assignCar = async (car) => {
   } finally {
     isAssigning.value = false
   }
+}
+
+const getAssignButtonTitle = () => {
+  if (props.selectedContainerOnBoard) {
+    return 'Container is already on board'
+  }
+  return 'Assign to Container'
 }
 
 onMounted(() => {
@@ -513,6 +550,18 @@ defineExpose({
 .assign-btn:hover:not(:disabled) {
   background-color: #bfdbfe;
   color: #1e40af;
+}
+
+.assign-btn:disabled {
+  background-color: #e5e7eb;
+  color: #9ca3af;
+  border-color: #d1d5db;
+  cursor: not-allowed;
+}
+
+.assign-btn:disabled:hover {
+  background-color: #e5e7eb;
+  color: #9ca3af;
 }
 
 .table-footer {

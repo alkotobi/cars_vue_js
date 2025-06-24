@@ -125,6 +125,7 @@
     <ContainersTable
       :selectedLoadingId="selectedLoadingId"
       @container-click="handleContainerClick"
+      ref="containersTableRef"
     />
     <LoadingAssignedCars
       ref="assignedCarsRef"
@@ -134,6 +135,7 @@
     <UnassignedCars
       ref="unassignedCarsRef"
       :selectedLoadedContainerId="selectedLoadedContainerId"
+      :selectedContainerOnBoard="selectedContainerOnBoard"
       @car-assigned="handleCarAssigned"
     />
 
@@ -548,8 +550,10 @@ const showDischargePortDialog = ref(false)
 const isAddingItem = ref(false)
 const selectedLoadingId = ref(null)
 const selectedLoadedContainerId = ref(null)
+const selectedContainerOnBoard = ref(false)
 const assignedCarsRef = ref(null)
 const unassignedCarsRef = ref(null)
+const containersTableRef = ref(null)
 
 // Form data
 const formData = ref({
@@ -1081,8 +1085,25 @@ const selectLoadingRecord = (id) => {
   selectedLoadingId.value = id
 }
 
-const handleContainerClick = (containerId) => {
+const handleContainerClick = async (containerId) => {
   selectedLoadedContainerId.value = containerId
+
+  // Fetch the container's on board status
+  try {
+    const result = await callApi({
+      query: 'SELECT date_on_board FROM loaded_containers WHERE id = ?',
+      params: [containerId],
+    })
+
+    if (result.success && result.data && result.data.length > 0) {
+      selectedContainerOnBoard.value = !!result.data[0].date_on_board
+    } else {
+      selectedContainerOnBoard.value = false
+    }
+  } catch (err) {
+    console.error('Error fetching container on board status:', err)
+    selectedContainerOnBoard.value = false
+  }
 }
 
 const handleCarUnassigned = () => {
@@ -1091,6 +1112,14 @@ const handleCarUnassigned = () => {
   if (unassignedCarsRef.value) {
     unassignedCarsRef.value.refreshData()
   }
+  // Refresh containers table to update on board button states
+  if (containersTableRef.value) {
+    containersTableRef.value.fetchContainers()
+  }
+  // Refresh selected container on board status
+  if (selectedLoadedContainerId.value) {
+    refreshSelectedContainerStatus()
+  }
 }
 
 const handleCarAssigned = () => {
@@ -1098,6 +1127,32 @@ const handleCarAssigned = () => {
   console.log('Car assigned - refreshing assigned cars')
   if (assignedCarsRef.value) {
     assignedCarsRef.value.refreshData()
+  }
+  // Refresh containers table to update on board button states
+  if (containersTableRef.value) {
+    containersTableRef.value.fetchContainers()
+  }
+  // Refresh selected container on board status
+  if (selectedLoadedContainerId.value) {
+    refreshSelectedContainerStatus()
+  }
+}
+
+const refreshSelectedContainerStatus = async () => {
+  try {
+    const result = await callApi({
+      query: 'SELECT date_on_board FROM loaded_containers WHERE id = ?',
+      params: [selectedLoadedContainerId.value],
+    })
+
+    if (result.success && result.data && result.data.length > 0) {
+      selectedContainerOnBoard.value = !!result.data[0].date_on_board
+    } else {
+      selectedContainerOnBoard.value = false
+    }
+  } catch (err) {
+    console.error('Error refreshing container on board status:', err)
+    selectedContainerOnBoard.value = false
   }
 }
 
