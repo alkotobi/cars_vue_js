@@ -284,6 +284,7 @@
     <ContainersTable
       :selectedLoadingId="selectedLoadingId"
       @container-click="handleContainerClick"
+      @refresh-unassigned-cars="handleRefreshUnassignedCars"
       ref="containersTableRef"
     />
     <LoadingAssignedCars
@@ -1430,6 +1431,18 @@ const handleCarAssigned = () => {
   // Refresh selected container on board status
   if (selectedLoadedContainerId.value) {
     refreshSelectedContainerStatus()
+  }
+}
+
+const handleRefreshUnassignedCars = () => {
+  // Refresh unassigned cars table when a container is deleted
+  console.log('Container deleted - refreshing unassigned cars')
+  if (unassignedCarsRef.value) {
+    unassignedCarsRef.value.refreshData()
+  }
+  // Also refresh assigned cars table to update the display
+  if (assignedCarsRef.value) {
+    assignedCarsRef.value.refreshData()
   }
 }
 

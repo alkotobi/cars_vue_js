@@ -501,7 +501,7 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['container-click'])
+const emit = defineEmits(['container-click', 'refresh-unassigned-cars'])
 
 const { callApi } = useApi()
 
@@ -816,6 +816,25 @@ const confirmDelete = async () => {
   isDeleting.value = true
 
   try {
+    // First, unassign all cars from this container and clear their container_ref
+    const unassignCarsResult = await callApi({
+      query: `
+        UPDATE cars_stock 
+        SET id_loaded_container = NULL, container_ref = NULL 
+        WHERE id_loaded_container = ?
+      `,
+      params: [containerToDelete.value.id],
+    })
+
+    if (!unassignCarsResult.success) {
+      throw new Error('Failed to unassign cars from container: ' + unassignCarsResult.error)
+    }
+
+    console.log(
+      `Unassigned ${unassignCarsResult.affectedRows || 0} cars from container ${containerToDelete.value.id}`,
+    )
+
+    // Now delete the container
     const result = await callApi({
       query: 'DELETE FROM loaded_containers WHERE id = ?',
       params: [containerToDelete.value.id],
@@ -824,6 +843,19 @@ const confirmDelete = async () => {
     if (result.success) {
       await fetchContainers()
       closeDeleteDialog()
+
+      // Show success message with number of cars unassigned
+      const carsUnassigned = unassignCarsResult.affectedRows || 0
+      if (carsUnassigned > 0) {
+        alert(
+          `Container deleted successfully. ${carsUnassigned} car(s) have been unassigned from this container.`,
+        )
+      } else {
+        alert('Container deleted successfully.')
+      }
+
+      // Emit refresh unassigned cars event
+      emit('refresh-unassigned-cars')
     } else {
       error.value = result.error || 'Failed to delete container'
     }
