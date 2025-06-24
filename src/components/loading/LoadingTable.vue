@@ -126,8 +126,16 @@
       :selectedLoadingId="selectedLoadingId"
       @container-click="handleContainerClick"
     />
-    <LoadingAssignedCars :selectedLoadedContainerId="selectedLoadedContainerId" />
-    <UnassignedCars />
+    <LoadingAssignedCars
+      ref="assignedCarsRef"
+      :selectedLoadedContainerId="selectedLoadedContainerId"
+      @car-unassigned="handleCarUnassigned"
+    />
+    <UnassignedCars
+      ref="unassignedCarsRef"
+      :selectedLoadedContainerId="selectedLoadedContainerId"
+      @car-assigned="handleCarAssigned"
+    />
 
     <!-- Add/Edit Dialog -->
     <div v-if="showDialog" class="dialog-overlay" @click.self="closeDialog">
@@ -540,6 +548,8 @@ const showDischargePortDialog = ref(false)
 const isAddingItem = ref(false)
 const selectedLoadingId = ref(null)
 const selectedLoadedContainerId = ref(null)
+const assignedCarsRef = ref(null)
+const unassignedCarsRef = ref(null)
 
 // Form data
 const formData = ref({
@@ -1073,6 +1083,22 @@ const selectLoadingRecord = (id) => {
 
 const handleContainerClick = (containerId) => {
   selectedLoadedContainerId.value = containerId
+}
+
+const handleCarUnassigned = () => {
+  // Refresh unassigned cars table when a car is unassigned
+  console.log('Car unassigned - refreshing unassigned cars')
+  if (unassignedCarsRef.value) {
+    unassignedCarsRef.value.refreshData()
+  }
+}
+
+const handleCarAssigned = () => {
+  // Refresh assigned cars table when a car is assigned
+  console.log('Car assigned - refreshing assigned cars')
+  if (assignedCarsRef.value) {
+    assignedCarsRef.value.refreshData()
+  }
 }
 
 onMounted(() => {

@@ -46,6 +46,7 @@
               <th>Client</th>
               <th>Price</th>
               <th>Status</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -77,6 +78,18 @@
                   {{ car.id_sell ? 'Sold' : 'Available' }}
                 </span>
               </td>
+              <td class="actions-cell">
+                <div class="action-buttons">
+                  <button
+                    @click.stop="assignCar(car)"
+                    class="action-btn assign-btn"
+                    title="Assign to Container"
+                    :disabled="isAssigning"
+                  >
+                    <i class="fas fa-link"></i>
+                  </button>
+                </div>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -93,12 +106,22 @@
 import { ref, onMounted } from 'vue'
 import { useApi } from '@/composables/useApi'
 
+const props = defineProps({
+  selectedLoadedContainerId: {
+    type: Number,
+    default: null,
+  },
+})
+
+const emit = defineEmits(['car-assigned'])
+
 const { callApi, getFileUrl } = useApi()
 
 const unassignedCars = ref([])
 const loading = ref(false)
 const error = ref(null)
 const selectedCarId = ref(null)
+const isAssigning = ref(false)
 
 const fetchUnassignedCars = async () => {
   loading.value = true
@@ -158,8 +181,49 @@ const refreshData = () => {
   fetchUnassignedCars()
 }
 
+const assignCar = async (car) => {
+  if (isAssigning.value) return
+
+  if (!props.selectedLoadedContainerId) {
+    alert('Please select a container first')
+    return
+  }
+
+  if (!confirm(`Are you sure you want to assign car #${car.id} to this container?`)) {
+    return
+  }
+
+  isAssigning.value = true
+
+  try {
+    const result = await callApi({
+      query: 'UPDATE cars_stock SET id_loaded_container = ? WHERE id = ?',
+      params: [props.selectedLoadedContainerId, car.id],
+    })
+
+    if (result.success) {
+      // Refresh the data to update both tables
+      await fetchUnassignedCars()
+      // Emit an event to refresh assigned cars table
+      emit('car-assigned')
+    } else {
+      error.value = result.error || 'Failed to assign car'
+    }
+  } catch (err) {
+    error.value = 'Error assigning car: ' + err.message
+  } finally {
+    isAssigning.value = false
+  }
+}
+
 onMounted(() => {
   fetchUnassignedCars()
+})
+
+// Expose methods to parent component
+defineExpose({
+  refreshData,
+  fetchUnassignedCars,
 })
 </script>
 
@@ -406,6 +470,49 @@ onMounted(() => {
   border-radius: 12px;
   font-size: 0.8rem;
   font-weight: 500;
+}
+
+.actions-cell {
+  text-align: center;
+}
+
+.action-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.9rem;
+}
+
+.action-btn:hover:not(:disabled) {
+  background-color: #f3f4f6;
+}
+
+.action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.assign-btn {
+  background-color: #dbeafe;
+  color: #1d4ed8;
+  border: 1px solid #93c5fd;
+}
+
+.assign-btn:hover:not(:disabled) {
+  background-color: #bfdbfe;
+  color: #1e40af;
 }
 
 .table-footer {

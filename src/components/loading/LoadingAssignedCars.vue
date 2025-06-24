@@ -53,6 +53,7 @@
               <th>Client</th>
               <th>Price</th>
               <th>Status</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -86,6 +87,18 @@
                   {{ car.id_sell ? 'Sold' : 'Available' }}
                 </span>
               </td>
+              <td class="actions-cell">
+                <div class="action-buttons">
+                  <button
+                    @click.stop="unassignCar(car)"
+                    class="action-btn unassign-btn"
+                    title="Unassign from Container"
+                    :disabled="isUnassigning"
+                  >
+                    <i class="fas fa-unlink"></i>
+                  </button>
+                </div>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -99,7 +112,7 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, defineExpose } from 'vue'
 import { useApi } from '@/composables/useApi'
 
 const props = defineProps({
@@ -109,12 +122,15 @@ const props = defineProps({
   },
 })
 
+const emit = defineEmits(['car-unassigned'])
+
 const { callApi, getFileUrl } = useApi()
 
 const assignedCars = ref([])
 const loading = ref(false)
 const error = ref(null)
 const selectedCarId = ref(null)
+const isUnassigning = ref(false)
 
 const fetchAssignedCars = async () => {
   if (!props.selectedLoadedContainerId) {
@@ -175,6 +191,36 @@ const openClientId = (path) => {
   window.open(getFileUrl(path), '_blank')
 }
 
+const unassignCar = async (car) => {
+  if (isUnassigning.value) return
+
+  if (!confirm(`Are you sure you want to unassign car #${car.id} from this container?`)) {
+    return
+  }
+
+  isUnassigning.value = true
+
+  try {
+    const result = await callApi({
+      query: 'UPDATE cars_stock SET id_loaded_container = NULL WHERE id = ?',
+      params: [car.id],
+    })
+
+    if (result.success) {
+      // Refresh the data to update both tables
+      await fetchAssignedCars()
+      // Emit an event to refresh unassigned cars table
+      emit('car-unassigned')
+    } else {
+      error.value = result.error || 'Failed to unassign car'
+    }
+  } catch (err) {
+    error.value = 'Error unassigning car: ' + err.message
+  } finally {
+    isUnassigning.value = false
+  }
+}
+
 const getStatusClass = (idSell) => {
   return idSell ? 'status-sold' : 'status-available'
 }
@@ -195,6 +241,12 @@ watch(
   },
   { immediate: true },
 )
+
+// Expose methods to parent component
+defineExpose({
+  refreshData,
+  fetchAssignedCars,
+})
 </script>
 
 <style scoped>
@@ -407,13 +459,51 @@ watch(
 }
 
 .status-sold {
-  display: inline-block;
-  padding: 2px 8px;
   background-color: #fee2e2;
-  color: #dc2626;
+  color: #991b1b;
+  padding: 4px 12px;
   border-radius: 12px;
   font-size: 0.8rem;
   font-weight: 500;
+}
+
+.actions-cell {
+  text-align: center;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.9rem;
+}
+
+.action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.unassign-btn {
+  background-color: #fef3c7;
+  color: #d97706;
+  border: 1px solid #fbbf24;
+}
+
+.unassign-btn:hover:not(:disabled) {
+  background-color: #fde68a;
+  color: #b45309;
 }
 
 .table-footer {
