@@ -5,39 +5,39 @@ import { useApi } from '../../composables/useApi'
 const props = defineProps({
   carData: {
     type: Object,
-    required: true
-  }
+    required: true,
+  },
 })
 
 const user = ref(null)
 const can_edit_vin = computed(() => {
   if (!user.value) return false
   if (user.value.role_id === 1) return true
-  return user.value.permissions?.some(p => p.permission_name === 'can_edit_vin')
+  return user.value.permissions?.some((p) => p.permission_name === 'can_edit_vin')
 })
 
 const can_edit_car_client_name = computed(() => {
   if (!user.value) return false
   if (user.value.role_id === 1) return true
-  return user.value.permissions?.some(p => p.permission_name === 'can_edit_car_client_name')
+  return user.value.permissions?.some((p) => p.permission_name === 'can_edit_car_client_name')
 })
 
 const can_edit_cars_sell_price = computed(() => {
   if (!user.value) return false
   if (user.value.role_id === 1) return true
-  return user.value.permissions?.some(p => p.permission_name === 'can_edit_cars_sell_price')
+  return user.value.permissions?.some((p) => p.permission_name === 'can_edit_cars_sell_price')
 })
 
 const can_edit_cars_sell_rate = computed(() => {
   if (!user.value) return false
   if (user.value.role_id === 1) return true
-  return user.value.permissions?.some(p => p.permission_name === 'can_edit_cars_sell_rate')
+  return user.value.permissions?.some((p) => p.permission_name === 'can_edit_cars_sell_rate')
 })
 
 const can_edit_cars_discharge_port = computed(() => {
   if (!user.value) return false
   if (user.value.role_id === 1) return true
-  return user.value.permissions?.some(p => p.permission_name === 'can_edit_cars_discharge_port')
+  return user.value.permissions?.some((p) => p.permission_name === 'can_edit_cars_discharge_port')
 })
 
 const emit = defineEmits(['save', 'cancel'])
@@ -81,7 +81,7 @@ const formData = ref({
   in_wharhouse_date: null,
   date_get_documents_from_supp: null,
   date_get_keys_from_supp: null,
-  rate: null
+  rate: null,
 })
 
 // Handle file changes
@@ -105,11 +105,11 @@ const handleFileChange = (event, fileType) => {
 // Upload a single file and return its path
 const uploadSingleFile = async (file, folder, customFilename = '') => {
   if (!file) return null
-  
+
   try {
     // Get original file extension
     const originalExt = file.name.split('.').pop().toLowerCase()
-    
+
     // Create a meaningful filename based on car details
     let filename = ''
     if (formData.value.vin) {
@@ -122,7 +122,7 @@ const uploadSingleFile = async (file, folder, customFilename = '') => {
       // Fallback to timestamp if neither exists
       filename = `new_car_${Date.now()}`
     }
-    
+
     // Add folder-specific prefix
     switch (folder) {
       case 'documents':
@@ -135,7 +135,7 @@ const uploadSingleFile = async (file, folder, customFilename = '') => {
         filename = `buy_pi_${filename}`
         break
     }
-    
+
     // Add date for versioning
     const date = new Date()
     const dateStr = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`
@@ -153,58 +153,69 @@ const uploadSingleFile = async (file, folder, customFilename = '') => {
 }
 
 // Watch for changes in carData prop
-watch(() => props.carData, (newData) => {
-  if (newData) {
-    // Create a new object with all fields from newData
-    formData.value = { 
-      ...newData,
-      // Convert rate to number if it exists, otherwise null
-      rate: newData.rate ? Number(newData.rate) : null
-    }
-    
-    // Format dates for input fields
-    const dateFields = ['date_sell', 'date_loding', 'date_send_documents', 'in_wharhouse_date', 'date_get_documents_from_supp', 'date_get_keys_from_supp']
-    
-    dateFields.forEach(field => {
-      if (formData.value[field]) {
-        const date = new Date(formData.value[field])
-        if (!isNaN(date)) {
-          formData.value[field] = date.toISOString().split('T')[0]
-        }
+watch(
+  () => props.carData,
+  (newData) => {
+    if (newData) {
+      // Create a new object with all fields from newData
+      formData.value = {
+        ...newData,
+        // Convert rate to number if it exists, otherwise null
+        rate: newData.rate ? Number(newData.rate) : null,
       }
-    })
-  }
-}, { immediate: true })
+
+      // Format dates for input fields
+      const dateFields = [
+        'date_sell',
+        'date_loding',
+        'date_send_documents',
+        'in_wharhouse_date',
+        'date_get_documents_from_supp',
+        'date_get_keys_from_supp',
+      ]
+
+      dateFields.forEach((field) => {
+        if (formData.value[field]) {
+          const date = new Date(formData.value[field])
+          if (!isNaN(date)) {
+            formData.value[field] = date.toISOString().split('T')[0]
+          }
+        }
+      })
+    }
+  },
+  { immediate: true },
+)
 
 const fetchReferenceData = async () => {
   try {
     // Fetch clients
     const clientsResult = await callApi({
       query: 'SELECT id, name FROM clients ORDER BY name ASC',
-      params: []
+      params: [],
     })
     if (clientsResult.success) {
       clients.value = clientsResult.data
     }
-    
+
     // Fetch loading ports
     const loadingPortsResult = await callApi({
       query: 'SELECT id, loading_port FROM loading_ports ORDER BY loading_port ASC',
-      params: []
+      params: [],
     })
     if (loadingPortsResult.success) {
       loadingPorts.value = loadingPortsResult.data
     }
-    
+
     // Fetch discharge ports
     const dischargePortsResult = await callApi({
       query: 'SELECT id, discharge_port FROM discharge_ports ORDER BY discharge_port ASC',
-      params: []
+      params: [],
     })
     if (dischargePortsResult.success) {
       dischargePorts.value = dischargePortsResult.data
     }
-    
+
     // Fetch buy details
     const buyDetailsResult = await callApi({
       query: `
@@ -214,16 +225,16 @@ const fetchReferenceData = async () => {
         LEFT JOIN colors clr ON bd.id_color = clr.id
         ORDER BY bd.id DESC
       `,
-      params: []
+      params: [],
     })
     if (buyDetailsResult.success) {
       buyDetails.value = buyDetailsResult.data
     }
-    
+
     // Fetch warehouses if needed
     const warehousesResult = await callApi({
       query: 'SELECT id, warhouse_name as name FROM warehouses ORDER BY warhouse_name ASC',
-      params: []
+      params: [],
     })
     if (warehousesResult.success) {
       warehouses.value = warehousesResult.data
@@ -236,17 +247,17 @@ const fetchReferenceData = async () => {
 const saveCar = async () => {
   loading.value = true
   error.value = null
-  
+
   try {
     // Handle file uploads first
     if (documentsFile.value) {
       formData.value.path_documents = await uploadSingleFile(documentsFile.value, 'documents')
     }
-    
+
     if (sellPiFile.value) {
       formData.value.sell_pi_path = await uploadSingleFile(sellPiFile.value, 'sell_pi')
     }
-    
+
     if (buyPiFile.value) {
       formData.value.buy_pi_path = await uploadSingleFile(buyPiFile.value, 'buy_pi')
     }
@@ -302,10 +313,10 @@ const saveCar = async () => {
         formData.value.date_get_documents_from_supp || null,
         formData.value.date_get_keys_from_supp || null,
         formData.value.rate || null,
-        formData.value.id
-      ]
+        formData.value.id,
+      ],
     })
-    
+
     if (result.success) {
       emit('save')
     } else {
@@ -324,143 +335,159 @@ onMounted(() => {
   if (userStr) {
     user.value = JSON.parse(userStr)
   }
-      fetchReferenceData()
+  fetchReferenceData()
 })
 </script>
 
 <template>
   <div class="car-stock-form">
     <h3>{{ formData.id ? 'Edit' : 'Add' }} Car Stock</h3>
-    
-      <div class="form-grid">
-        <!-- Basic Information -->
-        <div class="form-section">
-          <h4>Basic Information</h4>
-          
-          <div class="form-group">
-            <label for="vin">VIN:</label>
-            <input :disabled="!can_edit_vin" type="text" id="vin" v-model="formData.vin">
-          </div>
-          
-          <div class="form-group">
-            <label for="id_buy_details">Buy Details:</label>
-            <select id="id_buy_details" v-model="formData.id_buy_details">
-              <option value="">Select Buy Details</option>
-              <option v-for="detail in buyDetails" :key="detail.id" :value="detail.id">
-                {{ detail.car_name }} - {{ detail.color }} (ID: {{ detail.id }})
-              </option>
-            </select>
-          </div>
-          
-          <div class="form-group">
-            <label for="notes">Notes:</label>
-            <textarea id="notes" v-model="formData.notes"></textarea>
-          </div>
-        </div>
-        
-        <!-- Pricing and Client -->
-        <div class="form-section">
-          <h4>Pricing and Client</h4>
-          
-          <div class="form-group">
-            <label for="price_cell">Price Cell:</label>
-            <input :disabled="!can_edit_cars_sell_price" type="number" id="price_cell" v-model="formData.price_cell" step="0.01">
-          </div>
-          
-          <div class="form-group">
-            <label for="freight">Freight:</label>
-            <input type="number" id="freight" v-model="formData.freight" step="0.01">
-          </div>
 
-          <div class="form-group">
-            <label for="rate">Rate:</label>
-            <input :disabled="!can_edit_cars_sell_rate" type="number" id="rate" v-model="formData.rate" step="0.01">
-          </div>
-          
-          <div class="form-group">
-            <label for="id_client">Client:</label>
-            <select :disabled="!can_edit_car_client_name" id="id_client" v-model="formData.id_client">
-              <option  value="">Select Client</option>
-              <option v-for="client in clients" :key="client.id" :value="client.id">
-                {{ client.name }}
-              </option>
-            </select>
-          </div>
-          
-          <div class="form-group">
-            <label for="date_sell">Sell Date:</label>
-            <input type="date" id="date_sell" v-model="formData.date_sell">
-          </div>
+    <div class="form-grid">
+      <!-- Basic Information -->
+      <div class="form-section">
+        <h4>Basic Information</h4>
+
+        <div class="form-group">
+          <label for="vin">VIN:</label>
+          <input :disabled="!can_edit_vin" type="text" id="vin" v-model="formData.vin" />
         </div>
-        
-        <!-- Ports and Shipping -->
-        <div class="form-section">
-          <h4>Ports and Shipping</h4>
-          
-          <div class="form-group">
-            <label for="id_port_loading">Loading Port:</label>
-            <select id="id_port_loading" v-model="formData.id_port_loading">
-              <option value="">Select Loading Port</option>
-              <option v-for="port in loadingPorts" :key="port.id" :value="port.id">
-                {{ port.loading_port }}
-              </option>
-            </select>
-          </div>
-          
-          <div class="form-group">
-            <label for="id_port_discharge">Discharge Port:</label>
-            <select :disabled="!can_edit_cars_discharge_port" id="id_port_discharge" v-model="formData.id_port_discharge">
-              <option value="">Select Discharge Port</option>
-              <option v-for="port in dischargePorts" :key="port.id" :value="port.id">
-                {{ port.discharge_port }}
-              </option>
-            </select>
-          </div>
-          
-          <div class="form-group">
-            <label for="date_loding">Loading Date:</label>
-            <input type="date" id="date_loding" v-model="formData.date_loding">
-          </div>
-          
-          <div class="form-group">
-            <label for="export_lisence_ref">Export License Ref:</label>
-            <input type="text" id="export_lisence_ref" v-model="formData.export_lisence_ref">
-          </div>
+
+        <div class="form-group">
+          <label for="id_buy_details">Buy Details:</label>
+          <select id="id_buy_details" v-model="formData.id_buy_details">
+            <option value="">Select Buy Details</option>
+            <option v-for="detail in buyDetails" :key="detail.id" :value="detail.id">
+              {{ detail.car_name }} - {{ detail.color }} (ID: {{ detail.id }})
+            </option>
+          </select>
         </div>
-        
+
+        <div class="form-group">
+          <label for="notes">Notes:</label>
+          <textarea id="notes" v-model="formData.notes"></textarea>
+        </div>
+      </div>
+
+      <!-- Pricing and Client -->
+      <div class="form-section">
+        <h4>Pricing and Client</h4>
+
+        <div class="form-group">
+          <label for="price_cell">Price Cell:</label>
+          <input
+            :disabled="!can_edit_cars_sell_price"
+            type="number"
+            id="price_cell"
+            v-model="formData.price_cell"
+            step="0.01"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="freight">Freight:</label>
+          <input type="number" id="freight" v-model="formData.freight" step="0.01" />
+        </div>
+
+        <div class="form-group">
+          <label for="rate">Rate:</label>
+          <input
+            :disabled="!can_edit_cars_sell_rate"
+            type="number"
+            id="rate"
+            v-model="formData.rate"
+            step="0.01"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="id_client">Client:</label>
+          <select :disabled="!can_edit_car_client_name" id="id_client" v-model="formData.id_client">
+            <option value="">Select Client</option>
+            <option v-for="client in clients" :key="client.id" :value="client.id">
+              {{ client.name }}
+            </option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="date_sell">Sell Date:</label>
+          <input type="date" id="date_sell" v-model="formData.date_sell" />
+        </div>
+      </div>
+
+      <!-- Ports and Shipping -->
+      <div class="form-section">
+        <h4>Ports and Shipping</h4>
+
+        <div class="form-group">
+          <label for="id_port_loading">Loading Port:</label>
+          <select id="id_port_loading" v-model="formData.id_port_loading">
+            <option value="">Select Loading Port</option>
+            <option v-for="port in loadingPorts" :key="port.id" :value="port.id">
+              {{ port.loading_port }}
+            </option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="id_port_discharge">Discharge Port:</label>
+          <select
+            :disabled="!can_edit_cars_discharge_port"
+            id="id_port_discharge"
+            v-model="formData.id_port_discharge"
+          >
+            <option value="">Select Discharge Port</option>
+            <option v-for="port in dischargePorts" :key="port.id" :value="port.id">
+              {{ port.discharge_port }}
+            </option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="date_loding">Operation Date:</label>
+          <input type="date" id="date_loding" v-model="formData.date_loding" />
+        </div>
+
+        <div class="form-group">
+          <label for="export_lisence_ref">Export License Ref:</label>
+          <input type="text" id="export_lisence_ref" v-model="formData.export_lisence_ref" />
+        </div>
+      </div>
+
       <!-- Documents Upload -->
-          <div class="form-group">
+      <div class="form-group">
         <label>Documents:</label>
         <div class="file-upload-container">
-          <input 
-            type="file" 
-            @change="handleFileChange($event, 'documents')" 
+          <input
+            type="file"
+            @change="handleFileChange($event, 'documents')"
             accept=".pdf"
             class="file-input"
           />
-          <a 
-            v-if="formData.path_documents" 
+          <a
+            v-if="formData.path_documents"
             :href="getFileUrl(formData.path_documents)"
-            target="_blank" 
+            target="_blank"
             class="current-file-link"
           >
             View Current Document
           </a>
-          </div>
-          </div>
-          
+        </div>
+      </div>
+
       <!-- Sell PI Upload -->
-          <div class="form-group">
+      <div class="form-group">
         <label>Sell PI:</label>
         <div class="file-upload-container">
-          <input 
-            type="file" 
-            @change="handleFileChange($event, 'sellPi')" 
+          <input
+            type="file"
+            @change="handleFileChange($event, 'sellPi')"
             accept=".pdf"
             class="file-input"
           />
-          <a 
-            v-if="formData.sell_pi_path" 
+          <a
+            v-if="formData.sell_pi_path"
             :href="getFileUrl(formData.sell_pi_path)"
             target="_blank"
             class="current-file-link"
@@ -468,40 +495,36 @@ onMounted(() => {
             View Sell PI
           </a>
         </div>
-          </div>
-          
+      </div>
+
       <!-- Buy PI Upload -->
-          <div class="form-group">
+      <div class="form-group">
         <label>Buy PI:</label>
         <div class="file-upload-container">
-          <input 
-            type="file" 
-            @change="handleFileChange($event, 'buyPi')" 
+          <input
+            type="file"
+            @change="handleFileChange($event, 'buyPi')"
             accept=".pdf"
             class="file-input"
           />
-          <a 
-            v-if="formData.buy_pi_path" 
+          <a
+            v-if="formData.buy_pi_path"
             :href="getFileUrl(formData.buy_pi_path)"
             target="_blank"
             class="current-file-link"
           >
             View Buy PI
           </a>
-          </div>
         </div>
       </div>
-      
-      <div class="form-actions">
-      <button 
-        @click="saveCar" 
-        :disabled="loading" 
-        class="btn save-btn"
-      >
+    </div>
+
+    <div class="form-actions">
+      <button @click="saveCar" :disabled="loading" class="btn save-btn">
         {{ loading ? 'Saving...' : 'Save' }}
       </button>
       <button @click="$emit('cancel')" class="btn cancel-btn">Cancel</button>
-      </div>
+    </div>
 
     <div v-if="error" class="error-message">{{ error }}</div>
   </div>

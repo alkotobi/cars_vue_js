@@ -934,7 +934,7 @@ defineExpose({
               </span>
             </th>
             <th @click="toggleSort('date_loding')" class="sortable">
-              Loading Date
+              Operation Date
               <span v-if="sortConfig.key === 'date_loding'" class="sort-indicator">
                 {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
               </span>

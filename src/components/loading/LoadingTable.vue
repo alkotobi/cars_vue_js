@@ -48,7 +48,7 @@
           <thead>
             <tr>
               <th>ID</th>
-              <th>Loading Date</th>
+              <th>Operation Date</th>
               <th>Shipping Line</th>
               <th>Freight</th>
               <th>Loading Port</th>
@@ -142,7 +142,7 @@
             <div class="form-group">
               <label for="date_loading">
                 <i class="fas fa-calendar"></i>
-                Loading Date
+                Operation Date
               </label>
               <input
                 type="date"
@@ -659,6 +659,7 @@ const openAddDialog = () => {
 }
 
 const editRecord = (record) => {
+  console.log('Editing record:', record)
   isEditing.value = true
   editingRecord.value = record
   formData.value = {
@@ -671,6 +672,7 @@ const editRecord = (record) => {
     date_loaded: record.date_loaded || '',
     note: record.note || '',
   }
+  console.log('Form data set to:', formData.value)
   showDialog.value = true
 }
 
@@ -771,7 +773,7 @@ const saveRecord = async () => {
 
   // Validate and format dates
   const validateAndFormatDate = (dateString) => {
-    if (!dateString) return null
+    if (!dateString || !dateString.trim()) return null
     const date = new Date(dateString)
     if (isNaN(date.getTime())) {
       throw new Error('Invalid date format')
@@ -786,7 +788,7 @@ const saveRecord = async () => {
       return
     }
 
-    // Format dates
+    // Format dates - convert empty strings to null
     const formattedDateLoading = validateAndFormatDate(formData.value.date_loading)
     const formattedEDD = validateAndFormatDate(formData.value.EDD)
     const formattedDateLoaded = validateAndFormatDate(formData.value.date_loaded)
@@ -878,8 +880,8 @@ const resetForm = () => {
     freight: '',
     id_loading_port: '',
     id_discharge_port: '',
-    EDD: today,
-    date_loaded: today,
+    EDD: '',
+    date_loaded: '',
     note: '',
   }
 }
