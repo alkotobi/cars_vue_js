@@ -189,6 +189,73 @@
         <span v-if="hasActiveFilters" class="filter-indicator">(filtered)</span>
       </span>
     </div>
+
+    <!-- VIN Input Dialog -->
+    <div v-if="showVinDialog" class="dialog-overlay" @click.self="closeVinDialog">
+      <div class="dialog">
+        <div class="dialog-header">
+          <h3>
+            <i class="fas fa-car"></i>
+            Enter VIN for Car #{{ carToAssign?.id }}
+          </h3>
+          <button class="close-btn" @click="closeVinDialog" :disabled="isSubmittingVin">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+
+        <div class="dialog-content">
+          <div class="car-info">
+            <p><strong>Car:</strong> {{ carToAssign?.car_name || 'N/A' }}</p>
+            <p><strong>Color:</strong> {{ carToAssign?.color || 'N/A' }}</p>
+            <p><strong>Client:</strong> {{ carToAssign?.client_name || 'N/A' }}</p>
+          </div>
+
+          <div class="form-group">
+            <label for="vin-input">
+              <i class="fas fa-barcode"></i>
+              VIN Number <span style="color: red">*</span>
+            </label>
+            <input
+              type="text"
+              id="vin-input"
+              v-model="vinInput"
+              placeholder="Enter VIN number"
+              :disabled="isSubmittingVin"
+              @keyup.enter="submitVinAndAssign"
+              maxlength="17"
+              required
+            />
+            <div v-if="vinError" class="error-message">{{ vinError }}</div>
+          </div>
+
+          <div class="warning-message">
+            <i class="fas fa-exclamation-triangle"></i>
+            <p><strong>Note:</strong> VIN is required before assigning a car to a container.</p>
+          </div>
+        </div>
+
+        <div class="dialog-footer">
+          <button
+            type="button"
+            @click="closeVinDialog"
+            class="cancel-btn"
+            :disabled="isSubmittingVin"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            @click="submitVinAndAssign"
+            class="confirm-btn"
+            :disabled="isSubmittingVin"
+            :class="{ processing: isSubmittingVin }"
+          >
+            <i v-if="isSubmittingVin" class="fas fa-spinner fa-spin"></i>
+            <span>Update VIN & Assign</span>
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -313,6 +380,24 @@ const assignCar = async (car) => {
     return
   }
 
+  console.log('Assigning car:', car)
+  console.log('Car VIN:', car.vin)
+  console.log('VIN check result:', !car.vin || car.vin.trim() === '')
+
+  // Check if car has VIN
+  if (!car.vin || car.vin.trim() === '') {
+    console.log('VIN is missing, showing dialog')
+    // Show VIN input dialog
+    carToAssign.value = car
+    vinInput.value = ''
+    vinError.value = ''
+    showVinDialog.value = true
+    console.log('Dialog should be visible:', showVinDialog.value)
+    return
+  }
+
+  console.log('VIN exists, proceeding with normal assignment')
+
   // Check if the selected container is already on board
   try {
     const containerResult = await callApi({
@@ -338,6 +423,10 @@ const assignCar = async (car) => {
     return
   }
 
+  await performCarAssignment(car)
+}
+
+const performCarAssignment = async (car) => {
   isAssigning.value = true
 
   try {
@@ -372,6 +461,60 @@ const assignCar = async (car) => {
   } finally {
     isAssigning.value = false
   }
+}
+
+const submitVinAndAssign = async () => {
+  if (isSubmittingVin.value) return
+
+  // Validate VIN input
+  if (!vinInput.value || vinInput.value.trim() === '') {
+    vinError.value = 'VIN is required'
+    return
+  }
+
+  vinError.value = ''
+  isSubmittingVin.value = true
+
+  try {
+    const vinValue = vinInput.value.trim()
+
+    // Update the car's VIN first
+    const updateResult = await callApi({
+      query: 'UPDATE cars_stock SET vin = ? WHERE id = ?',
+      params: [vinValue, carToAssign.value.id],
+    })
+
+    if (!updateResult.success) {
+      vinError.value = 'Failed to update VIN'
+      return
+    }
+
+    // Store the car data with updated VIN
+    const updatedCar = {
+      ...carToAssign.value,
+      vin: vinValue,
+    }
+
+    // Close the dialog
+    showVinDialog.value = false
+    carToAssign.value = null
+    vinInput.value = ''
+
+    // Now assign the car
+    await performCarAssignment(updatedCar)
+  } catch (err) {
+    vinError.value = 'Error updating VIN: ' + err.message
+  } finally {
+    isSubmittingVin.value = false
+  }
+}
+
+const closeVinDialog = () => {
+  showVinDialog.value = false
+  carToAssign.value = null
+  vinInput.value = ''
+  vinError.value = ''
+  isSubmittingVin.value = false
 }
 
 const getAssignButtonTitle = () => {
@@ -851,5 +994,146 @@ defineExpose({
 .filter-indicator {
   color: #3498db;
   font-weight: 500;
+}
+
+.dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.dialog {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  max-width: 400px;
+  width: 100%;
+}
+
+.dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.dialog-header h3 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #1f2937;
+  font-size: 1.1rem;
+}
+
+.dialog-header h3 i {
+  color: #f59e0b;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+
+.dialog-content {
+  margin-bottom: 16px;
+}
+
+.car-info {
+  margin-bottom: 16px;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+}
+
+.error-message {
+  color: #dc2626;
+  font-size: 0.8rem;
+}
+
+.warning-message {
+  background-color: #fef3c7;
+  border: 1px solid #fbbf24;
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.warning-message i {
+  color: #d97706;
+  margin-top: 2px;
+}
+
+.warning-message p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #92400e;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.cancel-btn,
+.confirm-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.9rem;
+}
+
+.cancel-btn {
+  background-color: #f8fafc;
+  color: #374151;
+}
+
+.confirm-btn {
+  background-color: #3498db;
+  color: white;
+}
+
+.confirm-btn:hover:not(:disabled) {
+  background-color: #2980b9;
+}
+
+.confirm-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.confirm-btn.processing {
+  opacity: 0.7;
 }
 </style>

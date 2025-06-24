@@ -1488,7 +1488,6 @@ const generatePrintContent = (loadingRecord, containersData) => {
                   <th>Color</th>
                   <th>VIN</th>
                   <th>Client</th>
-                  <th>Price</th>
                 </tr>
               </thead>
               <tbody>
@@ -1520,7 +1519,6 @@ const generatePrintContent = (loadingRecord, containersData) => {
                         </div>
                       </div>
                     </td>
-                    <td>${car.price_cell ? `$${car.price_cell}` : 'N/A'}</td>
                   </tr>
                 `,
                   )
