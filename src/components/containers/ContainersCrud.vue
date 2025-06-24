@@ -55,7 +55,13 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="container in containers" :key="container.id" class="table-row">
+            <tr
+              v-for="container in containers"
+              :key="container.id"
+              class="table-row"
+              :class="{ 'selected-row': selectedContainerId === container.id }"
+              @click="handleContainerClick(container)"
+            >
               <td class="id-cell">#{{ container.id }}</td>
               <td class="name-cell">{{ container.name }}</td>
               <td class="usage-cell">
@@ -67,14 +73,14 @@
               <td class="actions-cell">
                 <div class="action-buttons">
                   <button
-                    @click="editContainer(container)"
+                    @click.stop="editContainer(container)"
                     class="action-btn edit-btn"
                     title="Edit Container"
                   >
                     <i class="fas fa-edit"></i>
                   </button>
                   <button
-                    @click="deleteContainer(container)"
+                    @click.stop="deleteContainer(container)"
                     class="action-btn delete-btn"
                     title="Delete Container"
                     :disabled="container.usage_count > 0"
@@ -211,6 +217,7 @@ const isSubmitting = ref(false)
 const isDeleting = ref(false)
 const containerToDelete = ref(null)
 const nameError = ref('')
+const selectedContainerId = ref(null)
 
 const formData = ref({
   name: '',
@@ -363,6 +370,10 @@ const confirmDelete = async () => {
 
 const refreshData = () => {
   fetchContainers()
+}
+
+const handleContainerClick = (container) => {
+  selectedContainerId.value = container.id
 }
 
 const formatDate = (dateString) => {
@@ -541,6 +552,21 @@ onMounted(() => {
 
 .table-row:hover {
   background-color: #f9fafb;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.table-row:active {
+  background-color: #e5e7eb;
+}
+
+.selected-row {
+  background-color: #dbeafe !important;
+  border-left: 4px solid #3b82f6;
+}
+
+.selected-row:hover {
+  background-color: #bfdbfe !important;
 }
 
 .id-cell {

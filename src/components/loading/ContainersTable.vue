@@ -62,7 +62,13 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="container in containers" :key="container.id" class="table-row">
+            <tr
+              v-for="container in containers"
+              :key="container.id"
+              class="table-row"
+              :class="{ 'selected-row': selectedContainerId === container.id }"
+              @click="handleContainerClick(container)"
+            >
               <td class="id-cell">#{{ container.id }}</td>
               <td class="container-cell">{{ container.container_name || '-' }}</td>
               <td class="ref-cell">{{ container.ref_container || '-' }}</td>
@@ -72,14 +78,14 @@
               <td class="actions-cell">
                 <div class="action-buttons">
                   <button
-                    @click="editContainer(container)"
+                    @click.stop="editContainer(container)"
                     class="action-btn edit-btn"
                     title="Edit Container"
                   >
                     <i class="fas fa-edit"></i>
                   </button>
                   <button
-                    @click="deleteContainer(container)"
+                    @click.stop="deleteContainer(container)"
                     class="action-btn delete-btn"
                     title="Delete Container"
                   >
@@ -346,6 +352,7 @@ const isSubmitting = ref(false)
 const isAddingContainer = ref(false)
 const isDeleting = ref(false)
 const containerToDelete = ref(null)
+const selectedContainerId = ref(null)
 
 const formData = ref({
   id_container: '',
@@ -608,6 +615,11 @@ const truncateText = (text, maxLength) => {
   return text.substring(0, maxLength) + '...'
 }
 
+const handleContainerClick = (container) => {
+  console.log('Container clicked:', container)
+  selectedContainerId.value = container.id
+}
+
 // Watch for changes in selectedLoadingId
 watch(
   () => props.selectedLoadingId,
@@ -790,6 +802,21 @@ watch(
 
 .table-row:hover {
   background-color: #f9fafb;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.table-row:active {
+  background-color: #e5e7eb;
+}
+
+.selected-row {
+  background-color: #dbeafe !important;
+  border-left: 4px solid #3b82f6;
+}
+
+.selected-row:hover {
+  background-color: #bfdbfe !important;
 }
 
 .id-cell {
@@ -804,10 +831,14 @@ watch(
 
 .ref-cell {
   font-family: monospace;
-  background-color: #f3f4f6;
+  /* background-color: #f3f4f6; */
   border-radius: 4px;
   padding: 2px 6px;
 }
+
+/* .selected-row .ref-cell {
+  background-color: #e5e7eb;
+} */
 
 .date-cell {
   color: #6b7280;
