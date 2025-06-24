@@ -13,6 +13,7 @@ import BuyView from './BuyView.vue'
 import SellBillsView from './SellBillsView.vue'
 import WarehousesView from './WarehousesView.vue'
 import StatisticsView from './StatisticsView.vue'
+import LoadingView from './LoadingView.vue'
 import { useApi } from '../composables/useApi'
 import FinishedOrdersTable from '../components/FinishedOrdersTable.vue'
 
@@ -33,6 +34,7 @@ const isProcessing = ref({
   suppliers: false,
   warehouses: false,
   statistics: false,
+  load: false,
 })
 
 const { callApi } = useApi()
@@ -94,6 +96,13 @@ const canCCarStock = computed(() => {
   return currentUser.value?.permissions?.some((p) => p.permission_name === 'can_c_car_stock')
 })
 
+const canLoadCar = computed(() => {
+  if (isAdmin.value) {
+    return true
+  }
+  return currentUser.value?.permissions?.some((p) => p.permission_name === 'can_load_car')
+})
+
 const handleStatisticsClick = async () => {
   if (isProcessing.value.statistics) return
   isProcessing.value.statistics = true
@@ -130,6 +139,16 @@ const handleReturnToMain = () => {
 const openCarsStockInNewTab = () => {
   const route = router.resolve({ name: 'cars-stock' })
   window.open(route.href, '_blank')
+}
+
+const handleLoadClick = async () => {
+  if (isProcessing.value.load) return
+  isProcessing.value.load = true
+  try {
+    activeView.value = 'load'
+  } finally {
+    isProcessing.value.load = false
+  }
 }
 </script>
 
@@ -186,6 +205,18 @@ const openCarsStockInNewTab = () => {
           <i class="fas fa-warehouse"></i>
           <span>Cars Stock</span>
           <i class="fas fa-external-link-alt" style="margin-left: auto; font-size: 0.8em"></i>
+        </button>
+
+        <button
+          v-if="canLoadCar"
+          @click="handleLoadClick"
+          :class="{ active: activeView === 'load', processing: isProcessing.load }"
+          class="sidebar-btn load-btn"
+          :disabled="isProcessing.load"
+        >
+          <i class="fas fa-truck-loading"></i>
+          <span>Load</span>
+          <i v-if="isProcessing.load" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
 
         <button
@@ -331,6 +362,7 @@ const openCarsStockInNewTab = () => {
           <SuppliersView v-if="activeView === 'suppliers'" />
           <WarehousesView v-if="activeView === 'warehouses'" />
           <StatisticsView v-if="activeView === 'statistics'" />
+          <LoadingView v-if="activeView === 'load'" />
         </div>
       </div>
       <div class="copyright">© Merhab Noureddine 2025</div>

@@ -96,6 +96,41 @@ try {
         KEY `id_supplier` (`id_supplier`)
     ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci");
 
+    $pdo->exec("CREATE TABLE `shipping_lines` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;");
+    $pdo->exec("CREATE TABLE `containers` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `name` varchar(30) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;");
+
+  $pdo->exec("CREATE TABLE `loading` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `date_loading` date DEFAULT NULL,
+  `id_shipping_line` int(11) DEFAULT NULL,
+  `freight` decimal(10,0) DEFAULT NULL,
+  `id_loading_port` int(11) DEFAULT NULL,
+  `id_discharge_port` int(11) DEFAULT NULL,
+  `EDD` date DEFAULT NULL,
+  `date_loaded` date DEFAULT NULL,
+  `note` text DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;");
+
+    $pdo->exec("CREATE TABLE `loaded_containers` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `id_loading` int(11) DEFAULT NULL,
+  `id_container` int(11) DEFAULT NULL,
+  `ref_container` varchar(255) DEFAULT NULL,
+  `date_departed` date DEFAULT NULL,
+  `note` text DEFAULT NULL,
+  `date_loaded` date DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;");
 
     $pdo->exec("CREATE TABLE `adv_sql` (
     `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
@@ -187,6 +222,7 @@ try {
         `is_big_car` tinyint(1) DEFAULT 0,
         `container_ref` varchar(255) DEFAULT NULL,
         `is_tmp_client` tinyint(1) DEFAULT 0,
+        `id_loaded_container` int(11) DEFAULT NULL,
         PRIMARY KEY (`id`),
         KEY `id_client` (`id_client`),
         KEY `id_port_loading` (`id_port_loading`),
