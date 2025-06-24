@@ -116,6 +116,12 @@ const router = createRouter({
       component: () => import('../views/WarehousesView.vue'),
     },
     {
+      path: '/containers',
+      name: 'containers',
+      component: () => import('../views/ContainersView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/print/:billId',
       name: 'print',
       component: PrintPage,

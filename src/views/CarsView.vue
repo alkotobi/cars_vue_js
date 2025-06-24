@@ -12,6 +12,7 @@ import LoadingPortsView from './LoadingPortsView.vue'
 import BuyView from './BuyView.vue'
 import SellBillsView from './SellBillsView.vue'
 import WarehousesView from './WarehousesView.vue'
+import ContainersView from './ContainersView.vue'
 import StatisticsView from './StatisticsView.vue'
 import LoadingView from './LoadingView.vue'
 import { useApi } from '../composables/useApi'
@@ -33,6 +34,7 @@ const isProcessing = ref({
   brokers: false,
   suppliers: false,
   warehouses: false,
+  containers: false,
   statistics: false,
   load: false,
 })
@@ -336,6 +338,17 @@ const handleLoadClick = async () => {
           <span>Warehouses</span>
           <i v-if="isProcessing.warehouses" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
+        <button
+          v-if="canPurchaseCars"
+          @click="navigateTo('containers')"
+          :class="{ active: activeView === 'containers', processing: isProcessing.containers }"
+          class="sidebar-btn"
+          :disabled="isProcessing.containers"
+        >
+          <i class="fas fa-box"></i>
+          <span>Containers</span>
+          <i v-if="isProcessing.containers" class="fas fa-spinner fa-spin loading-indicator"></i>
+        </button>
       </div>
     </div>
     <div class="main-content">
@@ -361,6 +374,7 @@ const handleLoadClick = async () => {
           <BrokersView v-if="activeView === 'brokers'" />
           <SuppliersView v-if="activeView === 'suppliers'" />
           <WarehousesView v-if="activeView === 'warehouses'" />
+          <ContainersView v-if="activeView === 'containers'" />
           <StatisticsView v-if="activeView === 'statistics'" />
           <LoadingView v-if="activeView === 'load'" />
         </div>

@@ -1,11 +1,11 @@
 <template>
-  <div class="containers-table-container">
+  <div class="containers-crud-container">
     <div class="table-header">
       <h3>
         <i class="fas fa-box"></i>
         Containers
       </h3>
-      <div class="header-actions" v-if="selectedLoadingId">
+      <div class="header-actions">
         <button @click="openAddDialog" class="add-btn" :disabled="loading">
           <i class="fas fa-plus"></i>
           <span>Add Container</span>
@@ -23,25 +23,20 @@
       </div>
     </div>
 
-    <div v-if="!selectedLoadingId" class="empty-state">
-      <i class="fas fa-mouse-pointer"></i>
-      <p>Click on a loading record above to view its containers</p>
-    </div>
-
-    <div v-else class="table-wrapper">
+    <div class="table-wrapper">
       <div v-if="loading" class="loading-overlay">
-        <i class="fas fa-spinner fa-spin"></i>
+        <i class="fas fa-spinner fa-spin fa-2x"></i>
         <span>Loading containers...</span>
       </div>
 
       <div v-else-if="error" class="error-message">
-        <i class="fas fa-exclamation-triangle"></i>
-        <span>{{ error }}</span>
+        <i class="fas fa-exclamation-circle"></i>
+        {{ error }}
       </div>
 
       <div v-else-if="containers.length === 0" class="empty-state">
-        <i class="fas fa-box-open"></i>
-        <p>No containers found for this loading record</p>
+        <i class="fas fa-box-open fa-2x"></i>
+        <p>No containers found</p>
         <button @click="openAddDialog" class="add-first-btn">
           <i class="fas fa-plus"></i>
           Add First Container
@@ -53,22 +48,22 @@
           <thead>
             <tr>
               <th>ID</th>
-              <th>Container</th>
-              <th>Reference</th>
-              <th>Date Departed</th>
-              <th>Date Loaded</th>
-              <th>Notes</th>
+              <th>Container Name</th>
+              <th>Usage Count</th>
+              <th>Last Used</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="container in containers" :key="container.id" class="table-row">
               <td class="id-cell">#{{ container.id }}</td>
-              <td class="container-cell">{{ container.container_name || '-' }}</td>
-              <td class="ref-cell">{{ container.ref_container || '-' }}</td>
-              <td class="date-cell">{{ formatDate(container.date_departed) }}</td>
-              <td class="date-cell">{{ formatDate(container.date_loaded) }}</td>
-              <td class="note-cell">{{ truncateText(container.note, 30) }}</td>
+              <td class="name-cell">{{ container.name }}</td>
+              <td class="usage-cell">
+                <span class="usage-badge">{{ container.usage_count || 0 }}</span>
+              </td>
+              <td class="date-cell">
+                {{ container.last_used ? formatDate(container.last_used) : 'Never' }}
+              </td>
               <td class="actions-cell">
                 <div class="action-buttons">
                   <button
@@ -82,6 +77,7 @@
                     @click="deleteContainer(container)"
                     class="action-btn delete-btn"
                     title="Delete Container"
+                    :disabled="container.usage_count > 0"
                   >
                     <i class="fas fa-trash"></i>
                   </button>
@@ -93,13 +89,17 @@
       </div>
     </div>
 
+    <div class="table-footer">
+      <span class="record-count"> Showing {{ containers.length }} containers </span>
+    </div>
+
     <!-- Add/Edit Dialog -->
     <div v-if="showDialog" class="dialog-overlay" @click.self="closeDialog">
       <div class="dialog">
         <div class="dialog-header">
           <h3>
             <i class="fas fa-box"></i>
-            {{ isEditing ? 'Edit Container Assignment' : 'Add Container to Loading' }}
+            {{ isEditing ? 'Edit Container' : 'Add New Container' }}
           </h3>
           <button class="close-btn" @click="closeDialog" :disabled="isSubmitting">
             <i class="fas fa-times"></i>
@@ -107,100 +107,22 @@
         </div>
 
         <form @submit.prevent="saveContainer" class="dialog-content">
-          <div class="form-row">
-            <div class="form-group">
-              <label for="id_container">
-                <i class="fas fa-box"></i>
-                Container
-              </label>
-              <div class="input-with-button">
-                <select
-                  id="id_container"
-                  v-model="formData.id_container"
-                  required
-                  :disabled="isSubmitting"
-                >
-                  <option value="">Select Container</option>
-                  <option
-                    v-for="container in availableContainers"
-                    :key="container.id"
-                    :value="container.id"
-                  >
-                    {{ container.name }}
-                  </option>
-                </select>
-                <button
-                  type="button"
-                  @click="openAddContainerDialog"
-                  class="add-item-btn"
-                  :disabled="isSubmitting"
-                  title="Add New Container"
-                >
-                  <i class="fas fa-plus"></i>
-                </button>
-              </div>
-            </div>
-
-            <div class="form-group">
-              <label for="ref_container">
-                <i class="fas fa-tag"></i>
-                Reference
-              </label>
-              <input
-                type="text"
-                id="ref_container"
-                v-model="formData.ref_container"
-                :disabled="isSubmitting"
-                placeholder="Container reference"
-                maxlength="255"
-              />
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label for="date_departed">
-                <i class="fas fa-calendar"></i>
-                Date Departed
-              </label>
-              <input
-                type="date"
-                id="date_departed"
-                v-model="formData.date_departed"
-                :disabled="isSubmitting"
-                min="1900-01-01"
-                max="2100-12-31"
-              />
-            </div>
-
-            <div class="form-group">
-              <label for="date_loaded">
-                <i class="fas fa-calendar"></i>
-                Date Loaded
-              </label>
-              <input
-                type="date"
-                id="date_loaded"
-                v-model="formData.date_loaded"
-                :disabled="isSubmitting"
-                min="1900-01-01"
-                max="2100-12-31"
-              />
-            </div>
-          </div>
-
           <div class="form-group">
-            <label for="note">
-              <i class="fas fa-sticky-note"></i>
-              Notes
+            <label for="name">
+              <i class="fas fa-tag"></i>
+              Container Name
             </label>
-            <textarea
-              id="note"
-              v-model="formData.note"
+            <input
+              type="text"
+              id="name"
+              v-model="formData.name"
+              required
               :disabled="isSubmitting"
-              placeholder="Additional notes"
-              rows="3"
-            ></textarea>
+              maxlength="30"
+              placeholder="Enter container name"
+              @blur="validateName"
+            />
+            <div v-if="nameError" class="error-text">{{ nameError }}</div>
           </div>
 
           <div class="form-actions">
@@ -210,64 +132,11 @@
             <button
               type="submit"
               class="save-btn"
-              :disabled="isSubmitting"
+              :disabled="isSubmitting || !!nameError"
               :class="{ processing: isSubmitting }"
             >
               <i v-if="isSubmitting" class="fas fa-spinner fa-spin"></i>
-              <span>{{ isEditing ? 'Update' : 'Add' }}</span>
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- Add Container Dialog -->
-    <div v-if="showAddContainerDialog" class="dialog-overlay" @click.self="closeAddContainerDialog">
-      <div class="dialog">
-        <div class="dialog-header">
-          <h3>
-            <i class="fas fa-box"></i>
-            Add New Container
-          </h3>
-          <button class="close-btn" @click="closeAddContainerDialog" :disabled="isAddingContainer">
-            <i class="fas fa-times"></i>
-          </button>
-        </div>
-
-        <form @submit.prevent="saveNewContainer" class="dialog-content">
-          <div class="form-group">
-            <label for="new_container_name">
-              <i class="fas fa-tag"></i>
-              Container Name
-            </label>
-            <input
-              type="text"
-              id="new_container_name"
-              v-model="newContainerData.name"
-              required
-              :disabled="isAddingContainer"
-              maxlength="30"
-              placeholder="Enter container name"
-            />
-          </div>
-
-          <div class="form-actions">
-            <button
-              type="button"
-              @click="closeAddContainerDialog"
-              class="cancel-btn"
-              :disabled="isAddingContainer"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              class="save-btn"
-              :disabled="isAddingContainer"
-              :class="{ processing: isAddingContainer }"
-            >
-              <i v-if="isAddingContainer" class="fas fa-spinner fa-spin"></i>
-              <span>Create</span>
+              <span>{{ isEditing ? 'Update' : 'Create' }}</span>
             </button>
           </div>
         </form>
@@ -290,8 +159,13 @@
         <div class="dialog-content">
           <div class="delete-message">
             <p>
-              Are you sure you want to remove container
-              <strong>"{{ containerToDelete?.container_name }}"</strong> from this loading record?
+              Are you sure you want to delete container
+              <strong>"{{ containerToDelete?.name }}"</strong>?
+            </p>
+            <p v-if="containerToDelete?.usage_count > 0" class="warning-text">
+              <i class="fas fa-exclamation-triangle"></i>
+              This container has been used {{ containerToDelete.usage_count }} time(s) and cannot be
+              deleted.
             </p>
           </div>
 
@@ -308,7 +182,7 @@
               type="button"
               @click="confirmDelete"
               class="delete-confirm-btn"
-              :disabled="isDeleting"
+              :disabled="isDeleting || containerToDelete?.usage_count > 0"
               :class="{ processing: isDeleting }"
             >
               <i v-if="isDeleting" class="fas fa-spinner fa-spin"></i>
@@ -322,51 +196,27 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useApi } from '@/composables/useApi'
-
-const props = defineProps({
-  selectedLoadingId: {
-    type: Number,
-    default: null,
-  },
-})
 
 const { callApi } = useApi()
 
 const containers = ref([])
-const availableContainers = ref([])
 const loading = ref(false)
 const error = ref(null)
 const showDialog = ref(false)
-const showAddContainerDialog = ref(false)
 const showDeleteDialog = ref(false)
 const isEditing = ref(false)
 const isSubmitting = ref(false)
-const isAddingContainer = ref(false)
 const isDeleting = ref(false)
 const containerToDelete = ref(null)
+const nameError = ref('')
 
 const formData = ref({
-  id_container: '',
-  ref_container: '',
-  date_departed: '',
-  date_loaded: '',
-  note: '',
-})
-
-const newContainerData = ref({
   name: '',
 })
 
 const fetchContainers = async () => {
-  if (!props.selectedLoadingId) {
-    containers.value = []
-    return
-  }
-
-  console.log('Fetching containers for loading ID:', props.selectedLoadingId)
-
   loading.value = true
   error.value = null
 
@@ -374,132 +224,92 @@ const fetchContainers = async () => {
     const result = await callApi({
       query: `
         SELECT 
-          lc.id,
-          lc.id_container,
-          c.name as container_name,
-          lc.ref_container,
-          lc.date_departed,
-          lc.date_loaded,
-          lc.note
-        FROM loaded_containers lc
-        LEFT JOIN containers c ON lc.id_container = c.id
-        WHERE lc.id_loading = ?
-        ORDER BY lc.id DESC
+          c.id,
+          c.name,
+          COUNT(lc.id) as usage_count,
+          MAX(lc.date_loaded) as last_used
+        FROM containers c
+        LEFT JOIN loaded_containers lc ON c.id = lc.id_container
+        GROUP BY c.id, c.name
+        ORDER BY c.name ASC
       `,
-      params: [props.selectedLoadingId],
     })
-
-    console.log('Containers query result:', result)
 
     if (result.success) {
       containers.value = result.data || []
-      console.log('Containers data:', containers.value)
     } else {
       error.value = result.error || 'Failed to load containers'
-      console.error('Containers query failed:', result.error)
     }
   } catch (err) {
     error.value = 'Error loading containers: ' + err.message
-    console.error('Containers fetch error:', err)
   } finally {
     loading.value = false
   }
 }
 
-const fetchAvailableContainers = async () => {
-  try {
-    const result = await callApi({
-      query: 'SELECT id, name FROM containers ORDER BY name ASC',
-    })
-
-    if (result.success) {
-      availableContainers.value = result.data || []
-    }
-  } catch (err) {
-    console.error('Error fetching available containers:', err)
-  }
-}
-
 const openAddDialog = () => {
   isEditing.value = false
-  formData.value = {
-    id_container: '',
-    ref_container: '',
-    date_departed: '',
-    date_loaded: '',
-    note: '',
-  }
+  formData.value = { name: '' }
+  nameError.value = ''
   showDialog.value = true
 }
 
 const editContainer = (container) => {
-  console.log('Editing container:', container)
   isEditing.value = true
-  formData.value = {
-    id: container.id,
-    id_container: container.id_container || '',
-    ref_container: container.ref_container || '',
-    date_departed: container.date_departed || '',
-    date_loaded: container.date_loaded || '',
-    note: container.note || '',
-  }
-  console.log('Form data set to:', formData.value)
+  formData.value = { name: container.name, id: container.id }
+  nameError.value = ''
   showDialog.value = true
 }
 
 const closeDialog = () => {
   showDialog.value = false
-  formData.value = {
-    id_container: '',
-    ref_container: '',
-    date_departed: '',
-    date_loaded: '',
-    note: '',
-  }
+  formData.value = { name: '' }
+  nameError.value = ''
   isSubmitting.value = false
+}
+
+const validateName = async () => {
+  nameError.value = ''
+
+  if (!formData.value.name.trim()) {
+    nameError.value = 'Container name is required'
+    return
+  }
+
+  if (formData.value.name.length < 2) {
+    nameError.value = 'Container name must be at least 2 characters'
+    return
+  }
+
+  // Check for duplicate names (excluding current container if editing)
+  const existingContainer = containers.value.find(
+    (c) =>
+      c.name.toLowerCase() === formData.value.name.toLowerCase() &&
+      (!isEditing.value || c.id !== formData.value.id),
+  )
+
+  if (existingContainer) {
+    nameError.value = 'A container with this name already exists'
+    return
+  }
 }
 
 const saveContainer = async () => {
   if (isSubmitting.value) return
 
+  await validateName()
+  if (nameError.value) return
+
   isSubmitting.value = true
 
   try {
-    // Convert empty date strings to null
-    const dateDeparted =
-      formData.value.date_departed && formData.value.date_departed.trim()
-        ? formData.value.date_departed
-        : null
-    const dateLoaded =
-      formData.value.date_loaded && formData.value.date_loaded.trim()
-        ? formData.value.date_loaded
-        : null
-
     const query = isEditing.value
-      ? 'UPDATE loaded_containers SET id_container = ?, ref_container = ?, date_departed = ?, date_loaded = ?, note = ? WHERE id = ?'
-      : 'INSERT INTO loaded_containers (id_loading, id_container, ref_container, date_departed, date_loaded, note) VALUES (?, ?, ?, ?, ?, ?)'
+      ? 'UPDATE containers SET name = ? WHERE id = ?'
+      : 'INSERT INTO containers (name) VALUES (?)'
 
     const params = isEditing.value
-      ? [
-          formData.value.id_container,
-          formData.value.ref_container && formData.value.ref_container.trim()
-            ? formData.value.ref_container
-            : null,
-          dateDeparted,
-          dateLoaded,
-          formData.value.note && formData.value.note.trim() ? formData.value.note : null,
-          formData.value.id,
-        ]
-      : [
-          props.selectedLoadingId,
-          formData.value.id_container,
-          formData.value.ref_container && formData.value.ref_container.trim()
-            ? formData.value.ref_container
-            : null,
-          dateDeparted,
-          dateLoaded,
-          formData.value.note && formData.value.note.trim() ? formData.value.note : null,
-        ]
+      ? [formData.value.name, formData.value.id]
+      : [formData.value.name]
 
     const result = await callApi({ query, params })
 
@@ -513,43 +323,6 @@ const saveContainer = async () => {
     error.value = 'Error saving container: ' + err.message
   } finally {
     isSubmitting.value = false
-  }
-}
-
-const openAddContainerDialog = () => {
-  newContainerData.value = { name: '' }
-  showAddContainerDialog.value = true
-}
-
-const closeAddContainerDialog = () => {
-  showAddContainerDialog.value = false
-  newContainerData.value = { name: '' }
-  isAddingContainer.value = false
-}
-
-const saveNewContainer = async () => {
-  if (isAddingContainer.value) return
-
-  isAddingContainer.value = true
-
-  try {
-    const result = await callApi({
-      query: 'INSERT INTO containers (name) VALUES (?)',
-      params: [newContainerData.value.name],
-    })
-
-    if (result.success) {
-      await fetchAvailableContainers()
-      // Set the newly created container as selected
-      formData.value.id_container = result.insertId
-      closeAddContainerDialog()
-    } else {
-      error.value = result.error || 'Failed to create container'
-    }
-  } catch (err) {
-    error.value = 'Error creating container: ' + err.message
-  } finally {
-    isAddingContainer.value = false
   }
 }
 
@@ -571,7 +344,7 @@ const confirmDelete = async () => {
 
   try {
     const result = await callApi({
-      query: 'DELETE FROM loaded_containers WHERE id = ?',
+      query: 'DELETE FROM containers WHERE id = ?',
       params: [containerToDelete.value.id],
     })
 
@@ -602,34 +375,17 @@ const formatDate = (dateString) => {
   })
 }
 
-const truncateText = (text, maxLength) => {
-  if (!text) return '-'
-  if (text.length <= maxLength) return text
-  return text.substring(0, maxLength) + '...'
-}
-
-// Watch for changes in selectedLoadingId
-watch(
-  () => props.selectedLoadingId,
-  (newId) => {
-    if (newId) {
-      fetchContainers()
-      fetchAvailableContainers()
-    } else {
-      containers.value = []
-    }
-  },
-  { immediate: true },
-)
+onMounted(() => {
+  fetchContainers()
+})
 </script>
 
 <style scoped>
-.containers-table-container {
+.containers-crud-container {
   background: white;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   overflow: hidden;
-  margin-top: 16px;
 }
 
 .table-header {
@@ -702,8 +458,7 @@ watch(
 
 .table-wrapper {
   position: relative;
-  max-height: 400px;
-  overflow-y: auto;
+  min-height: 200px;
 }
 
 .loading-overlay {
@@ -739,7 +494,6 @@ watch(
 
 .empty-state i {
   color: #d1d5db;
-  font-size: 2rem;
 }
 
 .add-first-btn {
@@ -777,9 +531,6 @@ watch(
   font-weight: 600;
   color: #374151;
   border-bottom: 1px solid #e5e7eb;
-  position: sticky;
-  top: 0;
-  z-index: 10;
 }
 
 .containers-table td {
@@ -798,25 +549,27 @@ watch(
   width: 60px;
 }
 
-.container-cell {
+.name-cell {
   font-weight: 500;
 }
 
-.ref-cell {
-  font-family: monospace;
-  background-color: #f3f4f6;
-  border-radius: 4px;
-  padding: 2px 6px;
+.usage-cell {
+  text-align: center;
+}
+
+.usage-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  background-color: #e5e7eb;
+  color: #374151;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
 }
 
 .date-cell {
   color: #6b7280;
   white-space: nowrap;
-}
-
-.note-cell {
-  max-width: 200px;
-  color: #6b7280;
 }
 
 .actions-cell {
@@ -859,6 +612,23 @@ watch(
   background-color: #dc2626;
 }
 
+.delete-btn:disabled {
+  background-color: #d1d5db;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.table-footer {
+  padding: 12px 20px;
+  border-top: 1px solid #e5e7eb;
+  background-color: #f8fafc;
+}
+
+.record-count {
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
 /* Dialog Styles */
 .dialog-overlay {
   position: fixed;
@@ -878,7 +648,7 @@ watch(
   border-radius: 8px;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
   width: 90%;
-  max-width: 600px;
+  max-width: 500px;
   max-height: 90vh;
   overflow-y: auto;
 }
@@ -922,15 +692,8 @@ watch(
   padding: 20px;
 }
 
-.form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  margin-bottom: 16px;
-}
-
 .form-group {
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 
 .form-group label {
@@ -946,9 +709,7 @@ watch(
   color: #3498db;
 }
 
-.form-group input,
-.form-group select,
-.form-group textarea {
+.form-group input {
   width: 100%;
   padding: 10px 12px;
   border: 1px solid #d1d5db;
@@ -957,46 +718,21 @@ watch(
   transition: border-color 0.2s;
 }
 
-.form-group input:focus,
-.form-group select:focus,
-.form-group textarea:focus {
+.form-group input:focus {
   outline: none;
   border-color: #3498db;
   box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
 }
 
-.form-group input:disabled,
-.form-group select:disabled,
-.form-group textarea:disabled {
+.form-group input:disabled {
   background-color: #f9fafb;
   color: #6b7280;
 }
 
-.input-with-button {
-  display: flex;
-  gap: 8px;
-}
-
-.input-with-button select {
-  flex: 1;
-}
-
-.add-item-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 42px;
-  background-color: #3498db;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.add-item-btn:hover:not(:disabled) {
-  background-color: #2980b9;
+.error-text {
+  color: #dc2626;
+  font-size: 0.8rem;
+  margin-top: 4px;
 }
 
 .form-actions {
@@ -1052,6 +788,12 @@ watch(
   background-color: #dc2626;
 }
 
+.delete-confirm-btn:disabled {
+  background-color: #d1d5db;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
 .delete-confirm-btn.processing {
   opacity: 0.7;
 }
@@ -1068,5 +810,17 @@ watch(
 .delete-message p {
   margin: 0 0 12px 0;
   color: #374151;
+}
+
+.warning-text {
+  color: #dc2626 !important;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.warning-text i {
+  color: #dc2626;
 }
 </style>
