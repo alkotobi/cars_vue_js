@@ -1000,6 +1000,27 @@ const deleteRecord = async (record) => {
   }
 
   try {
+    // First check if the loading record has any containers
+    const containersCheck = await callApi({
+      query: 'SELECT COUNT(*) as container_count FROM loaded_containers WHERE id_loading = ?',
+      params: [record.id],
+    })
+
+    if (!containersCheck.success) {
+      alert('Failed to check containers: ' + containersCheck.error)
+      return
+    }
+
+    const containerCount = containersCheck.data[0]?.container_count || 0
+
+    if (containerCount > 0) {
+      alert(
+        `Cannot delete loading record #${record.id}. This record has ${containerCount} container(s) assigned to it. Please delete all containers first.`,
+      )
+      return
+    }
+
+    // If no containers, proceed with deletion
     const result = await callApi({
       query: 'DELETE FROM loading WHERE id = ?',
       params: [record.id],
