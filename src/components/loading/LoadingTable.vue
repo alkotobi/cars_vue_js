@@ -277,7 +277,7 @@
 
     <div class="table-footer">
       <span class="record-count">
-        Showing {{ Math.min(loadingRecords.length, 5) }} of {{ totalRecords }} records
+        Showing {{ loadingRecords.length }} of {{ totalRecords }} records
       </span>
     </div>
 
@@ -877,8 +877,8 @@ const applyFiltersAndSorting = () => {
     filters.value.dateTo
   )
 
-  // Limit to 5 records for display
-  loadingRecords.value = filteredRecords.slice(0, 5)
+  // Show all filtered records (removed the 5-record limit)
+  loadingRecords.value = filteredRecords
   totalRecords.value = allLoadingRecords.value.length
 }
 
