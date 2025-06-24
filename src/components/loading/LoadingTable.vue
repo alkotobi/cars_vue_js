@@ -122,7 +122,11 @@
       </span>
     </div>
 
-    <ContainersTable :selectedLoadingId="selectedLoadingId" />
+    <ContainersTable
+      :selectedLoadingId="selectedLoadingId"
+      @container-click="handleContainerClick"
+    />
+    <LoadingAssignedCars :selectedLoadedContainerId="selectedLoadedContainerId" />
 
     <!-- Add/Edit Dialog -->
     <div v-if="showDialog" class="dialog-overlay" @click.self="closeDialog">
@@ -512,6 +516,7 @@
 import { ref, onMounted, watch } from 'vue'
 import { useApi } from '@/composables/useApi'
 import ContainersTable from './ContainersTable.vue'
+import LoadingAssignedCars from './LoadingAssignedCars.vue'
 
 const { callApi } = useApi()
 
@@ -532,6 +537,7 @@ const showLoadingPortDialog = ref(false)
 const showDischargePortDialog = ref(false)
 const isAddingItem = ref(false)
 const selectedLoadingId = ref(null)
+const selectedLoadedContainerId = ref(null)
 
 // Form data
 const formData = ref({
@@ -1061,6 +1067,10 @@ watch(
 
 const selectLoadingRecord = (id) => {
   selectedLoadingId.value = id
+}
+
+const handleContainerClick = (containerId) => {
+  selectedLoadedContainerId.value = containerId
 }
 
 onMounted(() => {

@@ -338,6 +338,8 @@ const props = defineProps({
   },
 })
 
+const emit = defineEmits(['container-click'])
+
 const { callApi } = useApi()
 
 const containers = ref([])
@@ -618,6 +620,7 @@ const truncateText = (text, maxLength) => {
 const handleContainerClick = (container) => {
   console.log('Container clicked:', container)
   selectedContainerId.value = container.id
+  emit('container-click', container.id)
 }
 
 // Watch for changes in selectedLoadingId
