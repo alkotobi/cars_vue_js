@@ -57,13 +57,62 @@
         <table class="containers-table">
           <thead>
             <tr>
-              <th>ID</th>
-              <th>Container</th>
-              <th>Reference</th>
-              <th>Date Departed</th>
-              <th>Date Loaded</th>
-              <th>Date On Board</th>
-              <th>Notes</th>
+              <th @click="sortByColumn('id')" class="sortable-header">
+                ID
+                <i
+                  v-if="sortBy === 'id'"
+                  :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
+                ></i>
+                <i v-else class="fas fa-sort sort-inactive"></i>
+              </th>
+              <th @click="sortByColumn('container_name')" class="sortable-header">
+                Container
+                <i
+                  v-if="sortBy === 'container_name'"
+                  :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
+                ></i>
+                <i v-else class="fas fa-sort sort-inactive"></i>
+              </th>
+              <th @click="sortByColumn('ref_container')" class="sortable-header">
+                Reference
+                <i
+                  v-if="sortBy === 'ref_container'"
+                  :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
+                ></i>
+                <i v-else class="fas fa-sort sort-inactive"></i>
+              </th>
+              <th @click="sortByColumn('date_departed')" class="sortable-header">
+                Date Departed
+                <i
+                  v-if="sortBy === 'date_departed'"
+                  :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
+                ></i>
+                <i v-else class="fas fa-sort sort-inactive"></i>
+              </th>
+              <th @click="sortByColumn('date_loaded')" class="sortable-header">
+                Date Loaded
+                <i
+                  v-if="sortBy === 'date_loaded'"
+                  :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
+                ></i>
+                <i v-else class="fas fa-sort sort-inactive"></i>
+              </th>
+              <th @click="sortByColumn('date_on_board')" class="sortable-header">
+                Date On Board
+                <i
+                  v-if="sortBy === 'date_on_board'"
+                  :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
+                ></i>
+                <i v-else class="fas fa-sort sort-inactive"></i>
+              </th>
+              <th @click="sortByColumn('note')" class="sortable-header">
+                Notes
+                <i
+                  v-if="sortBy === 'note'"
+                  :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
+                ></i>
+                <i v-else class="fas fa-sort sort-inactive"></i>
+              </th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -471,6 +520,8 @@ const isDeleting = ref(false)
 const isSubmittingOnBoard = ref(false)
 const containerToDelete = ref(null)
 const selectedContainerId = ref(null)
+const sortBy = ref('id')
+const sortOrder = ref('desc')
 
 const formData = ref({
   id_container: '',
@@ -505,6 +556,30 @@ const fetchContainers = async () => {
   error.value = null
 
   try {
+    // Build the ORDER BY clause based on sorting
+    let orderByClause = 'ORDER BY lc.id DESC' // Default sorting
+
+    if (sortBy.value) {
+      const sortField =
+        sortBy.value === 'id'
+          ? 'lc.id'
+          : sortBy.value === 'container_name'
+            ? 'c.name'
+            : sortBy.value === 'ref_container'
+              ? 'lc.ref_container'
+              : sortBy.value === 'date_departed'
+                ? 'lc.date_departed'
+                : sortBy.value === 'date_loaded'
+                  ? 'lc.date_loaded'
+                  : sortBy.value === 'date_on_board'
+                    ? 'lc.date_on_board'
+                    : sortBy.value === 'note'
+                      ? 'lc.note'
+                      : 'lc.id'
+
+      orderByClause = `ORDER BY ${sortField} ${sortOrder.value.toUpperCase()}`
+    }
+
     const result = await callApi({
       query: `
         SELECT 
@@ -522,7 +597,7 @@ const fetchContainers = async () => {
         LEFT JOIN cars_stock cs ON lc.id = cs.id_loaded_container
         WHERE lc.id_loading = ?
         GROUP BY lc.id
-        ORDER BY lc.id DESC
+        ${orderByClause}
       `,
       params: [props.selectedLoadingId],
     })
@@ -865,6 +940,16 @@ const getOnBoardButtonTitle = (container) => {
     return 'No cars assigned to this container'
   }
   return 'Set On Board'
+}
+
+const sortByColumn = (column) => {
+  if (sortBy.value === column) {
+    sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    sortBy.value = column
+    sortOrder.value = 'asc'
+  }
+  fetchContainers()
 }
 
 // Watch for changes in selectedLoadingId
@@ -1437,5 +1522,13 @@ defineExpose({
   margin: 0;
   font-size: 0.9rem;
   color: #92400e;
+}
+
+.sortable-header {
+  cursor: pointer;
+}
+
+.sort-inactive {
+  opacity: 0.5;
 }
 </style>

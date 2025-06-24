@@ -32,6 +32,100 @@
       </div>
     </div>
 
+    <!-- Filters Section -->
+    <div class="filters-section">
+      <div class="filters-header">
+        <h4>
+          <i class="fas fa-filter"></i>
+          Filters & Sorting
+        </h4>
+        <button @click="clearFilters" class="clear-filters-btn" v-if="hasActiveFilters">
+          <i class="fas fa-times"></i>
+          Clear Filters
+        </button>
+      </div>
+
+      <div class="filters-grid">
+        <div class="filter-group">
+          <label for="search-filter">Search</label>
+          <input
+            type="text"
+            id="search-filter"
+            v-model="filters.search"
+            placeholder="Search by ID, shipping line, ports..."
+            @input="applyFilters"
+          />
+        </div>
+
+        <div class="filter-group">
+          <label for="shipping-line-filter">Shipping Line</label>
+          <select id="shipping-line-filter" v-model="filters.shippingLine" @change="applyFilters">
+            <option value="">All Shipping Lines</option>
+            <option v-for="line in shippingLines" :key="line.id" :value="line.id">
+              {{ line.name }}
+            </option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label for="loading-port-filter">Loading Port</label>
+          <select id="loading-port-filter" v-model="filters.loadingPort" @change="applyFilters">
+            <option value="">All Loading Ports</option>
+            <option v-for="port in loadingPorts" :key="port.id" :value="port.id">
+              {{ port.loading_port }}
+            </option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label for="discharge-port-filter">Discharge Port</label>
+          <select id="discharge-port-filter" v-model="filters.dischargePort" @change="applyFilters">
+            <option value="">All Discharge Ports</option>
+            <option v-for="port in dischargePorts" :key="port.id" :value="port.id">
+              {{ port.discharge_port }}
+            </option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label for="date-from-filter">Date From</label>
+          <input
+            type="date"
+            id="date-from-filter"
+            v-model="filters.dateFrom"
+            @change="applyFilters"
+          />
+        </div>
+
+        <div class="filter-group">
+          <label for="date-to-filter">Date To</label>
+          <input type="date" id="date-to-filter" v-model="filters.dateTo" @change="applyFilters" />
+        </div>
+
+        <div class="filter-group">
+          <label for="sort-by">Sort By</label>
+          <select id="sort-by" v-model="sortBy" @change="applySorting">
+            <option value="id">ID</option>
+            <option value="date_loading">Operation Date</option>
+            <option value="shipping_line_name">Shipping Line</option>
+            <option value="freight">Freight</option>
+            <option value="loading_port_name">Loading Port</option>
+            <option value="discharge_port_name">Discharge Port</option>
+            <option value="EDD">EDD</option>
+            <option value="date_loaded">Loaded Date</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label for="sort-order">Order</label>
+          <select id="sort-order" v-model="sortOrder" @change="applySorting">
+            <option value="desc">Descending</option>
+            <option value="asc">Ascending</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
     <div class="table-wrapper">
       <div v-if="loading" class="loading-overlay">
         <i class="fas fa-spinner fa-spin fa-2x"></i>
@@ -56,14 +150,70 @@
         <table class="loading-table">
           <thead>
             <tr>
-              <th>ID</th>
-              <th>Operation Date</th>
-              <th>Shipping Line</th>
-              <th>Freight</th>
-              <th>Loading Port</th>
-              <th>Discharge Port</th>
-              <th>EDD</th>
-              <th>Loaded Date</th>
+              <th @click="sortByColumn('id')" class="sortable-header">
+                ID
+                <i
+                  v-if="sortBy === 'id'"
+                  :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
+                ></i>
+                <i v-else class="fas fa-sort sort-inactive"></i>
+              </th>
+              <th @click="sortByColumn('date_loading')" class="sortable-header">
+                Operation Date
+                <i
+                  v-if="sortBy === 'date_loading'"
+                  :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
+                ></i>
+                <i v-else class="fas fa-sort sort-inactive"></i>
+              </th>
+              <th @click="sortByColumn('shipping_line_name')" class="sortable-header">
+                Shipping Line
+                <i
+                  v-if="sortBy === 'shipping_line_name'"
+                  :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
+                ></i>
+                <i v-else class="fas fa-sort sort-inactive"></i>
+              </th>
+              <th @click="sortByColumn('freight')" class="sortable-header">
+                Freight
+                <i
+                  v-if="sortBy === 'freight'"
+                  :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
+                ></i>
+                <i v-else class="fas fa-sort sort-inactive"></i>
+              </th>
+              <th @click="sortByColumn('loading_port_name')" class="sortable-header">
+                Loading Port
+                <i
+                  v-if="sortBy === 'loading_port_name'"
+                  :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
+                ></i>
+                <i v-else class="fas fa-sort sort-inactive"></i>
+              </th>
+              <th @click="sortByColumn('discharge_port_name')" class="sortable-header">
+                Discharge Port
+                <i
+                  v-if="sortBy === 'discharge_port_name'"
+                  :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
+                ></i>
+                <i v-else class="fas fa-sort sort-inactive"></i>
+              </th>
+              <th @click="sortByColumn('EDD')" class="sortable-header">
+                EDD
+                <i
+                  v-if="sortBy === 'EDD'"
+                  :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
+                ></i>
+                <i v-else class="fas fa-sort sort-inactive"></i>
+              </th>
+              <th @click="sortByColumn('date_loaded')" class="sortable-header">
+                Loaded Date
+                <i
+                  v-if="sortBy === 'date_loaded'"
+                  :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
+                ></i>
+                <i v-else class="fas fa-sort sort-inactive"></i>
+              </th>
               <th>Notes</th>
               <th>Actions</th>
             </tr>
@@ -588,6 +738,21 @@ const shippingLines = ref([])
 const loadingPorts = ref([])
 const dischargePorts = ref([])
 
+// Filters and sorting state
+const filters = ref({
+  search: '',
+  shippingLine: '',
+  loadingPort: '',
+  dischargePort: '',
+  dateFrom: '',
+  dateTo: '',
+})
+
+const sortBy = ref('id')
+const sortOrder = ref('desc')
+const allLoadingRecords = ref([]) // Store all records for filtering
+const hasActiveFilters = ref(false)
+
 const fetchLoadingRecords = async () => {
   loading.value = true
   error.value = null
@@ -612,14 +777,14 @@ const fetchLoadingRecords = async () => {
         LEFT JOIN shipping_lines sl ON l.id_shipping_line = sl.id
         LEFT JOIN loading_ports lp ON l.id_loading_port = lp.id
         LEFT JOIN discharge_ports dp ON l.id_discharge_port = dp.id
-        ORDER BY l.date_loading DESC, l.id DESC
-        LIMIT 5
+        ORDER BY l.id DESC, l.date_loading DESC
       `,
       params: [],
     })
 
     if (result.success) {
-      loadingRecords.value = result.data
+      allLoadingRecords.value = result.data || []
+      applyFiltersAndSorting()
     } else {
       error.value = result.error || 'Failed to fetch loading records'
     }
@@ -628,6 +793,127 @@ const fetchLoadingRecords = async () => {
   } finally {
     loading.value = false
   }
+}
+
+const applyFiltersAndSorting = () => {
+  let filteredRecords = [...allLoadingRecords.value]
+
+  // Apply search filter
+  if (filters.value.search) {
+    const searchTerm = filters.value.search.toLowerCase()
+    filteredRecords = filteredRecords.filter(
+      (record) =>
+        record.id.toString().includes(searchTerm) ||
+        (record.shipping_line_name &&
+          record.shipping_line_name.toLowerCase().includes(searchTerm)) ||
+        (record.loading_port_name && record.loading_port_name.toLowerCase().includes(searchTerm)) ||
+        (record.discharge_port_name &&
+          record.discharge_port_name.toLowerCase().includes(searchTerm)) ||
+        (record.note && record.note.toLowerCase().includes(searchTerm)),
+    )
+  }
+
+  // Apply shipping line filter
+  if (filters.value.shippingLine) {
+    filteredRecords = filteredRecords.filter(
+      (record) => record.id_shipping_line == filters.value.shippingLine,
+    )
+  }
+
+  // Apply loading port filter
+  if (filters.value.loadingPort) {
+    filteredRecords = filteredRecords.filter(
+      (record) => record.id_loading_port == filters.value.loadingPort,
+    )
+  }
+
+  // Apply discharge port filter
+  if (filters.value.dischargePort) {
+    filteredRecords = filteredRecords.filter(
+      (record) => record.id_discharge_port == filters.value.dischargePort,
+    )
+  }
+
+  // Apply date range filters
+  if (filters.value.dateFrom) {
+    filteredRecords = filteredRecords.filter(
+      (record) => record.date_loading && record.date_loading >= filters.value.dateFrom,
+    )
+  }
+
+  if (filters.value.dateTo) {
+    filteredRecords = filteredRecords.filter(
+      (record) => record.date_loading && record.date_loading <= filters.value.dateTo,
+    )
+  }
+
+  // Apply sorting
+  filteredRecords.sort((a, b) => {
+    let aValue = a[sortBy.value]
+    let bValue = b[sortBy.value]
+
+    // Handle null values
+    if (aValue === null || aValue === undefined) aValue = ''
+    if (bValue === null || bValue === undefined) bValue = ''
+
+    // Convert to strings for comparison
+    aValue = aValue.toString().toLowerCase()
+    bValue = bValue.toString().toLowerCase()
+
+    if (sortOrder.value === 'asc') {
+      return aValue.localeCompare(bValue)
+    } else {
+      return bValue.localeCompare(aValue)
+    }
+  })
+
+  // Update hasActiveFilters
+  hasActiveFilters.value = !!(
+    filters.value.search ||
+    filters.value.shippingLine ||
+    filters.value.loadingPort ||
+    filters.value.dischargePort ||
+    filters.value.dateFrom ||
+    filters.value.dateTo
+  )
+
+  // Limit to 5 records for display
+  loadingRecords.value = filteredRecords.slice(0, 5)
+  totalRecords.value = allLoadingRecords.value.length
+}
+
+const applyFilters = () => {
+  applyFiltersAndSorting()
+}
+
+const applySorting = () => {
+  applyFiltersAndSorting()
+}
+
+const sortByColumn = (column) => {
+  if (sortBy.value === column) {
+    // If clicking the same column, toggle the order
+    sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    // If clicking a different column, set it as the new sort column and default to ascending
+    sortBy.value = column
+    sortOrder.value = 'asc'
+  }
+  applyFiltersAndSorting()
+}
+
+const clearFilters = () => {
+  filters.value = {
+    search: '',
+    shippingLine: '',
+    loadingPort: '',
+    dischargePort: '',
+    dateFrom: '',
+    dateTo: '',
+  }
+  sortBy.value = 'id'
+  sortOrder.value = 'desc'
+  applyFiltersAndSorting()
 }
 
 const fetchTotalRecords = async () => {
@@ -1724,29 +2010,169 @@ onMounted(() => {
 .loading-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.9rem;
+  margin-top: 1rem;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.loading-table th,
+.loading-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #eee;
 }
 
 .loading-table th {
-  background-color: #f8fafc;
-  padding: 12px 8px;
-  text-align: left;
+  background-color: #f8f9fa;
   font-weight: 600;
-  color: #374151;
-  border-bottom: 1px solid #e5e7eb;
-  position: sticky;
-  top: 0;
-  z-index: 10;
+  color: #495057;
 }
 
-.loading-table td {
-  padding: 12px 8px;
-  border-bottom: 1px solid #f3f4f6;
-  color: #374151;
+.sortable-header {
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.2s ease;
+}
+
+.sortable-header:hover {
+  background-color: #e9ecef;
+}
+
+.sortable-header i {
+  margin-left: 5px;
+  font-size: 0.8em;
+}
+
+.sort-inactive {
+  color: #adb5bd;
 }
 
 .loading-table tr:hover {
-  background-color: #f9fafb;
+  background-color: #f8f9fa;
+}
+
+.loading-table td {
+  vertical-align: middle;
+}
+
+.loading-table .actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-start;
+}
+
+.loading-table .btn {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+}
+
+.loading-table .btn-edit {
+  background-color: #007bff;
+  color: white;
+}
+
+.loading-table .btn-edit:hover {
+  background-color: #0056b3;
+}
+
+.loading-table .btn-delete {
+  background-color: #dc3545;
+  color: white;
+}
+
+.loading-table .btn-delete:hover {
+  background-color: #c82333;
+}
+
+.loading-table .btn-print {
+  background-color: #28a745;
+  color: white;
+}
+
+.loading-table .btn-print:hover {
+  background-color: #218838;
+}
+
+.loading-table .btn-details {
+  background-color: #17a2b8;
+  color: white;
+}
+
+.loading-table .btn-details:hover {
+  background-color: #138496;
+}
+
+.loading-table .status-badge {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.loading-table .status-loaded {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.loading-table .status-pending {
+  background-color: #fff3cd;
+  color: #856404;
+}
+
+.loading-table .status-in-progress {
+  background-color: #cce5ff;
+  color: #004085;
+}
+
+.loading-table .empty-message {
+  text-align: center;
+  padding: 2rem;
+  color: #6c757d;
+  font-style: italic;
+}
+
+.loading-table .loading-message {
+  text-align: center;
+  padding: 2rem;
+  color: #6c757d;
+}
+
+.loading-table .error-message {
+  text-align: center;
+  padding: 2rem;
+  color: #dc3545;
+  background-color: #f8d7da;
+  border-radius: 4px;
+  margin: 1rem 0;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .loading-table {
+    font-size: 0.875rem;
+  }
+
+  .loading-table th,
+  .loading-table td {
+    padding: 8px 6px;
+  }
+
+  .loading-table .actions {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .loading-table .btn {
+    padding: 4px 8px;
+    font-size: 0.75rem;
+  }
 }
 
 .selected-row {
@@ -2164,5 +2590,105 @@ onMounted(() => {
   max-width: 400px;
   max-height: 90vh;
   overflow-y: auto;
+}
+
+/* Filters Section Styles */
+.filters-section {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin: 16px 0;
+  padding: 20px;
+  border: 1px solid #e5e7eb;
+}
+
+.filters-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.filters-header h4 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #1f2937;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.filters-header h4 i {
+  color: #6b7280;
+}
+
+.clear-filters-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background-color: #f3f4f6;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: all 0.2s ease;
+}
+
+.clear-filters-btn:hover {
+  background-color: #e5e7eb;
+  color: #374151;
+}
+
+.filters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.filter-group label {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #374151;
+}
+
+.filter-group input,
+.filter-group select {
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  transition: border-color 0.2s ease;
+  background-color: white;
+}
+
+.filter-group input:focus,
+.filter-group select:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+/* Responsive design for filters */
+@media (max-width: 768px) {
+  .filters-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .filters-header {
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+  }
 }
 </style>
