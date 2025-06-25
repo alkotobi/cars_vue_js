@@ -6,6 +6,15 @@
         Recent Loading Records
       </h3>
       <div class="header-actions">
+        <button
+          @click="toggleFilters"
+          class="toggle-filters-btn"
+          :class="{ active: showFilters }"
+          title="Toggle Filters"
+        >
+          <i class="fas fa-filter"></i>
+          <span>{{ showFilters ? 'Hide' : 'Show' }} Filters</span>
+        </button>
         <button @click="openAddDialog" class="add-btn" :disabled="loading">
           <i class="fas fa-plus"></i>
           <span>Add Record</span>
@@ -33,7 +42,7 @@
     </div>
 
     <!-- Filters Section -->
-    <div class="filters-section">
+    <div v-if="showFilters" class="filters-section">
       <div class="filters-header">
         <h4>
           <i class="fas fa-filter"></i>
@@ -755,6 +764,9 @@ const sortOrder = ref('desc')
 const allLoadingRecords = ref([]) // Store all records for filtering
 const hasActiveFilters = ref(false)
 
+// Filter visibility state
+const showFilters = ref(false)
+
 const fetchLoadingRecords = async () => {
   loading.value = true
   error.value = null
@@ -916,6 +928,10 @@ const clearFilters = () => {
   sortBy.value = 'id'
   sortOrder.value = 'desc'
   applyFiltersAndSorting()
+}
+
+const toggleFilters = () => {
+  showFilters.value = !showFilters.value
 }
 
 const fetchTotalRecords = async () => {
@@ -1983,6 +1999,32 @@ onMounted(() => {
 .header-actions {
   display: flex;
   gap: 8px;
+}
+
+.toggle-filters-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  background-color: #f8fafc;
+  color: #374151;
+  border: 1px solid #d1d5db;
+}
+
+.toggle-filters-btn:hover:not(:disabled) {
+  background-color: #f3f4f6;
+}
+
+.toggle-filters-btn.active {
+  background-color: #dbeafe;
+  color: #1d4ed8;
+  border: 1px solid #93c5fd;
 }
 
 .add-btn {

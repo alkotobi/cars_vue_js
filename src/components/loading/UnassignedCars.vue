@@ -7,6 +7,15 @@
       </h3>
       <div class="header-actions" v-if="unassignedCars.length > 0">
         <button
+          @click="toggleFilters"
+          class="toggle-filters-btn"
+          :class="{ active: showFilters }"
+          title="Toggle Filters"
+        >
+          <i class="fas fa-filter"></i>
+          <span>{{ showFilters ? 'Hide' : 'Show' }} Filters</span>
+        </button>
+        <button
           @click="refreshData"
           class="refresh-btn"
           :disabled="loading"
@@ -20,7 +29,7 @@
     </div>
 
     <!-- Filters Section -->
-    <div class="filters-section">
+    <div v-if="showFilters" class="filters-section">
       <div class="filters-row">
         <div class="filter-group">
           <label for="carNameFilter">
@@ -123,19 +132,76 @@
         <table class="unassigned-cars-table">
           <thead>
             <tr>
-              <th>ID</th>
-              <th>Car Name</th>
-              <th>Color</th>
-              <th>VIN</th>
-              <th>Client</th>
-              <th>Price</th>
-              <th>Status</th>
+              <th @click="sortByColumn('id')" class="sortable-header">
+                ID
+                <i
+                  v-if="sortBy === 'id'"
+                  :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
+                ></i>
+                <i v-else class="fas fa-sort sort-inactive"></i>
+              </th>
+              <th @click="sortByColumn('car_name')" class="sortable-header">
+                Car Name
+                <i
+                  v-if="sortBy === 'car_name'"
+                  :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
+                ></i>
+                <i v-else class="fas fa-sort sort-inactive"></i>
+              </th>
+              <th @click="sortByColumn('color')" class="sortable-header">
+                Color
+                <i
+                  v-if="sortBy === 'color'"
+                  :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
+                ></i>
+                <i v-else class="fas fa-sort sort-inactive"></i>
+              </th>
+              <th @click="sortByColumn('vin')" class="sortable-header">
+                VIN
+                <i
+                  v-if="sortBy === 'vin'"
+                  :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
+                ></i>
+                <i v-else class="fas fa-sort sort-inactive"></i>
+              </th>
+              <th @click="sortByColumn('client_name')" class="sortable-header">
+                Client
+                <i
+                  v-if="sortBy === 'client_name'"
+                  :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
+                ></i>
+                <i v-else class="fas fa-sort sort-inactive"></i>
+              </th>
+              <th @click="sortByColumn('sell_bill_id')" class="sortable-header">
+                Sell Bill ID
+                <i
+                  v-if="sortBy === 'sell_bill_id'"
+                  :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
+                ></i>
+                <i v-else class="fas fa-sort sort-inactive"></i>
+              </th>
+              <th @click="sortByColumn('sell_bill_date')" class="sortable-header">
+                Sell Bill Date
+                <i
+                  v-if="sortBy === 'sell_bill_date'"
+                  :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
+                ></i>
+                <i v-else class="fas fa-sort sort-inactive"></i>
+              </th>
+              <th @click="sortByColumn('sell_bill_ref')" class="sortable-header">
+                Sell Bill Ref
+                <i
+                  v-if="sortBy === 'sell_bill_ref'"
+                  :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
+                ></i>
+                <i v-else class="fas fa-sort sort-inactive"></i>
+              </th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             <tr
-              v-for="car in unassignedCars"
+              v-for="car in sortedAndFilteredCars"
               :key="car.id"
               class="table-row"
               @click="handleCarClick(car)"
@@ -159,12 +225,9 @@
                 </div>
                 <span v-else class="no-client">-</span>
               </td>
-              <td class="price-cell">{{ car.price_cell ? `$${car.price_cell}` : '-' }}</td>
-              <td class="status-cell">
-                <span :class="getStatusClass(car.id_sell)">
-                  {{ car.id_sell ? 'Sold' : 'Available' }}
-                </span>
-              </td>
+              <td class="sell-bill-id-cell">{{ car.sell_bill_id || '-' }}</td>
+              <td class="sell-bill-date-cell">{{ formatDate(car.sell_bill_date) }}</td>
+              <td class="sell-bill-ref-cell">{{ car.sell_bill_ref || '-' }}</td>
               <td class="actions-cell">
                 <div class="action-buttons">
                   <button
@@ -185,7 +248,7 @@
 
     <div class="table-footer">
       <span class="record-count">
-        Showing {{ unassignedCars.length }} of {{ allUnassignedCars.length }} unassigned cars
+        Showing {{ sortedAndFilteredCars.length }} of {{ allUnassignedCars.length }} unassigned cars
         <span v-if="hasActiveFilters" class="filter-indicator">(filtered)</span>
       </span>
     </div>
@@ -299,6 +362,13 @@ const carToAssign = ref(null)
 const isSubmittingVin = ref(false)
 const vinError = ref('')
 
+// Sorting state
+const sortBy = ref('id')
+const sortOrder = ref('asc')
+
+// Filter visibility state
+const showFilters = ref(false)
+
 // Computed property to check if any filters are active
 const hasActiveFilters = computed(() => {
   return (
@@ -310,6 +380,61 @@ const hasActiveFilters = computed(() => {
   )
 })
 
+// Computed property for sorted and filtered cars
+const sortedAndFilteredCars = computed(() => {
+  let filtered = allUnassignedCars.value
+
+  // Apply filters
+  if (filters.value.carName) {
+    filtered = filtered.filter((car) =>
+      car.car_name?.toLowerCase().includes(filters.value.carName.toLowerCase()),
+    )
+  }
+  if (filters.value.color) {
+    filtered = filtered.filter((car) =>
+      car.color?.toLowerCase().includes(filters.value.color.toLowerCase()),
+    )
+  }
+  if (filters.value.vin) {
+    filtered = filtered.filter((car) =>
+      car.vin?.toLowerCase().includes(filters.value.vin.toLowerCase()),
+    )
+  }
+  if (filters.value.clientName) {
+    filtered = filtered.filter((car) =>
+      car.client_name?.toLowerCase().includes(filters.value.clientName.toLowerCase()),
+    )
+  }
+  if (filters.value.clientId) {
+    filtered = filtered.filter((car) =>
+      car.client_id_no?.toLowerCase().includes(filters.value.clientId.toLowerCase()),
+    )
+  }
+
+  // Apply sorting
+  return filtered.sort((a, b) => {
+    let aVal = a[sortBy.value]
+    let bVal = b[sortBy.value]
+
+    // Handle numeric values
+    if (['id', 'price_cell', 'sell_bill_id'].includes(sortBy.value)) {
+      aVal = parseFloat(aVal) || 0
+      bVal = parseFloat(bVal) || 0
+    }
+
+    // Handle null values
+    if (aVal == null) return 1
+    if (bVal == null) return -1
+
+    // Compare values
+    if (sortOrder.value === 'asc') {
+      return aVal > bVal ? 1 : aVal < bVal ? -1 : 0
+    } else {
+      return aVal < bVal ? 1 : aVal > bVal ? -1 : 0
+    }
+  })
+})
+
 const fetchUnassignedCars = async () => {
   loading.value = true
   error.value = null
@@ -317,23 +442,28 @@ const fetchUnassignedCars = async () => {
   try {
     const result = await callApi({
       query: `
-        SELECT 
+        SELECT
           cs.id,
           cn.car_name,
           c.color,
           cs.vin,
           cs.price_cell,
           cs.id_sell,
+          cs.date_sell,
           cs.id_client,
           cl.name as client_name,
           cl.id_copy_path,
-          cl.id_no as client_id_no
+          cl.id_no as client_id_no,
+          sb.id as sell_bill_id,
+          sb.date_sell as sell_bill_date,
+          sb.bill_ref as sell_bill_ref
         FROM cars_stock cs
         LEFT JOIN buy_details bd ON cs.id_buy_details = bd.id
         LEFT JOIN cars_names cn ON bd.id_car_name = cn.id
         LEFT JOIN colors c ON bd.id_color = c.id
         LEFT JOIN clients cl ON cs.id_client = cl.id
-        WHERE cs.id_loaded_container IS NULL 
+        LEFT JOIN sell_bill sb ON cs.id_sell = sb.id
+        WHERE cs.id_loaded_container IS NULL
         AND cs.date_loding IS NULL
         AND cs.container_ref IS NULL
         AND cs.id_client IS NOT NULL
@@ -367,6 +497,25 @@ const openClientId = (path) => {
 
 const getStatusClass = (idSell) => {
   return idSell ? 'status-sold' : 'status-available'
+}
+
+const formatDate = (dateString) => {
+  if (!dateString) return '-'
+  const date = new Date(dateString)
+  return date.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
+}
+
+const sortByColumn = (column) => {
+  if (sortBy.value === column) {
+    sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    sortBy.value = column
+    sortOrder.value = 'asc'
+  }
 }
 
 const refreshData = () => {
@@ -582,6 +731,10 @@ const clearFilters = () => {
   unassignedCars.value = [...allUnassignedCars.value]
 }
 
+const toggleFilters = () => {
+  showFilters.value = !showFilters.value
+}
+
 onMounted(() => {
   fetchUnassignedCars()
 })
@@ -627,6 +780,32 @@ defineExpose({
 .header-actions {
   display: flex;
   gap: 12px;
+}
+
+.toggle-filters-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  background-color: #f8fafc;
+  color: #374151;
+  border: 1px solid #d1d5db;
+}
+
+.toggle-filters-btn:hover:not(:disabled) {
+  background-color: #f3f4f6;
+}
+
+.toggle-filters-btn.active {
+  background-color: #dbeafe;
+  color: #1d4ed8;
+  border: 1px solid #93c5fd;
 }
 
 .refresh-btn {
@@ -846,6 +1025,25 @@ defineExpose({
   border-radius: 12px;
   font-size: 0.8rem;
   font-weight: 500;
+}
+
+.sell-bill-id-cell {
+  text-align: center;
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
+.sell-bill-date-cell {
+  text-align: center;
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
+.sell-bill-ref-cell {
+  text-align: center;
+  font-size: 0.9rem;
+  color: #6b7280;
+  font-family: monospace;
 }
 
 .actions-cell {
@@ -1138,4 +1336,3 @@ defineExpose({
   opacity: 0.7;
 }
 </style>
- 

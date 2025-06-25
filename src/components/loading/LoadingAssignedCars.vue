@@ -44,21 +44,92 @@
         <table class="assigned-cars-table">
           <thead>
             <tr>
-              <th>ID</th>
-              <th>Car Name</th>
-              <th>Color</th>
-              <th>VIN</th>
-              <th>Container</th>
-              <th>Container Ref</th>
-              <th>Client</th>
-              <th>Price</th>
-              <th>Status</th>
+              <th @click="sortByColumn('id')" class="sortable-header">
+                ID
+                <i
+                  v-if="sortBy === 'id'"
+                  :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
+                ></i>
+                <i v-else class="fas fa-sort sort-inactive"></i>
+              </th>
+              <th @click="sortByColumn('car_name')" class="sortable-header">
+                Car Name
+                <i
+                  v-if="sortBy === 'car_name'"
+                  :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
+                ></i>
+                <i v-else class="fas fa-sort sort-inactive"></i>
+              </th>
+              <th @click="sortByColumn('color')" class="sortable-header">
+                Color
+                <i
+                  v-if="sortBy === 'color'"
+                  :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
+                ></i>
+                <i v-else class="fas fa-sort sort-inactive"></i>
+              </th>
+              <th @click="sortByColumn('vin')" class="sortable-header">
+                VIN
+                <i
+                  v-if="sortBy === 'vin'"
+                  :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
+                ></i>
+                <i v-else class="fas fa-sort sort-inactive"></i>
+              </th>
+              <th @click="sortByColumn('container_name')" class="sortable-header">
+                Container
+                <i
+                  v-if="sortBy === 'container_name'"
+                  :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
+                ></i>
+                <i v-else class="fas fa-sort sort-inactive"></i>
+              </th>
+              <th @click="sortByColumn('container_ref')" class="sortable-header">
+                Container Ref
+                <i
+                  v-if="sortBy === 'container_ref'"
+                  :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
+                ></i>
+                <i v-else class="fas fa-sort sort-inactive"></i>
+              </th>
+              <th @click="sortByColumn('client_name')" class="sortable-header">
+                Client
+                <i
+                  v-if="sortBy === 'client_name'"
+                  :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
+                ></i>
+                <i v-else class="fas fa-sort sort-inactive"></i>
+              </th>
+              <th @click="sortByColumn('sell_bill_id')" class="sortable-header">
+                Sell Bill ID
+                <i
+                  v-if="sortBy === 'sell_bill_id'"
+                  :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
+                ></i>
+                <i v-else class="fas fa-sort sort-inactive"></i>
+              </th>
+              <th @click="sortByColumn('sell_bill_date')" class="sortable-header">
+                Sell Bill Date
+                <i
+                  v-if="sortBy === 'sell_bill_date'"
+                  :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
+                ></i>
+                <i v-else class="fas fa-sort sort-inactive"></i>
+              </th>
+              <th @click="sortByColumn('sell_bill_ref')" class="sortable-header">
+                Sell Bill Ref
+                <i
+                  v-if="sortBy === 'sell_bill_ref'"
+                  :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
+                ></i>
+                <i v-else class="fas fa-sort sort-inactive"></i>
+              </th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             <tr
-              v-for="car in assignedCars"
+              v-for="car in sortedAssignedCars"
               :key="car.id"
               class="table-row"
               @click="handleCarClick(car)"
@@ -81,12 +152,9 @@
                 </div>
                 <span v-else class="no-client">-</span>
               </td>
-              <td class="price-cell">{{ car.price_cell ? `$${car.price_cell}` : '-' }}</td>
-              <td class="status-cell">
-                <span :class="getStatusClass(car.id_sell)">
-                  {{ car.id_sell ? 'Sold' : 'Available' }}
-                </span>
-              </td>
+              <td class="sell-bill-id-cell">{{ car.sell_bill_id || '-' }}</td>
+              <td class="sell-bill-date-cell">{{ formatDate(car.sell_bill_date) }}</td>
+              <td class="sell-bill-ref-cell">{{ car.sell_bill_ref || '-' }}</td>
               <td class="actions-cell">
                 <div class="action-buttons">
                   <button
@@ -111,13 +179,13 @@
     </div>
 
     <div class="table-footer">
-      <span class="record-count"> Showing {{ assignedCars.length }} assigned cars </span>
+      <span class="record-count"> Showing {{ sortedAssignedCars.length }} assigned cars </span>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, watch, defineExpose } from 'vue'
+import { ref, watch, defineExpose, computed } from 'vue'
 import { useApi } from '@/composables/useApi'
 
 const props = defineProps({
@@ -136,6 +204,35 @@ const loading = ref(false)
 const error = ref(null)
 const selectedCarId = ref(null)
 const isUnassigning = ref(false)
+const sortBy = ref('id')
+const sortOrder = ref('desc')
+
+// Computed property for sorted cars
+const sortedAssignedCars = computed(() => {
+  if (!assignedCars.value) return []
+
+  return [...assignedCars.value].sort((a, b) => {
+    let aVal = a[sortBy.value]
+    let bVal = b[sortBy.value]
+
+    // Handle numeric values
+    if (['id', 'sell_bill_id'].includes(sortBy.value)) {
+      aVal = parseFloat(aVal) || 0
+      bVal = parseFloat(bVal) || 0
+    }
+
+    // Handle null values
+    if (aVal == null) return 1
+    if (bVal == null) return -1
+
+    // Compare values
+    if (sortOrder.value === 'asc') {
+      return aVal > bVal ? 1 : aVal < bVal ? -1 : 0
+    } else {
+      return aVal < bVal ? 1 : aVal > bVal ? -1 : 0
+    }
+  })
+})
 
 const fetchAssignedCars = async () => {
   if (!props.selectedLoadedContainerId) {
@@ -158,11 +255,15 @@ const fetchAssignedCars = async () => {
           lc.ref_container as container_ref,
           cs.price_cell,
           cs.id_sell,
+          cs.date_sell,
           cs.id_loaded_container,
           cs.id_client,
           cl.name as client_name,
           cl.id_copy_path,
-          lc.date_on_board
+          lc.date_on_board,
+          sb.id as sell_bill_id,
+          sb.date_sell as sell_bill_date,
+          sb.bill_ref as sell_bill_ref
         FROM cars_stock cs
         LEFT JOIN buy_details bd ON cs.id_buy_details = bd.id
         LEFT JOIN cars_names cn ON bd.id_car_name = cn.id
@@ -170,6 +271,7 @@ const fetchAssignedCars = async () => {
         LEFT JOIN loaded_containers lc ON cs.id_loaded_container = lc.id
         LEFT JOIN containers cont ON lc.id_container = cont.id
         LEFT JOIN clients cl ON cs.id_client = cl.id
+        LEFT JOIN sell_bill sb ON cs.id_sell = sb.id
         WHERE cs.id_loaded_container = ?
         ORDER BY cs.id DESC
       `,
@@ -195,6 +297,16 @@ const handleCarClick = (car) => {
 
 const openClientId = (path) => {
   window.open(getFileUrl(path), '_blank')
+}
+
+const formatDate = (dateString) => {
+  if (!dateString) return '-'
+  const date = new Date(dateString)
+  return date.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
 }
 
 const unassignCar = async (car) => {
@@ -241,6 +353,15 @@ const getStatusClass = (idSell) => {
 
 const refreshData = () => {
   fetchAssignedCars()
+}
+
+const sortByColumn = (column) => {
+  if (sortBy.value === column) {
+    sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    sortBy.value = column
+    sortOrder.value = 'asc'
+  }
 }
 
 // Watch for changes in selectedLoadedContainerId
@@ -573,5 +694,32 @@ defineExpose({
 .no-client {
   color: #6b7280;
   font-style: italic;
+}
+
+.sell-bill-id-cell {
+  text-align: center;
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
+.sell-bill-date-cell {
+  text-align: center;
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
+.sell-bill-ref-cell {
+  text-align: center;
+  font-size: 0.9rem;
+  color: #6b7280;
+  font-family: monospace;
+}
+
+.sortable-header {
+  cursor: pointer;
+}
+
+.sort-inactive {
+  opacity: 0.5;
 }
 </style>
