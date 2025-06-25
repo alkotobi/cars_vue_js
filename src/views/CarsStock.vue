@@ -42,10 +42,8 @@ const handleSave = async () => {
 const handleFilter = async (filterData) => {
   filters.value = filterData
 
-  // Refresh the table with the new filters
-  if (carStockTableRef.value) {
-    await carStockTableRef.value.fetchCarsStock()
-  }
+  // The watcher in CarStockTable will automatically call fetchCarsStock when filters change
+  // Removed manual call to prevent double execution
 }
 
 const navigateToWarehouses = async () => {
