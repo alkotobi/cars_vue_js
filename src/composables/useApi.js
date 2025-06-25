@@ -106,24 +106,9 @@ export const useApi = () => {
       }
 
       // Return both the server response and the relative path
-      let relativePath
-      if (customFilename) {
-        relativePath = `${destinationFolder}/${customFilename}`
-      } else {
-        // Extract the path from the server response
-        // Server returns: /api/upload.php?path=ids/filename.jpg
-        const pathMatch = result.file_path.match(/path=([^&]+)/)
-        if (pathMatch) {
-          relativePath = decodeURIComponent(pathMatch[1])
-        } else {
-          // Fallback to extracting filename from the end
-          relativePath = `${destinationFolder}/${result.file_path.split('/').pop()}`
-        }
-      }
-
       return {
         ...result,
-        relativePath,
+        relativePath: `${destinationFolder}/${customFilename || result.file_path.split('/').pop()}`,
       }
     } catch (err) {
       console.error('Upload error details:', err)

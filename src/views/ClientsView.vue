@@ -159,10 +159,98 @@ const fetchClients = async () => {
 
 const handleFileChange = (event, isEdit = false) => {
   const file = event.target.files[0]
+  console.log('File selected:', file ? file.name : 'No file')
+
   if (isEdit) {
     editSelectedFile.value = file
+    console.log('Edit file set to:', editSelectedFile.value ? editSelectedFile.value.name : 'null')
   } else {
     selectedFile.value = file
+    console.log('Add file set to:', selectedFile.value ? selectedFile.value.name : 'null')
+  }
+}
+
+// Debug function to test file upload
+const debugFileUpload = async (file, clientId) => {
+  console.log('=== DEBUG FILE UPLOAD ===')
+  console.log('File:', file)
+  console.log('Client ID:', clientId)
+
+  try {
+    const filename = `${clientId}.${file.name.split('.').pop()}`
+    console.log('Generated filename:', filename)
+
+    const uploadResult = await uploadFile(file, 'ids', filename)
+    console.log('Upload result:', uploadResult)
+    console.log('Upload result type:', typeof uploadResult)
+    console.log('Upload result keys:', Object.keys(uploadResult))
+    console.log('Relative path:', uploadResult.relativePath)
+    console.log('File path:', uploadResult.file_path)
+
+    return uploadResult
+  } catch (error) {
+    console.error('Debug upload error:', error)
+    throw error
+  }
+}
+
+// Debug function to test database update
+const debugDatabaseUpdate = async (filePath, clientId) => {
+  console.log('=== DEBUG DATABASE UPDATE ===')
+  console.log('File path to save:', filePath)
+  console.log('Client ID:', clientId)
+
+  try {
+    const updateResult = await callApi({
+      query: 'UPDATE clients SET id_copy_path = ? WHERE id = ?',
+      params: [filePath, clientId],
+    })
+
+    console.log('Database update result:', updateResult)
+
+    // Verify the update by fetching the client
+    const verifyResult = await callApi({
+      query: 'SELECT id_copy_path FROM clients WHERE id = ?',
+      params: [clientId],
+    })
+
+    console.log('Verification result:', verifyResult)
+    console.log('Stored file path:', verifyResult.data?.[0]?.id_copy_path)
+
+    return updateResult
+  } catch (error) {
+    console.error('Debug database update error:', error)
+    throw error
+  }
+}
+
+// Test function for file upload
+const testFileUpload = async () => {
+  if (!editSelectedFile.value || !editingClient.value) {
+    alert('Please select a file and have a client loaded for editing')
+    return
+  }
+
+  console.log('=== TESTING FILE UPLOAD ===')
+  try {
+    const uploadResult = await debugFileUpload(editSelectedFile.value, editingClient.value.id)
+
+    if (uploadResult.success) {
+      const dbResult = await debugDatabaseUpdate(uploadResult.relativePath, editingClient.value.id)
+
+      if (dbResult.success) {
+        alert('Test successful! File uploaded and database updated. Check console for details.')
+        // Refresh the client data to show the new file
+        await fetchClients()
+      } else {
+        alert('Test failed: Database update failed. Check console for details.')
+      }
+    } else {
+      alert('Test failed: File upload failed. Check console for details.')
+    }
+  } catch (error) {
+    alert('Test failed with error: ' + error.message)
+    console.error('Test error:', error)
   }
 }
 
@@ -223,10 +311,7 @@ const addClient = async () => {
       // If there's a file selected, upload it
       if (selectedFile.value) {
         try {
-          const filename = `${clientId}.${selectedFile.value.name.split('.').pop()}`
-          console.log('Uploading file with filename:', filename)
-          const uploadResult = await uploadFile(selectedFile.value, 'ids', filename)
-          console.log('Upload result:', uploadResult)
+          const uploadResult = await debugFileUpload(selectedFile.value, clientId)
 
           if (uploadResult.success) {
             // Use the relativePath returned from uploadFile
@@ -271,8 +356,16 @@ const addClient = async () => {
 }
 
 const editClient = (client) => {
+  console.log('Editing client:', client)
   editingClient.value = { ...client }
   editSelectedFile.value = null
+
+  // Reset the file input element
+  const fileInput = document.getElementById('edit-id-document')
+  if (fileInput) {
+    fileInput.value = ''
+  }
+
   showEditDialog.value = true
 }
 
@@ -294,7 +387,10 @@ const updateClient = async () => {
   }
 
   // Check if there's either an existing file or a new file selected
-  if (!editingClient.value.id_copy_path && !editSelectedFile.value) {
+  const hasExistingFile = editingClient.value.id_copy_path
+  const hasNewFile = editSelectedFile.value
+
+  if (!hasExistingFile && !hasNewFile) {
     validationError.value = 'ID Document is required'
     return
   }
@@ -308,43 +404,11 @@ const updateClient = async () => {
   try {
     isSubmitting.value = true
 
-    console.log('=== UPDATE CLIENT DEBUG ===')
-    console.log('Client ID:', editingClient.value.id)
-    console.log('Current file path:', editingClient.value.id_copy_path)
-    console.log('New file selected:', editSelectedFile.value)
-
-    // If there's a new file selected, upload it first
-    if (editSelectedFile.value) {
-      try {
-        const filename = `${editingClient.value.id}.${editSelectedFile.value.name.split('.').pop()}`
-        console.log('Uploading new file with filename:', filename)
-
-        const uploadResult = await uploadFile(editSelectedFile.value, 'ids', filename)
-        console.log('Upload result:', uploadResult)
-
-        if (uploadResult.success) {
-          // Update the client with the new file path
-          editingClient.value.id_copy_path = uploadResult.relativePath
-          console.log('Updated client file path to:', editingClient.value.id_copy_path)
-        } else {
-          console.error('Upload failed:', uploadResult)
-          error.value = 'Failed to upload new ID document'
-          return
-        }
-      } catch (err) {
-        console.error('Error uploading file:', err)
-        error.value = 'Failed to upload new ID document'
-        return
-      }
-    }
-
-    console.log('Final file path for database update:', editingClient.value.id_copy_path)
-
-    // Update client basic info (including the file path if it was updated)
+    // Update client basic info first
     const result = await callApi({
       query: `
       UPDATE clients 
-      SET name = ?, address = ?, email = ?, mobiles = ?, id_no = ?, is_broker = ?, is_client = 1, notes = ?, id_copy_path = ?
+      SET name = ?, address = ?, email = ?, mobiles = ?, id_no = ?, is_broker = ?, is_client = 1, notes = ?
       WHERE id = ?
     `,
       params: [
@@ -355,27 +419,53 @@ const updateClient = async () => {
         editingClient.value.id_no,
         editingClient.value.is_broker ? 1 : 0,
         editingClient.value.notes,
-        editingClient.value.id_copy_path,
         editingClient.value.id,
       ],
     })
 
-    console.log('Database update result:', result)
-
     if (result.success) {
-      console.log('Client updated successfully')
+      // If there's a new file selected, upload it and update the path
+      if (editSelectedFile.value) {
+        try {
+          const uploadResult = await debugFileUpload(editSelectedFile.value, editingClient.value.id)
+
+          if (uploadResult.success) {
+            console.log('File uploaded successfully, updating client record')
+            // Update the client record with the new file path
+            const updateFileResult = await debugDatabaseUpdate(
+              uploadResult.relativePath,
+              editingClient.value.id,
+            )
+
+            if (!updateFileResult.success) {
+              console.error('Failed to update client with new file path:', updateFileResult.error)
+              error.value = 'Client updated but failed to save new ID document path'
+            }
+          } else {
+            console.error('File upload failed:', uploadResult.error)
+            error.value = 'Client updated but failed to upload new ID document'
+          }
+        } catch (err) {
+          console.error('Error uploading file:', err)
+          error.value = 'Client updated but failed to upload new ID document'
+        }
+      }
+
+      // Reset form and close dialog
       showEditDialog.value = false
       editingClient.value = null
       editSelectedFile.value = null
       validationError.value = ''
+
+      // Refresh the clients list to show updated data
       await fetchClients()
     } else {
-      console.error('Database update failed:', result.error)
       error.value = result.error
+      console.error('Error updating client:', result.error)
     }
   } catch (err) {
-    console.error('Error in update client process:', err)
     error.value = err.message
+    console.error('Error in update client process:', err)
   } finally {
     isSubmitting.value = false
   }
@@ -397,10 +487,6 @@ const handleImageClick = (path) => {
   if (path) {
     window.open(getFileUrl(path), '_blank')
   }
-}
-
-const clearEditFile = () => {
-  editSelectedFile.value = null
 }
 
 onMounted(() => {
@@ -891,22 +977,9 @@ onMounted(() => {
               <i class="fas fa-file-upload"></i>
               ID Document: <span class="required">*</span>
             </label>
-            <div v-if="editingClient.id_copy_path && !editSelectedFile" class="current-file">
+            <div v-if="editingClient.id_copy_path" class="current-file">
               <i class="fas fa-file"></i>
               Current: <a :href="getFileUrl(editingClient.id_copy_path)" target="_blank">View ID</a>
-            </div>
-            <div v-if="editSelectedFile" class="new-file">
-              <i class="fas fa-upload"></i>
-              New file selected: {{ editSelectedFile.name }}
-              <button
-                type="button"
-                @click="clearEditFile"
-                class="clear-file-btn"
-                :disabled="isSubmitting"
-              >
-                <i class="fas fa-times"></i>
-                Clear
-              </button>
             </div>
             <input
               type="file"
@@ -919,6 +992,29 @@ onMounted(() => {
               }"
               :disabled="isSubmitting"
             />
+            <div v-if="editSelectedFile" class="selected-file">
+              <i class="fas fa-check"></i>
+              <span class="file-name">{{ editSelectedFile.name }}</span>
+              <span class="file-info">(New file will replace current ID document)</span>
+              <button
+                @click="testFileUpload"
+                class="test-upload-btn"
+                :disabled="isSubmitting"
+                style="
+                  margin-top: 8px;
+                  padding: 4px 8px;
+                  background: #f59e0b;
+                  color: white;
+                  border: none;
+                  border-radius: 4px;
+                  font-size: 0.8em;
+                  cursor: pointer;
+                "
+              >
+                <i class="fas fa-bug"></i>
+                Test Upload
+              </button>
+            </div>
           </div>
 
           <div v-if="validationError" class="error-message">
@@ -1237,11 +1333,28 @@ onMounted(() => {
 
 .selected-file {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  gap: 4px;
   margin-top: 8px;
+  padding: 8px 12px;
+  background-color: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 6px;
   color: #059669;
   font-size: 0.9em;
+}
+
+.selected-file .file-name {
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.selected-file .file-info {
+  font-size: 0.8em;
+  color: #047857;
+  font-style: italic;
 }
 
 .current-file {
@@ -1668,42 +1781,5 @@ onMounted(() => {
     padding: 8px 12px;
     font-size: 0.9rem;
   }
-}
-
-.new-file {
-  margin-bottom: 8px;
-  color: #059669;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px;
-  background-color: #f0fdf4;
-  border: 1px solid #bbf7d0;
-  border-radius: 4px;
-}
-
-.new-file i {
-  color: #059669;
-}
-
-.clear-file-btn {
-  margin-left: auto;
-  padding: 4px 8px;
-  background-color: #ef4444;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.8rem;
-  transition: background-color 0.2s;
-}
-
-.clear-file-btn:hover:not(:disabled) {
-  background-color: #dc2626;
-}
-
-.clear-file-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
 }
 </style>
