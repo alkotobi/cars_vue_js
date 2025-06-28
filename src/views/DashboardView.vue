@@ -138,7 +138,7 @@ onMounted(async () => {
     return
   }
   user.value = JSON.parse(userStr)
-  await fetchLatestRate()
+  await Promise.all([fetchLatestRate(), fetchPendingTasks()])
 })
 const canManageCars = computed(() => {
   if (!user.value) return false
@@ -157,6 +157,61 @@ const canAccessCashier = computed(() => {
 const isAdmin = computed(() => {
   return user.value?.role_id === 1
 })
+
+// Add pending tasks functionality
+const pendingTasks = ref([])
+const pendingTasksLoading = ref(false)
+
+const fetchPendingTasks = async () => {
+  if (!user.value) return
+
+  pendingTasksLoading.value = true
+  try {
+    const result = await callApi({
+      query: `
+        SELECT 
+          t.id,
+          t.title,
+          t.desciption,
+          t.id_priority as priority,
+          t.date_create,
+          t.notes,
+          p.priority as priority_name,
+          p.power as priority_power,
+          u.username as creator_name
+        FROM tasks t
+        LEFT JOIN priorities p ON t.id_priority = p.id
+        LEFT JOIN users u ON t.id_user_create = u.id
+        WHERE t.date_declare_done IS NULL
+        AND (t.id_user_receive = ? OR t.id_user_create = ?)
+        ORDER BY t.date_create DESC
+        LIMIT 5
+      `,
+      params: [user.value.id, user.value.id],
+      requiresAuth: true,
+    })
+
+    if (result.success) {
+      pendingTasks.value = result.data
+    }
+  } catch (error) {
+    console.error('Error fetching pending tasks:', error)
+  } finally {
+    pendingTasksLoading.value = false
+  }
+}
+
+const getPriorityBadge = (task) => {
+  const power = task.priority_power || 1
+  if (power >= 4) return { text: task.priority_name, class: 'priority-high' }
+  if (power >= 2) return { text: task.priority_name, class: 'priority-medium' }
+  return { text: task.priority_name, class: 'priority-low' }
+}
+
+const formatDate = (dateString) => {
+  if (!dateString) return '-'
+  return new Date(dateString).toLocaleDateString()
+}
 </script>
 <template>
   <div class="dashboard" :class="{ 'is-loading': loading }">
@@ -172,6 +227,7 @@ const isAdmin = computed(() => {
       </div>
     </div>
     <LogoutButton />
+
     <div class="actions-section">
       <button
         v-if="canManageUsers"
@@ -253,6 +309,59 @@ const isAdmin = computed(() => {
         <span>Chat</span>
       </button>
     </div>
+
+    <!-- Pending Tasks Section -->
+    <div class="pending-tasks-section">
+      <div class="section-header">
+        <h2><i class="fas fa-clock"></i> Your Pending Tasks ({{ pendingTasks.length }})</h2>
+        <div class="header-actions">
+          <button @click="fetchPendingTasks" class="refresh-btn" title="Refresh tasks">
+            <i class="fas fa-sync-alt"></i>
+          </button>
+          <button @click="handleTasksClick" class="view-all-btn">
+            <i class="fas fa-external-link-alt"></i>
+            View All Tasks
+          </button>
+        </div>
+      </div>
+
+      <div v-if="pendingTasksLoading" class="loading-tasks">
+        <i class="fas fa-spinner fa-spin"></i>
+        Loading your tasks...
+      </div>
+
+      <div v-else-if="pendingTasks.length === 0" class="no-tasks">
+        <i class="fas fa-check-circle"></i>
+        <p>No pending tasks! You're all caught up.</p>
+      </div>
+
+      <div v-else class="tasks-list">
+        <div v-for="task in pendingTasks" :key="task.id" class="task-item">
+          <div class="task-header">
+            <h3 class="task-title">{{ task.title }}</h3>
+            <span :class="getPriorityBadge(task).class" class="priority-badge">
+              {{ getPriorityBadge(task).text }}
+            </span>
+          </div>
+          <p v-if="task.desciption" class="task-description">{{ task.desciption }}</p>
+          <div class="task-meta">
+            <span class="task-date">
+              <i class="fas fa-calendar"></i>
+              {{ formatDate(task.date_create) }}
+            </span>
+            <span v-if="task.creator_name" class="task-creator">
+              <i class="fas fa-user"></i>
+              Created by {{ task.creator_name }}
+            </span>
+          </div>
+          <p v-if="task.notes" class="task-notes">
+            <i class="fas fa-sticky-note"></i>
+            {{ task.notes }}
+          </p>
+        </div>
+      </div>
+    </div>
+
     <div class="copyright">© Merhab Noureddine 2025</div>
   </div>
 </template>
@@ -392,5 +501,191 @@ button:disabled {
   font-size: 0.875rem;
   margin-top: 2rem;
   padding-bottom: 1rem;
+}
+
+/* Pending Tasks Section Styles */
+.pending-tasks-section {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  margin: 20px 0;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.section-header h2 {
+  margin: 0;
+  color: #1f2937;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.5rem;
+}
+
+.section-header h2 i {
+  color: #f59e0b;
+}
+
+.header-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.refresh-btn {
+  padding: 8px;
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+  transition: background-color 0.2s ease;
+}
+
+.refresh-btn:hover {
+  background-color: #2563eb;
+}
+
+.view-all-btn {
+  padding: 8px 16px;
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+  transition: background-color 0.2s ease;
+}
+
+.view-all-btn:hover {
+  background-color: #2563eb;
+}
+
+.loading-tasks,
+.no-tasks {
+  text-align: center;
+  padding: 40px 20px;
+  color: #6b7280;
+}
+
+.loading-tasks i,
+.no-tasks i {
+  font-size: 2rem;
+  margin-bottom: 12px;
+  color: #10b981;
+}
+
+.no-tasks p {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.tasks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.task-item {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 16px;
+  transition: all 0.2s ease;
+}
+
+.task-item:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.task-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.task-title {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #1f2937;
+  font-weight: 600;
+  flex: 1;
+}
+
+.priority-badge {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  white-space: nowrap;
+  margin-left: 12px;
+}
+
+.priority-high {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+.priority-medium {
+  background-color: #fef3c7;
+  color: #d97706;
+}
+
+.priority-low {
+  background-color: #d1fae5;
+  color: #059669;
+}
+
+.task-description {
+  margin: 8px 0;
+  color: #4b5563;
+  line-height: 1.5;
+}
+
+.task-meta {
+  display: flex;
+  gap: 16px;
+  margin: 8px 0;
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
+.task-date,
+.task-creator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.task-notes {
+  margin: 8px 0 0 0;
+  padding: 8px 12px;
+  background-color: #f3f4f6;
+  border-radius: 4px;
+  color: #4b5563;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.task-notes i {
+  margin-top: 2px;
+  color: #6b7280;
 }
 </style>
