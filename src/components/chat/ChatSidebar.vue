@@ -1,13 +1,19 @@
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useApi } from '../../composables/useApi'
 import ChatUsersPopup from './ChatUsersPopup.vue'
 import AddGroup from './AddGroup.vue'
 
+const props = defineProps({
+  newMessagesCounts: {
+    type: Object,
+    default: () => ({}),
+  },
+})
+
 const { callApi, loading, error } = useApi()
 const chatGroups = ref([])
 const selectedGroup = ref(null)
-const unreadCounts = ref({}) // Track unread counts per group
 const currentUser = ref(null)
 
 // Popup state
@@ -21,10 +27,6 @@ const emit = defineEmits(['group-selected'])
 onMounted(async () => {
   await getCurrentUser()
   await fetchChatGroups()
-  await fetchUnreadCounts()
-
-  // Start polling for new messages
-  startMessagePolling()
 })
 
 const getCurrentUser = () => {
@@ -82,58 +84,8 @@ const fetchChatGroups = async () => {
   }
 }
 
-const fetchUnreadCounts = async () => {
-  try {
-    if (!currentUser.value) return
-
-    // Get the last viewed timestamp for each group from localStorage
-    const lastViewed = JSON.parse(localStorage.getItem('chat_last_viewed') || '{}')
-
-    // For each group, get unread count based on its last viewed timestamp
-    const counts = {}
-
-    for (const group of chatGroups.value) {
-      const lastViewedTime = lastViewed[group.id] || '1970-01-01 00:00:00'
-
-      const result = await callApi({
-        query: `
-          SELECT COUNT(*) as unread_count
-          FROM chat_messages cm
-          WHERE cm.id_chat_group = ?
-            AND cm.message_from_user_id != ?
-            AND cm.time > ?
-        `,
-        params: [group.id, currentUser.value.id, lastViewedTime],
-        requiresAuth: true,
-      })
-
-      if (result.success && result.data && result.data.length > 0) {
-        counts[group.id] = parseInt(result.data[0].unread_count)
-      } else {
-        counts[group.id] = 0
-      }
-    }
-
-    unreadCounts.value = counts
-    console.log('Unread counts loaded:', unreadCounts.value)
-  } catch (err) {
-    console.error('Error fetching unread counts:', err)
-  }
-}
-
-const selectGroup = (group) => {
+const selectGroup = async (group) => {
   selectedGroup.value = group
-
-  // Update last viewed timestamp for this group
-  const lastViewed = JSON.parse(localStorage.getItem('chat_last_viewed') || '{}')
-  lastViewed[group.id] = new Date().toISOString()
-  localStorage.setItem('chat_last_viewed', JSON.stringify(lastViewed))
-
-  // Clear unread count for selected group
-  if (unreadCounts.value[group.id]) {
-    unreadCounts.value[group.id] = 0
-  }
-
   emit('group-selected', group)
 }
 
@@ -168,59 +120,94 @@ const handleGroupAdded = () => {
   fetchChatGroups()
 }
 
-// Method to update unread count when new message is sent
-const updateUnreadCount = (groupId) => {
-  // If this is the currently selected group, mark it as viewed
-  if (selectedGroup.value?.id === groupId) {
-    const lastViewed = JSON.parse(localStorage.getItem('chat_last_viewed') || '{}')
-    lastViewed[groupId] = new Date().toISOString()
-    localStorage.setItem('chat_last_viewed', JSON.stringify(lastViewed))
+const getNewMessageCount = (groupId) => {
+  const count = props.newMessagesCounts[groupId] || 0
+  console.log(`Getting new message count for group ${groupId}:`, count)
+  console.log('All newMessagesCounts:', props.newMessagesCounts)
+  return count
+}
 
-    // Clear unread count for this group
-    if (unreadCounts.value[groupId]) {
-      unreadCounts.value[groupId] = 0
-    }
+// Debug section state
+const showDebugSection = ref(false)
+const debugInfo = ref('')
+
+const toggleDebugSection = () => {
+  showDebugSection.value = !showDebugSection.value
+  if (showDebugSection.value) {
+    updateDebugInfo()
+  }
+}
+
+const updateDebugInfo = () => {
+  let info = `=== DEBUG: NEW MESSAGES COUNTS ===\n`
+  info += `Current User: ${currentUser.value?.username} (ID: ${currentUser.value?.id})\n`
+  info += `Selected Group: ${selectedGroup.value?.name || 'None'} (ID: ${selectedGroup.value?.id || 'None'})\n`
+  info += `Total Groups: ${chatGroups.value.length}\n\n`
+
+  info += `=== GROUPS AND NEW MESSAGE COUNTS ===\n`
+  if (chatGroups.value.length === 0) {
+    info += `No groups found\n`
   } else {
-    // If it's not the selected group, increment the unread count
-    if (!unreadCounts.value[groupId]) {
-      unreadCounts.value[groupId] = 0
-    }
-    unreadCounts.value[groupId]++
+    chatGroups.value.forEach((group) => {
+      const newCount = getNewMessageCount(group.id)
+      const isSelected = selectedGroup.value?.id === group.id
+      const status = isSelected ? 'SELECTED' : 'NOT SELECTED'
+      info += `${group.name} (ID: ${group.id}) - ${status}\n`
+      info += `  New Messages: ${newCount}\n`
+      info += `  Badge Display: ${newCount > 0 ? 'SHOWING' : 'HIDDEN'}\n\n`
+    })
   }
-}
 
-// Polling for new messages
-let messagePollingInterval = null
-
-const startMessagePolling = () => {
-  messagePollingInterval = setInterval(async () => {
-    await fetchUnreadCounts()
-  }, 10000) // Check every 10 seconds
-}
-
-const stopMessagePolling = () => {
-  if (messagePollingInterval) {
-    clearInterval(messagePollingInterval)
-    messagePollingInterval = null
+  info += `=== RAW COUNTS DATA ===\n`
+  if (Object.keys(props.newMessagesCounts).length === 0) {
+    info += `No new message counts data\n`
+  } else {
+    Object.keys(props.newMessagesCounts).forEach((groupId) => {
+      const count = props.newMessagesCounts[groupId]
+      const group = chatGroups.value.find((g) => g.id == groupId)
+      const groupName = group ? group.name : `Group ${groupId}`
+      info += `${groupName} (ID: ${groupId}): ${count} new message${count !== 1 ? 's' : ''}\n`
+    })
   }
+
+  info += `\n=== SYSTEM INFO ===\n`
+  info += `Last Updated: ${new Date().toLocaleString()}\n`
+  info += `User ID: ${currentUser.value?.id}\n`
+  info += `Username: ${currentUser.value?.username}\n`
+  info += `Props newMessagesCounts type: ${typeof props.newMessagesCounts}\n`
+  info += `Props newMessagesCounts keys: ${Object.keys(props.newMessagesCounts)}\n`
+
+  debugInfo.value = info
 }
 
-// Clean up on unmount
-const cleanup = () => {
-  stopMessagePolling()
-}
+const testNewMessageCount = () => {
+  console.log('=== TESTING NEW MESSAGE COUNT ===')
+  console.log('Props newMessagesCounts:', props.newMessagesCounts)
+  console.log('Props newMessagesCounts type:', typeof props.newMessagesCounts)
+  console.log('Props newMessagesCounts keys:', Object.keys(props.newMessagesCounts))
 
-// Expose cleanup function and updateUnreadCount method
-defineExpose({ cleanup, updateUnreadCount })
+  if (chatGroups.value.length > 0) {
+    const firstGroup = chatGroups.value[0]
+    const count = getNewMessageCount(firstGroup.id)
+    console.log(`Test count for group ${firstGroup.name} (ID: ${firstGroup.id}):`, count)
+  }
+
+  updateDebugInfo()
+}
 </script>
 
 <template>
   <div class="chat-sidebar">
     <div class="sidebar-header">
       <h3><i class="fas fa-comments"></i> Chat Groups</h3>
-      <button @click="showAddGroup" class="add-group-btn" title="Add New Group">
-        <i class="fas fa-plus"></i>
-      </button>
+      <div class="header-buttons">
+        <button @click="toggleDebugSection" class="debug-btn" title="Debug New Messages">
+          <i class="fas fa-bug"></i>
+        </button>
+        <button @click="showAddGroup" class="add-group-btn" title="Add New Group">
+          <i class="fas fa-plus"></i>
+        </button>
+      </div>
     </div>
     <div class="groups-table">
       <table>
@@ -242,15 +229,8 @@ defineExpose({ cleanup, updateUnreadCount })
             <td>
               <div class="group-name-container">
                 <span class="group-name">{{ group.name }}</span>
-                <span
-                  v-if="
-                    unreadCounts[group.id] &&
-                    unreadCounts[group.id] > 0 &&
-                    selectedGroup?.id !== group.id
-                  "
-                  class="unread-badge"
-                >
-                  {{ unreadCounts[group.id] > 99 ? '99+' : unreadCounts[group.id] }}
+                <span v-if="getNewMessageCount(group.id) > 0" class="new-messages-badge">
+                  {{ getNewMessageCount(group.id) > 99 ? '99+' : getNewMessageCount(group.id) }}
                 </span>
               </div>
             </td>
@@ -287,10 +267,22 @@ defineExpose({ cleanup, updateUnreadCount })
 
     <!-- Add Group Modal -->
     <AddGroup
-      :is-visible="showAddGroupModal"
+      v-if="showAddGroupModal"
       @close="closeAddGroupModal"
       @group-added="handleGroupAdded"
     />
+
+    <!-- Debug Info Modal -->
+    <div v-if="showDebugSection" class="debug-info-modal">
+      <div class="debug-info-content">
+        <h3>Debug: New Messages Counts</h3>
+        <pre>{{ debugInfo }}</pre>
+        <div class="debug-buttons">
+          <button @click="testNewMessageCount" class="test-btn">Test Count</button>
+          <button @click="toggleDebugSection">Close</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -318,6 +310,30 @@ defineExpose({ cleanup, updateUnreadCount })
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.header-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.debug-btn {
+  background-color: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.debug-btn:hover {
+  background-color: rgba(255, 255, 255, 0.3);
 }
 
 .add-group-btn {
@@ -381,14 +397,14 @@ defineExpose({ cleanup, updateUnreadCount })
   display: flex;
   align-items: center;
   gap: 8px;
-  position: relative;
+  flex: 1;
 }
 
 .group-name {
   flex: 1;
 }
 
-.unread-badge {
+.new-messages-badge {
   background-color: #ef4444;
   color: white;
   border-radius: 12px;
@@ -486,5 +502,88 @@ defineExpose({ cleanup, updateUnreadCount })
     width: 100%;
     height: 200px;
   }
+}
+
+.debug-info-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.debug-info-content {
+  background-color: white;
+  padding: 24px;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 700px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+.debug-info-content h3 {
+  margin-top: 0;
+  margin-bottom: 16px;
+  color: #06b6d4;
+  border-bottom: 2px solid #e2e8f0;
+  padding-bottom: 8px;
+}
+
+.debug-info-content pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.4;
+  background-color: #f8fafc;
+  padding: 16px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.debug-info-content button {
+  margin-top: 16px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  background-color: #06b6d4;
+  color: white;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.debug-info-content button:hover {
+  background-color: #0891b2;
+}
+
+.debug-buttons {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.test-btn {
+  background-color: #06b6d4;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.test-btn:hover {
+  background-color: #0891b2;
 }
 </style>

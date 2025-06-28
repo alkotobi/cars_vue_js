@@ -13,14 +13,21 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['message-sent'])
+const emit = defineEmits(['message-sent', 'new-messages-received'])
 
 const { callApi, loading, error } = useApi()
-const messages = ref([])
+const messages = ref([]) // Current group's messages
+const messagesByGroup = ref({}) // Store messages for each group: { groupId: [messages] }
+const newMessagesCountByGroup = ref({}) // Track new messages count per group: { groupId: count }
 const newMessage = ref('')
 const currentUser = ref(null)
 const isSending = ref(false)
 const messagesContainer = ref(null)
+
+// Debug section state
+const showDebugSection = ref(false)
+const debugInfo = ref('')
+const currentNewMessagesCount = ref(0) // Track current newMessagesCount value
 
 const getCurrentUser = () => {
   try {
@@ -34,15 +41,15 @@ const getCurrentUser = () => {
   }
 }
 
-// Watch for changes in groupId to fetch messages
+// Watch for changes in groupId to switch message lists
 watch(
   [() => props.groupId],
   async ([groupId]) => {
     console.log('ChatMessages watch triggered - groupId:', groupId)
     if (groupId) {
-      console.log('Group changed, fetching messages...')
+      console.log('Group changed, switching to cached messages or fetching if needed...')
       await getCurrentUser()
-      await fetchMessages()
+      await switchToGroup(groupId)
     } else {
       messages.value = []
     }
@@ -50,9 +57,25 @@ watch(
   { immediate: true },
 )
 
-const fetchMessages = async () => {
+const switchToGroup = async (groupId) => {
+  // Check if we already have messages for this group
+  if (messagesByGroup.value[groupId]) {
+    console.log(`Using cached messages for group ${groupId}`)
+    messages.value = messagesByGroup.value[groupId]
+    // Reset new message count when switching to this group (user clicked on group)
+    newMessagesCountByGroup.value[groupId] = 0
+    currentNewMessagesCount.value = 0
+    console.log(`Reset new message count for group ${groupId} (group clicked)`)
+    await scrollToBottom()
+  } else {
+    console.log(`No cached messages for group ${groupId}, fetching all messages...`)
+    await fetchAllMessages()
+  }
+}
+
+const fetchAllMessages = async () => {
   try {
-    console.log('Fetching messages for group:', props.groupId)
+    console.log('Fetching all messages for group:', props.groupId)
 
     const result = await callApi({
       query: `
@@ -75,24 +98,135 @@ const fetchMessages = async () => {
       requiresAuth: true,
     })
 
-    console.log('Messages result:', result)
+    console.log('All messages result:', result)
 
     if (result.success && result.data) {
-      const previousCount = messages.value.length
+      // Store messages in the group-specific cache
+      messagesByGroup.value[props.groupId] = result.data
+      // Set current messages
       messages.value = result.data
-      console.log('Messages loaded:', messages.value)
+      // Initialize new messages count to 0 for this group
+      newMessagesCountByGroup.value[props.groupId] = 0
+      console.log('All messages loaded and cached:', messages.value.length)
 
-      // Always scroll to bottom on initial load or when new messages are added
-      if (previousCount === 0 || result.data.length > previousCount) {
-        await scrollToBottom()
-      }
+      // Scroll to bottom on initial load
+      await scrollToBottom()
     } else {
       console.log('No messages found or API failed:', result)
+      messagesByGroup.value[props.groupId] = []
       messages.value = []
+      newMessagesCountByGroup.value[props.groupId] = 0
     }
   } catch (err) {
-    console.error('Error fetching messages:', err)
+    console.error('Error fetching all messages:', err)
+    messagesByGroup.value[props.groupId] = []
     messages.value = []
+  }
+}
+
+const fetchMessages = async (groupId = props.groupId) => {
+  try {
+    console.log('Fetching new messages for group:', groupId)
+
+    // Get the highest message ID from current messages for this group
+    const currentMessages = messagesByGroup.value[groupId] || []
+    const currentHighestId =
+      currentMessages.length > 0 ? Math.max(...currentMessages.map((msg) => msg.id)) : 0
+
+    console.log('Current highest message ID:', currentHighestId)
+
+    const result = await callApi({
+      query: `
+        SELECT 
+          cm.id,
+          cm.id_chat_group,
+          cm.message_from_user_id,
+          cm.chat_replay_to_message_id,
+          cm.message,
+          cm.time,
+          u.username as sender_username,
+          r.role_name as sender_role
+        FROM chat_messages cm
+        LEFT JOIN users u ON cm.message_from_user_id = u.id
+        LEFT JOIN roles r ON u.role_id = r.id
+        WHERE cm.id_chat_group = ?
+          AND cm.id > ?
+        ORDER BY cm.id ASC
+      `,
+      params: [groupId, currentHighestId],
+      requiresAuth: true,
+    })
+
+    console.log('New messages result:', result)
+
+    if (result.success && result.data) {
+      const newMessagesCount = result.data.length
+      // Update debug variable only if this is the current group
+      if (groupId === props.groupId) {
+        currentNewMessagesCount.value = newMessagesCount
+      }
+      console.log(`Found ${newMessagesCount} new messages`)
+
+      if (newMessagesCount > 0) {
+        // Add new messages to the group cache
+        if (messagesByGroup.value[groupId]) {
+          messagesByGroup.value[groupId].push(...result.data)
+        } else {
+          messagesByGroup.value[groupId] = [...result.data]
+        }
+
+        // Update current messages if this is the active group
+        if (groupId === props.groupId) {
+          messages.value = [...messagesByGroup.value[groupId]]
+        }
+
+        // Increment new messages count for this group
+        if (newMessagesCountByGroup.value[groupId] !== undefined) {
+          newMessagesCountByGroup.value[groupId] += newMessagesCount
+        } else {
+          newMessagesCountByGroup.value[groupId] = newMessagesCount
+        }
+
+        console.log(
+          'New messages added to list. Total messages:',
+          messagesByGroup.value[groupId]?.length || 0,
+        )
+        console.log(
+          `New messages count for group ${groupId}:`,
+          newMessagesCountByGroup.value[groupId],
+        )
+        console.log('All new message counts:', newMessagesCountByGroup.value)
+
+        // Update debug info if debug section is open and this is the current group
+        if (showDebugSection.value && groupId === props.groupId) {
+          updateDebugInfo()
+        }
+
+        // Notify parent about new messages only if this is the current group
+        if (groupId === props.groupId) {
+          console.log(`Emitting new-messages-received for group ${groupId}`)
+          emit('new-messages-received', groupId)
+
+          // Scroll to bottom when new messages are added
+          await scrollToBottom()
+        }
+      } else {
+        // Update debug info even when no new messages (only for current group)
+        if (showDebugSection.value && groupId === props.groupId) {
+          updateDebugInfo()
+        }
+      }
+    } else {
+      console.log('No new messages found or API failed:', result)
+      if (groupId === props.groupId) {
+        currentNewMessagesCount.value = 0
+        if (showDebugSection.value) {
+          updateDebugInfo()
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Error fetching new messages:', err)
   }
 }
 
@@ -117,7 +251,7 @@ const sendMessage = async () => {
     console.log('Send message result:', result)
 
     if (result.success) {
-      // Add the new message to the local array with UTC time
+      // Add the new message to both current list and group cache
       const newMsg = {
         id: result.lastInsertId,
         id_chat_group: props.groupId,
@@ -129,6 +263,7 @@ const sendMessage = async () => {
       }
 
       messages.value.push(newMsg)
+      messagesByGroup.value[props.groupId] = [...messages.value]
       newMessage.value = ''
 
       // Emit event to parent
@@ -230,8 +365,10 @@ let refreshInterval = null
 
 onMounted(() => {
   refreshInterval = setInterval(async () => {
-    if (props.groupId) {
-      await fetchMessages()
+    // Fetch messages for all groups that have been loaded
+    const groupIds = Object.keys(messagesByGroup.value)
+    for (const groupId of groupIds) {
+      await fetchMessages(parseInt(groupId))
     }
   }, 10000) // 10 seconds
 })
@@ -244,8 +381,85 @@ const cleanup = () => {
   }
 }
 
-// Expose cleanup function
-defineExpose({ cleanup })
+// Expose cleanup function and new message counts
+defineExpose({
+  cleanup,
+  getNewMessagesCount: (groupId) => {
+    const count = newMessagesCountByGroup.value[groupId] || 0
+    console.log(`Exposed getNewMessagesCount for group ${groupId}:`, count)
+    return count
+  },
+  getAllNewMessagesCounts: () => {
+    console.log('Exposed getAllNewMessagesCounts:', newMessagesCountByGroup.value)
+    return newMessagesCountByGroup.value
+  },
+})
+
+// Debug functions
+const toggleDebugSection = () => {
+  showDebugSection.value = !showDebugSection.value
+  if (showDebugSection.value) {
+    updateDebugInfo()
+  }
+}
+
+const updateDebugInfo = () => {
+  let info = `=== DEBUG: NEW MESSAGES COUNT ===\n`
+  info += `Current Group: ${props.groupName} (ID: ${props.groupId})\n`
+  info += `Current User: ${currentUser.value?.username} (ID: ${currentUser.value?.id})\n\n`
+
+  info += `=== CURRENT STATE ===\n`
+  info += `Current newMessagesCount: ${currentNewMessagesCount.value}\n`
+  info += `Total messages in current group: ${messages.value.length}\n`
+  info += `Messages cached for this group: ${messagesByGroup.value[props.groupId]?.length || 0}\n\n`
+
+  info += `=== ALL GROUPS COUNTS ===\n`
+  if (Object.keys(newMessagesCountByGroup.value).length === 0) {
+    info += `No new message counts tracked yet\n`
+  } else {
+    Object.keys(newMessagesCountByGroup.value).forEach((groupId) => {
+      const count = newMessagesCountByGroup.value[groupId]
+      info += `Group ${groupId}: ${count} new messages\n`
+    })
+  }
+
+  info += `\n=== SYSTEM INFO ===\n`
+  info += `Last Updated: ${new Date().toLocaleString()}\n`
+  info += `Polling Interval: 10 seconds\n`
+  info += `Debug Section Active: ${showDebugSection.value}\n`
+
+  debugInfo.value = info
+}
+
+const testNewMessagesCount = () => {
+  console.log('=== TESTING NEW MESSAGES COUNT ===')
+  console.log('Current newMessagesCount:', currentNewMessagesCount.value)
+  console.log('All newMessagesCountByGroup:', newMessagesCountByGroup.value)
+  updateDebugInfo()
+}
+
+// Click handlers to reset new message count
+const handleMessagesContainerClick = () => {
+  if (newMessagesCountByGroup.value[props.groupId] > 0) {
+    console.log(`Reset new message count for group ${props.groupId} (chat area clicked)`)
+    newMessagesCountByGroup.value[props.groupId] = 0
+    currentNewMessagesCount.value = 0
+    if (showDebugSection.value) {
+      updateDebugInfo()
+    }
+  }
+}
+
+const handleInputClick = () => {
+  if (newMessagesCountByGroup.value[props.groupId] > 0) {
+    console.log(`Reset new message count for group ${props.groupId} (input clicked)`)
+    newMessagesCountByGroup.value[props.groupId] = 0
+    currentNewMessagesCount.value = 0
+    if (showDebugSection.value) {
+      updateDebugInfo()
+    }
+  }
+}
 </script>
 
 <template>
@@ -253,6 +467,9 @@ defineExpose({ cleanup })
     <div class="messages-header">
       <h3><i class="fas fa-comments"></i> {{ groupName }}</h3>
       <div class="group-info">
+        <button @click="toggleDebugSection" class="debug-btn" title="Debug New Messages Count">
+          <i class="fas fa-bug"></i>
+        </button>
         <span class="timezone-info">
           <i class="fas fa-clock"></i> {{ Intl.DateTimeFormat().resolvedOptions().timeZone }}
         </span>
@@ -262,7 +479,7 @@ defineExpose({ cleanup })
       </div>
     </div>
 
-    <div class="messages-container" ref="messagesContainer">
+    <div class="messages-container" ref="messagesContainer" @click="handleMessagesContainerClick">
       <div v-if="loading && messages.length === 0" class="loading-messages">
         <i class="fas fa-spinner fa-spin"></i> Loading messages...
       </div>
@@ -318,6 +535,7 @@ defineExpose({ cleanup })
         <textarea
           v-model="newMessage"
           @keypress="handleKeyPress"
+          @click="handleInputClick"
           placeholder="Type your message..."
           class="message-input"
           :disabled="isSending"
@@ -335,6 +553,18 @@ defineExpose({ cleanup })
       <div class="input-footer">
         <span class="char-count">{{ newMessage.length }}/1000</span>
         <span class="send-hint">Press Enter to send, Shift+Enter for new line</span>
+      </div>
+    </div>
+
+    <!-- Debug Info Modal -->
+    <div v-if="showDebugSection" class="debug-info-modal">
+      <div class="debug-info-content">
+        <h3>Debug: New Messages Count</h3>
+        <pre>{{ debugInfo }}</pre>
+        <div class="debug-buttons">
+          <button @click="testNewMessagesCount" class="test-btn">Test Count</button>
+          <button @click="toggleDebugSection">Close</button>
+        </div>
       </div>
     </div>
   </div>
@@ -614,6 +844,100 @@ defineExpose({ cleanup })
 
 .send-hint {
   font-style: italic;
+}
+
+.debug-btn {
+  background-color: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.debug-btn:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+.debug-info-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.debug-info-content {
+  background-color: white;
+  padding: 24px;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 700px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+.debug-info-content h3 {
+  margin-top: 0;
+  margin-bottom: 16px;
+  color: #06b6d4;
+  border-bottom: 2px solid #e2e8f0;
+  padding-bottom: 8px;
+}
+
+.debug-info-content pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.4;
+  background-color: #f8fafc;
+  padding: 16px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.debug-buttons {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 16px;
+}
+
+.debug-info-content button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  background-color: #06b6d4;
+  color: white;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.debug-info-content button:hover {
+  background-color: #0891b2;
+}
+
+.test-btn {
+  background-color: #10b981 !important;
+}
+
+.test-btn:hover {
+  background-color: #059669 !important;
 }
 
 /* Responsive design */

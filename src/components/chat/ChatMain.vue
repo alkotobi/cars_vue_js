@@ -1,5 +1,5 @@
 <script setup>
-import { defineProps, defineEmits } from 'vue'
+import { defineProps, defineEmits, ref } from 'vue'
 import ChatMessages from './ChatMessages.vue'
 
 const props = defineProps({
@@ -13,11 +13,31 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['message-sent'])
+const emit = defineEmits(['message-sent', 'new-messages-received'])
+
+const chatMessagesRef = ref(null)
 
 const handleMessageSent = (message) => {
   emit('message-sent', message)
 }
+
+const handleNewMessagesReceived = (groupId) => {
+  emit('new-messages-received', groupId)
+}
+
+// Expose methods from ChatMessages component
+const getAllNewMessagesCounts = () => {
+  return chatMessagesRef.value?.getAllNewMessagesCounts?.() || {}
+}
+
+const getNewMessagesCount = (groupId) => {
+  return chatMessagesRef.value?.getNewMessagesCount?.(groupId) || 0
+}
+
+defineExpose({
+  getAllNewMessagesCounts,
+  getNewMessagesCount,
+})
 </script>
 
 <template>
@@ -30,9 +50,11 @@ const handleMessageSent = (message) => {
 
     <ChatMessages
       v-else
+      ref="chatMessagesRef"
       :group-id="selectedGroup.id"
       :group-name="selectedGroup.name"
       @message-sent="handleMessageSent"
+      @new-messages-received="handleNewMessagesReceived"
     />
   </div>
 </template>
