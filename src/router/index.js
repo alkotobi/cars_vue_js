@@ -172,6 +172,12 @@ const router = createRouter({
       meta: { requiresAdmin: true },
     },
     {
+      path: '/chat',
+      name: 'chat',
+      component: () => import('../views/ChatView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/:pathMatch(.*)*',
       redirect: '/',
     },

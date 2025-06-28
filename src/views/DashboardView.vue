@@ -96,6 +96,11 @@ const handleParamsClick = async () => {
     isProcessing.value.params = false
   }
 }
+const handleChatClick = () => {
+  const welcomeMessage = `Welcome ${user.value?.username || 'User'}!`
+  const chatUrl = `/mig/chat?welcome=${encodeURIComponent(welcomeMessage)}`
+  window.open(chatUrl, '_blank')
+}
 const fetchLatestRate = async () => {
   loading.value = true
   try {
@@ -223,6 +228,10 @@ const isAdmin = computed(() => {
         <span>Params</span>
         <i v-if="isProcessing.params" class="fas fa-spinner fa-spin loading-indicator"></i>
       </button>
+      <button @click="handleChatClick" class="action-btn chat-btn">
+        <i class="fas fa-comments"></i>
+        <span>Chat</span>
+      </button>
     </div>
     <div class="copyright">© Merhab Noureddine 2025</div>
   </div>
@@ -314,6 +323,10 @@ const isAdmin = computed(() => {
 }
 .params-btn {
   background-color: #6366f1;
+  color: white;
+}
+.chat-btn {
+  background-color: #06b6d4;
   color: white;
 }
 button:disabled {

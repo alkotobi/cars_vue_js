@@ -428,6 +428,7 @@ try {
         `message_from_user_id` int(11) DEFAULT NULL,
         `chat_replay_to_message_id` int(11) DEFAULT NULL,
         `message` text DEFAULT NULL,
+        `time` timestamp NULL DEFAULT NULL,
         PRIMARY KEY (`id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
 
@@ -438,7 +439,13 @@ try {
         `id_user` int(11) DEFAULT NULL,
         PRIMARY KEY (`id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci");
-
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `chat_users` (
+    `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+    `id_user` int(11) DEFAULT NULL,
+    `id_chat_group` int(11) DEFAULT NULL,
+    `is_active` tinyint(1) DEFAULT 1,
+    PRIMARY KEY (`id`)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
     // Insert default roles if not exist
     $stmt = $pdo->prepare("INSERT IGNORE INTO roles (role_name, description) VALUES 
         ('admin', 'Administrator with full access'),
