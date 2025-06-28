@@ -8,6 +8,7 @@ const props = defineProps({
   onEdit: Function,
   onDelete: Function,
   onSelect: Function,
+  onTask: Function,
   selectedBillId: {
     type: Number,
     default: null,
@@ -295,6 +296,12 @@ const handlePayments = (billId) => {
   window.open(route.href, '_blank')
 }
 
+const handleTask = (bill) => {
+  if (props.onTask) {
+    props.onTask(bill)
+  }
+}
+
 const selectBill = (bill) => {
   selectedBillId.value = bill.id
 
@@ -506,6 +513,14 @@ defineExpose({ fetchSellBills })
               >
                 <i class="fas fa-money-bill-wave"></i>
               </button>
+              <button
+                @click.stop="handleTask(bill)"
+                :disabled="isProcessing"
+                class="btn task-btn"
+                title="Add New Task"
+              >
+                <i class="fas fa-tasks"></i>
+              </button>
             </td>
           </tr>
         </tbody>
@@ -686,6 +701,15 @@ defineExpose({ fetchSellBills })
 
 .payment-btn:hover:not(:disabled) {
   background-color: #059669;
+}
+
+.task-btn {
+  background-color: #8b5cf6;
+  color: white;
+}
+
+.task-btn:hover:not(:disabled) {
+  background-color: #7c3aed;
 }
 
 /* Add smooth transitions */

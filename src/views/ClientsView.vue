@@ -1420,7 +1420,7 @@ const handleTaskCancel = () => {
       :entity-data="selectedClientForTask"
       entity-type="client"
       :is-visible="showTaskForm"
-      @save="handleTaskSave"
+      @task-created="handleTaskSave"
       @cancel="handleTaskCancel"
     />
 

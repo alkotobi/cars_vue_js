@@ -17,6 +17,10 @@ const showTaskForm = ref(false)
 const currentEntityType = ref('general')
 const currentEntityData = ref({})
 
+// Description popup states
+const showDescriptionPopup = ref(false)
+const selectedTaskDescription = ref('')
+
 // Filter states
 const filters = ref({
   status: '',
@@ -97,6 +101,12 @@ const fetchTasks = async () => {
     if (result.success) {
       tasks.value = result.data
       totalItems.value = result.data.length // Temporary, will fix pagination later
+
+      // Debug: Log the first task to see available fields
+      if (result.data.length > 0) {
+        console.log('First task object:', result.data[0])
+        console.log('Available fields:', Object.keys(result.data[0]))
+      }
     } else {
       console.error('API Error:', result)
       error.value = result.error || 'Failed to fetch tasks'
@@ -449,6 +459,17 @@ const handleTaskCancel = () => {
   showTaskForm.value = false
 }
 
+// Description popup methods
+const showFullDescription = (description) => {
+  selectedTaskDescription.value = description || 'No description available'
+  showDescriptionPopup.value = true
+}
+
+const closeDescriptionPopup = () => {
+  showDescriptionPopup.value = false
+  selectedTaskDescription.value = ''
+}
+
 onMounted(async () => {
   const userStr = localStorage.getItem('user')
   if (userStr) {
@@ -608,7 +629,21 @@ onMounted(async () => {
               <tr v-for="task in undoneTasks" :key="task.id" class="task-row">
                 <td>{{ task.id }}</td>
                 <td class="task-title">{{ task.title }}</td>
-                <td class="task-description">{{ task.desciption || '-' }}</td>
+                <td class="task-description">
+                  <div class="description-content">
+                    <span class="description-text">{{
+                      task.description || task.desciption || task.desc || '-'
+                    }}</span>
+                    <button
+                      v-if="task.description || task.desciption || task.desc"
+                      @click="showFullDescription(task.description || task.desciption || task.desc)"
+                      class="btn-view-description"
+                      title="View full description"
+                    >
+                      <i class="fas fa-eye"></i>
+                    </button>
+                  </div>
+                </td>
                 <td>
                   <span :class="getPriorityBadge(task).class" class="priority-badge">
                     {{ getPriorityBadge(task).text }}
@@ -691,7 +726,19 @@ onMounted(async () => {
               <tr v-for="task in doneTasks" :key="task.id" class="task-row">
                 <td>{{ task.id }}</td>
                 <td class="task-title">{{ task.title }}</td>
-                <td class="task-description">{{ task.desciption || '-' }}</td>
+                <td class="task-description">
+                  <div class="description-content">
+                    <span class="description-text">{{ task.description || '-' }}</span>
+                    <button
+                      v-if="task.description"
+                      @click="showFullDescription(task.description)"
+                      class="btn-view-description"
+                      title="View full description"
+                    >
+                      <i class="fas fa-eye"></i>
+                    </button>
+                  </div>
+                </td>
                 <td>
                   <span :class="getPriorityBadge(task).class" class="priority-badge">
                     {{ getPriorityBadge(task).text }}
@@ -739,9 +786,28 @@ onMounted(async () => {
       :entity-data="currentEntityData"
       :entity-type="currentEntityType"
       :is-visible="showTaskForm"
-      @save="handleTaskSave"
+      @task-created="handleTaskSave"
       @cancel="handleTaskCancel"
     />
+
+    <!-- Description Popup Modal -->
+    <div
+      v-if="showDescriptionPopup"
+      class="description-popup-overlay"
+      @click="closeDescriptionPopup"
+    >
+      <div class="description-popup-content" @click.stop>
+        <div class="description-popup-header">
+          <h3><i class="fas fa-file-alt"></i> Task Description</h3>
+          <button @click="closeDescriptionPopup" class="btn-close-popup">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="description-popup-body">
+          <p>{{ selectedTaskDescription }}</p>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -940,6 +1006,7 @@ onMounted(async () => {
 .tasks-table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: auto;
 }
 
 .tasks-table th,
@@ -977,12 +1044,10 @@ onMounted(async () => {
 }
 
 .task-title {
-  font-weight: 500;
-  color: #1f2937;
-  max-width: 200px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  word-break: break-word;
+  width: 600px;
+  min-width: 400px;
 }
 
 .task-description,
@@ -1197,5 +1262,126 @@ onMounted(async () => {
 
 .btn-chat i {
   font-size: 0.8rem;
+}
+
+.description-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.description-text {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.btn-view-description {
+  padding: 4px 8px;
+  background-color: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.btn-view-description:hover {
+  background-color: #45a049;
+}
+
+.btn-view-description i {
+  font-size: 0.8rem;
+}
+
+/* Description Popup Styles */
+.description-popup-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+  padding: 20px;
+}
+
+.description-popup-content {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  animation: modalSlideIn 0.3s ease-out;
+}
+
+.description-popup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.description-popup-header h3 {
+  margin: 0;
+  color: #1f2937;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.description-popup-header h3 i {
+  color: #4caf50;
+}
+
+.btn-close-popup {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.btn-close-popup:hover {
+  background-color: #f3f4f6;
+  color: #374151;
+}
+
+.description-popup-body {
+  padding: 24px;
+}
+
+.description-popup-body p {
+  margin: 0;
+  line-height: 1.6;
+  color: #374151;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 </style>

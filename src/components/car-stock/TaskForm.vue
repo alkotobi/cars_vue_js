@@ -23,7 +23,7 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['save', 'cancel'])
+const emit = defineEmits(['save', 'cancel', 'task-created'])
 
 const { callApi, loading, error } = useApi()
 
@@ -81,7 +81,7 @@ const entityConfig = computed(() => {
       icon: 'fas fa-handshake',
       label: 'Sell Bill',
       idField: 'id',
-      nameField: 'bill_number',
+      nameField: 'bill_ref',
       route: '/sells',
       taskFlag: 0,
       defaultTitle: 'Sell Task',
@@ -268,7 +268,7 @@ const handleSubmit = async () => {
 
     if (result.success) {
       console.log('Task created successfully:', result)
-      emit('save', { success: true, taskId: result.lastInsertId })
+      emit('task-created', { success: true, taskId: result.lastInsertId })
     } else {
       console.error('Failed to create task:', result)
       alert('Failed to create task. Please try again.')

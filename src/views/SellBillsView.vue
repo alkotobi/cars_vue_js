@@ -5,6 +5,7 @@ import SellBillsTable from '../components/sells/SellBillsTable.vue'
 import SellBillForm from '../components/sells/SellBillForm.vue'
 import SellBillCarsTable from '../components/sells/SellBillCarsTable.vue'
 import UnassignedCarsTable from '../components/sells/UnassignedCarsTable.vue'
+import TaskForm from '../components/car-stock/TaskForm.vue'
 
 const { callApi } = useApi()
 const showAddDialog = ref(false)
@@ -15,6 +16,10 @@ const sellBillsTableRef = ref(null)
 const unassignedCarsTableRef = ref(null)
 const sellBillCarsTableRef = ref(null)
 const isProcessing = ref(false)
+
+// Add task form state
+const showTaskForm = ref(false)
+const selectedBillForTask = ref(null)
 
 // Add user and isAdmin
 const user = ref(null)
@@ -174,6 +179,19 @@ const handleCarsTableRefresh = async () => {
     await sellBillCarsTableRef.value.fetchCarsByBillId(selectedBillId.value)
   }
 }
+
+// Add task handling methods
+const openTaskForBill = (bill) => {
+  console.log('openTaskForBill called with bill:', bill)
+  selectedBillForTask.value = bill
+  showTaskForm.value = true
+}
+
+const handleTaskCreated = () => {
+  showTaskForm.value = false
+  // Don't set selectedBillForTask to null to avoid prop validation errors
+  // Optionally refresh data if needed
+}
 </script>
 
 <template>
@@ -198,6 +216,7 @@ const handleCarsTableRefresh = async () => {
         :onEdit="handleEditBill"
         :onDelete="handleDeleteBill"
         :onSelect="handleSelectBill"
+        :onTask="openTaskForBill"
         @select-bill="handleSelectBill"
         :isAdmin="isAdmin"
         :selectedBillId="selectedBillId"
@@ -235,6 +254,16 @@ const handleCarsTableRefresh = async () => {
         />
       </div>
     </div>
+
+    <!-- Task Form -->
+    <TaskForm
+      v-if="selectedBillForTask"
+      :entityType="'sell'"
+      :entityData="selectedBillForTask"
+      :isVisible="showTaskForm"
+      @task-created="handleTaskCreated"
+      @cancel="showTaskForm = false"
+    />
   </div>
 </template>
 
@@ -300,6 +329,7 @@ const handleCarsTableRefresh = async () => {
   justify-content: center;
   align-items: center;
   z-index: 1000;
+  padding: 20px;
 }
 
 .dialog {
