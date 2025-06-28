@@ -2,23 +2,30 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import ChatSidebar from '../components/chat/ChatSidebar.vue'
 import ChatMain from '../components/chat/ChatMain.vue'
+import ChatMessages from '../components/chat/ChatMessages.vue'
 
 const welcomeMessage = ref('')
 const selectedGroup = ref(null)
 const chatSidebarRef = ref(null)
 const chatMainRef = ref(null)
+const chatMessagesRef = ref(null) // Reference to the hidden ChatMessages component
 const newMessagesCounts = ref({})
 
 // Set up periodic updates for new message counts
 let countsUpdateInterval = null
 
-onMounted(() => {
+onMounted(async () => {
   // Get welcome message from URL parameters
   const urlParams = new URLSearchParams(window.location.search)
   welcomeMessage.value = urlParams.get('welcome') || 'Welcome to Chat!'
 
+  // Initialize all groups messages immediately using the hidden ChatMessages component
+  await initializeAllGroupsMessages()
+
   // Set up periodic updates for new message counts
   countsUpdateInterval = setInterval(updateNewMessageCounts, 5000) // Update every 5 seconds
+  // Initial update
+  updateNewMessageCounts()
 })
 
 onUnmounted(() => {
@@ -29,6 +36,9 @@ onUnmounted(() => {
   if (chatMainRef.value?.cleanup) {
     chatMainRef.value.cleanup()
   }
+  if (chatMessagesRef.value?.cleanup) {
+    chatMessagesRef.value.cleanup()
+  }
   if (countsUpdateInterval) {
     clearInterval(countsUpdateInterval)
   }
@@ -36,6 +46,10 @@ onUnmounted(() => {
 
 const handleGroupSelected = (group) => {
   selectedGroup.value = group
+  // Trigger an update of the counts when a group is selected
+  setTimeout(() => {
+    updateNewMessageCounts()
+  }, 1000) // Wait 1 second for the group to load
 }
 
 const handleMessageSent = (message) => {
@@ -57,19 +71,71 @@ const handleNewMessagesReceived = (groupId) => {
   }
 }
 
+// Function to manually initialize all groups messages
+const initializeAllGroupsMessages = async () => {
+  try {
+    console.log('Manually initializing all groups messages...')
+
+    // Wait for the component to be mounted
+    await new Promise((resolve) => setTimeout(resolve, 100))
+
+    if (chatMessagesRef.value?.fetchAllGroupsMessages) {
+      console.log('Calling fetchAllGroupsMessages from hidden component...')
+      await chatMessagesRef.value.fetchAllGroupsMessages()
+      console.log('fetchAllGroupsMessages completed')
+
+      // Update counts after initialization
+      setTimeout(() => {
+        updateNewMessageCounts()
+      }, 500)
+    } else {
+      console.log('fetchAllGroupsMessages method not available, retrying...')
+      // Retry after a short delay
+      setTimeout(async () => {
+        if (chatMessagesRef.value?.fetchAllGroupsMessages) {
+          await chatMessagesRef.value.fetchAllGroupsMessages()
+          updateNewMessageCounts()
+        } else {
+          console.error('fetchAllGroupsMessages method still not available')
+        }
+      }, 1000)
+    }
+  } catch (error) {
+    console.error('Error initializing all groups messages:', error)
+  }
+}
+
 // Function to update new message counts periodically
 const updateNewMessageCounts = () => {
-  console.log('Updating new message counts...')
-  console.log('chatMainRef.value:', chatMainRef.value)
+  try {
+    console.log('Updating new message counts...')
+    console.log('chatMessagesRef.value:', chatMessagesRef.value)
 
-  if (chatMainRef.value?.getAllNewMessagesCounts) {
-    const counts = chatMainRef.value.getAllNewMessagesCounts()
-    console.log('Retrieved counts:', counts)
-    newMessagesCounts.value = counts
-    console.log('Updated newMessagesCounts:', newMessagesCounts.value)
-  } else {
-    console.log('getAllNewMessagesCounts method not available')
+    if (chatMessagesRef.value?.getAllNewMessagesCounts) {
+      const counts = chatMessagesRef.value.getAllNewMessagesCounts()
+      console.log('Retrieved counts:', counts)
+      newMessagesCounts.value = counts
+      console.log('Updated newMessagesCounts:', newMessagesCounts.value)
+    } else {
+      console.log('getAllNewMessagesCounts method not available')
+    }
+  } catch (error) {
+    console.error('Error updating new message counts:', error)
   }
+}
+
+// Function to force update counts after reset
+const forceUpdateCounts = async (groupId) => {
+  console.log('Force updating counts after reset for group:', groupId)
+
+  // Directly reset the count in the hidden component
+  if (chatMessagesRef.value?.resetGroupCount) {
+    console.log('Directly resetting count in hidden component...')
+    chatMessagesRef.value.resetGroupCount(groupId)
+  }
+
+  // Then update the UI counts
+  updateNewMessageCounts()
 }
 </script>
 
@@ -84,9 +150,21 @@ const updateNewMessageCounts = () => {
       ref="chatMainRef"
       :welcome-message="welcomeMessage"
       :selected-group="selectedGroup"
+      :on-force-update-counts="forceUpdateCounts"
       @message-sent="handleMessageSent"
       @new-messages-received="handleNewMessagesReceived"
     />
+
+    <!-- Hidden ChatMessages component for initializing unread counts -->
+    <div style="display: none">
+      <ChatMessages
+        ref="chatMessagesRef"
+        :group-id="0"
+        :group-name="'init'"
+        @message-sent="handleMessageSent"
+        @new-messages-received="handleNewMessagesReceived"
+      />
+    </div>
   </div>
 </template>
 

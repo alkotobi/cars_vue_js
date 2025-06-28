@@ -13,7 +13,7 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['message-sent', 'new-messages-received'])
+const emit = defineEmits(['message-sent', 'new-messages-received', 'reset-triggered'])
 
 const { callApi, loading, error } = useApi()
 const messages = ref([]) // Current group's messages
@@ -46,10 +46,13 @@ watch(
   [() => props.groupId],
   async ([groupId]) => {
     console.log('ChatMessages watch triggered - groupId:', groupId)
-    if (groupId) {
+    if (groupId && groupId > 0) {
       console.log('Group changed, switching to cached messages or fetching if needed...')
       await getCurrentUser()
       await switchToGroup(groupId)
+    } else if (groupId === 0) {
+      console.log('Initialization mode - skipping group-specific operations')
+      await getCurrentUser()
     } else {
       messages.value = []
     }
@@ -63,9 +66,7 @@ const switchToGroup = async (groupId) => {
     console.log(`Using cached messages for group ${groupId}`)
     messages.value = messagesByGroup.value[groupId]
     // Reset new message count when switching to this group (user clicked on group)
-    newMessagesCountByGroup.value[groupId] = 0
-    currentNewMessagesCount.value = 0
-    console.log(`Reset new message count for group ${groupId} (group clicked)`)
+    await resetNewMessageCount(groupId)
     await scrollToBottom()
   } else {
     console.log(`No cached messages for group ${groupId}, fetching all messages...`)
@@ -106,7 +107,7 @@ const fetchAllMessages = async () => {
       // Set current messages
       messages.value = result.data
       // Initialize new messages count to 0 for this group
-      newMessagesCountByGroup.value[props.groupId] = 0
+      await resetNewMessageCount(props.groupId)
       console.log('All messages loaded and cached:', messages.value.length)
 
       // Scroll to bottom on initial load
@@ -115,7 +116,7 @@ const fetchAllMessages = async () => {
       console.log('No messages found or API failed:', result)
       messagesByGroup.value[props.groupId] = []
       messages.value = []
-      newMessagesCountByGroup.value[props.groupId] = 0
+      await resetNewMessageCount(props.groupId)
     }
   } catch (err) {
     console.error('Error fetching all messages:', err)
@@ -363,7 +364,12 @@ const handleKeyPress = (event) => {
 // Auto-refresh messages every 10 seconds
 let refreshInterval = null
 
-onMounted(() => {
+onMounted(async () => {
+  // Fetch all groups messages on mount
+  await getCurrentUser()
+  await fetchAllGroupsMessages()
+
+  // Start polling for new messages
   refreshInterval = setInterval(async () => {
     // Fetch messages for all groups that have been loaded
     const groupIds = Object.keys(messagesByGroup.value)
@@ -381,19 +387,239 @@ const cleanup = () => {
   }
 }
 
-// Expose cleanup function and new message counts
-defineExpose({
-  cleanup,
-  getNewMessagesCount: (groupId) => {
-    const count = newMessagesCountByGroup.value[groupId] || 0
-    console.log(`Exposed getNewMessagesCount for group ${groupId}:`, count)
-    return count
-  },
-  getAllNewMessagesCounts: () => {
-    console.log('Exposed getAllNewMessagesCounts:', newMessagesCountByGroup.value)
-    return newMessagesCountByGroup.value
-  },
-})
+// Function to reset new message count for a specific group
+const resetNewMessageCount = async (groupId) => {
+  console.log(`Resetting new message count for group ${groupId}`)
+  console.log(
+    `Before reset - newMessagesCountByGroup for group ${groupId}:`,
+    newMessagesCountByGroup.value[groupId],
+  )
+
+  // Get the highest message ID for this group before resetting
+  const currentMessages = messagesByGroup.value[groupId] || []
+  const lastReadMessageId =
+    currentMessages.length > 0 ? Math.max(...currentMessages.map((msg) => msg.id)) : 0
+
+  console.log(`Last read message ID for group ${groupId}: ${lastReadMessageId}`)
+
+  // Save the last read message ID to database
+  if (currentUser.value && lastReadMessageId > 0) {
+    try {
+      const result = await callApi({
+        query: `
+          INSERT INTO chat_last_read_message (id_group, id_user, id_last_read_message) 
+          VALUES (?, ?, ?) 
+          ON DUPLICATE KEY UPDATE id_last_read_message = VALUES(id_last_read_message)
+        `,
+        params: [groupId, currentUser.value.id, lastReadMessageId],
+        requiresAuth: true,
+      })
+
+      if (result.success) {
+        console.log(`Saved last read message ID ${lastReadMessageId} for group ${groupId}`)
+      } else {
+        console.error(`Failed to save last read message ID for group ${groupId}`)
+      }
+    } catch (err) {
+      console.error('Error saving last read message ID:', err)
+    }
+  }
+
+  // Reset the count - FORCE IT TO 0
+  newMessagesCountByGroup.value[groupId] = 0
+  console.log(
+    `After reset - newMessagesCountByGroup for group ${groupId}:`,
+    newMessagesCountByGroup.value[groupId],
+  )
+
+  // Also reset current count if this is the active group
+  if (groupId === props.groupId) {
+    currentNewMessagesCount.value = 0
+    console.log(`Reset currentNewMessagesCount to 0 for active group ${groupId}`)
+  }
+
+  // Force reactive update by triggering a change
+  newMessagesCountByGroup.value = { ...newMessagesCountByGroup.value }
+  console.log(`Final newMessagesCountByGroup after force update:`, newMessagesCountByGroup.value)
+
+  // Update debug info if debug section is open and this is the current group
+  if (showDebugSection.value && groupId === props.groupId) {
+    updateDebugInfo()
+  }
+
+  console.log(`✓ Reset completed for group ${groupId}`)
+
+  // Emit reset event to trigger parent update
+  emit('reset-triggered', groupId)
+
+  // Also force an immediate update of the hidden component's counts
+  // by calling fetchAllGroupsMessages to recalculate unread counts
+  if (props.groupId === 0) {
+    // This is the hidden component, so we need to recalculate all counts
+    console.log('Hidden component: Recalculating all unread counts after reset')
+    await fetchAllGroupsMessages()
+  }
+}
+
+// Function to fetch messages for all groups at once
+const fetchAllGroupsMessages = async () => {
+  try {
+    console.log('Fetching messages for all groups...')
+
+    if (!currentUser.value) {
+      console.log('No current user available')
+      return
+    }
+
+    // Get all groups this user is in
+    const groupsResult = await callApi({
+      query: `
+        SELECT DISTINCT
+          cg.id, 
+          cg.name, 
+          cg.description, 
+          cg.id_user_owner, 
+          cg.is_active 
+        FROM chat_groups cg
+        INNER JOIN chat_users cu ON cg.id = cu.id_chat_group
+        WHERE cg.is_active = 1 
+          AND cu.is_active = 1
+          AND cu.id_user = ?
+        ORDER BY cg.name ASC
+      `,
+      params: [currentUser.value.id],
+      requiresAuth: true,
+    })
+
+    if (!groupsResult.success || !groupsResult.data) {
+      console.log('No groups found or API failed:', groupsResult)
+      return
+    }
+
+    console.log(`Found ${groupsResult.data.length} groups for user`)
+
+    // Fetch messages and count unread messages for each group
+    for (const group of groupsResult.data) {
+      console.log(`Fetching messages for group: ${group.name} (ID: ${group.id})`)
+
+      // Get the last read message ID for this group and user
+      const lastReadResult = await callApi({
+        query: `
+          SELECT id_last_read_message 
+          FROM chat_last_read_message 
+          WHERE id_group = ? AND id_user = ?
+        `,
+        params: [group.id, currentUser.value.id],
+        requiresAuth: true,
+      })
+
+      const lastReadMessageId =
+        lastReadResult.success && lastReadResult.data && lastReadResult.data.length > 0
+          ? lastReadResult.data[0].id_last_read_message
+          : 0
+
+      console.log(`Last read message ID for group ${group.name}: ${lastReadMessageId}`)
+
+      // Count unread messages (messages with ID > last_read_message_id and not from current user)
+      const unreadCountResult = await callApi({
+        query: `
+          SELECT COUNT(*) as unread_count
+          FROM chat_messages 
+          WHERE id_chat_group = ? 
+            AND id > ?
+            AND message_from_user_id != ?
+        `,
+        params: [group.id, lastReadMessageId, currentUser.value.id],
+        requiresAuth: true,
+      })
+
+      const unreadCount =
+        unreadCountResult.success && unreadCountResult.data && unreadCountResult.data.length > 0
+          ? parseInt(unreadCountResult.data[0].unread_count)
+          : 0
+
+      console.log(`Unread messages count for group ${group.name}: ${unreadCount}`)
+
+      // Fetch all messages for this group
+      const messagesResult = await callApi({
+        query: `
+          SELECT 
+            cm.id,
+            cm.id_chat_group,
+            cm.message_from_user_id,
+            cm.chat_replay_to_message_id,
+            cm.message,
+            cm.time,
+            u.username as sender_username,
+            r.role_name as sender_role
+          FROM chat_messages cm
+          LEFT JOIN users u ON cm.message_from_user_id = u.id
+          LEFT JOIN roles r ON u.role_id = r.id
+          WHERE cm.id_chat_group = ?
+          ORDER BY cm.id ASC
+        `,
+        params: [group.id],
+        requiresAuth: true,
+      })
+
+      if (messagesResult.success && messagesResult.data) {
+        // Store messages in group cache
+        messagesByGroup.value[group.id] = messagesResult.data
+        console.log(`Loaded ${messagesResult.data.length} messages for group ${group.name}`)
+
+        // Set unread count for this group
+        newMessagesCountByGroup.value[group.id] = unreadCount
+        console.log(`Set unread count for group ${group.name}: ${unreadCount}`)
+      } else {
+        console.log(`No messages found for group ${group.name}`)
+        messagesByGroup.value[group.id] = []
+        newMessagesCountByGroup.value[group.id] = 0
+      }
+    }
+
+    console.log('All groups messages loaded successfully')
+    console.log('Groups loaded:', Object.keys(messagesByGroup.value))
+    console.log('Total groups with messages:', Object.keys(messagesByGroup.value).length)
+    console.log('Unread counts by group:', newMessagesCountByGroup.value)
+
+    // If there's a selected group, set its messages as current
+    if (props.groupId && messagesByGroup.value[props.groupId]) {
+      messages.value = messagesByGroup.value[props.groupId]
+      console.log(
+        `Set current messages for group ${props.groupId}: ${messages.value.length} messages`,
+      )
+    }
+  } catch (err) {
+    console.error('Error fetching all groups messages:', err)
+  }
+}
+
+// Click handlers to reset new message count
+const handleMessagesContainerClick = async () => {
+  console.log(`Chat area clicked for group ${props.groupId}`)
+  console.log(
+    `Current newMessagesCountByGroup for this group:`,
+    newMessagesCountByGroup.value[props.groupId],
+  )
+  console.log(`All newMessagesCountByGroup:`, newMessagesCountByGroup.value)
+
+  // Always reset the count when chat area is clicked
+  console.log(`Reset new message count for group ${props.groupId} (chat area clicked)`)
+  await resetNewMessageCount(props.groupId)
+}
+
+const handleInputClick = async () => {
+  console.log(`Input clicked for group ${props.groupId}`)
+  console.log(
+    `Current newMessagesCountByGroup for this group:`,
+    newMessagesCountByGroup.value[props.groupId],
+  )
+  console.log(`All newMessagesCountByGroup:`, newMessagesCountByGroup.value)
+
+  // Always reset the count when input is clicked
+  console.log(`Reset new message count for group ${props.groupId} (input clicked)`)
+  await resetNewMessageCount(props.groupId)
+}
 
 // Debug functions
 const toggleDebugSection = () => {
@@ -438,28 +664,27 @@ const testNewMessagesCount = () => {
   updateDebugInfo()
 }
 
-// Click handlers to reset new message count
-const handleMessagesContainerClick = () => {
-  if (newMessagesCountByGroup.value[props.groupId] > 0) {
-    console.log(`Reset new message count for group ${props.groupId} (chat area clicked)`)
-    newMessagesCountByGroup.value[props.groupId] = 0
-    currentNewMessagesCount.value = 0
-    if (showDebugSection.value) {
-      updateDebugInfo()
-    }
-  }
-}
-
-const handleInputClick = () => {
-  if (newMessagesCountByGroup.value[props.groupId] > 0) {
-    console.log(`Reset new message count for group ${props.groupId} (input clicked)`)
-    newMessagesCountByGroup.value[props.groupId] = 0
-    currentNewMessagesCount.value = 0
-    if (showDebugSection.value) {
-      updateDebugInfo()
-    }
-  }
-}
+// Expose cleanup function and new message counts
+defineExpose({
+  cleanup,
+  fetchAllGroupsMessages,
+  getNewMessagesCount: (groupId) => {
+    const count = newMessagesCountByGroup.value[groupId] || 0
+    console.log(`Exposed getNewMessagesCount for group ${groupId}:`, count)
+    return count
+  },
+  getAllNewMessagesCounts: () => {
+    console.log('Exposed getAllNewMessagesCounts:', newMessagesCountByGroup.value)
+    return newMessagesCountByGroup.value
+  },
+  resetGroupCount: (groupId) => {
+    console.log(`Exposed resetGroupCount called for group ${groupId}`)
+    newMessagesCountByGroup.value[groupId] = 0
+    // Force reactive update
+    newMessagesCountByGroup.value = { ...newMessagesCountByGroup.value }
+    console.log(`Exposed resetGroupCount completed for group ${groupId}`)
+  },
+})
 </script>
 
 <template>
@@ -563,6 +788,9 @@ const handleInputClick = () => {
         <pre>{{ debugInfo }}</pre>
         <div class="debug-buttons">
           <button @click="testNewMessagesCount" class="test-btn">Test Count</button>
+          <button @click="resetNewMessageCount(props.groupId)" class="reset-btn">
+            Reset Count
+          </button>
           <button @click="toggleDebugSection">Close</button>
         </div>
       </div>
@@ -938,6 +1166,14 @@ const handleInputClick = () => {
 
 .test-btn:hover {
   background-color: #059669 !important;
+}
+
+.reset-btn {
+  background-color: #ef4444 !important;
+}
+
+.reset-btn:hover {
+  background-color: #dc2626 !important;
 }
 
 /* Responsive design */

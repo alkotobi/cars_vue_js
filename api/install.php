@@ -446,6 +446,15 @@ try {
     `is_active` tinyint(1) DEFAULT 1,
     PRIMARY KEY (`id`)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `chat_last_read_message` (
+    `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+    `id_group` int(11) DEFAULT NULL,
+    `id_user` int(11) DEFAULT NULL,
+    `id_last_read_message` int(11) DEFAULT NULL,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `id_group` (`id_group`,`id_user`)
+  ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci");
     // Insert default roles if not exist
     $stmt = $pdo->prepare("INSERT IGNORE INTO roles (role_name, description) VALUES 
         ('admin', 'Administrator with full access'),

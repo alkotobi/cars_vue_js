@@ -11,6 +11,10 @@ const props = defineProps({
     type: Object,
     default: null,
   },
+  onForceUpdateCounts: {
+    type: Function,
+    default: null,
+  },
 })
 
 const emit = defineEmits(['message-sent', 'new-messages-received'])
@@ -34,9 +38,23 @@ const getNewMessagesCount = (groupId) => {
   return chatMessagesRef.value?.getNewMessagesCount?.(groupId) || 0
 }
 
+const fetchAllGroupsMessages = async () => {
+  return await chatMessagesRef.value?.fetchAllGroupsMessages?.()
+}
+
+// Function to handle reset and force update counts
+const handleReset = async (groupId) => {
+  console.log('ChatMain: Reset triggered for group', groupId)
+  // Call the parent's force update function
+  if (props.onForceUpdateCounts) {
+    await props.onForceUpdateCounts(groupId)
+  }
+}
+
 defineExpose({
   getAllNewMessagesCounts,
   getNewMessagesCount,
+  fetchAllGroupsMessages,
 })
 </script>
 
@@ -55,6 +73,7 @@ defineExpose({
       :group-name="selectedGroup.name"
       @message-sent="handleMessageSent"
       @new-messages-received="handleNewMessagesReceived"
+      @reset-triggered="handleReset"
     />
   </div>
 </template>
