@@ -301,7 +301,103 @@ const getPriorityBadge = (task) => {
 
 const formatDate = (dateString) => {
   if (!dateString) return '-'
-  return new Date(dateString).toLocaleString()
+  return new Date(dateString).toLocaleDateString()
+}
+
+const openTaskChat = async (task) => {
+  try {
+    // First, check if a group with this task title already exists
+    const checkGroupResult = await callApi({
+      query: `
+        SELECT id, name 
+        FROM chat_groups 
+        WHERE name = ? AND is_active = 1
+      `,
+      params: [task.title],
+      requiresAuth: true,
+    })
+
+    let groupId = null
+
+    if (checkGroupResult.success && checkGroupResult.data.length > 0) {
+      // Group already exists, use it
+      groupId = checkGroupResult.data[0].id
+      console.log('Using existing group:', groupId)
+    } else {
+      // Create new group with task title
+      console.log('Creating new group for task:', task.title)
+
+      const createGroupResult = await callApi({
+        query: `
+          INSERT INTO chat_groups (name, description, id_user_owner, is_active) 
+          VALUES (?, ?, ?, 1)
+        `,
+        params: [task.title, `Chat group for task: ${task.title}`, user.value.id],
+        requiresAuth: true,
+      })
+
+      if (createGroupResult.success && createGroupResult.lastInsertId) {
+        groupId = createGroupResult.lastInsertId
+        console.log('Created new group:', groupId)
+
+        // Add task creator and receiver to the group
+        const usersToAdd = []
+
+        // Add task creator if different from current user
+        if (task.id_user_create && task.id_user_create !== user.value.id) {
+          usersToAdd.push(task.id_user_create)
+        }
+
+        // Add task receiver if different from current user and creator
+        if (
+          task.id_user_receive &&
+          task.id_user_receive !== user.value.id &&
+          task.id_user_receive !== task.id_user_create
+        ) {
+          usersToAdd.push(task.id_user_receive)
+        }
+
+        // Add current user (group owner)
+        usersToAdd.push(user.value.id)
+
+        // Remove duplicates
+        const uniqueUsers = [...new Set(usersToAdd)]
+
+        if (uniqueUsers.length > 0) {
+          const insertQueries = uniqueUsers
+            .map(
+              () => 'INSERT INTO chat_users (id_user, id_chat_group, is_active) VALUES (?, ?, 1)',
+            )
+            .join('; ')
+
+          const params = uniqueUsers.flatMap((userId) => [userId, groupId])
+
+          const addUsersResult = await callApi({
+            query: insertQueries,
+            params: params,
+            requiresAuth: true,
+          })
+
+          if (addUsersResult.success) {
+            console.log('Added users to group:', uniqueUsers)
+          } else {
+            console.error('Failed to add users to group:', addUsersResult)
+          }
+        }
+      } else {
+        console.error('Failed to create group:', createGroupResult)
+        alert('Failed to create chat group for this task')
+        return
+      }
+    }
+
+    // Open chat with the group
+    const chatUrl = `/mig/chat?group=${groupId}&task=${task.id}&taskName=${encodeURIComponent(task.title)}`
+    window.open(chatUrl, '_blank')
+  } catch (error) {
+    console.error('Error opening task chat:', error)
+    alert('Error opening chat for this task')
+  }
 }
 
 const totalPages = computed(() => {
@@ -491,6 +587,10 @@ onMounted(async () => {
                 <td>{{ formatDate(task.date_create) }}</td>
                 <td class="task-notes">{{ task.notes || '-' }}</td>
                 <td class="actions-cell">
+                  <button @click="openTaskChat(task)" class="btn-chat" title="Open task chat">
+                    <i class="fas fa-comments"></i>
+                    Chat
+                  </button>
                   <button
                     v-if="task.id_user_receive === user?.id"
                     @click="markTaskAsDone(task)"
@@ -581,7 +681,7 @@ onMounted(async () => {
                     Confirm Done
                   </button>
                   <button
-                    v-if="task.id_user_receive === user?.id"
+                    v-if="task.id_user_receive === user?.id && !task.date_confirm_done"
                     @click="markTaskAsUndone(task)"
                     class="btn-undone"
                     title="Mark as undone"
@@ -1006,6 +1106,28 @@ onMounted(async () => {
 }
 
 .btn-confirm i {
+  font-size: 0.8rem;
+}
+
+.btn-chat {
+  padding: 6px 12px;
+  background-color: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.btn-chat:hover {
+  background-color: #45a049;
+}
+
+.btn-chat i {
   font-size: 0.8rem;
 }
 </style>
