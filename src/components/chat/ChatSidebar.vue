@@ -108,10 +108,14 @@ const closeUsersPopup = () => {
 }
 
 const showAddGroup = () => {
+  console.log('showAddGroup called')
+  console.log('showAddGroupModal before:', showAddGroupModal.value)
   showAddGroupModal.value = true
+  console.log('showAddGroupModal after:', showAddGroupModal.value)
 }
 
 const closeAddGroupModal = () => {
+  console.log('closeAddGroupModal called')
   showAddGroupModal.value = false
 }
 
@@ -267,7 +271,7 @@ const testNewMessageCount = () => {
 
     <!-- Add Group Modal -->
     <AddGroup
-      v-if="showAddGroupModal"
+      :is-visible="showAddGroupModal"
       @close="closeAddGroupModal"
       @group-added="handleGroupAdded"
     />
