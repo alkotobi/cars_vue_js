@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useApi } from '../../composables/useApi'
 import ChatUsersPopup from './ChatUsersPopup.vue'
 import AddGroup from './AddGroup.vue'
@@ -7,6 +7,8 @@ import AddGroup from './AddGroup.vue'
 const { callApi, loading, error } = useApi()
 const chatGroups = ref([])
 const selectedGroup = ref(null)
+const unreadCounts = ref({}) // Track unread counts per group
+const currentUser = ref(null)
 
 // Popup state
 const showUsersPopup = ref(false)
@@ -17,20 +19,34 @@ const showAddGroupModal = ref(false)
 const emit = defineEmits(['group-selected'])
 
 onMounted(async () => {
+  await getCurrentUser()
   await fetchChatGroups()
+  await fetchUnreadCounts()
+
+  // Start polling for new messages
+  startMessagePolling()
 })
+
+const getCurrentUser = () => {
+  try {
+    const userStr = localStorage.getItem('user')
+    if (userStr) {
+      currentUser.value = JSON.parse(userStr)
+      console.log('Current user loaded for sidebar:', currentUser.value)
+    }
+  } catch (err) {
+    console.error('Error getting current user:', err)
+  }
+}
 
 const fetchChatGroups = async () => {
   try {
-    // Get current user first
-    const userStr = localStorage.getItem('user')
-    if (!userStr) {
-      console.log('No user found in localStorage')
+    if (!currentUser.value) {
+      console.log('No current user available')
       return
     }
 
-    const currentUser = JSON.parse(userStr)
-    console.log('Current user for group fetch:', currentUser)
+    console.log('Current user for group fetch:', currentUser.value)
 
     const result = await callApi({
       query: `
@@ -47,7 +63,7 @@ const fetchChatGroups = async () => {
           AND cu.id_user = ?
         ORDER BY cg.name ASC
       `,
-      params: [currentUser.id],
+      params: [currentUser.value.id],
       requiresAuth: true,
     })
 
@@ -66,8 +82,58 @@ const fetchChatGroups = async () => {
   }
 }
 
+const fetchUnreadCounts = async () => {
+  try {
+    if (!currentUser.value) return
+
+    // Get the last viewed timestamp for each group from localStorage
+    const lastViewed = JSON.parse(localStorage.getItem('chat_last_viewed') || '{}')
+
+    // For each group, get unread count based on its last viewed timestamp
+    const counts = {}
+
+    for (const group of chatGroups.value) {
+      const lastViewedTime = lastViewed[group.id] || '1970-01-01 00:00:00'
+
+      const result = await callApi({
+        query: `
+          SELECT COUNT(*) as unread_count
+          FROM chat_messages cm
+          WHERE cm.id_chat_group = ?
+            AND cm.message_from_user_id != ?
+            AND cm.time > ?
+        `,
+        params: [group.id, currentUser.value.id, lastViewedTime],
+        requiresAuth: true,
+      })
+
+      if (result.success && result.data && result.data.length > 0) {
+        counts[group.id] = parseInt(result.data[0].unread_count)
+      } else {
+        counts[group.id] = 0
+      }
+    }
+
+    unreadCounts.value = counts
+    console.log('Unread counts loaded:', unreadCounts.value)
+  } catch (err) {
+    console.error('Error fetching unread counts:', err)
+  }
+}
+
 const selectGroup = (group) => {
   selectedGroup.value = group
+
+  // Update last viewed timestamp for this group
+  const lastViewed = JSON.parse(localStorage.getItem('chat_last_viewed') || '{}')
+  lastViewed[group.id] = new Date().toISOString()
+  localStorage.setItem('chat_last_viewed', JSON.stringify(lastViewed))
+
+  // Clear unread count for selected group
+  if (unreadCounts.value[group.id]) {
+    unreadCounts.value[group.id] = 0
+  }
+
   emit('group-selected', group)
 }
 
@@ -101,6 +167,51 @@ const handleGroupAdded = () => {
   // Refresh the groups list after adding a new group
   fetchChatGroups()
 }
+
+// Method to update unread count when new message is sent
+const updateUnreadCount = (groupId) => {
+  // If this is the currently selected group, mark it as viewed
+  if (selectedGroup.value?.id === groupId) {
+    const lastViewed = JSON.parse(localStorage.getItem('chat_last_viewed') || '{}')
+    lastViewed[groupId] = new Date().toISOString()
+    localStorage.setItem('chat_last_viewed', JSON.stringify(lastViewed))
+
+    // Clear unread count for this group
+    if (unreadCounts.value[groupId]) {
+      unreadCounts.value[groupId] = 0
+    }
+  } else {
+    // If it's not the selected group, increment the unread count
+    if (!unreadCounts.value[groupId]) {
+      unreadCounts.value[groupId] = 0
+    }
+    unreadCounts.value[groupId]++
+  }
+}
+
+// Polling for new messages
+let messagePollingInterval = null
+
+const startMessagePolling = () => {
+  messagePollingInterval = setInterval(async () => {
+    await fetchUnreadCounts()
+  }, 10000) // Check every 10 seconds
+}
+
+const stopMessagePolling = () => {
+  if (messagePollingInterval) {
+    clearInterval(messagePollingInterval)
+    messagePollingInterval = null
+  }
+}
+
+// Clean up on unmount
+const cleanup = () => {
+  stopMessagePolling()
+}
+
+// Expose cleanup function and updateUnreadCount method
+defineExpose({ cleanup, updateUnreadCount })
 </script>
 
 <template>
@@ -128,7 +239,21 @@ const handleGroupAdded = () => {
             :class="{ selected: selectedGroup?.id === group.id }"
             class="group-row"
           >
-            <td>{{ group.name }}</td>
+            <td>
+              <div class="group-name-container">
+                <span class="group-name">{{ group.name }}</span>
+                <span
+                  v-if="
+                    unreadCounts[group.id] &&
+                    unreadCounts[group.id] > 0 &&
+                    selectedGroup?.id !== group.id
+                  "
+                  class="unread-badge"
+                >
+                  {{ unreadCounts[group.id] > 99 ? '99+' : unreadCounts[group.id] }}
+                </span>
+              </div>
+            </td>
             <td>{{ group.description || 'No description' }}</td>
             <td>
               <button @click="showUsers(group, $event)" class="users-btn" title="View Users">
@@ -250,6 +375,44 @@ const handleGroupAdded = () => {
 .group-row.selected {
   background-color: #e0f2fe;
   border-left: 3px solid #06b6d4;
+}
+
+.group-name-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+
+.group-name {
+  flex: 1;
+}
+
+.unread-badge {
+  background-color: #ef4444;
+  color: white;
+  border-radius: 12px;
+  padding: 2px 8px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  min-width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 .users-btn {
