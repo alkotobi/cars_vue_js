@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useApi } from '../composables/useApi'
+import TaskForm from '../components/car-stock/TaskForm.vue'
 
 const suppliers = ref([])
 const { callApi, error } = useApi()
@@ -9,12 +10,16 @@ const showEditDialog = ref(false)
 const editingSupplier = ref(null)
 const user = ref(null)
 
+// Add task form state
+const showTaskForm = ref(false)
+const selectedSupplierForTask = ref(null)
+
 const isAdmin = computed(() => user.value?.role_id === 1)
 
 const newSupplier = ref({
   name: '',
   contact_info: '',
-  notes: ''
+  notes: '',
 })
 
 const fetchSuppliers = async () => {
@@ -23,7 +28,7 @@ const fetchSuppliers = async () => {
       SELECT * FROM suppliers
       ORDER BY name ASC
     `,
-    params: []
+    params: [],
   })
   if (result.success) {
     suppliers.value = result.data
@@ -36,22 +41,17 @@ const addSupplier = async () => {
       INSERT INTO suppliers (name, contact_info, notes)
       VALUES (?, ?, ?)
     `,
-    params: [
-      newSupplier.value.name,
-      newSupplier.value.contact_info,
-      newSupplier.value.notes
-    ]
+    params: [newSupplier.value.name, newSupplier.value.contact_info, newSupplier.value.notes],
   })
   if (result.success) {
     showAddDialog.value = false
     newSupplier.value = {
       name: '',
       contact_info: '',
-      notes: ''
+      notes: '',
     }
     await fetchSuppliers()
-  }
-  else {
+  } else {
     error.value = result.error
     console.error('Error adding supplier:', result.error)
   }
@@ -73,15 +73,14 @@ const updateSupplier = async () => {
       editingSupplier.value.name,
       editingSupplier.value.contact_info,
       editingSupplier.value.notes,
-      editingSupplier.value.id
-    ]
+      editingSupplier.value.id,
+    ],
   })
   if (result.success) {
     showEditDialog.value = false
     editingSupplier.value = null
     await fetchSuppliers()
-  }
-  else {
+  } else {
     error.value = result.error
     console.error('Error updating supplier:', result.error)
   }
@@ -91,7 +90,7 @@ const deleteSupplier = async (supplier) => {
   if (confirm('Are you sure you want to delete this supplier?')) {
     const result = await callApi({
       query: 'DELETE FROM suppliers WHERE id = ?',
-      params: [supplier.id]
+      params: [supplier.id],
     })
     if (result.success) {
       await fetchSuppliers()
@@ -105,8 +104,20 @@ onMounted(() => {
     user.value = JSON.parse(userStr)
     fetchSuppliers()
   }
-
 })
+
+// Add task handling methods
+const openTaskForSupplier = (supplier) => {
+  console.log('openTaskForSupplier called with supplier:', supplier)
+  selectedSupplierForTask.value = supplier
+  showTaskForm.value = true
+}
+
+const handleTaskCreated = () => {
+  showTaskForm.value = false
+  // Don't set selectedSupplierForTask to null to avoid prop validation errors
+  // Optionally refresh data if needed
+}
 </script>
 
 <template>
@@ -132,11 +143,16 @@ onMounted(() => {
             <td>{{ supplier.notes }}</td>
             <td>
               <button @click="editSupplier(supplier)" class="btn edit-btn">Edit</button>
-              <button 
-                v-if="isAdmin"
-                @click="deleteSupplier(supplier)" 
-                class="btn delete-btn"
-              >Delete</button>
+              <button v-if="isAdmin" @click="deleteSupplier(supplier)" class="btn delete-btn">
+                Delete
+              </button>
+              <button
+                @click="openTaskForSupplier(supplier)"
+                class="btn task-btn"
+                title="Add New Task"
+              >
+                <i class="fas fa-tasks"></i>
+              </button>
             </td>
           </tr>
         </tbody>
@@ -148,19 +164,15 @@ onMounted(() => {
       <div class="dialog">
         <h3>Add New Supplier</h3>
         <div class="form-group">
-          <input 
-            v-model="newSupplier.name" 
-            placeholder="Name" 
-            class="input-field"
-          />
-          <textarea 
-            v-model="newSupplier.contact_info" 
-            placeholder="Contact Information" 
+          <input v-model="newSupplier.name" placeholder="Name" class="input-field" />
+          <textarea
+            v-model="newSupplier.contact_info"
+            placeholder="Contact Information"
             class="input-field textarea"
           ></textarea>
-          <textarea 
-            v-model="newSupplier.notes" 
-            placeholder="Notes" 
+          <textarea
+            v-model="newSupplier.notes"
+            placeholder="Notes"
             class="input-field textarea"
           ></textarea>
         </div>
@@ -176,19 +188,15 @@ onMounted(() => {
       <div class="dialog">
         <h3>Edit Supplier</h3>
         <div class="form-group">
-          <input 
-            v-model="editingSupplier.name" 
-            placeholder="Name" 
-            class="input-field"
-          />
-          <textarea 
-            v-model="editingSupplier.contact_info" 
-            placeholder="Contact Information" 
+          <input v-model="editingSupplier.name" placeholder="Name" class="input-field" />
+          <textarea
+            v-model="editingSupplier.contact_info"
+            placeholder="Contact Information"
             class="input-field textarea"
           ></textarea>
-          <textarea 
-            v-model="editingSupplier.notes" 
-            placeholder="Notes" 
+          <textarea
+            v-model="editingSupplier.notes"
+            placeholder="Notes"
             class="input-field textarea"
           ></textarea>
         </div>
@@ -198,6 +206,16 @@ onMounted(() => {
         </div>
       </div>
     </div>
+
+    <!-- Task Form -->
+    <TaskForm
+      v-if="selectedSupplierForTask"
+      :entityType="'supplier'"
+      :entityData="selectedSupplierForTask"
+      :isVisible="showTaskForm"
+      @task-created="handleTaskCreated"
+      @cancel="showTaskForm = false"
+    />
   </div>
 </template>
 
@@ -258,8 +276,25 @@ onMounted(() => {
 }
 
 .delete-btn {
-  background-color: #ef4444;
+  background-color: #dc3545;
   color: white;
+}
+
+.delete-btn:hover {
+  background-color: #c82333;
+}
+
+.task-btn {
+  background-color: #8b5cf6;
+  color: white;
+}
+
+.task-btn:hover {
+  background-color: #7c3aed;
+}
+
+.task-btn i {
+  font-size: 0.9rem;
 }
 
 .save-btn {

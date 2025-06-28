@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useApi } from '../composables/useApi'
 import BuyBillsTable from '../components/buy/BuyBillsTable.vue'
 import BuyDetailsTable from '../components/buy/BuyDetailsTable.vue'
+import TaskForm from '../components/car-stock/TaskForm.vue'
 import { useRouter } from 'vue-router'
 
 // API and base setup
@@ -23,6 +24,10 @@ const showAddDialog = ref(false)
 const showEditDialog = ref(false)
 const showAddDetailDialog = ref(false)
 const editingBill = ref(null)
+
+// Add task form state
+const showTaskForm = ref(false)
+const selectedBillForTask = ref(null)
 
 // Loading states
 const isSubmittingPurchase = ref(false)
@@ -571,6 +576,19 @@ const handleUpdateDetail = async (updatedDetail) => {
 const openPayments = (bill) => {
   window.open(`/buy-payments/${bill.id}`, '_blank')
 }
+
+// Add task handling methods
+const openTaskForBill = (bill) => {
+  console.log('openTaskForBill called with bill:', bill)
+  selectedBillForTask.value = bill
+  showTaskForm.value = true
+}
+
+const handleTaskCreated = () => {
+  showTaskForm.value = false
+  // Don't set selectedBillForTask to null to avoid prop validation errors
+  // Optionally refresh data if needed
+}
 </script>
 
 <template>
@@ -613,6 +631,13 @@ const openPayments = (bill) => {
               :disabled="bill.is_stock_updated"
             >
               Delete
+            </button>
+            <button
+              @click.stop="openTaskForBill(bill)"
+              class="action-btn task-btn"
+              title="Add New Task"
+            >
+              <i class="fas fa-tasks"></i>
             </button>
           </template>
         </BuyBillsTable>
@@ -856,6 +881,16 @@ const openPayments = (bill) => {
         </form>
       </div>
     </div>
+
+    <!-- Task Form -->
+    <TaskForm
+      v-if="selectedBillForTask"
+      :entityType="'buy'"
+      :entityData="selectedBillForTask"
+      :isVisible="showTaskForm"
+      @task-created="handleTaskCreated"
+      @cancel="showTaskForm = false"
+    />
   </div>
 </template>
 
@@ -1149,11 +1184,12 @@ h3 {
 }
 
 .delete-btn {
-  background-color: #dc2626;
+  background-color: #dc3545;
+  color: white;
 }
 
-.delete-btn:hover:not(:disabled) {
-  background-color: #b91c1c;
+.delete-btn:hover {
+  background-color: #c82333;
 }
 
 .delete-btn:before {
@@ -1221,5 +1257,18 @@ h3 {
   margin-top: 0.25rem;
   margin-left: 24px;
   display: block;
+}
+
+.task-btn {
+  background-color: #8b5cf6;
+  color: white;
+}
+
+.task-btn:hover {
+  background-color: #7c3aed;
+}
+
+.task-btn i {
+  font-size: 0.9rem;
 }
 </style>

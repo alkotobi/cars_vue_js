@@ -90,7 +90,7 @@ const entityConfig = computed(() => {
       icon: 'fas fa-shopping-cart',
       label: 'Buy Bill',
       idField: 'id',
-      nameField: 'bill_number',
+      nameField: 'bill_ref',
       route: '/buy',
       taskFlag: 0,
       defaultTitle: 'Buy Task',
