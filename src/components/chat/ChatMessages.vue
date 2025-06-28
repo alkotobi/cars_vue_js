@@ -23,6 +23,7 @@ const newMessage = ref('')
 const currentUser = ref(null)
 const isSending = ref(false)
 const messagesContainer = ref(null)
+const messageInputRef = ref(null)
 
 // Debug section state
 const showDebugSection = ref(false)
@@ -684,6 +685,15 @@ defineExpose({
     newMessagesCountByGroup.value = { ...newMessagesCountByGroup.value }
     console.log(`Exposed resetGroupCount completed for group ${groupId}`)
   },
+  focusMessageInput: () => {
+    console.log('ChatMessages: focusMessageInput called')
+    if (messageInputRef.value) {
+      messageInputRef.value.focus()
+      console.log('Message input focused')
+    } else {
+      console.log('Message input ref not available')
+    }
+  },
 })
 </script>
 
@@ -766,6 +776,7 @@ defineExpose({
           :disabled="isSending"
           rows="1"
           maxlength="1000"
+          ref="messageInputRef"
         ></textarea>
         <button
           @click="sendMessage"

@@ -124,6 +124,32 @@ const handleGroupAdded = () => {
   fetchChatGroups()
 }
 
+const selectGroupById = async (groupId) => {
+  console.log('ChatSidebar: selectGroupById called with:', groupId)
+
+  // Find the group in the current list
+  const group = chatGroups.value.find((g) => g.id == groupId)
+
+  if (group) {
+    console.log('Found group:', group)
+    selectGroup(group)
+    return group
+  } else {
+    console.log('Group not found in current list, refreshing groups...')
+    // If group not found, refresh the list and try again
+    await fetchChatGroups()
+    const refreshedGroup = chatGroups.value.find((g) => g.id == groupId)
+    if (refreshedGroup) {
+      console.log('Found group after refresh:', refreshedGroup)
+      selectGroup(refreshedGroup)
+      return refreshedGroup
+    }
+  }
+
+  console.log('Group not found with ID:', groupId)
+  return null
+}
+
 const getNewMessageCount = (groupId) => {
   const count = props.newMessagesCounts[groupId] || 0
   console.log(`Getting new message count for group ${groupId}:`, count)
@@ -198,6 +224,14 @@ const testNewMessageCount = () => {
 
   updateDebugInfo()
 }
+
+// Expose methods to parent
+defineExpose({
+  cleanup: () => {
+    // Cleanup function if needed
+  },
+  selectGroupById,
+})
 </script>
 
 <template>

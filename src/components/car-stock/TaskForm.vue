@@ -1,14 +1,21 @@
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import { useApi } from '../../composables/useApi'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
 
 const props = defineProps({
-  carData: {
+  // Entity data - can be car, client, supplier, sell, buy, etc.
+  entityData: {
     type: Object,
     required: true,
+  },
+  // Entity type to determine behavior and routing
+  entityType: {
+    type: String,
+    required: true,
+    validator: (value) => ['car', 'client', 'supplier', 'sell', 'buy', 'general'].includes(value),
   },
   isVisible: {
     type: Boolean,
@@ -26,7 +33,7 @@ const formData = ref({
   notes: '',
   id_user_receive: null,
   id_priority: null,
-  is_task_for_car: 1,
+  is_task_for_car: 0, // Will be set based on entity type
 })
 
 const users = ref([])
@@ -38,6 +45,89 @@ const showPriorityForm = ref(false)
 const newPriority = ref({
   priority: '',
   power: 1,
+})
+
+// Computed properties for dynamic behavior
+const entityConfig = computed(() => {
+  const configs = {
+    car: {
+      icon: 'fas fa-car',
+      label: 'Car',
+      idField: 'id',
+      nameField: 'car_name',
+      route: '/cars/stock',
+      taskFlag: 1,
+      defaultTitle: 'Car Task',
+    },
+    client: {
+      icon: 'fas fa-user',
+      label: 'Client',
+      idField: 'id',
+      nameField: 'name',
+      route: '/clients',
+      taskFlag: 0,
+      defaultTitle: 'Client Task',
+    },
+    supplier: {
+      icon: 'fas fa-truck',
+      label: 'Supplier',
+      idField: 'id',
+      nameField: 'name',
+      route: '/suppliers',
+      taskFlag: 0,
+      defaultTitle: 'Supplier Task',
+    },
+    sell: {
+      icon: 'fas fa-handshake',
+      label: 'Sell Bill',
+      idField: 'id',
+      nameField: 'bill_number',
+      route: '/sells',
+      taskFlag: 0,
+      defaultTitle: 'Sell Task',
+    },
+    buy: {
+      icon: 'fas fa-shopping-cart',
+      label: 'Buy Bill',
+      idField: 'id',
+      nameField: 'bill_number',
+      route: '/buy',
+      taskFlag: 0,
+      defaultTitle: 'Buy Task',
+    },
+    general: {
+      icon: 'fas fa-tasks',
+      label: 'General',
+      idField: null,
+      nameField: null,
+      route: null,
+      taskFlag: 0,
+      defaultTitle: 'General Task',
+    },
+  }
+  return configs[props.entityType] || configs.general
+})
+
+const entityDisplayName = computed(() => {
+  const config = entityConfig.value
+  if (props.entityType === 'general') {
+    return 'General Task'
+  }
+
+  const id = props.entityData[config.idField]
+  const name = props.entityData[config.nameField] || 'Unknown'
+  return `${config.label} #${id} - ${name}`
+})
+
+const entityLink = computed(() => {
+  const config = entityConfig.value
+  if (props.entityType === 'general' || !config.idField) {
+    return null
+  }
+
+  const id = props.entityData[config.idField]
+  const name = props.entityData[config.nameField] || 'Unknown'
+  return `[${config.label} #${id} - ${name}]`
 })
 
 // Watch for modal visibility to reset form
@@ -52,7 +142,7 @@ watch(
         notes: '',
         id_user_receive: null,
         id_priority: null,
-        is_task_for_car: 1,
+        is_task_for_car: entityConfig.value.taskFlag,
       }
       // Clear any error messages
       error.value = null
@@ -60,14 +150,12 @@ watch(
   },
 )
 
-// Watch for carData changes to update title with car link
+// Watch for entity data changes
 watch(
-  () => props.carData,
-  (newCarData) => {
-    if (newCarData && newCarData.id) {
-      // Don't automatically set the title - let users type their own
-      // The car link will be added automatically when saving
-      console.log('Car data updated:', newCarData)
+  () => props.entityData,
+  (newEntityData) => {
+    if (newEntityData && props.entityType !== 'general') {
+      console.log('Entity data updated:', newEntityData)
     }
   },
   { immediate: true },
@@ -145,12 +233,13 @@ const handleSubmit = async () => {
   }
 
   try {
-    // Create the car link
-    const carLink = `[Car #${props.carData.id} - ${props.carData.car_name || 'Unknown Car'}]`
-
-    // Always add the car link to the beginning of the title
+    // Create the entity link if not general task
     let finalTitle = formData.value.title.trim()
-    finalTitle = `${carLink} ${finalTitle}`
+
+    if (props.entityType !== 'general' && entityLink.value) {
+      // Add the entity link to the beginning of the title
+      finalTitle = `${entityLink.value} ${finalTitle}`
+    }
 
     const result = await callApi({
       query: `
@@ -169,10 +258,10 @@ const handleSubmit = async () => {
         currentUser.value.id,
         formData.value.id_user_receive,
         formData.value.id_priority,
-        finalTitle, // Use the final title with car link
+        finalTitle,
         formData.value.description.trim(),
         formData.value.notes.trim(),
-        1, // is_task_for_car = 1
+        entityConfig.value.taskFlag,
       ],
       requiresAuth: true,
     })
@@ -250,12 +339,13 @@ const cancelAddPriority = () => {
   }
 }
 
-// Function to open car in stock view
-const openCarInStock = () => {
-  // Navigate to cars stock view
-  router.push('/cars/stock')
-  // Close the task form
-  handleCancel()
+// Function to open entity in its respective view
+const openEntityView = () => {
+  const config = entityConfig.value
+  if (config.route) {
+    router.push(config.route)
+    handleCancel()
+  }
 }
 </script>
 
@@ -266,23 +356,23 @@ const openCarInStock = () => {
         <div class="task-form">
           <div class="form-header">
             <h3>
-              <i class="fas fa-tasks"></i>
-              Create Task for Car
+              <i :class="entityConfig.icon"></i>
+              Create Task for {{ entityConfig.label }}
             </h3>
-            <div class="car-info-container">
-              <p class="car-info">
-                <i class="fas fa-car"></i>
-                Car ID: {{ carData.id }} |
-                {{ carData.car_name || 'Unknown Car' }}
+            <div v-if="entityType !== 'general'" class="entity-info-container">
+              <p class="entity-info">
+                <i :class="entityConfig.icon"></i>
+                {{ entityDisplayName }}
               </p>
               <button
+                v-if="entityConfig.route"
                 type="button"
-                @click="openCarInStock"
-                class="btn-view-car"
-                title="View car in stock"
+                @click="openEntityView"
+                class="btn-view-entity"
+                :title="`View ${entityConfig.label.toLowerCase()}`"
               >
                 <i class="fas fa-external-link-alt"></i>
-                View Car
+                View {{ entityConfig.label }}
               </button>
             </div>
           </div>
@@ -295,16 +385,17 @@ const openCarInStock = () => {
                   id="title"
                   v-model="formData.title"
                   type="text"
-                  placeholder="Enter task title"
+                  :placeholder="`Enter ${entityConfig.defaultTitle.toLowerCase()} title`"
                   required
                   maxlength="255"
                   class="title-input"
                 />
                 <button
+                  v-if="entityConfig.route"
                   type="button"
-                  @click="openCarInStock"
+                  @click="openEntityView"
                   class="btn-title-link"
-                  title="Open car in stock view"
+                  :title="`Open ${entityConfig.label.toLowerCase()} view`"
                 >
                   <i class="fas fa-external-link-alt"></i>
                 </button>
@@ -504,7 +595,7 @@ const openCarInStock = () => {
   color: #4caf50;
 }
 
-.car-info-container {
+.entity-info-container {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -512,7 +603,7 @@ const openCarInStock = () => {
   flex-wrap: wrap;
 }
 
-.car-info {
+.entity-info {
   margin: 0;
   color: #6b7280;
   font-size: 0.9rem;
@@ -722,7 +813,7 @@ textarea {
   }
 }
 
-.btn-view-car {
+.btn-view-entity {
   padding: 8px 16px;
   background-color: #3b82f6;
   color: white;
@@ -736,11 +827,11 @@ textarea {
   font-size: 0.9rem;
 }
 
-.btn-view-car:hover {
+.btn-view-entity:hover {
   background-color: #2563eb;
 }
 
-.btn-view-car i {
+.btn-view-entity i {
   font-size: 0.8rem;
 }
 

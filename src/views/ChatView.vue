@@ -19,6 +19,11 @@ onMounted(async () => {
   const urlParams = new URLSearchParams(window.location.search)
   welcomeMessage.value = urlParams.get('welcome') || 'Welcome to Chat!'
 
+  // Check for group parameter in URL
+  const groupId = urlParams.get('group')
+  const taskId = urlParams.get('task')
+  const taskName = urlParams.get('taskName')
+
   // Initialize all groups messages immediately using the hidden ChatMessages component
   await initializeAllGroupsMessages()
 
@@ -26,6 +31,13 @@ onMounted(async () => {
   countsUpdateInterval = setInterval(updateNewMessageCounts, 5000) // Update every 5 seconds
   // Initial update
   updateNewMessageCounts()
+
+  // If group ID is provided in URL, select that group after a short delay
+  if (groupId) {
+    setTimeout(async () => {
+      await selectGroupFromId(groupId, taskId, taskName)
+    }, 1000) // Wait for groups to load
+  }
 })
 
 onUnmounted(() => {
@@ -136,6 +148,43 @@ const forceUpdateCounts = async (groupId) => {
 
   // Then update the UI counts
   updateNewMessageCounts()
+}
+
+// Function to select group from ID and focus message input
+const selectGroupFromId = async (groupId, taskId, taskName) => {
+  try {
+    console.log('Selecting group from ID:', groupId, 'Task:', taskId, 'TaskName:', taskName)
+
+    // Get the group from the sidebar component
+    if (chatSidebarRef.value?.selectGroupById) {
+      const group = await chatSidebarRef.value.selectGroupById(groupId)
+      if (group) {
+        selectedGroup.value = group
+        console.log('Group selected:', group)
+
+        // Focus the message input after a short delay
+        setTimeout(() => {
+          focusMessageInput()
+        }, 500)
+      } else {
+        console.log('Group not found with ID:', groupId)
+      }
+    } else {
+      console.log('selectGroupById method not available in sidebar')
+    }
+  } catch (error) {
+    console.error('Error selecting group from ID:', error)
+  }
+}
+
+// Function to focus the message input
+const focusMessageInput = () => {
+  console.log('Focusing message input...')
+  if (chatMainRef.value?.focusMessageInput) {
+    chatMainRef.value.focusMessageInput()
+  } else {
+    console.log('focusMessageInput method not available in chat main')
+  }
 }
 </script>
 

@@ -51,10 +51,20 @@ const handleReset = async (groupId) => {
   }
 }
 
+const focusMessageInput = () => {
+  console.log('ChatMain: focusMessageInput called')
+  if (chatMessagesRef.value?.focusMessageInput) {
+    chatMessagesRef.value.focusMessageInput()
+  } else {
+    console.log('focusMessageInput method not available in ChatMessages')
+  }
+}
+
 defineExpose({
   getAllNewMessagesCounts,
   getNewMessagesCount,
   fetchAllGroupsMessages,
+  focusMessageInput,
 })
 </script>
 

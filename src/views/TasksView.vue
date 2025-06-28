@@ -2,6 +2,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useApi } from '../composables/useApi'
+import TaskForm from '../components/car-stock/TaskForm.vue'
 
 const router = useRouter()
 const { callApi } = useApi()
@@ -10,6 +11,11 @@ const tasks = ref([])
 const loading = ref(true)
 const error = ref(null)
 const user = ref(null)
+
+// TaskForm states
+const showTaskForm = ref(false)
+const currentEntityType = ref('general')
+const currentEntityData = ref({})
 
 // Filter states
 const filters = ref({
@@ -418,6 +424,31 @@ const doneTasks = computed(() => {
   return tasks.value.filter((task) => task.date_declare_done)
 })
 
+// TaskForm methods
+const openNewTaskForm = (entityType = 'general', entityData = {}) => {
+  currentEntityType.value = entityType
+  currentEntityData.value = entityData
+  showTaskForm.value = true
+}
+
+const handleTaskSave = async (result) => {
+  if (result.success) {
+    console.log('Task created successfully:', result)
+    // Refresh the tasks list
+    await fetchTasks()
+    showTaskForm.value = false
+    // You can add success notification here
+    alert('Task created successfully!')
+  } else {
+    console.error('Failed to create task:', result)
+    alert('Failed to create task. Please try again.')
+  }
+}
+
+const handleTaskCancel = () => {
+  showTaskForm.value = false
+}
+
 onMounted(async () => {
   const userStr = localStorage.getItem('user')
   if (userStr) {
@@ -442,10 +473,16 @@ onMounted(async () => {
           Showing all tasks (admin view)
         </p>
       </div>
-      <button @click="router.push('/')" class="btn-back">
-        <i class="fas fa-arrow-left"></i>
-        Back to Dashboard
-      </button>
+      <div class="header-actions">
+        <button @click="openNewTaskForm()" class="btn-new-task">
+          <i class="fas fa-plus"></i>
+          New Task
+        </button>
+        <button @click="router.push('/')" class="btn-back">
+          <i class="fas fa-arrow-left"></i>
+          Back to Dashboard
+        </button>
+      </div>
     </div>
 
     <!-- Filters Section -->
@@ -696,6 +733,15 @@ onMounted(async () => {
         </div>
       </div>
     </div>
+
+    <!-- TaskForm Modal -->
+    <TaskForm
+      :entity-data="currentEntityData"
+      :entity-type="currentEntityType"
+      :is-visible="showTaskForm"
+      @save="handleTaskSave"
+      @cancel="handleTaskCancel"
+    />
   </div>
 </template>
 
@@ -725,6 +771,28 @@ onMounted(async () => {
   gap: 12px;
   color: #1f2937;
   margin: 0;
+}
+
+.header-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.btn-new-task {
+  padding: 10px 16px;
+  background-color: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background-color 0.2s ease;
+}
+
+.btn-new-task:hover {
+  background-color: #45a049;
 }
 
 .btn-back {
