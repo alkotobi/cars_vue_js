@@ -1,6 +1,9 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
 import { useApi } from '../../composables/useApi'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
 
 const props = defineProps({
   carData: {
@@ -55,6 +58,19 @@ watch(
       error.value = null
     }
   },
+)
+
+// Watch for carData changes to update title with car link
+watch(
+  () => props.carData,
+  (newCarData) => {
+    if (newCarData && newCarData.id) {
+      // Don't automatically set the title - let users type their own
+      // The car link will be added automatically when saving
+      console.log('Car data updated:', newCarData)
+    }
+  },
+  { immediate: true },
 )
 
 onMounted(async () => {
@@ -129,6 +145,13 @@ const handleSubmit = async () => {
   }
 
   try {
+    // Create the car link
+    const carLink = `[Car #${props.carData.id} - ${props.carData.car_name || 'Unknown Car'}]`
+
+    // Always add the car link to the beginning of the title
+    let finalTitle = formData.value.title.trim()
+    finalTitle = `${carLink} ${finalTitle}`
+
     const result = await callApi({
       query: `
         INSERT INTO tasks (
@@ -146,7 +169,7 @@ const handleSubmit = async () => {
         currentUser.value.id,
         formData.value.id_user_receive,
         formData.value.id_priority,
-        formData.value.title.trim(),
+        finalTitle, // Use the final title with car link
         formData.value.description.trim(),
         formData.value.notes.trim(),
         1, // is_task_for_car = 1
@@ -226,6 +249,14 @@ const cancelAddPriority = () => {
     power: 1,
   }
 }
+
+// Function to open car in stock view
+const openCarInStock = () => {
+  // Navigate to cars stock view
+  router.push('/cars/stock')
+  // Close the task form
+  handleCancel()
+}
 </script>
 
 <template>
@@ -238,23 +269,46 @@ const cancelAddPriority = () => {
               <i class="fas fa-tasks"></i>
               Create Task for Car
             </h3>
-            <p class="car-info">
-              Car ID: {{ carData.id }} |
-              {{ carData.car_name || 'Unknown Car' }}
-            </p>
+            <div class="car-info-container">
+              <p class="car-info">
+                <i class="fas fa-car"></i>
+                Car ID: {{ carData.id }} |
+                {{ carData.car_name || 'Unknown Car' }}
+              </p>
+              <button
+                type="button"
+                @click="openCarInStock"
+                class="btn-view-car"
+                title="View car in stock"
+              >
+                <i class="fas fa-external-link-alt"></i>
+                View Car
+              </button>
+            </div>
           </div>
 
           <form @submit.prevent="handleSubmit" class="form">
             <div class="form-group">
               <label for="title">Task Title *</label>
-              <input
-                id="title"
-                v-model="formData.title"
-                type="text"
-                placeholder="Enter task title"
-                required
-                maxlength="255"
-              />
+              <div class="title-input-container">
+                <input
+                  id="title"
+                  v-model="formData.title"
+                  type="text"
+                  placeholder="Enter task title"
+                  required
+                  maxlength="255"
+                  class="title-input"
+                />
+                <button
+                  type="button"
+                  @click="openCarInStock"
+                  class="btn-title-link"
+                  title="Open car in stock view"
+                >
+                  <i class="fas fa-external-link-alt"></i>
+                </button>
+              </div>
             </div>
 
             <div class="form-group">
@@ -450,10 +504,21 @@ const cancelAddPriority = () => {
   color: #4caf50;
 }
 
+.car-info-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
 .car-info {
   margin: 0;
   color: #6b7280;
   font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .form {
@@ -655,5 +720,61 @@ textarea {
   .priority-form {
     padding: 16px;
   }
+}
+
+.btn-view-car {
+  padding: 8px 16px;
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+}
+
+.btn-view-car:hover {
+  background-color: #2563eb;
+}
+
+.btn-view-car i {
+  font-size: 0.8rem;
+}
+
+/* Title input with link styles */
+.title-input-container {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.title-input {
+  flex: 1;
+}
+
+.btn-title-link {
+  padding: 10px 12px;
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  height: 42px;
+}
+
+.btn-title-link:hover {
+  background-color: #2563eb;
+}
+
+.btn-title-link i {
+  font-size: 0.9rem;
 }
 </style>

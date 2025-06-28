@@ -16,6 +16,7 @@ const isProcessing = ref({
   cashier: false,
   rates: false,
   params: false,
+  tasks: false,
 })
 const canManageUsers = computed(() => {
   console.log(user.value)
@@ -94,6 +95,15 @@ const handleParamsClick = async () => {
     await router.push('/params')
   } finally {
     isProcessing.value.params = false
+  }
+}
+const handleTasksClick = async () => {
+  if (isProcessing.value.tasks) return
+  isProcessing.value.tasks = true
+  try {
+    await router.push('/tasks')
+  } finally {
+    isProcessing.value.tasks = false
   }
 }
 const handleChatClick = () => {
@@ -228,6 +238,17 @@ const isAdmin = computed(() => {
         <span>Params</span>
         <i v-if="isProcessing.params" class="fas fa-spinner fa-spin loading-indicator"></i>
       </button>
+      <button
+        v-if="isAdmin"
+        @click="handleTasksClick"
+        class="action-btn tasks-btn"
+        :disabled="isProcessing.tasks"
+        :class="{ processing: isProcessing.tasks }"
+      >
+        <i class="fas fa-tasks"></i>
+        <span>Tasks</span>
+        <i v-if="isProcessing.tasks" class="fas fa-spinner fa-spin loading-indicator"></i>
+      </button>
       <button @click="handleChatClick" class="action-btn chat-btn">
         <i class="fas fa-comments"></i>
         <span>Chat</span>
@@ -323,6 +344,10 @@ const isAdmin = computed(() => {
 }
 .params-btn {
   background-color: #6366f1;
+  color: white;
+}
+.tasks-btn {
+  background-color: #3b82f6;
   color: white;
 }
 .chat-btn {
