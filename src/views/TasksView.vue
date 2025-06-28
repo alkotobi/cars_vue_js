@@ -65,7 +65,7 @@ const fetchTasks = async () => {
     // Main query with role-based filtering
     const result = await callApi({
       query: `
-        SELECT 
+        SELECT
           t.*,
           creator.username as creator_name,
           receiver.username as receiver_name,
@@ -163,6 +163,125 @@ const changePage = (page) => {
   fetchTasks()
 }
 
+const markTaskAsDone = async (task) => {
+  console.log('Marking task as done:', task)
+  console.log('Current user ID:', user.value?.id)
+  console.log('Task assigned to:', task.id_user_receive)
+
+  if (!confirm(`Are you sure you want to mark task #${task.id} as done?`)) {
+    return
+  }
+
+  try {
+    console.log('Executing SQL to mark task as done...')
+    const result = await callApi({
+      query: `
+        UPDATE tasks
+        SET date_declare_done = UTC_TIMESTAMP()
+        WHERE id = ?
+      `,
+      params: [task.id],
+      requiresAuth: true,
+    })
+
+    console.log('SQL result:', result)
+
+    if (result.success) {
+      console.log('Task marked as done successfully')
+      alert('Task marked as done successfully!')
+      // Refresh the tasks list
+      await fetchTasks()
+    } else {
+      console.error('Failed to mark task as done:', result)
+      alert('Failed to mark task as done. Please try again.')
+    }
+  } catch (err) {
+    console.error('Error marking task as done:', err)
+    alert('Error marking task as done. Please try again.')
+  }
+}
+
+const markTaskAsUndone = async (task) => {
+  console.log('Marking task as undone:', task)
+  console.log('Current user ID:', user.value?.id)
+  console.log('Task assigned to:', task.id_user_receive)
+
+  if (!confirm(`Are you sure you want to mark task #${task.id} as undone?`)) {
+    return
+  }
+
+  try {
+    console.log('Executing SQL to mark task as undone...')
+    const result = await callApi({
+      query: `
+        UPDATE tasks
+        SET date_declare_done = NULL
+        WHERE id = ?
+      `,
+      params: [task.id],
+      requiresAuth: true,
+    })
+
+    console.log('SQL result:', result)
+
+    if (result.success) {
+      console.log('Task marked as undone successfully')
+      alert('Task marked as undone successfully!')
+      // Refresh the tasks list
+      await fetchTasks()
+    } else {
+      console.error('Failed to mark task as undone:', result)
+      alert('Failed to mark task as undone. Please try again.')
+    }
+  } catch (err) {
+    console.error('Error marking task as undone:', err)
+    alert('Error marking task as undone. Please try again.')
+  }
+}
+
+const confirmTaskAsDone = async (task) => {
+  console.log('Confirming task as done:', task)
+  console.log('Current user ID:', user.value?.id)
+  console.log('Is admin:', isAdmin.value)
+
+  if (
+    !confirm(
+      `Are you sure you want to confirm task #${task.id} as done? This will mark it as confirmed.`,
+    )
+  ) {
+    return
+  }
+
+  try {
+    console.log('Executing SQL to confirm task as done...')
+    const result = await callApi({
+      query: `
+        UPDATE tasks
+        SET date_confirm_done = UTC_TIMESTAMP(),
+            id_user_confirm_done = ?
+        WHERE id = ?
+      `,
+      params: [user.value.id, task.id],
+      requiresAuth: true,
+    })
+
+    console.log('SQL result:', result)
+
+    if (result.success) {
+      console.log('Task confirmed as done successfully')
+      alert('Task confirmed as done successfully!')
+      // Refresh the tasks list
+      await fetchTasks()
+    } else {
+      console.error('Failed to confirm task as done:', result)
+      alert('Failed to confirm task as done. Please try again.')
+    }
+  } catch (err) {
+    console.error('Error confirming task as done:', err)
+    alert('Error confirming task as done. Please try again.')
+  }
+}
+
 const getStatusBadge = (task) => {
   if (task.date_confirm_done) {
     return { text: 'Confirmed', class: 'status-confirmed' }
@@ -192,6 +311,15 @@ const totalPages = computed(() => {
 // Check if user is admin
 const isAdmin = computed(() => {
   return user.value?.role_id === 1
+})
+
+// Separate tasks into undone and done
+const undoneTasks = computed(() => {
+  return tasks.value.filter((task) => !task.date_declare_done)
+})
+
+const doneTasks = computed(() => {
+  return tasks.value.filter((task) => task.date_declare_done)
 })
 
 onMounted(async () => {
@@ -289,95 +417,184 @@ onMounted(async () => {
       </div>
     </div>
 
-    <!-- Tasks Table -->
-    <div class="table-container">
-      <div v-if="loading" class="loading">
-        <i class="fas fa-spinner fa-spin"></i>
-        Loading tasks...
+    <!-- Tasks Tables -->
+    <div class="tables-container">
+      <!-- Undone Tasks Table -->
+      <div class="table-container">
+        <div class="table-header">
+          <h3><i class="fas fa-clock"></i> Pending Tasks ({{ undoneTasks.length }})</h3>
+        </div>
+
+        <div v-if="loading" class="loading">
+          <i class="fas fa-spinner fa-spin"></i>
+          Loading tasks...
+        </div>
+
+        <div v-else-if="error" class="error">
+          <i class="fas fa-exclamation-circle"></i>
+          {{ error }}
+        </div>
+
+        <div v-else-if="undoneTasks.length === 0" class="empty-state">
+          <i class="fas fa-check-circle fa-2x"></i>
+          <p>No pending tasks</p>
+        </div>
+
+        <div v-else class="table-wrapper">
+          <table class="tasks-table">
+            <thead>
+              <tr>
+                <th @click="toggleSort('id')" class="sortable">
+                  ID
+                  <span v-if="sortConfig.key === 'id'" class="sort-indicator">
+                    {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
+                  </span>
+                </th>
+                <th @click="toggleSort('title')" class="sortable">
+                  Title
+                  <span v-if="sortConfig.key === 'title'" class="sort-indicator">
+                    {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
+                  </span>
+                </th>
+                <th>Description</th>
+                <th>Priority</th>
+                <th>Status</th>
+                <th>Assigned To</th>
+                <th>Created By</th>
+                <th @click="toggleSort('date_create')" class="sortable">
+                  Created Date
+                  <span v-if="sortConfig.key === 'date_create'" class="sort-indicator">
+                    {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
+                  </span>
+                </th>
+                <th>Notes</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="task in undoneTasks" :key="task.id" class="task-row">
+                <td>{{ task.id }}</td>
+                <td class="task-title">{{ task.title }}</td>
+                <td class="task-description">{{ task.desciption || '-' }}</td>
+                <td>
+                  <span :class="getPriorityBadge(task).class" class="priority-badge">
+                    {{ getPriorityBadge(task).text }}
+                  </span>
+                </td>
+                <td>
+                  <span :class="getStatusBadge(task).class" class="status-badge">
+                    {{ getStatusBadge(task).text }}
+                  </span>
+                </td>
+                <td>{{ task.receiver_name || '-' }}</td>
+                <td>{{ task.creator_name || '-' }}</td>
+                <td>{{ formatDate(task.date_create) }}</td>
+                <td class="task-notes">{{ task.notes || '-' }}</td>
+                <td class="actions-cell">
+                  <button
+                    v-if="task.id_user_receive === user?.id"
+                    @click="markTaskAsDone(task)"
+                    class="btn-done"
+                    title="Mark as done"
+                  >
+                    <i class="fas fa-check"></i>
+                    Done
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      <div v-else-if="error" class="error">
-        <i class="fas fa-exclamation-circle"></i>
-        {{ error }}
+      <!-- Done Tasks Table -->
+      <div class="table-container">
+        <div class="table-header">
+          <h3><i class="fas fa-check-double"></i> Completed Tasks ({{ doneTasks.length }})</h3>
+        </div>
+
+        <div v-if="doneTasks.length === 0" class="empty-state">
+          <i class="fas fa-tasks fa-2x"></i>
+          <p>No completed tasks</p>
+        </div>
+
+        <div v-else class="table-wrapper">
+          <table class="tasks-table">
+            <thead>
+              <tr>
+                <th @click="toggleSort('id')" class="sortable">
+                  ID
+                  <span v-if="sortConfig.key === 'id'" class="sort-indicator">
+                    {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
+                  </span>
+                </th>
+                <th @click="toggleSort('title')" class="sortable">
+                  Title
+                  <span v-if="sortConfig.key === 'title'" class="sort-indicator">
+                    {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
+                  </span>
+                </th>
+                <th>Description</th>
+                <th>Priority</th>
+                <th>Status</th>
+                <th>Assigned To</th>
+                <th>Created By</th>
+                <th @click="toggleSort('date_create')" class="sortable">
+                  Created Date
+                  <span v-if="sortConfig.key === 'date_create'" class="sort-indicator">
+                    {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
+                  </span>
+                </th>
+                <th>Completed Date</th>
+                <th>Notes</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="task in doneTasks" :key="task.id" class="task-row">
+                <td>{{ task.id }}</td>
+                <td class="task-title">{{ task.title }}</td>
+                <td class="task-description">{{ task.desciption || '-' }}</td>
+                <td>
+                  <span :class="getPriorityBadge(task).class" class="priority-badge">
+                    {{ getPriorityBadge(task).text }}
+                  </span>
+                </td>
+                <td>
+                  <span :class="getStatusBadge(task).class" class="status-badge">
+                    {{ getStatusBadge(task).text }}
+                  </span>
+                </td>
+                <td>{{ task.receiver_name || '-' }}</td>
+                <td>{{ task.creator_name || '-' }}</td>
+                <td>{{ formatDate(task.date_create) }}</td>
+                <td>{{ formatDate(task.date_declare_done) }}</td>
+                <td class="task-notes">{{ task.notes || '-' }}</td>
+                <td class="actions-cell">
+                  <button
+                    v-if="isAdmin && !task.date_confirm_done"
+                    @click="confirmTaskAsDone(task)"
+                    class="btn-confirm"
+                    title="Confirm as done"
+                  >
+                    <i class="fas fa-check-double"></i>
+                    Confirm Done
+                  </button>
+                  <button
+                    v-if="task.id_user_receive === user?.id"
+                    @click="markTaskAsUndone(task)"
+                    class="btn-undone"
+                    title="Mark as undone"
+                  >
+                    <i class="fas fa-undo"></i>
+                    Undone
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
-
-      <div v-else-if="tasks.length === 0" class="empty-state">
-        <i class="fas fa-tasks fa-2x"></i>
-        <p>No tasks found</p>
-      </div>
-
-      <div v-else class="table-wrapper">
-        <table class="tasks-table">
-          <thead>
-            <tr>
-              <th @click="toggleSort('id')" class="sortable">
-                ID
-                <span v-if="sortConfig.key === 'id'" class="sort-indicator">
-                  {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
-                </span>
-              </th>
-              <th @click="toggleSort('title')" class="sortable">
-                Title
-                <span v-if="sortConfig.key === 'title'" class="sort-indicator">
-                  {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
-                </span>
-              </th>
-              <th>Description</th>
-              <th>Priority</th>
-              <th>Status</th>
-              <th>Assigned To</th>
-              <th>Created By</th>
-              <th @click="toggleSort('date_create')" class="sortable">
-                Created Date
-                <span v-if="sortConfig.key === 'date_create'" class="sort-indicator">
-                  {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
-                </span>
-              </th>
-              <th>Notes</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="task in tasks" :key="task.id" class="task-row">
-              <td>{{ task.id }}</td>
-              <td class="task-title">{{ task.title }}</td>
-              <td class="task-description">{{ task.desciption || '-' }}</td>
-              <td>
-                <span :class="getPriorityBadge(task).class" class="priority-badge">
-                  {{ getPriorityBadge(task).text }}
-                </span>
-              </td>
-              <td>
-                <span :class="getStatusBadge(task).class" class="status-badge">
-                  {{ getStatusBadge(task).text }}
-                </span>
-              </td>
-              <td>{{ task.receiver_name || '-' }}</td>
-              <td>{{ task.creator_name || '-' }}</td>
-              <td>{{ formatDate(task.date_create) }}</td>
-              <td class="task-notes">{{ task.notes || '-' }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- Pagination -->
-    <div v-if="totalPages > 1" class="pagination">
-      <button @click="changePage(currentPage - 1)" :disabled="currentPage === 1" class="btn-page">
-        <i class="fas fa-chevron-left"></i>
-        Previous
-      </button>
-
-      <span class="page-info"> Page {{ currentPage }} of {{ totalPages }} </span>
-
-      <button
-        @click="changePage(currentPage + 1)"
-        :disabled="currentPage === totalPages"
-        class="btn-page"
-      >
-        Next
-        <i class="fas fa-chevron-right"></i>
-      </button>
     </div>
   </div>
 </template>
@@ -497,11 +714,36 @@ onMounted(async () => {
   background-color: #5a6268;
 }
 
+.tables-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
 .table-container {
   background: white;
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.table-header {
+  background-color: #f9fafb;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.table-header h3 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #374151;
+  font-size: 1.1rem;
+}
+
+.table-header h3 i {
+  color: #4caf50;
 }
 
 .loading,
@@ -694,5 +936,76 @@ onMounted(async () => {
 
 .view-info i {
   color: #4caf50;
+}
+
+.actions-cell {
+  text-align: center;
+  min-width: 80px;
+}
+
+.btn-done {
+  padding: 6px 12px;
+  background-color: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.btn-done:hover {
+  background-color: #45a049;
+}
+
+.btn-done i {
+  font-size: 0.8rem;
+}
+
+.btn-undone {
+  padding: 6px 12px;
+  background-color: #6b7280;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.btn-undone:hover {
+  background-color: #5a6268;
+}
+
+.btn-undone i {
+  font-size: 0.8rem;
+}
+
+.btn-confirm {
+  padding: 6px 12px;
+  background-color: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.btn-confirm:hover {
+  background-color: #45a049;
+}
+
+.btn-confirm i {
+  font-size: 0.8rem;
 }
 </style>
