@@ -8,6 +8,7 @@ import CarMoneyEditForm from './CarMoneyEditForm.vue'
 import CarWarehouseForm from './CarWarehouseForm.vue'
 import CarDocumentsForm from './CarDocumentsForm.vue'
 import CarLoadForm from './CarLoadForm.vue'
+import TaskForm from './TaskForm.vue'
 
 import { useRouter } from 'vue-router'
 
@@ -91,6 +92,7 @@ const isProcessing = ref({
   warehouse: false,
   documents: false,
   load: false,
+  task: false,
 })
 
 // Add new refs and computed properties for VIN editing
@@ -161,6 +163,10 @@ const can_load_car = computed(() => {
   if (user.value.role_id === 1) return true
   return user.value.permissions?.some((p) => p.permission_name === 'can_load_car')
 })
+
+// Add new refs for task form
+const showTaskForm = ref(false)
+const selectedCarForTask = ref(null)
 
 // Add to the data/refs section
 const showAdvancedFilter = ref(false)
@@ -762,6 +768,20 @@ const handleLoadSave = (updatedCar) => {
   }
 }
 
+// Add new methods for task form
+const handleTaskClose = () => {
+  showTaskForm.value = false
+  selectedCarForTask.value = null
+}
+
+const handleTaskSave = (result) => {
+  if (result.success) {
+    console.log('Task created successfully with ID:', result.taskId)
+    // You can add any additional logic here, like showing a success message
+  }
+  handleTaskClose()
+}
+
 // Add this method after other methods
 const closeAllDropdowns = () => {
   isDropdownOpen.value = {}
@@ -781,6 +801,12 @@ const openSellBillTab = (car) => {
     const route = router.resolve(`/sell-bills/${car.id_sell}`)
     window.open(route.href, '_blank')
   }
+}
+
+const handleTaskAction = (car) => {
+  closeTeleportDropdown()
+  selectedCarForTask.value = car
+  showTaskForm.value = true
 }
 
 onMounted(() => {
@@ -865,6 +891,13 @@ defineExpose({
       :show="showLoadForm"
       @close="handleLoadClose"
       @save="handleLoadSave"
+    />
+
+    <TaskForm
+      :car-data="selectedCarForTask"
+      :is-visible="showTaskForm"
+      @save="handleTaskSave"
+      @cancel="handleTaskClose"
     />
 
     <!-- <div class="table-actions">
@@ -1051,18 +1084,22 @@ defineExpose({
               </div>
             </td>
             <td>
-              <button
-                :disabled="!can_edit_cars_prop || isProcessing.edit"
-                @click="handleEdit(car)"
-                class="edit-btn"
-                :class="{ processing: isProcessing.edit }"
-              >
-                <i class="fas fa-edit"></i>
-                <span>Edit</span>
-                <i v-if="isProcessing.edit" class="fas fa-spinner fa-spin loading-indicator"></i>
-              </button>
               <div class="dropdown">
                 <ul v-if="isDropdownOpen[car.id]" class="dropdown-menu">
+                  <li>
+                    <button
+                      @click="handleTaskAction(car)"
+                      :disabled="isProcessing.task"
+                      :class="{ processing: isProcessing.task }"
+                    >
+                      <i class="fas fa-tasks"></i>
+                      <span>Task</span>
+                      <i
+                        v-if="isProcessing.task"
+                        class="fas fa-spinner fa-spin loading-indicator"
+                      ></i>
+                    </button>
+                  </li>
                   <li>
                     <button
                       @click="handleVINAction(car)"
@@ -1201,6 +1238,17 @@ defineExpose({
       }"
     >
       <ul class="teleport-dropdown-menu">
+        <li>
+          <button
+            @click="handleTaskAction(getCarById(teleportDropdown.carId))"
+            :disabled="isProcessing.task"
+            :class="{ processing: isProcessing.task }"
+          >
+            <i class="fas fa-tasks"></i>
+            <span>Task</span>
+            <i v-if="isProcessing.task" class="fas fa-spinner fa-spin loading-indicator"></i>
+          </button>
+        </li>
         <li>
           <button
             @click="handleVINAction(getCarById(teleportDropdown.carId))"
