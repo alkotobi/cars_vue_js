@@ -44,6 +44,21 @@ const openTaskForClient = (client) => {
   showTaskForm.value = true
 }
 
+// Add methods for dropdown actions
+const handleEditClient = (clientId) => {
+  editClient(getClientById(clientId))
+  closeTeleportDropdown()
+}
+
+const handleDeleteClient = (clientId) => {
+  deleteClient(getClientById(clientId))
+  closeTeleportDropdown()
+}
+
+const handleViewDetails = () => {
+  closeTeleportDropdown()
+}
+
 const toggleTaskDropdown = (clientId, event) => {
   console.log('toggleTaskDropdown called with clientId:', clientId)
 
@@ -1423,10 +1438,7 @@ const handleTaskCancel = () => {
       >
         <ul class="teleport-dropdown-menu">
           <li>
-            <button
-              @click="editClient(getClientById(teleportDropdown.clientId))"
-              class="dropdown-item"
-            >
+            <button @click="handleEditClient(teleportDropdown.clientId)" class="dropdown-item">
               <i class="fas fa-edit"></i>
               <span>Edit Client</span>
             </button>
@@ -1436,6 +1448,7 @@ const handleTaskCancel = () => {
               :to="`/clients/${getClientById(teleportDropdown.clientId)?.id}`"
               class="dropdown-item"
               target="_blank"
+              @click="handleViewDetails"
             >
               <i class="fas fa-info-circle"></i>
               <span>View Details</span>
@@ -1452,7 +1465,7 @@ const handleTaskCancel = () => {
           </li>
           <li v-if="isAdmin">
             <button
-              @click="deleteClient(getClientById(teleportDropdown.clientId))"
+              @click="handleDeleteClient(teleportDropdown.clientId)"
               class="dropdown-item delete"
             >
               <i class="fas fa-trash"></i>
