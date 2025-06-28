@@ -239,7 +239,6 @@ const isAdmin = computed(() => {
         <i v-if="isProcessing.params" class="fas fa-spinner fa-spin loading-indicator"></i>
       </button>
       <button
-        v-if="isAdmin"
         @click="handleTasksClick"
         class="action-btn tasks-btn"
         :disabled="isProcessing.tasks"

@@ -466,7 +466,7 @@ const fetchUnassignedCars = async () => {
         WHERE cs.id_loaded_container IS NULL
         AND cs.date_loding IS NULL
         AND cs.container_ref IS NULL
-        AND cs.id_client IS NOT NULL
+        AND (cs.id_client IS NOT NULL OR cs.id_sell IS NULL)
         ORDER BY cs.id DESC
       `,
       params: [],
@@ -1336,4 +1336,3 @@ defineExpose({
   opacity: 0.7;
 }
 </style>
- 

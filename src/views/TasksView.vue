@@ -52,7 +52,17 @@ const fetchTasks = async () => {
       return
     }
 
-    // Simplified query to debug the issue
+    // Build the WHERE clause based on user role
+    let whereClause = ''
+    let params = []
+
+    if (!isAdmin.value) {
+      // For non-admin users, show only tasks created by or assigned to them
+      whereClause = 'WHERE (t.id_user_create = ? OR t.id_user_receive = ?)'
+      params = [user.value.id, user.value.id]
+    }
+
+    // Main query with role-based filtering
     const result = await callApi({
       query: `
         SELECT 
@@ -65,13 +75,18 @@ const fetchTasks = async () => {
         LEFT JOIN users creator ON t.id_user_create = creator.id
         LEFT JOIN users receiver ON t.id_user_receive = receiver.id
         LEFT JOIN priorities p ON t.id_priority = p.id
+        ${whereClause}
         ORDER BY t.id DESC
       `,
-      params: [],
+      params,
       requiresAuth: true,
     })
 
     console.log('Tasks result:', result)
+    console.log('User role:', user.value?.role_id)
+    console.log('Is admin:', isAdmin.value)
+    console.log('Where clause:', whereClause)
+    console.log('Params:', params)
 
     if (result.success) {
       tasks.value = result.data
@@ -174,6 +189,11 @@ const totalPages = computed(() => {
   return Math.ceil(totalItems.value / itemsPerPage.value)
 })
 
+// Check if user is admin
+const isAdmin = computed(() => {
+  return user.value?.role_id === 1
+})
+
 onMounted(async () => {
   const userStr = localStorage.getItem('user')
   if (userStr) {
@@ -187,7 +207,17 @@ onMounted(async () => {
 <template>
   <div class="tasks-view">
     <div class="header">
-      <h1><i class="fas fa-tasks"></i> Tasks Management</h1>
+      <div class="header-info">
+        <h1><i class="fas fa-tasks"></i> Tasks Management</h1>
+        <p v-if="!isAdmin" class="view-info">
+          <i class="fas fa-user"></i>
+          Showing your tasks (created by you or assigned to you)
+        </p>
+        <p v-else class="view-info">
+          <i class="fas fa-users"></i>
+          Showing all tasks (admin view)
+        </p>
+      </div>
       <button @click="router.push('/')" class="btn-back">
         <i class="fas fa-arrow-left"></i>
         Back to Dashboard
@@ -226,7 +256,7 @@ onMounted(async () => {
           </select>
         </div>
 
-        <div class="filter-group">
+        <div v-if="isAdmin" class="filter-group">
           <label>Assigned To</label>
           <select v-model="filters.assignedTo">
             <option value="">All Users</option>
@@ -236,7 +266,7 @@ onMounted(async () => {
           </select>
         </div>
 
-        <div class="filter-group">
+        <div v-if="isAdmin" class="filter-group">
           <label>Created By</label>
           <select v-model="filters.createdBy">
             <option value="">All Users</option>
@@ -364,6 +394,12 @@ onMounted(async () => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 24px;
+}
+
+.header-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .header h1 {
@@ -645,5 +681,18 @@ onMounted(async () => {
   .tasks-table td {
     padding: 8px;
   }
+}
+
+.view-info {
+  margin: 0;
+  color: #6b7280;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.view-info i {
+  color: #4caf50;
 }
 </style>
