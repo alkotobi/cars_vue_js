@@ -894,7 +894,9 @@ defineExpose({
     />
 
     <TaskForm
-      :car-data="selectedCarForTask"
+      v-if="selectedCarForTask"
+      :entity-data="selectedCarForTask"
+      entity-type="car"
       :is-visible="showTaskForm"
       @save="handleTaskSave"
       @cancel="handleTaskClose"

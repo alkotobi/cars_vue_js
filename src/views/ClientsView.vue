@@ -1,6 +1,7 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, onUnmounted } from 'vue'
 import { useApi } from '../composables/useApi'
+import TaskForm from '../components/car-stock/TaskForm.vue'
 
 const clients = ref([])
 const { callApi, uploadFile, getFileUrl, error } = useApi()
@@ -13,6 +14,114 @@ const selectedFile = ref(null)
 const editSelectedFile = ref(null)
 const isSubmitting = ref(false)
 const isLoading = ref(false)
+
+// Add dropdown state for task buttons
+const openTaskDropdown = ref(null)
+
+// Add TaskForm modal state
+const showTaskForm = ref(false)
+const selectedClientForTask = ref(null)
+const selectedClientForActions = ref(null)
+
+// Add teleport dropdown state
+const teleportDropdown = ref({
+  isOpen: false,
+  clientId: null,
+  position: { x: 0, y: 0 },
+  buttonElement: null,
+})
+
+// Add task creation methods
+const openTaskForClient = (client) => {
+  console.log('openTaskForClient called with client:', client)
+
+  // Close dropdown
+  openTaskDropdown.value = null
+  closeTeleportDropdown()
+
+  // Set the selected client and show the task form
+  selectedClientForTask.value = client
+  showTaskForm.value = true
+}
+
+const toggleTaskDropdown = (clientId, event) => {
+  console.log('toggleTaskDropdown called with clientId:', clientId)
+
+  if (openTaskDropdown.value === clientId) {
+    openTaskDropdown.value = null
+    closeTeleportDropdown()
+  } else {
+    openTeleportDropdown(clientId, event)
+  }
+}
+
+// Add teleport dropdown functions
+const openTeleportDropdown = (clientId, event) => {
+  const button = event.currentTarget
+  const rect = button.getBoundingClientRect()
+  const dropdownWidth = 200 // Width of the dropdown
+  const windowWidth = window.innerWidth
+  const padding = 20 // Padding from screen edge
+
+  // Calculate initial position
+  let x = rect.left
+  let y = rect.bottom + window.scrollY
+
+  // Check if dropdown would go off-screen to the right
+  if (x + dropdownWidth + padding > windowWidth) {
+    // Position to the left of the button instead
+    x = rect.right - dropdownWidth
+  }
+
+  // Check if dropdown would go off-screen to the left
+  if (x < padding) {
+    x = padding
+  }
+
+  teleportDropdown.value = {
+    isOpen: true,
+    clientId: clientId,
+    position: { x, y },
+    buttonElement: button,
+  }
+
+  // Close the regular dropdown
+  openTaskDropdown.value = null
+}
+
+const closeTeleportDropdown = () => {
+  teleportDropdown.value.isOpen = false
+  teleportDropdown.value.clientId = null
+}
+
+// Add click outside handler
+const handleClickOutside = (event) => {
+  if (teleportDropdown.value.isOpen) {
+    const dropdown = document.querySelector('.teleport-dropdown')
+    const button = teleportDropdown.value.buttonElement
+
+    if (dropdown && !dropdown.contains(event.target) && button && !button.contains(event.target)) {
+      closeTeleportDropdown()
+    }
+  }
+}
+
+// Add scroll handler to close dropdown
+const handleScroll = () => {
+  if (teleportDropdown.value.isOpen) {
+    closeTeleportDropdown()
+  }
+}
+
+// Helper function to get client by ID
+const getClientById = (clientId) => {
+  return clients.value.find((client) => client.id === clientId)
+}
+
+// Close dropdown when clicking outside
+const closeTaskDropdown = () => {
+  openTaskDropdown.value = null
+}
 
 // Check if user is admin by getting role from localStorage
 const isAdmin = computed(() => user.value?.role_id === 1)
@@ -127,6 +236,17 @@ const clearFilters = () => {
     mobile: '',
     idNo: '',
     isBroker: null,
+  }
+}
+
+const getCurrentUser = () => {
+  try {
+    const userStr = localStorage.getItem('user')
+    if (userStr) {
+      user.value = JSON.parse(userStr)
+    }
+  } catch (err) {
+    console.error('Error getting current user:', err)
   }
 }
 
@@ -489,255 +609,411 @@ const handleImageClick = (path) => {
   }
 }
 
-onMounted(() => {
-  const userStr = localStorage.getItem('user')
-  if (userStr) {
-    user.value = JSON.parse(userStr)
-    fetchClients()
-  }
+onMounted(async () => {
+  await getCurrentUser()
+  await fetchClients()
+
+  // Add event listeners for teleport dropdown
+  document.addEventListener('click', handleClickOutside)
+  window.addEventListener('scroll', handleScroll)
 })
+
+onUnmounted(() => {
+  // Remove event listeners
+  document.removeEventListener('click', handleClickOutside)
+  window.removeEventListener('scroll', handleScroll)
+})
+
+// Task form event handlers
+const handleTaskSave = () => {
+  console.log('Task saved for client:', selectedClientForTask.value)
+  showTaskForm.value = false
+  selectedClientForTask.value = null
+}
+
+const handleTaskCancel = () => {
+  console.log('Task form canceled')
+  showTaskForm.value = false
+  selectedClientForTask.value = null
+}
 </script>
 
 <template>
-  <div class="clients-view">
-    <div class="header">
-      <h2>
-        <i class="fas fa-users"></i>
-        Clients Management
-      </h2>
-      <button @click="showAddDialog = true" class="add-btn">
-        <i class="fas fa-plus"></i>
-        Add Client
-      </button>
+  <div class="clients-view" @click="closeTaskDropdown">
+    <!-- Header Section -->
+    <div class="header-section">
+      <div class="header-content">
+        <div class="header-info">
+          <h1 class="page-title">
+            <i class="fas fa-users"></i>
+            Clients Management
+          </h1>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button @click="showAddDialog = true" class="btn-primary">
+          <i class="fas fa-plus"></i>
+          Add New Client
+        </button>
+      </div>
     </div>
 
     <!-- Loading State -->
-    <div v-if="isLoading" class="loading-state">
-      <i class="fas fa-spinner fa-spin"></i>
-      Loading clients...
+    <div v-if="isLoading" class="loading-container">
+      <div class="loading-spinner">
+        <i class="fas fa-spinner fa-spin"></i>
+      </div>
+      <p class="loading-text">Loading clients...</p>
     </div>
 
     <!-- Error Message -->
-    <div v-if="error" class="error-message">
-      <i class="fas fa-exclamation-circle"></i>
-      {{ error }}
-    </div>
-
-    <!-- Filters Section -->
-    <div v-if="!isLoading && !error" class="filters-section">
-      <div class="filters-header">
-        <h4>
-          <i class="fas fa-filter"></i>
-          Filters
-        </h4>
-        <button @click="clearFilters" class="clear-filters-btn">
-          <i class="fas fa-times"></i>
-          Clear Filters
-        </button>
-      </div>
-
-      <div class="filters-grid">
-        <div class="filter-group">
-          <label>
-            <i class="fas fa-user"></i>
-            Name
-          </label>
-          <input type="text" v-model="filters.name" placeholder="Filter by name..." />
-        </div>
-
-        <div class="filter-group">
-          <label>
-            <i class="fas fa-envelope"></i>
-            Email
-          </label>
-          <input type="text" v-model="filters.email" placeholder="Filter by email..." />
-        </div>
-
-        <div class="filter-group">
-          <label>
-            <i class="fas fa-phone"></i>
-            Mobile
-          </label>
-          <input type="text" v-model="filters.mobile" placeholder="Filter by mobile..." />
-        </div>
-
-        <div class="filter-group">
-          <label>
-            <i class="fas fa-id-card"></i>
-            ID Number
-          </label>
-          <input type="text" v-model="filters.idNo" placeholder="Filter by ID..." />
-        </div>
-
-        <div class="filter-group">
-          <label>
-            <i class="fas fa-user-tie"></i>
-            Broker Status
-          </label>
-          <select v-model="filters.isBroker">
-            <option :value="null">All</option>
-            <option :value="true">Broker</option>
-            <option :value="false">Not Broker</option>
-          </select>
+    <div v-if="error" class="error-container">
+      <div class="error-content">
+        <i class="fas fa-exclamation-triangle"></i>
+        <div class="error-text">
+          <h4>Error Loading Clients</h4>
+          <p>{{ error }}</p>
         </div>
       </div>
     </div>
 
-    <div class="content" v-if="!isLoading && !error">
-      <div v-if="filteredAndSortedClients.length === 0" class="no-results">
-        <i class="fas fa-search fa-2x"></i>
-        <p>No clients match the current filters</p>
-      </div>
+    <!-- Main Content -->
+    <div v-if="!isLoading && !error" class="main-content">
+      <!-- Filters Section -->
+      <div class="filters-section">
+        <div class="filters-header">
+          <div class="filters-title">
+            <i class="fas fa-filter"></i>
+            <h3>Search & Filters</h3>
+          </div>
+          <button @click="clearFilters" class="btn-secondary">
+            <i class="fas fa-times"></i>
+            Clear All
+          </button>
+        </div>
 
-      <table v-else class="clients-table">
-        <thead>
-          <tr>
-            <th @click="handleSort('name')" class="sortable">
+        <div class="filters-grid">
+          <div class="filter-group">
+            <label>
               <i class="fas fa-user"></i>
               Name
-              <i
-                v-if="sortConfig.key === 'name'"
-                :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
-              >
-              </i>
-            </th>
-            <th @click="handleSort('address')" class="sortable">
-              <i class="fas fa-map-marker-alt"></i>
-              Address
-              <i
-                v-if="sortConfig.key === 'address'"
-                :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
-              >
-              </i>
-            </th>
-            <th @click="handleSort('email')" class="sortable">
+            </label>
+            <input
+              type="text"
+              v-model="filters.name"
+              placeholder="Search by client name..."
+              class="filter-input"
+            />
+          </div>
+
+          <div class="filter-group">
+            <label>
               <i class="fas fa-envelope"></i>
               Email
-              <i
-                v-if="sortConfig.key === 'email'"
-                :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
-              >
-              </i>
-            </th>
-            <th @click="handleSort('mobiles')" class="sortable">
+            </label>
+            <input
+              type="text"
+              v-model="filters.email"
+              placeholder="Search by email..."
+              class="filter-input"
+            />
+          </div>
+
+          <div class="filter-group">
+            <label>
               <i class="fas fa-phone"></i>
               Mobile
-              <i
-                v-if="sortConfig.key === 'mobiles'"
-                :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
-              >
-              </i>
-            </th>
-            <th @click="handleSort('id_no')" class="sortable">
+            </label>
+            <input
+              type="text"
+              v-model="filters.mobile"
+              placeholder="Search by mobile..."
+              class="filter-input"
+            />
+          </div>
+
+          <div class="filter-group">
+            <label>
               <i class="fas fa-id-card"></i>
-              ID No
-              <i
-                v-if="sortConfig.key === 'id_no'"
-                :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
-              >
-              </i>
-            </th>
-            <th @click="handleSort('cars_count')" class="sortable">
-              <i class="fas fa-car"></i>
-              Cars
-              <i
-                v-if="sortConfig.key === 'cars_count'"
-                :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
-              >
-              </i>
-            </th>
-            <th><i class="fas fa-file-alt"></i> ID Document</th>
-            <th @click="handleSort('is_broker')" class="sortable">
-              <i class="fas fa-user-tag"></i>
-              Status
-              <i
-                v-if="sortConfig.key === 'is_broker'"
-                :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
-              >
-              </i>
-            </th>
-            <th><i class="fas fa-sticky-note"></i> Notes</th>
-            <th><i class="fas fa-cog"></i> Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="client in filteredAndSortedClients" :key="client.id">
-            <td>{{ client.name }}</td>
-            <td>{{ client.address }}</td>
-            <td>{{ client.email }}</td>
-            <td>{{ client.mobiles }}</td>
-            <td>{{ client.id_no }}</td>
-            <td class="cars-count">
-              <span class="badge cars" :class="{ 'has-cars': client.cars_count > 0 }">
-                <i class="fas fa-car"></i>
-                {{ client.cars_count }}
-              </span>
-            </td>
-            <td class="id-document-cell">
-              <div
-                v-if="client.id_copy_path && isImageFile(client.id_copy_path)"
-                class="image-preview"
-                @click="handleImageClick(client.id_copy_path)"
-              >
-                <img :src="getFileUrl(client.id_copy_path)" :alt="'ID for ' + client.name" />
-              </div>
-              <a
-                v-else-if="client.id_copy_path"
-                :href="getFileUrl(client.id_copy_path)"
-                target="_blank"
-                class="document-link"
-              >
-                <i class="fas fa-file-download"></i>
-                View Document
-              </a>
-              <span v-else class="no-document">
-                <i class="fas fa-times-circle"></i>
-                No ID
-              </span>
-            </td>
-            <td>
-              <div class="status-badges">
-                <span class="badge client">
-                  <i class="fas fa-user"></i>
-                  Client
-                </span>
-                <span v-if="client.is_broker" class="badge broker">
-                  <i class="fas fa-user-tie"></i>
-                  Broker
-                </span>
-              </div>
-            </td>
-            <td class="notes-cell">
-              <span v-if="client.notes" class="notes-content" :title="client.notes">
-                {{
-                  client.notes.length > 50 ? client.notes.substring(0, 50) + '...' : client.notes
-                }}
-              </span>
-              <span v-else class="no-notes">No notes</span>
-            </td>
-            <td class="actions">
-              <button @click="editClient(client)" class="action-btn edit">
-                <i class="fas fa-edit"></i>
-                Edit
-              </button>
-              <button v-if="isAdmin" @click="deleteClient(client)" class="action-btn delete">
-                <i class="fas fa-trash"></i>
-                Delete
-              </button>
-              <router-link :to="`/clients/${client.id}`" class="action-btn details" target="_blank">
-                <i class="fas fa-info-circle"></i>
-                Details
-              </router-link>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+              ID Number
+            </label>
+            <input
+              type="text"
+              v-model="filters.idNo"
+              placeholder="Search by ID..."
+              class="filter-input"
+            />
+          </div>
+
+          <div class="filter-group">
+            <label>
+              <i class="fas fa-user-tie"></i>
+              Type
+            </label>
+            <select v-model="filters.isBroker" class="filter-select">
+              <option :value="null">All Clients</option>
+              <option :value="true">Brokers Only</option>
+              <option :value="false">Regular Clients</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Results Section -->
+      <div class="results-section">
+        <div v-if="filteredAndSortedClients.length === 0" class="empty-state">
+          <div class="empty-icon">
+            <i class="fas fa-search"></i>
+          </div>
+          <h3>No clients found</h3>
+          <p>Try adjusting your search criteria or add a new client</p>
+          <button @click="showAddDialog = true" class="btn-primary">
+            <i class="fas fa-plus"></i>
+            Add First Client
+          </button>
+        </div>
+
+        <div v-else class="clients-container">
+          <div class="table-header">
+            <h3>Client List ({{ filteredAndSortedClients.length }} results)</h3>
+          </div>
+
+          <div class="table-wrapper">
+            <table class="clients-table">
+              <thead>
+                <tr>
+                  <th @click="handleSort('name')" class="sortable">
+                    <div class="th-content">
+                      <i class="fas fa-user"></i>
+                      <span>Name</span>
+                      <i
+                        v-if="sortConfig.key === 'name'"
+                        :class="['sort-icon', sortConfig.direction === 'asc' ? 'asc' : 'desc']"
+                      >
+                      </i>
+                    </div>
+                  </th>
+                  <th @click="handleSort('email')" class="sortable">
+                    <div class="th-content">
+                      <i class="fas fa-envelope"></i>
+                      <span>Email</span>
+                      <i
+                        v-if="sortConfig.key === 'email'"
+                        :class="['sort-icon', sortConfig.direction === 'asc' ? 'asc' : 'desc']"
+                      >
+                      </i>
+                    </div>
+                  </th>
+                  <th @click="handleSort('mobiles')" class="sortable">
+                    <div class="th-content">
+                      <i class="fas fa-phone"></i>
+                      <span>Mobile</span>
+                      <i
+                        v-if="sortConfig.key === 'mobiles'"
+                        :class="['sort-icon', sortConfig.direction === 'asc' ? 'asc' : 'desc']"
+                      >
+                      </i>
+                    </div>
+                  </th>
+                  <th @click="handleSort('id_no')" class="sortable">
+                    <div class="th-content">
+                      <i class="fas fa-id-card"></i>
+                      <span>ID Number</span>
+                      <i
+                        v-if="sortConfig.key === 'id_no'"
+                        :class="['sort-icon', sortConfig.direction === 'asc' ? 'asc' : 'desc']"
+                      >
+                      </i>
+                    </div>
+                  </th>
+                  <th @click="handleSort('cars_count')" class="sortable">
+                    <div class="th-content">
+                      <i class="fas fa-car"></i>
+                      <span>Cars</span>
+                      <i
+                        v-if="sortConfig.key === 'cars_count'"
+                        :class="['sort-icon', sortConfig.direction === 'asc' ? 'asc' : 'desc']"
+                      >
+                      </i>
+                    </div>
+                  </th>
+                  <th>
+                    <div class="th-content">
+                      <i class="fas fa-file-alt"></i>
+                      <span>ID Document</span>
+                    </div>
+                  </th>
+                  <th @click="handleSort('is_broker')" class="sortable">
+                    <div class="th-content">
+                      <i class="fas fa-user-tag"></i>
+                      <span>Status</span>
+                      <i
+                        v-if="sortConfig.key === 'is_broker'"
+                        :class="['sort-icon', sortConfig.direction === 'asc' ? 'asc' : 'desc']"
+                      >
+                      </i>
+                    </div>
+                  </th>
+                  <th>
+                    <div class="th-content">
+                      <i class="fas fa-sticky-note"></i>
+                      <span>Notes</span>
+                    </div>
+                  </th>
+                  <th>
+                    <div class="th-content">
+                      <i class="fas fa-cog"></i>
+                      <span>Actions</span>
+                    </div>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="client in filteredAndSortedClients" :key="client.id" class="client-row">
+                  <td class="client-name">
+                    <div class="name-content">
+                      <div class="name-text">{{ client.name || 'Unnamed Client' }}</div>
+                      <div class="address-text" v-if="client.address">{{ client.address }}</div>
+                    </div>
+                  </td>
+                  <td class="client-email">
+                    <span v-if="client.email" class="email-link">
+                      <i class="fas fa-envelope"></i>
+                      {{ client.email }}
+                    </span>
+                    <span v-else class="no-email">No email</span>
+                  </td>
+                  <td class="client-mobile">
+                    <span class="mobile-number">
+                      <i class="fas fa-phone"></i>
+                      {{ client.mobiles }}
+                    </span>
+                  </td>
+                  <td class="client-id">
+                    <span class="id-number">{{ client.id_no }}</span>
+                  </td>
+                  <td class="cars-count">
+                    <div class="cars-badge" :class="{ 'has-cars': client.cars_count > 0 }">
+                      <i class="fas fa-car"></i>
+                      <span>{{ client.cars_count || 0 }}</span>
+                    </div>
+                  </td>
+                  <td class="id-document-cell">
+                    <div
+                      v-if="client.id_copy_path && isImageFile(client.id_copy_path)"
+                      class="document-preview"
+                      @click="handleImageClick(client.id_copy_path)"
+                    >
+                      <img :src="getFileUrl(client.id_copy_path)" :alt="'ID for ' + client.name" />
+                      <div class="preview-overlay">
+                        <i class="fas fa-eye"></i>
+                      </div>
+                    </div>
+                    <a
+                      v-else-if="client.id_copy_path"
+                      :href="getFileUrl(client.id_copy_path)"
+                      target="_blank"
+                      class="document-link"
+                    >
+                      <i class="fas fa-file-download"></i>
+                      <span>View</span>
+                    </a>
+                    <span v-else class="no-document">
+                      <i class="fas fa-times-circle"></i>
+                      <span>No ID</span>
+                    </span>
+                  </td>
+                  <td class="client-status">
+                    <div class="status-badges">
+                      <span class="status-badge client">
+                        <i class="fas fa-user"></i>
+                        Client
+                      </span>
+                      <span v-if="client.is_broker" class="status-badge broker">
+                        <i class="fas fa-user-tie"></i>
+                        Broker
+                      </span>
+                    </div>
+                  </td>
+                  <td class="client-notes">
+                    <div v-if="client.notes" class="notes-content" :title="client.notes">
+                      {{
+                        client.notes.length > 50
+                          ? client.notes.substring(0, 50) + '...'
+                          : client.notes
+                      }}
+                    </div>
+                    <span v-else class="no-notes">No notes</span>
+                  </td>
+                  <td class="client-actions">
+                    <div class="actions-group">
+                      <!-- Task Button -->
+                      <div class="task-dropdown-container">
+                        <button
+                          @click.stop="openTaskForClient(client)"
+                          class="action-btn task"
+                          title="Create task"
+                        >
+                          <i class="fas fa-tasks"></i>
+                        </button>
+                      </div>
+
+                      <!-- Actions Dropdown Button -->
+                      <div class="task-dropdown-container">
+                        <button
+                          @click.stop="toggleTaskDropdown(client.id, $event)"
+                          class="action-btn actions"
+                          title="Actions"
+                        >
+                          <i class="fas fa-ellipsis-v"></i>
+                        </button>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Global Actions Dropdown Menu -->
+    <div
+      v-if="openTaskDropdown"
+      class="global-dropdown-menu"
+      :style="{
+        left: dropdownPosition.x + 'px',
+        top: dropdownPosition.y + 'px',
+      }"
+      @click.stop
+    >
+      <button @click="editClient(selectedClientForActions)" class="task-dropdown-item">
+        <i class="fas fa-edit"></i>
+        Edit Client
+      </button>
+      <router-link
+        :to="`/clients/${selectedClientForActions?.id}`"
+        class="task-dropdown-item"
+        target="_blank"
+      >
+        <i class="fas fa-info-circle"></i>
+        View Details
+      </router-link>
+      <button
+        v-if="isAdmin"
+        @click="deleteClient(selectedClientForActions)"
+        class="task-dropdown-item delete"
+      >
+        <i class="fas fa-trash"></i>
+        Delete Client
+      </button>
     </div>
 
     <!-- Add Client Dialog -->
-    <div v-if="showAddDialog" class="dialog-overlay">
-      <div class="dialog">
-        <div class="dialog-header">
+    <div v-if="showAddDialog" class="modal-overlay" @click="showAddDialog = false">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
           <h3>
             <i class="fas fa-user-plus"></i>
             Add New Client
@@ -752,132 +1028,178 @@ onMounted(() => {
           {{ error }}
         </div>
 
-        <div class="form-group">
-          <div class="input-group">
-            <i class="fas fa-user input-icon"></i>
-            <input
-              v-model="newClient.name"
-              placeholder="Name"
-              class="input-field"
-              :disabled="isSubmitting"
-            />
+        <form @submit.prevent="addClient" class="modal-form">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="name">
+                <i class="fas fa-user"></i>
+                Full Name *
+              </label>
+              <input
+                id="name"
+                v-model="newClient.name"
+                type="text"
+                placeholder="Enter client's full name"
+                class="form-input"
+                :class="{ error: validationError && !newClient.name }"
+                :disabled="isSubmitting"
+                required
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="mobile">
+                <i class="fas fa-phone"></i>
+                Mobile Number *
+              </label>
+              <input
+                id="mobile"
+                v-model="newClient.mobiles"
+                type="tel"
+                placeholder="Enter mobile number"
+                class="form-input"
+                :class="{ error: validationError && !newClient.mobiles }"
+                :disabled="isSubmitting"
+                required
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="id_no">
+                <i class="fas fa-id-card"></i>
+                ID Number *
+              </label>
+              <input
+                id="id_no"
+                v-model="newClient.id_no"
+                type="text"
+                placeholder="Enter ID number"
+                class="form-input"
+                :class="{ error: validationError && !newClient.id_no }"
+                :disabled="isSubmitting"
+                required
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="email">
+                <i class="fas fa-envelope"></i>
+                Email Address
+              </label>
+              <input
+                id="email"
+                v-model="newClient.email"
+                type="email"
+                placeholder="Enter email address (optional)"
+                class="form-input"
+                :class="{ error: validationError && newClient.email }"
+                :disabled="isSubmitting"
+              />
+            </div>
+
+            <div class="form-group full-width">
+              <label for="address">
+                <i class="fas fa-map-marker-alt"></i>
+                Address
+              </label>
+              <input
+                id="address"
+                v-model="newClient.address"
+                type="text"
+                placeholder="Enter client's address"
+                class="form-input"
+                :disabled="isSubmitting"
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="is_broker" class="checkbox-label">
+                <input
+                  id="is_broker"
+                  type="checkbox"
+                  v-model="newClient.is_broker"
+                  :disabled="isSubmitting"
+                  class="checkbox-input"
+                />
+                <span class="checkbox-custom"></span>
+                <i class="fas fa-user-tie"></i>
+                Is Broker
+              </label>
+            </div>
+
+            <div class="form-group full-width">
+              <label for="notes">
+                <i class="fas fa-sticky-note"></i>
+                Notes
+              </label>
+              <textarea
+                id="notes"
+                v-model="newClient.notes"
+                placeholder="Add any additional notes about this client..."
+                rows="3"
+                class="form-textarea"
+                :disabled="isSubmitting"
+              ></textarea>
+            </div>
+
+            <div class="form-group full-width">
+              <label for="id-document">
+                <i class="fas fa-file-upload"></i>
+                ID Document *
+              </label>
+              <div class="file-upload-area">
+                <input
+                  type="file"
+                  id="id-document"
+                  @change="handleFileChange($event)"
+                  accept="image/*,.pdf"
+                  class="file-input"
+                  :class="{ error: validationError && !selectedFile }"
+                  :disabled="isSubmitting"
+                  required
+                />
+                <div class="file-upload-content">
+                  <i class="fas fa-cloud-upload-alt"></i>
+                  <p>Click to upload or drag and drop</p>
+                  <span>Supports: JPG, PNG, PDF (Max 5MB)</span>
+                </div>
+              </div>
+              <div v-if="selectedFile" class="selected-file">
+                <i class="fas fa-check-circle"></i>
+                <span>{{ selectedFile.name }}</span>
+              </div>
+            </div>
           </div>
 
-          <div class="input-group">
-            <i class="fas fa-map-marker-alt input-icon"></i>
-            <input
-              v-model="newClient.address"
-              placeholder="Address"
-              class="input-field"
-              :disabled="isSubmitting"
-            />
-          </div>
-
-          <div class="input-group">
-            <i class="fas fa-envelope input-icon"></i>
-            <input
-              v-model="newClient.email"
-              placeholder="Email (Optional)"
-              class="input-field"
-              :class="{ error: validationError && newClient.email }"
-              :disabled="isSubmitting"
-            />
-          </div>
-
-          <div class="input-group">
-            <i class="fas fa-phone input-icon"></i>
-            <input
-              v-model="newClient.mobiles"
-              placeholder="Mobile *"
-              class="input-field"
-              :class="{ error: validationError && !newClient.mobiles }"
-              :disabled="isSubmitting"
-            />
-          </div>
-
-          <div class="input-group">
-            <i class="fas fa-id-card input-icon"></i>
-            <input
-              v-model="newClient.id_no"
-              placeholder="ID No *"
-              class="input-field"
-              :class="{ error: validationError && !newClient.id_no }"
-              :disabled="isSubmitting"
-            />
-          </div>
-
-          <div class="checkbox-field">
-            <input
-              type="checkbox"
-              id="is-broker"
-              v-model="newClient.is_broker"
-              :disabled="isSubmitting"
-            />
-            <label for="is-broker">Is Broker</label>
-          </div>
-
-          <div class="textarea-group">
-            <label for="notes">
-              <i class="fas fa-sticky-note"></i>
-              Notes
-            </label>
-            <textarea
-              id="notes"
-              v-model="newClient.notes"
-              placeholder="Add notes about the client..."
-              rows="3"
-              class="textarea-field"
-              :disabled="isSubmitting"
-            ></textarea>
-          </div>
-
-          <div class="file-upload">
-            <label for="id-document">
-              <i class="fas fa-file-upload"></i>
-              ID Document: <span class="required">*</span>
-            </label>
-            <input
-              type="file"
-              id="id-document"
-              @change="handleFileChange($event)"
-              accept="image/*,.pdf"
-              class="file-input"
-              :class="{ error: validationError && !selectedFile }"
-              :disabled="isSubmitting"
-            />
-            <span v-if="selectedFile" class="selected-file">
-              <i class="fas fa-check"></i>
-              {{ selectedFile.name }}
-            </span>
-          </div>
-
-          <div v-if="validationError" class="error-message">
-            <i class="fas fa-exclamation-circle"></i>
+          <div v-if="validationError" class="validation-error">
+            <i class="fas fa-exclamation-triangle"></i>
             {{ validationError }}
           </div>
-        </div>
 
-        <div class="dialog-actions">
-          <button @click="addClient" class="btn save-btn" :disabled="isSubmitting">
-            <i class="fas fa-save"></i>
-            <span v-if="isSubmitting">
-              <i class="fas fa-spinner fa-spin"></i>
-              Saving...
-            </span>
-            <span v-else>Add</span>
-          </button>
-          <button @click="showAddDialog = false" class="btn cancel-btn" :disabled="isSubmitting">
-            <i class="fas fa-times"></i>
-            Cancel
-          </button>
-        </div>
+          <div class="modal-actions">
+            <button
+              type="button"
+              @click="showAddDialog = false"
+              class="btn-secondary"
+              :disabled="isSubmitting"
+            >
+              <i class="fas fa-times"></i>
+              Cancel
+            </button>
+            <button type="submit" class="btn-primary" :disabled="isSubmitting">
+              <i v-if="isSubmitting" class="fas fa-spinner fa-spin"></i>
+              <i v-else class="fas fa-save"></i>
+              {{ isSubmitting ? 'Adding...' : 'Add Client' }}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
 
     <!-- Edit Client Dialog -->
-    <div v-if="showEditDialog" class="dialog-overlay">
-      <div class="dialog">
-        <div class="dialog-header">
+    <div v-if="showEditDialog" class="modal-overlay" @click="showEditDialog = false">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
           <h3>
             <i class="fas fa-user-edit"></i>
             Edit Client
@@ -892,174 +1214,282 @@ onMounted(() => {
           {{ error }}
         </div>
 
-        <div class="form-group">
-          <div class="input-group">
-            <i class="fas fa-user input-icon"></i>
-            <input
-              v-model="editingClient.name"
-              placeholder="Name"
-              class="input-field"
-              :readonly="!isAdmin"
-              :disabled="isSubmitting"
-            />
-          </div>
-
-          <div class="input-group">
-            <i class="fas fa-map-marker-alt input-icon"></i>
-            <input
-              v-model="editingClient.address"
-              placeholder="Address"
-              class="input-field"
-              :disabled="isSubmitting"
-            />
-          </div>
-
-          <div class="input-group">
-            <i class="fas fa-envelope input-icon"></i>
-            <input
-              v-model="editingClient.email"
-              placeholder="Email (Optional)"
-              class="input-field"
-              :class="{ error: validationError && editingClient.email }"
-              :disabled="isSubmitting"
-            />
-          </div>
-
-          <div class="input-group">
-            <i class="fas fa-phone input-icon"></i>
-            <input
-              v-model="editingClient.mobiles"
-              placeholder="Mobile *"
-              class="input-field"
-              :class="{ error: validationError && !editingClient.mobiles }"
-              :disabled="isSubmitting"
-            />
-          </div>
-
-          <div class="input-group">
-            <i class="fas fa-id-card input-icon"></i>
-            <input
-              v-model="editingClient.id_no"
-              placeholder="ID No *"
-              class="input-field"
-              :class="{ error: validationError && !editingClient.id_no }"
-              :disabled="isSubmitting"
-            />
-          </div>
-
-          <div class="checkbox-field">
-            <input
-              type="checkbox"
-              id="edit-is-broker"
-              v-model="editingClient.is_broker"
-              :disabled="isSubmitting"
-            />
-            <label for="edit-is-broker">Is Broker</label>
-          </div>
-
-          <div class="textarea-group">
-            <label for="edit-notes">
-              <i class="fas fa-sticky-note"></i>
-              Notes
-            </label>
-            <textarea
-              id="edit-notes"
-              v-model="editingClient.notes"
-              placeholder="Add notes about the client..."
-              rows="3"
-              class="textarea-field"
-              :disabled="isSubmitting"
-            ></textarea>
-          </div>
-
-          <div class="file-upload">
-            <label for="edit-id-document">
-              <i class="fas fa-file-upload"></i>
-              ID Document: <span class="required">*</span>
-            </label>
-            <div v-if="editingClient.id_copy_path" class="current-file">
-              <i class="fas fa-file"></i>
-              Current: <a :href="getFileUrl(editingClient.id_copy_path)" target="_blank">View ID</a>
-            </div>
-            <input
-              type="file"
-              id="edit-id-document"
-              @change="handleFileChange($event, true)"
-              accept="image/*,.pdf"
-              class="file-input"
-              :class="{
-                error: validationError && !editingClient.id_copy_path && !editSelectedFile,
-              }"
-              :disabled="isSubmitting"
-            />
-            <div v-if="editSelectedFile" class="selected-file">
-              <i class="fas fa-check"></i>
-              <span class="file-name">{{ editSelectedFile.name }}</span>
-              <span class="file-info">(New file will replace current ID document)</span>
-              <button
-                @click="testFileUpload"
-                class="test-upload-btn"
+        <form @submit.prevent="updateClient" class="modal-form">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="edit-name">
+                <i class="fas fa-user"></i>
+                Full Name *
+              </label>
+              <input
+                id="edit-name"
+                v-model="editingClient.name"
+                type="text"
+                placeholder="Enter client's full name"
+                class="form-input"
+                :readonly="!isAdmin"
                 :disabled="isSubmitting"
-                style="
-                  margin-top: 8px;
-                  padding: 4px 8px;
-                  background: #f59e0b;
-                  color: white;
-                  border: none;
-                  border-radius: 4px;
-                  font-size: 0.8em;
-                  cursor: pointer;
-                "
-              >
-                <i class="fas fa-bug"></i>
-                Test Upload
-              </button>
+                required
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="edit-mobile">
+                <i class="fas fa-phone"></i>
+                Mobile Number *
+              </label>
+              <input
+                id="edit-mobile"
+                v-model="editingClient.mobiles"
+                type="tel"
+                placeholder="Enter mobile number"
+                class="form-input"
+                :class="{ error: validationError && !editingClient.mobiles }"
+                :disabled="isSubmitting"
+                required
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="edit-id_no">
+                <i class="fas fa-id-card"></i>
+                ID Number *
+              </label>
+              <input
+                id="edit-id_no"
+                v-model="editingClient.id_no"
+                type="text"
+                placeholder="Enter ID number"
+                class="form-input"
+                :class="{ error: validationError && !editingClient.id_no }"
+                :disabled="isSubmitting"
+                required
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="edit-email">
+                <i class="fas fa-envelope"></i>
+                Email Address
+              </label>
+              <input
+                id="edit-email"
+                v-model="editingClient.email"
+                type="email"
+                placeholder="Enter email address (optional)"
+                class="form-input"
+                :class="{ error: validationError && editingClient.email }"
+                :disabled="isSubmitting"
+              />
+            </div>
+
+            <div class="form-group full-width">
+              <label for="edit-address">
+                <i class="fas fa-map-marker-alt"></i>
+                Address
+              </label>
+              <input
+                id="edit-address"
+                v-model="editingClient.address"
+                type="text"
+                placeholder="Enter client's address"
+                class="form-input"
+                :disabled="isSubmitting"
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="edit-is_broker" class="checkbox-label">
+                <input
+                  id="edit-is_broker"
+                  type="checkbox"
+                  v-model="editingClient.is_broker"
+                  :disabled="isSubmitting"
+                  class="checkbox-input"
+                />
+                <span class="checkbox-custom"></span>
+                <i class="fas fa-user-tie"></i>
+                Is Broker
+              </label>
+            </div>
+
+            <div class="form-group full-width">
+              <label for="edit-notes">
+                <i class="fas fa-sticky-note"></i>
+                Notes
+              </label>
+              <textarea
+                id="edit-notes"
+                v-model="editingClient.notes"
+                placeholder="Add any additional notes about this client..."
+                rows="3"
+                class="form-textarea"
+                :disabled="isSubmitting"
+              ></textarea>
+            </div>
+
+            <div class="form-group full-width">
+              <label for="edit-id-document">
+                <i class="fas fa-file-upload"></i>
+                ID Document
+              </label>
+
+              <div v-if="editingClient.id_copy_path" class="current-file">
+                <div class="current-file-info">
+                  <i class="fas fa-file"></i>
+                  <span>Current document:</span>
+                  <a
+                    :href="getFileUrl(editingClient.id_copy_path)"
+                    target="_blank"
+                    class="file-link"
+                  >
+                    View Current ID
+                  </a>
+                </div>
+              </div>
+
+              <div class="file-upload-area">
+                <input
+                  type="file"
+                  id="edit-id-document"
+                  @change="handleFileChange($event, true)"
+                  accept="image/*,.pdf"
+                  class="file-input"
+                  :class="{
+                    error: validationError && !editingClient.id_copy_path && !editSelectedFile,
+                  }"
+                  :disabled="isSubmitting"
+                />
+                <div class="file-upload-content">
+                  <i class="fas fa-cloud-upload-alt"></i>
+                  <p>Upload new document (optional)</p>
+                  <span>Will replace current document</span>
+                </div>
+              </div>
+
+              <div v-if="editSelectedFile" class="selected-file">
+                <i class="fas fa-check-circle"></i>
+                <span>{{ editSelectedFile.name }}</span>
+              </div>
             </div>
           </div>
 
-          <div v-if="validationError" class="error-message">
-            <i class="fas fa-exclamation-circle"></i>
+          <div v-if="validationError" class="validation-error">
+            <i class="fas fa-exclamation-triangle"></i>
             {{ validationError }}
           </div>
-        </div>
 
-        <div class="dialog-actions">
-          <button @click="updateClient" class="btn save-btn" :disabled="isSubmitting">
-            <i class="fas fa-save"></i>
-            <span v-if="isSubmitting">
-              <i class="fas fa-spinner fa-spin"></i>
-              Saving...
-            </span>
-            <span v-else>Save</span>
-          </button>
-          <button @click="showEditDialog = false" class="btn cancel-btn" :disabled="isSubmitting">
-            <i class="fas fa-times"></i>
-            Cancel
-          </button>
-        </div>
+          <div class="modal-actions">
+            <button
+              type="button"
+              @click="showEditDialog = false"
+              class="btn-secondary"
+              :disabled="isSubmitting"
+            >
+              <i class="fas fa-times"></i>
+              Cancel
+            </button>
+            <button type="submit" class="btn-primary" :disabled="isSubmitting">
+              <i v-if="isSubmitting" class="fas fa-spinner fa-spin"></i>
+              <i v-else class="fas fa-save"></i>
+              {{ isSubmitting ? 'Saving...' : 'Save Changes' }}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
+
+    <!-- Task Form Modal -->
+    <TaskForm
+      v-if="selectedClientForTask"
+      :entity-data="selectedClientForTask"
+      entity-type="client"
+      :is-visible="showTaskForm"
+      @save="handleTaskSave"
+      @cancel="handleTaskCancel"
+    />
+
+    <!-- Teleport Dropdown Menu -->
+    <teleport to="body">
+      <div
+        v-if="teleportDropdown.isOpen"
+        class="teleport-dropdown"
+        :style="{
+          position: 'absolute',
+          left: teleportDropdown.position.x + 'px',
+          top: teleportDropdown.position.y + 'px',
+          zIndex: 9999,
+        }"
+      >
+        <ul class="teleport-dropdown-menu">
+          <li>
+            <button
+              @click="editClient(getClientById(teleportDropdown.clientId))"
+              class="dropdown-item"
+            >
+              <i class="fas fa-edit"></i>
+              <span>Edit Client</span>
+            </button>
+          </li>
+          <li>
+            <router-link
+              :to="`/clients/${getClientById(teleportDropdown.clientId)?.id}`"
+              class="dropdown-item"
+              target="_blank"
+            >
+              <i class="fas fa-info-circle"></i>
+              <span>View Details</span>
+            </router-link>
+          </li>
+          <li>
+            <button
+              @click="openTaskForClient(getClientById(teleportDropdown.clientId))"
+              class="dropdown-item"
+            >
+              <i class="fas fa-plus"></i>
+              <span>Add New Task</span>
+            </button>
+          </li>
+          <li v-if="isAdmin">
+            <button
+              @click="deleteClient(getClientById(teleportDropdown.clientId))"
+              class="dropdown-item delete"
+            >
+              <i class="fas fa-trash"></i>
+              <span>Delete Client</span>
+            </button>
+          </li>
+        </ul>
+      </div>
+    </teleport>
   </div>
 </template>
 
 <style scoped>
 .clients-view {
-  padding: 20px;
-  width: 1000px;
+  width: 100%;
+  margin: 0;
+  padding: 24px;
+  background-color: #f8fafc;
+  min-height: 100vh;
 }
 
-.loading-state {
+.loading-container {
   text-align: center;
   padding: 2rem;
   color: #666;
 }
 
-.loading-state i {
-  margin-right: 8px;
-  color: #3b82f6;
+.loading-spinner {
+  margin-bottom: 8px;
 }
 
-.error-message {
+.loading-text {
+  font-size: 1.2rem;
+  font-weight: 500;
+}
+
+.error-container {
   background-color: #fee2e2;
   border: 1px solid #ef4444;
   color: #dc2626;
@@ -1070,28 +1500,51 @@ onMounted(() => {
   align-items: center;
 }
 
-.error-message i {
-  margin-right: 8px;
+.error-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.header {
+.error-text {
+  font-size: 1rem;
+}
+
+.header-section {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
 }
 
-.header h2 {
+.header-content {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.header h2 i {
-  color: #3b82f6;
+.header-info {
+  display: flex;
+  flex-direction: column;
 }
 
-.add-btn {
+.page-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.page-subtitle {
+  font-size: 1rem;
+  color: #6b7280;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-primary {
   padding: 8px 16px;
   background-color: #10b981;
   color: white;
@@ -1104,23 +1557,167 @@ onMounted(() => {
   transition: background-color 0.2s;
 }
 
-.add-btn:hover {
+.btn-primary:hover {
   background-color: #059669;
 }
 
-.add-btn:disabled {
+.btn-primary:disabled {
   background-color: #9ca3af;
   cursor: not-allowed;
+}
+
+.stats-section {
+  background-color: #f9fafb;
+  border-radius: 8px;
+  padding: 12px;
+  margin: 12px 0;
+  border: 1px solid #e5e7eb;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.stat-card {
+  background-color: white;
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+.stat-icon {
+  font-size: 1.5rem;
+  margin-bottom: 6px;
+}
+
+.stat-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.stat-number {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+.main-content {
+  padding: 20px;
+}
+
+.filters-section {
+  background-color: #f9fafb;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 16px 0;
+  border: 1px solid #e5e7eb;
+}
+
+.filters-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.filters-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filters-title h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: #374151;
+}
+
+.btn-secondary {
+  background: none;
+  border: none;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 4px;
+  font-size: 1.2em;
+  transition: color 0.2s;
+}
+
+.btn-secondary:hover {
+  color: #ef4444;
+}
+
+.filters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 16px;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filter-group label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #374151;
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+.filter-group input,
+.filter-group select {
+  padding: 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  transition: border-color 0.2s;
+}
+
+.filter-group input:focus,
+.filter-group select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.results-section {
+  margin-top: 20px;
+}
+
+.clients-container {
+  background-color: white;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.table-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: #374151;
 }
 
 .clients-table {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 20px;
-  background: white;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  border-radius: 8px;
-  overflow: hidden;
 }
 
 .clients-table th,
@@ -1145,61 +1742,116 @@ onMounted(() => {
   background-color: #f9fafb;
 }
 
-.btn {
-  padding: 6px 12px;
-  border: none;
-  border-radius: 4px;
+.client-row {
   cursor: pointer;
-  margin-right: 8px;
+}
+
+.client-name {
+  width: 20%;
+}
+
+.client-email {
+  width: 20%;
+}
+
+.client-mobile {
+  width: 15%;
+}
+
+.client-id {
+  width: 10%;
+}
+
+.cars-count {
+  width: 10%;
+}
+
+.id-document-cell {
+  width: 15%;
+}
+
+.client-status {
+  width: 10%;
+}
+
+.client-notes {
+  width: 20%;
+}
+
+.client-actions {
+  width: 10%;
+}
+
+.name-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.name-text {
+  font-weight: 500;
+}
+
+.address-text {
+  color: #6b7280;
+  font-size: 0.9em;
+}
+
+.email-link {
+  color: #3b82f6;
+  text-decoration: none;
+}
+
+.no-email {
+  color: #6b7280;
+  font-size: 0.9em;
+}
+
+.mobile-number {
+  font-weight: 500;
+}
+
+.id-number {
+  font-weight: 500;
+}
+
+.cars-badge {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  transition: all 0.2s;
+  padding: 4px 8px;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 500;
 }
 
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.cars-badge.has-cars {
+  background-color: #dbeafe;
+  color: #2563eb;
 }
 
-.edit-btn {
-  background-color: #3b82f6;
-  color: white;
+.document-preview {
+  width: 100px;
+  height: 60px;
+  margin: 0 auto;
+  cursor: pointer;
+  overflow: hidden;
+  border-radius: 4px;
+  border: 1px solid #d1d5db;
+  transition: transform 0.2s;
 }
 
-.edit-btn:hover {
-  background-color: #2563eb;
+.document-preview:hover {
+  transform: scale(1.05);
 }
 
-.delete-btn {
-  background-color: #ef4444;
-  color: white;
+.document-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
-.delete-btn:hover {
-  background-color: #dc2626;
-}
-
-.save-btn {
-  background-color: #10b981;
-  color: white;
-}
-
-.save-btn:hover {
-  background-color: #059669;
-}
-
-.cancel-btn {
-  background-color: #6b7280;
-  color: white;
-}
-
-.cancel-btn:hover {
-  background-color: #4b5563;
-}
-
-.dialog-overlay {
-  position: fixed;
+.preview-overlay {
+  position: absolute;
   top: 0;
   left: 0;
   right: 0;
@@ -1208,127 +1860,45 @@ onMounted(() => {
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1000;
-  padding: 20px;
-  overflow-y: auto;
+  opacity: 0;
+  transition: opacity 0.2s;
 }
 
-.dialog {
-  background-color: white;
-  padding: 24px;
-  border-radius: 8px;
-  min-width: 400px;
-  max-width: 600px;
-  width: 100%;
-  max-height: 90vh;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+.preview-overlay:hover {
+  opacity: 1;
 }
 
-.dialog-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-  flex-shrink: 0;
+.preview-overlay i {
+  color: white;
+  font-size: 1.5rem;
 }
 
-.dialog-header h3 {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  color: #1f2937;
-}
-
-.dialog-header h3 i {
+.document-link {
   color: #3b82f6;
-}
-
-.close-btn {
-  background: none;
-  border: none;
-  color: #6b7280;
-  cursor: pointer;
-  padding: 4px;
-  font-size: 1.2em;
+  text-decoration: none;
+  font-size: 0.9em;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
   transition: color 0.2s;
-  flex-shrink: 0;
 }
 
-.close-btn:hover {
+.document-link:hover {
+  color: #2563eb;
+  text-decoration: underline;
+}
+
+.no-document {
+  color: #6b7280;
+  font-size: 0.9em;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.no-document i {
   color: #ef4444;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  margin-bottom: 20px;
-  overflow-y: auto;
-  flex: 1;
-  min-height: 0;
-}
-
-.input-group {
-  position: relative;
-}
-
-.input-icon {
-  position: absolute;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #6b7280;
-}
-
-.input-field {
-  width: 100%;
-  padding: 8px 12px 8px 36px;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  font-size: 1em;
-  transition: border-color 0.2s;
-}
-
-.input-field:focus {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
-}
-
-.input-field.error {
-  border-color: #ef4444;
-}
-
-.input-field[readonly] {
-  background-color: #f3f4f6;
-  cursor: not-allowed;
-}
-
-.file-upload {
-  margin-top: 8px;
-}
-
-.file-upload label {
-  display: block;
-  margin-bottom: 8px;
-  font-weight: 500;
-  color: #374151;
-}
-
-.file-upload label i {
-  margin-right: 8px;
-  color: #6b7280;
-}
-
-.file-input {
-  width: 100%;
-  padding: 8px;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  background-color: white;
 }
 
 .selected-file {
@@ -1374,327 +1944,396 @@ onMounted(() => {
   text-decoration: underline;
 }
 
-.dialog-actions {
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
   display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  margin-top: 24px;
-  flex-shrink: 0;
-  padding-top: 16px;
-  border-top: 1px solid #e5e7eb;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 20px;
+  overflow-y: auto;
 }
 
-.id-document-cell {
-  width: 120px;
-  text-align: center;
-}
-
-.image-preview {
-  width: 100px;
-  height: 60px;
-  margin: 0 auto;
-  cursor: pointer;
-  overflow: hidden;
-  border-radius: 4px;
-  border: 1px solid #d1d5db;
-  transition: transform 0.2s;
-}
-
-.image-preview:hover {
-  transform: scale(1.05);
-}
-
-.image-preview img {
+.modal-content {
+  background: white;
+  border-radius: 16px;
+  padding: 32px;
+  min-width: 600px;
+  max-width: 900px;
   width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.document-link {
-  color: #3b82f6;
-  text-decoration: none;
-  font-size: 0.9em;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  transition: color 0.2s;
-}
-
-.document-link:hover {
-  color: #2563eb;
-  text-decoration: underline;
-}
-
-.no-document {
-  color: #6b7280;
-  font-size: 0.9em;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.no-document i {
-  color: #ef4444;
-}
-
-.required {
-  color: #ef4444;
-  margin-left: 4px;
-}
-
-.input-field.error {
-  border-color: #ef4444;
-  background-color: #fef2f2;
-}
-
-.file-input.error {
-  border-color: #ef4444;
-  background-color: #fef2f2;
-}
-
-.checkbox-field {
-  margin-top: 8px;
-}
-
-.checkbox-field input {
-  margin-right: 8px;
-}
-
-.checkbox-field label {
-  margin-right: 16px;
-}
-
-.status-badges {
+  max-height: 90vh;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  box-shadow: 0 20px 25px rgba(0, 0, 0, 0.15);
+  animation: modalSlideIn 0.3s ease-out;
 }
 
-.badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  border-radius: 9999px;
-  font-size: 0.875rem;
-  font-weight: 500;
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
-.badge.client {
-  background-color: #dcfce7;
-  color: #059669;
-}
-
-.badge.broker {
-  background-color: #e0f2fe;
-  color: #0284c7;
-}
-
-.badge.cars {
-  background-color: #f1f5f9;
-  color: #64748b;
-  font-weight: 500;
-  min-width: 40px;
-  justify-content: center;
-}
-
-.badge.cars.has-cars {
-  background-color: #dbeafe;
-  color: #2563eb;
-}
-
-.cars-count {
-  text-align: center;
-}
-
-.textarea-group {
-  margin-top: 16px;
-}
-
-.textarea-group label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-  color: #374151;
-  font-weight: 500;
-}
-
-.textarea-group label i {
-  color: #6b7280;
-}
-
-.textarea-field {
-  width: 100%;
-  padding: 8px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  font-size: 1em;
-  font-family: inherit;
-  resize: vertical;
-  min-height: 80px;
-  transition: all 0.2s;
-}
-
-.textarea-field:focus {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
-}
-
-.notes-cell {
-  max-width: 200px;
-}
-
-.notes-content {
-  display: block;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: #374151;
-  font-size: 0.9em;
-}
-
-.no-notes {
-  color: #9ca3af;
-  font-size: 0.9em;
-  font-style: italic;
-}
-
-.filters-section {
-  background-color: #f9fafb;
-  border-radius: 8px;
-  padding: 16px;
-  margin: 16px 0;
-  border: 1px solid #e5e7eb;
-}
-
-.filters-header {
+.modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e5e7eb;
 }
 
-.filters-header h4 {
+.modal-header h3 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1f2937;
   margin: 0;
-  font-size: 1rem;
-  color: #374151;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
 }
 
-.clear-filters-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
+.modal-header h3 i {
+  color: #3b82f6;
+}
+
+.close-btn {
+  background: none;
   border: none;
-  border-radius: 4px;
-  background-color: #ef4444;
-  color: white;
+  color: #6b7280;
   cursor: pointer;
-  font-size: 0.875rem;
-  transition: background-color 0.2s;
+  padding: 8px;
+  border-radius: 6px;
+  transition: color 0.2s;
+  flex-shrink: 0;
 }
 
-.clear-filters-btn:hover {
-  background-color: #dc2626;
+.close-btn:hover {
+  background: #f3f4f6;
+  color: #ef4444;
 }
 
-.filters-grid {
+.modal-form {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.form-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+  margin-bottom: 24px;
 }
 
-.filter-group {
+.form-group {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.filter-group label {
+.form-group.full-width {
+  grid-column: span 2;
+}
+
+.form-group label {
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.9rem;
   display: flex;
   align-items: center;
-  gap: 6px;
-  color: #374151;
-  font-weight: 500;
-  font-size: 0.875rem;
+  gap: 8px;
 }
 
-.filter-group input,
-.filter-group select {
-  padding: 8px;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  font-size: 0.875rem;
-  transition: border-color 0.2s;
+.form-group label i {
+  color: #6b7280;
 }
 
-.filter-group input:focus,
-.filter-group select:focus {
+.form-input,
+.form-textarea {
+  padding: 12px 16px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: all 0.2s ease;
+  background: white;
+}
+
+.form-input:focus,
+.form-textarea:focus {
   outline: none;
   border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
-.no-results {
-  text-align: center;
-  padding: 2rem;
-  color: #6b7280;
-  background-color: #f9fafb;
-  border-radius: 8px;
-  margin-top: 1rem;
+.form-input.error,
+.form-textarea.error {
+  border-color: #ef4444;
+  background: #fef2f2;
 }
 
-.no-results i {
-  margin-bottom: 1rem;
-  color: #9ca3af;
+.form-textarea {
+  resize: vertical;
+  min-height: 100px;
+  font-family: inherit;
 }
 
-.sortable {
-  cursor: pointer;
-  user-select: none;
-  position: relative;
-  padding-right: 24px !important;
-}
-
-.sortable i:last-child {
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  opacity: 0.5;
-}
-
-.sortable:hover {
-  background-color: #f3f4f6;
-}
-
-.sortable i:last-child {
-  opacity: 1;
-}
-
-.action-btn.details {
-  background-color: #e3f2fd;
-  color: #1976d2;
-  text-decoration: none;
-  display: inline-flex;
+.checkbox-label {
+  display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 6px 12px;
-  border-radius: 4px;
-  font-size: 0.9em;
-  border: none;
+  gap: 12px;
   cursor: pointer;
-  transition: background-color 0.2s;
+  padding: 12px;
+  border-radius: 8px;
+  transition: background-color 0.2s ease;
 }
 
-.action-btn.details:hover {
-  background-color: #bbdefb;
+.checkbox-label:hover {
+  background: #f9fafb;
+}
+
+.checkbox-input {
+  width: 18px;
+  height: 18px;
+  accent-color: #3b82f6;
+}
+
+.checkbox-label i {
+  color: #6b7280;
+}
+
+.file-upload-area {
+  position: relative;
+  border: 2px dashed #d1d5db;
+  border-radius: 8px;
+  padding: 32px 16px;
+  text-align: center;
+  transition: all 0.2s ease;
+  background: #f9fafb;
+}
+
+.file-upload-area:hover {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.file-input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.file-upload-content {
+  pointer-events: none;
+}
+
+.file-upload-content i {
+  font-size: 2rem;
+  color: #6b7280;
+  margin-bottom: 12px;
+}
+
+.file-upload-content p {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #374151;
+  margin: 0 0 8px 0;
+}
+
+.file-upload-content span {
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
+.selected-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  color: #166534;
+  font-weight: 500;
+}
+
+.selected-file i {
+  color: #16a34a;
+}
+
+.current-file {
+  background: #f3f4f6;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.current-file-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: #374151;
+}
+
+.file-link {
+  color: #3b82f6;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.file-link:hover {
+  text-decoration: underline;
+}
+
+.validation-error {
+  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  padding: 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 500;
+}
+
+.validation-error i {
+  margin-right: 8px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 16px;
+  padding-top: 24px;
+  border-top: 1px solid #e5e7eb;
+  margin-top: auto;
+}
+
+.modal-actions .btn-primary,
+.modal-actions .btn-secondary {
+  padding: 12px 24px;
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.modal-actions .btn-primary {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border: none;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.modal-actions .btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+}
+
+.modal-actions .btn-secondary {
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #d1d5db;
+}
+
+.modal-actions .btn-secondary:hover {
+  background: #e5e7eb;
+  border-color: #9ca3af;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: #6b7280;
+}
+
+.empty-icon {
+  margin-bottom: 24px;
+}
+
+.empty-icon i {
+  color: #d1d5db;
+  font-size: 4rem;
+}
+
+.empty-state h3 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #374151;
+  margin: 0 0 12px 0;
+}
+
+.empty-state p {
+  font-size: 1.1rem;
+  color: #6b7280;
+  margin: 0 0 24px 0;
+}
+
+.loading-container {
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.loading-spinner {
+  margin-bottom: 16px;
+}
+
+.loading-spinner i {
+  font-size: 2rem;
+  color: #3b82f6;
+}
+
+.loading-text {
+  font-size: 1.2rem;
+  font-weight: 500;
+  color: #6b7280;
+}
+
+.error-container {
+  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  padding: 24px;
+  margin: 24px 0;
+}
+
+.error-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.error-content i {
+  font-size: 1.5rem;
+  color: #dc2626;
+}
+
+.error-text h4 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #991b1b;
+  margin: 0 0 8px 0;
+}
+
+.error-text p {
+  font-size: 1rem;
+  color: #7f1d1d;
+  margin: 0;
 }
 
 /* Responsive styles for mobile devices */
@@ -1704,54 +2343,26 @@ onMounted(() => {
     width: 100%;
   }
 
-  .dialog-overlay {
-    padding: 10px;
-  }
-
-  .dialog {
-    min-width: 300px;
-    max-width: 100%;
-    max-height: 95vh;
-    padding: 16px;
-  }
-
-  .dialog-header {
-    margin-bottom: 16px;
-  }
-
-  .dialog-header h3 {
-    font-size: 1.1rem;
-  }
-
-  .form-group {
-    gap: 12px;
-    margin-bottom: 16px;
-  }
-
-  .dialog-actions {
+  .header-section {
     flex-direction: column;
-    gap: 8px;
-    margin-top: 16px;
+    gap: 16px;
+    align-items: flex-start;
   }
 
-  .dialog-actions .btn {
-    width: 100%;
-    justify-content: center;
-    padding: 12px;
-    font-size: 1rem;
-  }
-
-  .input-field {
-    padding: 12px 12px 12px 40px;
-    font-size: 16px; /* Prevents zoom on iOS */
-  }
-
-  .textarea-field {
-    font-size: 16px; /* Prevents zoom on iOS */
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
   }
 
   .filters-grid {
     grid-template-columns: 1fr;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .form-group.full-width {
+    grid-column: span 1;
   }
 
   .clients-table {
@@ -1762,18 +2373,64 @@ onMounted(() => {
   .clients-table td {
     padding: 8px;
   }
-}
 
-@media (max-width: 480px) {
-  .dialog {
-    padding: 12px;
+  .modal-overlay {
+    padding: 10px;
   }
 
-  .dialog-header h3 {
+  .modal-content {
+    min-width: 300px;
+    max-width: 100%;
+    max-height: 95vh;
+    padding: 16px;
+  }
+
+  .modal-header {
+    margin-bottom: 16px;
+  }
+
+  .modal-header h3 {
+    font-size: 1.1rem;
+  }
+
+  .modal-form {
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .modal-actions {
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 16px;
+  }
+
+  .modal-actions .btn {
+    width: 100%;
+    justify-content: center;
+    padding: 12px;
     font-size: 1rem;
   }
 
-  .input-field {
+  .form-input {
+    padding: 12px 12px 12px 40px;
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+
+  .form-textarea {
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+}
+
+@media (max-width: 480px) {
+  .modal-content {
+    padding: 12px;
+  }
+
+  .modal-header h3 {
+    font-size: 1rem;
+  }
+
+  .form-input {
     padding: 10px 10px 10px 35px;
   }
 
@@ -1781,5 +2438,680 @@ onMounted(() => {
     padding: 8px 12px;
     font-size: 0.9rem;
   }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Additional modern styling */
+.clients-view {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 24px;
+  background-color: #f8fafc;
+  min-height: 100vh;
+}
+
+.header-section {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 32px;
+  border-radius: 16px;
+  margin-bottom: 24px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+.page-title {
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0 0 8px 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.page-title i {
+  color: #fbbf24;
+}
+
+.page-subtitle {
+  font-size: 1.1rem;
+  opacity: 0.9;
+  margin: 0;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+}
+
+.btn-primary:disabled {
+  background: #9ca3af;
+  transform: none;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+  background: #e5e7eb;
+  border-color: #9ca3af;
+}
+
+.stats-section {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e5e7eb;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.stat-card {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-radius: 12px;
+  padding: 24px;
+  text-align: center;
+  transition: all 0.3s ease;
+  border: 1px solid #e2e8f0;
+}
+
+.stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+}
+
+.stat-icon {
+  font-size: 2.5rem;
+  margin-bottom: 16px;
+  color: #3b82f6;
+}
+
+.stat-icon.brokers {
+  color: #8b5cf6;
+}
+
+.stat-icon.cars {
+  color: #10b981;
+}
+
+.stat-icon.active {
+  color: #f59e0b;
+}
+
+.stat-number {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0 0 8px 0;
+}
+
+.stat-label {
+  font-size: 0.9rem;
+  color: #6b7280;
+  font-weight: 500;
+  margin: 0;
+}
+
+.main-content {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e5e7eb;
+}
+
+.filters-section {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 24px;
+  border: 1px solid #e2e8f0;
+}
+
+.filters-title h3 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.filters-title i {
+  color: #3b82f6;
+  font-size: 1.1rem;
+}
+
+.filter-input,
+.filter-select {
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  width: 100%;
+}
+
+.filter-input:focus,
+.filter-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.results-section {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.clients-container {
+  padding: 0;
+}
+
+.table-header {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  padding: 20px 24px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.table-header h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+}
+
+.clients-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+}
+
+.clients-table th {
+  background: #f8fafc;
+  padding: 16px 12px;
+  font-weight: 600;
+  color: #374151;
+  border-bottom: 2px solid #e5e7eb;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.th-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+
+.sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.2s ease;
+}
+
+.sortable:hover {
+  background-color: #f1f5f9;
+}
+
+.sort-icon {
+  position: absolute;
+  right: 0;
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+
+.sort-icon.asc::before {
+  content: '▲';
+}
+
+.sort-icon.desc::before {
+  content: '▼';
+}
+
+.clients-table td {
+  padding: 16px 12px;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+}
+
+.client-row {
+  transition: all 0.2s ease;
+}
+
+.client-row:hover {
+  background-color: #f8fafc;
+  transform: translateX(4px);
+}
+
+.name-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.name-text {
+  font-weight: 600;
+  color: #1f2937;
+  font-size: 1rem;
+}
+
+.address-text {
+  color: #6b7280;
+  font-size: 0.85rem;
+}
+
+.email-link {
+  color: #3b82f6;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+
+.email-link:hover {
+  color: #2563eb;
+  text-decoration: underline;
+}
+
+.no-email {
+  color: #9ca3af;
+  font-style: italic;
+  font-size: 0.9rem;
+}
+
+.mobile-number {
+  font-weight: 600;
+  color: #1f2937;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.id-number {
+  font-weight: 600;
+  color: #1f2937;
+  font-family: 'Courier New', monospace;
+  background: #f3f4f6;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.cars-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  background: #f3f4f6;
+  color: #6b7280;
+  min-width: 50px;
+  justify-content: center;
+}
+
+.cars-badge.has-cars {
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  color: #1d4ed8;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
+}
+
+.document-preview {
+  width: 80px;
+  height: 50px;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  position: relative;
+  border: 2px solid #e5e7eb;
+  transition: all 0.3s ease;
+}
+
+.actions-group {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  position: relative;
+  z-index: 1000;
+}
+
+.action-btn {
+  padding: 8px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  font-size: 0.9rem;
+  min-width: 36px;
+  height: 36px;
+}
+.action-btn.edit {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+}
+.action-btn.edit:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+.action-btn.details {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  text-decoration: none;
+}
+.action-btn.details:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+.action-btn.delete {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+}
+.action-btn.delete:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.action-btn.task {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  color: white;
+}
+
+.action-btn.task:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+}
+
+.action-btn.actions {
+  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+  color: white;
+}
+
+.action-btn.actions:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(107, 114, 128, 0.3);
+}
+
+.task-dropdown-container {
+  position: relative;
+  z-index: 10000;
+}
+
+.task-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  padding: 8px;
+  z-index: 99999;
+  min-width: 200px;
+  margin-top: 8px;
+  animation: dropdownSlideIn 0.2s ease-out;
+}
+
+@keyframes dropdownSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.task-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 16px;
+  background: none;
+  border: none;
+  color: #374151;
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.task-dropdown-item:hover {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  color: #1f2937;
+  transform: translateX(4px);
+}
+
+.task-dropdown-item i {
+  width: 16px;
+  text-align: center;
+  color: #6b7280;
+}
+
+.task-dropdown-item:hover i {
+  color: #3b82f6;
+}
+
+.task-dropdown-item.delete {
+  color: #dc2626;
+}
+
+.task-dropdown-item.delete:hover {
+  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+  color: #991b1b;
+}
+
+.task-dropdown-item.delete:hover i {
+  color: #dc2626;
+}
+
+/* Add separator before delete button */
+.task-dropdown-item.delete {
+  border-top: 1px solid #e5e7eb;
+  margin-top: 4px;
+  padding-top: 16px;
+}
+
+.global-dropdown-menu {
+  position: absolute;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  padding: 8px;
+  z-index: 99999;
+  min-width: 200px;
+  animation: dropdownSlideIn 0.2s ease-out;
+}
+
+@keyframes dropdownSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.task-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 16px;
+  background: none;
+  border: none;
+  color: #374151;
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.task-dropdown-item:hover {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  color: #1f2937;
+  transform: translateX(4px);
+}
+
+.task-dropdown-item i {
+  width: 16px;
+  text-align: center;
+  color: #6b7280;
+}
+
+.task-dropdown-item:hover i {
+  color: #3b82f6;
+}
+
+.task-dropdown-item.delete {
+  color: #dc2626;
+}
+
+.task-dropdown-item.delete:hover {
+  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+  color: #991b1b;
+}
+
+.task-dropdown-item.delete:hover i {
+  color: #dc2626;
+}
+
+/* Add separator before delete button */
+.task-dropdown-item.delete {
+  border-top: 1px solid #e5e7eb;
+  margin-top: 4px;
+  padding-top: 16px;
+}
+
+/* Teleport Dropdown Styles */
+.teleport-dropdown {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  padding: 8px;
+  min-width: 200px;
+}
+
+.teleport-dropdown-menu {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.teleport-dropdown-menu li {
+  margin: 0;
+}
+
+.teleport-dropdown-menu .dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 16px;
+  background: none;
+  border: none;
+  color: #374151;
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+
+.teleport-dropdown-menu .dropdown-item:hover {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  color: #1f2937;
+  transform: translateX(4px);
+}
+
+.teleport-dropdown-menu .dropdown-item i {
+  width: 16px;
+  text-align: center;
+  color: #6b7280;
+}
+
+.teleport-dropdown-menu .dropdown-item:hover i {
+  color: #3b82f6;
+}
+
+.teleport-dropdown-menu .dropdown-item.delete {
+  color: #dc2626;
+}
+
+.teleport-dropdown-menu .dropdown-item.delete:hover {
+  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+  color: #991b1b;
+}
+
+.teleport-dropdown-menu .dropdown-item.delete:hover i {
+  color: #dc2626;
+}
+
+/* Add separator before delete button */
+.teleport-dropdown-menu .dropdown-item.delete {
+  border-top: 1px solid #e5e7eb;
+  margin-top: 4px;
+  padding-top: 16px;
 }
 </style>
