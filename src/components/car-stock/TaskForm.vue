@@ -15,7 +15,8 @@ const props = defineProps({
   entityType: {
     type: String,
     required: true,
-    validator: (value) => ['car', 'client', 'supplier', 'sell', 'buy', 'general'].includes(value),
+    validator: (value) =>
+      ['car', 'client', 'supplier', 'sell', 'buy', 'loading', 'general'].includes(value),
   },
   isVisible: {
     type: Boolean,
@@ -94,6 +95,15 @@ const entityConfig = computed(() => {
       route: '/buy',
       taskFlag: 0,
       defaultTitle: 'Buy Task',
+    },
+    loading: {
+      icon: 'fas fa-truck-loading',
+      label: 'Loading Record',
+      idField: 'id',
+      nameField: 'shipping_line_name',
+      route: '/loading',
+      taskFlag: 0,
+      defaultTitle: 'Loading Task',
     },
     general: {
       icon: 'fas fa-tasks',
@@ -545,7 +555,7 @@ const openEntityView = () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 1002;
   backdrop-filter: blur(2px);
 }
 

@@ -271,6 +271,13 @@
                     <i class="fas fa-edit"></i>
                   </button>
                   <button
+                    @click="openTaskForLoading(record)"
+                    class="action-btn task-btn"
+                    title="Add Task"
+                  >
+                    <i class="fas fa-tasks"></i>
+                  </button>
+                  <button
                     @click="deleteRecord(record)"
                     class="action-btn delete-btn"
                     title="Delete Record"
@@ -691,6 +698,16 @@
       </div>
     </div>
   </div>
+
+  <!-- Task Form Modal -->
+  <TaskForm
+    v-if="selectedLoadingForTask"
+    :entity-type="'loading'"
+    :entity-data="selectedLoadingForTask"
+    :is-visible="showTaskForm"
+    @task-created="handleTaskCreated"
+    @cancel="showTaskForm = false"
+  />
 </template>
 
 <script setup>
@@ -699,6 +716,7 @@ import { useApi } from '@/composables/useApi'
 import ContainersTable from './ContainersTable.vue'
 import LoadingAssignedCars from './LoadingAssignedCars.vue'
 import UnassignedCars from './UnassignedCars.vue'
+import TaskForm from '../car-stock/TaskForm.vue'
 
 const { callApi } = useApi()
 
@@ -766,6 +784,10 @@ const hasActiveFilters = ref(false)
 
 // Filter visibility state
 const showFilters = ref(false)
+
+// Add task form state
+const showTaskForm = ref(false)
+const selectedLoadingForTask = ref(null)
 
 const fetchLoadingRecords = async () => {
   loading.value = true
@@ -1961,6 +1983,22 @@ const generatePrintContent = (loadingRecord, containersData) => {
   `
 }
 
+// Add task handling methods
+const openTaskForLoading = (record) => {
+  console.log('openTaskForLoading called with record:', record)
+  console.log('Current showTaskForm value:', showTaskForm.value)
+  selectedLoadingForTask.value = record
+  showTaskForm.value = true
+  console.log('After setting showTaskForm to true:', showTaskForm.value)
+  console.log('selectedLoadingForTask value:', selectedLoadingForTask.value)
+}
+
+const handleTaskCreated = () => {
+  showTaskForm.value = false
+  // Don't set selectedLoadingForTask to null to avoid prop validation errors
+  // Optionally refresh data if needed
+}
+
 onMounted(() => {
   Promise.all([refreshData(), fetchReferenceData()])
 })
@@ -2379,6 +2417,14 @@ onMounted(() => {
 
 .action-btn:hover {
   color: #3498db;
+}
+
+.task-btn {
+  color: #6b7280;
+}
+
+.task-btn:hover {
+  color: #f59e0b;
 }
 
 .table-footer {
@@ -2852,5 +2898,30 @@ onMounted(() => {
     background-color: transparent;
     border-left: none;
   }
+}
+
+/* Task Modal Styles */
+.task-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1001;
+  backdrop-filter: blur(4px);
+}
+
+.task-modal {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  width: 90%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
 }
 </style>
