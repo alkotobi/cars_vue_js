@@ -326,7 +326,7 @@ defineExpose({
 
 <style scoped>
 .chat-sidebar {
-  width: 300px;
+  width: 400px;
   background-color: white;
   border-right: 1px solid #e2e8f0;
   display: flex;

@@ -73,6 +73,12 @@ const switchToGroup = async (groupId) => {
     console.log(`No cached messages for group ${groupId}, fetching all messages...`)
     await fetchAllMessages()
   }
+
+  // Focus the message input after switching groups
+  await nextTick()
+  if (messageInputRef.value) {
+    messageInputRef.value.focus()
+  }
 }
 
 const fetchAllMessages = async () => {
@@ -113,6 +119,12 @@ const fetchAllMessages = async () => {
 
       // Scroll to bottom on initial load
       await scrollToBottom()
+
+      // Focus the message input after loading messages
+      await nextTick()
+      if (messageInputRef.value) {
+        messageInputRef.value.focus()
+      }
     } else {
       console.log('No messages found or API failed:', result)
       messagesByGroup.value[props.groupId] = []
@@ -268,12 +280,12 @@ const sendMessage = async () => {
       messagesByGroup.value[props.groupId] = [...messages.value]
       newMessage.value = ''
 
-      // Emit event to parent
-      emit('message-sent', newMsg)
-
       // Scroll to bottom after message is added
       await nextTick()
       await scrollToBottom()
+
+      // Emit event to parent
+      emit('message-sent', newMsg)
     } else {
       alert('Failed to send message')
     }
@@ -282,6 +294,18 @@ const sendMessage = async () => {
     alert('Error sending message')
   } finally {
     isSending.value = false
+
+    // Focus the message input after sending is complete and textarea is enabled
+    setTimeout(() => {
+      requestAnimationFrame(() => {
+        if (messageInputRef.value) {
+          messageInputRef.value.focus()
+          console.log('Message input focused after sending')
+        } else {
+          console.log('Message input ref not available for focus')
+        }
+      })
+    }, 100)
   }
 }
 
@@ -779,7 +803,12 @@ defineExpose({
           ref="messageInputRef"
         ></textarea>
         <button
-          @click="sendMessage"
+          @click="
+            (e) => {
+              e.preventDefault()
+              sendMessage()
+            }
+          "
           :disabled="!newMessage.trim() || isSending"
           class="send-button"
         >
