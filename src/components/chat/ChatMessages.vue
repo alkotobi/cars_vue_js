@@ -15,7 +15,7 @@ const props = defineProps({
 
 const emit = defineEmits(['message-sent', 'new-messages-received', 'reset-triggered'])
 
-const { callApi, loading, error } = useApi()
+const { callApi, uploadFile, getFileUrl, loading, error } = useApi()
 const messages = ref([]) // Current group's messages
 const messagesByGroup = ref({}) // Store messages for each group: { groupId: [messages] }
 const newMessagesCountByGroup = ref({}) // Track new messages count per group: { groupId: count }
@@ -24,6 +24,16 @@ const currentUser = ref(null)
 const isSending = ref(false)
 const messagesContainer = ref(null)
 const messageInputRef = ref(null)
+const fileInputRef = ref(null)
+
+// File upload state
+const isUploading = ref(false)
+const uploadProgress = ref(0)
+const selectedFile = ref(null)
+const fileError = ref('')
+
+// File size limit (10MB)
+const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB in bytes
 
 // Debug section state
 const showDebugSection = ref(false)
@@ -1203,6 +1213,184 @@ const addEmoji = (emoji) => {
 const closeEmojiPicker = () => {
   showEmojiPicker.value = false
 }
+
+// File upload functions
+const selectFile = () => {
+  fileInputRef.value?.click()
+}
+
+const handleFileSelect = (event) => {
+  const file = event.target.files[0]
+  if (!file) return
+
+  // Reset error state
+  fileError.value = ''
+
+  // Check file size
+  if (file.size > MAX_FILE_SIZE) {
+    fileError.value = `File size (${(file.size / 1024 / 1024).toFixed(2)}MB) exceeds the 10MB limit`
+    return
+  }
+
+  selectedFile.value = file
+  uploadFileToChat()
+}
+
+const uploadFileToChat = async () => {
+  if (!selectedFile.value) return
+
+  isUploading.value = true
+  uploadProgress.value = 0
+  fileError.value = ''
+
+  try {
+    // Create folder name for this chat group
+    const chatFolder = `chat_files/group_${props.groupId}`
+
+    // Generate unique filename with timestamp
+    const timestamp = Date.now()
+    const fileExtension = selectedFile.value.name.split('.').pop()
+    const customFilename = `${timestamp}_${selectedFile.value.name}`
+
+    console.log('Uploading file to chat:', {
+      fileName: selectedFile.value.name,
+      fileSize: selectedFile.value.size,
+      chatFolder,
+      customFilename,
+    })
+
+    // Upload the file
+    const uploadResult = await uploadFile(selectedFile.value, chatFolder, customFilename)
+
+    if (uploadResult.success) {
+      // Create a file message with special prefix
+      const fileMessage = {
+        id_chat_group: props.groupId,
+        message_from_user_id: currentUser.value.id,
+        message: `[FILE]${uploadResult.relativePath}|${selectedFile.value.name}|${selectedFile.value.size}|${selectedFile.value.type}`,
+      }
+
+      // Send the file message to the database
+      const result = await callApi({
+        query: `
+          INSERT INTO chat_messages (id_chat_group, message_from_user_id, message) 
+          VALUES (?, ?, ?)
+        `,
+        params: [fileMessage.id_chat_group, fileMessage.message_from_user_id, fileMessage.message],
+        requiresAuth: true,
+      })
+
+      if (result.success) {
+        // Add the new message to both current list and group cache
+        const newMsg = {
+          id: result.lastInsertId,
+          id_chat_group: props.groupId,
+          message_from_user_id: currentUser.value.id,
+          message: fileMessage.message,
+          time: new Date().toISOString(),
+          sender_username: currentUser.value.username,
+          sender_role: currentUser.value.role_name,
+        }
+
+        messages.value.push(newMsg)
+        messagesByGroup.value[props.groupId] = [...messages.value]
+
+        // Emit event to parent
+        emit('message-sent', newMsg)
+
+        // Scroll to bottom after message is added
+        await nextTick()
+        await scrollToBottom()
+
+        console.log('File message sent successfully:', newMsg)
+      } else {
+        throw new Error('Failed to save file message to database')
+      }
+    } else {
+      throw new Error(uploadResult.message || 'File upload failed')
+    }
+  } catch (err) {
+    console.error('Error uploading file:', err)
+    fileError.value = err.message || 'Failed to upload file'
+  } finally {
+    isUploading.value = false
+    uploadProgress.value = 0
+    selectedFile.value = null
+    // Clear the file input
+    if (fileInputRef.value) {
+      fileInputRef.value.value = ''
+    }
+  }
+}
+
+const downloadFile = async (filePath, fileName) => {
+  try {
+    const fileUrl = getFileUrl(filePath)
+    const response = await fetch(fileUrl)
+
+    if (!response.ok) {
+      throw new Error('Failed to download file')
+    }
+
+    const blob = await response.blob()
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = fileName
+    document.body.appendChild(a)
+    a.click()
+    window.URL.revokeObjectURL(url)
+    document.body.removeChild(a)
+  } catch (err) {
+    console.error('Error downloading file:', err)
+    alert('Failed to download file')
+  }
+}
+
+const formatFileSize = (bytes) => {
+  if (bytes === 0) return '0 Bytes'
+  const k = 1024
+  const sizes = ['Bytes', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+}
+
+const getFileIcon = (fileType) => {
+  if (fileType.startsWith('image/')) return '🖼️'
+  if (fileType.startsWith('video/')) return '🎥'
+  if (fileType.startsWith('audio/')) return '🎵'
+  if (fileType.includes('pdf')) return '📄'
+  if (fileType.includes('word') || fileType.includes('document')) return '📝'
+  if (fileType.includes('excel') || fileType.includes('spreadsheet')) return '📊'
+  if (fileType.includes('powerpoint') || fileType.includes('presentation')) return '📽️'
+  if (fileType.includes('zip') || fileType.includes('rar') || fileType.includes('archive'))
+    return '📦'
+  return '📎'
+}
+
+// Parse file message to extract file information
+const parseFileMessage = (message) => {
+  if (!message.startsWith('[FILE]')) return null
+
+  const fileData = message.substring(6) // Remove '[FILE]' prefix
+  const parts = fileData.split('|')
+
+  if (parts.length >= 4) {
+    return {
+      filePath: parts[0],
+      fileName: parts[1],
+      fileSize: parseInt(parts[2]),
+      fileType: parts[3],
+    }
+  }
+
+  return null
+}
+
+// Check if message is a file message
+const isFileMessage = (message) => {
+  return message.startsWith('[FILE]')
+}
 </script>
 
 <template>
@@ -1262,7 +1450,37 @@ const closeEmojiPicker = () => {
             </div>
 
             <div class="message-content">
-              {{ message.message }}
+              <!-- Show file attachment if it's a file message -->
+              <div v-if="isFileMessage(message.message)" class="file-attachment">
+                <div class="file-info">
+                  <span class="file-icon">{{
+                    getFileIcon(parseFileMessage(message.message)?.fileType)
+                  }}</span>
+                  <div class="file-details">
+                    <span class="file-name">{{ parseFileMessage(message.message)?.fileName }}</span>
+                    <span class="file-size">{{
+                      formatFileSize(parseFileMessage(message.message)?.fileSize)
+                    }}</span>
+                  </div>
+                </div>
+                <button
+                  @click="
+                    downloadFile(
+                      parseFileMessage(message.message)?.filePath,
+                      parseFileMessage(message.message)?.fileName,
+                    )
+                  "
+                  class="download-btn"
+                  title="Download file"
+                >
+                  <i class="fas fa-download"></i>
+                </button>
+              </div>
+
+              <!-- Show regular text message if it's not a file message -->
+              <div v-else>
+                {{ message.message }}
+              </div>
             </div>
 
             <div class="message-footer">
@@ -1277,6 +1495,15 @@ const closeEmojiPicker = () => {
       <div class="input-wrapper">
         <button @click="toggleEmojiPicker" class="emoji-button" title="Add emoji" type="button">
           <i class="fas fa-smile"></i>
+        </button>
+        <button
+          @click="selectFile"
+          class="file-button"
+          title="Attach file"
+          type="button"
+          :disabled="isUploading"
+        >
+          <i :class="isUploading ? 'fas fa-spinner fa-spin' : 'fas fa-paperclip'"></i>
         </button>
         <textarea
           v-model="newMessage"
@@ -1302,10 +1529,33 @@ const closeEmojiPicker = () => {
           <i :class="isSending ? 'fas fa-spinner fa-spin' : 'fas fa-paper-plane'"></i>
         </button>
       </div>
+
+      <!-- File upload progress and error -->
+      <div v-if="isUploading" class="upload-progress">
+        <div class="progress-bar">
+          <div class="progress-fill" :style="{ width: uploadProgress + '%' }"></div>
+        </div>
+        <span class="progress-text">Uploading file...</span>
+      </div>
+
+      <div v-if="fileError" class="file-error">
+        <i class="fas fa-exclamation-triangle"></i>
+        {{ fileError }}
+      </div>
+
       <div class="input-footer">
         <span class="char-count">{{ newMessage.length }}/1000</span>
         <span class="send-hint">Press Enter to send, Shift+Enter for new line</span>
       </div>
+
+      <!-- Hidden file input -->
+      <input
+        ref="fileInputRef"
+        type="file"
+        @change="handleFileSelect"
+        style="display: none"
+        accept="*/*"
+      />
     </div>
 
     <!-- Emoji Picker Modal -->
@@ -1580,6 +1830,27 @@ const closeEmojiPicker = () => {
 }
 
 .emoji-button:hover {
+  background-color: #f1f5f9;
+  color: #06b6d4;
+}
+
+.file-button {
+  background-color: transparent;
+  border: none;
+  color: #64748b;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  height: 40px;
+}
+
+.file-button:hover {
   background-color: #f1f5f9;
   color: #06b6d4;
 }
@@ -1868,5 +2139,110 @@ const closeEmojiPicker = () => {
 .emoji-item:hover {
   background-color: #f1f5f9;
   transform: scale(1.1);
+}
+
+.upload-progress {
+  margin-top: 8px;
+  margin-bottom: 8px;
+  height: 20px;
+  background-color: #f8fafc;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  background-color: #06b6d4;
+  border-radius: 10px;
+  transition: width 0.2s;
+}
+
+.progress-fill {
+  height: 100%;
+  background-color: #06b6d4;
+  border-radius: 10px;
+  transition: width 0.2s;
+}
+
+.progress-text {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #374151;
+}
+
+.file-error {
+  margin-top: 8px;
+  margin-bottom: 8px;
+  padding: 8px;
+  background-color: #fef2f2;
+  border: 1px solid #fef2f2;
+  border-radius: 6px;
+  color: #ef4444;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.file-attachment {
+  margin-top: 8px;
+  padding: 8px;
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.own-message .file-attachment {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.file-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.file-icon {
+  font-size: 1.2rem;
+}
+
+.file-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.file-name {
+  font-weight: 500;
+  font-size: 0.9rem;
+  word-break: break-word;
+}
+
+.file-size {
+  font-size: 0.7rem;
+  opacity: 0.7;
+}
+
+.download-btn {
+  background-color: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: inherit;
+  padding: 6px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+}
+
+.download-btn:hover {
+  background-color: rgba(255, 255, 255, 0.3);
 }
 </style>
