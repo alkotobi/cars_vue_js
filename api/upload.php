@@ -3,6 +3,11 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
+// Set memory and execution time for large files
+ini_set('memory_limit', '512M');
+ini_set('max_execution_time', 600);
+ini_set('max_input_time', 600);
+
 // Enable CORS
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST');
@@ -46,7 +51,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             'jpg'  => 'image/jpeg',
             'jpeg' => 'image/jpeg',
             'png'  => 'image/png',
-            'gif'  => 'image/gif'
+            'gif'  => 'image/gif',
+            'bmp'  => 'image/bmp',
+            'webp' => 'image/webp',
+            'svg'  => 'image/svg+xml',
+            'mp4'  => 'video/mp4',
+            'webm' => 'video/webm',
+            'avi'  => 'video/x-msvideo',
+            'mov'  => 'video/quicktime',
+            'mp3'  => 'audio/mpeg',
+            'wav'  => 'audio/wav',
+            'ogg'  => 'audio/ogg',
+            'doc'  => 'application/msword',
+            'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'xls'  => 'application/vnd.ms-excel',
+            'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'ppt'  => 'application/vnd.ms-powerpoint',
+            'pptx' => 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            'txt'  => 'text/plain',
+            'zip'  => 'application/zip',
+            'rar'  => 'application/x-rar-compressed',
+            '7z'   => 'application/x-7z-compressed'
         ];
 
         // Set the appropriate content type if known
@@ -126,10 +151,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             throw new Exception('File upload failed with error code: ' . $fileError);
         }
 
-        // Maximum file size (10MB)
-        $maxFileSize = 10 * 1024 * 1024;
+        // Maximum file size (100MB)
+        $maxFileSize = 100 * 1024 * 1024;
         if ($fileSize > $maxFileSize) {
-            throw new Exception('File size exceeds limit of 10MB');
+            throw new Exception('File size exceeds limit of 100MB');
         }
 
         // Create base upload directory if it doesn't exist

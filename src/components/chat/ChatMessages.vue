@@ -1391,6 +1391,21 @@ const parseFileMessage = (message) => {
 const isFileMessage = (message) => {
   return message.startsWith('[FILE]')
 }
+
+// Check if file is an image
+const isImageFile = (fileType) => {
+  return fileType.startsWith('image/')
+}
+
+// Check if file is a video
+const isVideoFile = (fileType) => {
+  return fileType.startsWith('video/')
+}
+
+// Get file URL for display
+const getFileDisplayUrl = (filePath) => {
+  return getFileUrl(filePath)
+}
 </script>
 
 <template>
@@ -1452,7 +1467,66 @@ const isFileMessage = (message) => {
             <div class="message-content">
               <!-- Show file attachment if it's a file message -->
               <div v-if="isFileMessage(message.message)" class="file-attachment">
-                <div class="file-info">
+                <!-- Image display -->
+                <div
+                  v-if="isImageFile(parseFileMessage(message.message)?.fileType)"
+                  class="image-attachment"
+                >
+                  <img
+                    :src="getFileDisplayUrl(parseFileMessage(message.message)?.filePath)"
+                    :alt="parseFileMessage(message.message)?.fileName"
+                    class="chat-image"
+                    @click="
+                      downloadFile(
+                        parseFileMessage(message.message)?.filePath,
+                        parseFileMessage(message.message)?.fileName,
+                      )
+                    "
+                    title="Click to download"
+                  />
+                  <div class="file-info-overlay">
+                    <span class="file-name">{{ parseFileMessage(message.message)?.fileName }}</span>
+                    <span class="file-size">{{
+                      formatFileSize(parseFileMessage(message.message)?.fileSize)
+                    }}</span>
+                  </div>
+                </div>
+
+                <!-- Video display -->
+                <div
+                  v-else-if="isVideoFile(parseFileMessage(message.message)?.fileType)"
+                  class="video-attachment"
+                >
+                  <video
+                    :src="getFileDisplayUrl(parseFileMessage(message.message)?.filePath)"
+                    controls
+                    class="chat-video"
+                    preload="metadata"
+                  >
+                    Your browser does not support the video tag.
+                  </video>
+                  <div class="file-info-overlay">
+                    <span class="file-name">{{ parseFileMessage(message.message)?.fileName }}</span>
+                    <span class="file-size">{{
+                      formatFileSize(parseFileMessage(message.message)?.fileSize)
+                    }}</span>
+                    <button
+                      @click="
+                        downloadFile(
+                          parseFileMessage(message.message)?.filePath,
+                          parseFileMessage(message.message)?.fileName,
+                        )
+                      "
+                      class="download-btn"
+                      title="Download video"
+                    >
+                      <i class="fas fa-download"></i>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Other file types -->
+                <div v-else class="file-info">
                   <span class="file-icon">{{
                     getFileIcon(parseFileMessage(message.message)?.fileType)
                   }}</span>
@@ -1462,19 +1536,19 @@ const isFileMessage = (message) => {
                       formatFileSize(parseFileMessage(message.message)?.fileSize)
                     }}</span>
                   </div>
+                  <button
+                    @click="
+                      downloadFile(
+                        parseFileMessage(message.message)?.filePath,
+                        parseFileMessage(message.message)?.fileName,
+                      )
+                    "
+                    class="download-btn"
+                    title="Download file"
+                  >
+                    <i class="fas fa-download"></i>
+                  </button>
                 </div>
-                <button
-                  @click="
-                    downloadFile(
-                      parseFileMessage(message.message)?.filePath,
-                      parseFileMessage(message.message)?.fileName,
-                    )
-                  "
-                  class="download-btn"
-                  title="Download file"
-                >
-                  <i class="fas fa-download"></i>
-                </button>
               </div>
 
               <!-- Show regular text message if it's not a file message -->
@@ -2244,5 +2318,90 @@ const isFileMessage = (message) => {
 
 .download-btn:hover {
   background-color: rgba(255, 255, 255, 0.3);
+}
+
+.image-attachment {
+  position: relative;
+  max-width: 300px;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.image-attachment:hover {
+  transform: scale(1.02);
+}
+
+.chat-image {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 8px;
+}
+
+.file-info-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
+  color: white;
+  padding: 12px 8px 8px 8px;
+  font-size: 0.8rem;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.image-attachment:hover .file-info-overlay,
+.video-attachment:hover .file-info-overlay {
+  opacity: 1;
+}
+
+.file-info-overlay .file-name {
+  font-weight: 500;
+  margin-bottom: 2px;
+  word-break: break-word;
+}
+
+.file-info-overlay .file-size {
+  font-size: 0.7rem;
+  opacity: 0.8;
+}
+
+.video-attachment {
+  position: relative;
+  max-width: 300px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.chat-video {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 8px;
+}
+
+.file-info-overlay .download-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background-color: rgba(0, 0, 0, 0.6);
+  border: none;
+  color: white;
+  padding: 6px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+}
+
+.file-info-overlay .download-btn:hover {
+  background-color: rgba(0, 0, 0, 0.8);
 }
 </style>
