@@ -32,8 +32,17 @@ const uploadProgress = ref(0)
 const selectedFile = ref(null)
 const fileError = ref('')
 
-// File size limit (10MB)
-const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB in bytes
+// Voice message state
+const isRecording = ref(false)
+const recordingTime = ref(0)
+const recordingInterval = ref(null)
+const mediaRecorder = ref(null)
+const audioChunks = ref([])
+const audioBlob = ref(null)
+const audioUrl = ref('')
+
+// File size limit (100MB)
+const MAX_FILE_SIZE = 100 * 1024 * 1024 // 100MB in bytes
 
 // Debug section state
 const showDebugSection = ref(false)
@@ -1228,7 +1237,7 @@ const handleFileSelect = (event) => {
 
   // Check file size
   if (file.size > MAX_FILE_SIZE) {
-    fileError.value = `File size (${(file.size / 1024 / 1024).toFixed(2)}MB) exceeds the 10MB limit`
+    fileError.value = `File size (${(file.size / 1024 / 1024).toFixed(2)}MB) exceeds the 100MB limit`
     return
   }
 
@@ -1392,6 +1401,31 @@ const isFileMessage = (message) => {
   return message.startsWith('[FILE]')
 }
 
+// Check if message is a voice message
+const isVoiceMessage = (message) => {
+  return message.startsWith('[VOICE]')
+}
+
+// Parse voice message to extract voice information
+const parseVoiceMessage = (message) => {
+  if (!message.startsWith('[VOICE]')) return null
+
+  const voiceData = message.substring(7) // Remove '[VOICE]' prefix
+  const parts = voiceData.split('|')
+
+  if (parts.length >= 5) {
+    return {
+      filePath: parts[0],
+      fileName: parts[1],
+      fileSize: parseInt(parts[2]),
+      fileType: parts[3],
+      duration: parseInt(parts[4]),
+    }
+  }
+
+  return null
+}
+
 // Check if file is an image
 const isImageFile = (fileType) => {
   return fileType.startsWith('image/')
@@ -1405,6 +1439,156 @@ const isVideoFile = (fileType) => {
 // Get file URL for display
 const getFileDisplayUrl = (filePath) => {
   return getFileUrl(filePath)
+}
+
+// Voice recording functions
+const startRecording = async () => {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    mediaRecorder.value = new MediaRecorder(stream)
+    audioChunks.value = []
+
+    mediaRecorder.value.ondataavailable = (event) => {
+      audioChunks.value.push(event.data)
+    }
+
+    mediaRecorder.value.onstop = () => {
+      audioBlob.value = new Blob(audioChunks.value, { type: 'audio/wav' })
+      audioUrl.value = URL.createObjectURL(audioBlob.value)
+
+      // Stop all tracks to release microphone
+      stream.getTracks().forEach((track) => track.stop())
+    }
+
+    mediaRecorder.value.start()
+    isRecording.value = true
+    recordingTime.value = 0
+
+    // Start timer
+    recordingInterval.value = setInterval(() => {
+      recordingTime.value++
+    }, 1000)
+  } catch (err) {
+    console.error('Error starting recording:', err)
+    alert('Could not access microphone. Please check permissions.')
+  }
+}
+
+const stopRecording = () => {
+  if (mediaRecorder.value && isRecording.value) {
+    mediaRecorder.value.stop()
+    isRecording.value = false
+
+    if (recordingInterval.value) {
+      clearInterval(recordingInterval.value)
+      recordingInterval.value = null
+    }
+  }
+}
+
+const sendVoiceMessage = async () => {
+  if (!audioBlob.value) return
+
+  isUploading.value = true
+  fileError.value = ''
+
+  try {
+    // Create a file from the audio blob
+    const audioFile = new File([audioBlob.value], `voice_message_${Date.now()}.wav`, {
+      type: 'audio/wav',
+    })
+
+    // Create folder name for this chat group
+    const chatFolder = `chat_files/group_${props.groupId}`
+
+    // Generate unique filename with timestamp
+    const timestamp = Date.now()
+    const customFilename = `${timestamp}_voice_message.wav`
+
+    console.log('Uploading voice message:', {
+      fileName: audioFile.name,
+      fileSize: audioFile.size,
+      chatFolder,
+      customFilename,
+    })
+
+    // Upload the voice message
+    const uploadResult = await uploadFile(audioFile, chatFolder, customFilename)
+
+    if (uploadResult.success) {
+      // Create a voice message with special prefix
+      const voiceMessage = {
+        id_chat_group: props.groupId,
+        message_from_user_id: currentUser.value.id,
+        message: `[VOICE]${uploadResult.relativePath}|voice_message.wav|${audioFile.size}|audio/wav|${recordingTime.value}`,
+      }
+
+      // Send the voice message to the database
+      const result = await callApi({
+        query: `
+          INSERT INTO chat_messages (id_chat_group, message_from_user_id, message) 
+          VALUES (?, ?, ?)
+        `,
+        params: [
+          voiceMessage.id_chat_group,
+          voiceMessage.message_from_user_id,
+          voiceMessage.message,
+        ],
+        requiresAuth: true,
+      })
+
+      if (result.success) {
+        // Add the new message to both current list and group cache
+        const newMsg = {
+          id: result.lastInsertId,
+          id_chat_group: props.groupId,
+          message_from_user_id: currentUser.value.id,
+          message: voiceMessage.message,
+          time: new Date().toISOString(),
+          sender_username: currentUser.value.username,
+          sender_role: currentUser.value.role_name,
+        }
+
+        messages.value.push(newMsg)
+        messagesByGroup.value[props.groupId] = [...messages.value]
+
+        // Emit event to parent
+        emit('message-sent', newMsg)
+
+        // Scroll to bottom after message is added
+        await nextTick()
+        await scrollToBottom()
+
+        console.log('Voice message sent successfully:', newMsg)
+      } else {
+        throw new Error('Failed to save voice message to database')
+      }
+    } else {
+      throw new Error(uploadResult.message || 'Voice message upload failed')
+    }
+  } catch (err) {
+    console.error('Error sending voice message:', err)
+    fileError.value = err.message || 'Failed to send voice message'
+  } finally {
+    isUploading.value = false
+    // Clean up
+    audioBlob.value = null
+    audioUrl.value = ''
+    recordingTime.value = 0
+  }
+}
+
+const cancelRecording = () => {
+  stopRecording()
+  audioBlob.value = null
+  audioUrl.value = ''
+  recordingTime.value = 0
+}
+
+const formatRecordingTime = (seconds) => {
+  const mins = Math.floor(seconds / 60)
+  const secs = seconds % 60
+  return `${mins}:${secs.toString().padStart(2, '0')}`
 }
 </script>
 
@@ -1465,8 +1649,40 @@ const getFileDisplayUrl = (filePath) => {
             </div>
 
             <div class="message-content">
+              <!-- Show voice message if it's a voice message -->
+              <div v-if="isVoiceMessage(message.message)" class="voice-message">
+                <div class="voice-message-content">
+                  <i class="fas fa-microphone voice-icon"></i>
+                  <audio
+                    :src="getFileDisplayUrl(parseVoiceMessage(message.message)?.filePath)"
+                    controls
+                    class="voice-player"
+                    preload="metadata"
+                  >
+                    Your browser does not support the audio tag.
+                  </audio>
+                  <div class="voice-info">
+                    <span class="voice-duration">{{
+                      formatRecordingTime(parseVoiceMessage(message.message)?.duration)
+                    }}</span>
+                    <button
+                      @click="
+                        downloadFile(
+                          parseVoiceMessage(message.message)?.filePath,
+                          parseVoiceMessage(message.message)?.fileName,
+                        )
+                      "
+                      class="download-btn"
+                      title="Download voice message"
+                    >
+                      <i class="fas fa-download"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               <!-- Show file attachment if it's a file message -->
-              <div v-if="isFileMessage(message.message)" class="file-attachment">
+              <div v-else-if="isFileMessage(message.message)" class="file-attachment">
                 <!-- Image display -->
                 <div
                   v-if="isImageFile(parseFileMessage(message.message)?.fileType)"
@@ -1551,7 +1767,7 @@ const getFileDisplayUrl = (filePath) => {
                 </div>
               </div>
 
-              <!-- Show regular text message if it's not a file message -->
+              <!-- Show regular text message if it's not a file or voice message -->
               <div v-else>
                 {{ message.message }}
               </div>
@@ -1578,6 +1794,16 @@ const getFileDisplayUrl = (filePath) => {
           :disabled="isUploading"
         >
           <i :class="isUploading ? 'fas fa-spinner fa-spin' : 'fas fa-paperclip'"></i>
+        </button>
+        <button
+          @click="isRecording ? stopRecording() : startRecording()"
+          class="voice-button"
+          :class="{ recording: isRecording }"
+          title="Record voice message"
+          type="button"
+          :disabled="isUploading"
+        >
+          <i :class="isRecording ? 'fas fa-stop' : 'fas fa-microphone'"></i>
         </button>
         <textarea
           v-model="newMessage"
@@ -1610,6 +1836,35 @@ const getFileDisplayUrl = (filePath) => {
           <div class="progress-fill" :style="{ width: uploadProgress + '%' }"></div>
         </div>
         <span class="progress-text">Uploading file...</span>
+      </div>
+
+      <!-- Voice recording interface -->
+      <div v-if="isRecording" class="voice-recording">
+        <div class="recording-indicator">
+          <i class="fas fa-microphone"></i>
+          <span class="recording-text">Recording...</span>
+          <span class="recording-time">{{ formatRecordingTime(recordingTime) }}</span>
+        </div>
+        <div class="recording-actions">
+          <button @click="cancelRecording" class="cancel-btn" title="Cancel recording">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Voice message preview -->
+      <div v-if="audioUrl && !isRecording" class="voice-preview">
+        <div class="voice-preview-content">
+          <audio :src="audioUrl" controls class="voice-audio"></audio>
+          <div class="voice-actions">
+            <button @click="sendVoiceMessage" class="send-voice-btn" title="Send voice message">
+              <i class="fas fa-paper-plane"></i>
+            </button>
+            <button @click="cancelRecording" class="cancel-voice-btn" title="Cancel">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+        </div>
       </div>
 
       <div v-if="fileError" class="file-error">
@@ -1925,6 +2180,27 @@ const getFileDisplayUrl = (filePath) => {
 }
 
 .file-button:hover {
+  background-color: #f1f5f9;
+  color: #06b6d4;
+}
+
+.voice-button {
+  background-color: transparent;
+  border: none;
+  color: #64748b;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  height: 40px;
+}
+
+.voice-button:hover {
   background-color: #f1f5f9;
   color: #06b6d4;
 }
@@ -2403,5 +2679,179 @@ const getFileDisplayUrl = (filePath) => {
 
 .file-info-overlay .download-btn:hover {
   background-color: rgba(0, 0, 0, 0.8);
+}
+
+.voice-recording {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px;
+  background-color: #f8fafc;
+  border-radius: 6px;
+  margin-top: 8px;
+}
+
+.recording-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.recording-text {
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.recording-time {
+  font-size: 0.7rem;
+  opacity: 0.7;
+}
+
+.cancel-btn {
+  background-color: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: #64748b;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+}
+
+.cancel-btn:hover {
+  background-color: #e2e8f0;
+  color: #374151;
+}
+
+.voice-preview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px;
+  background-color: #f8fafc;
+  border-radius: 6px;
+  margin-top: 8px;
+}
+
+.voice-preview-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.voice-audio {
+  width: 150px;
+  height: 40px;
+}
+
+.voice-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.send-voice-btn {
+  background-color: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: #64748b;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+}
+
+.send-voice-btn:hover {
+  background-color: #e2e8f0;
+  color: #374151;
+}
+
+.cancel-voice-btn {
+  background-color: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: #64748b;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+}
+
+.cancel-voice-btn:hover {
+  background-color: #e2e8f0;
+  color: #374151;
+}
+
+.voice-message {
+  margin-top: 8px;
+  padding: 8px;
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+}
+
+.own-message .voice-message {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.voice-message-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.voice-icon {
+  font-size: 1.2rem;
+  color: #06b6d4;
+}
+
+.voice-player {
+  flex: 1;
+  height: 40px;
+  border-radius: 4px;
+}
+
+.voice-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.voice-duration {
+  font-size: 0.8rem;
+  opacity: 0.7;
+  white-space: nowrap;
+}
+
+.voice-button.recording {
+  background-color: #ef4444;
+  color: white;
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 </style>
