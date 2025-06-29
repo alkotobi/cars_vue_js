@@ -1460,6 +1460,16 @@ const getFileDisplayUrl = (filePath) => {
 // Voice recording functions
 const startRecording = async () => {
   try {
+    // Check if we're on HTTPS (required for microphone access)
+    if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+      throw new Error('Microphone access requires HTTPS. Please use https://cars.merhab.com')
+    }
+
+    // Check if MediaRecorder is supported
+    if (!window.MediaRecorder) {
+      throw new Error('MediaRecorder is not supported in this browser')
+    }
+
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
     mediaRecorder.value = new MediaRecorder(stream)
     audioChunks.value = []
@@ -1486,7 +1496,22 @@ const startRecording = async () => {
     }, 1000)
   } catch (err) {
     console.error('Error starting recording:', err)
-    alert('Could not access microphone. Please check permissions.')
+
+    let errorMessage = 'Could not access microphone. '
+
+    if (err.name === 'NotAllowedError') {
+      errorMessage += 'Please allow microphone access in your browser settings.'
+    } else if (err.name === 'NotFoundError') {
+      errorMessage += 'No microphone found. Please connect a microphone and try again.'
+    } else if (err.name === 'NotSupportedError') {
+      errorMessage += 'Microphone access is not supported in this browser.'
+    } else if (err.message.includes('HTTPS')) {
+      errorMessage = err.message
+    } else {
+      errorMessage += 'Please check permissions and try again.'
+    }
+
+    alert(errorMessage)
   }
 }
 

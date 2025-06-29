@@ -31,7 +31,7 @@ export default defineConfig({
       },
     },
   },
-  base: './mig/',
+  base: '/',
   build: {
     rollupOptions: {
       output: {

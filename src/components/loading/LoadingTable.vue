@@ -718,7 +718,7 @@ import LoadingAssignedCars from './LoadingAssignedCars.vue'
 import UnassignedCars from './UnassignedCars.vue'
 import TaskForm from '../car-stock/TaskForm.vue'
 
-const { callApi } = useApi()
+const { callApi, getFileUrl } = useApi()
 
 const loadingRecords = ref([])
 const totalRecords = ref(0)
@@ -1687,28 +1687,6 @@ const printLoadingRecord = async () => {
 const generatePrintContent = (loadingRecord, containersData) => {
   const containers = Object.values(containersData)
   const totalCars = containers.reduce((sum, container) => sum + container.cars.length, 0)
-
-  // Get the current hostname for API URL construction
-  const hostname = window.location.hostname
-  const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1'
-  const API_BASE_URL = isLocalhost ? 'http://localhost:8000/api' : 'https://www.merhab.com/api'
-  const UPLOAD_URL = `${API_BASE_URL}/upload.php`
-
-  const getFileUrl = (path) => {
-    if (!path) return ''
-    if (path.startsWith('http')) return path
-    let processedPath = path.replace(/^\/+/, '')
-    if (
-      processedPath.includes('upload.php?path=') ||
-      processedPath.includes('upload_simple.php?path=')
-    ) {
-      const match = processedPath.match(/path=(.+)$/)
-      if (match) {
-        processedPath = decodeURIComponent(match[1])
-      }
-    }
-    return `${UPLOAD_URL}?path=${encodeURIComponent(processedPath)}`
-  }
 
   return `
     <!DOCTYPE html>

@@ -1,14 +1,26 @@
 import { ref } from 'vue'
 
-// Get the current hostname
+// Get the current hostname and protocol
 const hostname = window.location.hostname
+const protocol = window.location.protocol
 const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1'
 
 // Set API base URL based on environment
+// For production, API is on www.merhab.com, not cars.merhab.com
 const API_BASE_URL = isLocalhost ? 'http://localhost:8000/api' : 'https://www.merhab.com/api'
 
 const API_URL = `${API_BASE_URL}/api.php`
 const UPLOAD_URL = `${API_BASE_URL}/upload.php`
+
+// Debug logging
+console.log('API Configuration:', {
+  hostname,
+  protocol,
+  isLocalhost,
+  API_BASE_URL,
+  API_URL,
+  UPLOAD_URL,
+})
 
 // const UPLOAD_URL = `${API_BASE_URL}/upload_simple.php`  // Use this if main upload fails
 
@@ -31,6 +43,8 @@ export const useApi = () => {
         token: userData?.token,
       }
 
+      console.log('API call to:', API_URL, 'with data:', requestData)
+
       const response = await fetch(API_URL, {
         method: 'POST',
         headers: {
@@ -39,9 +53,32 @@ export const useApi = () => {
         body: JSON.stringify(requestData),
       })
 
+      console.log('API response status:', response.status, response.statusText)
+
+      // Check if response is OK
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('API error response:', errorText)
+        throw new Error(
+          `HTTP ${response.status}: ${response.statusText} - ${errorText.substring(0, 200)}`,
+        )
+      }
+
+      // Check content type
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text()
+        console.error('Non-JSON response:', text)
+        throw new Error(
+          `Server returned non-JSON response. Expected JSON but got: ${contentType}. Response: ${text.substring(0, 200)}`,
+        )
+      }
+
       const result = await response.json()
+      console.log('API result:', result)
       return result
     } catch (err) {
+      console.error('API call error:', err)
       error.value = err.message
       throw err
     } finally {

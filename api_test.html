@@ -1,0 +1,230 @@
+<!doctype html>
+<html>
+  <head>
+    <title>API Debug Test</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      .test-section {
+        margin: 20px 0;
+        padding: 15px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+      }
+      .success {
+        background-color: #d4edda;
+        border-color: #c3e6cb;
+      }
+      .error {
+        background-color: #f8d7da;
+        border-color: #f5c6cb;
+      }
+      .info {
+        background-color: #d1ecf1;
+        border-color: #bee5eb;
+      }
+      pre {
+        background: #f8f9fa;
+        padding: 10px;
+        border-radius: 3px;
+        overflow-x: auto;
+      }
+      button {
+        padding: 10px 20px;
+        margin: 5px;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>API Debug Test</h1>
+
+    <div class="test-section info">
+      <h3>Current Environment</h3>
+      <div id="environment"></div>
+    </div>
+
+    <div class="test-section">
+      <h3>API Tests</h3>
+      <button onclick="testAPI()">Test API Connection</button>
+      <button onclick="testFileExists()">Test File Exists</button>
+      <button onclick="testSimpleQuery()">Test Simple Query</button>
+      <div id="api-results"></div>
+    </div>
+
+    <div class="test-section">
+      <h3>Alternative Paths Test</h3>
+      <button onclick="testAlternativePaths()">Test Alternative API Paths</button>
+      <div id="alternative-results"></div>
+    </div>
+
+    <script>
+      // Get current environment info
+      const hostname = window.location.hostname
+      const protocol = window.location.protocol
+      const pathname = window.location.pathname
+      const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1'
+
+      // Display environment info
+      document.getElementById('environment').innerHTML = `
+            <p><strong>Hostname:</strong> ${hostname}</p>
+            <p><strong>Protocol:</strong> ${protocol}</p>
+            <p><strong>Current Path:</strong> ${pathname}</p>
+            <p><strong>Is Localhost:</strong> ${isLocalhost}</p>
+        `
+
+      // Construct API URLs
+      const API_BASE_URL = isLocalhost
+        ? 'http://localhost:8000/api'
+        : `${protocol}//${hostname}/api`
+      const API_URL = `${API_BASE_URL}/api.php`
+
+      console.log('API URLs:', { API_BASE_URL, API_URL })
+
+      function addResult(containerId, title, content, isError = false) {
+        const container = document.getElementById(containerId)
+        const div = document.createElement('div')
+        div.className = `test-section ${isError ? 'error' : 'success'}`
+        div.innerHTML = `
+                <h4>${title}</h4>
+                <pre>${content}</pre>
+            `
+        container.appendChild(div)
+      }
+
+      async function testAPI() {
+        const container = document.getElementById('api-results')
+        container.innerHTML = '<h4>Testing API Connection...</h4>'
+
+        try {
+          console.log('Testing API URL:', API_URL)
+
+          const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              query: 'SELECT 1 as test',
+            }),
+          })
+
+          const responseText = await response.text()
+          const contentType = response.headers.get('content-type')
+
+          const result = `
+URL: ${API_URL}
+Status: ${response.status} ${response.statusText}
+Content-Type: ${contentType}
+Response: ${responseText.substring(0, 1000)}
+                `
+
+          addResult('api-results', 'API Test Result', result, !response.ok)
+        } catch (error) {
+          addResult('api-results', 'API Test Error', error.toString(), true)
+        }
+      }
+
+      async function testFileExists() {
+        const container = document.getElementById('api-results')
+
+        try {
+          const response = await fetch(API_URL, {
+            method: 'GET',
+          })
+
+          const responseText = await response.text()
+          const result = `
+URL: ${API_URL}
+Status: ${response.status} ${response.statusText}
+Response: ${responseText.substring(0, 500)}
+                `
+
+          addResult('api-results', 'File Exists Test', result, !response.ok)
+        } catch (error) {
+          addResult('api-results', 'File Exists Error', error.toString(), true)
+        }
+      }
+
+      async function testSimpleQuery() {
+        const container = document.getElementById('api-results')
+
+        try {
+          const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              query: 'SELECT "Hello World" as message',
+            }),
+          })
+
+          const responseText = await response.text()
+
+          let result
+          try {
+            const json = JSON.parse(responseText)
+            result = `
+URL: ${API_URL}
+Status: ${response.status} ${response.statusText}
+Parsed JSON: ${JSON.stringify(json, null, 2)}
+                    `
+          } catch (parseError) {
+            result = `
+URL: ${API_URL}
+Status: ${response.status} ${response.statusText}
+Raw Response: ${responseText}
+Parse Error: ${parseError.message}
+                    `
+          }
+
+          addResult('api-results', 'Simple Query Test', result, !response.ok)
+        } catch (error) {
+          addResult('api-results', 'Simple Query Error', error.toString(), true)
+        }
+      }
+
+      async function testAlternativePaths() {
+        const container = document.getElementById('alternative-results')
+        container.innerHTML = '<h4>Testing Alternative Paths...</h4>'
+
+        const alternativePaths = [
+          `${protocol}//${hostname}/api/api.php`,
+          `${protocol}//${hostname}/api.php`,
+          `${protocol}//${hostname}/cars/api/api.php`,
+          `${protocol}//${hostname}/cars/api.php`,
+          `${protocol}//${hostname}/mig/api/api.php`,
+          `${protocol}//${hostname}/mig/api.php`,
+        ]
+
+        for (const path of alternativePaths) {
+          try {
+            const response = await fetch(path, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                query: 'SELECT 1 as test',
+              }),
+            })
+
+            const responseText = await response.text()
+            const result = `
+Path: ${path}
+Status: ${response.status} ${response.statusText}
+Response: ${responseText.substring(0, 200)}
+                    `
+
+            addResult('alternative-results', `Path: ${path}`, result, !response.ok)
+          } catch (error) {
+            addResult('alternative-results', `Path: ${path}`, `Error: ${error.message}`, true)
+          }
+        }
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,228 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Find API Path</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      .test-section {
+        margin: 10px 0;
+        padding: 10px;
+        border-radius: 5px;
+      }
+      .success {
+        background-color: #d4edda;
+        border: 1px solid #c3e6cb;
+      }
+      .error {
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+      }
+      .info {
+        background-color: #d1ecf1;
+        border: 1px solid #bee5eb;
+      }
+      pre {
+        background: #f8f9fa;
+        padding: 10px;
+        border-radius: 3px;
+        overflow-x: auto;
+        font-size: 12px;
+      }
+      button {
+        padding: 10px 20px;
+        margin: 5px;
+        cursor: pointer;
+      }
+      .working-path {
+        background-color: #fff3cd;
+        border: 1px solid #ffeaa7;
+        font-weight: bold;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🔍 Find API Path</h1>
+
+    <div class="test-section info">
+      <h3>Current Environment</h3>
+      <div id="environment"></div>
+    </div>
+
+    <div class="test-section">
+      <h3>API Path Discovery</h3>
+      <button onclick="findAPIPath()">🔍 Find Working API Path</button>
+      <button onclick="testAllPaths()">🧪 Test All Possible Paths</button>
+      <div id="results"></div>
+    </div>
+
+    <script>
+      const hostname = window.location.hostname
+      const protocol = window.location.protocol
+      const pathname = window.location.pathname
+
+      // Display environment info
+      document.getElementById('environment').innerHTML = `
+            <p><strong>Hostname:</strong> ${hostname}</p>
+            <p><strong>Protocol:</strong> ${protocol}</p>
+            <p><strong>Current Path:</strong> ${pathname}</p>
+            <p><strong>Full URL:</strong> ${window.location.href}</p>
+        `
+
+      // All possible API paths to test
+      const possiblePaths = [
+        `${protocol}//${hostname}/api.php`,
+        `${protocol}//${hostname}/api/api.php`,
+        `${protocol}//${hostname}/cars/api.php`,
+        `${protocol}//${hostname}/cars/api/api.php`,
+        `${protocol}//${hostname}/mig/api.php`,
+        `${protocol}//${hostname}/mig/api/api.php`,
+        `${protocol}//${hostname}/backend/api.php`,
+        `${protocol}//${hostname}/backend/api/api.php`,
+        `${protocol}//${hostname}/php/api.php`,
+        `${protocol}//${hostname}/php/api/api.php`,
+        `${protocol}//${hostname}/server/api.php`,
+        `${protocol}//${hostname}/server/api/api.php`,
+        `${protocol}//${hostname}/public/api.php`,
+        `${protocol}//${hostname}/public/api/api.php`,
+        `${protocol}//${hostname}/www/api.php`,
+        `${protocol}//${hostname}/www/api/api.php`,
+        `${protocol}//${hostname}/htdocs/api.php`,
+        `${protocol}//${hostname}/htdocs/api/api.php`,
+        `${protocol}//${hostname}/html/api.php`,
+        `${protocol}//${hostname}/html/api/api.php`,
+      ]
+
+      function addResult(title, content, isSuccess = false, isWorking = false) {
+        const container = document.getElementById('results')
+        const div = document.createElement('div')
+        div.className = `test-section ${isWorking ? 'working-path' : isSuccess ? 'success' : 'error'}`
+        div.innerHTML = `
+                <h4>${title}</h4>
+                <pre>${content}</pre>
+            `
+        container.appendChild(div)
+      }
+
+      async function testPath(path) {
+        try {
+          const response = await fetch(path, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              query: 'SELECT "test" as message',
+            }),
+          })
+
+          const responseText = await response.text()
+          const contentType = response.headers.get('content-type')
+
+          // Check if it's a valid API response
+          if (contentType && contentType.includes('application/json')) {
+            try {
+              const json = JSON.parse(responseText)
+              if (
+                json.success !== undefined ||
+                json.data !== undefined ||
+                json.error !== undefined
+              ) {
+                return { success: true, path, response: json, contentType }
+              }
+            } catch (e) {
+              // Not valid JSON
+            }
+          }
+
+          // Check if it's returning HTML (Vue app)
+          if (
+            responseText.includes('<html') ||
+            responseText.includes('<head>') ||
+            responseText.includes('Cars Management System')
+          ) {
+            return { success: false, path, error: 'Returns Vue.js app HTML', contentType }
+          }
+
+          return {
+            success: false,
+            path,
+            error: `Unexpected response: ${responseText.substring(0, 100)}`,
+            contentType,
+          }
+        } catch (error) {
+          return { success: false, path, error: error.message }
+        }
+      }
+
+      async function findAPIPath() {
+        const container = document.getElementById('results')
+        container.innerHTML = '<h4>🔍 Searching for working API path...</h4>'
+
+        for (const path of possiblePaths) {
+          const result = await testPath(path)
+
+          if (result.success) {
+            addResult(
+              `✅ WORKING API FOUND: ${path}`,
+              `Status: Success\nContent-Type: ${result.contentType}\nResponse: ${JSON.stringify(result.response, null, 2)}`,
+              true,
+              true,
+            )
+            return // Found working path
+          } else {
+            addResult(
+              `❌ ${path}`,
+              `Error: ${result.error}\nContent-Type: ${result.contentType || 'N/A'}`,
+              false,
+            )
+          }
+        }
+
+        addResult(
+          '❌ No working API path found',
+          'All tested paths failed. You may need to:\n1. Check if PHP files are uploaded to the server\n2. Verify server configuration\n3. Contact your hosting provider',
+          false,
+        )
+      }
+
+      async function testAllPaths() {
+        const container = document.getElementById('results')
+        container.innerHTML = '<h4>🧪 Testing all possible paths...</h4>'
+
+        const results = []
+
+        for (const path of possiblePaths) {
+          const result = await testPath(path)
+          results.push(result)
+
+          if (result.success) {
+            addResult(
+              `✅ WORKING: ${path}`,
+              `Content-Type: ${result.contentType}\nResponse: ${JSON.stringify(result.response, null, 2)}`,
+              true,
+              true,
+            )
+          } else {
+            addResult(
+              `❌ ${path}`,
+              `Error: ${result.error}\nContent-Type: ${result.contentType || 'N/A'}`,
+              false,
+            )
+          }
+        }
+
+        const workingPaths = results.filter((r) => r.success)
+        if (workingPaths.length > 0) {
+          addResult(
+            '🎉 Summary',
+            `Found ${workingPaths.length} working API path(s):\n${workingPaths.map((r) => r.path).join('\n')}`,
+            true,
+          )
+        }
+      }
+    </script>
+  </body>
+</html>

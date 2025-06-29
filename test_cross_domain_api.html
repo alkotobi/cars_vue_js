@@ -1,0 +1,118 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Cross-Domain API Test</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      .result {
+        margin: 10px 0;
+        padding: 10px;
+        border-radius: 5px;
+      }
+      .success {
+        background-color: #d4edda;
+        border: 1px solid #c3e6cb;
+      }
+      .error {
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+      }
+      pre {
+        background: #f8f9fa;
+        padding: 10px;
+        border-radius: 3px;
+        overflow-x: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🌐 Cross-Domain API Test</h1>
+    <p><strong>Current Site:</strong> <span id="current-site"></span></p>
+    <p><strong>API Site:</strong> <span id="api-site"></span></p>
+
+    <button onclick="testCrossDomainAPI()">🧪 Test Cross-Domain API</button>
+    <div id="result"></div>
+
+    <script>
+      const currentSite = window.location.hostname
+      const apiSite = 'www.merhab.com'
+
+      document.getElementById('current-site').textContent = currentSite
+      document.getElementById('api-site').textContent = apiSite
+
+      async function testCrossDomainAPI() {
+        const API_URL = `https://${apiSite}/api/api.php`
+
+        console.log('Testing cross-domain API:', API_URL)
+
+        try {
+          const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              query: 'SELECT "Cross-domain API is working!" as message',
+            }),
+          })
+
+          const responseText = await response.text()
+          const contentType = response.headers.get('content-type')
+
+          let result
+          if (contentType && contentType.includes('application/json')) {
+            try {
+              const json = JSON.parse(responseText)
+              result = `
+                            <div class="result success">
+                                <h3>✅ Cross-Domain API Test Successful!</h3>
+                                <p><strong>From:</strong> ${currentSite}</p>
+                                <p><strong>To:</strong> ${apiSite}</p>
+                                <p><strong>URL:</strong> ${API_URL}</p>
+                                <p><strong>Status:</strong> ${response.status}</p>
+                                <p><strong>Content-Type:</strong> ${contentType}</p>
+                                <p><strong>Response:</strong></p>
+                                <pre>${JSON.stringify(json, null, 2)}</pre>
+                            </div>
+                        `
+            } catch (parseError) {
+              result = `
+                            <div class="result error">
+                                <h3>❌ JSON Parse Error</h3>
+                                <p><strong>URL:</strong> ${API_URL}</p>
+                                <p><strong>Response:</strong></p>
+                                <pre>${responseText}</pre>
+                            </div>
+                        `
+            }
+          } else {
+            result = `
+                        <div class="result error">
+                            <h3>❌ Wrong Content Type</h3>
+                            <p><strong>URL:</strong> ${API_URL}</p>
+                            <p><strong>Expected:</strong> application/json</p>
+                            <p><strong>Got:</strong> ${contentType}</p>
+                            <p><strong>Response:</strong></p>
+                            <pre>${responseText.substring(0, 500)}</pre>
+                        </div>
+                    `
+          }
+
+          document.getElementById('result').innerHTML = result
+        } catch (error) {
+          document.getElementById('result').innerHTML = `
+                    <div class="result error">
+                        <h3>❌ Cross-Domain API Test Failed</h3>
+                        <p><strong>Error:</strong> ${error.message}</p>
+                        <p><strong>URL:</strong> ${API_URL}</p>
+                        <p><strong>Note:</strong> This might be a CORS issue. Check if the API server allows cross-origin requests.</p>
+                    </div>
+                `
+        }
+      }
+    </script>
+  </body>
+</html>
