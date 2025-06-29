@@ -157,74 +157,6 @@ const getNewMessageCount = (groupId) => {
   return count
 }
 
-// Debug section state
-const showDebugSection = ref(false)
-const debugInfo = ref('')
-
-const toggleDebugSection = () => {
-  showDebugSection.value = !showDebugSection.value
-  if (showDebugSection.value) {
-    updateDebugInfo()
-  }
-}
-
-const updateDebugInfo = () => {
-  let info = `=== DEBUG: NEW MESSAGES COUNTS ===\n`
-  info += `Current User: ${currentUser.value?.username} (ID: ${currentUser.value?.id})\n`
-  info += `Selected Group: ${selectedGroup.value?.name || 'None'} (ID: ${selectedGroup.value?.id || 'None'})\n`
-  info += `Total Groups: ${chatGroups.value.length}\n\n`
-
-  info += `=== GROUPS AND NEW MESSAGE COUNTS ===\n`
-  if (chatGroups.value.length === 0) {
-    info += `No groups found\n`
-  } else {
-    chatGroups.value.forEach((group) => {
-      const newCount = getNewMessageCount(group.id)
-      const isSelected = selectedGroup.value?.id === group.id
-      const status = isSelected ? 'SELECTED' : 'NOT SELECTED'
-      info += `${group.name} (ID: ${group.id}) - ${status}\n`
-      info += `  New Messages: ${newCount}\n`
-      info += `  Badge Display: ${newCount > 0 ? 'SHOWING' : 'HIDDEN'}\n\n`
-    })
-  }
-
-  info += `=== RAW COUNTS DATA ===\n`
-  if (Object.keys(props.newMessagesCounts).length === 0) {
-    info += `No new message counts data\n`
-  } else {
-    Object.keys(props.newMessagesCounts).forEach((groupId) => {
-      const count = props.newMessagesCounts[groupId]
-      const group = chatGroups.value.find((g) => g.id == groupId)
-      const groupName = group ? group.name : `Group ${groupId}`
-      info += `${groupName} (ID: ${groupId}): ${count} new message${count !== 1 ? 's' : ''}\n`
-    })
-  }
-
-  info += `\n=== SYSTEM INFO ===\n`
-  info += `Last Updated: ${new Date().toLocaleString()}\n`
-  info += `User ID: ${currentUser.value?.id}\n`
-  info += `Username: ${currentUser.value?.username}\n`
-  info += `Props newMessagesCounts type: ${typeof props.newMessagesCounts}\n`
-  info += `Props newMessagesCounts keys: ${Object.keys(props.newMessagesCounts)}\n`
-
-  debugInfo.value = info
-}
-
-const testNewMessageCount = () => {
-  console.log('=== TESTING NEW MESSAGE COUNT ===')
-  console.log('Props newMessagesCounts:', props.newMessagesCounts)
-  console.log('Props newMessagesCounts type:', typeof props.newMessagesCounts)
-  console.log('Props newMessagesCounts keys:', Object.keys(props.newMessagesCounts))
-
-  if (chatGroups.value.length > 0) {
-    const firstGroup = chatGroups.value[0]
-    const count = getNewMessageCount(firstGroup.id)
-    console.log(`Test count for group ${firstGroup.name} (ID: ${firstGroup.id}):`, count)
-  }
-
-  updateDebugInfo()
-}
-
 // Expose methods to parent
 defineExpose({
   cleanup: () => {
@@ -239,9 +171,6 @@ defineExpose({
     <div class="sidebar-header">
       <h3><i class="fas fa-comments"></i> Chat Groups</h3>
       <div class="header-buttons">
-        <button @click="toggleDebugSection" class="debug-btn" title="Debug New Messages">
-          <i class="fas fa-bug"></i>
-        </button>
         <button @click="showAddGroup" class="add-group-btn" title="Add New Group">
           <i class="fas fa-plus"></i>
         </button>
@@ -309,18 +238,6 @@ defineExpose({
       @close="closeAddGroupModal"
       @group-added="handleGroupAdded"
     />
-
-    <!-- Debug Info Modal -->
-    <div v-if="showDebugSection" class="debug-info-modal">
-      <div class="debug-info-content">
-        <h3>Debug: New Messages Counts</h3>
-        <pre>{{ debugInfo }}</pre>
-        <div class="debug-buttons">
-          <button @click="testNewMessageCount" class="test-btn">Test Count</button>
-          <button @click="toggleDebugSection">Close</button>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -540,88 +457,5 @@ defineExpose({
     width: 100%;
     height: 200px;
   }
-}
-
-.debug-info-modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-}
-
-.debug-info-content {
-  background-color: white;
-  padding: 24px;
-  border-radius: 12px;
-  width: 90%;
-  max-width: 700px;
-  max-height: 80vh;
-  overflow-y: auto;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-}
-
-.debug-info-content h3 {
-  margin-top: 0;
-  margin-bottom: 16px;
-  color: #06b6d4;
-  border-bottom: 2px solid #e2e8f0;
-  padding-bottom: 8px;
-}
-
-.debug-info-content pre {
-  white-space: pre-wrap;
-  word-break: break-word;
-  font-family: 'Courier New', monospace;
-  font-size: 12px;
-  line-height: 1.4;
-  background-color: #f8fafc;
-  padding: 16px;
-  border-radius: 6px;
-  border: 1px solid #e2e8f0;
-  max-height: 400px;
-  overflow-y: auto;
-}
-
-.debug-info-content button {
-  margin-top: 16px;
-  padding: 10px 20px;
-  border: none;
-  border-radius: 6px;
-  background-color: #06b6d4;
-  color: white;
-  cursor: pointer;
-  font-weight: 500;
-  transition: background-color 0.2s;
-}
-
-.debug-info-content button:hover {
-  background-color: #0891b2;
-}
-
-.debug-buttons {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.test-btn {
-  background-color: #06b6d4;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  padding: 8px 16px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: background-color 0.2s;
-}
-
-.test-btn:hover {
-  background-color: #0891b2;
 }
 </style>

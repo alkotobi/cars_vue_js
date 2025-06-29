@@ -26,6 +26,13 @@ const messagesContainer = ref(null)
 const messageInputRef = ref(null)
 const fileInputRef = ref(null)
 
+// Pagination state
+const messagesPerPage = 20
+const currentPage = ref(1)
+const hasMoreMessages = ref(true)
+const isLoadingMore = ref(false)
+const totalMessages = ref(0)
+
 // File upload state
 const isUploading = ref(false)
 const uploadProgress = ref(0)
@@ -46,7 +53,14 @@ const MAX_FILE_SIZE = 100 * 1024 * 1024 // 100MB in bytes
 
 // Debug section state
 const showDebugSection = ref(false)
-const debugInfo = ref('')
+const debugInfo = ref({
+  user: null,
+  groupId: null,
+  messagesCount: 0,
+  apiResponses: [],
+  errors: [],
+  lastFetch: null,
+})
 const currentNewMessagesCount = ref(0) // Track current newMessagesCount value
 
 // Emoji picker state
@@ -189,7 +203,7 @@ const emojis = [
   '👳‍♂️',
   '👲',
   '🧕',
-  '🤵‍♀️',
+  '��‍♀️',
   '🤵',
   '🤵‍♂️',
   '👰‍♀️',
@@ -513,32 +527,42 @@ const emojis = [
   '🕧',
 ]
 
+// Get current user
 const getCurrentUser = () => {
   try {
     const userStr = localStorage.getItem('user')
+    addDebugInfo('getCurrentUser', { userStr })
+
     if (userStr) {
       currentUser.value = JSON.parse(userStr)
-      console.log('Current user loaded for chat:', currentUser.value)
+      addDebugInfo('userLoaded', currentUser.value)
+      updateDebugInfo()
+    } else {
+      addError('No user found in localStorage')
+      currentUser.value = null
     }
   } catch (err) {
-    console.error('Error getting current user:', err)
+    addError(`Error getting current user: ${err.message}`)
+    currentUser.value = null
   }
 }
 
-// Watch for changes in groupId to switch message lists
+// Watch for group changes
 watch(
-  [() => props.groupId],
-  async ([groupId]) => {
-    console.log('ChatMessages watch triggered - groupId:', groupId)
-    if (groupId && groupId > 0) {
-      console.log('Group changed, switching to cached messages or fetching if needed...')
-      await getCurrentUser()
-      await switchToGroup(groupId)
-    } else if (groupId === 0) {
-      console.log('Initialization mode - skipping group-specific operations')
-      await getCurrentUser()
-    } else {
-      messages.value = []
+  () => props.groupId,
+  async (newGroupId, oldGroupId) => {
+    console.log(`Group changed from ${oldGroupId} to ${newGroupId}`)
+
+    if (newGroupId && newGroupId !== oldGroupId) {
+      // Reset pagination for new group
+      resetPagination()
+
+      // Load messages for the new group
+      await fetchMessages(newGroupId)
+
+      // Scroll to bottom for new group
+      await nextTick()
+      await scrollToBottom()
     }
   },
   { immediate: true },
@@ -621,16 +645,16 @@ const fetchAllMessages = async () => {
   }
 }
 
-const fetchMessages = async (groupId = props.groupId) => {
+const fetchMessages = async (groupId) => {
   try {
-    console.log('Fetching new messages for group:', groupId)
+    if (!currentUser.value) {
+      addError('No current user available')
+      return
+    }
 
-    // Get the highest message ID from current messages for this group
-    const currentMessages = messagesByGroup.value[groupId] || []
-    const currentHighestId =
-      currentMessages.length > 0 ? Math.max(...currentMessages.map((msg) => msg.id)) : 0
+    addDebugInfo('fetchMessages', { groupId, page: currentPage.value, user: currentUser.value })
 
-    console.log('Current highest message ID:', currentHighestId)
+    const offset = (currentPage.value - 1) * messagesPerPage
 
     const result = await callApi({
       query: `
@@ -638,7 +662,6 @@ const fetchMessages = async (groupId = props.groupId) => {
           cm.id,
           cm.id_chat_group,
           cm.message_from_user_id,
-          cm.chat_replay_to_message_id,
           cm.message,
           cm.time,
           u.username as sender_username,
@@ -647,83 +670,53 @@ const fetchMessages = async (groupId = props.groupId) => {
         LEFT JOIN users u ON cm.message_from_user_id = u.id
         LEFT JOIN roles r ON u.role_id = r.id
         WHERE cm.id_chat_group = ?
-          AND cm.id > ?
-        ORDER BY cm.id ASC
+        ORDER BY cm.id DESC
+        LIMIT ${messagesPerPage} OFFSET ${offset}
       `,
-      params: [groupId, currentHighestId],
+      params: [groupId],
       requiresAuth: true,
     })
 
-    console.log('New messages result:', result)
+    addDebugInfo('fetchMessages_result', result)
 
     if (result.success && result.data) {
-      const newMessagesCount = result.data.length
-      // Update debug variable only if this is the current group
-      if (groupId === props.groupId) {
-        currentNewMessagesCount.value = newMessagesCount
-      }
-      console.log(`Found ${newMessagesCount} new messages`)
+      const newMessages = result.data.reverse() // Reverse to get chronological order
 
-      if (newMessagesCount > 0) {
-        // Add new messages to the group cache
-        if (messagesByGroup.value[groupId]) {
-          messagesByGroup.value[groupId].push(...result.data)
-        } else {
-          messagesByGroup.value[groupId] = [...result.data]
-        }
-
-        // Update current messages if this is the active group
-        if (groupId === props.groupId) {
-          messages.value = [...messagesByGroup.value[groupId]]
-        }
-
-        // Increment new messages count for this group
-        if (newMessagesCountByGroup.value[groupId] !== undefined) {
-          newMessagesCountByGroup.value[groupId] += newMessagesCount
-        } else {
-          newMessagesCountByGroup.value[groupId] = newMessagesCount
-        }
-
-        console.log(
-          'New messages added to list. Total messages:',
-          messagesByGroup.value[groupId]?.length || 0,
-        )
-        console.log(
-          `New messages count for group ${groupId}:`,
-          newMessagesCountByGroup.value[groupId],
-        )
-        console.log('All new message counts:', newMessagesCountByGroup.value)
-
-        // Update debug info if debug section is open and this is the current group
-        if (showDebugSection.value && groupId === props.groupId) {
-          updateDebugInfo()
-        }
-
-        // Notify parent about new messages only if this is the current group
-        if (groupId === props.groupId) {
-          console.log(`Emitting new-messages-received for group ${groupId}`)
-          emit('new-messages-received', groupId)
-
-          // Scroll to bottom when new messages are added
-          await scrollToBottom()
-        }
+      if (currentPage.value === 1) {
+        // First page - replace all messages
+        messages.value = newMessages
+        messagesByGroup.value[groupId] = [...newMessages]
       } else {
-        // Update debug info even when no new messages (only for current group)
-        if (showDebugSection.value && groupId === props.groupId) {
-          updateDebugInfo()
-        }
+        // Load more - prepend to existing messages
+        messages.value = [...newMessages, ...messages.value]
+        messagesByGroup.value[groupId] = [...newMessages, ...messagesByGroup.value[groupId]]
       }
+
+      // Check if we have more messages to load
+      hasMoreMessages.value = newMessages.length === messagesPerPage
+
+      addDebugInfo('messagesLoaded', {
+        count: newMessages.length,
+        total: messages.value.length,
+        hasMore: hasMoreMessages.value,
+      })
+
+      updateDebugInfo()
     } else {
-      console.log('No new messages found or API failed:', result)
-      if (groupId === props.groupId) {
-        currentNewMessagesCount.value = 0
-        if (showDebugSection.value) {
-          updateDebugInfo()
-        }
+      addError(`No messages found or API failed: ${result.message || 'No error message'}`)
+      if (currentPage.value === 1) {
+        messages.value = []
+        messagesByGroup.value[groupId] = []
       }
+      hasMoreMessages.value = false
     }
   } catch (err) {
-    console.error('Error fetching new messages:', err)
+    addError(`Error fetching messages: ${err.message}`)
+    if (currentPage.value === 1) {
+      messages.value = []
+      messagesByGroup.value[groupId] = []
+    }
+    hasMoreMessages.value = false
   }
 }
 
@@ -873,16 +866,18 @@ const handleKeyPress = (event) => {
 let refreshInterval = null
 
 onMounted(async () => {
-  // Fetch all groups messages on mount
-  await getCurrentUser()
-  await fetchAllGroupsMessages()
+  // Fetch current user and initial messages
+  getCurrentUser()
 
-  // Start polling for new messages
+  // If we have a groupId, load the first page of messages
+  if (props.groupId && props.groupId > 0) {
+    await fetchMessages(props.groupId)
+  }
+
+  // Start polling for new messages (only for the current group)
   refreshInterval = setInterval(async () => {
-    // Fetch messages for all groups that have been loaded
-    const groupIds = Object.keys(messagesByGroup.value)
-    for (const groupId of groupIds) {
-      await fetchMessages(parseInt(groupId))
+    if (props.groupId && props.groupId > 0) {
+      await fetchNewMessages(props.groupId)
     }
   }, 10000) // 10 seconds
 })
@@ -1133,36 +1128,52 @@ const handleInputClick = async () => {
 const toggleDebugSection = () => {
   showDebugSection.value = !showDebugSection.value
   if (showDebugSection.value) {
+    // Add some test debug info
+    addDebugInfo('debugOpened', {
+      message: 'Debug section opened',
+      timestamp: new Date().toISOString(),
+      groupId: props.groupId,
+      user: currentUser.value,
+    })
     updateDebugInfo()
   }
 }
 
-const updateDebugInfo = () => {
-  let info = `=== DEBUG: NEW MESSAGES COUNT ===\n`
-  info += `Current Group: ${props.groupName} (ID: ${props.groupId})\n`
-  info += `Current User: ${currentUser.value?.username} (ID: ${currentUser.value?.id})\n\n`
+// Function to add debug info
+const addDebugInfo = (type, data) => {
+  const timestamp = new Date().toLocaleTimeString()
+  debugInfo.value.apiResponses.push({
+    timestamp,
+    type,
+    data: JSON.stringify(data, null, 2),
+  })
 
-  info += `=== CURRENT STATE ===\n`
-  info += `Current newMessagesCount: ${currentNewMessagesCount.value}\n`
-  info += `Total messages in current group: ${messages.value.length}\n`
-  info += `Messages cached for this group: ${messagesByGroup.value[props.groupId]?.length || 0}\n\n`
-
-  info += `=== ALL GROUPS COUNTS ===\n`
-  if (Object.keys(newMessagesCountByGroup.value).length === 0) {
-    info += `No new message counts tracked yet\n`
-  } else {
-    Object.keys(newMessagesCountByGroup.value).forEach((groupId) => {
-      const count = newMessagesCountByGroup.value[groupId]
-      info += `Group ${groupId}: ${count} new messages\n`
-    })
+  // Keep only last 10 responses
+  if (debugInfo.value.apiResponses.length > 10) {
+    debugInfo.value.apiResponses.shift()
   }
+}
 
-  info += `\n=== SYSTEM INFO ===\n`
-  info += `Last Updated: ${new Date().toLocaleString()}\n`
-  info += `Polling Interval: 10 seconds\n`
-  info += `Debug Section Active: ${showDebugSection.value}\n`
+// Function to add error
+const addError = (error) => {
+  const timestamp = new Date().toLocaleTimeString()
+  debugInfo.value.errors.push({
+    timestamp,
+    error: error.toString(),
+  })
 
-  debugInfo.value = info
+  // Keep only last 5 errors
+  if (debugInfo.value.errors.length > 5) {
+    debugInfo.value.errors.shift()
+  }
+}
+
+// Function to update debug info
+const updateDebugInfo = () => {
+  debugInfo.value.user = currentUser.value
+  debugInfo.value.groupId = props.groupId
+  debugInfo.value.messagesCount = messages.value.length
+  debugInfo.value.lastFetch = new Date().toLocaleTimeString()
 }
 
 const testNewMessagesCount = () => {
@@ -1436,6 +1447,11 @@ const isVideoFile = (fileType) => {
   return fileType.startsWith('video/')
 }
 
+// Check if file is an audio file
+const isAudioFile = (fileType) => {
+  return fileType.startsWith('audio/')
+}
+
 // Get file URL for display
 const getFileDisplayUrl = (filePath) => {
   return getFileUrl(filePath)
@@ -1590,6 +1606,107 @@ const formatRecordingTime = (seconds) => {
   const secs = seconds % 60
   return `${mins}:${secs.toString().padStart(2, '0')}`
 }
+
+// Load more messages function
+const loadMoreMessages = async () => {
+  if (isLoadingMore.value || !hasMoreMessages.value) return
+
+  isLoadingMore.value = true
+
+  try {
+    currentPage.value++
+    await fetchMessages(props.groupId)
+
+    // Scroll to maintain position after loading more messages
+    await nextTick()
+    if (messagesContainer.value) {
+      const oldHeight = messagesContainer.value.scrollHeight
+      setTimeout(() => {
+        const newHeight = messagesContainer.value.scrollHeight
+        const heightDifference = newHeight - oldHeight
+        messagesContainer.value.scrollTop = heightDifference
+      }, 100)
+    }
+  } catch (err) {
+    console.error('Error loading more messages:', err)
+    currentPage.value-- // Revert page increment on error
+  } finally {
+    isLoadingMore.value = false
+  }
+}
+
+// Reset pagination when switching groups
+const resetPagination = () => {
+  currentPage.value = 1
+  hasMoreMessages.value = true
+  isLoadingMore.value = false
+}
+
+// Fetch only new messages for polling (doesn't affect pagination)
+const fetchNewMessages = async (groupId) => {
+  try {
+    if (!currentUser.value) return
+
+    // Get the highest message ID from current messages
+    const currentMessages = messages.value
+    const currentHighestId =
+      currentMessages.length > 0 ? Math.max(...currentMessages.map((msg) => msg.id)) : 0
+
+    const result = await callApi({
+      query: `
+        SELECT 
+          cm.id,
+          cm.id_chat_group,
+          cm.message_from_user_id,
+          cm.message,
+          cm.time,
+          u.username as sender_username,
+          r.name as sender_role
+        FROM chat_messages cm
+        LEFT JOIN users u ON cm.message_from_user_id = u.id
+        LEFT JOIN roles r ON u.role_id = r.id
+        WHERE cm.id_chat_group = CAST(? AS UNSIGNED)
+          AND cm.id > CAST(? AS UNSIGNED)
+        ORDER BY cm.id ASC
+      `,
+      params: [groupId, currentHighestId],
+      requiresAuth: true,
+    })
+
+    if (result.success && result.data && result.data.length > 0) {
+      // Add new messages to the end
+      messages.value.push(...result.data)
+      messagesByGroup.value[groupId] = [...messages.value]
+
+      // Scroll to bottom for new messages
+      await nextTick()
+      await scrollToBottom()
+
+      addDebugInfo('newMessagesAdded', { count: result.data.length, groupId })
+    }
+  } catch (err) {
+    addError(`Error fetching new messages: ${err.message}`)
+  }
+}
+
+// Watch for changes in selected group
+watch(
+  () => props.groupId,
+  (newGroupId) => {
+    addDebugInfo('groupChanged', { newGroupId })
+
+    if (newGroupId && newGroupId > 0) {
+      currentPage.value = 1
+      hasMoreMessages.value = true
+      fetchMessages(newGroupId)
+    } else {
+      addDebugInfo('groupCleared', { reason: 'No group selected or invalid group ID' })
+      messages.value = []
+      hasMoreMessages.value = false
+    }
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
@@ -1597,9 +1714,6 @@ const formatRecordingTime = (seconds) => {
     <div class="messages-header">
       <h3><i class="fas fa-comments"></i> {{ groupName }}</h3>
       <div class="group-info">
-        <button @click="toggleDebugSection" class="debug-btn" title="Debug New Messages Count">
-          <i class="fas fa-bug"></i>
-        </button>
         <span class="timezone-info">
           <i class="fas fa-clock"></i> {{ Intl.DateTimeFormat().resolvedOptions().timeZone }}
         </span>
@@ -1610,6 +1724,14 @@ const formatRecordingTime = (seconds) => {
     </div>
 
     <div class="messages-container" ref="messagesContainer" @click="handleMessagesContainerClick">
+      <!-- Load More Button -->
+      <div v-if="hasMoreMessages" class="load-more-container">
+        <button @click="loadMoreMessages" :disabled="isLoadingMore" class="load-more-btn">
+          <i :class="isLoadingMore ? 'fas fa-spinner fa-spin' : 'fas fa-chevron-up'"></i>
+          {{ isLoadingMore ? 'Loading...' : 'Load More Messages' }}
+        </button>
+      </div>
+
       <div v-if="loading && messages.length === 0" class="loading-messages">
         <i class="fas fa-spinner fa-spin"></i> Loading messages...
       </div>
@@ -1735,6 +1857,42 @@ const formatRecordingTime = (seconds) => {
                       "
                       class="download-btn"
                       title="Download video"
+                    >
+                      <i class="fas fa-download"></i>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Audio display -->
+                <div
+                  v-else-if="isAudioFile(parseFileMessage(message.message)?.fileType)"
+                  class="audio-attachment"
+                >
+                  <div class="audio-player">
+                    <i class="fas fa-music audio-icon"></i>
+                    <audio
+                      :src="getFileDisplayUrl(parseFileMessage(message.message)?.filePath)"
+                      controls
+                      class="chat-audio"
+                      preload="metadata"
+                    >
+                      Your browser does not support the audio tag.
+                    </audio>
+                  </div>
+                  <div class="file-info-overlay">
+                    <span class="file-name">{{ parseFileMessage(message.message)?.fileName }}</span>
+                    <span class="file-size">{{
+                      formatFileSize(parseFileMessage(message.message)?.fileSize)
+                    }}</span>
+                    <button
+                      @click="
+                        downloadFile(
+                          parseFileMessage(message.message)?.filePath,
+                          parseFileMessage(message.message)?.fileName,
+                        )
+                      "
+                      class="download-btn"
+                      title="Download audio"
                     >
                       <i class="fas fa-download"></i>
                     </button>
@@ -1906,21 +2064,6 @@ const formatRecordingTime = (seconds) => {
           >
             {{ emoji }}
           </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Debug Info Modal -->
-    <div v-if="showDebugSection" class="debug-info-modal">
-      <div class="debug-info-content">
-        <h3>Debug: New Messages Count</h3>
-        <pre>{{ debugInfo }}</pre>
-        <div class="debug-buttons">
-          <button @click="testNewMessagesCount" class="test-btn">Test Count</button>
-          <button @click="resetNewMessageCount(props.groupId)" class="reset-btn">
-            Reset Count
-          </button>
-          <button @click="toggleDebugSection">Close</button>
         </div>
       </div>
     </div>
@@ -2296,68 +2439,135 @@ const formatRecordingTime = (seconds) => {
   position: fixed;
   top: 0;
   left: 0;
-  width: 100%;
-  height: 100%;
+  right: 0;
+  bottom: 0;
   background-color: rgba(0, 0, 0, 0.5);
   display: flex;
-  justify-content: center;
   align-items: center;
+  justify-content: center;
   z-index: 1000;
 }
 
 .debug-info-content {
   background-color: white;
+  border-radius: 8px;
   padding: 24px;
-  border-radius: 12px;
-  width: 90%;
-  max-width: 700px;
+  max-width: 800px;
   max-height: 80vh;
   overflow-y: auto;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
 .debug-info-content h3 {
-  margin-top: 0;
-  margin-bottom: 16px;
+  margin: 0 0 20px 0;
   color: #06b6d4;
   border-bottom: 2px solid #e2e8f0;
   padding-bottom: 8px;
 }
 
-.debug-info-content pre {
+.debug-section {
+  margin-bottom: 24px;
+}
+
+.debug-section h4 {
+  margin: 0 0 12px 0;
+  color: #374151;
+  font-size: 1rem;
+}
+
+.debug-item {
+  margin-bottom: 8px;
+  padding: 8px;
+  background-color: #f8fafc;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 0.9rem;
+}
+
+.debug-response {
+  margin-bottom: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.debug-response-header {
+  background-color: #f1f5f9;
+  padding: 8px 12px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.debug-response-data {
+  margin: 0;
+  padding: 12px;
+  background-color: #f8fafc;
+  font-size: 0.8rem;
+  max-height: 200px;
+  overflow-y: auto;
   white-space: pre-wrap;
   word-break: break-word;
-  font-family: 'Courier New', monospace;
-  font-size: 12px;
-  line-height: 1.4;
-  background-color: #f8fafc;
-  padding: 16px;
-  border-radius: 6px;
-  border: 1px solid #e2e8f0;
-  max-height: 400px;
-  overflow-y: auto;
+}
+
+.debug-error {
+  margin-bottom: 12px;
+  border: 1px solid #fecaca;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.debug-error-header {
+  background-color: #fef2f2;
+  padding: 8px 12px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  border-bottom: 1px solid #fecaca;
+  color: #dc2626;
+}
+
+.debug-error-message {
+  padding: 12px;
+  background-color: #fef2f2;
+  font-size: 0.9rem;
+  color: #dc2626;
+  word-break: break-word;
 }
 
 .debug-buttons {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 16px;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
 }
 
-.debug-info-content button {
-  padding: 10px 20px;
+.debug-buttons button {
+  padding: 8px 16px;
   border: none;
-  border-radius: 6px;
-  background-color: #06b6d4;
-  color: white;
+  border-radius: 4px;
   cursor: pointer;
-  font-weight: 500;
+  font-size: 0.9rem;
   transition: background-color 0.2s;
 }
 
-.debug-info-content button:hover {
+.refresh-btn {
+  background-color: #06b6d4;
+  color: white;
+}
+
+.refresh-btn:hover {
   background-color: #0891b2;
+}
+
+.debug-buttons button:last-child {
+  background-color: #64748b;
+  color: white;
+}
+
+.debug-buttons button:last-child:hover {
+  background-color: #475569;
 }
 
 .test-btn {
@@ -2853,5 +3063,113 @@ const formatRecordingTime = (seconds) => {
   100% {
     transform: scale(1);
   }
+}
+
+.load-more-container {
+  display: flex;
+  justify-content: center;
+  margin-top: 16px;
+}
+
+.load-more-btn {
+  background-color: #06b6d4;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 24px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.load-more-btn:hover:not(:disabled) {
+  background-color: #0891b2;
+}
+
+.load-more-btn:disabled {
+  background-color: #cbd5e1;
+  cursor: not-allowed;
+}
+
+.chat-video {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 8px;
+}
+
+.audio-attachment {
+  position: relative;
+  max-width: 300px;
+  border-radius: 8px;
+  overflow: hidden;
+  background-color: rgba(255, 255, 255, 0.1);
+  padding: 12px;
+}
+
+.audio-player {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.audio-icon {
+  font-size: 1.2rem;
+  color: #06b6d4;
+  flex-shrink: 0;
+}
+
+.chat-audio {
+  flex: 1;
+  height: 40px;
+  border-radius: 4px;
+}
+
+.audio-attachment .file-info-overlay {
+  position: static;
+  background: none;
+  color: inherit;
+  padding: 0;
+  opacity: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.audio-attachment .file-info-overlay .file-name {
+  color: inherit;
+  font-weight: 500;
+  font-size: 0.8rem;
+  word-break: break-word;
+}
+
+.audio-attachment .file-info-overlay .file-size {
+  color: inherit;
+  font-size: 0.7rem;
+  opacity: 0.7;
+}
+
+.audio-attachment .download-btn {
+  background-color: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: inherit;
+  padding: 6px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+}
+
+.audio-attachment .download-btn:hover {
+  background-color: rgba(255, 255, 255, 0.3);
 }
 </style>
