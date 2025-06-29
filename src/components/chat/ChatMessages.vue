@@ -30,6 +30,470 @@ const showDebugSection = ref(false)
 const debugInfo = ref('')
 const currentNewMessagesCount = ref(0) // Track current newMessagesCount value
 
+// Emoji picker state
+const showEmojiPicker = ref(false)
+
+// Common emojis for the picker
+const emojis = [
+  '😀',
+  '😃',
+  '😄',
+  '😁',
+  '😆',
+  '😅',
+  '😂',
+  '🤣',
+  '😊',
+  '😇',
+  '🙂',
+  '🙃',
+  '😉',
+  '😌',
+  '😍',
+  '🥰',
+  '😘',
+  '😗',
+  '😙',
+  '😚',
+  '😋',
+  '😛',
+  '😝',
+  '😜',
+  '🤪',
+  '🤨',
+  '🧐',
+  '🤓',
+  '😎',
+  '🤩',
+  '🥳',
+  '😏',
+  '😒',
+  '😞',
+  '😔',
+  '😟',
+  '😕',
+  '🙁',
+  '☹️',
+  '😣',
+  '😖',
+  '😫',
+  '😩',
+  '🥺',
+  '😢',
+  '😭',
+  '😤',
+  '😠',
+  '😡',
+  '🤬',
+  '🤯',
+  '😳',
+  '🥵',
+  '🥶',
+  '😱',
+  '😨',
+  '😰',
+  '😥',
+  '😓',
+  '🤗',
+  '🤔',
+  '🤭',
+  '🤫',
+  '🤥',
+  '😶',
+  '😐',
+  '😑',
+  '😯',
+  '😦',
+  '😧',
+  '😮',
+  '😲',
+  '🥱',
+  '😴',
+  '🤤',
+  '😪',
+  '😵',
+  '🤐',
+  '🥴',
+  '🤢',
+  '🤮',
+  '🤧',
+  '😷',
+  '🤒',
+  '🤕',
+  '🤑',
+  '🤠',
+  '💩',
+  '👻',
+  '💀',
+  '☠️',
+  '👽',
+  '👾',
+  '🤖',
+  '😺',
+  '😸',
+  '😹',
+  '😻',
+  '😼',
+  '😽',
+  '🙀',
+  '😿',
+  '😾',
+  '🙈',
+  '🙉',
+  '🙊',
+  '👶',
+  '👧',
+  '🧒',
+  '👦',
+  '👩',
+  '🧑',
+  '👨',
+  '👵',
+  '🧓',
+  '👴',
+  '👮‍♀️',
+  '👮',
+  '👮‍♂️',
+  '🕵️‍♀️',
+  '🕵️',
+  '🕵️‍♂️',
+  '💂‍♀️',
+  '💂',
+  '💂‍♂️',
+  '👷‍♀️',
+  '👷',
+  '👷‍♂️',
+  '🤴',
+  '👸',
+  '👳‍♀️',
+  '👳',
+  '👳‍♂️',
+  '👲',
+  '🧕',
+  '🤵‍♀️',
+  '🤵',
+  '🤵‍♂️',
+  '👰‍♀️',
+  '👰',
+  '👰‍♂️',
+  '🤰',
+  '🤱',
+  '👼',
+  '🎅',
+  '🤶',
+  '🧙‍♀️',
+  '🧙',
+  '🧙‍♂️',
+  '🧝‍♀️',
+  '🧝',
+  '🧝‍♂️',
+  '🧛‍♀️',
+  '🧛',
+  '🧛‍♂️',
+  '🧟‍♀️',
+  '🧟',
+  '🧟‍♂️',
+  '🧞‍♀️',
+  '🧞',
+  '🧞‍♂️',
+  '🧜‍♀️',
+  '🧜',
+  '🧜‍♂️',
+  '🧚‍♀️',
+  '🧚',
+  '🧚‍♂️',
+  '👼',
+  '🤰',
+  '🤱',
+  '❤️',
+  '🧡',
+  '💛',
+  '💚',
+  '💙',
+  '💜',
+  '🖤',
+  '🤍',
+  '🤎',
+  '💔',
+  '❣️',
+  '💕',
+  '💞',
+  '💓',
+  '💗',
+  '💖',
+  '💘',
+  '💝',
+  '💟',
+  '☮️',
+  '✝️',
+  '☪️',
+  '🕉️',
+  '☸️',
+  '✡️',
+  '🔯',
+  '🕎',
+  '☯️',
+  '☦️',
+  '🛐',
+  '⛎',
+  '♈',
+  '♉',
+  '♊',
+  '♋',
+  '♌',
+  '♍',
+  '♎',
+  '♏',
+  '♐',
+  '♑',
+  '♒',
+  '♓',
+  '🆔',
+  '⚛️',
+  '🉑',
+  '☢️',
+  '☣️',
+  '📴',
+  '📳',
+  '🈶',
+  '🈚',
+  '🈸',
+  '🈺',
+  '🈷️',
+  '✴️',
+  '🆚',
+  '💮',
+  '🉐',
+  '㊙️',
+  '㊗️',
+  '🈴',
+  '🈵',
+  '🈹',
+  '🈲',
+  '🅰️',
+  '🅱️',
+  '🆎',
+  '🆑',
+  '🅾️',
+  '🆘',
+  '❌',
+  '⭕',
+  '🛑',
+  '⛔',
+  '📛',
+  '🚫',
+  '💯',
+  '💢',
+  '♨️',
+  '🚷',
+  '🚯',
+  '🚳',
+  '🚱',
+  '🔞',
+  '📵',
+  '🚭',
+  '❗',
+  '❕',
+  '❓',
+  '❔',
+  '‼️',
+  '⁉️',
+  '🔅',
+  '🔆',
+  '〽️',
+  '⚠️',
+  '🚸',
+  '🔱',
+  '⚜️',
+  '🔰',
+  '♻️',
+  '✅',
+  '🈯',
+  '💹',
+  '❇️',
+  '✳️',
+  '❎',
+  '🌐',
+  '💠',
+  'Ⓜ️',
+  '🌀',
+  '💤',
+  '🏧',
+  '🚾',
+  '♿',
+  '🅿️',
+  '🛗',
+  '🛂',
+  '🛃',
+  '🛄',
+  '🛅',
+  '🚹',
+  '🚺',
+  '🚼',
+  '🚻',
+  '🚮',
+  '🎦',
+  '📶',
+  '🈁',
+  '🔣',
+  'ℹ️',
+  '🔤',
+  '🔡',
+  '🔠',
+  '🆖',
+  '🆗',
+  '🆙',
+  '🆒',
+  '🆕',
+  '🆓',
+  '0️⃣',
+  '1️⃣',
+  '2️⃣',
+  '3️⃣',
+  '4️⃣',
+  '5️⃣',
+  '6️⃣',
+  '7️⃣',
+  '8️⃣',
+  '9️⃣',
+  '🔟',
+  '🔢',
+  '#️⃣',
+  '*️⃣',
+  '⏏️',
+  '▶️',
+  '⏸️',
+  '⏯️',
+  '⏹️',
+  '⏺️',
+  '⏭️',
+  '⏮️',
+  '⏩',
+  '⏪',
+  '⏫',
+  '⏬',
+  '◀️',
+  '🔼',
+  '🔽',
+  '➡️',
+  '⬅️',
+  '⬆️',
+  '⬇️',
+  '↗️',
+  '↘️',
+  '↙️',
+  '↖️',
+  '↕️',
+  '↔️',
+  '↪️',
+  '↩️',
+  '⤴️',
+  '⤵️',
+  '🔀',
+  '🔁',
+  '🔂',
+  '🔄',
+  '🔃',
+  '🎵',
+  '🎶',
+  '➕',
+  '➖',
+  '➗',
+  '✖️',
+  '♾️',
+  '💲',
+  '💱',
+  '™️',
+  '©️',
+  '®️',
+  '👁️‍🗨️',
+  '🔚',
+  '🔙',
+  '🔛',
+  '🔝',
+  '🔜',
+  '〰️',
+  '➰',
+  '➿',
+  '✔️',
+  '☑️',
+  '🔘',
+  '🔴',
+  '🟠',
+  '🟡',
+  '🟢',
+  '🔵',
+  '🟣',
+  '⚫',
+  '⚪',
+  '🟤',
+  '🔺',
+  '🔻',
+  '🔸',
+  '🔹',
+  '🔶',
+  '🔷',
+  '🔳',
+  '🔲',
+  '▪️',
+  '▫️',
+  '◾',
+  '◽',
+  '◼️',
+  '◻️',
+  '🟥',
+  '🟧',
+  '🟨',
+  '🟩',
+  '🟦',
+  '🟪',
+  '⬛',
+  '⬜',
+  '🟫',
+  '🔈',
+  '🔇',
+  '🔉',
+  '🔊',
+  '🔔',
+  '🔕',
+  '📣',
+  '📢',
+  '💬',
+  '💭',
+  '🗯️',
+  '♠️',
+  '♣️',
+  '♥️',
+  '♦️',
+  '🃏',
+  '🎴',
+  '🀄',
+  '🕐',
+  '🕑',
+  '🕒',
+  '🕓',
+  '🕔',
+  '🕕',
+  '🕖',
+  '🕗',
+  '🕘',
+  '🕙',
+  '🕚',
+  '🕛',
+  '🕜',
+  '🕝',
+  '🕞',
+  '🕟',
+  '🕠',
+  '🕡',
+  '🕢',
+  '🕣',
+  '🕤',
+  '🕥',
+  '🕦',
+  '🕧',
+]
+
 const getCurrentUser = () => {
   try {
     const userStr = localStorage.getItem('user')
@@ -719,6 +1183,26 @@ defineExpose({
     }
   },
 })
+
+const toggleEmojiPicker = () => {
+  showEmojiPicker.value = !showEmojiPicker.value
+}
+
+const addEmoji = (emoji) => {
+  newMessage.value += emoji
+  // Close the emoji picker after adding emoji
+  showEmojiPicker.value = false
+  // Focus back to the input after adding emoji
+  nextTick(() => {
+    if (messageInputRef.value) {
+      messageInputRef.value.focus()
+    }
+  })
+}
+
+const closeEmojiPicker = () => {
+  showEmojiPicker.value = false
+}
 </script>
 
 <template>
@@ -791,6 +1275,9 @@ defineExpose({
 
     <div class="message-input-container">
       <div class="input-wrapper">
+        <button @click="toggleEmojiPicker" class="emoji-button" title="Add emoji" type="button">
+          <i class="fas fa-smile"></i>
+        </button>
         <textarea
           v-model="newMessage"
           @keypress="handleKeyPress"
@@ -818,6 +1305,29 @@ defineExpose({
       <div class="input-footer">
         <span class="char-count">{{ newMessage.length }}/1000</span>
         <span class="send-hint">Press Enter to send, Shift+Enter for new line</span>
+      </div>
+    </div>
+
+    <!-- Emoji Picker Modal -->
+    <div v-if="showEmojiPicker" class="emoji-picker-modal" @click="closeEmojiPicker">
+      <div class="emoji-picker-content" @click.stop>
+        <div class="emoji-picker-header">
+          <h4>Select Emoji</h4>
+          <button @click="closeEmojiPicker" class="close-emoji-btn">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="emoji-grid">
+          <button
+            v-for="emoji in emojis"
+            :key="emoji"
+            @click="addEmoji(emoji)"
+            class="emoji-item"
+            :title="emoji"
+          >
+            {{ emoji }}
+          </button>
+        </div>
       </div>
     </div>
 
@@ -1046,30 +1556,56 @@ defineExpose({
 
 .input-wrapper {
   display: flex;
-  gap: 12px;
   align-items: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  background-color: white;
+  border-top: 1px solid #e2e8f0;
+}
+
+.emoji-button {
+  background-color: transparent;
+  border: none;
+  color: #64748b;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  height: 40px;
+}
+
+.emoji-button:hover {
+  background-color: #f1f5f9;
+  color: #06b6d4;
 }
 
 .message-input {
   flex: 1;
-  padding: 12px 16px;
-  border: 1px solid #d1d5db;
-  border-radius: 20px;
-  font-size: 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 0.95rem;
   resize: none;
   outline: none;
   transition: border-color 0.2s;
   font-family: inherit;
   line-height: 1.4;
+  max-height: 120px;
+  min-height: 40px;
 }
 
 .message-input:focus {
   border-color: #06b6d4;
-  box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.1);
 }
 
 .message-input:disabled {
-  background-color: #f5f7fa;
+  background-color: #f8fafc;
+  color: #64748b;
   cursor: not-allowed;
 }
 
@@ -1077,15 +1613,16 @@ defineExpose({
   background-color: #06b6d4;
   color: white;
   border: none;
-  border-radius: 50%;
-  width: 40px;
-  height: 40px;
+  border-radius: 8px;
+  padding: 12px 16px;
   cursor: pointer;
+  font-size: 1rem;
+  transition: background-color 0.2s;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 0.2s;
-  flex-shrink: 0;
+  min-width: 40px;
+  height: 40px;
 }
 
 .send-button:hover:not(:disabled) {
@@ -1093,7 +1630,7 @@ defineExpose({
 }
 
 .send-button:disabled {
-  background-color: #9ca3af;
+  background-color: #cbd5e1;
   cursor: not-allowed;
 }
 
@@ -1101,7 +1638,9 @@ defineExpose({
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 8px;
+  padding: 8px 16px;
+  background-color: #f8fafc;
+  border-top: 1px solid #e2e8f0;
   font-size: 0.8rem;
   color: #64748b;
 }
@@ -1239,5 +1778,95 @@ defineExpose({
     gap: 4px;
     align-items: flex-start;
   }
+}
+
+.emoji-picker-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.emoji-picker-content {
+  background-color: white;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 400px;
+  max-height: 500px;
+  overflow: hidden;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+}
+
+.emoji-picker-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background-color: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.emoji-picker-header h4 {
+  margin: 0;
+  color: #374151;
+  font-size: 1rem;
+}
+
+.close-emoji-btn {
+  background-color: transparent;
+  border: none;
+  color: #64748b;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+}
+
+.close-emoji-btn:hover {
+  background-color: #e2e8f0;
+  color: #374151;
+}
+
+.emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 4px;
+  padding: 16px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.emoji-item {
+  background-color: transparent;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 6px;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+}
+
+.emoji-item:hover {
+  background-color: #f1f5f9;
+  transform: scale(1.1);
 }
 </style>
