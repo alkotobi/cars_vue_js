@@ -184,19 +184,109 @@ const checkBatchSell = async (billId) => {
   }
 }
 
-// Function to directly assign car for batch sell
+// Add persistent pricing for batch sell
+const batchPrice = ref(null)
+const batchFreight = ref(null)
+const batchRate = ref(null)
+const batchDischargePort = ref(null)
+const showBatchPricing = ref(false)
+
+// Add discharge ports for batch sell
+const dischargePorts = ref([])
+
+// Function to fetch discharge ports
+const fetchDischargePorts = async () => {
+  try {
+    const result = await callApi({
+      query: `
+        SELECT id, discharge_port
+        FROM discharge_ports
+        ORDER BY discharge_port ASC
+      `,
+      params: [],
+    })
+
+    if (result.success) {
+      dischargePorts.value = result.data
+    }
+  } catch (err) {
+    console.error('Error fetching discharge ports:', err)
+  }
+}
+
+// Add broker info for batch sell
+const brokerInfo = ref(null)
+
+// Function to fetch broker info
+const fetchBrokerInfo = async (billId) => {
+  try {
+    const result = await callApi({
+      query: `
+        SELECT c.name as broker_name, c.mobiles as broker_phone
+        FROM sell_bill sb
+        LEFT JOIN clients c ON sb.id_broker = c.id
+        WHERE sb.id = ?
+      `,
+      params: [billId],
+    })
+
+    if (result.success && result.data.length > 0) {
+      brokerInfo.value = result.data[0]
+    }
+  } catch (err) {
+    console.error('Error fetching broker info:', err)
+  }
+}
+
+// Function to directly assign car for batch sell with pricing
 const assignCarToBatchSell = async (carId) => {
   if (isProcessing.value) return
   isProcessing.value = true
 
   try {
+    // Get the bill_ref and broker_id from the sell_bill
+    const billResult = await callApi({
+      query: `
+        SELECT bill_ref, id_broker
+        FROM sell_bill
+        WHERE id = ?
+      `,
+      params: [selectedSellBillId.value],
+    })
+
+    if (!billResult.success || !billResult.data.length) {
+      error.value = 'Failed to get bill reference'
+      return
+    }
+
+    const billRef = billResult.data[0].bill_ref
+    const brokerId = billResult.data[0].id_broker
+    const currentDate = new Date().toISOString().split('T')[0]
+
     const result = await callApi({
       query: `
         UPDATE cars_stock
-        SET id_sell = ?
+        SET id_sell = ?,
+            id_client = ?,
+            id_port_discharge = ?,
+            price_cell = ?,
+            freight = ?,
+            rate = ?,
+            date_sell = ?,
+            id_sell_pi = ?
         WHERE id = ?
       `,
-      params: [selectedSellBillId.value, carId],
+      params: [
+        selectedSellBillId.value,
+        brokerId, // Set broker as client
+        batchDischargePort.value || null,
+        batchPrice.value || null,
+        batchFreight.value || null,
+        batchRate.value || null,
+        currentDate,
+        billRef,
+        carId,
+      ],
     })
 
     if (result.success) {
@@ -209,6 +299,37 @@ const assignCarToBatchSell = async (carId) => {
     error.value = err.message || 'An error occurred'
   } finally {
     isProcessing.value = false
+  }
+}
+
+// Function to toggle batch pricing visibility
+const toggleBatchPricing = () => {
+  showBatchPricing.value = !showBatchPricing.value
+}
+
+// Function to clear batch pricing
+const clearBatchPricing = () => {
+  batchPrice.value = null
+  batchFreight.value = null
+  batchRate.value = null
+  batchDischargePort.value = null
+}
+
+// Function to set batch pricing from defaults
+const setDefaultBatchPricing = async () => {
+  try {
+    const result = await callApi({
+      query: 'SELECT freight_small, freight_big FROM defaults LIMIT 1',
+      params: [],
+    })
+
+    if (result.success && result.data.length > 0) {
+      const defaults = result.data[0]
+      // Set default freight (you can choose small or big based on your needs)
+      batchFreight.value = defaults.freight_small || null
+    }
+  } catch (err) {
+    console.error('Error fetching default pricing:', err)
   }
 }
 
@@ -245,6 +366,9 @@ const handleAssignSuccess = () => {
 const setSellBillId = async (billId) => {
   selectedSellBillId.value = billId
   await checkBatchSell(billId)
+  if (billId) {
+    await fetchBrokerInfo(billId)
+  }
 }
 
 // Calculate profit
@@ -268,6 +392,7 @@ onMounted(() => {
     user.value = JSON.parse(userStr)
   }
   fetchUnassignedCars()
+  fetchDischargePorts()
 })
 </script>
 
@@ -349,6 +474,164 @@ onMounted(() => {
             @input="handleFilterChange"
             placeholder="Search loading port..."
           />
+        </div>
+      </div>
+    </div>
+
+    <!-- Batch Pricing Section (only show for batch sell) -->
+    <div v-if="isBatchSell && selectedSellBillId" class="batch-pricing-section">
+      <div class="batch-pricing-header">
+        <h4>
+          <i class="fas fa-dollar-sign"></i>
+          Batch Sell Pricing
+          <span
+            v-if="batchPrice || batchFreight || batchRate || batchDischargePort"
+            class="pricing-active-indicator"
+          >
+            <i class="fas fa-check-circle"></i>
+            Active
+          </span>
+        </h4>
+        <div class="batch-pricing-actions">
+          <button
+            @click="toggleBatchPricing"
+            class="toggle-pricing-btn"
+            :class="{ active: showBatchPricing }"
+          >
+            <i class="fas fa-cog"></i>
+            {{ showBatchPricing ? 'Hide' : 'Show' }} Pricing
+          </button>
+          <button @click="setDefaultBatchPricing" class="default-btn" title="Set Default Freight">
+            <i class="fas fa-magic"></i>
+            Defaults
+          </button>
+          <button @click="clearBatchPricing" class="clear-btn" title="Clear All Pricing">
+            <i class="fas fa-eraser"></i>
+            Clear
+          </button>
+        </div>
+      </div>
+
+      <!-- Broker Info -->
+      <div v-if="brokerInfo" class="broker-info">
+        <i class="fas fa-user-tie"></i>
+        <span><strong>Broker/Client:</strong> {{ brokerInfo.broker_name }}</span>
+        <span v-if="brokerInfo.broker_phone" class="broker-phone">
+          <i class="fas fa-phone"></i>
+          {{ brokerInfo.broker_phone }}
+        </span>
+      </div>
+
+      <div v-if="showBatchPricing" class="batch-pricing-form">
+        <div class="pricing-info">
+          <i class="fas fa-info-circle"></i>
+          <span
+            >Set pricing and discharge port once and they will be applied to all cars you assign.
+            The broker will automatically be set as the client for all cars. You can change the
+            settings at any time.</span
+          >
+        </div>
+
+        <div class="pricing-grid">
+          <div class="pricing-group">
+            <label>
+              <i class="fas fa-dollar-sign"></i>
+              Price (USD):
+            </label>
+            <input
+              type="number"
+              v-model="batchPrice"
+              placeholder="Enter price..."
+              step="0.01"
+              min="0"
+            />
+          </div>
+
+          <div class="pricing-group">
+            <label>
+              <i class="fas fa-ship"></i>
+              Freight (USD):
+            </label>
+            <input
+              type="number"
+              v-model="batchFreight"
+              placeholder="Enter freight..."
+              step="0.01"
+              min="0"
+            />
+          </div>
+
+          <div class="pricing-group">
+            <label>
+              <i class="fas fa-exchange-alt"></i>
+              Rate (DA):
+            </label>
+            <input
+              type="number"
+              v-model="batchRate"
+              placeholder="Enter rate..."
+              step="0.01"
+              min="0"
+            />
+          </div>
+
+          <div class="pricing-group">
+            <label>
+              <i class="fas fa-anchor"></i>
+              Discharge Port:
+            </label>
+            <select v-model="batchDischargePort" class="discharge-port-select">
+              <option value="">Select discharge port...</option>
+              <option v-for="port in dischargePorts" :key="port.id" :value="port.id">
+                {{ port.discharge_port }}
+              </option>
+            </select>
+          </div>
+        </div>
+
+        <div
+          class="pricing-summary"
+          v-if="batchPrice || batchFreight || batchRate || batchDischargePort"
+        >
+          <div class="summary-item">
+            <span class="label">Price:</span>
+            <span class="value">{{
+              batchPrice ? '$' + parseFloat(batchPrice).toLocaleString() : 'Not set'
+            }}</span>
+          </div>
+          <div class="summary-item">
+            <span class="label">Freight:</span>
+            <span class="value">{{
+              batchFreight ? '$' + parseFloat(batchFreight).toLocaleString() : 'Not set'
+            }}</span>
+          </div>
+          <div class="summary-item">
+            <span class="label">Rate:</span>
+            <span class="value">{{
+              batchRate ? parseFloat(batchRate).toLocaleString() + ' DA' : 'Not set'
+            }}</span>
+          </div>
+          <div class="summary-item">
+            <span class="label">Discharge Port:</span>
+            <span class="value">{{
+              batchDischargePort
+                ? dischargePorts.find((p) => p.id === batchDischargePort)?.discharge_port ||
+                  'Selected'
+                : 'Not set'
+            }}</span>
+          </div>
+          <div class="summary-item total" v-if="batchPrice && batchRate">
+            <span class="label">Total (DA):</span>
+            <span class="value"
+              >{{
+                (
+                  (parseFloat(batchPrice) + (parseFloat(batchFreight) || 0)) *
+                  parseFloat(batchRate)
+                ).toLocaleString()
+              }}
+              DA</span
+            >
+          </div>
         </div>
       </div>
     </div>
@@ -457,7 +740,16 @@ onMounted(() => {
               :class="{ processing: isProcessing }"
             >
               <i class="fas fa-link"></i>
-              <span>{{ isBatchSell ? 'Quick Assign' : 'Assign' }}</span>
+              <span>
+                {{
+                  isBatchSell
+                    ? batchPrice
+                      ? `Quick Assign ($${parseFloat(batchPrice).toLocaleString()})`
+                      : 'Quick Assign'
+                    : 'Assign'
+                }}
+                {{ isBatchSell && brokerInfo ? ` → ${brokerInfo.broker_name}` : '' }}
+              </span>
               <i v-if="isProcessing" class="fas fa-spinner fa-spin loading-indicator"></i>
             </button>
           </td>
@@ -742,5 +1034,215 @@ onMounted(() => {
 
 .sortable:hover i:last-child {
   opacity: 1;
+}
+
+/* Add batch pricing styles */
+.batch-pricing-section {
+  background-color: #f8fafc;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.batch-pricing-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.batch-pricing-header h4 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: #1f2937;
+  font-size: 1.1rem;
+}
+
+.pricing-active-indicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background-color: #10b981;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  margin-left: 8px;
+}
+
+.pricing-active-indicator i {
+  font-size: 0.7rem;
+}
+
+.batch-pricing-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.toggle-pricing-btn {
+  background-color: #10b981;
+  color: white;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.toggle-pricing-btn:hover {
+  background-color: #059669;
+}
+
+.toggle-pricing-btn.active {
+  background-color: #059669;
+}
+
+.default-btn {
+  background-color: #e5e7eb;
+  color: #4b5563;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.default-btn:hover {
+  background-color: #d1d5db;
+}
+
+.clear-btn {
+  background-color: #fee2e2;
+  color: #dc2626;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.clear-btn:hover {
+  background-color: #f3e8e8;
+}
+
+.batch-pricing-form {
+  margin-top: 16px;
+}
+
+.pricing-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background-color: #dbeafe;
+  color: #1e40af;
+  border-radius: 4px;
+  margin-bottom: 16px;
+  font-size: 0.9rem;
+}
+
+.pricing-info i {
+  color: #3b82f6;
+}
+
+.pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.pricing-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pricing-group label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #4b5563;
+  font-size: 0.9rem;
+}
+
+.pricing-group input {
+  padding: 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  transition: all 0.2s;
+}
+
+.pricing-group input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.discharge-port-select {
+  padding: 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  transition: all 0.2s;
+  background-color: white;
+}
+
+.discharge-port-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.pricing-summary {
+  margin-top: 16px;
+  padding: 12px;
+  background-color: #f3f4f6;
+  border-radius: 4px;
+}
+
+.summary-item {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.summary-item .label {
+  font-weight: 600;
+}
+
+.summary-item .value {
+  font-weight: 500;
+}
+
+.broker-info {
+  margin-top: 16px;
+  padding: 12px;
+  background-color: #f3f4f6;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.broker-info i {
+  color: #3b82f6;
+}
+
+.broker-info span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.broker-phone {
+  font-size: 0.9rem;
+  color: #6b7280;
+  margin-left: auto;
 }
 </style>
