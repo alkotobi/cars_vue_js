@@ -1,7 +1,6 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import LogoutButton from '../components/LogoutButton.vue'
 import { useApi } from '../composables/useApi'
 const router = useRouter()
 const user = ref(null)
@@ -105,11 +104,6 @@ const handleTasksClick = async () => {
   } finally {
     isProcessing.value.tasks = false
   }
-}
-const handleChatClick = () => {
-  const welcomeMessage = `Welcome ${user.value?.username || 'User'}!`
-  const chatUrl = `/mig/chat?welcome=${encodeURIComponent(welcomeMessage)}`
-  window.open(chatUrl, '_blank')
 }
 const fetchLatestRate = async () => {
   loading.value = true
@@ -215,18 +209,16 @@ const formatDate = (dateString) => {
 </script>
 <template>
   <div class="dashboard" :class="{ 'is-loading': loading }">
-    <div class="header">
-      <div class="user-info">
-        <h1><i class="fas fa-user-circle"></i> Welcome {{ user?.username }}</h1>
-        <p class="role"><i class="fas fa-id-badge"></i> Role: {{ user?.role_name }}</p>
+    <div class="welcome-section">
+      <div class="welcome-info">
+        <h1><i class="fas fa-home"></i> Welcome to Dashboard</h1>
         <p v-if="latestRate" class="rate-info">
           <i class="fas fa-chart-line"></i>
-          The rate is {{ latestRate.rate }} on
-          {{ new Date(latestRate.created_on).toLocaleString() }}
+          Current Rate: <strong>{{ latestRate.rate }}</strong> (Updated:
+          {{ new Date(latestRate.created_on).toLocaleString() }})
         </p>
       </div>
     </div>
-    <LogoutButton />
 
     <div class="actions-section">
       <button
@@ -304,10 +296,6 @@ const formatDate = (dateString) => {
         <span>Tasks</span>
         <i v-if="isProcessing.tasks" class="fas fa-spinner fa-spin loading-indicator"></i>
       </button>
-      <button @click="handleChatClick" class="action-btn chat-btn">
-        <i class="fas fa-comments"></i>
-        <span>Chat</span>
-      </button>
     </div>
 
     <!-- Pending Tasks Section -->
@@ -367,30 +355,49 @@ const formatDate = (dateString) => {
 </template>
 <style scoped>
 .dashboard {
-  padding: 20px;
+  padding: 30px;
   position: relative;
+  max-width: 1400px;
+  margin: 0 auto;
 }
 .dashboard.is-loading {
   opacity: 0.7;
   pointer-events: none;
 }
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
+.welcome-section {
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 30px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e2e8f0;
 }
-.user-info h1 {
+.welcome-info h1 {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
+  margin: 0 0 10px 0;
+  color: #1e293b;
+  font-size: 1.8rem;
+  font-weight: 700;
 }
-.role {
+.welcome-info h1 i {
+  color: #3b82f6;
+}
+.rate-info {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #666;
-  margin-top: 5px;
+  margin: 0;
+  color: #64748b;
+  font-size: 1rem;
+}
+.rate-info i {
+  color: #10b981;
+}
+.rate-info strong {
+  color: #059669;
+  font-weight: 600;
 }
 .actions-section {
   margin: 20px 0;
@@ -458,42 +465,9 @@ const formatDate = (dateString) => {
   background-color: #3b82f6;
   color: white;
 }
-.chat-btn {
-  background-color: #06b6d4;
-  color: white;
-}
 button:disabled {
   opacity: 0.7;
   cursor: not-allowed;
-}
-.rate-info {
-  margin-top: 10px;
-  padding: 12px 16px;
-  background-color: #e3f2fd;
-  border-radius: 8px;
-  color: #1976d2;
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-}
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-.fa-spin {
-  animation: spin 1s linear infinite;
-}
-/* Responsive adjustments */
-@media (max-width: 768px) {
-  .actions-section {
-    flex-direction: column;
-  }
-  .action-btn {
-    width: 100%;
-  }
 }
 .copyright {
   text-align: center;

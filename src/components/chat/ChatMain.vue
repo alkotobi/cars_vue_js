@@ -60,11 +60,21 @@ const focusMessageInput = () => {
   }
 }
 
+const scrollToBottom = async () => {
+  console.log('ChatMain: scrollToBottom called')
+  if (chatMessagesRef.value?.scrollToBottom) {
+    await chatMessagesRef.value.scrollToBottom()
+  } else {
+    console.log('scrollToBottom method not available in ChatMessages')
+  }
+}
+
 defineExpose({
   getAllNewMessagesCounts,
   getNewMessagesCount,
   fetchAllGroupsMessages,
   focusMessageInput,
+  scrollToBottom,
 })
 </script>
 
@@ -93,7 +103,7 @@ defineExpose({
   flex: 1;
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100%;
 }
 
 .select-group-message {

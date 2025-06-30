@@ -6,6 +6,10 @@ const router = useRouter()
 const logout = () => {
   // Clear all localStorage data
   localStorage.clear()
+
+  // Dispatch custom event for header to update
+  window.dispatchEvent(new CustomEvent('userLogout'))
+
   router.push('/login')
 }
 </script>

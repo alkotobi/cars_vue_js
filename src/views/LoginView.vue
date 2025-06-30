@@ -89,6 +89,10 @@ const login = async () => {
         }
 
         localStorage.setItem('user', JSON.stringify(userInfo))
+
+        // Dispatch custom event for header to update
+        window.dispatchEvent(new CustomEvent('userLogin'))
+
         router.push('/dashboard')
       } else {
         error.value = 'Invalid username or password'

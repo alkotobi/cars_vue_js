@@ -762,6 +762,9 @@ const sendMessage = async () => {
 
       // Emit event to parent
       emit('message-sent', newMsg)
+
+      // Dispatch global event to update header badge
+      window.dispatchEvent(new Event('forceUpdateBadge'))
     } else {
       alert('Failed to send message')
     }
@@ -788,19 +791,52 @@ const sendMessage = async () => {
 const scrollToBottom = async () => {
   if (messagesContainer.value) {
     await nextTick()
-    // Use multiple timeouts to ensure DOM is fully updated
-    setTimeout(() => {
-      if (messagesContainer.value) {
-        messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
-      }
-    }, 50)
 
-    // Double-check after a longer delay
+    // Multiple attempts with different delays to ensure scrolling works
+    const scrollAttempts = [
+      () => {
+        if (messagesContainer.value) {
+          messagesContainer.value.scrollTo({
+            top: messagesContainer.value.scrollHeight,
+            behavior: 'smooth',
+          })
+        }
+      },
+      () => {
+        if (messagesContainer.value) {
+          messagesContainer.value.scrollTo({
+            top: messagesContainer.value.scrollHeight,
+            behavior: 'smooth',
+          })
+        }
+      },
+      () => {
+        if (messagesContainer.value) {
+          messagesContainer.value.scrollTo({
+            top: messagesContainer.value.scrollHeight,
+            behavior: 'smooth',
+          })
+        }
+      },
+    ]
+
+    // Execute scroll attempts with different delays
+    scrollAttempts.forEach((attempt, index) => {
+      setTimeout(attempt, 50 * (index + 1))
+    })
+
+    // Final attempt after a longer delay
     setTimeout(() => {
       if (messagesContainer.value) {
-        messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
+        messagesContainer.value.scrollTo({
+          top: messagesContainer.value.scrollHeight,
+          behavior: 'smooth',
+        })
+        console.log('ChatMessages: Final smooth scroll attempt completed')
       }
-    }, 200)
+    }, 300)
+  } else {
+    console.log('ChatMessages: messagesContainer ref not available for scrolling')
   }
 }
 
@@ -876,10 +912,24 @@ onMounted(async () => {
 
   // Start polling for new messages (only for the current group)
   refreshInterval = setInterval(async () => {
-    if (props.groupId && props.groupId > 0) {
-      await fetchNewMessages(props.groupId)
+    console.log(
+      `Timer tick - checking for new messages. groupId: ${props.groupId}, currentUser: ${currentUser.value?.id}`,
+    )
+    if (props.groupId && props.groupId > 0 && currentUser.value) {
+      try {
+        await fetchNewMessages(props.groupId)
+        console.log(`Timer: fetchNewMessages completed for group ${props.groupId}`)
+      } catch (err) {
+        console.error(`Timer: Error fetching new messages for group ${props.groupId}:`, err)
+      }
+    } else {
+      console.log(
+        `Timer: Skipping fetch - groupId: ${props.groupId}, currentUser: ${currentUser.value?.id}`,
+      )
     }
-  }, 10000) // 10 seconds
+  }, 5000) // 5 seconds
+
+  console.log('Timer started - will check for new messages every 5 seconds')
 })
 
 // Clean up interval on unmount
@@ -1212,6 +1262,10 @@ defineExpose({
       console.log('Message input ref not available')
     }
   },
+  scrollToBottom: async () => {
+    console.log('ChatMessages: scrollToBottom called')
+    await scrollToBottom()
+  },
 })
 
 const toggleEmojiPicker = () => {
@@ -1317,6 +1371,9 @@ const uploadFileToChat = async () => {
 
         // Emit event to parent
         emit('message-sent', newMsg)
+
+        // Dispatch global event to update header badge
+        window.dispatchEvent(new Event('forceUpdateBadge'))
 
         // Scroll to bottom after message is added
         await nextTick()
@@ -1596,6 +1653,9 @@ const sendVoiceMessage = async () => {
         // Emit event to parent
         emit('message-sent', newMsg)
 
+        // Dispatch global event to update header badge
+        window.dispatchEvent(new Event('forceUpdateBadge'))
+
         // Scroll to bottom after message is added
         await nextTick()
         await scrollToBottom()
@@ -1649,7 +1709,10 @@ const loadMoreMessages = async () => {
       setTimeout(() => {
         const newHeight = messagesContainer.value.scrollHeight
         const heightDifference = newHeight - oldHeight
-        messagesContainer.value.scrollTop = heightDifference
+        messagesContainer.value.scrollTo({
+          top: heightDifference,
+          behavior: 'smooth',
+        })
       }, 100)
     }
   } catch (err) {
@@ -1686,7 +1749,7 @@ const fetchNewMessages = async (groupId) => {
           cm.message,
           cm.time,
           u.username as sender_username,
-          r.name as sender_role
+          r.role_name as sender_role
         FROM chat_messages cm
         LEFT JOIN users u ON cm.message_from_user_id = u.id
         LEFT JOIN roles r ON u.role_id = r.id
@@ -2151,6 +2214,7 @@ watch(
   overflow-y: auto;
   padding: 20px;
   background-color: #f8fafc;
+  scroll-behavior: smooth;
 }
 
 .loading-messages,
