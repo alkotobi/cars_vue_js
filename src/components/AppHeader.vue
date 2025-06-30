@@ -1,15 +1,18 @@
 <script setup>
 import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useApi } from '../composables/useApi'
 import LogoutButton from './LogoutButton.vue'
 import ChatModal from './ChatModal.vue'
 import ChatMessages from './chat/ChatMessages.vue'
 
 const router = useRouter()
+const { callApi } = useApi()
 const user = ref(null)
 const showChatModal = ref(false)
 const unreadMessageCount = ref(0)
 const chatMessagesRef = ref(null)
+const pendingTasksCount = ref(0)
 
 // Get user from localStorage
 const getUser = () => {
@@ -18,6 +21,30 @@ const getUser = () => {
     user.value = JSON.parse(userStr)
   } else {
     user.value = null
+  }
+}
+
+// Fetch pending tasks count
+const fetchPendingTasksCount = async () => {
+  if (!user.value) return
+
+  try {
+    const result = await callApi({
+      query: `
+        SELECT COUNT(*) as count
+        FROM tasks t
+        WHERE t.date_declare_done IS NULL
+        AND (t.id_user_receive = ? OR t.id_user_create = ?)
+      `,
+      params: [user.value.id, user.value.id],
+      requiresAuth: true,
+    })
+
+    if (result.success && result.data.length > 0) {
+      pendingTasksCount.value = result.data[0].count
+    }
+  } catch (error) {
+    console.error('Error fetching pending tasks count:', error)
   }
 }
 
@@ -105,10 +132,12 @@ const updateUnreadCount = async () => {
 
 // Set up periodic updates for unread count
 let unreadCountInterval = null
+let tasksCountInterval = null
 
 // Initialize user on component mount
 onMounted(async () => {
   getUser()
+  fetchPendingTasksCount()
   watchUserChanges()
 
   // Wait for the hidden ChatMessages component to be ready
@@ -123,6 +152,9 @@ onMounted(async () => {
   // Set up periodic updates for unread count
   unreadCountInterval = setInterval(updateUnreadCount, 3000) // Update every 3 seconds
 
+  // Set up periodic updates for tasks count
+  tasksCountInterval = setInterval(fetchPendingTasksCount, 10000) // Update every 10 seconds
+
   // Listen for global events to force update badge
   window.addEventListener('forceUpdateBadge', updateUnreadCount)
 })
@@ -130,6 +162,9 @@ onMounted(async () => {
 onUnmounted(() => {
   if (unreadCountInterval) {
     clearInterval(unreadCountInterval)
+  }
+  if (tasksCountInterval) {
+    clearInterval(tasksCountInterval)
   }
   if (chatMessagesRef.value?.cleanup) {
     chatMessagesRef.value.cleanup()
@@ -173,6 +208,14 @@ onUnmounted(() => {
           <span class="chat-label">Chat</span>
           <span v-if="unreadMessageCount > 0" class="notification-badge">
             {{ unreadMessageCount > 99 ? '99+' : unreadMessageCount }}
+          </span>
+        </button>
+
+        <button @click="router.push('/tasks')" class="tasks-btn" title="View Tasks">
+          <i class="fas fa-tasks"></i>
+          <span class="tasks-label">Tasks</span>
+          <span v-if="pendingTasksCount > 0" class="notification-badge">
+            {{ pendingTasksCount > 99 ? '99+' : pendingTasksCount }}
           </span>
         </button>
 
@@ -305,7 +348,7 @@ onUnmounted(() => {
   background-color: rgba(255, 255, 255, 0.1);
   color: white;
   border: 1px solid rgba(255, 255, 255, 0.2);
-  padding: 8px 12px;
+  padding: 8px;
   border-radius: 20px;
   cursor: pointer;
   transition: all 0.2s;
@@ -325,6 +368,37 @@ onUnmounted(() => {
 }
 
 .chat-label {
+  font-weight: 500;
+}
+
+.tasks-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 8px 12px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+  backdrop-filter: blur(10px);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.tasks-btn:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.tasks-btn i {
+  color: #10b981;
+  font-size: 1rem;
+}
+
+.tasks-label {
   font-weight: 500;
 }
 
@@ -424,6 +498,20 @@ onUnmounted(() => {
     padding: 8px;
     min-width: 40px;
     justify-content: center;
+  }
+
+  .tasks-btn {
+    padding: 8px;
+    min-width: 40px;
+    justify-content: center;
+  }
+
+  .chat-label {
+    display: none;
+  }
+
+  .tasks-label {
+    display: none;
   }
 }
 
@@ -544,7 +632,17 @@ onUnmounted(() => {
     display: none;
   }
 
+  .tasks-label {
+    display: none;
+  }
+
   .chat-btn {
+    padding: 8px;
+    min-width: 40px;
+    justify-content: center;
+  }
+
+  .tasks-btn {
     padding: 8px;
     min-width: 40px;
     justify-content: center;
