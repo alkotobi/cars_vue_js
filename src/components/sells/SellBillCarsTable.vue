@@ -1,6 +1,7 @@
 <script setup>
 import { ref, watch, defineProps, defineEmits, onMounted, computed } from 'vue'
 import { useApi } from '../../composables/useApi'
+import { useRouter } from 'vue-router'
 import { ElSelect, ElOption } from 'element-plus'
 import 'element-plus/dist/index.css'
 
@@ -12,6 +13,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['refresh'])
+const router = useRouter()
 const user = ref(null)
 const isAdmin = computed(() => user.value?.role_id === 1)
 const can_assign_to_tmp_clients = computed(
@@ -297,6 +299,28 @@ const handleSaveEdit = async () => {
 // Add handleUnassign function
 const handleUnassign = async (carId) => {
   await unassignCar(carId)
+}
+
+// Add handlePrint function
+const handlePrint = (car) => {
+  // Open print page in new tab for individual car
+  const printUrl = router.resolve({
+    name: 'print-car',
+    params: { carId: car.id },
+    query: {
+      billId: props.sellBillId,
+      options: encodeURIComponent(
+        JSON.stringify({
+          documentType: 'contract',
+          paymentTerms: 'FOB',
+          paymentMode: 'TT',
+          currency: 'USD',
+        }),
+      ),
+    },
+  }).href
+
+  window.open(printUrl, '_blank')
 }
 
 onMounted(() => {
@@ -596,6 +620,14 @@ defineExpose({
               title="Edit Car"
             >
               <i class="fas fa-edit"></i>
+            </button>
+            <button
+              @click="handlePrint(car)"
+              :disabled="isProcessing"
+              class="btn print-btn"
+              title="Print Car Document"
+            >
+              <i class="fas fa-print"></i>
             </button>
             <button
               @click="handleUnassign(car.id)"
@@ -952,6 +984,15 @@ defineExpose({
 
 .edit-btn:hover:not(:disabled) {
   background-color: #2563eb;
+}
+
+.print-btn {
+  background-color: #10b981;
+  color: white;
+}
+
+.print-btn:hover:not(:disabled) {
+  background-color: #059669;
 }
 
 .unassign-btn {

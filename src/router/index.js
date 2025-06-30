@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import LoginView from '../views/LoginView.vue'
 import DashboardView from '../views/DashboardView.vue'
 import PrintPage from '../views/PrintPage.vue'
+import PrintCarPage from '../views/PrintCarPage.vue'
 import SellBillPaymentsView from '../views/SellBillPaymentsView.vue'
 import MoneyMovements from '../components/cashier/MoneyMovements.vue'
 import TransfersInterTable from '../components/cashier/TransfersInterTable.vue'
@@ -125,6 +126,11 @@ const router = createRouter({
       path: '/print/:billId',
       name: 'print',
       component: PrintPage,
+    },
+    {
+      path: '/print-car/:carId',
+      name: 'print-car',
+      component: () => import('../views/PrintCarPage.vue'),
     },
     {
       path: '/clients',
