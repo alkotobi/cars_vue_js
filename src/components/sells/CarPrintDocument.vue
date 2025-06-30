@@ -128,8 +128,13 @@ onMounted(() => {
     <div v-if="loading" class="loading">Loading...</div>
     <div v-else-if="error" class="error">{{ error }}</div>
     <div v-else class="a4-page">
+      <!-- Floating Stamp -->
+      <div class="floating-stamp">
+        <img :src="stampImage" alt="Company Stamp" />
+      </div>
+
       <!-- Header -->
-      <div class="header">
+      <div class="header print-hide">
         <div class="company-info">
           <img :src="company.logo" alt="Company Logo" class="company-logo" />
           <div class="company-text">
@@ -215,6 +220,33 @@ onMounted(() => {
   .a4-page {
     box-shadow: none;
   }
+
+  body {
+    background: none;
+  }
+
+  .print-document {
+    padding: 0;
+    margin: 0;
+  }
+
+  .loading,
+  .error {
+    display: none !important;
+  }
+
+  .a4-page .header,
+  .header {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .company-info,
+  .document-info {
+    display: none !important;
+  }
 }
 
 .header {
@@ -299,19 +331,40 @@ onMounted(() => {
   text-align: right;
 }
 
+.floating-stamp {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-30deg);
+  opacity: 1;
+  pointer-events: none;
+  z-index: 100;
+}
+
+.floating-stamp img {
+  width: 300px;
+  height: auto;
+}
+
 @media print {
-  body {
-    background: none;
+  .floating-stamp {
+    position: fixed;
   }
+}
+</style>
 
-  .print-document {
-    padding: 0;
-    margin: 0;
-  }
-
-  .loading,
-  .error {
-    display: none;
+<style>
+@media print {
+  .print-hide,
+  .header,
+  .company-info,
+  .document-info {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 }
 </style>

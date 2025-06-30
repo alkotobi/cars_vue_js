@@ -7,7 +7,7 @@ import AppHeader from './components/AppHeader.vue'
   <div id="app">
     <AppHeader />
     <main class="app-main">
-  <RouterView />
+      <RouterView />
     </main>
   </div>
 </template>
@@ -22,5 +22,18 @@ import AppHeader from './components/AppHeader.vue'
 .app-main {
   flex: 1;
   background-color: #f8fafc;
+}
+
+@media print {
+  .app-header,
+  header,
+  .app-header * {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
 }
 </style>
