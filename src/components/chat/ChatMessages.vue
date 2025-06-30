@@ -901,16 +901,55 @@ const handleKeyPress = (event) => {
 // Auto-refresh messages every 10 seconds
 let refreshInterval = null
 
-onMounted(async () => {
-  // Fetch current user and initial messages
-  getCurrentUser()
+// User activity tracking for adaptive polling
+const isUserActive = ref(true)
+const lastActivityTime = ref(Date.now())
+const inactivityTimeout = 5 * 60 * 1000 // 5 minutes of inactivity
+let inactivityTimer = null
 
-  // If we have a groupId, load the first page of messages
-  if (props.groupId && props.groupId > 0) {
-    await fetchMessages(props.groupId)
+// Adaptive polling intervals
+const ACTIVE_INTERVALS = {
+  messages: 10 * 1000, // 10 seconds when active
+}
+
+const INACTIVE_INTERVALS = {
+  messages: 30 * 1000, // 30 seconds when inactive
+}
+
+// User activity tracking functions
+const updateUserActivity = () => {
+  lastActivityTime.value = Date.now()
+  if (!isUserActive.value) {
+    isUserActive.value = true
+    console.log('Chat: User became active, switching to faster polling intervals')
+    restartMessagePolling()
+  }
+  resetInactivityTimer()
+}
+
+const resetInactivityTimer = () => {
+  if (inactivityTimer) {
+    clearTimeout(inactivityTimer)
+  }
+  inactivityTimer = setTimeout(() => {
+    isUserActive.value = false
+    console.log('Chat: User became inactive, switching to slower polling intervals')
+    restartMessagePolling()
+  }, inactivityTimeout)
+}
+
+const restartMessagePolling = () => {
+  // Clear existing interval
+  if (refreshInterval) {
+    clearInterval(refreshInterval)
   }
 
-  // Start polling for new messages (only for the current group)
+  // Get current interval based on activity
+  const currentInterval = isUserActive.value
+    ? ACTIVE_INTERVALS.messages
+    : INACTIVE_INTERVALS.messages
+
+  // Restart with new interval
   refreshInterval = setInterval(async () => {
     console.log(
       `Timer tick - checking for new messages. groupId: ${props.groupId}, currentUser: ${currentUser.value?.id}`,
@@ -927,9 +966,71 @@ onMounted(async () => {
         `Timer: Skipping fetch - groupId: ${props.groupId}, currentUser: ${currentUser.value?.id}`,
       )
     }
-  }, 5000) // 5 seconds
+  }, currentInterval)
 
-  console.log('Timer started - will check for new messages every 5 seconds')
+  console.log(`Chat polling restarted - Messages: ${currentInterval / 1000}s`)
+}
+
+// Set up activity listeners
+const setupActivityListeners = () => {
+  const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click']
+  events.forEach((event) => {
+    document.addEventListener(event, updateUserActivity, { passive: true })
+  })
+
+  // Also track visibility changes
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      updateUserActivity()
+    }
+  })
+}
+
+// Clean up activity listeners
+const cleanupActivityListeners = () => {
+  const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click']
+  events.forEach((event) => {
+    document.removeEventListener(event, updateUserActivity)
+  })
+  document.removeEventListener('visibilitychange', updateUserActivity)
+}
+
+onMounted(async () => {
+  // Fetch current user and initial messages
+  getCurrentUser()
+
+  // If we have a groupId, load the first page of messages
+  if (props.groupId && props.groupId > 0) {
+    await fetchMessages(props.groupId)
+  }
+
+  // Start polling for new messages (only for the current group)
+  // Set up activity listeners
+  setupActivityListeners()
+
+  // Initialize adaptive polling with active intervals (user just loaded the page)
+  const currentInterval = ACTIVE_INTERVALS.messages
+  refreshInterval = setInterval(async () => {
+    console.log(
+      `Timer tick - checking for new messages. groupId: ${props.groupId}, currentUser: ${currentUser.value?.id}`,
+    )
+    if (props.groupId && props.groupId > 0 && currentUser.value) {
+      try {
+        await fetchNewMessages(props.groupId)
+        console.log(`Timer: fetchNewMessages completed for group ${props.groupId}`)
+      } catch (err) {
+        console.error(`Timer: Error fetching new messages for group ${props.groupId}:`, err)
+      }
+    } else {
+      console.log(
+        `Timer: Skipping fetch - groupId: ${props.groupId}, currentUser: ${currentUser.value?.id}`,
+      )
+    }
+  }, currentInterval)
+
+  console.log(
+    `Chat timer started - will check for new messages every ${currentInterval / 1000} seconds`,
+  )
 })
 
 // Clean up interval on unmount
@@ -938,6 +1039,11 @@ const cleanup = () => {
     clearInterval(refreshInterval)
     refreshInterval = null
   }
+  if (inactivityTimer) {
+    clearTimeout(inactivityTimer)
+    inactivityTimer = null
+  }
+  cleanupActivityListeners()
 }
 
 // Function to reset new message count for a specific group
@@ -2360,7 +2466,7 @@ watch(
 }
 
 .message-input-container {
-  padding: 16px 20px;
+  padding: 12px 16px;
   background-color: white;
   border-top: 1px solid #e2e8f0;
 }
@@ -2488,14 +2594,9 @@ watch(
 }
 
 .input-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 16px;
-  background-color: #f8fafc;
-  border-top: 1px solid #e2e8f0;
-  font-size: 0.8rem;
-  color: #64748b;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
 }
 
 .char-count {
@@ -2698,567 +2799,5 @@ watch(
     gap: 4px;
     align-items: flex-start;
   }
-}
-
-.emoji-picker-modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-}
-
-.emoji-picker-content {
-  background-color: white;
-  border-radius: 12px;
-  width: 90%;
-  max-width: 400px;
-  max-height: 500px;
-  overflow: hidden;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-  display: flex;
-  flex-direction: column;
-}
-
-.emoji-picker-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 20px;
-  background-color: #f8fafc;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.emoji-picker-header h4 {
-  margin: 0;
-  color: #374151;
-  font-size: 1rem;
-}
-
-.close-emoji-btn {
-  background-color: transparent;
-  border: none;
-  color: #64748b;
-  font-size: 1.2rem;
-  cursor: pointer;
-  padding: 8px;
-  border-radius: 4px;
-  transition: background-color 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-}
-
-.close-emoji-btn:hover {
-  background-color: #e2e8f0;
-  color: #374151;
-}
-
-.emoji-grid {
-  display: grid;
-  grid-template-columns: repeat(8, 1fr);
-  gap: 4px;
-  padding: 16px;
-  max-height: 400px;
-  overflow-y: auto;
-}
-
-.emoji-item {
-  background-color: transparent;
-  border: none;
-  font-size: 1.5rem;
-  cursor: pointer;
-  padding: 8px;
-  border-radius: 6px;
-  transition: background-color 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-}
-
-.emoji-item:hover {
-  background-color: #f1f5f9;
-  transform: scale(1.1);
-}
-
-.upload-progress {
-  margin-top: 8px;
-  margin-bottom: 8px;
-  height: 20px;
-  background-color: #f8fafc;
-  border-radius: 10px;
-  overflow: hidden;
-}
-
-.progress-bar {
-  height: 100%;
-  background-color: #06b6d4;
-  border-radius: 10px;
-  transition: width 0.2s;
-}
-
-.progress-fill {
-  height: 100%;
-  background-color: #06b6d4;
-  border-radius: 10px;
-  transition: width 0.2s;
-}
-
-.progress-text {
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: #374151;
-}
-
-.file-error {
-  margin-top: 8px;
-  margin-bottom: 8px;
-  padding: 8px;
-  background-color: #fef2f2;
-  border: 1px solid #fef2f2;
-  border-radius: 6px;
-  color: #ef4444;
-  font-size: 0.8rem;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.file-attachment {
-  margin-top: 8px;
-  padding: 8px;
-  background-color: rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.own-message .file-attachment {
-  background-color: rgba(255, 255, 255, 0.2);
-}
-
-.file-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-}
-
-.file-icon {
-  font-size: 1.2rem;
-}
-
-.file-details {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.file-name {
-  font-weight: 500;
-  font-size: 0.9rem;
-  word-break: break-word;
-}
-
-.file-size {
-  font-size: 0.7rem;
-  opacity: 0.7;
-}
-
-.download-btn {
-  background-color: rgba(255, 255, 255, 0.2);
-  border: none;
-  color: inherit;
-  padding: 6px 8px;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background-color 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 32px;
-  height: 32px;
-}
-
-.download-btn:hover {
-  background-color: rgba(255, 255, 255, 0.3);
-}
-
-.image-attachment {
-  position: relative;
-  max-width: 300px;
-  border-radius: 8px;
-  overflow: hidden;
-  cursor: pointer;
-  transition: transform 0.2s;
-}
-
-.image-attachment:hover {
-  transform: scale(1.02);
-}
-
-.chat-image {
-  width: 100%;
-  height: auto;
-  display: block;
-  border-radius: 8px;
-}
-
-.file-info-overlay {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
-  color: white;
-  padding: 12px 8px 8px 8px;
-  font-size: 0.8rem;
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-
-.image-attachment:hover .file-info-overlay,
-.video-attachment:hover .file-info-overlay {
-  opacity: 1;
-}
-
-.file-info-overlay .file-name {
-  font-weight: 500;
-  margin-bottom: 2px;
-  word-break: break-word;
-}
-
-.file-info-overlay .file-size {
-  font-size: 0.7rem;
-  opacity: 0.8;
-}
-
-.video-attachment {
-  position: relative;
-  max-width: 300px;
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.chat-video {
-  width: 100%;
-  height: auto;
-  display: block;
-  border-radius: 8px;
-}
-
-.file-info-overlay .download-btn {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  background-color: rgba(0, 0, 0, 0.6);
-  border: none;
-  color: white;
-  padding: 6px 8px;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background-color 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 32px;
-  height: 32px;
-}
-
-.file-info-overlay .download-btn:hover {
-  background-color: rgba(0, 0, 0, 0.8);
-}
-
-.voice-recording {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px;
-  background-color: #f8fafc;
-  border-radius: 6px;
-  margin-top: 8px;
-}
-
-.recording-indicator {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.recording-text {
-  font-size: 0.8rem;
-  font-weight: 500;
-}
-
-.recording-time {
-  font-size: 0.7rem;
-  opacity: 0.7;
-}
-
-.cancel-btn {
-  background-color: rgba(255, 255, 255, 0.2);
-  border: none;
-  color: #64748b;
-  font-size: 1.2rem;
-  cursor: pointer;
-  padding: 6px;
-  border-radius: 4px;
-  transition: background-color 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-}
-
-.cancel-btn:hover {
-  background-color: #e2e8f0;
-  color: #374151;
-}
-
-.voice-preview {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px;
-  background-color: #f8fafc;
-  border-radius: 6px;
-  margin-top: 8px;
-}
-
-.voice-preview-content {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.voice-audio {
-  width: 150px;
-  height: 40px;
-}
-
-.voice-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.send-voice-btn {
-  background-color: rgba(255, 255, 255, 0.2);
-  border: none;
-  color: #64748b;
-  font-size: 1.2rem;
-  cursor: pointer;
-  padding: 6px;
-  border-radius: 4px;
-  transition: background-color 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-}
-
-.send-voice-btn:hover {
-  background-color: #e2e8f0;
-  color: #374151;
-}
-
-.cancel-voice-btn {
-  background-color: rgba(255, 255, 255, 0.2);
-  border: none;
-  color: #64748b;
-  font-size: 1.2rem;
-  cursor: pointer;
-  padding: 6px;
-  border-radius: 4px;
-  transition: background-color 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-}
-
-.cancel-voice-btn:hover {
-  background-color: #e2e8f0;
-  color: #374151;
-}
-
-.voice-message {
-  margin-top: 8px;
-  padding: 8px;
-  background-color: rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
-}
-
-.own-message .voice-message {
-  background-color: rgba(255, 255, 255, 0.2);
-}
-
-.voice-message-content {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.voice-icon {
-  font-size: 1.2rem;
-  color: #06b6d4;
-}
-
-.voice-player {
-  flex: 1;
-  height: 40px;
-  border-radius: 4px;
-}
-
-.voice-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.voice-duration {
-  font-size: 0.8rem;
-  opacity: 0.7;
-  white-space: nowrap;
-}
-
-.voice-button.recording {
-  background-color: #ef4444;
-  color: white;
-  animation: pulse 1s infinite;
-}
-
-@keyframes pulse {
-  0% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.1);
-  }
-  100% {
-    transform: scale(1);
-  }
-}
-
-.load-more-container {
-  display: flex;
-  justify-content: center;
-  margin-top: 16px;
-}
-
-.load-more-btn {
-  background-color: #06b6d4;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  padding: 12px 24px;
-  cursor: pointer;
-  font-size: 1rem;
-  transition: background-color 0.2s;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.load-more-btn:hover:not(:disabled) {
-  background-color: #0891b2;
-}
-
-.load-more-btn:disabled {
-  background-color: #cbd5e1;
-  cursor: not-allowed;
-}
-
-.chat-video {
-  width: 100%;
-  height: auto;
-  display: block;
-  border-radius: 8px;
-}
-
-.audio-attachment {
-  position: relative;
-  max-width: 300px;
-  border-radius: 8px;
-  overflow: hidden;
-  background-color: rgba(255, 255, 255, 0.1);
-  padding: 12px;
-}
-
-.audio-player {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.audio-icon {
-  font-size: 1.2rem;
-  color: #06b6d4;
-  flex-shrink: 0;
-}
-
-.chat-audio {
-  flex: 1;
-  height: 40px;
-  border-radius: 4px;
-}
-
-.audio-attachment .file-info-overlay {
-  position: static;
-  background: none;
-  color: inherit;
-  padding: 0;
-  opacity: 1;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.audio-attachment .file-info-overlay .file-name {
-  color: inherit;
-  font-weight: 500;
-  font-size: 0.8rem;
-  word-break: break-word;
-}
-
-.audio-attachment .file-info-overlay .file-size {
-  color: inherit;
-  font-size: 0.7rem;
-  opacity: 0.7;
-}
-
-.audio-attachment .download-btn {
-  background-color: rgba(255, 255, 255, 0.2);
-  border: none;
-  color: inherit;
-  padding: 6px 8px;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background-color 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 32px;
-  height: 32px;
-}
-
-.audio-attachment .download-btn:hover {
-  background-color: rgba(255, 255, 255, 0.3);
 }
 </style>

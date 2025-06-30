@@ -14,6 +14,23 @@ const unreadMessageCount = ref(0)
 const chatMessagesRef = ref(null)
 const pendingTasksCount = ref(0)
 
+// User activity tracking
+const isUserActive = ref(true)
+const lastActivityTime = ref(Date.now())
+const inactivityTimeout = 5 * 60 * 1000 // 5 minutes of inactivity
+let inactivityTimer = null
+
+// Adaptive polling intervals
+const ACTIVE_INTERVALS = {
+  tasks: 2 * 60 * 1000, // 2 minutes when active
+  chat: 10 * 1000, // 10 seconds when active
+}
+
+const INACTIVE_INTERVALS = {
+  tasks: 5 * 60 * 1000, // 5 minutes when inactive
+  chat: 30 * 1000, // 30 seconds when inactive
+}
+
 // Get user from localStorage
 const getUser = () => {
   const userStr = localStorage.getItem('user')
@@ -46,6 +63,73 @@ const fetchPendingTasksCount = async () => {
   } catch (error) {
     console.error('Error fetching pending tasks count:', error)
   }
+}
+
+// User activity tracking functions
+const updateUserActivity = () => {
+  lastActivityTime.value = Date.now()
+  if (!isUserActive.value) {
+    isUserActive.value = true
+    console.log('User became active, switching to faster polling intervals')
+    restartPolling()
+  }
+  resetInactivityTimer()
+}
+
+const resetInactivityTimer = () => {
+  if (inactivityTimer) {
+    clearTimeout(inactivityTimer)
+  }
+  inactivityTimer = setTimeout(() => {
+    isUserActive.value = false
+    console.log('User became inactive, switching to slower polling intervals')
+    restartPolling()
+  }, inactivityTimeout)
+}
+
+const restartPolling = () => {
+  // Clear existing intervals
+  if (unreadCountInterval) {
+    clearInterval(unreadCountInterval)
+  }
+  if (tasksCountInterval) {
+    clearInterval(tasksCountInterval)
+  }
+
+  // Get current intervals based on activity
+  const currentIntervals = isUserActive.value ? ACTIVE_INTERVALS : INACTIVE_INTERVALS
+
+  // Restart with new intervals
+  unreadCountInterval = setInterval(updateUnreadCount, currentIntervals.chat)
+  tasksCountInterval = setInterval(fetchPendingTasksCount, currentIntervals.tasks)
+
+  console.log(
+    `Polling restarted - Tasks: ${currentIntervals.tasks / 1000}s, Chat: ${currentIntervals.chat / 1000}s`,
+  )
+}
+
+// Set up activity listeners
+const setupActivityListeners = () => {
+  const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click']
+  events.forEach((event) => {
+    document.addEventListener(event, updateUserActivity, { passive: true })
+  })
+
+  // Also track visibility changes
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      updateUserActivity()
+    }
+  })
+}
+
+// Clean up activity listeners
+const cleanupActivityListeners = () => {
+  const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click']
+  events.forEach((event) => {
+    document.removeEventListener(event, updateUserActivity)
+  })
+  document.removeEventListener('visibilitychange', updateUserActivity)
 }
 
 // Watch for localStorage changes (when user logs in/out)
@@ -149,11 +233,17 @@ onMounted(async () => {
     updateUnreadCount()
   }
 
-  // Set up periodic updates for unread count
-  unreadCountInterval = setInterval(updateUnreadCount, 3000) // Update every 3 seconds
+  // Set up activity listeners
+  setupActivityListeners()
 
-  // Set up periodic updates for tasks count
-  tasksCountInterval = setInterval(fetchPendingTasksCount, 10000) // Update every 10 seconds
+  // Initialize adaptive polling with active intervals (user just loaded the page)
+  const currentIntervals = ACTIVE_INTERVALS
+  unreadCountInterval = setInterval(updateUnreadCount, currentIntervals.chat)
+  tasksCountInterval = setInterval(fetchPendingTasksCount, currentIntervals.tasks)
+
+  console.log(
+    `Initial polling started - Tasks: ${currentIntervals.tasks / 1000}s, Chat: ${currentIntervals.chat / 1000}s`,
+  )
 
   // Listen for global events to force update badge
   window.addEventListener('forceUpdateBadge', updateUnreadCount)
@@ -166,11 +256,17 @@ onUnmounted(() => {
   if (tasksCountInterval) {
     clearInterval(tasksCountInterval)
   }
+  if (inactivityTimer) {
+    clearTimeout(inactivityTimer)
+  }
   if (chatMessagesRef.value?.cleanup) {
     chatMessagesRef.value.cleanup()
   }
   // Remove global event listener
   window.removeEventListener('forceUpdateBadge', updateUnreadCount)
+
+  // Clean up activity listeners
+  cleanupActivityListeners()
 })
 </script>
 
@@ -649,4 +745,3 @@ onUnmounted(() => {
   }
 }
 </style>
- 
