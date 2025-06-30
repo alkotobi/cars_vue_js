@@ -20,13 +20,25 @@ const error = ref(null)
 const success = ref(false)
 const containerRef = ref(props.car.container_ref || '')
 const containerRefError = ref('')
+const loadingDate = ref(new Date().toISOString().split('T')[0]) // Default to today
+const loadingDateError = ref('')
 
 const handleLoad = async () => {
   containerRefError.value = ''
+  loadingDateError.value = ''
+
+  // Validate container ref
   if (!containerRef.value.trim()) {
     containerRefError.value = 'Container Ref is required.'
     return
   }
+
+  // Validate loading date
+  if (!loadingDate.value) {
+    loadingDateError.value = 'Loading date is required.'
+    return
+  }
+
   if (props.car.date_loding) return
 
   // Use native browser confirmation instead of Element Plus
@@ -37,16 +49,15 @@ const handleLoad = async () => {
     loading.value = true
     error.value = null
 
-    const currentDate = new Date().toISOString().split('T')[0]
     const result = await callApi({
       query: 'UPDATE cars_stock SET date_loding = ?, container_ref = ? WHERE id = ?',
-      params: [currentDate, containerRef.value, props.car.id],
+      params: [loadingDate.value, containerRef.value, props.car.id],
     })
 
     if (result.success) {
       const updatedCar = {
         ...props.car,
-        date_loding: currentDate,
+        date_loding: loadingDate.value,
         container_ref: containerRef.value,
       }
       Object.assign(props.car, updatedCar)
@@ -70,6 +81,8 @@ const closeModal = () => {
   success.value = false
   containerRef.value = props.car.container_ref || ''
   containerRefError.value = ''
+  loadingDate.value = new Date().toISOString().split('T')[0] // Reset to today
+  loadingDateError.value = ''
   emit('close')
 }
 </script>
@@ -110,6 +123,21 @@ const closeModal = () => {
               required
             />
             <div v-if="containerRefError" class="error-message">{{ containerRefError }}</div>
+          </div>
+
+          <div class="form-group">
+            <label for="loading-date"
+              ><strong>Loading Date</strong> <span style="color: red">*</span></label
+            >
+            <input
+              id="loading-date"
+              v-model="loadingDate"
+              type="date"
+              class="form-control"
+              :disabled="loading || !!props.car.date_loding"
+              required
+            />
+            <div v-if="loadingDateError" class="error-message">{{ loadingDateError }}</div>
           </div>
           <button
             class="action-btn load-btn"
@@ -227,6 +255,37 @@ const closeModal = () => {
 
 .date-value {
   color: #374151;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 6px;
+  color: #374151;
+  font-size: 14px;
+}
+
+.form-control {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 14px;
+  transition: border-color 0.2s;
+}
+
+.form-control:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.form-control:disabled {
+  background-color: #f3f4f6;
+  cursor: not-allowed;
 }
 
 .action-btn {
