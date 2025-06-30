@@ -90,8 +90,9 @@ const login = async () => {
 
         localStorage.setItem('user', JSON.stringify(userInfo))
 
-        // Dispatch custom event for header to update
+        // Dispatch custom events for header to update
         window.dispatchEvent(new CustomEvent('userLogin'))
+        window.dispatchEvent(new CustomEvent('forceUpdateTasks'))
 
         router.push('/dashboard')
       } else {

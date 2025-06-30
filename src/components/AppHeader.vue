@@ -32,10 +32,15 @@ const INACTIVE_INTERVALS = {
 }
 
 // Get user from localStorage
-const getUser = () => {
+const getUser = async () => {
   const userStr = localStorage.getItem('user')
   if (userStr) {
     user.value = JSON.parse(userStr)
+    // If user is loaded, fetch data immediately
+    if (user.value) {
+      console.log('getUser: User loaded, forcing data refresh')
+      await forceRefreshData()
+    }
   } else {
     user.value = null
   }
@@ -43,9 +48,13 @@ const getUser = () => {
 
 // Fetch pending tasks count
 const fetchPendingTasksCount = async () => {
-  if (!user.value) return
+  if (!user.value) {
+    console.log('fetchPendingTasksCount: No user available')
+    return
+  }
 
   try {
+    console.log('fetchPendingTasksCount: Fetching tasks for user', user.value.id)
     const result = await callApi({
       query: `
         SELECT COUNT(*) as count
@@ -57,11 +66,19 @@ const fetchPendingTasksCount = async () => {
       requiresAuth: true,
     })
 
+    console.log('fetchPendingTasksCount: API result', result)
+
     if (result.success && result.data.length > 0) {
-      pendingTasksCount.value = result.data[0].count
+      const count = result.data[0].count
+      pendingTasksCount.value = count
+      console.log('fetchPendingTasksCount: Updated tasks count to', count)
+    } else {
+      console.log('fetchPendingTasksCount: No data returned or API failed', result)
+      pendingTasksCount.value = 0
     }
   } catch (error) {
     console.error('Error fetching pending tasks count:', error)
+    pendingTasksCount.value = 0
   }
 }
 
@@ -134,10 +151,10 @@ const cleanupActivityListeners = () => {
 
 // Watch for localStorage changes (when user logs in/out)
 const watchUserChanges = () => {
-  window.addEventListener('storage', getUser)
+  window.addEventListener('storage', () => getUser())
   // Also watch for custom events
-  window.addEventListener('userLogin', getUser)
-  window.addEventListener('userLogout', getUser)
+  window.addEventListener('userLogin', () => getUser())
+  window.addEventListener('userLogout', () => getUser())
 }
 
 // Check if we're on the login page
@@ -220,18 +237,8 @@ let tasksCountInterval = null
 
 // Initialize user on component mount
 onMounted(async () => {
-  getUser()
-  fetchPendingTasksCount()
+  await getUser()
   watchUserChanges()
-
-  // Wait for the hidden ChatMessages component to be ready
-  await new Promise((resolve) => setTimeout(resolve, 1000))
-
-  // Initialize unread counts
-  if (chatMessagesRef.value?.fetchAllGroupsMessages) {
-    await chatMessagesRef.value.fetchAllGroupsMessages()
-    updateUnreadCount()
-  }
 
   // Set up activity listeners
   setupActivityListeners()
@@ -247,7 +254,32 @@ onMounted(async () => {
 
   // Listen for global events to force update badge
   window.addEventListener('forceUpdateBadge', updateUnreadCount)
+  window.addEventListener('forceUpdateTasks', fetchPendingTasksCount)
 })
+
+// Separate function to initialize chat data
+const initializeChatData = async () => {
+  // Wait for the hidden ChatMessages component to be ready (reduced wait time)
+  await new Promise((resolve) => setTimeout(resolve, 500))
+
+  // Initialize unread counts
+  if (chatMessagesRef.value?.fetchAllGroupsMessages) {
+    await chatMessagesRef.value.fetchAllGroupsMessages()
+    updateUnreadCount()
+  }
+}
+
+// Force refresh all data (called on login)
+const forceRefreshData = async () => {
+  console.log('forceRefreshData: Starting force refresh')
+  if (user.value) {
+    // Small delay to ensure API is ready
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    await fetchPendingTasksCount()
+    await initializeChatData()
+    console.log('forceRefreshData: Force refresh completed')
+  }
+}
 
 onUnmounted(() => {
   if (unreadCountInterval) {
@@ -264,6 +296,7 @@ onUnmounted(() => {
   }
   // Remove global event listener
   window.removeEventListener('forceUpdateBadge', updateUnreadCount)
+  window.removeEventListener('forceUpdateTasks', fetchPendingTasksCount)
 
   // Clean up activity listeners
   cleanupActivityListeners()
