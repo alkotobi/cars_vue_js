@@ -6,8 +6,8 @@ const protocol = window.location.protocol
 const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1'
 
 // Set API base URL based on environment
-// For production, API is on www.merhab.com, not cars.merhab.com
-const API_BASE_URL = isLocalhost ? 'http://localhost:8000/api' : 'https://www.merhab.com/api'
+// For localhost, use production API to avoid CORS issues
+const API_BASE_URL = 'https://www.merhab.com/api'
 
 const API_URL = `${API_BASE_URL}/api.php`
 const UPLOAD_URL = `${API_BASE_URL}/upload.php`
@@ -59,16 +59,9 @@ export const useApi = () => {
             'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           Accept: 'application/json, text/plain, */*',
           'Accept-Language': 'en-US,en;q=0.9',
-          'Accept-Encoding': 'gzip, deflate, br',
           Referer: window.location.origin,
           Origin: window.location.origin,
-          'Sec-Fetch-Dest': 'empty',
-          'Sec-Fetch-Mode': 'cors',
-          'Sec-Fetch-Site': 'same-origin',
-          'Cache-Control': 'no-cache',
-          Pragma: 'no-cache',
         },
-        credentials: 'include', // Include cookies
         body: JSON.stringify(requestData),
       })
 
@@ -151,16 +144,9 @@ export const useApi = () => {
             'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           Accept: 'application/json, text/plain, */*',
           'Accept-Language': 'en-US,en;q=0.9',
-          'Accept-Encoding': 'gzip, deflate, br',
           Referer: window.location.origin,
           Origin: window.location.origin,
-          'Sec-Fetch-Dest': 'empty',
-          'Sec-Fetch-Mode': 'cors',
-          'Sec-Fetch-Site': 'same-origin',
-          'Cache-Control': 'no-cache',
-          Pragma: 'no-cache',
         },
-        credentials: 'include', // Include cookies
         body: formData,
         signal: controller.signal,
       })
@@ -247,16 +233,9 @@ export const useApi = () => {
             'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
           'Accept-Language': 'en-US,en;q=0.9',
-          'Accept-Encoding': 'gzip, deflate, br',
           Referer: window.location.origin,
           Origin: window.location.origin,
-          'Sec-Fetch-Dest': 'document',
-          'Sec-Fetch-Mode': 'navigate',
-          'Sec-Fetch-Site': 'same-origin',
-          'Cache-Control': 'no-cache',
-          Pragma: 'no-cache',
         },
-        credentials: 'include',
       })
 
       console.log('Main page response status:', mainPageResponse.status)
