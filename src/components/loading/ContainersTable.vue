@@ -81,6 +81,14 @@
                 ></i>
                 <i v-else class="fas fa-sort sort-inactive"></i>
               </th>
+              <th @click="sortByColumn('so')" class="sortable-header">
+                SO
+                <i
+                  v-if="sortBy === 'so'"
+                  :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
+                ></i>
+                <i v-else class="fas fa-sort sort-inactive"></i>
+              </th>
               <th @click="sortByColumn('date_departed')" class="sortable-header">
                 Date Departed
                 <i
@@ -137,6 +145,7 @@
                   </span>
                 </div>
               </td>
+              <td class="so-cell">{{ container.so || '-' }}</td>
               <td class="date-cell">{{ formatDate(container.date_departed) }}</td>
               <td class="date-cell">{{ formatDate(container.date_loaded) }}</td>
               <td class="date-cell">{{ formatDate(container.date_on_board) }}</td>
@@ -239,6 +248,21 @@
 
           <div class="form-row">
             <div class="form-group">
+              <label for="so">
+                <i class="fas fa-file-invoice"></i>
+                SO
+              </label>
+              <input
+                type="text"
+                id="so"
+                v-model="formData.so"
+                :disabled="isSubmitting"
+                placeholder="SO number"
+                maxlength="255"
+              />
+            </div>
+
+            <div class="form-group">
               <label for="date_departed">
                 <i class="fas fa-calendar"></i>
                 Date Departed
@@ -252,21 +276,21 @@
                 max="2100-12-31"
               />
             </div>
+          </div>
 
-            <div class="form-group">
-              <label for="date_loaded">
-                <i class="fas fa-calendar"></i>
-                Date Loaded
-              </label>
-              <input
-                type="date"
-                id="date_loaded"
-                v-model="formData.date_loaded"
-                :disabled="isSubmitting"
-                min="1900-01-01"
-                max="2100-12-31"
-              />
-            </div>
+          <div class="form-group">
+            <label for="date_loaded">
+              <i class="fas fa-calendar"></i>
+              Date Loaded
+            </label>
+            <input
+              type="date"
+              id="date_loaded"
+              v-model="formData.date_loaded"
+              :disabled="isSubmitting"
+              min="1900-01-01"
+              max="2100-12-31"
+            />
           </div>
 
           <div class="form-group">
@@ -526,6 +550,7 @@ const sortOrder = ref('desc')
 const formData = ref({
   id_container: '',
   ref_container: '',
+  so: '',
   date_departed: '',
   date_loaded: '',
   date_on_board: '',
@@ -567,15 +592,17 @@ const fetchContainers = async () => {
             ? 'c.name'
             : sortBy.value === 'ref_container'
               ? 'lc.ref_container'
-              : sortBy.value === 'date_departed'
-                ? 'lc.date_departed'
-                : sortBy.value === 'date_loaded'
-                  ? 'lc.date_loaded'
-                  : sortBy.value === 'date_on_board'
-                    ? 'lc.date_on_board'
-                    : sortBy.value === 'note'
-                      ? 'lc.note'
-                      : 'lc.id'
+              : sortBy.value === 'so'
+                ? 'lc.so'
+                : sortBy.value === 'date_departed'
+                  ? 'lc.date_departed'
+                  : sortBy.value === 'date_loaded'
+                    ? 'lc.date_loaded'
+                    : sortBy.value === 'date_on_board'
+                      ? 'lc.date_on_board'
+                      : sortBy.value === 'note'
+                        ? 'lc.note'
+                        : 'lc.id'
 
       orderByClause = `ORDER BY ${sortField} ${sortOrder.value.toUpperCase()}`
     }
@@ -587,6 +614,7 @@ const fetchContainers = async () => {
           lc.id_container,
           c.name as container_name,
           lc.ref_container,
+          lc.so,
           lc.date_departed,
           lc.date_loaded,
           lc.date_on_board,
@@ -638,6 +666,7 @@ const openAddDialog = async () => {
   formData.value = {
     id_container: '',
     ref_container: '',
+    so: '',
     date_departed: '',
     date_loaded: '',
     date_on_board: '',
@@ -655,6 +684,7 @@ const editContainer = async (container) => {
     id: container.id,
     id_container: container.id_container || '',
     ref_container: container.ref_container || '',
+    so: container.so || '',
     date_departed: container.date_departed || '',
     date_loaded: container.date_loaded || '',
     date_on_board: container.date_on_board || '',
@@ -671,6 +701,7 @@ const closeDialog = () => {
   formData.value = {
     id_container: '',
     ref_container: '',
+    so: '',
     date_departed: '',
     date_loaded: '',
     date_on_board: '',
@@ -704,14 +735,17 @@ const saveContainer = async () => {
         ? formData.value.ref_container
         : null
 
+    const newSoValue = formData.value.so && formData.value.so.trim() ? formData.value.so : null
+
     const query = isEditing.value
-      ? 'UPDATE loaded_containers SET id_container = ?, ref_container = ?, date_departed = ?, date_loaded = ?, date_on_board = ?, note = ? WHERE id = ?'
-      : 'INSERT INTO loaded_containers (id_loading, id_container, ref_container, date_departed, date_loaded, date_on_board, note) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      ? 'UPDATE loaded_containers SET id_container = ?, ref_container = ?, so = ?, date_departed = ?, date_loaded = ?, date_on_board = ?, note = ? WHERE id = ?'
+      : 'INSERT INTO loaded_containers (id_loading, id_container, ref_container, so, date_departed, date_loaded, date_on_board, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
 
     const params = isEditing.value
       ? [
           formData.value.id_container,
           newContainerRef,
+          newSoValue,
           dateDeparted,
           dateLoaded,
           dateOnBoard,
@@ -722,6 +756,7 @@ const saveContainer = async () => {
           props.selectedLoadingId,
           formData.value.id_container,
           newContainerRef,
+          newSoValue,
           dateDeparted,
           dateLoaded,
           dateOnBoard,
