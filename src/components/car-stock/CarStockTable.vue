@@ -277,6 +277,7 @@ const fetchCarsStock = async () => {
         cs.rate,
         cs.date_get_bl,
         cs.date_pay_freight,
+        cs.is_batch,
         c.name as client_name,
         cn.car_name,
         clr.color,
@@ -483,7 +484,7 @@ const fetchCarsStock = async () => {
           if (adv.loading_status === 'loaded') {
             query += ` AND cs.date_loding IS NOT NULL`
           } else if (adv.loading_status === 'not_loaded') {
-            query += ` AND cs.date_loding IS NULL`
+            query += ` AND cs.date_loding IS NULL AND cs.is_batch = 0`
           }
         }
 

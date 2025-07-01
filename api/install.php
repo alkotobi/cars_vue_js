@@ -224,6 +224,7 @@ try {
         `container_ref` varchar(255) DEFAULT NULL,
         `is_tmp_client` tinyint(1) DEFAULT 0,
         `id_loaded_container` int(11) DEFAULT NULL,
+        `is_batch` tinyint(1) DEFAULT 0,
         PRIMARY KEY (`id`),
         KEY `id_client` (`id_client`),
         KEY `id_port_loading` (`id_port_loading`),
