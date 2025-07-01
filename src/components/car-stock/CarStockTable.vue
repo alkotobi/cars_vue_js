@@ -899,7 +899,7 @@ defineExpose({
       :entity-data="selectedCarForTask"
       entity-type="car"
       :is-visible="showTaskForm"
-      @save="handleTaskSave"
+      @task-created="handleTaskSave"
       @cancel="handleTaskClose"
     />
 

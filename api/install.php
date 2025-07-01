@@ -105,6 +105,7 @@ try {
     $pdo->exec("CREATE TABLE `containers` (
   `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
   `name` varchar(30) DEFAULT NULL,
+  `so` VARCHAR(255) DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;");
 
