@@ -643,12 +643,13 @@ onMounted(() => {
   height: auto;
 }
 
-/* Print Styles */
+/* Print Styles - Preserve Colors for Color Printing */
 @media print {
   .a4-page {
     box-shadow: none;
     margin: 0;
     page-break-inside: avoid;
+    background: white;
   }
 
   .floating-stamp {
@@ -656,6 +657,7 @@ onMounted(() => {
     position: fixed;
   }
 
+  /* Preserve gradients and colors for color printing */
   .section {
     box-shadow: none;
     border: 1px solid #dee2e6;
@@ -664,6 +666,57 @@ onMounted(() => {
   .vehicle-table {
     box-shadow: none;
     border: 1px solid #dee2e6;
+  }
+
+  /* Preserve table header gradient */
+  .vehicle-table th {
+    background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%) !important;
+    color: white !important;
+    -webkit-print-color-adjust: exact;
+    color-adjust: exact;
+  }
+
+  /* Preserve total row gradient */
+  .total-row {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
+    -webkit-print-color-adjust: exact;
+    color-adjust: exact;
+  }
+
+  /* Preserve total value background */
+  .total-value {
+    background: #3498db !important;
+    color: white !important;
+    -webkit-print-color-adjust: exact;
+    color-adjust: exact;
+  }
+
+  /* Preserve footer gradient */
+  .footer-content {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
+    -webkit-print-color-adjust: exact;
+    color-adjust: exact;
+  }
+
+  /* Preserve section headers */
+  .section-header h3 {
+    background: linear-gradient(135deg, #3498db 0%, #2980b9 100%) !important;
+    color: white !important;
+    -webkit-print-color-adjust: exact;
+    color-adjust: exact;
+  }
+
+  /* Preserve document details gradient */
+  .document-details {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
+    -webkit-print-color-adjust: exact;
+    color-adjust: exact;
+  }
+
+  /* Ensure proper color printing */
+  * {
+    -webkit-print-color-adjust: exact;
+    color-adjust: exact;
   }
 }
 
@@ -687,3 +740,4 @@ onMounted(() => {
   text-align: right;
 }
 </style>
+ 

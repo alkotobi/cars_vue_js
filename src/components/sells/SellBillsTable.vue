@@ -303,13 +303,18 @@ const handleTask = (bill) => {
 }
 
 const selectBill = (bill) => {
+  console.log('selectBill called with bill:', bill)
   selectedBillId.value = bill.id
 
   // Emit the selected bill ID to the parent component
+  console.log('Emitting select-bill event with billId:', bill.id)
   emit('select-bill', bill.id)
 
   if (props.onSelect) {
+    console.log('Calling props.onSelect with billId:', bill.id)
     props.onSelect(bill.id)
+  } else {
+    console.log('props.onSelect is not available')
   }
 }
 

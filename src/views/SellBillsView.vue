@@ -37,6 +37,7 @@ onMounted(() => {
 })
 
 const handleSelectBill = (billId) => {
+  console.log('handleSelectBill called with billId:', billId)
   selectedBillId.value = billId
 
   // Update the unassigned cars table with the selected bill ID
@@ -44,15 +45,69 @@ const handleSelectBill = (billId) => {
     unassignedCarsTableRef.value.setSellBillId(billId)
   }
 
-  // Scroll to cars table after a short delay to ensure it's rendered
+  // Scroll to unassigned cars table after a short delay to ensure it's rendered
   setTimeout(() => {
-    if (sellBillCarsTableRef.value) {
-      const element = sellBillCarsTableRef.value.$el
-      const yOffset = -20 // Offset to account for any fixed headers
-      const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset
-      window.scrollTo({ top: y, behavior: 'smooth' })
+    console.log('Attempting to scroll to unassigned cars table...')
+    if (unassignedCarsTableRef.value) {
+      // Get the actual DOM element, handling Vue 3 ref structure
+      let element = unassignedCarsTableRef.value.$el
+      console.log('Initial element:', element)
+
+      // If it's a text node, try to get the parent element
+      if (element && element.nodeType === Node.TEXT_NODE) {
+        element = element.parentElement
+        console.log('Using parent element:', element)
+      }
+
+      // Alternative: try to get the element by querying the DOM
+      if (!element || !element.getBoundingClientRect) {
+        element =
+          document.querySelector('#unassigned-cars-table') ||
+          document.querySelector('.unassigned-cars-table-component')
+        console.log('Found element by querySelector:', element)
+      }
+
+      if (element && element.getBoundingClientRect) {
+        const yOffset = -50 // Increased offset to account for any fixed headers
+        const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset
+        console.log('Scrolling to position:', y)
+        window.scrollTo({ top: y, behavior: 'smooth' })
+      } else {
+        console.log('Unassigned cars table element not found or invalid')
+      }
+    } else {
+      console.log('unassignedCarsTableRef not available')
     }
-  }, 300)
+  }, 100) // Reduced delay for faster response
+
+  // Alternative scroll method if the first one doesn't work
+  setTimeout(() => {
+    console.log('Attempting alternative scroll method...')
+    let element = unassignedCarsTableRef.value?.$el
+
+    // If it's a text node, try to get the parent element
+    if (element && element.nodeType === Node.TEXT_NODE) {
+      element = element.parentElement
+    }
+
+    // Alternative: try to get the element by querying the DOM
+    if (!element || !element.scrollIntoView) {
+      element =
+        document.querySelector('#unassigned-cars-table') ||
+        document.querySelector('.unassigned-cars-table-component')
+    }
+
+    if (element && element.scrollIntoView) {
+      console.log('Using scrollIntoView method')
+      element.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+        inline: 'nearest',
+      })
+    } else {
+      console.log('Element not found for scrollIntoView')
+    }
+  }, 200)
 }
 
 const openAddDialog = () => {
@@ -224,11 +279,16 @@ const handleTaskCreated = () => {
 
       <SellBillCarsTable
         ref="sellBillCarsTableRef"
+        id="sell-bill-cars-table"
         :sellBillId="selectedBillId"
         @refresh="handleCarsTableRefresh"
       />
 
-      <UnassignedCarsTable ref="unassignedCarsTableRef" @refresh="handleCarsTableRefresh" />
+      <UnassignedCarsTable
+        ref="unassignedCarsTableRef"
+        id="unassigned-cars-table"
+        @refresh="handleCarsTableRefresh"
+      />
     </div>
 
     <!-- Add Dialog -->
