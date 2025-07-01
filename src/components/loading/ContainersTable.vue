@@ -113,6 +113,14 @@
                 ></i>
                 <i v-else class="fas fa-sort sort-inactive"></i>
               </th>
+              <th @click="sortByColumn('is_released')" class="sortable-header">
+                Released
+                <i
+                  v-if="sortBy === 'is_released'"
+                  :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
+                ></i>
+                <i v-else class="fas fa-sort sort-inactive"></i>
+              </th>
               <th @click="sortByColumn('note')" class="sortable-header">
                 Notes
                 <i
@@ -149,6 +157,17 @@
               <td class="date-cell">{{ formatDate(container.date_departed) }}</td>
               <td class="date-cell">{{ formatDate(container.date_loaded) }}</td>
               <td class="date-cell">{{ formatDate(container.date_on_board) }}</td>
+              <td class="released-cell">
+                <span
+                  :class="{
+                    'status-released': container.is_released,
+                    'status-not-released': !container.is_released,
+                  }"
+                >
+                  <i :class="[container.is_released ? 'fas fa-check-circle' : 'fas fa-clock']"></i>
+                  {{ container.is_released ? 'Released' : 'Not Released' }}
+                </span>
+              </td>
               <td class="note-cell">{{ truncateText(container.note, 30) }}</td>
               <td class="actions-cell">
                 <div class="action-buttons">
@@ -305,6 +324,19 @@
               :disabled="isSubmitting"
               min="1900-01-01"
               max="2100-12-31"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="is_released">
+              <i class="fas fa-check-circle"></i>
+              Released
+            </label>
+            <input
+              type="checkbox"
+              id="is_released"
+              v-model="formData.is_released"
+              :disabled="isSubmitting"
             />
           </div>
 
@@ -554,6 +586,7 @@ const formData = ref({
   date_departed: '',
   date_loaded: '',
   date_on_board: '',
+  is_released: false,
   note: '',
 })
 
@@ -600,9 +633,11 @@ const fetchContainers = async () => {
                     ? 'lc.date_loaded'
                     : sortBy.value === 'date_on_board'
                       ? 'lc.date_on_board'
-                      : sortBy.value === 'note'
-                        ? 'lc.note'
-                        : 'lc.id'
+                      : sortBy.value === 'is_released'
+                        ? 'lc.is_released'
+                        : sortBy.value === 'note'
+                          ? 'lc.note'
+                          : 'lc.id'
 
       orderByClause = `ORDER BY ${sortField} ${sortOrder.value.toUpperCase()}`
     }
@@ -618,6 +653,7 @@ const fetchContainers = async () => {
           lc.date_departed,
           lc.date_loaded,
           lc.date_on_board,
+          lc.is_released,
           lc.note,
           COUNT(cs.id) as assigned_cars_count
         FROM loaded_containers lc
@@ -670,6 +706,7 @@ const openAddDialog = async () => {
     date_departed: '',
     date_loaded: '',
     date_on_board: '',
+    is_released: false,
     note: '',
   }
   // Fetch available containers for the dropdown
@@ -688,6 +725,7 @@ const editContainer = async (container) => {
     date_departed: container.date_departed || '',
     date_loaded: container.date_loaded || '',
     date_on_board: container.date_on_board || '',
+    is_released: container.is_released,
     note: container.note || '',
   }
   console.log('Form data set to:', formData.value)
@@ -705,6 +743,7 @@ const closeDialog = () => {
     date_departed: '',
     date_loaded: '',
     date_on_board: '',
+    is_released: false,
     note: '',
   }
   isSubmitting.value = false
@@ -738,8 +777,8 @@ const saveContainer = async () => {
     const newSoValue = formData.value.so && formData.value.so.trim() ? formData.value.so : null
 
     const query = isEditing.value
-      ? 'UPDATE loaded_containers SET id_container = ?, ref_container = ?, so = ?, date_departed = ?, date_loaded = ?, date_on_board = ?, note = ? WHERE id = ?'
-      : 'INSERT INTO loaded_containers (id_loading, id_container, ref_container, so, date_departed, date_loaded, date_on_board, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+      ? 'UPDATE loaded_containers SET id_container = ?, ref_container = ?, so = ?, date_departed = ?, date_loaded = ?, date_on_board = ?, is_released = ?, note = ? WHERE id = ?'
+      : 'INSERT INTO loaded_containers (id_loading, id_container, ref_container, so, date_departed, date_loaded, date_on_board, is_released, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
 
     const params = isEditing.value
       ? [
@@ -749,6 +788,7 @@ const saveContainer = async () => {
           dateDeparted,
           dateLoaded,
           dateOnBoard,
+          formData.value.is_released,
           formData.value.note && formData.value.note.trim() ? formData.value.note : null,
           formData.value.id,
         ]
@@ -760,6 +800,7 @@ const saveContainer = async () => {
           dateDeparted,
           dateLoaded,
           dateOnBoard,
+          formData.value.is_released,
           formData.value.note && formData.value.note.trim() ? formData.value.note : null,
         ]
 
@@ -1276,6 +1317,10 @@ defineExpose({
   white-space: nowrap;
 }
 
+.released-cell {
+  width: 100px;
+}
+
 .note-cell {
   max-width: 200px;
   color: #6b7280;
@@ -1597,5 +1642,63 @@ defineExpose({
 
 .sort-inactive {
   opacity: 0.5;
+}
+
+/* Status styles */
+.status-available,
+.status-sold {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.9em;
+  font-weight: 500;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+}
+
+.status-available:hover,
+.status-sold:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.status-available {
+  color: #10b981;
+  background-color: #d1fae5;
+  border: 1px solid #a7f3d0;
+}
+
+.status-sold {
+  color: #ef4444;
+  background-color: #fee2e2;
+  border: 1px solid #fca5a5;
+}
+
+/* Released status styles */
+.status-released,
+.status-not-released {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.9em;
+  font-weight: 500;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+}
+
+.status-released {
+  color: #10b981;
+  background-color: #d1fae5;
+  border: 1px solid #a7f3d0;
+}
+
+.status-not-released {
+  color: #f59e0b;
+  background-color: #fef3c7;
+  border: 1px solid #fde68a;
 }
 </style>
