@@ -131,6 +131,7 @@ try {
   `note` text DEFAULT NULL,
   `date_loaded` date DEFAULT NULL,
   `date_on_board` date DEFAULT NULL,
+  `so` VARCHAR(255) DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;");
 

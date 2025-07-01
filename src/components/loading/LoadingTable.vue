@@ -1611,6 +1611,7 @@ const printLoadingRecord = async () => {
         SELECT 
           lc.id as loaded_container_id,
           lc.ref_container,
+          lc.so,
           lc.date_departed,
           lc.date_loaded,
           lc.date_on_board,
@@ -1650,6 +1651,7 @@ const printLoadingRecord = async () => {
           id: row.loaded_container_id,
           name: row.container_name,
           ref_container: row.ref_container,
+          so: row.so,
           date_departed: row.date_departed,
           date_loaded: row.date_loaded,
           date_on_board: row.date_on_board,
@@ -1876,6 +1878,7 @@ const generatePrintContent = (loadingRecord, containersData) => {
             <div class="container-title">
               Container: ${container.name || 'Unnamed'} 
               ${container.ref_container ? `(${container.ref_container})` : ''}
+              ${container.so ? ` - SO: ${container.so}` : ''}
             </div>
           </div>
           
