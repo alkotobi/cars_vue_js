@@ -146,7 +146,7 @@ const handleTaskCreated = () => {
               <button v-if="isAdmin" @click="deleteSupplier(supplier)" class="btn delete-btn">
                 Delete
               </button>
-              <button
+              <button 
                 @click="openTaskForSupplier(supplier)"
                 class="btn task-btn"
                 title="Add New Task"
@@ -165,14 +165,14 @@ const handleTaskCreated = () => {
         <h3>Add New Supplier</h3>
         <div class="form-group">
           <input v-model="newSupplier.name" placeholder="Name" class="input-field" />
-          <textarea
-            v-model="newSupplier.contact_info"
-            placeholder="Contact Information"
+          <textarea 
+            v-model="newSupplier.contact_info" 
+            placeholder="Contact Information" 
             class="input-field textarea"
           ></textarea>
-          <textarea
-            v-model="newSupplier.notes"
-            placeholder="Notes"
+          <textarea 
+            v-model="newSupplier.notes" 
+            placeholder="Notes" 
             class="input-field textarea"
           ></textarea>
         </div>
@@ -189,14 +189,14 @@ const handleTaskCreated = () => {
         <h3>Edit Supplier</h3>
         <div class="form-group">
           <input v-model="editingSupplier.name" placeholder="Name" class="input-field" />
-          <textarea
-            v-model="editingSupplier.contact_info"
-            placeholder="Contact Information"
+          <textarea 
+            v-model="editingSupplier.contact_info" 
+            placeholder="Contact Information" 
             class="input-field textarea"
           ></textarea>
-          <textarea
-            v-model="editingSupplier.notes"
-            placeholder="Notes"
+          <textarea 
+            v-model="editingSupplier.notes" 
+            placeholder="Notes" 
             class="input-field textarea"
           ></textarea>
         </div>

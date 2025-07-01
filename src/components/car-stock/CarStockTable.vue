@@ -1008,20 +1008,43 @@ defineExpose({
             <td>#{{ car.id }}</td>
             <td class="car-details-cell">
               <div class="car-name">{{ car.car_name }}</div>
-              <div class="car-vin">{{ car.vin || 'VIN: Not set' }}</div>
-              <div class="car-color">{{ car.color || 'Color: Not set' }}</div>
-              <div v-if="car.buy_bill_ref" class="car-buy-bill">
-                Buy Bill: {{ car.buy_bill_ref }}
+              <div v-if="car.vin" class="info-badge badge-vin">
+                <i class="fas fa-barcode"></i>
+                {{ car.vin }}
               </div>
-              <div v-if="car.sell_bill_ref" class="car-sell-bill">
-                Sell Bill: {{ car.sell_bill_ref }}
+              <div v-if="car.color" class="info-badge badge-color">
+                <i class="fas fa-palette"></i>
+                {{ car.color }}
+              </div>
+              <div v-if="car.export_lisence_ref" class="info-badge badge-export-license">
+                <i class="fas fa-certificate"></i>
+                Export License
+              </div>
+              <div v-if="car.date_pay_freight" class="info-badge badge-freight-paid">
+                <i class="fas fa-check-circle"></i>
+                Freight Paid
+              </div>
+              <div v-if="car.buy_bill_ref" class="info-badge badge-buy-bill">
+                <i class="fas fa-shopping-cart"></i>
+                Buy: {{ car.buy_bill_ref }}
+              </div>
+              <div v-if="car.sell_bill_ref" class="info-badge badge-sell-bill">
+                <i class="fas fa-file-invoice-dollar"></i>
+                Sell: {{ car.sell_bill_ref }}
               </div>
             </td>
-            <td>{{ car.loading_port || '-' }}</td>
+            <td>
+              <div v-if="car.loading_port" class="info-badge badge-loading-port">
+                <i class="fas fa-ship"></i>
+                {{ car.loading_port }}
+              </div>
+              <div v-else>-</div>
+            </td>
             <td>
               <div>
                 {{ car.discharge_port || '-' }}
-                <div v-if="car.container_ref" style="font-size: 0.9em; color: #6b7280">
+                <div v-if="car.container_ref" class="info-badge badge-container">
+                  <i class="fas fa-box"></i>
                   {{ car.container_ref }}
                 </div>
               </div>
@@ -1046,15 +1069,36 @@ defineExpose({
                 {{ car.id_sell ? 'Sold' : 'Available' }}
                 {{ car.is_used_car ? '(Used)' : '' }}
               </span>
+              <div v-if="car.in_wharhouse_date" class="info-badge badge-in-warehouse">
+                <i class="fas fa-warehouse"></i>
+                In Warehouse
+              </div>
+              <div v-if="car.date_get_bl" class="info-badge badge-bl-received">
+                <i class="fas fa-file-contract"></i>
+                BL Received
+              </div>
             </td>
             <td class="notes-cell" :title="car.notes">{{ car.notes || '-' }}</td>
             <td>
               <div class="client-info">
                 <div>{{ car.client_name || '-' }}</div>
-                <div class="client-id">{{ car.client_id_no || '-' }}</div>
+                <div v-if="car.client_id_no" class="info-badge badge-client-id">
+                  <i class="fas fa-id-card"></i>
+                  {{ car.client_id_no }}
+                </div>
+                <div v-if="car.is_batch" class="info-badge badge-wholesale">
+                  <i class="fas fa-layer-group"></i>
+                  Whole Sale
+                </div>
               </div>
             </td>
-            <td>{{ car.warehouse_name || '-' }}</td>
+            <td>
+              <div v-if="car.warehouse_name" class="info-badge badge-warehouse">
+                <i class="fas fa-building"></i>
+                {{ car.warehouse_name }}
+              </div>
+              <div v-else>-</div>
+            </td>
             <td class="documents-cell">
               <div class="document-links">
                 <a
@@ -1438,19 +1482,29 @@ defineExpose({
   align-items: center;
   gap: 6px;
   padding: 4px 8px;
-  border-radius: 4px;
+  border-radius: 12px;
   font-size: 0.9em;
   font-weight: 500;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+}
+
+.status-available:hover,
+.status-sold:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
 .status-available {
   color: #10b981;
   background-color: #d1fae5;
+  border: 1px solid #a7f3d0;
 }
 
 .status-sold {
   color: #ef4444;
   background-color: #fee2e2;
+  border: 1px solid #fca5a5;
 }
 
 /* Document styles */
@@ -1844,5 +1898,102 @@ defineExpose({
 
 .teleport-dropdown-menu .loading-indicator {
   margin-left: auto;
+}
+
+/* Info Badge Styles */
+.info-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.8em;
+  font-weight: 500;
+  margin: 2px 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+}
+
+.info-badge:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.badge-vin {
+  background-color: #dbeafe;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+}
+
+.badge-color {
+  background-color: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.badge-buy-bill {
+  background-color: #dcfce7;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.badge-sell-bill {
+  background-color: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.badge-container {
+  background-color: #f3e8ff;
+  color: #7c3aed;
+  border: 1px solid #e9d5ff;
+}
+
+.badge-client-id {
+  background-color: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.badge-export-license {
+  background-color: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.badge-freight-paid {
+  background-color: #dcfce7;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.badge-in-warehouse {
+  background-color: #dbeafe;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+}
+
+.badge-bl-received {
+  background-color: #f3e8ff;
+  color: #7c3aed;
+  border: 1px solid #e9d5ff;
+}
+
+.badge-warehouse {
+  background-color: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.badge-loading-port {
+  background-color: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.badge-wholesale {
+  background-color: #dbeafe;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
 }
 </style>
