@@ -632,7 +632,7 @@ onMounted(() => {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%) rotate(-30deg);
-  opacity: 0.15;
+  opacity: 1;
   pointer-events: none;
   z-index: 100;
   filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
@@ -652,7 +652,7 @@ onMounted(() => {
   }
 
   .floating-stamp {
-    opacity: 0.1;
+    opacity: 1;
     position: fixed;
   }
 
