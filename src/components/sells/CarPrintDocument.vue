@@ -98,13 +98,20 @@ const formatDate = (date) => {
 const calculateCarPrice = () => {
   if (!carData.value) return '0.00'
 
-  // Always use CFR (price + freight)
-  const myPrice =
-    (parseFloat(carData.value.price_cell) || 0) + (parseFloat(carData.value.freight) || 0)
+  let myPrice
+  if (props.options.paymentTerms.toLowerCase() === 'cfr') {
+    myPrice = (parseFloat(carData.value.price_cell) || 0) + (parseFloat(carData.value.freight) || 0)
+  } else {
+    myPrice = parseFloat(carData.value.price_cell) || 0
+  }
 
+  // Convert to selected currency
   if (props.options.currency.toUpperCase() === 'DA') {
     const rate = parseFloat(carData.value.rate)
-    if (!rate) return 'Rate not set'
+    if (!rate) {
+      console.warn(`No rate found for car ID ${carData.value.id}`)
+      return 'Rate not set'
+    }
     return (myPrice * rate).toFixed(2)
   }
   return myPrice.toFixed(2)
@@ -133,139 +140,179 @@ onMounted(() => {
         <img :src="stampImage" alt="Company Stamp" />
       </div>
 
-      <!-- Header -->
-      <div class="header print-hide">
+      <!-- Professional Header -->
+      <div class="car_print_header">
         <div class="company-info">
           <img :src="company.logo" alt="Company Logo" class="company-logo" />
           <div class="company-text">
-            <h1>{{ company.name }}</h1>
-            <p>{{ company.address }}</p>
-            <p>Tel: {{ company.phone }}</p>
-            <p>Email: {{ company.email }}</p>
+            <h1 class="company-name">{{ company.name }}</h1>
+            <div class="company-details">
+              <p><i class="fas fa-map-marker-alt"></i> {{ company.address }}</p>
+              <p><i class="fas fa-phone"></i> {{ company.phone }}</p>
+              <p><i class="fas fa-envelope"></i> {{ company.email }}</p>
+            </div>
           </div>
         </div>
         <div class="document-info">
-          <p>CI No: {{ billData.bill_ref }}-{{ carData.id }}</p>
-          <p>Date: {{ formatDate(billData.date_sell) }}</p>
+          <div class="document-header">
+            <h2 class="document-title">COMMERCIAL INVOICE</h2>
+          </div>
+          <div class="document-details">
+            <div class="detail-row">
+              <span class="detail-label">CI No:</span>
+              <span class="detail-value">{{ billData.bill_ref }}-{{ carData.id }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Date:</span>
+              <span class="detail-value">{{ formatDate(billData.date_sell) }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Currency:</span>
+              <span class="detail-value">{{ options.currency.toUpperCase() }}</span>
+            </div>
+          </div>
         </div>
       </div>
 
-      <h2 style="text-align: center">COMMERCIAL INVOICE</h2>
-
-      <!-- Broker Info -->
-      <div class="section">
-        <h3>Buyer Information</h3>
-        <p><strong>Name:</strong> {{ carData.client_name }}</p>
-        <p><strong>Address:</strong> {{ billData.broker_address }}</p>
-        <p><strong>Phone:</strong> {{ billData.broker_phone }}</p>
+      <!-- Buyer Information Section -->
+      <div class="section buyer-section">
+        <div class="section-header">
+          <h3><i class="fas fa-user"></i> Buyer Information</h3>
+        </div>
+        <div class="buyer-details">
+          <div class="buyer-info">
+            <div class="info-group">
+              <label>Name:</label>
+              <span class="info-value">{{ carData.client_name }}</span>
+            </div>
+            <div class="info-group">
+              <label>Address:</label>
+              <span class="info-value">{{ billData.broker_address }}</span>
+            </div>
+            <div class="info-group">
+              <label>Phone:</label>
+              <span class="info-value">{{ billData.broker_phone }}</span>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <!-- Car Details -->
-      <div class="section">
-        <h3>Vehicle Details</h3>
-        <table class="car-table">
-          <thead>
-            <tr>
-              <th>Vehicle</th>
-              <th>Color</th>
-              <th>VIN</th>
-              <th>Port</th>
-              <th>Price CFR ({{ props.options.currency.toUpperCase() }})</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>{{ carData.car_name }}</td>
-              <td>{{ carData.color }}</td>
-              <td>{{ carData.vin }}</td>
-              <td>{{ carData.discharge_port }}</td>
-              <td>{{ formatPrice(calculateCarPrice()) }}</td>
-            </tr>
-          </tbody>
-          <tfoot>
-            <tr>
-              <td :colspan="4" class="text-right"><strong>Total:</strong></td>
-              <td>
-                <strong>{{ formatPrice(calculateCarPrice()) }}</strong>
-              </td>
-            </tr>
-          </tfoot>
-        </table>
+      <!-- Vehicle Details Table -->
+      <div class="section vehicle-section">
+        <div class="section-header">
+          <h3><i class="fas fa-car"></i> Vehicle Details</h3>
+        </div>
+        <div class="table-container">
+          <table class="vehicle-table">
+            <thead>
+              <tr>
+                <th class="col-vehicle">Vehicle</th>
+                <th class="col-color">Color</th>
+                <th class="col-vin">VIN</th>
+                <th class="col-port">Port</th>
+                <th class="col-price">
+                  Price {{ options.paymentTerms.toUpperCase() }}
+                  {{ options.currency.toUpperCase() }}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="vehicle-row">
+                <td class="col-vehicle">{{ carData.car_name }}</td>
+                <td class="col-color">{{ carData.color }}</td>
+                <td class="col-vin">{{ carData.vin }}</td>
+                <td class="col-port">{{ carData.discharge_port }}</td>
+                <td class="col-price">{{ formatPrice(calculateCarPrice()) }}</td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr class="total-row">
+                <td colspan="4" class="total-label">
+                  <strong>Total:</strong>
+                </td>
+                <td class="total-value">
+                  <strong>{{ formatPrice(calculateCarPrice()) }}</strong>
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
       </div>
 
-      <!-- Payment Details -->
-      <div class="section">
-        <h3>Payment Details</h3>
-        <p><strong>Terms:</strong> {{ options.paymentTerms.toUpperCase() }}</p>
-        <p><strong>Mode:</strong> {{ options.paymentMode }}</p>
-        <p><strong>Currency:</strong> {{ options.currency.toUpperCase() }}</p>
+      <!-- Payment Details - Compact -->
+      <div class="section payment-section">
+        <div class="section-header">
+          <h3><i class="fas fa-credit-card"></i> Payment Details</h3>
+        </div>
+        <div class="payment-details">
+          <div class="info-row">
+            <span class="info-label">Payment Terms:</span>
+            <span class="info-value">{{ options.paymentTerms.toUpperCase() }}</span>
+            <span class="info-label">Mode:</span>
+            <span class="info-value">{{ options.paymentMode }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="footer">
+        <div class="footer-content">
+          <p>Thank you for your business!</p>
+          <p class="footer-note">
+            This document is computer generated and valid without signature.
+          </p>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
+/* Professional Invoice Design - Compact for 2-page printing */
 .a4-page {
   width: 210mm;
   min-height: 297mm;
-  padding: 20mm;
+  padding: 15mm;
   margin: 0 auto;
   background: white;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
   position: relative;
   margin-bottom: 20mm;
+  font-family: 'Arial', 'Helvetica', sans-serif;
+  color: #2c3e50;
+  line-height: 1.4;
 }
 
 @media print {
   .a4-page {
     box-shadow: none;
-  }
-
-  body {
-    background: none;
-  }
-
-  .print-document {
-    padding: 0;
     margin: 0;
-  }
-
-  .loading,
-  .error {
-    display: none !important;
-  }
-
-  .a4-page .header,
-  .header {
-    display: none !important;
-    visibility: hidden !important;
-    height: 0 !important;
-    overflow: hidden !important;
-  }
-
-  .company-info,
-  .document-info {
-    display: none !important;
+    padding: 12mm;
   }
 }
 
-.header {
+/* Header Styles - Compact */
+.car_print_header {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 40px;
+  align-items: flex-start;
+  margin-bottom: 25px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid #3498db;
 }
 
 .company-info {
   display: flex;
-  flex-direction: row;
   align-items: center;
-  gap: 20px;
+  gap: 15px;
+  flex: 1;
 }
 
 .company-logo {
-  width: 100px;
+  width: 80px;
   height: auto;
   object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
 }
 
 .company-text {
@@ -273,99 +320,370 @@ onMounted(() => {
   flex-direction: column;
 }
 
-.company-info h1 {
-  font-size: 24px;
-  color: #1f2937;
-  margin-bottom: 10px;
+.company-name {
+  font-size: 20px;
+  font-weight: bold;
+  color: #2c3e50;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
-.company-info p {
-  margin: 5px 0;
-  color: #4b5563;
+.company-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.company-details p {
+  margin: 0;
+  color: #7f8c8d;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.company-details i {
+  color: #3498db;
+  width: 12px;
 }
 
 .document-info {
   text-align: right;
+  min-width: 250px;
 }
 
+.document-header {
+  margin-bottom: 12px;
+}
+
+.document-title {
+  font-size: 24px;
+  font-weight: bold;
+  color: #2c3e50;
+  margin: 0 0 10px 0;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.document-details {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  padding: 12px;
+  border-radius: 6px;
+  border-left: 3px solid #3498db;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  padding: 4px 0;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.detail-row:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.detail-label {
+  font-weight: 600;
+  color: #495057;
+  font-size: 11px;
+}
+
+.detail-value {
+  font-weight: bold;
+  color: #2c3e50;
+  font-size: 12px;
+}
+
+/* Section Styles - Compact */
 .section {
-  margin-bottom: 30px;
+  margin-bottom: 20px;
+  background: #ffffff;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
 }
 
-.section h3 {
-  color: #1f2937;
-  border-bottom: 1px solid #e5e7eb;
-  padding-bottom: 5px;
-  margin-bottom: 15px;
+.section-header {
+  background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+  padding: 10px 15px;
+  margin: 0;
 }
 
-.car-table {
+.section-header h3 {
+  color: white;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-header i {
+  font-size: 12px;
+}
+
+/* Buyer Section - Compact */
+.buyer-section {
+  border: 1px solid #e9ecef;
+}
+
+.buyer-details {
+  padding: 15px;
+}
+
+.buyer-info {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.info-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.info-group label {
+  font-weight: 600;
+  color: #495057;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.info-value {
+  font-size: 12px;
+  color: #2c3e50;
+  font-weight: 500;
+  padding: 6px 8px;
+  background: #f8f9fa;
+  border-radius: 3px;
+  border-left: 2px solid #3498db;
+}
+
+/* Vehicle Section - Compact */
+.vehicle-section {
+  border: 1px solid #e9ecef;
+}
+
+.table-container {
+  padding: 15px;
+}
+
+.vehicle-table {
   width: 100%;
   border-collapse: collapse;
-  margin-bottom: 20px;
+  margin-bottom: 12px;
+  background: white;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
 
-.car-table th,
-.car-table td {
-  border: 1px solid #e5e7eb;
-  padding: 8px;
+.vehicle-table th {
+  background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+  color: white;
+  padding: 8px 6px;
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
   text-align: left;
+  border: none;
 }
 
-.car-table th:nth-child(3),
-.car-table td:nth-child(3) {
-  width: 200px;
-  min-width: 200px;
+.vehicle-table td {
+  padding: 6px;
+  border-bottom: 1px solid #e9ecef;
+  font-size: 11px;
+  vertical-align: middle;
 }
 
-.car-table th {
-  background-color: #f9fafb;
+.vehicle-row:hover {
+  background-color: #f8f9fa;
+}
+
+.col-vehicle {
+  width: 120px;
+}
+
+.col-color {
+  width: 80px;
+}
+
+.col-vin {
+  width: 140px;
+  font-family: 'Courier New', monospace;
   font-weight: 600;
 }
 
-.car-table tfoot td {
-  background-color: #f9fafb;
+.col-port {
+  width: 80px;
 }
 
-.text-right {
+.col-price {
+  width: 100px;
   text-align: right;
+  font-weight: bold;
 }
 
+.total-row {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
+  border-top: 1px solid #3498db;
+}
+
+.total-label {
+  text-align: right;
+  font-size: 12px;
+  color: #2c3e50;
+  padding: 8px 6px;
+}
+
+.total-value {
+  text-align: right;
+  font-size: 14px;
+  color: #2c3e50;
+  padding: 8px 6px;
+  background: #3498db;
+  color: white;
+  font-weight: bold;
+}
+
+/* Payment Section - Compact */
+.payment-section {
+  border: 1px solid #e9ecef;
+}
+
+.payment-details {
+  padding: 12px;
+}
+
+.info-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+
+.info-row:last-child {
+  margin-bottom: 0;
+}
+
+.info-label {
+  font-weight: 600;
+  color: #495057;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  min-width: 80px;
+}
+
+.info-value {
+  font-weight: bold;
+  color: #2c3e50;
+  font-size: 11px;
+  padding: 3px 6px;
+  background: transparent;
+  border-radius: 3px;
+  border: none;
+  margin-right: 12px;
+}
+
+/* Footer - Compact */
+.footer {
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px solid #e9ecef;
+  text-align: center;
+}
+
+.footer-content {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  padding: 15px;
+  border-radius: 6px;
+}
+
+.footer-content p {
+  margin: 0 0 6px 0;
+  font-size: 12px;
+  color: #2c3e50;
+  font-weight: 500;
+}
+
+.footer-note {
+  font-size: 10px !important;
+  color: #6c757d !important;
+  font-style: italic;
+  margin-top: 8px !important;
+}
+
+/* Floating Stamp - Smaller */
 .floating-stamp {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%) rotate(-30deg);
-  opacity: 1;
+  opacity: 0.15;
   pointer-events: none;
   z-index: 100;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
 }
 
 .floating-stamp img {
-  width: 300px;
+  width: 250px;
   height: auto;
 }
 
+/* Print Styles */
 @media print {
+  .a4-page {
+    box-shadow: none;
+    margin: 0;
+    page-break-inside: avoid;
+  }
+
   .floating-stamp {
+    opacity: 0.1;
     position: fixed;
   }
-}
-</style>
 
-<style>
-@media print {
-  .print-hide,
-  .header,
-  .company-info,
-  .document-info {
-    display: none !important;
-    visibility: hidden !important;
-    height: 0 !important;
-    overflow: hidden !important;
-    margin: 0 !important;
-    padding: 0 !important;
+  .section {
+    box-shadow: none;
+    border: 1px solid #dee2e6;
+  }
+
+  .vehicle-table {
+    box-shadow: none;
+    border: 1px solid #dee2e6;
   }
 }
+
+/* Legacy styles for compatibility */
+.loading,
+.error {
+  text-align: center;
+  padding: 20px;
+  font-size: 16px;
+}
+
+.loading {
+  color: #3498db;
+}
+
+.error {
+  color: #e74c3c;
+}
+
+.text-right {
+  text-align: right;
+}
 </style>
- 

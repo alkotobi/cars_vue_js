@@ -4,6 +4,7 @@ import { useApi } from '../../composables/useApi'
 import { useRouter } from 'vue-router'
 import { ElSelect, ElOption } from 'element-plus'
 import 'element-plus/dist/index.css'
+import SellBillPrintOption from './SellBillPrintOption.vue'
 
 const props = defineProps({
   sellBillId: {
@@ -41,6 +42,10 @@ const editFormData = ref({
   notes: null,
   is_tmp_client: 0,
 })
+
+// Add print options dialog state
+const showPrintOptions = ref(false)
+const selectedCarForPrint = ref(null)
 
 const filteredClients = ref([])
 const filteredPorts = ref([])
@@ -303,24 +308,20 @@ const handleUnassign = async (carId) => {
 
 // Add handlePrint function
 const handlePrint = (car) => {
-  // Open print page in new tab for individual car
-  const printUrl = router.resolve({
-    name: 'print-car',
-    params: { carId: car.id },
-    query: {
-      billId: props.sellBillId,
-      options: encodeURIComponent(
-        JSON.stringify({
-          documentType: 'contract',
-          paymentTerms: 'FOB',
-          paymentMode: 'TT',
-          currency: 'USD',
-        }),
-      ),
-    },
-  }).href
+  selectedCarForPrint.value = car
+  showPrintOptions.value = true
+}
 
-  window.open(printUrl, '_blank')
+// Handle print options dialog close
+const handlePrintOptionsClose = () => {
+  showPrintOptions.value = false
+  selectedCarForPrint.value = null
+}
+
+// Handle print options dialog proceed
+const handlePrintOptionsProceed = (options) => {
+  showPrintOptions.value = false
+  selectedCarForPrint.value = null
 }
 
 onMounted(() => {
@@ -837,6 +838,16 @@ defineExpose({
       </div>
     </div>
   </div>
+
+  <!-- Print Options Dialog -->
+  <SellBillPrintOption
+    :visible="showPrintOptions"
+    :billId="sellBillId"
+    :carId="selectedCarForPrint?.id"
+    documentType="car"
+    @close="handlePrintOptionsClose"
+    @proceed="handlePrintOptionsProceed"
+  />
 </template>
 
 <style scoped>

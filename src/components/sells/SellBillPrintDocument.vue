@@ -286,109 +286,176 @@ onMounted(() => {
         <img :src="stampImage" alt="Company Stamp" />
       </div>
 
-      <!-- Header -->
-      <div class="header">
+      <!-- Professional Header -->
+      <div class="sell_bill_header">
         <div class="company-info">
           <img :src="company.logo" alt="Company Logo" class="company-logo" />
           <div class="company-text">
-            <h1>{{ selectedBank?.company_name || company.name }}</h1>
-            <p>{{ selectedBank?.bank_address || company.address }}</p>
-            <p>Tel: {{ company.phone }}</p>
-            <p>Email: {{ company.email }}</p>
+            <h1 class="company-name">{{ selectedBank?.company_name || company.name }}</h1>
+            <div class="company-details">
+              <p>
+                <i class="fas fa-map-marker-alt"></i>
+                {{ selectedBank?.bank_address || company.address }}
+              </p>
+              <p><i class="fas fa-phone"></i> {{ company.phone }}</p>
+              <p><i class="fas fa-envelope"></i> {{ company.email }}</p>
+            </div>
           </div>
         </div>
         <div class="document-info">
-          <p>Ref: {{ billData.bill_ref }}</p>
-          <p>Date: {{ formatDate(billData.date_sell) }}</p>
-        </div>
-      </div>
-      <h2 style="text-align: center">
-        {{
-          options.documentType === 'contract'
-            ? 'SALE CONTRACT'
-            : options.documentType === 'invoice'
-              ? 'INVOICE'
-              : 'PROFORMA INVOICE'
-        }}
-      </h2>
-      <!-- Broker Info -->
-      <div class="section">
-        <h3>Buyer Information</h3>
-        <p><strong>Name:</strong> {{ billData.broker_name }}</p>
-        <p><strong>Address:</strong> {{ billData.broker_address }}</p>
-        <p><strong>Phone:</strong> {{ billData.broker_phone }}</p>
-      </div>
-
-      <!-- Cars Table -->
-      <div class="section">
-        <h3>Vehicle Details</h3>
-        <table class="cars-table">
-          <thead>
-            <tr>
-              <th>No.</th>
-              <th>Vehicle</th>
-              <th>Color</th>
-              <th>VIN</th>
-              <th>Client</th>
-              <th>Port</th>
-              <th>Price ({{ props.options.currency.toUpperCase() }})</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(car, index) in carsData" :key="car.id">
-              <td>{{ index + 1 }}</td>
-              <td>{{ car.car_name }}</td>
-              <td>{{ car.color }}</td>
-              <td>{{ car.vin }}</td>
-              <td>{{ car.client_name }}</td>
-              <td>{{ car.discharge_port }}</td>
-              <td>{{ formatPrice(calculateCarPrice(car)) }}</td>
-            </tr>
-          </tbody>
-          <tfoot>
-            <tr>
-              <td :colspan="6" class="text-right"><strong>Grand Total:</strong></td>
-              <td>
-                <strong>{{ formatPrice(calculateTotal()) }}</strong>
-              </td>
-            </tr>
-          </tfoot>
-        </table>
-        <div class="total-in-words">
-          Amount in words:
-          <strong
-            >{{ numberToWords(calculateTotal()) }}
-            {{ props.options.currency.toUpperCase() }}</strong
-          >
+          <div class="document-header">
+            <h2 class="document-title">
+              {{
+                options.documentType === 'contract'
+                  ? 'SALE CONTRACT'
+                  : options.documentType === 'invoice'
+                    ? 'INVOICE'
+                    : 'PROFORMA INVOICE'
+              }}
+            </h2>
+          </div>
+          <div class="document-details">
+            <div class="detail-row">
+              <span class="detail-label">Document No:</span>
+              <span class="detail-value">{{ billData.bill_ref }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Date:</span>
+              <span class="detail-value">{{ formatDate(billData.date_sell) }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Currency:</span>
+              <span class="detail-value">{{ options.currency.toUpperCase() }}</span>
+            </div>
+          </div>
         </div>
       </div>
 
-      <!-- Payment Details and Bank Information -->
-      <div class="two-columns">
-        <!-- Payment Details -->
-        <div class="section">
-          <h3>Payment Details</h3>
-          <p><strong>Terms:</strong> {{ options.paymentTerms.toUpperCase() }}</p>
-          <p><strong>Mode:</strong> {{ options.paymentMode }}</p>
-          <p><strong>Currency:</strong> {{ options.currency.toUpperCase() }}</p>
+      <!-- Buyer Information Section -->
+      <div class="section buyer-section">
+        <div class="section-header">
+          <h3><i class="fas fa-user"></i> Buyer Information</h3>
         </div>
-
-        <!-- Bank Details -->
-        <div class="section" v-if="selectedBank">
-          <h3>Bank Information</h3>
-          <p><strong>Company Name:</strong> {{ selectedBank.company_name }}</p>
-          <p><strong>Bank Name:</strong> {{ selectedBank.bank_name }}</p>
-          <p><strong>Bank Address:</strong> {{ selectedBank.bank_address }}</p>
-          <p><strong>Account Number:</strong> {{ selectedBank.bank_account }}</p>
-          <p><strong>SWIFT Code:</strong> {{ selectedBank.swift_code }}</p>
-          <p v-if="selectedBank.notes"><strong>Notes:</strong> {{ selectedBank.notes }}</p>
+        <div class="buyer-details">
+          <div class="buyer-info">
+            <div class="info-group">
+              <label>Name:</label>
+              <span class="info-value">{{ billData.broker_name }}</span>
+            </div>
+            <div class="info-group">
+              <label>Address:</label>
+              <span class="info-value">{{ billData.broker_address }}</span>
+            </div>
+            <div class="info-group">
+              <label>Phone:</label>
+              <span class="info-value">{{ billData.broker_phone }}</span>
+            </div>
+          </div>
         </div>
       </div>
 
-      <!-- Notes -->
-      <div class="section">
-        <h3>Notes</h3>
-        <p>{{ billData.notes || 'No notes' }}</p>
+      <!-- Vehicle Details Table -->
+      <div class="section vehicles-section">
+        <div class="section-header">
+          <h3><i class="fas fa-car"></i> Vehicle Details</h3>
+        </div>
+        <div class="table-container">
+          <table class="vehicles-table">
+            <thead>
+              <tr>
+                <th class="col-no">No.</th>
+                <th class="col-vehicle">Vehicle</th>
+                <th class="col-color">Color</th>
+                <th class="col-vin">VIN</th>
+                <th class="col-client">Client</th>
+                <th class="col-port">Port</th>
+                <th class="col-price">
+                  Price {{ options.paymentTerms.toUpperCase() }}
+                  {{ props.options.currency.toUpperCase() }}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(car, index) in carsData" :key="car.id" class="vehicle-row">
+                <td class="col-no">{{ index + 1 }}</td>
+                <td class="col-vehicle">{{ car.car_name }}</td>
+                <td class="col-color">{{ car.color }}</td>
+                <td class="col-vin">{{ car.vin }}</td>
+                <td class="col-client">{{ car.client_name }}</td>
+                <td class="col-port">{{ car.discharge_port }}</td>
+                <td class="col-price">{{ formatPrice(calculateCarPrice(car)) }}</td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr class="total-row">
+                <td colspan="6" class="total-label">
+                  <strong>Grand Total:</strong>
+                </td>
+                <td class="total-value">
+                  <strong>{{ formatPrice(calculateTotal()) }}</strong>
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        <div class="amount-in-words">
+          <span class="words-label">Amount in words:</span>
+          <span class="words-value">
+            <strong
+              >{{ numberToWords(calculateTotal()) }}
+              {{ props.options.currency.toUpperCase() }}</strong
+            >
+          </span>
+        </div>
+      </div>
+
+      <!-- Payment & Bank Information - Compact -->
+      <div class="section payment-bank-section">
+        <div class="section-header">
+          <h3><i class="fas fa-credit-card"></i> Payment & Bank Information</h3>
+        </div>
+        <div class="payment-bank-details">
+          <div class="payment-info">
+            <div class="info-row">
+              <span class="info-label">Payment Terms:</span>
+              <span class="info-value">{{ options.paymentTerms.toUpperCase() }}</span>
+              <span class="info-label">Mode:</span>
+              <span class="info-value">{{ options.paymentMode }}</span>
+            </div>
+          </div>
+          <div class="bank-info" v-if="selectedBank">
+            <div class="info-row">
+              <span class="info-label">Bank:</span>
+              <span class="info-value">{{ selectedBank.bank_name }}</span>
+              <span class="info-label">Account:</span>
+              <span class="info-value">{{ selectedBank.bank_account }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">SWIFT:</span>
+              <span class="info-value">{{ selectedBank.swift_code }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Notes Section -->
+      <div class="section notes-section" v-if="billData.notes">
+        <div class="section-header">
+          <h3><i class="fas fa-sticky-note"></i> Notes</h3>
+        </div>
+        <div class="notes-content">
+          <p>{{ billData.notes }}</p>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="footer">
+        <div class="footer-content">
+          <p>Thank you for your business!</p>
+          <p class="footer-note">
+            This document is computer generated and valid without signature.
+          </p>
+        </div>
       </div>
     </div>
 
@@ -528,41 +595,51 @@ onMounted(() => {
 </template>
 
 <style scoped>
-/* A4 page size in pixels (assuming 96 DPI) */
+/* Professional Invoice Design - Compact for 2-page printing */
 .a4-page {
   width: 210mm;
   min-height: 297mm;
-  padding: 20mm;
+  padding: 15mm;
   margin: 0 auto;
   background: white;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
   position: relative;
   margin-bottom: 20mm;
+  font-family: 'Arial', 'Helvetica', sans-serif;
+  color: #2c3e50;
+  line-height: 1.4;
 }
 
 @media print {
   .a4-page {
     box-shadow: none;
+    margin: 0;
+    padding: 12mm;
   }
 }
 
-.header {
+/* Header Styles - Compact */
+.sell_bill_header {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 40px;
+  align-items: flex-start;
+  margin-bottom: 25px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid #3498db;
 }
 
 .company-info {
   display: flex;
-  flex-direction: row;
   align-items: center;
-  gap: 20px;
+  gap: 15px;
+  flex: 1;
 }
 
 .company-logo {
-  width: 100px;
+  width: 80px;
   height: auto;
   object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
 }
 
 .company-text {
@@ -570,58 +647,457 @@ onMounted(() => {
   flex-direction: column;
 }
 
-.company-info h1 {
-  font-size: 24px;
-  color: #1f2937;
-  margin-bottom: 10px;
+.company-name {
+  font-size: 20px;
+  font-weight: bold;
+  color: #2c3e50;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
-.company-info p {
-  margin: 5px 0;
-  color: #4b5563;
+.company-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.company-details p {
+  margin: 0;
+  color: #7f8c8d;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.company-details i {
+  color: #3498db;
+  width: 12px;
 }
 
 .document-info {
   text-align: right;
+  min-width: 250px;
 }
 
-.document-info h2 {
-  font-size: 20px;
-  color: #1f2937;
-  margin-bottom: 10px;
+.document-header {
+  margin-bottom: 12px;
 }
 
+.document-title {
+  font-size: 24px;
+  font-weight: bold;
+  color: #2c3e50;
+  margin: 0 0 10px 0;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.document-details {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  padding: 12px;
+  border-radius: 6px;
+  border-left: 3px solid #3498db;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  padding: 4px 0;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.detail-row:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.detail-label {
+  font-weight: 600;
+  color: #495057;
+  font-size: 11px;
+}
+
+.detail-value {
+  font-weight: bold;
+  color: #2c3e50;
+  font-size: 12px;
+}
+
+/* Section Styles - Compact */
 .section {
-  margin-bottom: 30px;
+  margin-bottom: 20px;
+  background: #ffffff;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
 }
 
-.section h3 {
-  color: #1f2937;
-  border-bottom: 1px solid #e5e7eb;
-  padding-bottom: 5px;
-  margin-bottom: 15px;
+.section-header {
+  background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+  padding: 10px 15px;
+  margin: 0;
 }
 
-.cars-table {
+.section-header h3 {
+  color: white;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-header i {
+  font-size: 12px;
+}
+
+/* Buyer Section - Compact */
+.buyer-section {
+  border: 1px solid #e9ecef;
+}
+
+.buyer-details {
+  padding: 15px;
+}
+
+.buyer-info {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.info-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.info-group label {
+  font-weight: 600;
+  color: #495057;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.info-value {
+  font-size: 12px;
+  color: #2c3e50;
+  font-weight: 500;
+  padding: 6px 8px;
+  background: #f8f9fa;
+  border-radius: 3px;
+  border-left: 2px solid #3498db;
+}
+
+/* Vehicles Section - Compact */
+.vehicles-section {
+  border: 1px solid #e9ecef;
+}
+
+.table-container {
+  padding: 15px;
+}
+
+.vehicles-table {
   width: 100%;
   border-collapse: collapse;
-  margin-bottom: 20px;
+  margin-bottom: 12px;
+  background: white;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
 
-.cars-table th,
-.cars-table td {
-  border: 1px solid #e5e7eb;
-  padding: 8px;
+.vehicles-table th {
+  background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+  color: white;
+  padding: 8px 6px;
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
   text-align: left;
+  border: none;
 }
 
-.cars-table th {
-  background-color: #f9fafb;
+.vehicles-table td {
+  padding: 6px;
+  border-bottom: 1px solid #e9ecef;
+  font-size: 11px;
+  vertical-align: middle;
+}
+
+.vehicle-row:hover {
+  background-color: #f8f9fa;
+}
+
+.vehicle-row:nth-child(even) {
+  background-color: #fafbfc;
+}
+
+.vehicle-row:nth-child(even):hover {
+  background-color: #f1f3f4;
+}
+
+.col-no {
+  width: 40px;
+  text-align: center;
+  font-weight: bold;
+}
+
+.col-vehicle {
+  width: 120px;
+}
+
+.col-color {
+  width: 80px;
+}
+
+.col-vin {
+  width: 140px;
+  font-family: 'Courier New', monospace;
   font-weight: 600;
 }
 
-.cars-table tfoot td {
-  background-color: #f9fafb;
+.col-client {
+  width: 100px;
+}
+
+.col-port {
+  width: 80px;
+}
+
+.col-price {
+  width: 100px;
+  text-align: right;
+  font-weight: bold;
+}
+
+.total-row {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
+  border-top: 1px solid #3498db;
+}
+
+.total-label {
+  text-align: right;
+  font-size: 12px;
+  color: #2c3e50;
+  padding: 8px 6px;
+}
+
+.total-value {
+  text-align: right;
+  font-size: 14px;
+  color: #2c3e50;
+  padding: 8px 6px;
+  background: #3498db;
+  color: white;
+  font-weight: bold;
+}
+
+.amount-in-words {
+  background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+  padding: 10px 12px;
+  border-radius: 4px;
+  border-left: 3px solid #f39c12;
+  margin-top: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.words-label {
+  font-weight: 600;
+  color: #856404;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.words-value {
+  font-weight: bold;
+  color: #856404;
+  font-size: 12px;
+  font-style: italic;
+}
+
+/* Two Columns Layout - Compact */
+.two-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+@media (max-width: 768px) {
+  .two-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Payment & Bank Section - Compact */
+.payment-bank-section {
+  border: 1px solid #e9ecef;
+}
+
+.payment-bank-details {
+  padding: 12px;
+}
+
+.payment-info,
+.bank-info {
+  margin-bottom: 8px;
+}
+
+.payment-info:last-child,
+.bank-info:last-child {
+  margin-bottom: 0;
+}
+
+.info-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+
+.info-row:last-child {
+  margin-bottom: 0;
+}
+
+.info-label {
+  font-weight: 600;
+  color: #495057;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  min-width: 80px;
+}
+
+.info-value {
+  font-weight: bold;
+  color: #2c3e50;
+  font-size: 11px;
+  padding: 3px 6px;
+  background: transparent;
+  border-radius: 3px;
+  border: none;
+  margin-right: 12px;
+}
+
+/* Notes Section - Compact */
+.notes-section {
+  border: 1px solid #e9ecef;
+}
+
+.notes-content {
+  padding: 15px;
+}
+
+.notes-content p {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #495057;
+  background: #f8f9fa;
+  padding: 10px;
+  border-radius: 4px;
+  border-left: 3px solid #6c757d;
+}
+
+/* Footer - Compact */
+.footer {
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px solid #e9ecef;
+  text-align: center;
+}
+
+.footer-content {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  padding: 15px;
+  border-radius: 6px;
+}
+
+.footer-content p {
+  margin: 0 0 6px 0;
+  font-size: 12px;
+  color: #2c3e50;
+  font-weight: 500;
+}
+
+.footer-note {
+  font-size: 10px !important;
+  color: #6c757d !important;
+  font-style: italic;
+  margin-top: 8px !important;
+}
+
+/* Floating Stamp - Smaller */
+.floating-stamp {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-30deg);
+  opacity: 0.15;
+  pointer-events: none;
+  z-index: 100;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
+}
+
+.floating-stamp img {
+  width: 250px;
+  height: auto;
+}
+
+/* Print Styles */
+@media print {
+  .a4-page {
+    box-shadow: none;
+    margin: 0;
+    page-break-inside: avoid;
+  }
+
+  .floating-stamp {
+    opacity: 0.1;
+  }
+
+  .section {
+    box-shadow: none;
+    border: 1px solid #dee2e6;
+  }
+
+  .vehicles-table {
+    box-shadow: none;
+    border: 1px solid #dee2e6;
+  }
+
+  .two-columns {
+    break-inside: avoid;
+  }
+}
+
+/* Legacy styles for compatibility */
+.loading,
+.error {
+  text-align: center;
+  padding: 20px;
+  font-size: 16px;
+}
+
+.loading {
+  color: #3498db;
+}
+
+.error {
+  color: #e74c3c;
 }
 
 .text-right {
@@ -631,11 +1107,11 @@ onMounted(() => {
 .signatures {
   display: flex;
   justify-content: space-between;
-  margin-top: 50px;
+  margin-top: 30px;
 }
 
 .signature-box {
-  width: 200px;
+  width: 150px;
   text-align: center;
   display: flex;
   flex-direction: column;
@@ -643,36 +1119,11 @@ onMounted(() => {
 }
 
 .signature-line {
-  margin-top: 50px;
+  margin-top: 30px;
   border-top: 1px solid #000;
 }
 
-.total-in-words {
-  margin-top: 10px;
-  padding: 10px;
-  font-size: 14px;
-  border-top: 1px solid #e5e7eb;
-  text-align: right;
-  font-style: italic;
-}
-
-@media print {
-  body {
-    background: none;
-  }
-
-  .print-document {
-    padding: 0;
-    margin: 0;
-  }
-
-  .loading,
-  .error {
-    display: none;
-  }
-}
-
-/* New styles for bank selection and details */
+/* Bank selection styles */
 .bank-selection {
   margin-bottom: 20px;
   padding: 10px;
@@ -693,70 +1144,31 @@ onMounted(() => {
   min-width: 200px;
 }
 
-.bank-details {
-  margin-top: 20px;
-  padding: 15px;
-  background-color: #f9fafb;
-  border: 1px solid #e5e7eb;
-  border-radius: 4px;
-}
-
-.bank-details h3 {
-  color: #1f2937;
-  margin-bottom: 10px;
-}
-
-.bank-details p {
-  margin: 5px 0;
-}
-
-@media print {
-  .print-hide {
-    display: none;
-  }
-}
-
-.two-columns {
-  display: flex;
-  gap: 20px;
-  margin-bottom: 30px;
-}
-
-.two-columns .section {
-  flex: 1;
-  min-width: 0; /* Prevent flex items from overflowing */
-}
-
-@media print {
-  .two-columns {
-    break-inside: avoid;
-  }
-}
-
+/* Contract terms styles - Compact */
 .contract-terms {
-  margin: 30px 0;
+  margin: 20px 0;
   page-break-inside: avoid;
-  font-size: x-small;
+  font-size: 9px;
 }
 
 .terms-list {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 12px;
 }
 
 .term-item {
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  padding: 10px;
+  gap: 3px;
+  padding: 8px;
   background-color: #f9fafb;
   border-radius: 4px;
 }
 
 .term-item p {
   margin: 0;
-  line-height: 1.5;
+  line-height: 1.3;
 }
 
 .english {
@@ -776,6 +1188,10 @@ onMounted(() => {
 }
 
 @media print {
+  .print-hide {
+    display: none;
+  }
+
   .term-item {
     background-color: transparent;
     border: 1px solid #e5e7eb;
@@ -783,46 +1199,16 @@ onMounted(() => {
 }
 
 .company-stamp {
-  width: 120px;
+  width: 80px;
   height: auto;
-  margin-top: 10px;
+  margin-top: 8px;
   object-fit: contain;
 }
 
-.floating-stamp {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%) rotate(-30deg);
-  opacity: 1;
-  pointer-events: none;
-  z-index: 100;
-}
-
-.floating-stamp img {
-  width: 300px;
-  height: auto;
-}
-
 .page-footer {
-  display: none;
-}
-
-.page-number {
-  display: none;
-}
-
-.terms-page {
-  page-break-before: always;
-}
-
-@media print {
-  .terms-page {
-    page-break-before: always;
-  }
-
-  .floating-stamp {
-    position: fixed;
-  }
+  margin-top: 20px;
+  text-align: center;
+  font-size: 10px;
+  color: #6c757d;
 }
 </style>
