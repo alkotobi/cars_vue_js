@@ -6,8 +6,8 @@ const protocol = window.location.protocol
 const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1'
 
 // Set API base URL based on environment
-// For localhost, use production API to avoid CORS issues
-const API_BASE_URL = 'https://www.merhab.com/api'
+// Use localhost API for development, production API for production
+const API_BASE_URL = isLocalhost ? 'http://localhost:8000/api' : 'https://www.merhab.com/api'
 
 const API_URL = `${API_BASE_URL}/api.php`
 const UPLOAD_URL = `${API_BASE_URL}/upload.php`
@@ -34,8 +34,8 @@ export const useApi = () => {
     error.value = null
 
     try {
-      // Add a small random delay to make requests look more human-like
-      if (retryCount === 0) {
+      // Add a small random delay to make requests look more human-like (only on production)
+      if (retryCount === 0 && !isLocalhost) {
         const delay = Math.random() * 1000 + 500 // 500-1500ms delay
         await new Promise((resolve) => setTimeout(resolve, delay))
       }
@@ -55,12 +55,16 @@ export const useApi = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'User-Agent':
-            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          Accept: 'application/json, text/plain, */*',
-          'Accept-Language': 'en-US,en;q=0.9',
-          Referer: window.location.origin,
-          Origin: window.location.origin,
+          ...(isLocalhost
+            ? {
+                // Simple headers for localhost
+                Accept: 'application/json',
+              }
+            : {
+                // Compatible headers for production (works on all browsers)
+                Accept: 'application/json, text/plain, */*',
+                'Accept-Language': 'en-US,en;q=0.9',
+              }),
         },
         body: JSON.stringify(requestData),
       })
@@ -140,12 +144,15 @@ export const useApi = () => {
       const response = await fetch(UPLOAD_URL, {
         method: 'POST',
         headers: {
-          'User-Agent':
-            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          Accept: 'application/json, text/plain, */*',
-          'Accept-Language': 'en-US,en;q=0.9',
-          Referer: window.location.origin,
-          Origin: window.location.origin,
+          ...(isLocalhost
+            ? {
+                // Simple headers for localhost
+              }
+            : {
+                // Compatible headers for production (works on all browsers)
+                Accept: 'application/json, text/plain, */*',
+                'Accept-Language': 'en-US,en;q=0.9',
+              }),
         },
         body: formData,
         signal: controller.signal,
@@ -222,6 +229,12 @@ export const useApi = () => {
 
   // Function to handle cookie verification challenges
   const handleCookieVerification = async () => {
+    // Only run cookie verification on production
+    if (isLocalhost) {
+      console.log('Skipping cookie verification on localhost')
+      return true
+    }
+
     try {
       console.log('Attempting to handle cookie verification...')
 
@@ -229,12 +242,8 @@ export const useApi = () => {
       const mainPageResponse = await fetch(API_BASE_URL, {
         method: 'GET',
         headers: {
-          'User-Agent':
-            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
           'Accept-Language': 'en-US,en;q=0.9',
-          Referer: window.location.origin,
-          Origin: window.location.origin,
         },
       })
 
