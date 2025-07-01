@@ -1,6 +1,19 @@
 <script setup>
 import { RouterView } from 'vue-router'
 import AppHeader from './components/AppHeader.vue'
+import { onMounted } from 'vue'
+import { useApi } from './composables/useApi'
+
+const { handleCookieVerification } = useApi()
+
+onMounted(async () => {
+  // Handle cookie verification on app start
+  try {
+    await handleCookieVerification()
+  } catch (error) {
+    console.error('Cookie verification failed:', error)
+  }
+})
 </script>
 
 <template>

@@ -29,11 +29,17 @@ export const useApi = () => {
   const loading = ref(false)
 
   // Original API call function
-  const callApi = async (data) => {
+  const callApi = async (data, retryCount = 0) => {
     loading.value = true
     error.value = null
 
     try {
+      // Add a small random delay to make requests look more human-like
+      if (retryCount === 0) {
+        const delay = Math.random() * 1000 + 500 // 500-1500ms delay
+        await new Promise((resolve) => setTimeout(resolve, delay))
+      }
+
       // Get user token if not a public route
       const user = !data.requiresAuth ? null : localStorage.getItem('user')
       const userData = user ? JSON.parse(user) : null
@@ -49,7 +55,20 @@ export const useApi = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'User-Agent':
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          Accept: 'application/json, text/plain, */*',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Accept-Encoding': 'gzip, deflate, br',
+          Referer: window.location.origin,
+          Origin: window.location.origin,
+          'Sec-Fetch-Dest': 'empty',
+          'Sec-Fetch-Mode': 'cors',
+          'Sec-Fetch-Site': 'same-origin',
+          'Cache-Control': 'no-cache',
+          Pragma: 'no-cache',
         },
+        credentials: 'include', // Include cookies
         body: JSON.stringify(requestData),
       })
 
@@ -59,6 +78,16 @@ export const useApi = () => {
       if (!response.ok) {
         const errorText = await response.text()
         console.error('API error response:', errorText)
+
+        // If it's a 403 or 429 (rate limit/bot detection), retry with exponential backoff
+        if ((response.status === 403 || response.status === 429) && retryCount < 3) {
+          console.log(
+            `Retrying API call (attempt ${retryCount + 1}/3) after ${Math.pow(2, retryCount) * 1000}ms delay`,
+          )
+          await new Promise((resolve) => setTimeout(resolve, Math.pow(2, retryCount) * 1000))
+          return callApi(data, retryCount + 1)
+        }
+
         throw new Error(
           `HTTP ${response.status}: ${response.statusText} - ${errorText.substring(0, 200)}`,
         )
@@ -117,6 +146,21 @@ export const useApi = () => {
 
       const response = await fetch(UPLOAD_URL, {
         method: 'POST',
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          Accept: 'application/json, text/plain, */*',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Accept-Encoding': 'gzip, deflate, br',
+          Referer: window.location.origin,
+          Origin: window.location.origin,
+          'Sec-Fetch-Dest': 'empty',
+          'Sec-Fetch-Mode': 'cors',
+          'Sec-Fetch-Site': 'same-origin',
+          'Cache-Control': 'no-cache',
+          Pragma: 'no-cache',
+        },
+        credentials: 'include', // Include cookies
         body: formData,
         signal: controller.signal,
       })
@@ -190,10 +234,48 @@ export const useApi = () => {
     return `${UPLOAD_URL}?path=${encodeURIComponent(processedPath)}`
   }
 
+  // Function to handle cookie verification challenges
+  const handleCookieVerification = async () => {
+    try {
+      console.log('Attempting to handle cookie verification...')
+
+      // First, try to access the main page to establish cookies
+      const mainPageResponse = await fetch(API_BASE_URL, {
+        method: 'GET',
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Accept-Encoding': 'gzip, deflate, br',
+          Referer: window.location.origin,
+          Origin: window.location.origin,
+          'Sec-Fetch-Dest': 'document',
+          'Sec-Fetch-Mode': 'navigate',
+          'Sec-Fetch-Site': 'same-origin',
+          'Cache-Control': 'no-cache',
+          Pragma: 'no-cache',
+        },
+        credentials: 'include',
+      })
+
+      console.log('Main page response status:', mainPageResponse.status)
+
+      // Wait a bit before making the actual API call
+      await new Promise((resolve) => setTimeout(resolve, 2000))
+
+      return true
+    } catch (err) {
+      console.error('Error handling cookie verification:', err)
+      return false
+    }
+  }
+
   return {
     callApi,
     uploadFile,
     getFileUrl,
+    handleCookieVerification,
     error,
     loading,
   }

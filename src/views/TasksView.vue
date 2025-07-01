@@ -470,6 +470,50 @@ const closeDescriptionPopup = () => {
   selectedTaskDescription.value = ''
 }
 
+const deleteTask = async (task) => {
+  // Check if user can delete this task
+  const canDelete = isAdmin.value || task.id_user_create === user.value?.id
+
+  if (!canDelete) {
+    alert('You do not have permission to delete this task.')
+    return
+  }
+
+  if (
+    !confirm(
+      `Are you sure you want to delete task #${task.id} "${task.title}"? This action cannot be undone.`,
+    )
+  ) {
+    return
+  }
+
+  try {
+    console.log('Deleting task:', task.id)
+    const result = await callApi({
+      query: 'DELETE FROM tasks WHERE id = ?',
+      params: [task.id],
+      requiresAuth: true,
+    })
+
+    console.log('Delete result:', result)
+
+    if (result.success) {
+      console.log('Task deleted successfully')
+      alert('Task deleted successfully!')
+      // Refresh the tasks list
+      await fetchTasks()
+      // Force update the tasks count in header
+      window.dispatchEvent(new CustomEvent('forceUpdateTasks'))
+    } else {
+      console.error('Failed to delete task:', result)
+      alert('Failed to delete task. Please try again.')
+    }
+  } catch (err) {
+    console.error('Error deleting task:', err)
+    alert('Error deleting task. Please try again.')
+  }
+}
+
 onMounted(async () => {
   const userStr = localStorage.getItem('user')
   if (userStr) {
@@ -672,6 +716,15 @@ onMounted(async () => {
                     <i class="fas fa-check"></i>
                     Done
                   </button>
+                  <button
+                    v-if="isAdmin || task.id_user_create === user?.id"
+                    @click="deleteTask(task)"
+                    class="btn-delete"
+                    title="Delete task"
+                  >
+                    <i class="fas fa-trash"></i>
+                    Delete
+                  </button>
                 </td>
               </tr>
             </tbody>
@@ -772,6 +825,15 @@ onMounted(async () => {
                   >
                     <i class="fas fa-undo"></i>
                     Undone
+                  </button>
+                  <button
+                    v-if="isAdmin || task.id_user_create === user?.id"
+                    @click="deleteTask(task)"
+                    class="btn-delete"
+                    title="Delete task"
+                  >
+                    <i class="fas fa-trash"></i>
+                    Delete
                   </button>
                 </td>
               </tr>
@@ -1383,5 +1445,27 @@ onMounted(async () => {
     opacity: 1;
     transform: translateY(0) scale(1);
   }
+}
+
+.btn-delete {
+  padding: 6px 12px;
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.btn-delete:hover {
+  background-color: #c82333;
+}
+
+.btn-delete i {
+  font-size: 0.8rem;
 }
 </style>
