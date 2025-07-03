@@ -177,69 +177,39 @@ defineExpose({
       </div>
     </div>
     <div class="groups-table">
-      <!-- Desktop Table View -->
-      <div class="desktop-table">
-        <table>
-          <thead>
-            <tr>
-              <th>Group Name</th>
-              <th>Description</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="group in chatGroups"
-              :key="group.id"
-              @click="selectGroup(group)"
-              :class="{ selected: selectedGroup?.id === group.id }"
-              class="group-row"
-            >
-              <td>
-                <div class="group-name-container">
-                  <span class="group-name">{{ group.name }}</span>
-                  <span v-if="getNewMessageCount(group.id) > 0" class="new-messages-badge">
-                    {{ getNewMessageCount(group.id) > 99 ? '99+' : getNewMessageCount(group.id) }}
-                  </span>
-                </div>
-              </td>
-              <td>{{ group.description || 'No description' }}</td>
-              <td>
-                <button @click="showUsers(group, $event)" class="users-btn" title="View Users">
-                  <i class="fas fa-users"></i>
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <!-- Mobile Cards View -->
-      <div class="mobile-cards">
-        <div
-          v-for="group in chatGroups"
-          :key="group.id"
-          @click="selectGroup(group)"
-          :class="{ selected: selectedGroup?.id === group.id }"
-          class="group-card"
-        >
-          <div class="card-header">
-            <div class="group-name-container">
-              <span class="group-name">{{ group.name }}</span>
-              <span v-if="getNewMessageCount(group.id) > 0" class="new-messages-badge">
-                {{ getNewMessageCount(group.id) > 99 ? '99+' : getNewMessageCount(group.id) }}
-              </span>
-            </div>
-            <button @click="showUsers(group, $event)" class="users-btn" title="View Users">
-              <i class="fas fa-users"></i>
-            </button>
-          </div>
-          <div class="card-description">
-            {{ group.description || 'No description' }}
-          </div>
-        </div>
-      </div>
-
+      <table>
+        <thead>
+          <tr>
+            <th>Group Name</th>
+            <th>Description</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            v-for="group in chatGroups"
+            :key="group.id"
+            @click="selectGroup(group)"
+            :class="{ selected: selectedGroup?.id === group.id }"
+            class="group-row"
+          >
+            <td>
+              <div class="group-name-container">
+                <span class="group-name">{{ group.name }}</span>
+                <span v-if="getNewMessageCount(group.id) > 0" class="new-messages-badge">
+                  {{ getNewMessageCount(group.id) > 99 ? '99+' : getNewMessageCount(group.id) }}
+                </span>
+              </div>
+            </td>
+            <td>{{ group.description || 'No description' }}</td>
+            <td>
+              <button @click="showUsers(group, $event)" class="users-btn" title="View Users">
+                <i class="fas fa-users"></i>
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
       <div v-if="loading" class="loading">
         <i class="fas fa-spinner fa-spin"></i> Loading groups...
       </div>
@@ -342,14 +312,6 @@ defineExpose({
 .groups-table {
   flex: 1;
   overflow-y: auto;
-}
-
-.desktop-table {
-  display: block;
-}
-
-.mobile-cards {
-  display: none;
 }
 
 .groups-table table {
@@ -494,156 +456,6 @@ defineExpose({
   .chat-sidebar {
     width: 100%;
     height: 200px;
-  }
-
-  .desktop-table {
-    display: none;
-  }
-
-  .mobile-cards {
-    display: block;
-    padding: 16px;
-  }
-
-  /* Mobile Cards Styles */
-  .group-card {
-    background: white;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 16px;
-    margin-bottom: 12px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  }
-
-  .group-card:hover {
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-    transform: translateY(-1px);
-  }
-
-  .group-card.selected {
-    background-color: #e0f2fe;
-    border-color: #06b6d4;
-    box-shadow: 0 2px 8px rgba(6, 182, 212, 0.2);
-  }
-
-  .group-card .card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 8px;
-  }
-
-  .group-card .group-name-container {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .group-card .group-name {
-    font-weight: 600;
-    color: #1f2937;
-    font-size: 1rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .group-card .new-messages-badge {
-    margin-left: 8px;
-    flex-shrink: 0;
-  }
-
-  .group-card .users-btn {
-    flex-shrink: 0;
-    margin-left: 8px;
-  }
-
-  .group-card .card-description {
-    color: #6b7280;
-    font-size: 0.9rem;
-    line-height: 1.4;
-    word-break: break-word;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-
-  /* Mobile sidebar header adjustments */
-  .sidebar-header {
-    padding: 16px;
-  }
-
-  .sidebar-header h3 {
-    font-size: 1.1rem;
-  }
-
-  .add-group-btn {
-    padding: 6px 10px;
-    font-size: 0.9rem;
-  }
-
-  /* Mobile loading and error states */
-  .loading,
-  .error,
-  .no-groups {
-    padding: 16px;
-    margin: 16px;
-    border-radius: 8px;
-  }
-
-  .no-groups {
-    background: white;
-    border: 1px solid #e2e8f0;
-  }
-
-  .no-groups i {
-    font-size: 2.5rem;
-  }
-
-  .no-groups p {
-    font-size: 1rem;
-  }
-
-  .btn {
-    padding: 10px 16px;
-    font-size: 0.9rem;
-  }
-}
-
-/* Touch-friendly improvements */
-@media (max-width: 768px) {
-  .group-card {
-    min-height: 60px;
-  }
-
-  .users-btn {
-    min-width: 44px;
-    min-height: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-}
-
-/* Landscape orientation adjustments */
-@media (max-width: 768px) and (orientation: landscape) {
-  .chat-sidebar {
-    height: 150px;
-  }
-
-  .mobile-cards {
-    padding: 12px;
-  }
-
-  .group-card {
-    padding: 12px;
-    margin-bottom: 8px;
-  }
-
-  .group-card .card-description {
-    -webkit-line-clamp: 1;
   }
 }
 </style>

@@ -44,11 +44,24 @@ const showFinishedOrders = ref(false)
 const finishedOrders = ref([])
 const finishedOrdersLoading = ref(false)
 
+// Mobile navigation state
+const showMobileNav = ref(false)
+
+const toggleMobileNav = () => {
+  showMobileNav.value = !showMobileNav.value
+}
+
+const closeMobileNav = () => {
+  showMobileNav.value = false
+}
+
 const navigateTo = async (view) => {
   if (isProcessing.value[view]) return
   isProcessing.value[view] = true
   try {
     activeView.value = view
+    // Close mobile nav when navigating
+    closeMobileNav()
   } finally {
     isProcessing.value[view] = false
   }
@@ -156,7 +169,18 @@ const handleLoadClick = async () => {
 
 <template>
   <div class="cars-view" :class="{ 'is-loading': isLoading }">
-    <div class="sidebar">
+    <!-- Mobile Navigation Toggle -->
+    <div class="mobile-nav-toggle">
+      <button @click="toggleMobileNav" class="mobile-nav-btn">
+        <i class="fas fa-bars"></i>
+      </button>
+    </div>
+
+    <!-- Mobile Navigation Overlay -->
+    <div v-if="showMobileNav" class="mobile-nav-overlay" @click="closeMobileNav"></div>
+
+    <!-- Sidebar -->
+    <div class="sidebar" :class="{ 'mobile-open': showMobileNav }">
       <div class="sidebar-top">
         <button
           @click="returnToDashboard"
@@ -670,5 +694,403 @@ h2 {
 }
 .return-btn:hover {
   background: #ddd;
+}
+
+/* Mobile Navigation Styles */
+.mobile-nav-toggle {
+  display: none;
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  z-index: 1000;
+}
+
+.mobile-nav-btn {
+  background: #2c3e50;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 12px;
+  cursor: pointer;
+  font-size: 1.2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease;
+}
+
+.mobile-nav-btn:hover {
+  background: #34495e;
+  transform: translateY(-2px);
+}
+
+.mobile-nav-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .cars-view {
+    flex-direction: column;
+  }
+
+  .mobile-nav-toggle {
+    display: block;
+  }
+
+  .mobile-nav-overlay {
+    display: block;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: -280px;
+    height: 100vh;
+    width: 280px;
+    z-index: 1000;
+    transition: left 0.3s ease;
+    overflow-y: auto;
+  }
+
+  .sidebar.mobile-open {
+    left: 0;
+  }
+
+  .main-content {
+    margin-left: 0;
+    padding: 16px;
+    min-height: 100vh;
+  }
+
+  .main-content h1 {
+    font-size: 1.5rem;
+    margin-top: 60px;
+  }
+
+  .content {
+    margin-top: 16px;
+    padding: 16px;
+  }
+
+  .sidebar-btn {
+    padding: 16px 20px;
+    font-size: 1rem;
+  }
+
+  .sidebar-btn span {
+    font-size: 1rem;
+  }
+
+  .sidebar-section-title {
+    font-size: 1rem;
+    padding: 12px 16px;
+    margin: 16px 0 8px 0;
+  }
+
+  .empty-state {
+    padding: 32px 16px;
+    font-size: 1rem;
+  }
+
+  .empty-state i {
+    font-size: 3rem;
+  }
+
+  .copyright {
+    margin-top: 1rem;
+    padding: 1rem;
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .mobile-nav-toggle {
+    top: 16px;
+    left: 16px;
+  }
+
+  .mobile-nav-btn {
+    padding: 10px;
+    font-size: 1rem;
+  }
+
+  .sidebar {
+    width: 100%;
+    left: -100%;
+  }
+
+  .main-content {
+    padding: 12px;
+  }
+
+  .main-content h1 {
+    font-size: 1.3rem;
+    margin-top: 50px;
+  }
+
+  .content {
+    padding: 12px;
+  }
+
+  .sidebar-btn {
+    padding: 14px 16px;
+    font-size: 0.95rem;
+  }
+
+  .sidebar-btn span {
+    font-size: 0.95rem;
+  }
+
+  .empty-state {
+    padding: 24px 12px;
+  }
+
+  .empty-state i {
+    font-size: 2.5rem;
+  }
+
+  .empty-state p {
+    font-size: 0.9rem;
+  }
+}
+
+/* Landscape orientation adjustments */
+@media (max-width: 768px) and (orientation: landscape) {
+  .sidebar {
+    height: 100vh;
+    overflow-y: auto;
+  }
+
+  .sidebar-btn {
+    padding: 12px 16px;
+  }
+
+  .main-content h1 {
+    margin-top: 50px;
+  }
+}
+
+/* High DPI displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .mobile-nav-btn {
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  }
+}
+
+/* Touch device optimizations */
+@media (hover: none) and (pointer: coarse) {
+  .sidebar-btn {
+    min-height: 44px;
+  }
+
+  .mobile-nav-btn {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* Mobile Navigation Styles */
+.mobile-nav-toggle {
+  display: none;
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  z-index: 1000;
+}
+
+.mobile-nav-btn {
+  background: #2c3e50;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 12px;
+  cursor: pointer;
+  font-size: 1.2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease;
+}
+
+.mobile-nav-btn:hover {
+  background: #34495e;
+  transform: translateY(-2px);
+}
+
+.mobile-nav-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .cars-view {
+    flex-direction: column;
+  }
+
+  .mobile-nav-toggle {
+    display: block;
+  }
+
+  .mobile-nav-overlay {
+    display: block;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: -280px;
+    height: 100vh;
+    width: 280px;
+    z-index: 1000;
+    transition: left 0.3s ease;
+    overflow-y: auto;
+  }
+
+  .sidebar.mobile-open {
+    left: 0;
+  }
+
+  .main-content {
+    margin-left: 0;
+    padding: 16px;
+    min-height: 100vh;
+  }
+
+  .main-content h1 {
+    font-size: 1.5rem;
+    margin-top: 60px;
+  }
+
+  .content {
+    margin-top: 16px;
+    padding: 16px;
+  }
+
+  .sidebar-btn {
+    padding: 16px 20px;
+    font-size: 1rem;
+  }
+
+  .sidebar-btn span {
+    font-size: 1rem;
+  }
+
+  .sidebar-section-title {
+    font-size: 1rem;
+    padding: 12px 16px;
+    margin: 16px 0 8px 0;
+  }
+
+  .empty-state {
+    padding: 32px 16px;
+    font-size: 1rem;
+  }
+
+  .empty-state i {
+    font-size: 3rem;
+  }
+
+  .copyright {
+    margin-top: 1rem;
+    padding: 1rem;
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .mobile-nav-toggle {
+    top: 16px;
+    left: 16px;
+  }
+
+  .mobile-nav-btn {
+    padding: 10px;
+    font-size: 1rem;
+  }
+
+  .sidebar {
+    width: 100%;
+    left: -100%;
+  }
+
+  .main-content {
+    padding: 12px;
+  }
+
+  .main-content h1 {
+    font-size: 1.3rem;
+    margin-top: 50px;
+  }
+
+  .content {
+    padding: 12px;
+  }
+
+  .sidebar-btn {
+    padding: 14px 16px;
+    font-size: 0.95rem;
+  }
+
+  .sidebar-btn span {
+    font-size: 0.95rem;
+  }
+
+  .empty-state {
+    padding: 24px 12px;
+  }
+
+  .empty-state i {
+    font-size: 2.5rem;
+  }
+
+  .empty-state p {
+    font-size: 0.9rem;
+  }
+}
+
+/* Landscape orientation adjustments */
+@media (max-width: 768px) and (orientation: landscape) {
+  .sidebar {
+    height: 100vh;
+    overflow-y: auto;
+  }
+
+  .sidebar-btn {
+    padding: 12px 16px;
+  }
+
+  .main-content h1 {
+    margin-top: 50px;
+  }
+}
+
+/* High DPI displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .mobile-nav-btn {
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  }
+}
+
+/* Touch device optimizations */
+@media (hover: none) and (pointer: coarse) {
+  .sidebar-btn {
+    min-height: 44px;
+  }
+
+  .mobile-nav-btn {
+    min-height: 44px;
+    min-width: 44px;
+  }
 }
 </style>

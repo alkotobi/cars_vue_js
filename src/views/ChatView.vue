@@ -11,18 +11,10 @@ const chatMainRef = ref(null)
 const chatMessagesRef = ref(null) // Reference to the hidden ChatMessages component
 const newMessagesCounts = ref({})
 
-// Mobile state
-const showSidebar = ref(true)
-const isMobile = ref(false)
-
 // Set up periodic updates for new message counts
 let countsUpdateInterval = null
 
 onMounted(async () => {
-  // Check if mobile
-  checkMobile()
-  window.addEventListener('resize', checkMobile)
-
   // Get welcome message from URL parameters
   const urlParams = new URLSearchParams(window.location.search)
   welcomeMessage.value = urlParams.get('welcome') || 'Welcome to Chat!'
@@ -62,26 +54,10 @@ onUnmounted(() => {
   if (countsUpdateInterval) {
     clearInterval(countsUpdateInterval)
   }
-  window.removeEventListener('resize', checkMobile)
 })
-
-const checkMobile = () => {
-  isMobile.value = window.innerWidth <= 768
-  if (isMobile.value && selectedGroup.value) {
-    showSidebar.value = false
-  }
-}
-
-const toggleSidebar = () => {
-  showSidebar.value = !showSidebar.value
-}
 
 const handleGroupSelected = (group) => {
   selectedGroup.value = group
-  // On mobile, hide sidebar when group is selected
-  if (isMobile.value) {
-    showSidebar.value = false
-  }
   // Trigger an update of the counts when a group is selected
   setTimeout(() => {
     updateNewMessageCounts()
@@ -214,55 +190,19 @@ const focusMessageInput = () => {
 
 <template>
   <div class="chat-layout">
-    <!-- Mobile Navigation Bar -->
-    <div v-if="isMobile" class="mobile-nav">
-      <button v-if="!showSidebar" @click="toggleSidebar" class="mobile-nav-btn" title="Show Groups">
-        <i class="fas fa-bars"></i>
-        <span>Groups</span>
-      </button>
-      <button
-        v-if="showSidebar && selectedGroup"
-        @click="toggleSidebar"
-        class="mobile-nav-btn"
-        title="Show Chat"
-      >
-        <i class="fas fa-comments"></i>
-        <span>{{ selectedGroup.name }}</span>
-      </button>
-      <div v-if="!showSidebar && selectedGroup" class="mobile-group-info">
-        <h3>{{ selectedGroup.name }}</h3>
-        <p>{{ selectedGroup.description || 'No description' }}</p>
-      </div>
-    </div>
-
-    <!-- Sidebar -->
-    <div
-      v-show="!isMobile || showSidebar"
-      class="chat-sidebar-container"
-      :class="{ 'mobile-sidebar': isMobile }"
-    >
-      <ChatSidebar
-        ref="chatSidebarRef"
-        :new-messages-counts="newMessagesCounts"
-        @group-selected="handleGroupSelected"
-      />
-    </div>
-
-    <!-- Main Chat Area -->
-    <div
-      v-show="!isMobile || !showSidebar"
-      class="chat-main-container"
-      :class="{ 'mobile-main': isMobile }"
-    >
-      <ChatMain
-        ref="chatMainRef"
-        :welcome-message="welcomeMessage"
-        :selected-group="selectedGroup"
-        :on-force-update-counts="forceUpdateCounts"
-        @message-sent="handleMessageSent"
-        @new-messages-received="handleNewMessagesReceived"
-      />
-    </div>
+    <ChatSidebar
+      ref="chatSidebarRef"
+      :new-messages-counts="newMessagesCounts"
+      @group-selected="handleGroupSelected"
+    />
+    <ChatMain
+      ref="chatMainRef"
+      :welcome-message="welcomeMessage"
+      :selected-group="selectedGroup"
+      :on-force-update-counts="forceUpdateCounts"
+      @message-sent="handleMessageSent"
+      @new-messages-received="handleNewMessagesReceived"
+    />
 
     <!-- Hidden ChatMessages component for initializing unread counts -->
     <div style="display: none">
@@ -282,173 +222,12 @@ const focusMessageInput = () => {
   display: flex;
   height: 100vh;
   background-color: #f8fafc;
-  position: relative;
-}
-
-/* Mobile Navigation */
-.mobile-nav {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 60px;
-  background-color: #06b6d4;
-  color: white;
-  display: flex;
-  align-items: center;
-  padding: 0 16px;
-  z-index: 1000;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.mobile-nav-btn {
-  background: none;
-  border: none;
-  color: white;
-  font-size: 1rem;
-  cursor: pointer;
-  padding: 8px 12px;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  transition: background-color 0.2s;
-}
-
-.mobile-nav-btn:hover {
-  background-color: rgba(255, 255, 255, 0.2);
-}
-
-.mobile-nav-btn i {
-  font-size: 1.1rem;
-}
-
-.mobile-group-info {
-  flex: 1;
-  margin-left: 16px;
-  overflow: hidden;
-}
-
-.mobile-group-info h3 {
-  margin: 0;
-  font-size: 1.1rem;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.mobile-group-info p {
-  margin: 4px 0 0 0;
-  font-size: 0.9rem;
-  opacity: 0.9;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Sidebar Container */
-.chat-sidebar-container {
-  width: 400px;
-  background-color: white;
-  border-right: 1px solid #e2e8f0;
-  display: flex;
-  flex-direction: column;
-}
-
-.chat-sidebar-container.mobile-sidebar {
-  position: fixed;
-  top: 60px;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  width: 100%;
-  z-index: 999;
-  border-right: none;
-  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
-}
-
-/* Main Chat Container */
-.chat-main-container {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
-.chat-main-container.mobile-main {
-  margin-top: 60px;
-  height: calc(100vh - 60px);
 }
 
 /* Responsive design */
 @media (max-width: 768px) {
   .chat-layout {
     flex-direction: column;
-  }
-
-  .chat-sidebar-container {
-    width: 100%;
-  }
-
-  .chat-main-container {
-    width: 100%;
-  }
-}
-
-/* Animation for mobile sidebar */
-@keyframes slideIn {
-  from {
-    transform: translateX(-100%);
-  }
-  to {
-    transform: translateX(0);
-  }
-}
-
-@keyframes slideOut {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-100%);
-  }
-}
-
-.mobile-sidebar {
-  animation: slideIn 0.3s ease-out;
-}
-
-/* Ensure proper z-index layering */
-.chat-sidebar-container {
-  z-index: 10;
-}
-
-.chat-main-container {
-  z-index: 5;
-}
-
-/* Touch-friendly improvements for mobile */
-@media (max-width: 768px) {
-  .mobile-nav-btn {
-    min-height: 44px;
-    min-width: 44px;
-  }
-}
-
-/* Landscape orientation adjustments */
-@media (max-width: 768px) and (orientation: landscape) {
-  .mobile-nav {
-    height: 50px;
-  }
-
-  .chat-main-container.mobile-main {
-    margin-top: 50px;
-    height: calc(100vh - 50px);
-  }
-
-  .chat-sidebar-container.mobile-sidebar {
-    top: 50px;
   }
 }
 </style>

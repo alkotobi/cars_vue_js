@@ -993,6 +993,161 @@ const handleTaskCancel = () => {
       </div>
     </div>
 
+    <!-- Mobile Cards Container -->
+    <div class="mobile-cards-container">
+      <div v-if="filteredAndSortedClients.length === 0" class="mobile-empty-state">
+        <div class="mobile-empty-icon">
+          <i class="fas fa-search"></i>
+        </div>
+        <h3>No clients found</h3>
+        <p>Try adjusting your search criteria or add a new client</p>
+        <button @click="showAddDialog = true" class="btn-primary">
+          <i class="fas fa-plus"></i>
+          Add First Client
+        </button>
+      </div>
+
+      <div v-else class="mobile-cards-grid">
+        <div v-for="client in filteredAndSortedClients" :key="client.id" class="client-card">
+          <div class="card-header">
+            <div class="card-id">#{{ client.id }}</div>
+            <div class="card-badges">
+              <span class="status-badge client">
+                <i class="fas fa-user"></i>
+                Client
+              </span>
+              <span v-if="client.is_broker" class="status-badge broker">
+                <i class="fas fa-user-tie"></i>
+                Broker
+              </span>
+            </div>
+          </div>
+
+          <div class="card-title">{{ client.name || 'Unnamed Client' }}</div>
+
+          <div v-if="client.address" class="card-address">
+            <i class="fas fa-map-marker-alt"></i>
+            {{ client.address }}
+          </div>
+
+          <div class="card-details">
+            <div class="detail-row">
+              <div class="detail-label">
+                <i class="fas fa-envelope"></i>
+                Email:
+              </div>
+              <div class="detail-value">
+                <span v-if="client.email" class="email-link">
+                  {{ client.email }}
+                </span>
+                <span v-else class="no-email">No email</span>
+              </div>
+            </div>
+
+            <div class="detail-row">
+              <div class="detail-label">
+                <i class="fas fa-phone"></i>
+                Mobile:
+              </div>
+              <div class="detail-value">
+                <span class="mobile-number">{{ client.mobiles }}</span>
+              </div>
+            </div>
+
+            <div class="detail-row">
+              <div class="detail-label">
+                <i class="fas fa-id-card"></i>
+                ID Number:
+              </div>
+              <div class="detail-value">
+                <span class="id-number">{{ client.id_no }}</span>
+              </div>
+            </div>
+
+            <div class="detail-row">
+              <div class="detail-label">
+                <i class="fas fa-car"></i>
+                Cars:
+              </div>
+              <div class="detail-value">
+                <div class="cars-badge" :class="{ 'has-cars': client.cars_count > 0 }">
+                  <i class="fas fa-car"></i>
+                  <span>{{ client.cars_count || 0 }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="detail-row">
+              <div class="detail-label">
+                <i class="fas fa-file-alt"></i>
+                ID Document:
+              </div>
+              <div class="detail-value">
+                <div
+                  v-if="client.id_copy_path && isImageFile(client.id_copy_path)"
+                  class="document-preview"
+                  @click="handleImageClick(client.id_copy_path)"
+                >
+                  <img :src="getFileUrl(client.id_copy_path)" :alt="'ID for ' + client.name" />
+                  <div class="preview-overlay">
+                    <i class="fas fa-eye"></i>
+                  </div>
+                </div>
+                <a
+                  v-else-if="client.id_copy_path"
+                  :href="getFileUrl(client.id_copy_path)"
+                  target="_blank"
+                  class="document-link"
+                >
+                  <i class="fas fa-file-download"></i>
+                  <span>View</span>
+                </a>
+                <span v-else class="no-document">
+                  <i class="fas fa-times-circle"></i>
+                  <span>No ID</span>
+                </span>
+              </div>
+            </div>
+
+            <div class="detail-row">
+              <div class="detail-label">
+                <i class="fas fa-sticky-note"></i>
+                Notes:
+              </div>
+              <div class="detail-value">
+                <div v-if="client.notes" class="notes-content" :title="client.notes">
+                  {{
+                    client.notes.length > 50 ? client.notes.substring(0, 50) + '...' : client.notes
+                  }}
+                </div>
+                <span v-else class="no-notes">No notes</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-actions">
+            <button
+              @click.stop="openTaskForClient(client)"
+              class="action-btn task"
+              title="Create task"
+            >
+              <i class="fas fa-tasks"></i>
+              Task
+            </button>
+
+            <button
+              @click.stop="openTeleportDropdown(client.id, $event)"
+              class="action-btn actions"
+              title="Actions"
+            >
+              <i class="fas fa-ellipsis-v"></i>
+              Actions
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Global Actions Dropdown Menu -->
     <div
       v-if="openTaskDropdown"
@@ -3126,5 +3281,366 @@ const handleTaskCancel = () => {
   border-top: 1px solid #e5e7eb;
   margin-top: 4px;
   padding-top: 16px;
+}
+
+/* Mobile Cards Styles */
+.mobile-cards-container {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .clients-container {
+    display: none;
+  }
+
+  .mobile-cards-container {
+    display: block;
+  }
+
+  /* Mobile Cards Layout */
+  .mobile-empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: #6b7280;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+
+  .mobile-empty-icon {
+    margin-bottom: 24px;
+  }
+
+  .mobile-empty-icon i {
+    color: #d1d5db;
+    font-size: 4rem;
+  }
+
+  .mobile-empty-state h3 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #374151;
+    margin: 0 0 12px 0;
+  }
+
+  .mobile-empty-state p {
+    font-size: 1.1rem;
+    color: #6b7280;
+    margin: 0 0 24px 0;
+  }
+
+  .mobile-cards-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .client-card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e5e7eb;
+    transition: all 0.2s ease;
+  }
+
+  .client-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
+  }
+
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+  }
+
+  .card-id {
+    font-weight: 600;
+    color: #6b7280;
+    font-size: 0.9rem;
+  }
+
+  .card-badges {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .card-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 8px;
+    line-height: 1.4;
+    word-break: break-word;
+  }
+
+  .card-address {
+    color: #6b7280;
+    font-size: 0.9rem;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .card-details {
+    margin-bottom: 16px;
+  }
+
+  .detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 8px 0;
+    border-bottom: 1px solid #f3f4f6;
+  }
+
+  .detail-row:last-child {
+    border-bottom: none;
+  }
+
+  .detail-label {
+    font-weight: 500;
+    color: #374151;
+    font-size: 0.9rem;
+    min-width: 100px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .detail-value {
+    color: #6b7280;
+    font-size: 0.9rem;
+    text-align: right;
+    word-break: break-word;
+    flex: 1;
+  }
+
+  .card-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .card-actions .action-btn {
+    flex: 1;
+    min-width: 80px;
+    max-width: 120px;
+    padding: 10px 12px;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-weight: 500;
+  }
+
+  /* Mobile Status Badges */
+  .mobile-cards-container .status-badge {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .mobile-cards-container .status-badge.client {
+    background-color: #dbeafe;
+    color: #1e40af;
+  }
+
+  .mobile-cards-container .status-badge.broker {
+    background-color: #fef3c7;
+    color: #92400e;
+  }
+
+  /* Mobile Cars Badge */
+  .mobile-cards-container .cars-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    background: #f3f4f6;
+    color: #6b7280;
+  }
+
+  .mobile-cards-container .cars-badge.has-cars {
+    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+    color: #1d4ed8;
+  }
+
+  /* Mobile Document Preview */
+  .mobile-cards-container .document-preview {
+    width: 60px;
+    height: 40px;
+    border-radius: 6px;
+    overflow: hidden;
+    cursor: pointer;
+    position: relative;
+    border: 1px solid #e5e7eb;
+    transition: all 0.2s ease;
+  }
+
+  .mobile-cards-container .document-preview:hover {
+    transform: scale(1.05);
+  }
+
+  .mobile-cards-container .document-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .mobile-cards-container .preview-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .mobile-cards-container .preview-overlay:hover {
+    opacity: 1;
+  }
+
+  .mobile-cards-container .preview-overlay i {
+    color: white;
+    font-size: 1rem;
+  }
+
+  /* Mobile Document Link */
+  .mobile-cards-container .document-link {
+    color: #3b82f6;
+    text-decoration: none;
+    font-size: 0.8rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    transition: color 0.2s;
+  }
+
+  .mobile-cards-container .document-link:hover {
+    color: #2563eb;
+    text-decoration: underline;
+  }
+
+  /* Mobile No Document */
+  .mobile-cards-container .no-document {
+    color: #6b7280;
+    font-size: 0.8rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .mobile-cards-container .no-document i {
+    color: #ef4444;
+  }
+
+  /* Mobile Notes */
+  .mobile-cards-container .notes-content {
+    color: #6b7280;
+    font-size: 0.85rem;
+    line-height: 1.4;
+  }
+
+  .mobile-cards-container .no-notes {
+    color: #9ca3af;
+    font-style: italic;
+    font-size: 0.85rem;
+  }
+
+  /* Mobile Email Link */
+  .mobile-cards-container .email-link {
+    color: #3b82f6;
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+
+  .mobile-cards-container .email-link:hover {
+    text-decoration: underline;
+  }
+
+  /* Mobile ID Number */
+  .mobile-cards-container .id-number {
+    font-weight: 600;
+    color: #1f2937;
+    font-family: 'Courier New', monospace;
+    background: #f3f4f6;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+  }
+
+  /* Mobile Mobile Number */
+  .mobile-cards-container .mobile-number {
+    font-weight: 600;
+    color: #1f2937;
+    font-size: 0.9rem;
+  }
+
+  /* Responsive adjustments for very small screens */
+  @media (max-width: 480px) {
+    .client-card {
+      padding: 16px;
+    }
+
+    .card-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .card-badges {
+      width: 100%;
+    }
+
+    .detail-row {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 4px;
+    }
+
+    .detail-label {
+      min-width: auto;
+    }
+
+    .detail-value {
+      text-align: left;
+    }
+
+    .card-actions {
+      flex-direction: column;
+    }
+
+    .card-actions .action-btn {
+      flex: none;
+      max-width: none;
+      width: 100%;
+    }
+  }
 }
 </style>

@@ -135,48 +135,4 @@ defineExpose({
   max-width: 400px;
   line-height: 1.5;
 }
-
-/* Mobile responsive styles */
-@media (max-width: 768px) {
-  .select-group-message {
-    padding: 20px;
-  }
-
-  .select-group-message i {
-    font-size: 3rem;
-    margin-bottom: 16px;
-  }
-
-  .select-group-message h2 {
-    font-size: 1.5rem;
-    margin: 0 0 12px 0;
-  }
-
-  .select-group-message p {
-    font-size: 1rem;
-    max-width: 300px;
-  }
-}
-
-/* Landscape orientation adjustments */
-@media (max-width: 768px) and (orientation: landscape) {
-  .select-group-message {
-    padding: 16px;
-  }
-
-  .select-group-message i {
-    font-size: 2.5rem;
-    margin-bottom: 12px;
-  }
-
-  .select-group-message h2 {
-    font-size: 1.3rem;
-    margin: 0 0 8px 0;
-  }
-
-  .select-group-message p {
-    font-size: 0.9rem;
-    max-width: 250px;
-  }
-}
 </style>
