@@ -435,7 +435,6 @@ const calculateCFRDA = (car) => {
 const filters = ref({
   carName: '',
   clientName: '',
-  vin: '',
   minPrice: '',
   maxPrice: '',
 })
@@ -459,11 +458,6 @@ const filteredCars = computed(() => {
       return false
     }
 
-    // VIN filter
-    if (filters.value.vin && !car.vin?.toLowerCase().includes(filters.value.vin.toLowerCase())) {
-      return false
-    }
-
     // Price range filter
     const price = parseFloat(car.price_cell)
     if (filters.value.minPrice && price < parseFloat(filters.value.minPrice)) {
@@ -482,7 +476,6 @@ const clearFilters = () => {
   filters.value = {
     carName: '',
     clientName: '',
-    vin: '',
     minPrice: '',
     maxPrice: '',
   }
@@ -549,14 +542,6 @@ defineExpose({
           <input type="text" v-model="filters.clientName" placeholder="Filter by client name..." />
         </div>
 
-        <div class="filter-group">
-          <label>
-            <i class="fas fa-fingerprint"></i>
-            VIN
-          </label>
-          <input type="text" v-model="filters.vin" placeholder="Filter by VIN..." />
-        </div>
-
         <div class="filter-group price-range">
           <label>
             <i class="fas fa-dollar-sign"></i>
@@ -596,12 +581,9 @@ defineExpose({
         <tr>
           <th><i class="fas fa-hashtag"></i> ID</th>
           <th><i class="fas fa-car"></i> Car</th>
-          <th><i class="fas fa-palette"></i> Color</th>
-          <th><i class="fas fa-fingerprint"></i> VIN</th>
           <th><i class="fas fa-user"></i> Client</th>
           <th><i class="fas fa-dollar-sign"></i> Price</th>
           <th><i class="fas fa-ship"></i> Freight</th>
-          <th><i class="fas fa-exchange-alt"></i> Rate</th>
           <th><i class="fas fa-calculator"></i> CFR DA</th>
           <th><i class="fas fa-sticky-note"></i> Notes</th>
           <th><i class="fas fa-cog"></i> Actions</th>
@@ -610,14 +592,22 @@ defineExpose({
       <tbody>
         <tr v-for="car in filteredCars" :key="car.id">
           <td>{{ car.id }}</td>
-          <td>{{ car.car_name }}</td>
-          <td>{{ car.color }}</td>
-          <td>{{ car.vin || 'N/A' }}</td>
+          <td class="car-cell">
+            <div class="car-name">{{ car.car_name }}</div>
+            <div class="car-vin" v-if="car.vin">{{ car.vin }}</div>
+            <div class="car-badges">
+              <span v-if="car.color" class="badge color-badge">{{ car.color }}</span>
+            </div>
+          </td>
           <td>{{ car.client_name || 'N/A' }}</td>
           <td>{{ car.price_cell ? '$' + car.price_cell.toLocaleString() : 'N/A' }}</td>
           <td>{{ car.freight ? '$' + car.freight.toLocaleString() : 'N/A' }}</td>
-          <td>{{ car.rate || 'N/A' }}</td>
-          <td>{{ calculateCFRDA(car) }}</td>
+          <td class="cfr-cell">
+            <div class="cfr-value">{{ calculateCFRDA(car) }}</div>
+            <div class="rate-badge" v-if="car.rate">
+              <span class="badge rate-badge-label">Rate: {{ car.rate }}</span>
+            </div>
+          </td>
           <td>{{ car.notes || 'N/A' }}</td>
           <td class="actions">
             <button
@@ -932,7 +922,8 @@ defineExpose({
 .cars-table {
   width: 100%;
   border-collapse: collapse;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid #d1d5db;
   border-radius: 8px;
   overflow: hidden;
   position: relative;
@@ -949,13 +940,40 @@ defineExpose({
 .cars-table td {
   padding: 12px;
   text-align: left;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1.5px solid #cbd5e1;
+  position: static;
+  background: none;
 }
 
 .cars-table th {
   background-color: #f3f4f6;
   font-weight: 600;
   color: #374151;
+  border-bottom: 3px solid #3b82f6;
+}
+
+.cars-table tbody tr,
+.cars-table tbody tr:not(:last-child) td,
+.cars-table tbody tr:first-child td {
+  border-top: none;
+  border-bottom: 1.5px solid #cbd5e1;
+  box-shadow: none;
+}
+
+.cars-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.cars-table tbody tr:nth-child(even) {
+  background-color: #fafafa;
+}
+
+.cars-table tbody tr:hover {
+  background-color: #f8fafc;
+}
+
+.cars-table th::after {
+  display: none;
 }
 
 .cars-table th i {
@@ -972,7 +990,6 @@ defineExpose({
 }
 
 .actions {
-  display: flex;
   gap: 8px;
   justify-content: flex-end;
 }
@@ -1345,5 +1362,89 @@ button:disabled {
   font-size: 0.875rem;
   margin-top: 0.25rem;
   margin-left: 24px;
+}
+
+.car-cell {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.car-name {
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.car-badges {
+  display: flex;
+  gap: 4px;
+}
+
+.badge {
+  padding: 4px 8px;
+  border-radius: 4px;
+  background-color: #f3f4f6;
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+.color-badge {
+  background-color: #fef2f2;
+  color: #dc2626;
+}
+
+.vin-badge {
+  background-color: #f0f9ff;
+  color: #0284c7;
+}
+
+.car-vin {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin-bottom: 4px;
+  font-family: monospace;
+  background-color: #f3f4f6;
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: inline-block;
+  border: none;
+  box-shadow: none;
+  width: auto;
+}
+
+.cfr-cell {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.cfr-value {
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.rate-badge {
+  display: flex;
+  gap: 4px;
+}
+
+.rate-badge-label {
+  background-color: #fef3c7;
+  color: #d97706;
+  font-size: 0.75rem;
+}
+
+.car-badges,
+.cfr-value,
+.rate-badge {
+  border: none !important;
+  box-shadow: none !important;
+  width: auto !important;
+  background: none !important;
+}
+
+.cfr-cell > * {
+  border: none !important;
+  box-shadow: none !important;
+  width: auto !important;
+  background: none !important;
 }
 </style>
