@@ -284,10 +284,21 @@ onMounted(() => {
 }
 
 @media print {
+  @page {
+    size: A4;
+    margin: 8mm;
+  }
   .a4-page {
     box-shadow: none;
-    margin: 0;
-    padding: 12mm;
+    margin: 0 !important;
+    padding-bottom: 0 !important;
+    page-break-inside: avoid;
+    background: white;
+    height: auto !important;
+    max-height: 100% !important;
+  }
+  .floating-stamp {
+    margin-bottom: 0 !important;
   }
 }
 
@@ -654,7 +665,13 @@ onMounted(() => {
 
   .floating-stamp {
     opacity: 1;
-    position: fixed;
+    position: absolute !important;
+    page-break-inside: avoid !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) rotate(-30deg) !important;
+    max-width: 90%;
+    max-height: 90%;
   }
 
   /* Preserve gradients and colors for color printing */
@@ -740,4 +757,3 @@ onMounted(() => {
   text-align: right;
 }
 </style>
- 

@@ -202,6 +202,12 @@ const sortedCars = computed(() => {
       bVal = parseFloat(bVal) || 0
     }
 
+    // Handle date values
+    if (['date_loding', 'date_buy'].includes(sortConfig.value.key)) {
+      aVal = aVal ? new Date(aVal).getTime() : 0
+      bVal = bVal ? new Date(bVal).getTime() : 0
+    }
+
     // Handle status field (Sold comes after Available alphabetically, but we want Available first)
     if (sortConfig.value.key === 'status') {
       // Define status priority (Available = 1, Sold = 2)
@@ -244,11 +250,114 @@ const teleportDropdown = ref({
 
 const router = useRouter()
 
+// Add defaults data
+const defaults = ref(null)
+
+// Add function to fetch defaults
+const fetchDefaults = async () => {
+  try {
+    const result = await callApi({
+      query: `
+        SELECT freight_small, freight_big, rate
+        FROM defaults 
+        ORDER BY id ASC
+        LIMIT 1
+      `,
+    })
+    if (result.success && result.data.length > 0) {
+      defaults.value = result.data[0]
+      console.log('Defaults loaded:', defaults.value)
+    } else {
+      console.log('No defaults found or API failed:', result)
+    }
+  } catch (error) {
+    console.error('Error fetching defaults:', error)
+  }
+}
+
+// Add freight value calculation function
+const getFreightValue = (car) => {
+  // Convert freight to number for proper comparison
+  const freight = parseFloat(car.freight) || 0
+
+  // If freight is greater than 0, return it
+  if (freight > 0) {
+    return freight
+  }
+
+  // Debug logging
+  console.log('Car freight is 0, checking defaults:', {
+    carId: car.id,
+    isBigCar: car.is_big_car,
+    defaults: defaults.value,
+    freightBig: defaults.value?.freight_big,
+    freightSmall: defaults.value?.freight_small,
+  })
+
+  // Use default freight based on car size
+  if (car.is_big_car && defaults.value?.freight_big) {
+    const defaultFreight = parseFloat(defaults.value.freight_big) || 0
+    console.log('Using big car default freight:', defaultFreight)
+    return defaultFreight
+  }
+
+  if (!car.is_big_car && defaults.value?.freight_small) {
+    const defaultFreight = parseFloat(defaults.value.freight_small) || 0
+    console.log('Using small car default freight:', defaultFreight)
+    return defaultFreight
+  }
+
+  console.log('No default freight found, returning 0')
+  return 0
+}
+
+// Add CFR DZA value calculation function
+const getCfrDzaValue = (car) => {
+  const fob = parseFloat(car.price_cell) || 0
+  const freight = getFreightValue(car)
+  const rate = getRateValue(car)
+
+  const cfrUsd = fob + freight
+  const cfrDza = cfrUsd * rate
+
+  return cfrDza.toFixed(2)
+}
+
+// Add CFR USD value calculation function
+const getCfrUsdValue = (car) => {
+  const fob = parseFloat(car.price_cell) || 0
+  const freight = getFreightValue(car)
+
+  const cfrUsd = fob + freight
+  return cfrUsd.toFixed(2)
+}
+
+// Add rate value calculation function
+const getRateValue = (car) => {
+  // If car has a rate and it's greater than 0, use it
+  const carRate = parseFloat(car.rate) || 0
+  if (carRate > 0) {
+    return carRate
+  }
+
+  // Otherwise use default rate from defaults table
+  if (defaults.value?.rate) {
+    return parseFloat(defaults.value.rate) || 0
+  }
+
+  return 0
+}
+
 const fetchCarsStock = async () => {
   loading.value = true
   error.value = null
 
   try {
+    // Fetch defaults first if not already loaded
+    if (!defaults.value) {
+      await fetchDefaults()
+    }
+
     // Build the base query
     let query = `
       SELECT 
@@ -284,10 +393,12 @@ const fetchCarsStock = async () => {
         lp.loading_port,
         dp.discharge_port,
         bd.price_sell as buy_price,
+        bb.date_buy,
         w.warhouse_name as warehouse_name,
         bb.bill_ref as buy_bill_ref,
         sb.bill_ref as sell_bill_ref,
         cs.is_used_car,
+        cs.is_big_car,
         c.id_no as client_id_no,
         cs.container_ref,
         CASE 
@@ -447,7 +558,6 @@ const fetchCarsStock = async () => {
 
         // Status filter (Available/Sold)
         if (adv.status && adv.status.trim() !== '') {
-          console.log('Status filter value:', adv.status) // Debug
           if (adv.status === 'available') {
             query += ` AND cs.id_sell IS NULL`
           } else if (adv.status === 'sold') {
@@ -777,10 +887,8 @@ const handleTaskClose = () => {
 
 const handleTaskSave = (result) => {
   if (result.success) {
-    console.log('Task created successfully with ID:', result.taskId)
-    // You can add any additional logic here, like showing a success message
+    handleTaskClose()
   }
-  handleTaskClose()
 }
 
 // Add this method after other methods
@@ -815,6 +923,7 @@ onMounted(() => {
   if (userStr) {
     user.value = JSON.parse(userStr)
   }
+  fetchDefaults()
   fetchCarsStock()
 
   // Add event listeners for teleport dropdown
@@ -933,9 +1042,16 @@ defineExpose({
       <table class="cars-table">
         <thead>
           <tr>
+            <th>Actions</th>
             <th @click="toggleSort('id')" class="sortable">
               ID
               <span v-if="sortConfig.key === 'id'" class="sort-indicator">
+                {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
+              </span>
+            </th>
+            <th @click="toggleSort('date_buy')" class="sortable">
+              Date Buy
+              <span v-if="sortConfig.key === 'date_buy'" class="sort-indicator">
                 {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
               </span>
             </th>
@@ -945,15 +1061,15 @@ defineExpose({
                 {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
               </span>
             </th>
-            <th @click="toggleSort('loading_port')" class="sortable">
-              Loading Port
-              <span v-if="sortConfig.key === 'loading_port'" class="sort-indicator">
+            <th @click="toggleSort('client_name')" class="sortable">
+              Client
+              <span v-if="sortConfig.key === 'client_name'" class="sort-indicator">
                 {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
               </span>
             </th>
-            <th @click="toggleSort('discharge_port')" class="sortable">
-              Discharge Port
-              <span v-if="sortConfig.key === 'discharge_port'" class="sort-indicator">
+            <th @click="toggleSort('loading_port')" class="sortable">
+              Ports
+              <span v-if="sortConfig.key === 'loading_port'" class="sort-indicator">
                 {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
               </span>
             </th>
@@ -964,32 +1080,20 @@ defineExpose({
               </span>
             </th>
             <th @click="toggleSort('price_cell')" class="sortable">
-              Price
+              FOB
               <span v-if="sortConfig.key === 'price_cell'" class="sort-indicator">
                 {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
               </span>
             </th>
-            <th @click="toggleSort('date_loding')" class="sortable">
-              Operation Date
-              <span v-if="sortConfig.key === 'date_loding'" class="sort-indicator">
+            <th @click="toggleSort('rate')" class="sortable">
+              CFR
+              <span v-if="sortConfig.key === 'rate'" class="sort-indicator">
                 {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
               </span>
             </th>
             <th @click="toggleSort('status')" class="sortable">
               Status
               <span v-if="sortConfig.key === 'status'" class="sort-indicator">
-                {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
-              </span>
-            </th>
-            <th @click="toggleSort('notes')" class="sortable">
-              Notes
-              <span v-if="sortConfig.key === 'notes'" class="sort-indicator">
-                {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
-              </span>
-            </th>
-            <th @click="toggleSort('client_name')" class="sortable">
-              Client
-              <span v-if="sortConfig.key === 'client_name'" class="sort-indicator">
                 {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
               </span>
             </th>
@@ -1000,136 +1104,16 @@ defineExpose({
               </span>
             </th>
             <th>Documents</th>
-            <th>Actions</th>
+            <th @click="toggleSort('notes')" class="sortable">
+              Notes
+              <span v-if="sortConfig.key === 'notes'" class="sort-indicator">
+                {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
+              </span>
+            </th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="car in sortedCars" :key="car.id" :class="{ 'used-car': car.is_used_car }">
-            <td>#{{ car.id }}</td>
-            <td class="car-details-cell">
-              <div class="car-name">{{ car.car_name }}</div>
-              <div v-if="car.vin" class="info-badge badge-vin">
-                <i class="fas fa-barcode"></i>
-                {{ car.vin }}
-              </div>
-              <div v-if="car.color" class="info-badge badge-color">
-                <i class="fas fa-palette"></i>
-                {{ car.color }}
-              </div>
-              <div v-if="car.export_lisence_ref" class="info-badge badge-export-license">
-                <i class="fas fa-certificate"></i>
-                Export License
-              </div>
-              <div v-if="car.date_pay_freight" class="info-badge badge-freight-paid">
-                <i class="fas fa-check-circle"></i>
-                Freight Paid
-              </div>
-              <div v-if="car.buy_bill_ref" class="info-badge badge-buy-bill">
-                <i class="fas fa-shopping-cart"></i>
-                Buy: {{ car.buy_bill_ref }}
-              </div>
-              <div v-if="car.sell_bill_ref" class="info-badge badge-sell-bill">
-                <i class="fas fa-file-invoice-dollar"></i>
-                Sell: {{ car.sell_bill_ref }}
-              </div>
-            </td>
-            <td>
-              <div v-if="car.loading_port" class="info-badge badge-loading-port">
-                <i class="fas fa-ship"></i>
-                {{ car.loading_port }}
-              </div>
-              <div v-else>-</div>
-            </td>
-            <td>
-              <div>
-                {{ car.discharge_port || '-' }}
-                <div v-if="car.container_ref" class="info-badge badge-container">
-                  <i class="fas fa-box"></i>
-                  {{ car.container_ref }}
-                </div>
-              </div>
-            </td>
-            <td>${{ car.freight || '0' }}</td>
-            <td>${{ car.price_cell || '0' }}</td>
-            <td>{{ car.date_loding ? new Date(car.date_loding).toLocaleDateString() : '-' }}</td>
-            <td>
-              <span
-                :class="{
-                  'status-sold': car.id_sell,
-                  'status-available': !car.id_sell,
-                  'status-used': car.is_used_car,
-                }"
-              >
-                <i
-                  :class="[
-                    car.id_sell ? 'fas fa-check-circle' : 'fas fa-clock',
-                    car.is_used_car ? 'fas fa-history' : '',
-                  ]"
-                ></i>
-                {{ car.id_sell ? 'Sold' : 'Available' }}
-                {{ car.is_used_car ? '(Used)' : '' }}
-              </span>
-              <div v-if="car.in_wharhouse_date" class="info-badge badge-in-warehouse">
-                <i class="fas fa-warehouse"></i>
-                In Warehouse
-              </div>
-              <div v-if="car.date_get_bl" class="info-badge badge-bl-received">
-                <i class="fas fa-file-contract"></i>
-                BL Received
-              </div>
-            </td>
-            <td class="notes-cell" :title="car.notes">{{ car.notes || '-' }}</td>
-            <td>
-              <div class="client-info">
-                <div>{{ car.client_name || '-' }}</div>
-                <div v-if="car.client_id_no" class="info-badge badge-client-id">
-                  <i class="fas fa-id-card"></i>
-                  {{ car.client_id_no }}
-                </div>
-                <div v-if="car.is_batch" class="info-badge badge-wholesale">
-                  <i class="fas fa-layer-group"></i>
-                  Whole Sale
-                </div>
-              </div>
-            </td>
-            <td>
-              <div v-if="car.warehouse_name" class="info-badge badge-warehouse">
-                <i class="fas fa-building"></i>
-                {{ car.warehouse_name }}
-              </div>
-              <div v-else>-</div>
-            </td>
-            <td class="documents-cell">
-              <div class="document-links">
-                <a
-                  v-if="car.path_documents"
-                  :href="getFileUrl(car.path_documents)"
-                  target="_blank"
-                  class="document-link"
-                >
-                  <i class="fas fa-file-pdf"></i>
-                  Documents
-                </a>
-                <a
-                  v-if="car.sell_pi_path"
-                  :href="getFileUrl(car.sell_pi_path)"
-                  target="_blank"
-                  class="document-link"
-                >
-                  <i class="fas fa-file-invoice-dollar"></i>
-                  Sell PI
-                </a>
-                <a
-                  v-if="car.buy_pi_path"
-                  :href="getFileUrl(car.buy_pi_path)"
-                  target="_blank"
-                  class="document-link"
-                >
-                  <i class="fas fa-file-contract"></i>
-                  Buy PI
-                </a>
-              </div>
-            </td>
             <td>
               <div class="dropdown">
                 <ul v-if="isDropdownOpen[car.id]" class="dropdown-menu">
@@ -1266,6 +1250,173 @@ defineExpose({
                 <i class="fas fa-ellipsis-h"></i>
               </button>
             </td>
+            <td>#{{ car.id }}</td>
+            <td>{{ car.date_buy ? new Date(car.date_buy).toLocaleDateString() : '-' }}</td>
+            <td class="car-details-cell">
+              <div class="car-details-container">
+                <div class="car-name">{{ car.car_name }}</div>
+                <div v-if="car.vin" class="car-detail-item">
+                  <div class="info-badge badge-vin">
+                    <i class="fas fa-barcode"></i>
+                    {{ car.vin }}
+                  </div>
+                </div>
+                <div v-if="car.color" class="car-detail-item">
+                  <div class="info-badge badge-color">
+                    <i class="fas fa-palette"></i>
+                    {{ car.color }}
+                  </div>
+                </div>
+                <div v-if="car.export_lisence_ref" class="car-detail-item">
+                  <div class="info-badge badge-export-license">
+                    <i class="fas fa-certificate"></i>
+                    Export License
+                  </div>
+                </div>
+                <div v-if="car.buy_bill_ref" class="car-detail-item">
+                  <div class="info-badge badge-buy-bill">
+                    <i class="fas fa-shopping-cart"></i>
+                    Buy: {{ car.buy_bill_ref }}
+                  </div>
+                </div>
+                <div v-if="car.sell_bill_ref" class="car-detail-item">
+                  <div class="info-badge badge-sell-bill">
+                    <i class="fas fa-file-invoice-dollar"></i>
+                    Sell: {{ car.sell_bill_ref }}
+                  </div>
+                </div>
+              </div>
+            </td>
+            <td>
+              <div class="client-info">
+                <div>{{ car.client_name || '-' }}</div>
+                <div v-if="car.client_id_no" class="info-badge badge-client-id">
+                  <i class="fas fa-id-card"></i>
+                  {{ car.client_id_no }}
+                </div>
+                <div v-if="car.is_batch" class="info-badge badge-wholesale">
+                  <i class="fas fa-layer-group"></i>
+                  Whole Sale
+                </div>
+              </div>
+            </td>
+            <td>
+              <div class="ports-container">
+                <div class="port-item">
+                  <div v-if="car.loading_port" class="info-badge badge-loading-port">
+                    <i class="fas fa-ship"></i>
+                    {{ car.loading_port }}
+                  </div>
+                  <div v-else class="port-empty">-</div>
+                </div>
+                <div class="port-item">
+                  <div v-if="car.discharge_port" class="info-badge badge-discharge-port">
+                    <i class="fas fa-anchor"></i>
+                    {{ car.discharge_port }}
+                  </div>
+                  <div v-else class="port-empty">-</div>
+                </div>
+                <div v-if="car.container_ref" class="info-badge badge-container">
+                  <i class="fas fa-box"></i>
+                  {{ car.container_ref }}
+                </div>
+                <div v-if="car.date_pay_freight" class="info-badge badge-freight-paid">
+                  <i class="fas fa-check-circle"></i>
+                  Freight Paid
+                </div>
+              </div>
+            </td>
+            <td>${{ getFreightValue(car) }}</td>
+            <td>${{ car.price_cell || '0' }}</td>
+            <td>
+              <div class="cfr-container">
+                <div class="info-badge badge-cfr-usd">
+                  <i class="fas fa-dollar-sign"></i>
+                  USD: ${{ getCfrUsdValue(car) }}
+                </div>
+                <div class="info-badge badge-cfr-dza">
+                  <i class="fas fa-coins"></i>
+                  DZA: {{ getCfrDzaValue(car) }}
+                </div>
+                <div class="info-badge badge-cfr-rate">
+                  <i class="fas fa-percentage"></i>
+                  Rate: {{ getRateValue(car) }}
+                </div>
+              </div>
+            </td>
+            <td>
+              <div class="status-container">
+                <div class="status-item">
+                  <span
+                    :class="{
+                      'status-sold': car.id_sell,
+                      'status-available': !car.id_sell,
+                      'status-used': car.is_used_car,
+                    }"
+                  >
+                    <i
+                      :class="[
+                        car.id_sell ? 'fas fa-check-circle' : 'fas fa-clock',
+                        car.is_used_car ? 'fas fa-history' : '',
+                      ]"
+                    ></i>
+                    {{ car.id_sell ? 'Sold' : 'Available' }}
+                    {{ car.is_used_car ? '(Used)' : '' }}
+                  </span>
+                </div>
+                <div v-if="car.in_wharhouse_date" class="status-item">
+                  <div class="info-badge badge-in-warehouse">
+                    <i class="fas fa-warehouse"></i>
+                    In Warehouse
+                  </div>
+                </div>
+                <div v-if="car.date_get_bl" class="status-item">
+                  <div class="info-badge badge-bl-received">
+                    <i class="fas fa-file-contract"></i>
+                    BL Received
+                  </div>
+                </div>
+              </div>
+            </td>
+            <td>
+              <div v-if="car.warehouse_name" class="info-badge badge-warehouse">
+                <i class="fas fa-building"></i>
+                {{ car.warehouse_name }}
+              </div>
+              <div v-else>-</div>
+            </td>
+            <td class="documents-cell">
+              <div class="document-links">
+                <a
+                  v-if="car.path_documents"
+                  :href="getFileUrl(car.path_documents)"
+                  target="_blank"
+                  class="document-link"
+                >
+                  <i class="fas fa-file-pdf"></i>
+                  Documents
+                </a>
+                <a
+                  v-if="car.sell_pi_path"
+                  :href="getFileUrl(car.sell_pi_path)"
+                  target="_blank"
+                  class="document-link"
+                >
+                  <i class="fas fa-file-invoice-dollar"></i>
+                  Sell PI
+                </a>
+                <a
+                  v-if="car.buy_pi_path"
+                  :href="getFileUrl(car.buy_pi_path)"
+                  target="_blank"
+                  class="document-link"
+                >
+                  <i class="fas fa-file-contract"></i>
+                  Buy PI
+                </a>
+              </div>
+            </td>
+            <td class="notes-cell" :title="car.notes">{{ car.notes || '-' }}</td>
           </tr>
         </tbody>
       </table>
@@ -1991,7 +2142,104 @@ defineExpose({
   border: 1px solid #fde68a;
 }
 
+.badge-discharge-port {
+  background-color: #f0f9ff;
+  color: #0c4a6e;
+  border: 1px solid #bae6fd;
+}
+
 .badge-wholesale {
+  background-color: #dbeafe;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+}
+
+/* Ports Container Styles */
+.ports-container {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.port-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.port-label {
+  font-size: 0.8em;
+  font-weight: 600;
+  color: #6b7280;
+  min-width: 70px;
+}
+
+.port-empty {
+  font-size: 0.85em;
+  color: #9ca3af;
+  font-style: italic;
+}
+
+/* Car Details Styles */
+.car-details-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.car-detail-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.detail-label {
+  font-size: 0.8em;
+  font-weight: 600;
+  color: #6b7280;
+  min-width: 60px;
+}
+
+/* Status Container Styles */
+.status-container {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.status-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-label {
+  font-size: 0.8em;
+  font-weight: 600;
+  color: #6b7280;
+  min-width: 70px;
+}
+
+/* CFR Container Styles */
+.cfr-container {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.badge-cfr-usd {
+  background-color: #dcfce7;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.badge-cfr-dza {
+  background-color: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.badge-cfr-rate {
   background-color: #dbeafe;
   color: #1e40af;
   border: 1px solid #bfdbfe;

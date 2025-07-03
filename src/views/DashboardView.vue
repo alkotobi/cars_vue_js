@@ -278,6 +278,7 @@ const formatDate = (dateString) => {
       </button>
       <button
         v-if="isAdmin"
+        @click="handleParamsClick"
         class="action-btn params-btn"
         :disabled="isProcessing.params"
         :class="{ processing: isProcessing.params }"

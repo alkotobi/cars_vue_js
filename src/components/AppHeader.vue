@@ -38,7 +38,6 @@ const getUser = async () => {
     user.value = JSON.parse(userStr)
     // If user is loaded, fetch data immediately
     if (user.value) {
-      console.log('getUser: User loaded, forcing data refresh')
       await forceRefreshData()
     }
   } else {
@@ -49,12 +48,10 @@ const getUser = async () => {
 // Fetch pending tasks count
 const fetchPendingTasksCount = async () => {
   if (!user.value) {
-    console.log('fetchPendingTasksCount: No user available')
     return
   }
 
   try {
-    console.log('fetchPendingTasksCount: Fetching tasks for user', user.value.id)
     const result = await callApi({
       query: `
         SELECT COUNT(*) as count
@@ -66,18 +63,13 @@ const fetchPendingTasksCount = async () => {
       requiresAuth: true,
     })
 
-    console.log('fetchPendingTasksCount: API result', result)
-
     if (result.success && result.data.length > 0) {
       const count = result.data[0].count
       pendingTasksCount.value = count
-      console.log('fetchPendingTasksCount: Updated tasks count to', count)
     } else {
-      console.log('fetchPendingTasksCount: No data returned or API failed', result)
       pendingTasksCount.value = 0
     }
   } catch (error) {
-    console.error('Error fetching pending tasks count:', error)
     pendingTasksCount.value = 0
   }
 }
@@ -87,7 +79,6 @@ const updateUserActivity = () => {
   lastActivityTime.value = Date.now()
   if (!isUserActive.value) {
     isUserActive.value = true
-    console.log('User became active, switching to faster polling intervals')
     restartPolling()
   }
   resetInactivityTimer()
@@ -99,7 +90,6 @@ const resetInactivityTimer = () => {
   }
   inactivityTimer = setTimeout(() => {
     isUserActive.value = false
-    console.log('User became inactive, switching to slower polling intervals')
     restartPolling()
   }, inactivityTimeout)
 }
@@ -119,10 +109,6 @@ const restartPolling = () => {
   // Restart with new intervals
   unreadCountInterval = setInterval(updateUnreadCount, currentIntervals.chat)
   tasksCountInterval = setInterval(fetchPendingTasksCount, currentIntervals.tasks)
-
-  console.log(
-    `Polling restarted - Tasks: ${currentIntervals.tasks / 1000}s, Chat: ${currentIntervals.chat / 1000}s`,
-  )
 }
 
 // Set up activity listeners
@@ -146,7 +132,7 @@ const cleanupActivityListeners = () => {
   events.forEach((event) => {
     document.removeEventListener(event, updateUserActivity)
   })
-  document.removeEventListener('visibilitychange', updateUserActivity)
+  document.removeEventListener('visibilitychange', updateUserInterval)
 }
 
 // Watch for localStorage changes (when user logs in/out)
@@ -224,11 +210,8 @@ const updateUnreadCount = async () => {
       // Sum up all unread counts from all groups
       const totalUnread = Object.values(counts).reduce((sum, count) => sum + (count || 0), 0)
       unreadMessageCount.value = totalUnread
-      console.log('Header: Updated unread count to', totalUnread, 'from counts:', counts)
     }
-  } catch (error) {
-    console.error('Error updating unread count:', error)
-  }
+  } catch (error) {}
 }
 
 // Set up periodic updates for unread count
@@ -247,10 +230,6 @@ onMounted(async () => {
   const currentIntervals = ACTIVE_INTERVALS
   unreadCountInterval = setInterval(updateUnreadCount, currentIntervals.chat)
   tasksCountInterval = setInterval(fetchPendingTasksCount, currentIntervals.tasks)
-
-  console.log(
-    `Initial polling started - Tasks: ${currentIntervals.tasks / 1000}s, Chat: ${currentIntervals.chat / 1000}s`,
-  )
 
   // Listen for global events to force update badge
   window.addEventListener('forceUpdateBadge', updateUnreadCount)
@@ -271,13 +250,11 @@ const initializeChatData = async () => {
 
 // Force refresh all data (called on login)
 const forceRefreshData = async () => {
-  console.log('forceRefreshData: Starting force refresh')
   if (user.value) {
     // Small delay to ensure API is ready
     await new Promise((resolve) => setTimeout(resolve, 100))
     await fetchPendingTasksCount()
     await initializeChatData()
-    console.log('forceRefreshData: Force refresh completed')
   }
 }
 
@@ -778,4 +755,3 @@ onUnmounted(() => {
   }
 }
 </style>
- 
