@@ -21,6 +21,7 @@ const filters = ref({
   carName: '',
   color: '',
   vin: '',
+  buyBillRef: '',
 })
 const user = ref(null)
 const isAdmin = computed(() => user.value?.role_id === 1)
@@ -90,11 +91,13 @@ const fetchUnassignedCars = async () => {
           cs.path_documents,
           bd.amount as buy_price,
           cn.car_name,
-          clr.color
+          clr.color,
+          bb.bill_ref as buy_bill_ref
         FROM cars_stock cs
         LEFT JOIN buy_details bd ON cs.id_buy_details = bd.id
         LEFT JOIN cars_names cn ON bd.id_car_name = cn.id
         LEFT JOIN colors clr ON bd.id_color = clr.id
+        LEFT JOIN buy_bill bb ON bd.id_buy_bill = bb.id
         WHERE cs.id_sell IS NULL
         `
     if (!isAdmin.value) {
@@ -135,7 +138,12 @@ const applyFilters = () => {
       !filters.value.vin ||
       (car.vin && car.vin.toLowerCase().includes(filters.value.vin.toLowerCase()))
 
-    return matchCarName && matchColor && matchVin
+    const matchBuyBillRef =
+      !filters.value.buyBillRef ||
+      (car.buy_bill_ref &&
+        car.buy_bill_ref.toLowerCase().includes(filters.value.buyBillRef.toLowerCase()))
+
+    return matchCarName && matchColor && matchVin && matchBuyBillRef
   })
 }
 
@@ -145,6 +153,7 @@ const resetFilters = () => {
     carName: '',
     color: '',
     vin: '',
+    buyBillRef: '',
   }
   applyFilters()
 }
@@ -452,6 +461,19 @@ onMounted(() => {
             placeholder="Search VIN..."
           />
         </div>
+
+        <div class="filter-group">
+          <label>
+            <i class="fas fa-file-alt"></i>
+            Buy Bill Ref:
+          </label>
+          <input
+            type="text"
+            v-model="filters.buyBillRef"
+            @input="handleFilterChange"
+            placeholder="Search buy bill ref..."
+          />
+        </div>
       </div>
     </div>
 
@@ -674,6 +696,13 @@ onMounted(() => {
               :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
             ></i>
           </th>
+          <th @click="handleSort('buy_bill_ref')" class="sortable">
+            <i class="fas fa-file-alt"></i> Buy Bill Ref
+            <i
+              v-if="sortConfig.field === 'buy_bill_ref'"
+              :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
+            ></i>
+          </th>
           <th @click="handleSort('notes')" class="sortable">
             <i class="fas fa-sticky-note"></i> Notes
             <i
@@ -692,6 +721,7 @@ onMounted(() => {
           <td>{{ car.vin || 'N/A' }}</td>
           <td>{{ car.price_cell ? '$' + car.price_cell.toLocaleString() : 'N/A' }}</td>
           <td v-if="isAdmin">{{ car.buy_price ? '$' + car.buy_price.toLocaleString() : 'N/A' }}</td>
+          <td>{{ car.buy_bill_ref || 'N/A' }}</td>
           <td>{{ car.notes || 'N/A' }}</td>
           <td class="actions">
             <button
