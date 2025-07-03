@@ -485,6 +485,27 @@ const clearFilters = () => {
 defineExpose({
   fetchCarsByBillId,
 })
+
+// Add this method in <script setup>
+const calculateCFRUSD = (car) => {
+  if (!car.price_cell || !car.freight) return 'N/A'
+  const price = parseFloat(car.price_cell) || 0
+  const freight = parseFloat(car.freight) || 0
+  return (price + freight).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+}
+
+// Add totalCfrUsd computed property
+const totalCfrUsd = computed(() => {
+  if (!cars.value || cars.value.length === 0) return 0
+  return filteredCars.value.reduce((total, car) => {
+    const price = parseFloat(car.price_cell) || 0
+    const freight = parseFloat(car.freight) || 0
+    return total + price + freight
+  }, 0)
+})
 </script>
 
 <template>
@@ -508,6 +529,17 @@ defineExpose({
         <span v-if="totalValue > 0">
           <i class="fas fa-money-bill-wave"></i>
           Total CFR DA: {{ totalValue.toLocaleString() }} DZD
+        </span>
+        <span v-if="totalCfrUsd > 0">
+          <i class="fas fa-dollar-sign"></i>
+          Total CFR USD:
+          {{
+            totalCfrUsd.toLocaleString(undefined, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })
+          }}
+          USD
         </span>
       </div>
     </div>
@@ -584,7 +616,7 @@ defineExpose({
           <th><i class="fas fa-user"></i> Client</th>
           <th><i class="fas fa-dollar-sign"></i> Price</th>
           <th><i class="fas fa-ship"></i> Freight</th>
-          <th><i class="fas fa-calculator"></i> CFR DA</th>
+          <th><i class="fas fa-calculator"></i> CFR</th>
           <th><i class="fas fa-sticky-note"></i> Notes</th>
           <th><i class="fas fa-cog"></i> Actions</th>
         </tr>
@@ -603,9 +635,10 @@ defineExpose({
           <td>{{ car.price_cell ? '$' + car.price_cell.toLocaleString() : 'N/A' }}</td>
           <td>{{ car.freight ? '$' + car.freight.toLocaleString() : 'N/A' }}</td>
           <td class="cfr-cell">
-            <div class="cfr-value">{{ calculateCFRDA(car) }}</div>
-            <div class="rate-badge" v-if="car.rate">
-              <span class="badge rate-badge-label">Rate: {{ car.rate }}</span>
+            <div class="cfr-badges">
+              <span class="badge cfr-da-badge">DA: {{ calculateCFRDA(car) }}</span>
+              <span class="badge cfr-usd-badge">USD: {{ calculateCFRUSD(car) }}</span>
+              <span class="badge cfr-rate-badge">Rate: {{ car.rate || 'N/A' }}</span>
             </div>
           </td>
           <td>{{ car.notes || 'N/A' }}</td>
@@ -1412,39 +1445,38 @@ button:disabled {
 }
 
 .cfr-cell {
-  flex-direction: column;
-  align-items: flex-start;
+  padding-top: 8px;
+  padding-bottom: 8px;
 }
 
-.cfr-value {
-  font-weight: 500;
-  margin-bottom: 4px;
-}
-
-.rate-badge {
+.cfr-badges {
   display: flex;
+  flex-direction: column;
   gap: 4px;
 }
 
-.rate-badge-label {
-  background-color: #fef3c7;
-  color: #d97706;
-  font-size: 0.75rem;
+.cfr-da-badge {
+  background-color: #fef9c3;
+  color: #b45309;
+  border-radius: 8px;
 }
 
-.car-badges,
-.cfr-value,
-.rate-badge {
-  border: none !important;
-  box-shadow: none !important;
-  width: auto !important;
-  background: none !important;
+.cfr-usd-badge {
+  background-color: #dbeafe;
+  color: #1d4ed8;
+  border-radius: 8px;
 }
 
-.cfr-cell > * {
-  border: none !important;
-  box-shadow: none !important;
-  width: auto !important;
-  background: none !important;
+.cfr-rate-badge {
+  background-color: #fce7f3;
+  color: #be185d;
+  border-radius: 8px;
+}
+
+.badge {
+  padding: 4px 10px;
+  font-size: 0.95em;
+  font-weight: 500;
+  display: inline-block;
 }
 </style>
