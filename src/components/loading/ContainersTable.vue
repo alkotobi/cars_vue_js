@@ -6,15 +6,21 @@
         Containers
       </h3>
       <div class="header-actions" v-if="selectedLoadingId">
-        <button @click="openAddDialog" class="add-btn" :disabled="loading">
+        <button
+          @click="openAddDialog"
+          class="add-btn"
+          :disabled="loading || !props.selectedLoadingId"
+          title="Add New Container"
+        >
           <i class="fas fa-plus"></i>
-          <span>Add Container</span>
+          Add Container
         </button>
         <button
           @click="refreshData"
           class="refresh-btn"
           :disabled="loading"
           :class="{ processing: loading }"
+          title="Refresh Containers"
         >
           <i class="fas fa-sync-alt"></i>
           <span>Refresh</span>
@@ -137,7 +143,7 @@
               v-for="container in containers"
               :key="container.id"
               class="table-row"
-              :class="{ 'selected-row': selectedContainerId === container.id }"
+              :class="{ 'selected-row': props.selectedContainerId === container.id }"
               @click="handleContainerClick(container)"
             >
               <td class="id-cell">#{{ container.id }}</td>
@@ -552,12 +558,16 @@ import { useApi } from '@/composables/useApi'
 
 const props = defineProps({
   selectedLoadingId: {
-    type: Number,
+    type: [Number, String],
+    default: null,
+  },
+  selectedContainerId: {
+    type: [Number, String],
     default: null,
   },
 })
 
-const emit = defineEmits(['container-click', 'refresh-unassigned-cars'])
+const emit = defineEmits(['container-click', 'refresh-unassigned-cars', 'container-created'])
 
 const { callApi } = useApi()
 
@@ -575,7 +585,6 @@ const isAddingContainer = ref(false)
 const isDeleting = ref(false)
 const isSubmittingOnBoard = ref(false)
 const containerToDelete = ref(null)
-const selectedContainerId = ref(null)
 const sortBy = ref('id')
 const sortOrder = ref('desc')
 
@@ -807,6 +816,38 @@ const saveContainer = async () => {
     const result = await callApi({ query, params })
 
     if (result.success) {
+      // If this is a new container (not editing), emit the container-created event
+      if (!isEditing.value && result.lastInsertId) {
+        // Get the complete loaded container data
+        const fetchResult = await callApi({
+          query: `
+            SELECT 
+              lc.id,
+              lc.id_container,
+              c.name as container_name,
+              lc.ref_container,
+              lc.so,
+              lc.date_departed,
+              lc.date_loaded,
+              lc.date_on_board,
+              lc.is_released,
+              lc.note,
+              COUNT(cs.id) as assigned_cars_count
+            FROM loaded_containers lc
+            LEFT JOIN containers c ON lc.id_container = c.id
+            LEFT JOIN cars_stock cs ON lc.id = cs.id_loaded_container
+            WHERE lc.id = ?
+            GROUP BY lc.id
+          `,
+          params: [result.lastInsertId],
+        })
+
+        if (fetchResult.success && fetchResult.data.length > 0) {
+          const newLoadedContainer = fetchResult.data[0]
+          emit('container-created', newLoadedContainer)
+        }
+      }
+
       // If editing and container reference changed, update all associated cars
       if (isEditing.value && newContainerRef !== null) {
         try {
@@ -863,22 +904,60 @@ const saveNewContainer = async () => {
     if (result.success) {
       // Get the newly created container ID
       const newContainerId = parseInt(result.lastInsertId)
-      console.log('New container created with ID:', newContainerId)
-      console.log('Result object:', result)
 
       // Refresh the available containers list
       await fetchAvailableContainers()
 
-      // Set the newly created container as selected
-      if (newContainerId && !isNaN(newContainerId)) {
-        formData.value.id_container = newContainerId.toString()
-        console.log('Newly created container selected:', newContainerId)
-        console.log('Form data after selection:', formData.value)
+      // Create a loaded container record for this container
+      const loadedContainerResult = await callApi({
+        query: 'INSERT INTO loaded_containers (id_loading, id_container) VALUES (?, ?)',
+        params: [props.selectedLoadingId, newContainerId],
+      })
 
-        // Add a small delay to ensure the DOM updates
-        await new Promise((resolve) => setTimeout(resolve, 100))
+      if (loadedContainerResult.success) {
+        const loadedContainerId = loadedContainerResult.lastInsertId
+
+        // Get the complete loaded container data after creation
+        const fetchResult = await callApi({
+          query: `
+            SELECT 
+              lc.id,
+              lc.id_container,
+              c.name as container_name,
+              lc.ref_container,
+              lc.so,
+              lc.date_departed,
+              lc.date_loaded,
+              lc.date_on_board,
+              lc.is_released,
+              lc.note,
+              COUNT(cs.id) as assigned_cars_count
+            FROM loaded_containers lc
+            LEFT JOIN containers c ON lc.id_container = c.id
+            LEFT JOIN cars_stock cs ON lc.id = cs.id_loaded_container
+            WHERE lc.id = ?
+            GROUP BY lc.id
+          `,
+          params: [loadedContainerId],
+        })
+
+        if (fetchResult.success && fetchResult.data.length > 0) {
+          const newLoadedContainer = fetchResult.data[0]
+
+          // Refresh the containers table to show the new loaded container
+          await fetchContainers()
+
+          // Emit the saved loaded container data to parent component
+          emit('container-created', newLoadedContainer)
+
+          // Set the newly created container as selected in the form
+          formData.value.id_container = newContainerId.toString()
+        } else {
+          console.error('Failed to fetch newly created loaded container data')
+        }
       } else {
-        console.error('Invalid container ID received:', result.lastInsertId)
+        console.error('Failed to create loaded container record:', loadedContainerResult.error)
+        error.value = 'Failed to create loaded container record: ' + loadedContainerResult.error
       }
 
       closeAddContainerDialog()
@@ -980,8 +1059,6 @@ const truncateText = (text, maxLength) => {
 }
 
 const handleContainerClick = (container) => {
-  console.log('Container clicked:', container)
-  selectedContainerId.value = container.id
   emit('container-click', container.id)
 }
 
