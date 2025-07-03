@@ -788,7 +788,7 @@ const saveContainer = async () => {
           dateDeparted,
           dateLoaded,
           dateOnBoard,
-          formData.value.is_released,
+          formData.value.is_released ? 1 : 0,
           formData.value.note && formData.value.note.trim() ? formData.value.note : null,
           formData.value.id,
         ]
@@ -800,7 +800,7 @@ const saveContainer = async () => {
           dateDeparted,
           dateLoaded,
           dateOnBoard,
-          formData.value.is_released,
+          formData.value.is_released ? 1 : 0,
           formData.value.note && formData.value.note.trim() ? formData.value.note : null,
         ]
 
@@ -861,9 +861,26 @@ const saveNewContainer = async () => {
     })
 
     if (result.success) {
+      // Get the newly created container ID
+      const newContainerId = parseInt(result.lastInsertId)
+      console.log('New container created with ID:', newContainerId)
+      console.log('Result object:', result)
+
+      // Refresh the available containers list
       await fetchAvailableContainers()
+
       // Set the newly created container as selected
-      formData.value.id_container = result.insertId
+      if (newContainerId && !isNaN(newContainerId)) {
+        formData.value.id_container = newContainerId.toString()
+        console.log('Newly created container selected:', newContainerId)
+        console.log('Form data after selection:', formData.value)
+
+        // Add a small delay to ensure the DOM updates
+        await new Promise((resolve) => setTimeout(resolve, 100))
+      } else {
+        console.error('Invalid container ID received:', result.lastInsertId)
+      }
+
       closeAddContainerDialog()
     } else {
       error.value = result.error || 'Failed to create container'
