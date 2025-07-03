@@ -742,6 +742,7 @@ const closeTeleportDropdown = () => {
 
 // Add click outside handler
 const handleClickOutside = (event) => {
+  // Handle teleport dropdown
   if (teleportDropdown.value.isOpen) {
     const dropdown = document.querySelector('.teleport-dropdown')
     const button = teleportDropdown.value.buttonElement
@@ -749,6 +750,21 @@ const handleClickOutside = (event) => {
     if (dropdown && !dropdown.contains(event.target) && button && !button.contains(event.target)) {
       closeTeleportDropdown()
     }
+  }
+
+  // Handle regular dropdowns
+  const dropdownToggles = document.querySelectorAll('.dropdown-toggle')
+  let clickedOnToggle = false
+
+  dropdownToggles.forEach((toggle) => {
+    if (toggle.contains(event.target)) {
+      clickedOnToggle = true
+    }
+  })
+
+  if (!clickedOnToggle) {
+    // Close all regular dropdowns if clicked outside
+    isDropdownOpen.value = {}
   }
 }
 
@@ -1115,137 +1131,11 @@ defineExpose({
         <tbody>
           <tr v-for="car in sortedCars" :key="car.id" :class="{ 'used-car': car.is_used_car }">
             <td>
-              <div class="dropdown">
-                <ul v-if="isDropdownOpen[car.id]" class="dropdown-menu">
-                  <li>
-                    <button
-                      @click="handleTaskAction(car)"
-                      :disabled="isProcessing.task"
-                      :class="{ processing: isProcessing.task }"
-                    >
-                      <i class="fas fa-tasks"></i>
-                      <span>Task</span>
-                      <i
-                        v-if="isProcessing.task"
-                        class="fas fa-spinner fa-spin loading-indicator"
-                      ></i>
-                    </button>
-                  </li>
-                  <li>
-                    <button
-                      @click="handleVINAction(car)"
-                      :disabled="!can_edit_vin || isProcessing.vin"
-                      :class="{ disabled: !can_edit_vin, processing: isProcessing.vin }"
-                    >
-                      <i class="fas fa-barcode"></i>
-                      <span>VIN</span>
-                      <i
-                        v-if="isProcessing.vin"
-                        class="fas fa-spinner fa-spin loading-indicator"
-                      ></i>
-                    </button>
-                  </li>
-                  <li>
-                    <button
-                      @click="handleFilesAction(car)"
-                      :disabled="!can_upload_car_files || isProcessing.files"
-                      :class="{ disabled: !can_upload_car_files, processing: isProcessing.files }"
-                    >
-                      <i class="fas fa-file-upload"></i>
-                      <span>Files</span>
-                      <i
-                        v-if="isProcessing.files"
-                        class="fas fa-spinner fa-spin loading-indicator"
-                      ></i>
-                    </button>
-                  </li>
-                  <li>
-                    <button
-                      @click="handlePortsAction(car)"
-                      :disabled="!can_edit_cars_ports || isProcessing.ports"
-                      :class="{ disabled: !can_edit_cars_ports, processing: isProcessing.ports }"
-                    >
-                      <i class="fas fa-anchor"></i>
-                      <span>Ports</span>
-                      <i
-                        v-if="isProcessing.ports"
-                        class="fas fa-spinner fa-spin loading-indicator"
-                      ></i>
-                    </button>
-                  </li>
-                  <li>
-                    <button
-                      @click="handleMoneyAction(car)"
-                      :disabled="!can_edit_car_money || isProcessing.money"
-                      :class="{ disabled: !can_edit_car_money, processing: isProcessing.money }"
-                    >
-                      <i class="fas fa-dollar-sign"></i>
-                      <span>Money</span>
-                      <i
-                        v-if="isProcessing.money"
-                        class="fas fa-spinner fa-spin loading-indicator"
-                      ></i>
-                    </button>
-                  </li>
-                  <li>
-                    <button
-                      @click="handleWarehouseAction(car)"
-                      :disabled="!can_edit_warehouse || isProcessing.warehouse"
-                      :class="{ disabled: !can_edit_warehouse, processing: isProcessing.warehouse }"
-                    >
-                      <i class="fas fa-warehouse"></i>
-                      <span>Warehouse</span>
-                      <i
-                        v-if="isProcessing.warehouse"
-                        class="fas fa-spinner fa-spin loading-indicator"
-                      ></i>
-                    </button>
-                  </li>
-                  <li>
-                    <button
-                      @click="handleDocumentsClick(car)"
-                      :disabled="!can_edit_car_documents || isProcessing.documents"
-                      :class="{
-                        disabled: !can_edit_car_documents,
-                        processing: isProcessing.documents,
-                      }"
-                    >
-                      <i class="fas fa-file-alt"></i>
-                      <span>Car Documents</span>
-                      <i
-                        v-if="isProcessing.documents"
-                        class="fas fa-spinner fa-spin loading-indicator"
-                      ></i>
-                    </button>
-                  </li>
-                  <li>
-                    <button
-                      @click="handleLoadClick(car)"
-                      :disabled="!can_load_car || isProcessing.load"
-                      :class="{ disabled: !can_load_car, processing: isProcessing.load }"
-                    >
-                      <i class="fas fa-truck-loading"></i>
-                      <span>Load</span>
-                      <i
-                        v-if="isProcessing.load"
-                        class="fas fa-spinner fa-spin loading-indicator"
-                      ></i>
-                    </button>
-                  </li>
-                  <li>
-                    <button @click="openSellBillTab(car)" :disabled="!car.id_sell">
-                      <i class="fas fa-file-invoice-dollar"></i>
-                      <span>Sell Bill</span>
-                    </button>
-                  </li>
-                </ul>
-              </div>
-
-              <!-- Teleport Dropdown Button (Alternative) -->
+              <!-- Teleport Dropdown Button -->
               <button
                 @click="openTeleportDropdown(car.id, $event)"
                 class="teleport-dropdown-toggle"
-                title="Actions (Teleport)"
+                title="Actions"
               >
                 <i class="fas fa-ellipsis-h"></i>
               </button>
@@ -1421,6 +1311,347 @@ defineExpose({
         </tbody>
       </table>
     </div>
+
+    <!-- Mobile Cards Container -->
+    <div class="mobile-cards-container">
+      <div
+        v-for="car in sortedCars"
+        :key="car.id"
+        class="car-card"
+        :class="{ 'used-car': car.is_used_car }"
+      >
+        <!-- Card Header -->
+        <div class="card-header">
+          <div class="card-id">#{{ car.id }}</div>
+          <div class="card-actions">
+            <div class="dropdown">
+              <button @click="toggleDropdown(car.id)" class="dropdown-toggle" title="Actions">
+                <i class="fas fa-ellipsis-v"></i>
+              </button>
+              <ul v-if="isDropdownOpen[car.id]" class="dropdown-menu">
+                <li>
+                  <button
+                    @click="handleTaskAction(car)"
+                    :disabled="isProcessing.task"
+                    :class="{ processing: isProcessing.task }"
+                  >
+                    <i class="fas fa-tasks"></i>
+                    <span>Task</span>
+                    <i
+                      v-if="isProcessing.task"
+                      class="fas fa-spinner fa-spin loading-indicator"
+                    ></i>
+                  </button>
+                </li>
+                <li>
+                  <button
+                    @click="handleVINAction(car)"
+                    :disabled="!can_edit_vin || isProcessing.vin"
+                    :class="{ disabled: !can_edit_vin, processing: isProcessing.vin }"
+                  >
+                    <i class="fas fa-barcode"></i>
+                    <span>VIN</span>
+                    <i v-if="isProcessing.vin" class="fas fa-spinner fa-spin loading-indicator"></i>
+                  </button>
+                </li>
+                <li>
+                  <button
+                    @click="handleFilesAction(car)"
+                    :disabled="!can_upload_car_files || isProcessing.files"
+                    :class="{ disabled: !can_upload_car_files, processing: isProcessing.files }"
+                  >
+                    <i class="fas fa-file-upload"></i>
+                    <span>Files</span>
+                    <i
+                      v-if="isProcessing.files"
+                      class="fas fa-spinner fa-spin loading-indicator"
+                    ></i>
+                  </button>
+                </li>
+                <li>
+                  <button
+                    @click="handlePortsAction(car)"
+                    :disabled="!can_edit_cars_ports || isProcessing.ports"
+                    :class="{ disabled: !can_edit_cars_ports, processing: isProcessing.ports }"
+                  >
+                    <i class="fas fa-anchor"></i>
+                    <span>Ports</span>
+                    <i
+                      v-if="isProcessing.ports"
+                      class="fas fa-spinner fa-spin loading-indicator"
+                    ></i>
+                  </button>
+                </li>
+                <li>
+                  <button
+                    @click="handleMoneyAction(car)"
+                    :disabled="!can_edit_car_money || isProcessing.money"
+                    :class="{ disabled: !can_edit_car_money, processing: isProcessing.money }"
+                  >
+                    <i class="fas fa-dollar-sign"></i>
+                    <span>Money</span>
+                    <i
+                      v-if="isProcessing.money"
+                      class="fas fa-spinner fa-spin loading-indicator"
+                    ></i>
+                  </button>
+                </li>
+                <li>
+                  <button
+                    @click="handleWarehouseAction(car)"
+                    :disabled="!can_edit_warehouse || isProcessing.warehouse"
+                    :class="{ disabled: !can_edit_warehouse, processing: isProcessing.warehouse }"
+                  >
+                    <i class="fas fa-warehouse"></i>
+                    <span>Warehouse</span>
+                    <i
+                      v-if="isProcessing.warehouse"
+                      class="fas fa-spinner fa-spin loading-indicator"
+                    ></i>
+                  </button>
+                </li>
+                <li>
+                  <button
+                    @click="handleDocumentsClick(car)"
+                    :disabled="!can_edit_car_documents || isProcessing.documents"
+                    :class="{
+                      disabled: !can_edit_car_documents,
+                      processing: isProcessing.documents,
+                    }"
+                  >
+                    <i class="fas fa-file-alt"></i>
+                    <span>Car Documents</span>
+                    <i
+                      v-if="isProcessing.documents"
+                      class="fas fa-spinner fa-spin loading-indicator"
+                    ></i>
+                  </button>
+                </li>
+                <li>
+                  <button
+                    @click="handleLoadClick(car)"
+                    :disabled="!can_load_car || isProcessing.load"
+                    :class="{ disabled: !can_load_car, processing: isProcessing.load }"
+                  >
+                    <i class="fas fa-truck-loading"></i>
+                    <span>Load</span>
+                    <i
+                      v-if="isProcessing.load"
+                      class="fas fa-spinner fa-spin loading-indicator"
+                    ></i>
+                  </button>
+                </li>
+                <li>
+                  <button @click="openSellBillTab(car)" :disabled="!car.id_sell">
+                    <i class="fas fa-file-invoice-dollar"></i>
+                    <span>Sell Bill</span>
+                  </button>
+                </li>
+              </ul>
+            </div>
+
+            <!-- Teleport Dropdown Button -->
+          </div>
+        </div>
+
+        <!-- Date Buy Section -->
+        <div class="card-section">
+          <div class="section-title">Date Buy</div>
+          <div class="card-value">
+            {{ car.date_buy ? new Date(car.date_buy).toLocaleDateString() : '-' }}
+          </div>
+        </div>
+
+        <!-- Car Details Section -->
+        <div class="card-section">
+          <div class="section-title">Car Details</div>
+          <div class="card-details">
+            <div class="card-name">{{ car.car_name }}</div>
+            <div class="card-badges">
+              <div v-if="car.vin" class="info-badge badge-vin">
+                <i class="fas fa-barcode"></i>
+                {{ car.vin }}
+              </div>
+              <div v-if="car.color" class="info-badge badge-color">
+                <i class="fas fa-palette"></i>
+                {{ car.color }}
+              </div>
+              <div v-if="car.export_lisence_ref" class="info-badge badge-export-license">
+                <i class="fas fa-certificate"></i>
+                Export License
+              </div>
+              <div v-if="car.buy_bill_ref" class="info-badge badge-buy-bill">
+                <i class="fas fa-shopping-cart"></i>
+                Buy: {{ car.buy_bill_ref }}
+              </div>
+              <div v-if="car.sell_bill_ref" class="info-badge badge-sell-bill">
+                <i class="fas fa-file-invoice-dollar"></i>
+                Sell: {{ car.sell_bill_ref }}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Client Section -->
+        <div class="card-section">
+          <div class="section-title">Client</div>
+          <div class="card-details">
+            <div class="card-value">{{ car.client_name || '-' }}</div>
+            <div class="card-badges">
+              <div v-if="car.client_id_no" class="info-badge badge-client-id">
+                <i class="fas fa-id-card"></i>
+                {{ car.client_id_no }}
+              </div>
+              <div v-if="car.is_batch" class="info-badge badge-wholesale">
+                <i class="fas fa-layer-group"></i>
+                Whole Sale
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Ports Section -->
+        <div class="card-section">
+          <div class="section-title">Ports</div>
+          <div class="card-ports">
+            <div class="card-port-item">
+              <div class="card-port-label">Loading:</div>
+              <div v-if="car.loading_port" class="info-badge badge-loading-port">
+                <i class="fas fa-ship"></i>
+                {{ car.loading_port }}
+              </div>
+              <div v-else class="port-empty">-</div>
+            </div>
+            <div class="card-port-item">
+              <div class="card-port-label">Discharge:</div>
+              <div v-if="car.discharge_port" class="info-badge badge-discharge-port">
+                <i class="fas fa-anchor"></i>
+                {{ car.discharge_port }}
+              </div>
+              <div v-else class="port-empty">-</div>
+            </div>
+            <div v-if="car.container_ref" class="info-badge badge-container">
+              <i class="fas fa-box"></i>
+              {{ car.container_ref }}
+            </div>
+            <div v-if="car.date_pay_freight" class="info-badge badge-freight-paid">
+              <i class="fas fa-check-circle"></i>
+              Freight Paid
+            </div>
+          </div>
+        </div>
+
+        <!-- Financial Section -->
+        <div class="card-section">
+          <div class="section-title">Financial</div>
+          <div class="card-row">
+            <div class="card-label">Freight:</div>
+            <div class="card-value">${{ getFreightValue(car) }}</div>
+          </div>
+          <div class="card-row">
+            <div class="card-label">FOB:</div>
+            <div class="card-value">${{ car.price_cell || '0' }}</div>
+          </div>
+          <div class="card-cfr">
+            <div class="info-badge badge-cfr-usd">
+              <i class="fas fa-dollar-sign"></i>
+              USD: ${{ getCfrUsdValue(car) }}
+            </div>
+            <div class="info-badge badge-cfr-dza">
+              <i class="fas fa-coins"></i>
+              DZA: {{ getCfrDzaValue(car) }}
+            </div>
+            <div class="info-badge badge-cfr-rate">
+              <i class="fas fa-percentage"></i>
+              Rate: {{ getRateValue(car) }}
+            </div>
+          </div>
+        </div>
+
+        <!-- Status Section -->
+        <div class="card-section">
+          <div class="section-title">Status</div>
+          <div class="card-status">
+            <div class="card-status-item">
+              <span
+                :class="{
+                  'status-sold': car.id_sell,
+                  'status-available': !car.id_sell,
+                  'status-used': car.is_used_car,
+                }"
+              >
+                <i
+                  :class="[
+                    car.id_sell ? 'fas fa-check-circle' : 'fas fa-clock',
+                    car.is_used_car ? 'fas fa-history' : '',
+                  ]"
+                ></i>
+                {{ car.id_sell ? 'Sold' : 'Available' }}
+                {{ car.is_used_car ? '(Used)' : '' }}
+              </span>
+            </div>
+            <div v-if="car.in_wharhouse_date" class="info-badge badge-in-warehouse">
+              <i class="fas fa-warehouse"></i>
+              In Warehouse
+            </div>
+            <div v-if="car.date_get_bl" class="info-badge badge-bl-received">
+              <i class="fas fa-file-contract"></i>
+              BL Received
+            </div>
+          </div>
+        </div>
+
+        <!-- Warehouse Section -->
+        <div class="card-section">
+          <div class="section-title">Warehouse</div>
+          <div v-if="car.warehouse_name" class="info-badge badge-warehouse">
+            <i class="fas fa-building"></i>
+            {{ car.warehouse_name }}
+          </div>
+          <div v-else class="card-value">-</div>
+        </div>
+
+        <!-- Documents Section -->
+        <div class="card-section">
+          <div class="section-title">Documents</div>
+          <div class="card-documents">
+            <a
+              v-if="car.path_documents"
+              :href="getFileUrl(car.path_documents)"
+              target="_blank"
+              class="card-document-link"
+            >
+              <i class="fas fa-file-pdf"></i>
+              Documents
+            </a>
+            <a
+              v-if="car.sell_pi_path"
+              :href="getFileUrl(car.sell_pi_path)"
+              target="_blank"
+              class="card-document-link"
+            >
+              <i class="fas fa-file-invoice-dollar"></i>
+              Sell PI
+            </a>
+            <a
+              v-if="car.buy_pi_path"
+              :href="getFileUrl(car.buy_pi_path)"
+              target="_blank"
+              class="card-document-link"
+            >
+              <i class="fas fa-file-contract"></i>
+              Buy PI
+            </a>
+          </div>
+        </div>
+
+        <!-- Notes Section -->
+        <div class="card-section">
+          <div class="section-title">Notes</div>
+          <div class="card-notes">{{ car.notes || '-' }}</div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Teleport Dropdown Menu -->
@@ -1546,6 +1777,7 @@ defineExpose({
   width: 100%;
   overflow-x: auto;
   position: relative;
+  overflow: visible;
 }
 
 .loading,
@@ -1592,12 +1824,14 @@ defineExpose({
   overflow-y: auto;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
+  overflow-x: visible;
 }
 
 .cars-table {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
+  position: relative;
 }
 
 .cars-table thead {
@@ -1732,7 +1966,6 @@ defineExpose({
 .dropdown {
   position: relative;
   display: inline-block;
-  margin-left: 8px;
 }
 
 .dropdown-toggle {
@@ -1753,16 +1986,17 @@ defineExpose({
 
 .dropdown-menu {
   position: absolute;
+  top: 100%;
   right: 0;
-  background-color: white;
-  border: 1px solid #e5e7eb;
+  background: white;
+  border: 1px solid #dcdfe6;
   border-radius: 6px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  min-width: 160px;
+  z-index: 1000;
   list-style: none;
-  padding: 4px;
-  margin: 4px 0;
-  z-index: 10;
-  min-width: 180px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  margin: 0;
+  padding: 8px 0;
 }
 
 .dropdown-menu li {
@@ -2243,5 +2477,276 @@ defineExpose({
   background-color: #dbeafe;
   color: #1e40af;
   border: 1px solid #bfdbfe;
+}
+
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+  .table-container {
+    display: none;
+  }
+
+  .mobile-cards-container {
+    display: block;
+    padding: 16px;
+  }
+
+  .car-card {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    margin-bottom: 16px;
+    padding: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+  }
+
+  .car-card:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
+  }
+
+  .car-card.used-car {
+    border-left: 4px solid #f59e0b;
+  }
+
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #f3f4f6;
+  }
+
+  .card-id {
+    font-size: 1.1em;
+    font-weight: 700;
+    color: #1f2937;
+  }
+
+  .card-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .card-section {
+    margin-bottom: 16px;
+  }
+
+  .card-section:last-child {
+    margin-bottom: 0;
+  }
+
+  .section-title {
+    font-size: 0.9em;
+    font-weight: 600;
+    color: #6b7280;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .card-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #f9fafb;
+  }
+
+  .card-row:last-child {
+    border-bottom: none;
+  }
+
+  .card-label {
+    font-size: 0.85em;
+    font-weight: 500;
+    color: #6b7280;
+    min-width: 80px;
+  }
+
+  .card-value {
+    font-size: 0.9em;
+    color: #1f2937;
+    text-align: right;
+    flex: 1;
+  }
+
+  .card-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 4px;
+  }
+
+  .card-details {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .card-detail-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .card-detail-label {
+    font-size: 0.8em;
+    font-weight: 600;
+    color: #6b7280;
+    min-width: 60px;
+  }
+
+  .card-ports {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .card-port-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .card-port-label {
+    font-size: 0.8em;
+    font-weight: 600;
+    color: #6b7280;
+    min-width: 70px;
+  }
+
+  .card-status {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .card-status-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .card-status-label {
+    font-size: 0.8em;
+    font-weight: 600;
+    color: #6b7280;
+    min-width: 70px;
+  }
+
+  .card-cfr {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .card-documents {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .card-document-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background-color: #f3f4f6;
+    color: #374151;
+    text-decoration: none;
+    border-radius: 8px;
+    font-size: 0.85em;
+    font-weight: 500;
+    transition: all 0.2s ease;
+  }
+
+  .card-document-link:hover {
+    background-color: #e5e7eb;
+    color: #1f2937;
+  }
+
+  .card-notes {
+    font-size: 0.9em;
+    color: #6b7280;
+    font-style: italic;
+    line-height: 1.4;
+  }
+
+  /* Mobile dropdown adjustments */
+  .mobile-cards-container .dropdown {
+    position: relative;
+  }
+
+  .mobile-cards-container .dropdown-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    z-index: 1000;
+    min-width: 160px;
+    background: white;
+    border: 1px solid #dcdfe6;
+    border-radius: 6px;
+    box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+    list-style: none;
+    margin: 0;
+    padding: 8px 0;
+  }
+
+  .mobile-cards-container .teleport-dropdown-toggle {
+    padding: 8px 12px;
+    font-size: 0.9em;
+  }
+
+  .dropdown-toggle {
+    background: #f5f7fa;
+    border: 1px solid #dcdfe6;
+    border-radius: 4px;
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .dropdown-toggle:hover {
+    background: #ecf5ff;
+    border-color: #409eff;
+    color: #409eff;
+  }
+
+  .mobile-cards-container .dropdown-toggle {
+    padding: 10px 14px;
+    font-size: 1em;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+
+  .mobile-cards-container .dropdown-toggle:hover {
+    background: #f9fafb;
+    border-color: #d1d5db;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  }
+
+  /* Ensure dropdowns appear above everything */
+  .mobile-cards-container {
+    position: relative;
+    z-index: 1;
+  }
+
+  .mobile-cards-container .dropdown {
+    z-index: 1001;
+  }
+}
+
+/* Hide mobile cards on desktop */
+@media (min-width: 769px) {
+  .mobile-cards-container {
+    display: none;
+  }
 }
 </style>

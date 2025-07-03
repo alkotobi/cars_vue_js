@@ -843,6 +843,206 @@ onMounted(async () => {
       </div>
     </div>
 
+    <!-- Mobile Cards Container -->
+    <div class="mobile-cards-container">
+      <!-- Pending Tasks Cards -->
+      <div class="mobile-section">
+        <div class="mobile-section-header">
+          <h3><i class="fas fa-clock"></i> Pending Tasks ({{ undoneTasks.length }})</h3>
+        </div>
+
+        <div v-if="loading" class="mobile-loading">
+          <i class="fas fa-spinner fa-spin"></i>
+          Loading tasks...
+        </div>
+
+        <div v-else-if="error" class="mobile-error">
+          <i class="fas fa-exclamation-circle"></i>
+          {{ error }}
+        </div>
+
+        <div v-else-if="undoneTasks.length === 0" class="mobile-empty-state">
+          <i class="fas fa-check-circle fa-2x"></i>
+          <p>No pending tasks</p>
+        </div>
+
+        <div v-else class="mobile-cards-grid">
+          <div v-for="task in undoneTasks" :key="task.id" class="task-card">
+            <div class="card-header">
+              <div class="card-id">#{{ task.id }}</div>
+              <div class="card-badges">
+                <span :class="getPriorityBadge(task).class" class="priority-badge">
+                  {{ getPriorityBadge(task).text }}
+                </span>
+                <span :class="getStatusBadge(task).class" class="status-badge">
+                  {{ getStatusBadge(task).text }}
+                </span>
+              </div>
+            </div>
+
+            <div class="card-title">{{ task.title }}</div>
+
+            <div class="card-description">
+              <div class="description-content">
+                <span class="description-text">{{
+                  task.description || task.desciption || task.desc || 'No description'
+                }}</span>
+                <button
+                  v-if="task.description || task.desciption || task.desc"
+                  @click="showFullDescription(task.description || task.desciption || task.desc)"
+                  class="btn-view-description"
+                  title="View full description"
+                >
+                  <i class="fas fa-eye"></i>
+                </button>
+              </div>
+            </div>
+
+            <div class="card-details">
+              <div class="detail-row">
+                <div class="detail-label">Assigned To:</div>
+                <div class="detail-value">{{ task.receiver_name || '-' }}</div>
+              </div>
+              <div class="detail-row">
+                <div class="detail-label">Created By:</div>
+                <div class="detail-value">{{ task.creator_name || '-' }}</div>
+              </div>
+              <div class="detail-row">
+                <div class="detail-label">Created Date:</div>
+                <div class="detail-value">{{ formatDate(task.date_create) }}</div>
+              </div>
+              <div class="detail-row">
+                <div class="detail-label">Notes:</div>
+                <div class="detail-value">{{ task.notes || '-' }}</div>
+              </div>
+            </div>
+
+            <div class="card-actions">
+              <button @click="openTaskChat(task)" class="btn-chat" title="Open task chat">
+                <i class="fas fa-comments"></i>
+                Chat
+              </button>
+              <button
+                v-if="task.id_user_receive === user?.id"
+                @click="markTaskAsDone(task)"
+                class="btn-done"
+                title="Mark as done"
+              >
+                <i class="fas fa-check"></i>
+                Done
+              </button>
+              <button
+                v-if="isAdmin || task.id_user_create === user?.id"
+                @click="deleteTask(task)"
+                class="btn-delete"
+                title="Delete task"
+              >
+                <i class="fas fa-trash"></i>
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Completed Tasks Cards -->
+      <div class="mobile-section">
+        <div class="mobile-section-header">
+          <h3><i class="fas fa-check-double"></i> Completed Tasks ({{ doneTasks.length }})</h3>
+        </div>
+
+        <div v-if="doneTasks.length === 0" class="mobile-empty-state">
+          <i class="fas fa-tasks fa-2x"></i>
+          <p>No completed tasks</p>
+        </div>
+
+        <div v-else class="mobile-cards-grid">
+          <div v-for="task in doneTasks" :key="task.id" class="task-card completed">
+            <div class="card-header">
+              <div class="card-id">#{{ task.id }}</div>
+              <div class="card-badges">
+                <span :class="getPriorityBadge(task).class" class="priority-badge">
+                  {{ getPriorityBadge(task).text }}
+                </span>
+                <span :class="getStatusBadge(task).class" class="status-badge">
+                  {{ getStatusBadge(task).text }}
+                </span>
+              </div>
+            </div>
+
+            <div class="card-title">{{ task.title }}</div>
+
+            <div class="card-description">
+              <div class="description-content">
+                <span class="description-text">{{ task.description || 'No description' }}</span>
+                <button
+                  v-if="task.description"
+                  @click="showFullDescription(task.description)"
+                  class="btn-view-description"
+                  title="View full description"
+                >
+                  <i class="fas fa-eye"></i>
+                </button>
+              </div>
+            </div>
+
+            <div class="card-details">
+              <div class="detail-row">
+                <div class="detail-label">Assigned To:</div>
+                <div class="detail-value">{{ task.receiver_name || '-' }}</div>
+              </div>
+              <div class="detail-row">
+                <div class="detail-label">Created By:</div>
+                <div class="detail-value">{{ task.creator_name || '-' }}</div>
+              </div>
+              <div class="detail-row">
+                <div class="detail-label">Created Date:</div>
+                <div class="detail-value">{{ formatDate(task.date_create) }}</div>
+              </div>
+              <div class="detail-row">
+                <div class="detail-label">Completed Date:</div>
+                <div class="detail-value">{{ formatDate(task.date_declare_done) }}</div>
+              </div>
+              <div class="detail-row">
+                <div class="detail-label">Notes:</div>
+                <div class="detail-value">{{ task.notes || '-' }}</div>
+              </div>
+            </div>
+
+            <div class="card-actions">
+              <button
+                v-if="isAdmin && !task.date_confirm_done"
+                @click="confirmTaskAsDone(task)"
+                class="btn-confirm"
+                title="Confirm as done"
+              >
+                <i class="fas fa-check-double"></i>
+                Confirm Done
+              </button>
+              <button
+                v-if="task.id_user_receive === user?.id && !task.date_confirm_done"
+                @click="markTaskAsUndone(task)"
+                class="btn-undone"
+                title="Mark as undone"
+              >
+                <i class="fas fa-undo"></i>
+                Undone
+              </button>
+              <button
+                v-if="isAdmin || task.id_user_create === user?.id"
+                @click="deleteTask(task)"
+                class="btn-delete"
+                title="Delete task"
+              >
+                <i class="fas fa-trash"></i>
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- TaskForm Modal -->
     <TaskForm
       :entity-data="currentEntityData"
@@ -1467,5 +1667,305 @@ onMounted(async () => {
 
 .btn-delete i {
   font-size: 0.8rem;
+}
+
+.mobile-cards-container {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .tables-container {
+    display: none;
+  }
+
+  .mobile-cards-container {
+    display: block;
+  }
+
+  /* Mobile Cards Styles */
+  .mobile-section {
+    margin-bottom: 24px;
+  }
+
+  .mobile-section-header {
+    background-color: #f9fafb;
+    padding: 16px 20px;
+    border-radius: 8px 8px 0 0;
+    border-bottom: 1px solid #e5e7eb;
+    margin-bottom: 16px;
+  }
+
+  .mobile-section-header h3 {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #374151;
+    font-size: 1.1rem;
+  }
+
+  .mobile-section-header h3 i {
+    color: #4caf50;
+  }
+
+  .mobile-loading,
+  .mobile-error,
+  .mobile-empty-state {
+    padding: 40px 20px;
+    text-align: center;
+    color: #6b7280;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+
+  .mobile-loading i,
+  .mobile-error i,
+  .mobile-empty-state i {
+    margin-bottom: 12px;
+    color: #9ca3af;
+  }
+
+  .mobile-error {
+    color: #dc2626;
+  }
+
+  .mobile-cards-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .task-card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e5e7eb;
+    transition: all 0.2s ease;
+  }
+
+  .task-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
+  }
+
+  .task-card.completed {
+    opacity: 0.8;
+    background-color: #f9fafb;
+  }
+
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+  }
+
+  .card-id {
+    font-weight: 600;
+    color: #6b7280;
+    font-size: 0.9rem;
+  }
+
+  .card-badges {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .card-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 12px;
+    line-height: 1.4;
+    word-break: break-word;
+  }
+
+  .card-description {
+    margin-bottom: 16px;
+  }
+
+  .card-description .description-content {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .card-description .description-text {
+    flex: 1;
+    color: #6b7280;
+    line-height: 1.5;
+    word-break: break-word;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .card-details {
+    margin-bottom: 16px;
+  }
+
+  .detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 8px 0;
+    border-bottom: 1px solid #f3f4f6;
+  }
+
+  .detail-row:last-child {
+    border-bottom: none;
+  }
+
+  .detail-label {
+    font-weight: 500;
+    color: #374151;
+    font-size: 0.9rem;
+    min-width: 100px;
+  }
+
+  .detail-value {
+    color: #6b7280;
+    font-size: 0.9rem;
+    text-align: right;
+    word-break: break-word;
+    flex: 1;
+  }
+
+  .card-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .card-actions button {
+    flex: 1;
+    min-width: 80px;
+    max-width: 120px;
+    padding: 8px 12px;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-weight: 500;
+  }
+
+  .card-actions .btn-chat {
+    background-color: #4caf50;
+    color: white;
+  }
+
+  .card-actions .btn-chat:hover {
+    background-color: #45a049;
+  }
+
+  .card-actions .btn-done {
+    background-color: #4caf50;
+    color: white;
+  }
+
+  .card-actions .btn-done:hover {
+    background-color: #45a049;
+  }
+
+  .card-actions .btn-undone {
+    background-color: #6b7280;
+    color: white;
+  }
+
+  .card-actions .btn-undone:hover {
+    background-color: #5a6268;
+  }
+
+  .card-actions .btn-confirm {
+    background-color: #4caf50;
+    color: white;
+  }
+
+  .card-actions .btn-confirm:hover {
+    background-color: #45a049;
+  }
+
+  .card-actions .btn-delete {
+    background-color: #dc3545;
+    color: white;
+  }
+
+  .card-actions .btn-delete:hover {
+    background-color: #c82333;
+  }
+
+  .card-actions .btn-view-description {
+    background-color: #4caf50;
+    color: white;
+    padding: 6px 10px;
+    font-size: 0.8rem;
+  }
+
+  .card-actions .btn-view-description:hover {
+    background-color: #45a049;
+  }
+
+  /* Mobile Priority and Status Badges */
+  .mobile-cards-container .priority-badge,
+  .mobile-cards-container .status-badge {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  /* Responsive adjustments for very small screens */
+  @media (max-width: 480px) {
+    .task-card {
+      padding: 16px;
+    }
+
+    .card-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .card-badges {
+      width: 100%;
+    }
+
+    .detail-row {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 4px;
+    }
+
+    .detail-label {
+      min-width: auto;
+    }
+
+    .detail-value {
+      text-align: left;
+    }
+
+    .card-actions {
+      flex-direction: column;
+    }
+
+    .card-actions button {
+      flex: none;
+      max-width: none;
+      width: 100%;
+    }
+  }
 }
 </style>
