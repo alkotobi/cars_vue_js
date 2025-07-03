@@ -65,43 +65,31 @@ const handleGroupSelected = (group) => {
 }
 
 const handleMessageSent = (message) => {
-  console.log('Message sent:', message)
+  // Message sent event handler
 }
 
 const handleNewMessagesReceived = (groupId) => {
-  console.log('New messages received for group:', groupId)
-  console.log('chatMainRef.value:', chatMainRef.value)
-
   // Update new message counts from ChatMessages component
   if (chatMainRef.value?.getAllNewMessagesCounts) {
     const counts = chatMainRef.value.getAllNewMessagesCounts()
-    console.log('Retrieved counts from new messages event:', counts)
     newMessagesCounts.value = counts
-    console.log('Updated newMessagesCounts from event:', newMessagesCounts.value)
-  } else {
-    console.log('getAllNewMessagesCounts method not available in event handler')
   }
 }
 
 // Function to manually initialize all groups messages
 const initializeAllGroupsMessages = async () => {
   try {
-    console.log('Manually initializing all groups messages...')
-
     // Wait for the component to be mounted
     await new Promise((resolve) => setTimeout(resolve, 100))
 
     if (chatMessagesRef.value?.fetchAllGroupsMessages) {
-      console.log('Calling fetchAllGroupsMessages from hidden component...')
       await chatMessagesRef.value.fetchAllGroupsMessages()
-      console.log('fetchAllGroupsMessages completed')
 
       // Update counts after initialization
       setTimeout(() => {
         updateNewMessageCounts()
       }, 500)
     } else {
-      console.log('fetchAllGroupsMessages method not available, retrying...')
       // Retry after a short delay
       setTimeout(async () => {
         if (chatMessagesRef.value?.fetchAllGroupsMessages) {
@@ -120,16 +108,9 @@ const initializeAllGroupsMessages = async () => {
 // Function to update new message counts periodically
 const updateNewMessageCounts = () => {
   try {
-    console.log('Updating new message counts...')
-    console.log('chatMessagesRef.value:', chatMessagesRef.value)
-
     if (chatMessagesRef.value?.getAllNewMessagesCounts) {
       const counts = chatMessagesRef.value.getAllNewMessagesCounts()
-      console.log('Retrieved counts:', counts)
       newMessagesCounts.value = counts
-      console.log('Updated newMessagesCounts:', newMessagesCounts.value)
-    } else {
-      console.log('getAllNewMessagesCounts method not available')
     }
   } catch (error) {
     console.error('Error updating new message counts:', error)
@@ -138,11 +119,8 @@ const updateNewMessageCounts = () => {
 
 // Function to force update counts after reset
 const forceUpdateCounts = async (groupId) => {
-  console.log('Force updating counts after reset for group:', groupId)
-
   // Directly reset the count in the hidden component
   if (chatMessagesRef.value?.resetGroupCount) {
-    console.log('Directly resetting count in hidden component...')
     chatMessagesRef.value.resetGroupCount(groupId)
   }
 
@@ -153,24 +131,17 @@ const forceUpdateCounts = async (groupId) => {
 // Function to select group from ID and focus message input
 const selectGroupFromId = async (groupId, taskId, taskName) => {
   try {
-    console.log('Selecting group from ID:', groupId, 'Task:', taskId, 'TaskName:', taskName)
-
     // Get the group from the sidebar component
     if (chatSidebarRef.value?.selectGroupById) {
       const group = await chatSidebarRef.value.selectGroupById(groupId)
       if (group) {
         selectedGroup.value = group
-        console.log('Group selected:', group)
 
         // Focus the message input after a short delay
         setTimeout(() => {
           focusMessageInput()
         }, 500)
-      } else {
-        console.log('Group not found with ID:', groupId)
       }
-    } else {
-      console.log('selectGroupById method not available in sidebar')
     }
   } catch (error) {
     console.error('Error selecting group from ID:', error)
@@ -179,11 +150,8 @@ const selectGroupFromId = async (groupId, taskId, taskName) => {
 
 // Function to focus the message input
 const focusMessageInput = () => {
-  console.log('Focusing message input...')
   if (chatMainRef.value?.focusMessageInput) {
     chatMainRef.value.focusMessageInput()
-  } else {
-    console.log('focusMessageInput method not available in chat main')
   }
 }
 </script>

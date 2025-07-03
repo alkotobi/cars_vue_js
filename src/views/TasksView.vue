@@ -55,8 +55,6 @@ const fetchTasks = async () => {
       requiresAuth: true,
     })
 
-    console.log('Test result:', testResult)
-
     if (!testResult.success) {
       error.value = 'Tasks table not accessible: ' + (testResult.error || 'Unknown error')
       return
@@ -92,21 +90,9 @@ const fetchTasks = async () => {
       requiresAuth: true,
     })
 
-    console.log('Tasks result:', result)
-    console.log('User role:', user.value?.role_id)
-    console.log('Is admin:', isAdmin.value)
-    console.log('Where clause:', whereClause)
-    console.log('Params:', params)
-
     if (result.success) {
       tasks.value = result.data
       totalItems.value = result.data.length // Temporary, will fix pagination later
-
-      // Debug: Log the first task to see available fields
-      if (result.data.length > 0) {
-        console.log('First task object:', result.data[0])
-        console.log('Available fields:', Object.keys(result.data[0]))
-      }
     } else {
       console.error('API Error:', result)
       error.value = result.error || 'Failed to fetch tasks'
@@ -180,16 +166,11 @@ const changePage = (page) => {
 }
 
 const markTaskAsDone = async (task) => {
-  console.log('Marking task as done:', task)
-  console.log('Current user ID:', user.value?.id)
-  console.log('Task assigned to:', task.id_user_receive)
-
   if (!confirm(`Are you sure you want to mark task #${task.id} as done?`)) {
     return
   }
 
   try {
-    console.log('Executing SQL to mark task as done...')
     const result = await callApi({
       query: `
         UPDATE tasks
@@ -200,34 +181,25 @@ const markTaskAsDone = async (task) => {
       requiresAuth: true,
     })
 
-    console.log('SQL result:', result)
-
     if (result.success) {
-      console.log('Task marked as done successfully')
-      alert('Task marked as done successfully!')
-      // Refresh the tasks list
       await fetchTasks()
+      alert('Task marked as done successfully!')
     } else {
-      console.error('Failed to mark task as done:', result)
-      alert('Failed to mark task as done. Please try again.')
+      console.error('Failed to mark task as done:', result.error)
+      alert('Failed to mark task as done: ' + result.error)
     }
   } catch (err) {
     console.error('Error marking task as done:', err)
-    alert('Error marking task as done. Please try again.')
+    alert('Error marking task as done: ' + err.message)
   }
 }
 
 const markTaskAsUndone = async (task) => {
-  console.log('Marking task as undone:', task)
-  console.log('Current user ID:', user.value?.id)
-  console.log('Task assigned to:', task.id_user_receive)
-
   if (!confirm(`Are you sure you want to mark task #${task.id} as undone?`)) {
     return
   }
 
   try {
-    console.log('Executing SQL to mark task as undone...')
     const result = await callApi({
       query: `
         UPDATE tasks
@@ -238,63 +210,45 @@ const markTaskAsUndone = async (task) => {
       requiresAuth: true,
     })
 
-    console.log('SQL result:', result)
-
     if (result.success) {
-      console.log('Task marked as undone successfully')
-      alert('Task marked as undone successfully!')
-      // Refresh the tasks list
       await fetchTasks()
+      alert('Task marked as undone successfully!')
     } else {
-      console.error('Failed to mark task as undone:', result)
-      alert('Failed to mark task as undone. Please try again.')
+      console.error('Failed to mark task as undone:', result.error)
+      alert('Failed to mark task as undone: ' + result.error)
     }
   } catch (err) {
     console.error('Error marking task as undone:', err)
-    alert('Error marking task as undone. Please try again.')
+    alert('Error marking task as undone: ' + err.message)
   }
 }
 
 const confirmTaskAsDone = async (task) => {
-  console.log('Confirming task as done:', task)
-  console.log('Current user ID:', user.value?.id)
-  console.log('Is admin:', isAdmin.value)
-
-  if (
-    !confirm(
-      `Are you sure you want to confirm task #${task.id} as done? This will mark it as confirmed.`,
-    )
-  ) {
+  if (!confirm(`Are you sure you want to confirm task #${task.id} as done?`)) {
     return
   }
 
   try {
-    console.log('Executing SQL to confirm task as done...')
     const result = await callApi({
       query: `
         UPDATE tasks
-        SET date_confirm_done = UTC_TIMESTAMP(),
-            id_user_confirm_done = ?
+        SET date_confirm_done = UTC_TIMESTAMP()
         WHERE id = ?
       `,
-      params: [user.value.id, task.id],
+      params: [task.id],
       requiresAuth: true,
     })
 
-    console.log('SQL result:', result)
-
     if (result.success) {
-      console.log('Task confirmed as done successfully')
-      alert('Task confirmed as done successfully!')
-      // Refresh the tasks list
       await fetchTasks()
+      alert('Task confirmed as done successfully!')
     } else {
-      console.error('Failed to confirm task as done:', result)
-      alert('Failed to confirm task as done. Please try again.')
+      console.error('Failed to confirm task as done:', result.error)
+      alert('Failed to confirm task as done: ' + result.error)
     }
   } catch (err) {
     console.error('Error confirming task as done:', err)
-    alert('Error confirming task as done. Please try again.')
+    alert('Error confirming task as done: ' + err.message)
   }
 }
 
@@ -325,8 +279,8 @@ const openTaskChat = async (task) => {
     // First, check if a group with this task title already exists
     const checkGroupResult = await callApi({
       query: `
-        SELECT id, name 
-        FROM chat_groups 
+        SELECT id, name
+        FROM chat_groups
         WHERE name = ? AND is_active = 1
       `,
       params: [task.title],
@@ -338,14 +292,11 @@ const openTaskChat = async (task) => {
     if (checkGroupResult.success && checkGroupResult.data.length > 0) {
       // Group already exists, use it
       groupId = checkGroupResult.data[0].id
-      console.log('Using existing group:', groupId)
     } else {
       // Create new group with task title
-      console.log('Creating new group for task:', task.title)
-
       const createGroupResult = await callApi({
         query: `
-          INSERT INTO chat_groups (name, description, id_user_owner, is_active) 
+          INSERT INTO chat_groups (name, description, id_user_owner, is_active)
           VALUES (?, ?, ?, 1)
         `,
         params: [task.title, `Chat group for task: ${task.title}`, user.value.id],
@@ -354,7 +305,6 @@ const openTaskChat = async (task) => {
 
       if (createGroupResult.success && createGroupResult.lastInsertId) {
         groupId = createGroupResult.lastInsertId
-        console.log('Created new group:', groupId)
 
         // Add task creator and receiver to the group
         const usersToAdd = []
@@ -394,9 +344,7 @@ const openTaskChat = async (task) => {
             requiresAuth: true,
           })
 
-          if (addUsersResult.success) {
-            console.log('Added users to group:', uniqueUsers)
-          } else {
+          if (!addUsersResult.success) {
             console.error('Failed to add users to group:', addUsersResult)
           }
         }
@@ -443,7 +391,6 @@ const openNewTaskForm = (entityType = 'general', entityData = {}) => {
 
 const handleTaskSave = async (result) => {
   if (result.success) {
-    console.log('Task created successfully:', result)
     // Refresh the tasks list
     await fetchTasks()
     showTaskForm.value = false
@@ -488,17 +435,13 @@ const deleteTask = async (task) => {
   }
 
   try {
-    console.log('Deleting task:', task.id)
     const result = await callApi({
       query: 'DELETE FROM tasks WHERE id = ?',
       params: [task.id],
       requiresAuth: true,
     })
 
-    console.log('Delete result:', result)
-
     if (result.success) {
-      console.log('Task deleted successfully')
       alert('Task deleted successfully!')
       // Refresh the tasks list
       await fetchTasks()

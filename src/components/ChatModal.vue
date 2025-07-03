@@ -51,18 +51,15 @@ const handleGroupSelected = (group) => {
   setTimeout(async () => {
     if (chatMainRef.value?.scrollToBottom) {
       await chatMainRef.value.scrollToBottom()
-      console.log('ChatModal: Scrolled to bottom after group selection')
     }
   }, 1500) // Wait a bit longer for messages to load
 }
 
 const handleMessageSent = (message) => {
-  console.log('Message sent:', message)
+  // Message sent event handler
 }
 
 const handleNewMessagesReceived = (groupId) => {
-  console.log('New messages received for group:', groupId)
-
   // Update new message counts from ChatMessages component
   if (chatMainRef.value?.getAllNewMessagesCounts) {
     const counts = chatMainRef.value.getAllNewMessagesCounts()
@@ -73,7 +70,6 @@ const handleNewMessagesReceived = (groupId) => {
   setTimeout(async () => {
     if (chatMainRef.value?.scrollToBottom) {
       await chatMainRef.value.scrollToBottom()
-      console.log('ChatModal: Scrolled to bottom after new messages')
     }
   }, 100)
 }
@@ -131,12 +127,10 @@ const forceUpdateCounts = async (groupId) => {
 // Watch for group selection changes and scroll to bottom
 watch(selectedGroup, async (newGroup, oldGroup) => {
   if (newGroup && newGroup !== oldGroup) {
-    console.log('ChatModal: Group changed, will scroll to bottom')
     // Wait for messages to load and then scroll to bottom
     setTimeout(async () => {
       if (chatMainRef.value?.scrollToBottom) {
         await chatMainRef.value.scrollToBottom()
-        console.log('ChatModal: Scrolled to bottom after group change')
       }
     }, 1000) // Wait for messages to load
   }

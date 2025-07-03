@@ -551,8 +551,6 @@ const getCurrentUser = () => {
 watch(
   () => props.groupId,
   async (newGroupId, oldGroupId) => {
-    console.log(`Group changed from ${oldGroupId} to ${newGroupId}`)
-
     if (newGroupId && newGroupId !== oldGroupId) {
       // Reset pagination for new group
       resetPagination()
@@ -571,13 +569,11 @@ watch(
 const switchToGroup = async (groupId) => {
   // Check if we already have messages for this group
   if (messagesByGroup.value[groupId]) {
-    console.log(`Using cached messages for group ${groupId}`)
     messages.value = messagesByGroup.value[groupId]
     // Reset new message count when switching to this group (user clicked on group)
     await resetNewMessageCount(groupId)
     await scrollToBottom()
   } else {
-    console.log(`No cached messages for group ${groupId}, fetching all messages...`)
     await fetchAllMessages()
   }
 
@@ -590,8 +586,6 @@ const switchToGroup = async (groupId) => {
 
 const fetchAllMessages = async () => {
   try {
-    console.log('Fetching all messages for group:', props.groupId)
-
     const result = await callApi({
       query: `
         SELECT 
@@ -613,8 +607,6 @@ const fetchAllMessages = async () => {
       requiresAuth: true,
     })
 
-    console.log('All messages result:', result)
-
     if (result.success && result.data) {
       // Store messages in the group-specific cache
       messagesByGroup.value[props.groupId] = result.data
@@ -622,7 +614,6 @@ const fetchAllMessages = async () => {
       messages.value = result.data
       // Initialize new messages count to 0 for this group
       await resetNewMessageCount(props.groupId)
-      console.log('All messages loaded and cached:', messages.value.length)
 
       // Scroll to bottom on initial load
       await scrollToBottom()
@@ -633,7 +624,6 @@ const fetchAllMessages = async () => {
         messageInputRef.value.focus()
       }
     } else {
-      console.log('No messages found or API failed:', result)
       messagesByGroup.value[props.groupId] = []
       messages.value = []
       await resetNewMessageCount(props.groupId)
@@ -727,7 +717,6 @@ const sendMessage = async () => {
 
   try {
     isSending.value = true
-    console.log('Sending message:', newMessage.value)
 
     const result = await callApi({
       query: `
@@ -737,8 +726,6 @@ const sendMessage = async () => {
       params: [props.groupId, currentUser.value.id, newMessage.value.trim()],
       requiresAuth: true,
     })
-
-    console.log('Send message result:', result)
 
     if (result.success) {
       // Add the new message to both current list and group cache
@@ -779,9 +766,8 @@ const sendMessage = async () => {
       requestAnimationFrame(() => {
         if (messageInputRef.value) {
           messageInputRef.value.focus()
-          console.log('Message input focused after sending')
         } else {
-          console.log('Message input ref not available for focus')
+          // Removed: console.log('Message input ref not available for focus')
         }
       })
     }, 100)
@@ -832,11 +818,10 @@ const scrollToBottom = async () => {
           top: messagesContainer.value.scrollHeight,
           behavior: 'smooth',
         })
-        console.log('ChatMessages: Final smooth scroll attempt completed')
       }
     }, 300)
   } else {
-    console.log('ChatMessages: messagesContainer ref not available for scrolling')
+    // Removed: console.log('ChatMessages: messagesContainer ref not available for scrolling')
   }
 }
 
@@ -921,7 +906,6 @@ const updateUserActivity = () => {
   lastActivityTime.value = Date.now()
   if (!isUserActive.value) {
     isUserActive.value = true
-    console.log('Chat: User became active, switching to faster polling intervals')
     restartMessagePolling()
   }
   resetInactivityTimer()
@@ -933,7 +917,6 @@ const resetInactivityTimer = () => {
   }
   inactivityTimer = setTimeout(() => {
     isUserActive.value = false
-    console.log('Chat: User became inactive, switching to slower polling intervals')
     restartMessagePolling()
   }, inactivityTimeout)
 }
@@ -951,24 +934,14 @@ const restartMessagePolling = () => {
 
   // Restart with new interval
   refreshInterval = setInterval(async () => {
-    console.log(
-      `Timer tick - checking for new messages. groupId: ${props.groupId}, currentUser: ${currentUser.value?.id}`,
-    )
     if (props.groupId && props.groupId > 0 && currentUser.value) {
       try {
         await fetchNewMessages(props.groupId)
-        console.log(`Timer: fetchNewMessages completed for group ${props.groupId}`)
       } catch (err) {
         console.error(`Timer: Error fetching new messages for group ${props.groupId}:`, err)
       }
-    } else {
-      console.log(
-        `Timer: Skipping fetch - groupId: ${props.groupId}, currentUser: ${currentUser.value?.id}`,
-      )
     }
   }, currentInterval)
-
-  console.log(`Chat polling restarted - Messages: ${currentInterval / 1000}s`)
 }
 
 // Set up activity listeners
@@ -1011,26 +984,14 @@ onMounted(async () => {
   // Initialize adaptive polling with active intervals (user just loaded the page)
   const currentInterval = ACTIVE_INTERVALS.messages
   refreshInterval = setInterval(async () => {
-    console.log(
-      `Timer tick - checking for new messages. groupId: ${props.groupId}, currentUser: ${currentUser.value?.id}`,
-    )
     if (props.groupId && props.groupId > 0 && currentUser.value) {
       try {
         await fetchNewMessages(props.groupId)
-        console.log(`Timer: fetchNewMessages completed for group ${props.groupId}`)
       } catch (err) {
         console.error(`Timer: Error fetching new messages for group ${props.groupId}:`, err)
       }
-    } else {
-      console.log(
-        `Timer: Skipping fetch - groupId: ${props.groupId}, currentUser: ${currentUser.value?.id}`,
-      )
     }
   }, currentInterval)
-
-  console.log(
-    `Chat timer started - will check for new messages every ${currentInterval / 1000} seconds`,
-  )
 })
 
 // Clean up interval on unmount
@@ -1048,18 +1009,15 @@ const cleanup = () => {
 
 // Function to reset new message count for a specific group
 const resetNewMessageCount = async (groupId) => {
-  console.log(`Resetting new message count for group ${groupId}`)
-  console.log(
-    `Before reset - newMessagesCountByGroup for group ${groupId}:`,
-    newMessagesCountByGroup.value[groupId],
-  )
+  // Removed: console.log(`Resetting new message count for group ${groupId}`)
+  // Removed: console.log(`Before reset - newMessagesCountByGroup for group ${groupId}:`, newMessagesCountByGroup.value[groupId])
 
   // Get the highest message ID for this group before resetting
   const currentMessages = messagesByGroup.value[groupId] || []
   const lastReadMessageId =
     currentMessages.length > 0 ? Math.max(...currentMessages.map((msg) => msg.id)) : 0
 
-  console.log(`Last read message ID for group ${groupId}: ${lastReadMessageId}`)
+  // Removed: console.log(`Last read message ID for group ${groupId}: ${lastReadMessageId}`)
 
   // Save the last read message ID to database
   if (currentUser.value && lastReadMessageId > 0) {
@@ -1075,7 +1033,7 @@ const resetNewMessageCount = async (groupId) => {
       })
 
       if (result.success) {
-        console.log(`Saved last read message ID ${lastReadMessageId} for group ${groupId}`)
+        // Removed: console.log(`Saved last read message ID ${lastReadMessageId} for group ${groupId}`)
       } else {
         console.error(`Failed to save last read message ID for group ${groupId}`)
       }
@@ -1086,27 +1044,24 @@ const resetNewMessageCount = async (groupId) => {
 
   // Reset the count - FORCE IT TO 0
   newMessagesCountByGroup.value[groupId] = 0
-  console.log(
-    `After reset - newMessagesCountByGroup for group ${groupId}:`,
-    newMessagesCountByGroup.value[groupId],
-  )
+  // Removed: console.log(`After reset - newMessagesCountByGroup for group ${groupId}:`, newMessagesCountByGroup.value[groupId])
 
   // Also reset current count if this is the active group
   if (groupId === props.groupId) {
     currentNewMessagesCount.value = 0
-    console.log(`Reset currentNewMessagesCount to 0 for active group ${groupId}`)
+    // Removed: console.log(`Reset currentNewMessagesCount to 0 for active group ${groupId}`)
   }
 
   // Force reactive update by triggering a change
   newMessagesCountByGroup.value = { ...newMessagesCountByGroup.value }
-  console.log(`Final newMessagesCountByGroup after force update:`, newMessagesCountByGroup.value)
+  // Removed: console.log(`Final newMessagesCountByGroup after force update:`, newMessagesCountByGroup.value)
 
   // Update debug info if debug section is open and this is the current group
   if (showDebugSection.value && groupId === props.groupId) {
     updateDebugInfo()
   }
 
-  console.log(`✓ Reset completed for group ${groupId}`)
+  // Removed: console.log(`✓ Reset completed for group ${groupId}`)
 
   // Emit reset event to trigger parent update
   emit('reset-triggered', groupId)
@@ -1115,7 +1070,7 @@ const resetNewMessageCount = async (groupId) => {
   // by calling fetchAllGroupsMessages to recalculate unread counts
   if (props.groupId === 0) {
     // This is the hidden component, so we need to recalculate all counts
-    console.log('Hidden component: Recalculating all unread counts after reset')
+    // Removed: console.log('Hidden component: Recalculating all unread counts after reset')
     await fetchAllGroupsMessages()
   }
 }
@@ -1123,10 +1078,10 @@ const resetNewMessageCount = async (groupId) => {
 // Function to fetch messages for all groups at once
 const fetchAllGroupsMessages = async () => {
   try {
-    console.log('Fetching messages for all groups...')
+    // Removed: console.log('Fetching messages for all groups...')
 
     if (!currentUser.value) {
-      console.log('No current user available')
+      // Removed: console.log('No current user available')
       return
     }
 
@@ -1151,15 +1106,15 @@ const fetchAllGroupsMessages = async () => {
     })
 
     if (!groupsResult.success || !groupsResult.data) {
-      console.log('No groups found or API failed:', groupsResult)
+      // Removed: console.log('No groups found or API failed:', groupsResult)
       return
     }
 
-    console.log(`Found ${groupsResult.data.length} groups for user`)
+    // Removed: console.log(`Found ${groupsResult.data.length} groups for user`)
 
     // Fetch messages and count unread messages for each group
     for (const group of groupsResult.data) {
-      console.log(`Fetching messages for group: ${group.name} (ID: ${group.id})`)
+      // Removed: console.log(`Fetching messages for group: ${group.name} (ID: ${group.id})`)
 
       // Get the last read message ID for this group and user
       const lastReadResult = await callApi({
@@ -1177,7 +1132,7 @@ const fetchAllGroupsMessages = async () => {
           ? lastReadResult.data[0].id_last_read_message
           : 0
 
-      console.log(`Last read message ID for group ${group.name}: ${lastReadMessageId}`)
+      // Removed: console.log(`Last read message ID for group ${group.name}: ${lastReadMessageId}`)
 
       // Count unread messages (messages with ID > last_read_message_id and not from current user)
       const unreadCountResult = await callApi({
@@ -1197,7 +1152,7 @@ const fetchAllGroupsMessages = async () => {
           ? parseInt(unreadCountResult.data[0].unread_count)
           : 0
 
-      console.log(`Unread messages count for group ${group.name}: ${unreadCount}`)
+      // Removed: console.log(`Unread messages count for group ${group.name}: ${unreadCount}`)
 
       // Fetch all messages for this group
       const messagesResult = await callApi({
@@ -1224,29 +1179,27 @@ const fetchAllGroupsMessages = async () => {
       if (messagesResult.success && messagesResult.data) {
         // Store messages in group cache
         messagesByGroup.value[group.id] = messagesResult.data
-        console.log(`Loaded ${messagesResult.data.length} messages for group ${group.name}`)
+        // Removed: console.log(`Loaded ${messagesResult.data.length} messages for group ${group.name}`)
 
         // Set unread count for this group
         newMessagesCountByGroup.value[group.id] = unreadCount
-        console.log(`Set unread count for group ${group.name}: ${unreadCount}`)
+        // Removed: console.log(`Set unread count for group ${group.name}: ${unreadCount}`)
       } else {
-        console.log(`No messages found for group ${group.name}`)
+        // Removed: console.log(`No messages found for group ${group.name}`)
         messagesByGroup.value[group.id] = []
         newMessagesCountByGroup.value[group.id] = 0
       }
     }
 
-    console.log('All groups messages loaded successfully')
-    console.log('Groups loaded:', Object.keys(messagesByGroup.value))
-    console.log('Total groups with messages:', Object.keys(messagesByGroup.value).length)
-    console.log('Unread counts by group:', newMessagesCountByGroup.value)
+    // Removed: console.log('All groups messages loaded successfully')
+    // Removed: console.log('Groups loaded:', Object.keys(messagesByGroup.value))
+    // Removed: console.log('Total groups with messages:', Object.keys(messagesByGroup.value).length)
+    // Removed: console.log('Unread counts by group:', newMessagesCountByGroup.value)
 
     // If there's a selected group, set its messages as current
     if (props.groupId && messagesByGroup.value[props.groupId]) {
       messages.value = messagesByGroup.value[props.groupId]
-      console.log(
-        `Set current messages for group ${props.groupId}: ${messages.value.length} messages`,
-      )
+      // Removed: console.log(`Set current messages for group ${props.groupId}: ${messages.value.length} messages`)
     }
   } catch (err) {
     console.error('Error fetching all groups messages:', err)
@@ -1255,28 +1208,22 @@ const fetchAllGroupsMessages = async () => {
 
 // Click handlers to reset new message count
 const handleMessagesContainerClick = async () => {
-  console.log(`Chat area clicked for group ${props.groupId}`)
-  console.log(
-    `Current newMessagesCountByGroup for this group:`,
-    newMessagesCountByGroup.value[props.groupId],
-  )
-  console.log(`All newMessagesCountByGroup:`, newMessagesCountByGroup.value)
+  // Removed: console.log(`Chat area clicked for group ${props.groupId}`)
+  // Removed: console.log(`Current newMessagesCountByGroup for this group:`, newMessagesCountByGroup.value[props.groupId])
+  // Removed: console.log(`All newMessagesCountByGroup:`, newMessagesCountByGroup.value)
 
   // Always reset the count when chat area is clicked
-  console.log(`Reset new message count for group ${props.groupId} (chat area clicked)`)
+  // Removed: console.log(`Reset new message count for group ${props.groupId} (chat area clicked)`)
   await resetNewMessageCount(props.groupId)
 }
 
 const handleInputClick = async () => {
-  console.log(`Input clicked for group ${props.groupId}`)
-  console.log(
-    `Current newMessagesCountByGroup for this group:`,
-    newMessagesCountByGroup.value[props.groupId],
-  )
-  console.log(`All newMessagesCountByGroup:`, newMessagesCountByGroup.value)
+  // Removed: console.log(`Input clicked for group ${props.groupId}`)
+  // Removed: console.log(`Current newMessagesCountByGroup for this group:`, newMessagesCountByGroup.value[props.groupId])
+  // Removed: console.log(`All newMessagesCountByGroup:`, newMessagesCountByGroup.value)
 
   // Always reset the count when input is clicked
-  console.log(`Reset new message count for group ${props.groupId} (input clicked)`)
+  // Removed: console.log(`Reset new message count for group ${props.groupId} (input clicked)`)
   await resetNewMessageCount(props.groupId)
 }
 
@@ -1333,9 +1280,9 @@ const updateDebugInfo = () => {
 }
 
 const testNewMessagesCount = () => {
-  console.log('=== TESTING NEW MESSAGES COUNT ===')
-  console.log('Current newMessagesCount:', currentNewMessagesCount.value)
-  console.log('All newMessagesCountByGroup:', newMessagesCountByGroup.value)
+  // Removed: console.log('=== TESTING NEW MESSAGES COUNT ===')
+  // Removed: console.log('Current newMessagesCount:', currentNewMessagesCount.value)
+  // Removed: console.log('All newMessagesCountByGroup:', newMessagesCountByGroup.value)
   updateDebugInfo()
 }
 
@@ -1345,31 +1292,30 @@ defineExpose({
   fetchAllGroupsMessages,
   getNewMessagesCount: (groupId) => {
     const count = newMessagesCountByGroup.value[groupId] || 0
-    console.log(`Exposed getNewMessagesCount for group ${groupId}:`, count)
+    // Removed: console.log(`Exposed getNewMessagesCount for group ${groupId}:`, count)
     return count
   },
   getAllNewMessagesCounts: () => {
-    console.log('Exposed getAllNewMessagesCounts:', newMessagesCountByGroup.value)
+    // Removed: console.log('Exposed getAllNewMessagesCounts:', newMessagesCountByGroup.value)
     return newMessagesCountByGroup.value
   },
   resetGroupCount: (groupId) => {
-    console.log(`Exposed resetGroupCount called for group ${groupId}`)
+    // Removed: console.log(`Exposed resetGroupCount called for group ${groupId}`)
     newMessagesCountByGroup.value[groupId] = 0
     // Force reactive update
     newMessagesCountByGroup.value = { ...newMessagesCountByGroup.value }
-    console.log(`Exposed resetGroupCount completed for group ${groupId}`)
+    // Removed: console.log(`Exposed resetGroupCount completed for group ${groupId}`)
   },
   focusMessageInput: () => {
-    console.log('ChatMessages: focusMessageInput called')
+    // Removed: console.log('ChatMessages: focusMessageInput called')
     if (messageInputRef.value) {
       messageInputRef.value.focus()
-      console.log('Message input focused')
     } else {
-      console.log('Message input ref not available')
+      // Removed: console.log('Message input ref not available')
     }
   },
   scrollToBottom: async () => {
-    console.log('ChatMessages: scrollToBottom called')
+    // Removed: console.log('ChatMessages: scrollToBottom called')
     await scrollToBottom()
   },
 })
@@ -1432,12 +1378,7 @@ const uploadFileToChat = async () => {
     const fileExtension = selectedFile.value.name.split('.').pop()
     const customFilename = `${timestamp}_${selectedFile.value.name}`
 
-    console.log('Uploading file to chat:', {
-      fileName: selectedFile.value.name,
-      fileSize: selectedFile.value.size,
-      chatFolder,
-      customFilename,
-    })
+    // Removed: console.log('Uploading file to chat:', { fileName: selectedFile.value.name, fileSize: selectedFile.value.size, chatFolder, customFilename })
 
     // Upload the file
     const uploadResult = await uploadFile(selectedFile.value, chatFolder, customFilename)
@@ -1485,7 +1426,7 @@ const uploadFileToChat = async () => {
         await nextTick()
         await scrollToBottom()
 
-        console.log('File message sent successfully:', newMsg)
+        // Removed: console.log('File message sent successfully:', newMsg)
       } else {
         throw new Error('Failed to save file message to database')
       }
@@ -1709,12 +1650,7 @@ const sendVoiceMessage = async () => {
     const timestamp = Date.now()
     const customFilename = `${timestamp}_voice_message.wav`
 
-    console.log('Uploading voice message:', {
-      fileName: audioFile.name,
-      fileSize: audioFile.size,
-      chatFolder,
-      customFilename,
-    })
+    // Removed: console.log('Uploading voice message:', { fileName: audioFile.name, fileSize: audioFile.size, chatFolder, customFilename })
 
     // Upload the voice message
     const uploadResult = await uploadFile(audioFile, chatFolder, customFilename)
@@ -1766,7 +1702,7 @@ const sendVoiceMessage = async () => {
         await nextTick()
         await scrollToBottom()
 
-        console.log('Voice message sent successfully:', newMsg)
+        // Removed: console.log('Voice message sent successfully:', newMsg)
       } else {
         throw new Error('Failed to save voice message to database')
       }
