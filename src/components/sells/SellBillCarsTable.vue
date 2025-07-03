@@ -406,13 +406,19 @@ const calculateProfit = (sellPrice, buyPrice, freight) => {
   return (sell - buy - freightCost).toFixed(2)
 }
 
-// Add totalValue computed property
+// Add totalValue computed property - now in CFR DA
 const totalValue = computed(() => {
   if (!cars.value || cars.value.length === 0) return 0
   return cars.value.reduce((total, car) => {
     const price = parseFloat(car.price_cell) || 0
     const freight = parseFloat(car.freight) || 0
-    return total + price + freight
+    const rate = parseFloat(car.rate) || 0
+
+    // Calculate CFR value (price + freight) and convert to DA
+    const cfrValue = price + freight
+    const daValue = cfrValue * rate
+
+    return total + daValue
   }, 0)
 })
 
@@ -507,8 +513,8 @@ defineExpose({
           Total Cars: {{ filteredCars.length }} / {{ cars.length }}
         </span>
         <span v-if="totalValue > 0">
-          <i class="fas fa-dollar-sign"></i>
-          Total Value: ${{ totalValue.toLocaleString() }}
+          <i class="fas fa-money-bill-wave"></i>
+          Total CFR DA: {{ totalValue.toLocaleString() }} DZD
         </span>
       </div>
     </div>
