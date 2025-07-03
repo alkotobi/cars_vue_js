@@ -21,7 +21,6 @@ const filters = ref({
   carName: '',
   color: '',
   vin: '',
-  loadingPort: '',
 })
 const user = ref(null)
 const isAdmin = computed(() => user.value?.role_id === 1)
@@ -41,7 +40,7 @@ const sortedCars = computed(() => {
     let bValue = b[sortConfig.value.field]
 
     // Handle date comparison
-    if (sortConfig.value.field === 'date_loding') {
+    if (sortConfig.value.field === 'date_sell') {
       aValue = aValue ? new Date(aValue).getTime() : 0
       bValue = bValue ? new Date(bValue).getTime() : 0
     }
@@ -88,14 +87,11 @@ const fetchUnassignedCars = async () => {
           cs.notes,
           cs.price_cell,
           cs.freight,
-          cs.date_loding,
           cs.path_documents,
-          lp.loading_port,
           bd.amount as buy_price,
           cn.car_name,
           clr.color
         FROM cars_stock cs
-        LEFT JOIN loading_ports lp ON cs.id_port_loading = lp.id
         LEFT JOIN buy_details bd ON cs.id_buy_details = bd.id
         LEFT JOIN cars_names cn ON bd.id_car_name = cn.id
         LEFT JOIN colors clr ON bd.id_color = clr.id
@@ -139,12 +135,7 @@ const applyFilters = () => {
       !filters.value.vin ||
       (car.vin && car.vin.toLowerCase().includes(filters.value.vin.toLowerCase()))
 
-    const matchLoadingPort =
-      !filters.value.loadingPort ||
-      (car.loading_port &&
-        car.loading_port.toLowerCase().includes(filters.value.loadingPort.toLowerCase()))
-
-    return matchCarName && matchColor && matchVin && matchLoadingPort
+    return matchCarName && matchColor && matchVin
   })
 }
 
@@ -154,7 +145,6 @@ const resetFilters = () => {
     carName: '',
     color: '',
     vin: '',
-    loadingPort: '',
   }
   applyFilters()
 }
@@ -462,19 +452,6 @@ onMounted(() => {
             placeholder="Search VIN..."
           />
         </div>
-
-        <div class="filter-group">
-          <label>
-            <i class="fas fa-ship"></i>
-            Loading Port:
-          </label>
-          <input
-            type="text"
-            v-model="filters.loadingPort"
-            @input="handleFilterChange"
-            placeholder="Search loading port..."
-          />
-        </div>
       </div>
     </div>
 
@@ -697,20 +674,6 @@ onMounted(() => {
               :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
             ></i>
           </th>
-          <th @click="handleSort('loading_port')" class="sortable">
-            <i class="fas fa-ship"></i> Loading Port
-            <i
-              v-if="sortConfig.field === 'loading_port'"
-              :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
-            ></i>
-          </th>
-          <th @click="handleSort('date_loding')" class="sortable">
-            <i class="fas fa-calendar"></i> Loading Date
-            <i
-              v-if="sortConfig.field === 'date_loding'"
-              :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
-            ></i>
-          </th>
           <th @click="handleSort('notes')" class="sortable">
             <i class="fas fa-sticky-note"></i> Notes
             <i
@@ -729,8 +692,6 @@ onMounted(() => {
           <td>{{ car.vin || 'N/A' }}</td>
           <td>{{ car.price_cell ? '$' + car.price_cell.toLocaleString() : 'N/A' }}</td>
           <td v-if="isAdmin">{{ car.buy_price ? '$' + car.buy_price.toLocaleString() : 'N/A' }}</td>
-          <td>{{ car.loading_port || 'N/A' }}</td>
-          <td>{{ car.date_loding || 'N/A' }}</td>
           <td>{{ car.notes || 'N/A' }}</td>
           <td class="actions">
             <button
