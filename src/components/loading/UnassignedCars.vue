@@ -196,6 +196,14 @@
                 ></i>
                 <i v-else class="fas fa-sort sort-inactive"></i>
               </th>
+              <th @click="sortByColumn('discharge_port')" class="sortable-header">
+                Discharge Port
+                <i
+                  v-if="sortBy === 'discharge_port'"
+                  :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
+                ></i>
+                <i v-else class="fas fa-sort sort-inactive"></i>
+              </th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -228,13 +236,16 @@
               <td class="sell-bill-id-cell">{{ car.sell_bill_id || '-' }}</td>
               <td class="sell-bill-date-cell">{{ formatDate(car.sell_bill_date) }}</td>
               <td class="sell-bill-ref-cell">{{ car.sell_bill_ref || '-' }}</td>
+              <td class="discharge-port-cell">{{ dischargePortName || '-' }}</td>
               <td class="actions-cell">
                 <div class="action-buttons">
                   <button
                     @click.stop="assignCar(car)"
                     class="action-btn assign-btn"
                     :title="getAssignButtonTitle()"
-                    :disabled="isAssigning || props.selectedContainerOnBoard"
+                    :disabled="
+                      isAssigning || props.selectedContainerOnBoard || props.assignedCarsCount >= 4
+                    "
                   >
                     <i class="fas fa-link"></i>
                   </button>
@@ -323,7 +334,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useApi } from '@/composables/useApi'
 
 const props = defineProps({
@@ -334,6 +345,10 @@ const props = defineProps({
   selectedContainerOnBoard: {
     type: Boolean,
     default: false,
+  },
+  assignedCarsCount: {
+    type: Number,
+    default: 0,
   },
 })
 
@@ -368,6 +383,9 @@ const sortOrder = ref('asc')
 
 // Filter visibility state
 const showFilters = ref(false)
+
+// New ref for discharge port name
+const dischargePortName = ref('')
 
 // Computed property to check if any filters are active
 const hasActiveFilters = computed(() => {
@@ -525,6 +543,12 @@ const refreshData = () => {
 const assignCar = async (car) => {
   if (isAssigning.value) return
 
+  // Prevent assignment if limit reached
+  if (props.assignedCarsCount >= 4) {
+    alert('Maximum 4 cars allowed per container')
+    return
+  }
+
   if (!props.selectedLoadedContainerId) {
     alert('Please select a container first')
     return
@@ -671,6 +695,9 @@ const getAssignButtonTitle = () => {
   if (props.selectedContainerOnBoard) {
     return 'Container is already on board'
   }
+  if (props.assignedCarsCount >= 4) {
+    return 'Maximum 4 cars allowed per container'
+  }
   return 'Assign to Container'
 }
 
@@ -734,6 +761,44 @@ const clearFilters = () => {
 const toggleFilters = () => {
   showFilters.value = !showFilters.value
 }
+
+watch(
+  () => props.selectedLoadedContainerId,
+  async (newId) => {
+    if (!newId) {
+      dischargePortName.value = ''
+      return
+    }
+    // Fetch discharge port for the selected container
+    try {
+      const result = await callApi({
+        query: `SELECT dp.discharge_port FROM loaded_containers lc
+                LEFT JOIN loading l ON lc.id_loading = l.id
+                LEFT JOIN discharge_ports dp ON l.id_discharge_port = dp.id
+                WHERE lc.id = ?`,
+        params: [newId],
+      })
+      if (result.success && result.data && result.data.length > 0) {
+        dischargePortName.value = result.data[0].discharge_port || ''
+      } else {
+        dischargePortName.value = ''
+      }
+    } catch (err) {
+      dischargePortName.value = ''
+    }
+  },
+  { immediate: true },
+)
+
+// Watch assignedCarsCount and only re-enable assign button if count < 4
+watch(
+  () => props.assignedCarsCount,
+  (newCount) => {
+    if (newCount < 4) {
+      isAssigning.value = false
+    }
+  },
+)
 
 onMounted(() => {
   fetchUnassignedCars()
@@ -1044,6 +1109,12 @@ defineExpose({
   font-size: 0.9rem;
   color: #6b7280;
   font-family: monospace;
+}
+
+.discharge-port-cell {
+  text-align: center;
+  font-size: 0.9rem;
+  color: #6b7280;
 }
 
 .actions-cell {

@@ -381,6 +381,7 @@ watch(
 defineExpose({
   refreshData,
   fetchAssignedCars,
+  assignedCars,
 })
 </script>
 

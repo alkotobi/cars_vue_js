@@ -315,6 +315,7 @@
       ref="unassignedCarsRef"
       :selectedLoadedContainerId="selectedLoadedContainerId"
       :selectedContainerOnBoard="selectedContainerOnBoard"
+      :assignedCarsCount="assignedCarsCount"
       @car-assigned="handleCarAssigned"
     />
 
@@ -713,7 +714,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch, nextTick } from 'vue'
+import { ref, onMounted, watch, nextTick, computed } from 'vue'
 import { useApi } from '@/composables/useApi'
 import ContainersTable from './ContainersTable.vue'
 import LoadingAssignedCars from './LoadingAssignedCars.vue'
@@ -790,6 +791,12 @@ const showFilters = ref(false)
 // Add task form state
 const showTaskForm = ref(false)
 const selectedLoadingForTask = ref(null)
+
+// Computed property for assigned cars count
+const assignedCarsCount = computed(() => {
+  if (!assignedCarsRef.value) return 0
+  return assignedCarsRef.value.assignedCars?.length || 0
+})
 
 const fetchLoadingRecords = async () => {
   loading.value = true
@@ -1601,11 +1608,14 @@ const handleCarUnassigned = () => {
   }
 }
 
-const handleCarAssigned = () => {
+const handleCarAssigned = async () => {
   // Refresh assigned cars table when a car is assigned
-  console.log('Car assigned - refreshing assigned cars')
   if (assignedCarsRef.value) {
-    assignedCarsRef.value.refreshData()
+    await assignedCarsRef.value.refreshData()
+    // Notify UnassignedCars.vue that assigned cars have been refreshed
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('assigned-cars-refreshed'))
+    }
   }
   // Refresh containers table to update on board button states
   if (containersTableRef.value) {
