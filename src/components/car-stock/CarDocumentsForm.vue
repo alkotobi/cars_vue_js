@@ -42,6 +42,12 @@ const success = ref(null)
 // Form field for export license
 const exportLicenseRef = ref(props.car.export_lisence_ref || '')
 
+// Date fields for each action
+const blDate = ref(new Date().toISOString().split('T')[0])
+const freightDate = ref(new Date().toISOString().split('T')[0])
+const supplierDocsDate = ref(new Date().toISOString().split('T')[0])
+const clientDocsDate = ref(new Date().toISOString().split('T')[0])
+
 // Handle BL received
 const handleGetBL = async () => {
   try {
@@ -52,17 +58,16 @@ const handleGetBL = async () => {
     error.value = null
     success.value = null
 
-    const currentDate = new Date().toISOString().split('T')[0]
     const result = await callApi({
       query: 'UPDATE cars_stock SET date_get_bl = ? WHERE id = ?',
-      params: [currentDate, props.car.id],
+      params: [blDate.value, props.car.id],
     })
 
     if (result.success) {
       success.value = 'BL received date updated'
       const updatedCar = {
         ...props.car,
-        date_get_bl: currentDate,
+        date_get_bl: blDate.value,
       }
       Object.assign(props.car, updatedCar)
       emit('save', updatedCar)
@@ -86,17 +91,16 @@ const handleFreightPaid = async () => {
     error.value = null
     success.value = null
 
-    const currentDate = new Date().toISOString().split('T')[0]
     const result = await callApi({
       query: 'UPDATE cars_stock SET date_pay_freight = ? WHERE id = ?',
-      params: [currentDate, props.car.id],
+      params: [freightDate.value, props.car.id],
     })
 
     if (result.success) {
       success.value = 'Freight payment date updated'
       const updatedCar = {
         ...props.car,
-        date_pay_freight: currentDate,
+        date_pay_freight: freightDate.value,
       }
       Object.assign(props.car, updatedCar)
       emit('save', updatedCar)
@@ -122,17 +126,16 @@ const handleDocsFromSupplier = async () => {
     error.value = null
     success.value = null
 
-    const currentDate = new Date().toISOString().split('T')[0]
     const result = await callApi({
       query: 'UPDATE cars_stock SET date_get_documents_from_supp = ? WHERE id = ?',
-      params: [currentDate, props.car.id],
+      params: [supplierDocsDate.value, props.car.id],
     })
 
     if (result.success) {
       success.value = 'Documents from supplier date updated'
       const updatedCar = {
         ...props.car,
-        date_get_documents_from_supp: currentDate,
+        date_get_documents_from_supp: supplierDocsDate.value,
       }
       Object.assign(props.car, updatedCar)
       emit('save', updatedCar)
@@ -156,17 +159,16 @@ const handleDocsSentToClient = async () => {
     error.value = null
     success.value = null
 
-    const currentDate = new Date().toISOString().split('T')[0]
     const result = await callApi({
       query: 'UPDATE cars_stock SET date_send_documents = ? WHERE id = ?',
-      params: [currentDate, props.car.id],
+      params: [clientDocsDate.value, props.car.id],
     })
 
     if (result.success) {
       success.value = 'Documents sent to client date updated'
       const updatedCar = {
         ...props.car,
-        date_send_documents: currentDate,
+        date_send_documents: clientDocsDate.value,
       }
       Object.assign(props.car, updatedCar)
       emit('save', updatedCar)
@@ -364,6 +366,11 @@ const closeModal = () => {
   error.value = null
   success.value = null
   exportLicenseRef.value = props.car.export_lisence_ref || ''
+  // Reset date fields to today
+  blDate.value = new Date().toISOString().split('T')[0]
+  freightDate.value = new Date().toISOString().split('T')[0]
+  supplierDocsDate.value = new Date().toISOString().split('T')[0]
+  clientDocsDate.value = new Date().toISOString().split('T')[0]
   emit('close')
 }
 </script>
@@ -393,6 +400,16 @@ const closeModal = () => {
               <span class="date-value">{{
                 new Date(props.car.date_get_bl).toLocaleDateString()
               }}</span>
+            </div>
+            <div v-if="!props.car.date_get_bl" class="date-input-group">
+              <label for="bl-date">Date:</label>
+              <input
+                type="date"
+                id="bl-date"
+                v-model="blDate"
+                class="date-input"
+                :disabled="loading"
+              />
             </div>
             <div class="button-group">
               <button
@@ -429,6 +446,16 @@ const closeModal = () => {
               <span class="date-value">{{
                 new Date(props.car.date_pay_freight).toLocaleDateString()
               }}</span>
+            </div>
+            <div v-if="!props.car.date_pay_freight" class="date-input-group">
+              <label for="freight-date">Date:</label>
+              <input
+                type="date"
+                id="freight-date"
+                v-model="freightDate"
+                class="date-input"
+                :disabled="loading"
+              />
             </div>
             <div class="button-group">
               <button
@@ -471,6 +498,16 @@ const closeModal = () => {
                 new Date(props.car.date_get_documents_from_supp).toLocaleDateString()
               }}</span>
             </div>
+            <div v-if="!props.car.date_get_documents_from_supp" class="date-input-group">
+              <label for="supplier-docs-date">Date:</label>
+              <input
+                type="date"
+                id="supplier-docs-date"
+                v-model="supplierDocsDate"
+                class="date-input"
+                :disabled="loading"
+              />
+            </div>
             <div class="button-group">
               <button
                 class="action-btn supplier-docs-btn"
@@ -506,6 +543,16 @@ const closeModal = () => {
               <span class="date-value">{{
                 new Date(props.car.date_send_documents).toLocaleDateString()
               }}</span>
+            </div>
+            <div v-if="!props.car.date_send_documents" class="date-input-group">
+              <label for="client-docs-date">Date:</label>
+              <input
+                type="date"
+                id="client-docs-date"
+                v-model="clientDocsDate"
+                class="date-input"
+                :disabled="loading"
+              />
             </div>
             <div class="button-group">
               <button
@@ -664,6 +711,38 @@ const closeModal = () => {
 
 .date-value {
   color: #374151;
+}
+
+.date-input-group {
+  margin-bottom: 12px;
+}
+
+.date-input-group label {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 500;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.date-input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 14px;
+  background-color: white;
+}
+
+.date-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.date-input:disabled {
+  background-color: #f3f4f6;
+  cursor: not-allowed;
 }
 
 .action-btn {
