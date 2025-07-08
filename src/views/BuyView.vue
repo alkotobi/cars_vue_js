@@ -918,6 +918,35 @@ const handleTaskCreated = () => {
   gap: 20px;
 }
 
+/* Make only the table scrollable with height limit for 10 rows */
+.master-detail-vertical :deep(.data-table) {
+  max-height: 400px; /* Height for approximately 10 rows */
+  overflow-y: auto;
+  display: block;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.master-detail-vertical :deep(.data-table thead) {
+  position: sticky;
+  top: 0;
+  background-color: #f8fafc;
+  z-index: 10;
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.master-detail-vertical :deep(.data-table tbody) {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.master-detail-vertical :deep(.data-table thead th) {
+  background-color: #f8fafc;
+}
+
 .master-section {
   width: 100%;
 }
