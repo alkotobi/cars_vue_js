@@ -173,6 +173,12 @@ const selectedCarForTask = ref(null)
 const showSwitchBuyBillForm = ref(false)
 const selectedCarForSwitchBuyBill = ref(null)
 
+// Add computed property for admin permission
+const isAdmin = computed(() => {
+  if (!user.value) return false
+  return user.value.role_id === 1
+})
+
 // Add to the data/refs section
 const showAdvancedFilter = ref(false)
 const advancedFilters = ref({})
@@ -1532,7 +1538,15 @@ defineExpose({
                   </button>
                 </li>
                 <li>
-                  <button @click="handleSwitchPurchaseBill(car)">
+                  <button
+                    @click="handleSwitchPurchaseBill(car)"
+                    :disabled="!isAdmin"
+                    :title="
+                      !isAdmin
+                        ? 'Only administrators can switch purchase bills'
+                        : 'Switch purchase bill with another car'
+                    "
+                  >
                     <i class="fas fa-exchange-alt"></i>
                     <span>Switch Purchase Bill</span>
                   </button>
@@ -1858,7 +1872,15 @@ defineExpose({
           </button>
         </li>
         <li>
-          <button @click="handleSwitchPurchaseBill(getCarById(teleportDropdown.carId))">
+          <button
+            @click="handleSwitchPurchaseBill(getCarById(teleportDropdown.carId))"
+            :disabled="!isAdmin"
+            :title="
+              !isAdmin
+                ? 'Only administrators can switch purchase bills'
+                : 'Switch purchase bill with another car'
+            "
+          >
             <i class="fas fa-exchange-alt"></i>
             <span>Switch Purchase Bill</span>
           </button>
@@ -2844,5 +2866,23 @@ defineExpose({
   .mobile-cards-container {
     display: none;
   }
+}
+
+/* Disabled button styles */
+.dropdown-menu button:disabled,
+.teleport-dropdown-menu button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: #f3f4f6 !important;
+  color: #9ca3af !important;
+  border-color: #e5e7eb !important;
+}
+
+.dropdown-menu button:disabled:hover,
+.teleport-dropdown-menu button:disabled:hover {
+  background-color: #f3f4f6 !important;
+  color: #9ca3af !important;
+  transform: none !important;
+  box-shadow: none !important;
 }
 </style>

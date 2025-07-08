@@ -22,12 +22,57 @@ const carsByPurchaseBill = ref([])
 const selectedCarId = ref(null)
 const loading = ref(false)
 const error = ref(null)
+const searchTerm = ref('')
+const filterOptions = ref({
+  hasSellBill: false,
+  hasClient: false,
+  hasContainer: false,
+  availableOnly: false,
+})
 
 // Computed
+const filteredCars = computed(() => {
+  let filtered = carsByPurchaseBill.value
+
+  // Search filter
+  if (searchTerm.value.trim()) {
+    const term = searchTerm.value.toLowerCase().trim()
+    filtered = filtered.filter(
+      (car) =>
+        car.vin?.toLowerCase().includes(term) ||
+        car.car_name?.toLowerCase().includes(term) ||
+        car.color?.toLowerCase().includes(term) ||
+        car.sell_bill_ref?.toLowerCase().includes(term) ||
+        car.client_name?.toLowerCase().includes(term) ||
+        car.container_ref?.toLowerCase().includes(term) ||
+        car.buy_bill_ref?.toLowerCase().includes(term),
+    )
+  }
+
+  // Filter options
+  if (filterOptions.value.hasSellBill) {
+    filtered = filtered.filter((car) => car.sell_bill_ref)
+  }
+
+  if (filterOptions.value.hasClient) {
+    filtered = filtered.filter((car) => car.client_name)
+  }
+
+  if (filterOptions.value.hasContainer) {
+    filtered = filtered.filter((car) => car.container_ref)
+  }
+
+  if (filterOptions.value.availableOnly) {
+    filtered = filtered.filter((car) => !car.sell_bill_ref) // Available = no sell bill
+  }
+
+  return filtered
+})
+
 const groupedCars = computed(() => {
   const groups = {}
 
-  carsByPurchaseBill.value.forEach((car) => {
+  filteredCars.value.forEach((car) => {
     const purchaseBillKey = car.buy_bill_ref || 'No Purchase Bill'
     if (!groups[purchaseBillKey]) {
       groups[purchaseBillKey] = {
@@ -131,6 +176,16 @@ const selectCar = (carId) => {
   selectedCarId.value = carId
 }
 
+const clearFilters = () => {
+  searchTerm.value = ''
+  filterOptions.value = {
+    hasSellBill: false,
+    hasClient: false,
+    hasContainer: false,
+    availableOnly: false,
+  }
+}
+
 // Watch for show prop changes
 onMounted(() => {
   if (props.show) {
@@ -181,6 +236,50 @@ watch(
         <div class="selection-section">
           <h4>Select a car with the same model to switch purchase bills with:</h4>
 
+          <!-- Search and Filter Controls -->
+          <div class="filter-controls">
+            <div class="search-box">
+              <i class="fas fa-search"></i>
+              <input
+                v-model="searchTerm"
+                type="text"
+                placeholder="Search cars by VIN, name, color, bill ref, client, container..."
+                class="search-input"
+              />
+            </div>
+
+            <div class="filter-options">
+              <label class="filter-checkbox">
+                <input v-model="filterOptions.hasSellBill" type="checkbox" />
+                <span>Has Sell Bill</span>
+              </label>
+
+              <label class="filter-checkbox">
+                <input v-model="filterOptions.hasClient" type="checkbox" />
+                <span>Has Client</span>
+              </label>
+
+              <label class="filter-checkbox">
+                <input v-model="filterOptions.hasContainer" type="checkbox" />
+                <span>Has Container</span>
+              </label>
+
+              <label class="filter-checkbox">
+                <input v-model="filterOptions.availableOnly" type="checkbox" />
+                <span>Available Only</span>
+              </label>
+
+              <button
+                v-if="searchTerm || Object.values(filterOptions).some((v) => v)"
+                @click="clearFilters"
+                class="clear-filters-btn"
+              >
+                <i class="fas fa-times"></i>
+                Clear Filters
+              </button>
+            </div>
+          </div>
+
           <div v-if="loading" class="loading">
             <i class="fas fa-spinner fa-spin"></i>
             Loading cars...
@@ -197,7 +296,17 @@ watch(
 
           <div v-else-if="groupedCars.length === 0" class="empty-state">
             <i class="fas fa-car"></i>
-            <p>No other cars found</p>
+            <p v-if="searchTerm || Object.values(filterOptions).some((v) => v)">
+              No cars match your search/filter criteria
+            </p>
+            <p v-else>No other cars found with the same model</p>
+          </div>
+
+          <div v-else class="results-info">
+            <p>
+              Found {{ filteredCars.length }} car{{ filteredCars.length !== 1 ? 's' : '' }} in
+              {{ groupedCars.length }} purchase bill{{ groupedCars.length !== 1 ? 's' : '' }}
+            </p>
           </div>
 
           <div v-else class="cars-list">
@@ -396,6 +505,96 @@ watch(
   color: #1f2937;
   font-size: 1rem;
   font-weight: 600;
+}
+
+/* Filter controls styles */
+.filter-controls {
+  margin-bottom: 20px;
+  padding: 16px;
+  background-color: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+}
+
+.search-box {
+  position: relative;
+  margin-bottom: 12px;
+}
+
+.search-box i {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9ca3af;
+  z-index: 1;
+}
+
+.search-input {
+  width: 100%;
+  padding: 10px 12px 10px 36px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  background-color: white;
+  transition: border-color 0.2s ease;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.filter-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.filter-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.875rem;
+  color: #374151;
+  cursor: pointer;
+  user-select: none;
+}
+
+.filter-checkbox input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  accent-color: #3b82f6;
+}
+
+.clear-filters-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background-color: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  color: #6b7280;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.clear-filters-btn:hover {
+  background-color: #e5e7eb;
+  color: #374151;
+}
+
+.results-info {
+  margin-bottom: 16px;
+  padding: 8px 12px;
+  background-color: #f0f7ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  color: #1e40af;
 }
 
 .loading,
