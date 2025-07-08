@@ -285,29 +285,19 @@ const getFreightValue = (car) => {
     return freight
   }
 
-  // Debug logging
-  console.log('Car freight is 0, checking defaults:', {
-    carId: car.id,
-    isBigCar: car.is_big_car,
-    defaults: defaults.value,
-    freightBig: defaults.value?.freight_big,
-    freightSmall: defaults.value?.freight_small,
-  })
-
   // Use default freight based on car size
   if (car.is_big_car && defaults.value?.freight_big) {
     const defaultFreight = parseFloat(defaults.value.freight_big) || 0
-    console.log('Using big car default freight:', defaultFreight)
+
     return defaultFreight
   }
 
   if (!car.is_big_car && defaults.value?.freight_small) {
     const defaultFreight = parseFloat(defaults.value.freight_small) || 0
-    console.log('Using small car default freight:', defaultFreight)
+
     return defaultFreight
   }
 
-  console.log('No default freight found, returning 0')
   return 0
 }
 

@@ -14,6 +14,25 @@ const props = defineProps({
   },
 })
 
+// Check if current user is admin
+const currentUser = computed(() => {
+  const userStr = localStorage.getItem('user')
+  return userStr ? JSON.parse(userStr) : null
+})
+
+const isAdmin = computed(() => {
+  const adminStatus = currentUser.value?.role_id === 1
+  console.log(
+    'Admin check - currentUser:',
+    currentUser.value,
+    'role_id:',
+    currentUser.value?.role_id,
+    'isAdmin:',
+    adminStatus,
+  )
+  return adminStatus
+})
+
 const emit = defineEmits(['close', 'save', 'documents-sent'])
 const { callApi } = useApi()
 const loading = ref(false)
@@ -25,18 +44,9 @@ const exportLicenseRef = ref(props.car.export_lisence_ref || '')
 
 // Handle BL received
 const handleGetBL = async () => {
-  if (props.car.date_get_bl) return
-
   try {
-    await ElMessageBox.confirm(
-      'Are you sure you want to mark the BL as received?',
-      'Confirm Action',
-      {
-        confirmButtonText: 'Yes',
-        cancelButtonText: 'No',
-        type: 'warning',
-      },
-    )
+    const confirmed = confirm('Are you sure you want to mark the BL as received?')
+    if (!confirmed) return
 
     loading.value = true
     error.value = null
@@ -60,9 +70,7 @@ const handleGetBL = async () => {
       throw new Error(result.error || 'Failed to update BL received date')
     }
   } catch (err) {
-    if (err !== 'cancel') {
-      error.value = err.message || 'An error occurred'
-    }
+    error.value = err.message || 'An error occurred'
   } finally {
     loading.value = false
   }
@@ -70,18 +78,9 @@ const handleGetBL = async () => {
 
 // Handle freight payment
 const handleFreightPaid = async () => {
-  if (props.car.date_pay_freight) return
-
   try {
-    await ElMessageBox.confirm(
-      'Are you sure you want to mark the freight as paid?',
-      'Confirm Action',
-      {
-        confirmButtonText: 'Yes',
-        cancelButtonText: 'No',
-        type: 'warning',
-      },
-    )
+    const confirmed = confirm('Are you sure you want to mark the freight as paid?')
+    if (!confirmed) return
 
     loading.value = true
     error.value = null
@@ -105,9 +104,7 @@ const handleFreightPaid = async () => {
       throw new Error(result.error || 'Failed to update freight payment date')
     }
   } catch (err) {
-    if (err !== 'cancel') {
-      error.value = err.message || 'An error occurred'
-    }
+    error.value = err.message || 'An error occurred'
   } finally {
     loading.value = false
   }
@@ -115,18 +112,11 @@ const handleFreightPaid = async () => {
 
 // Handle documents received from supplier
 const handleDocsFromSupplier = async () => {
-  if (props.car.date_get_documents_from_supp) return
-
   try {
-    await ElMessageBox.confirm(
+    const confirmed = confirm(
       'Are you sure you want to mark the documents as received from supplier?',
-      'Confirm Action',
-      {
-        confirmButtonText: 'Yes',
-        cancelButtonText: 'No',
-        type: 'warning',
-      },
     )
+    if (!confirmed) return
 
     loading.value = true
     error.value = null
@@ -150,9 +140,7 @@ const handleDocsFromSupplier = async () => {
       throw new Error(result.error || 'Failed to update documents from supplier date')
     }
   } catch (err) {
-    if (err !== 'cancel') {
-      error.value = err.message || 'An error occurred'
-    }
+    error.value = err.message || 'An error occurred'
   } finally {
     loading.value = false
   }
@@ -160,18 +148,9 @@ const handleDocsFromSupplier = async () => {
 
 // Handle documents sent to client
 const handleDocsSentToClient = async () => {
-  if (props.car.date_send_documents) return
-
   try {
-    await ElMessageBox.confirm(
-      'Are you sure you want to mark the documents as sent to client?',
-      'Confirm Action',
-      {
-        confirmButtonText: 'Yes',
-        cancelButtonText: 'No',
-        type: 'warning',
-      },
-    )
+    const confirmed = confirm('Are you sure you want to mark the documents as sent to client?')
+    if (!confirmed) return
 
     loading.value = true
     error.value = null
@@ -199,9 +178,7 @@ const handleDocsSentToClient = async () => {
       throw new Error(result.error || 'Failed to update documents sent date')
     }
   } catch (err) {
-    if (err !== 'cancel') {
-      error.value = err.message || 'An error occurred'
-    }
+    error.value = err.message || 'An error occurred'
   } finally {
     loading.value = false
   }
@@ -210,15 +187,8 @@ const handleDocsSentToClient = async () => {
 // Handle export license update
 const handleExportLicenseUpdate = async () => {
   try {
-    await ElMessageBox.confirm(
-      'Are you sure you want to update the export license reference?',
-      'Confirm Action',
-      {
-        confirmButtonText: 'Yes',
-        cancelButtonText: 'No',
-        type: 'warning',
-      },
-    )
+    const confirmed = confirm('Are you sure you want to update the export license reference?')
+    if (!confirmed) return
 
     loading.value = true
     error.value = null
@@ -241,9 +211,150 @@ const handleExportLicenseUpdate = async () => {
       throw new Error(result.error || 'Failed to update export license reference')
     }
   } catch (err) {
-    if (err !== 'cancel') {
-      error.value = err.message || 'An error occurred'
+    error.value = err.message || 'An error occurred'
+  } finally {
+    loading.value = false
+  }
+}
+
+// Revert functions for admin
+const handleRevertBL = async () => {
+  console.log('handleRevertBL called, isAdmin:', isAdmin.value)
+  if (!isAdmin.value) return
+
+  try {
+    const confirmed = confirm('Are you sure you want to revert the BL received status?')
+    if (!confirmed) return
+
+    loading.value = true
+    error.value = null
+    success.value = null
+
+    const result = await callApi({
+      query: 'UPDATE cars_stock SET date_get_bl = NULL WHERE id = ?',
+      params: [props.car.id],
+    })
+
+    if (result.success) {
+      success.value = 'BL received status reverted'
+      const updatedCar = {
+        ...props.car,
+        date_get_bl: null,
+      }
+      Object.assign(props.car, updatedCar)
+      emit('save', updatedCar)
+    } else {
+      throw new Error(result.error || 'Failed to revert BL received status')
     }
+  } catch (err) {
+    error.value = err.message || 'An error occurred'
+  } finally {
+    loading.value = false
+  }
+}
+
+const handleRevertFreight = async () => {
+  console.log('handleRevertFreight called, isAdmin:', isAdmin.value)
+  if (!isAdmin.value) return
+
+  try {
+    const confirmed = confirm('Are you sure you want to revert the freight payment status?')
+    if (!confirmed) return
+
+    loading.value = true
+    error.value = null
+    success.value = null
+
+    const result = await callApi({
+      query: 'UPDATE cars_stock SET date_pay_freight = NULL WHERE id = ?',
+      params: [props.car.id],
+    })
+
+    if (result.success) {
+      success.value = 'Freight payment status reverted'
+      const updatedCar = {
+        ...props.car,
+        date_pay_freight: null,
+      }
+      Object.assign(props.car, updatedCar)
+      emit('save', updatedCar)
+    } else {
+      throw new Error(result.error || 'Failed to revert freight payment status')
+    }
+  } catch (err) {
+    error.value = err.message || 'An error occurred'
+  } finally {
+    loading.value = false
+  }
+}
+
+const handleRevertSupplierDocs = async () => {
+  console.log('handleRevertSupplierDocs called, isAdmin:', isAdmin.value)
+  if (!isAdmin.value) return
+
+  try {
+    const confirmed = confirm(
+      'Are you sure you want to revert the supplier documents received status?',
+    )
+    if (!confirmed) return
+
+    loading.value = true
+    error.value = null
+    success.value = null
+
+    const result = await callApi({
+      query: 'UPDATE cars_stock SET date_get_documents_from_supp = NULL WHERE id = ?',
+      params: [props.car.id],
+    })
+
+    if (result.success) {
+      success.value = 'Supplier documents status reverted'
+      const updatedCar = {
+        ...props.car,
+        date_get_documents_from_supp: null,
+      }
+      Object.assign(props.car, updatedCar)
+      emit('save', updatedCar)
+    } else {
+      throw new Error(result.error || 'Failed to revert supplier documents status')
+    }
+  } catch (err) {
+    error.value = err.message || 'An error occurred'
+  } finally {
+    loading.value = false
+  }
+}
+
+const handleRevertClientDocs = async () => {
+  console.log('handleRevertClientDocs called, isAdmin:', isAdmin.value)
+  if (!isAdmin.value) return
+
+  try {
+    const confirmed = confirm('Are you sure you want to revert the client documents sent status?')
+    if (!confirmed) return
+
+    loading.value = true
+    error.value = null
+    success.value = null
+
+    const result = await callApi({
+      query: 'UPDATE cars_stock SET date_send_documents = NULL WHERE id = ?',
+      params: [props.car.id],
+    })
+
+    if (result.success) {
+      success.value = 'Client documents sent status reverted'
+      const updatedCar = {
+        ...props.car,
+        date_send_documents: null,
+      }
+      Object.assign(props.car, updatedCar)
+      emit('save', updatedCar)
+    } else {
+      throw new Error(result.error || 'Failed to revert client documents sent status')
+    }
+  } catch (err) {
+    error.value = err.message || 'An error occurred'
   } finally {
     loading.value = false
   }
@@ -283,14 +394,25 @@ const closeModal = () => {
                 new Date(props.car.date_get_bl).toLocaleDateString()
               }}</span>
             </div>
-            <button
-              class="action-btn get-bl-btn"
-              @click="handleGetBL"
-              :disabled="loading || !!props.car.date_get_bl"
-              :class="{ disabled: !!props.car.date_get_bl }"
-            >
-              {{ loading ? 'Processing...' : 'We Get BL' }}
-            </button>
+            <div class="button-group">
+              <button
+                class="action-btn get-bl-btn"
+                @click="handleGetBL"
+                :disabled="loading || !!props.car.date_get_bl"
+                :class="{ disabled: !!props.car.date_get_bl }"
+              >
+                {{ loading ? 'Processing...' : 'We Get BL' }}
+              </button>
+              <button
+                v-if="isAdmin && props.car.date_get_bl"
+                class="revert-btn"
+                @click="handleRevertBL"
+                :disabled="loading"
+                title="Revert BL received status"
+              >
+                ↶
+              </button>
+            </div>
           </div>
 
           <!-- Freight Payment Section -->
@@ -308,14 +430,25 @@ const closeModal = () => {
                 new Date(props.car.date_pay_freight).toLocaleDateString()
               }}</span>
             </div>
-            <button
-              class="action-btn freight-btn"
-              @click="handleFreightPaid"
-              :disabled="loading || !!props.car.date_pay_freight"
-              :class="{ disabled: !!props.car.date_pay_freight }"
-            >
-              {{ loading ? 'Processing...' : 'Freight Paid' }}
-            </button>
+            <div class="button-group">
+              <button
+                class="action-btn freight-btn"
+                @click="handleFreightPaid"
+                :disabled="loading || !!props.car.date_pay_freight"
+                :class="{ disabled: !!props.car.date_pay_freight }"
+              >
+                {{ loading ? 'Processing...' : 'Freight Paid' }}
+              </button>
+              <button
+                v-if="isAdmin && props.car.date_pay_freight"
+                class="revert-btn"
+                @click="handleRevertFreight"
+                :disabled="loading"
+                title="Revert freight payment status"
+              >
+                ↶
+              </button>
+            </div>
           </div>
 
           <!-- Supplier Documents Section -->
@@ -338,14 +471,25 @@ const closeModal = () => {
                 new Date(props.car.date_get_documents_from_supp).toLocaleDateString()
               }}</span>
             </div>
-            <button
-              class="action-btn supplier-docs-btn"
-              @click="handleDocsFromSupplier"
-              :disabled="loading || !!props.car.date_get_documents_from_supp"
-              :class="{ disabled: !!props.car.date_get_documents_from_supp }"
-            >
-              {{ loading ? 'Processing...' : 'We Get Docs from Supplier' }}
-            </button>
+            <div class="button-group">
+              <button
+                class="action-btn supplier-docs-btn"
+                @click="handleDocsFromSupplier"
+                :disabled="loading || !!props.car.date_get_documents_from_supp"
+                :class="{ disabled: !!props.car.date_get_documents_from_supp }"
+              >
+                {{ loading ? 'Processing...' : 'We Get Docs from Supplier' }}
+              </button>
+              <button
+                v-if="isAdmin && props.car.date_get_documents_from_supp"
+                class="revert-btn"
+                @click="handleRevertSupplierDocs"
+                :disabled="loading"
+                title="Revert supplier documents received status"
+              >
+                ↶
+              </button>
+            </div>
           </div>
 
           <!-- Client Documents Section -->
@@ -363,14 +507,25 @@ const closeModal = () => {
                 new Date(props.car.date_send_documents).toLocaleDateString()
               }}</span>
             </div>
-            <button
-              class="action-btn client-docs-btn"
-              @click="handleDocsSentToClient"
-              :disabled="loading || !!props.car.date_send_documents"
-              :class="{ disabled: !!props.car.date_send_documents }"
-            >
-              {{ loading ? 'Processing...' : 'Documents Sent to Client' }}
-            </button>
+            <div class="button-group">
+              <button
+                class="action-btn client-docs-btn"
+                @click="handleDocsSentToClient"
+                :disabled="loading || !!props.car.date_send_documents"
+                :class="{ disabled: !!props.car.date_send_documents }"
+              >
+                {{ loading ? 'Processing...' : 'Documents Sent to Client' }}
+              </button>
+              <button
+                v-if="isAdmin && props.car.date_send_documents"
+                class="revert-btn"
+                @click="handleRevertClientDocs"
+                :disabled="loading"
+                title="Revert client documents sent status"
+              >
+                ↶
+              </button>
+            </div>
           </div>
         </div>
 
@@ -559,6 +714,40 @@ const closeModal = () => {
 }
 
 .action-btn.disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.button-group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.button-group .action-btn {
+  flex: 1;
+}
+
+.revert-btn {
+  padding: 8px 12px;
+  background-color: #dc2626;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+}
+
+.revert-btn:hover:not(:disabled) {
+  background-color: #b91c1c;
+}
+
+.revert-btn:disabled {
   background-color: #9ca3af;
   cursor: not-allowed;
 }
