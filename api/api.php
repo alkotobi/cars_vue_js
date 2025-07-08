@@ -61,6 +61,66 @@ function executeQuery($sql, $params = []) {
     }
 }
 
+// Function to execute multi-statement SQL query
+function executeMultiQuery($sql, $params = []) {
+    global $db_config;
+    
+    try {
+        $conn = getConnection($db_config);
+        
+        if (is_array($conn) && isset($conn['error'])) {
+            throw new Exception($conn['error']);
+        }
+
+        // Split the SQL into individual statements
+        $statements = array_filter(array_map('trim', explode(';', $sql)));
+        $results = [];
+        $lastResult = null;
+
+        foreach ($statements as $statement) {
+            if (empty($statement)) continue;
+            
+            $stmt = $conn->prepare($statement);
+            $stmt->execute($params);
+            
+            // Determine query type
+            $queryType = strtoupper(substr(trim($statement), 0, 6));
+            
+            switch($queryType) {
+                case 'SELECT':
+                    $lastResult = ['type' => 'SELECT', 'data' => $stmt->fetchAll(PDO::FETCH_ASSOC)];
+                    break;
+                case 'INSERT':
+                    $lastResult = ['type' => 'INSERT', 'lastInsertId' => $conn->lastInsertId()];
+                    break;
+                case 'UPDATE':
+                case 'DELETE':
+                    $lastResult = ['type' => $queryType, 'affectedRows' => $stmt->rowCount()];
+                    break;
+                case 'SET':
+                case 'START':
+                case 'COMMIT':
+                    $lastResult = ['type' => $queryType, 'success' => true];
+                    break;
+                default:
+                    $lastResult = ['type' => 'OTHER', 'success' => true];
+            }
+            
+            $results[] = $lastResult;
+        }
+
+        // Return the last SELECT result as the main data, or success status
+        if ($lastResult && $lastResult['type'] === 'SELECT') {
+            return ['success' => true, 'data' => $lastResult['data'], 'allResults' => $results];
+        } else {
+            return ['success' => true, 'message' => 'Multi-statement executed successfully', 'allResults' => $results];
+        }
+        
+    } catch(Exception $e) {
+        return ['success' => false, 'error' => $e->getMessage()];
+    }
+}
+
 // Only accept POST requests
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     echo json_encode(['success' => false, 'error' => 'Only POST method is allowed']);
@@ -108,6 +168,22 @@ if (isset($postData['action'])) {
             } else {
                 echo json_encode(['success' => false, 'message' => $result['error']]);
             }
+            exit;
+
+        case 'execute_multi_sql':
+            // Handle multi-statement SQL queries
+            if (!isset($postData['query']) || empty($postData['query'])) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'SQL query is required']);
+                exit;
+            }
+            
+            $query = $postData['query'];
+            $params = isset($postData['params']) ? $postData['params'] : [];
+            
+            // Execute multi-statement query
+            $result = executeMultiQuery($query, $params);
+            echo json_encode($result);
             exit;
 
         case 'verify_password':

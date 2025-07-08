@@ -9,6 +9,7 @@ import CarWarehouseForm from './CarWarehouseForm.vue'
 import CarDocumentsForm from './CarDocumentsForm.vue'
 import CarLoadForm from './CarLoadForm.vue'
 import TaskForm from './TaskForm.vue'
+import CarStockSwitchBuyBill from './CarStockSwitchBuyBill.vue'
 
 import { useRouter } from 'vue-router'
 
@@ -167,6 +168,10 @@ const can_load_car = computed(() => {
 // Add new refs for task form
 const showTaskForm = ref(false)
 const selectedCarForTask = ref(null)
+
+// Add new refs for switch buy bill form
+const showSwitchBuyBillForm = ref(false)
+const selectedCarForSwitchBuyBill = ref(null)
 
 // Add to the data/refs section
 const showAdvancedFilter = ref(false)
@@ -897,6 +902,81 @@ const handleTaskSave = (result) => {
   }
 }
 
+// Add new methods for switch buy bill form
+const handleSwitchBuyBillClose = () => {
+  showSwitchBuyBillForm.value = false
+  selectedCarForSwitchBuyBill.value = null
+}
+
+const handleSwitchBuyBillSave = async (result) => {
+  console.log('Switch result received:', result)
+
+  if (result.success) {
+    try {
+      console.log('Starting switch process for cars:', result.carId1, 'and', result.carId2)
+
+      // Use the original SQL with direct ID insertion
+      const switchResult = await callApi({
+        action: 'execute_multi_sql',
+        query: `
+          SET @id1 = ${result.carId1};
+          SET @id2 = ${result.carId2};
+
+          -- Start transaction to ensure data integrity
+          START TRANSACTION;
+
+          -- Get the current id_buy_details values
+          SET @buy_details_1 = (SELECT id_buy_details FROM cars_stock WHERE id = @id1);
+          SET @buy_details_2 = (SELECT id_buy_details FROM cars_stock WHERE id = @id2);
+
+          -- Update the first record with the second record's id_buy_details
+          UPDATE cars_stock 
+          SET id_buy_details = @buy_details_2 
+          WHERE id = @id1;
+
+          -- Update the second record with the first record's id_buy_details
+          UPDATE cars_stock 
+          SET id_buy_details = @buy_details_1 
+          WHERE id = @id2;
+
+          -- Commit the transaction
+          COMMIT;
+
+          -- Optional: Verify the switch was successful
+          SELECT 
+              id,
+              id_buy_details,
+              CASE 
+                  WHEN id = @id1 THEN 'First Record (was @buy_details_1, now @buy_details_2)'
+                  WHEN id = @id2 THEN 'Second Record (was @buy_details_2, now @buy_details_1)'
+              END as switch_info
+          FROM cars_stock 
+          WHERE id IN (@id1, @id2)
+          ORDER BY id;
+        `,
+        params: [],
+      })
+
+      console.log('Switch result:', switchResult)
+
+      if (switchResult.success) {
+        alert('Purchase bills switched successfully!')
+        handleSwitchBuyBillClose()
+        // Refresh the cars data
+        await fetchCarsStock()
+      } else {
+        console.error('Switch failed:', switchResult)
+        alert('Failed to switch purchase bills')
+      }
+    } catch (err) {
+      console.error('Error switching purchase bills:', err)
+      alert('Error switching purchase bills')
+    }
+  } else {
+    console.log('Switch result was not successful:', result)
+  }
+}
+
 // Add this method after other methods
 const closeAllDropdowns = () => {
   isDropdownOpen.value = {}
@@ -916,6 +996,12 @@ const openSellBillTab = (car) => {
     const route = router.resolve(`/sell-bills/${car.id_sell}`)
     window.open(route.href, '_blank')
   }
+}
+
+const handleSwitchPurchaseBill = (car) => {
+  closeTeleportDropdown()
+  selectedCarForSwitchBuyBill.value = car
+  showSwitchBuyBillForm.value = true
 }
 
 const handleTaskAction = (car) => {
@@ -1016,6 +1102,14 @@ defineExpose({
       :is-visible="showTaskForm"
       @task-created="handleTaskSave"
       @cancel="handleTaskClose"
+    />
+
+    <CarStockSwitchBuyBill
+      v-if="selectedCarForSwitchBuyBill"
+      :car="selectedCarForSwitchBuyBill"
+      :show="showSwitchBuyBillForm"
+      @close="handleSwitchBuyBillClose"
+      @save="handleSwitchBuyBillSave"
     />
 
     <!-- <div class="table-actions">
@@ -1437,6 +1531,12 @@ defineExpose({
                     <span>Sell Bill</span>
                   </button>
                 </li>
+                <li>
+                  <button @click="handleSwitchPurchaseBill(car)">
+                    <i class="fas fa-exchange-alt"></i>
+                    <span>Switch Purchase Bill</span>
+                  </button>
+                </li>
               </ul>
             </div>
 
@@ -1755,6 +1855,12 @@ defineExpose({
           >
             <i class="fas fa-file-invoice-dollar"></i>
             <span>Sell Bill</span>
+          </button>
+        </li>
+        <li>
+          <button @click="handleSwitchPurchaseBill(getCarById(teleportDropdown.carId))">
+            <i class="fas fa-exchange-alt"></i>
+            <span>Switch Purchase Bill</span>
           </button>
         </li>
       </ul>
