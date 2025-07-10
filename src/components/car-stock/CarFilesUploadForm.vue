@@ -1,5 +1,5 @@
 <script setup>
-import { ref, defineProps, defineEmits } from 'vue'
+import { ref, defineProps, defineEmits, computed } from 'vue'
 import { useApi } from '../../composables/useApi'
 
 const props = defineProps({
@@ -19,6 +19,16 @@ const loading = ref(false)
 const error = ref(null)
 const success = ref(null)
 const isProcessing = ref(false)
+
+// Check if current user is admin
+const currentUser = computed(() => {
+  const userStr = localStorage.getItem('user')
+  return userStr ? JSON.parse(userStr) : null
+})
+
+const isAdmin = computed(() => {
+  return currentUser.value?.role_id === 1
+})
 
 // Upload progress tracking
 const uploadProgress = ref({
@@ -143,6 +153,83 @@ const handleFileUpload = async (file, type) => {
     // Reset progress and uploading state after completion or error
     uploadProgress.value[type] = 0
     isUploading.value[type] = false
+  }
+}
+
+const handleRevertFile = async (fileType) => {
+  if (!isAdmin.value) {
+    error.value = 'Only admin can revert file uploads'
+    return
+  }
+
+  // Determine which file path to check and clear based on file type
+  let filePath = null
+  let dbField = null
+  let displayName = null
+
+  switch (fileType) {
+    case 'documents':
+      filePath = props.car.path_documents
+      dbField = 'path_documents'
+      displayName = 'BL'
+      break
+    case 'sell_pi':
+      filePath = props.car.sell_pi_path
+      dbField = 'sell_pi_path'
+      displayName = 'INVOICE'
+      break
+    case 'buy_pi':
+      filePath = props.car.buy_pi_path
+      dbField = 'buy_pi_path'
+      displayName = 'PACKING LIST'
+      break
+    default:
+      error.value = 'Invalid file type'
+      return
+  }
+
+  if (!filePath) {
+    error.value = `No ${displayName} file to revert`
+    return
+  }
+
+  const confirmed = confirm(
+    `Are you sure you want to remove the ${displayName} file? This action cannot be undone.`,
+  )
+  if (!confirmed) return
+
+  try {
+    loading.value = true
+    error.value = null
+
+    const result = await callApi({
+      query: `UPDATE cars_stock SET ${dbField} = NULL WHERE id = ?`,
+      params: [props.car.id],
+    })
+
+    if (result.success) {
+      // Update the car object
+      const updatedCar = {
+        ...props.car,
+        [dbField]: null,
+      }
+      Object.assign(props.car, updatedCar)
+
+      success.value = `${displayName} file removed successfully`
+      emit('save', updatedCar)
+
+      // Close the modal after a short delay to show success message
+      setTimeout(() => {
+        closeModal()
+      }, 1000)
+    } else {
+      throw new Error(result.error || `Failed to remove ${displayName} file`)
+    }
+  } catch (err) {
+    console.error('Revert error:', err)
+    error.value = err.message || 'An error occurred while removing the file'
+  } finally {
+    loading.value = false
   }
 }
 
@@ -359,7 +446,7 @@ const handleDrop = (event, type, dragRef) => {
         <div class="form-group">
           <label for="documents">
             <i class="fas fa-file-pdf"></i>
-            Documents:
+            BL:
           </label>
           <div
             class="file-input-container"
@@ -397,12 +484,24 @@ const handleDrop = (event, type, dragRef) => {
               Current: {{ props.car.path_documents.split('/').pop() }}
             </div>
           </div>
+          <!-- Revert button for admin only - outside file input container -->
+          <div v-if="isAdmin && props.car.path_documents" class="revert-container">
+            <button
+              class="revert-btn"
+              @click="handleRevertFile('documents')"
+              :disabled="loading"
+              title="Remove documents file"
+            >
+              <i class="fas fa-trash"></i>
+              Remove BL File
+            </button>
+          </div>
         </div>
 
         <div class="form-group">
           <label for="sell-pi">
             <i class="fas fa-file-invoice-dollar"></i>
-            Sell PI:
+            INVOICE:
           </label>
           <div
             class="file-input-container"
@@ -440,12 +539,24 @@ const handleDrop = (event, type, dragRef) => {
               Current: {{ props.car.sell_pi_path.split('/').pop() }}
             </div>
           </div>
+          <!-- Revert button for admin only - outside file input container -->
+          <div v-if="isAdmin && props.car.sell_pi_path" class="revert-container">
+            <button
+              class="revert-btn"
+              @click="handleRevertFile('sell_pi')"
+              :disabled="loading"
+              title="Remove sell PI file"
+            >
+              <i class="fas fa-trash"></i>
+              Remove INVOICE File
+            </button>
+          </div>
         </div>
 
         <div class="form-group">
           <label for="buy-pi">
             <i class="fas fa-file-contract"></i>
-            Buy PI:
+            PACKING LIST:
           </label>
           <div
             class="file-input-container"
@@ -482,6 +593,18 @@ const handleDrop = (event, type, dragRef) => {
               <i class="fas fa-check-circle text-success"></i>
               Current: {{ props.car.buy_pi_path.split('/').pop() }}
             </div>
+          </div>
+          <!-- Revert button for admin only - outside file input container -->
+          <div v-if="isAdmin && props.car.buy_pi_path" class="revert-container">
+            <button
+              class="revert-btn"
+              @click="handleRevertFile('buy_pi')"
+              :disabled="loading"
+              title="Remove buy PI file"
+            >
+              <i class="fas fa-trash"></i>
+              Remove PACKING LIST File
+            </button>
           </div>
         </div>
 
@@ -674,6 +797,36 @@ const handleDrop = (event, type, dragRef) => {
 
 .text-success {
   color: #10b981;
+}
+
+.revert-container {
+  margin-top: 8px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.revert-btn {
+  background-color: #dc2626;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.revert-btn:hover:not(:disabled) {
+  background-color: #b91c1c;
+  transform: scale(1.05);
+}
+
+.revert-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .error-message {

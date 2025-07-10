@@ -1209,7 +1209,7 @@ defineExpose({
                 {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
               </span>
             </th>
-            <th>Documents</th>
+            <th>BL</th>
             <th @click="toggleSort('notes')" class="sortable">
               Notes
               <span v-if="sortConfig.key === 'notes'" class="sort-indicator">
@@ -1374,7 +1374,7 @@ defineExpose({
                   class="document-link"
                 >
                   <i class="fas fa-file-pdf"></i>
-                  Documents
+                  BL
                 </a>
                 <a
                   v-if="car.sell_pi_path"
@@ -1383,7 +1383,7 @@ defineExpose({
                   class="document-link"
                 >
                   <i class="fas fa-file-invoice-dollar"></i>
-                  Sell PI
+                  INVOICE
                 </a>
                 <a
                   v-if="car.buy_pi_path"
@@ -1392,7 +1392,7 @@ defineExpose({
                   class="document-link"
                 >
                   <i class="fas fa-file-contract"></i>
-                  Buy PI
+                  PACKING LIST
                 </a>
               </div>
             </td>
@@ -1726,7 +1726,7 @@ defineExpose({
               class="card-document-link"
             >
               <i class="fas fa-file-pdf"></i>
-              Documents
+              BL
             </a>
             <a
               v-if="car.sell_pi_path"
@@ -1735,7 +1735,7 @@ defineExpose({
               class="card-document-link"
             >
               <i class="fas fa-file-invoice-dollar"></i>
-              Sell PI
+              INVOICE
             </a>
             <a
               v-if="car.buy_pi_path"
@@ -1744,7 +1744,7 @@ defineExpose({
               class="card-document-link"
             >
               <i class="fas fa-file-contract"></i>
-              Buy PI
+              PACKING LIST
             </a>
           </div>
         </div>
