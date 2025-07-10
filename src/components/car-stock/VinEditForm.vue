@@ -1,5 +1,5 @@
 <script setup>
-import { ref, defineProps, defineEmits } from 'vue'
+import { ref, defineProps, defineEmits, computed } from 'vue'
 import { useApi } from '../../composables/useApi'
 
 const props = defineProps({
@@ -19,6 +19,12 @@ const newVin = ref('')
 const loading = ref(false)
 const error = ref(null)
 const isProcessing = ref(false)
+
+// Get user from localStorage
+const user = ref(JSON.parse(localStorage.getItem('user') || 'null'))
+
+// Check if user is admin
+const isAdmin = computed(() => user.value?.role_id === 1)
 
 const handleSubmit = async () => {
   if (isProcessing.value || loading.value) return
@@ -55,6 +61,37 @@ const closeModal = () => {
   error.value = null
   newVin.value = ''
   emit('close')
+}
+
+const handleRevertVin = async () => {
+  if (!isAdmin.value) return
+
+  if (!confirm('Are you sure you want to revert the VIN to null? This action cannot be undone.')) {
+    return
+  }
+
+  loading.value = true
+  isProcessing.value = true
+  error.value = null
+
+  try {
+    const result = await callApi({
+      query: 'UPDATE cars_stock SET vin = NULL WHERE id = ?',
+      params: [props.car.id],
+    })
+
+    if (result.success) {
+      emit('save', { ...props.car, vin: null })
+      emit('close')
+    } else {
+      error.value = result.error || 'Failed to revert VIN'
+    }
+  } catch (err) {
+    error.value = err.message || 'An error occurred'
+  } finally {
+    loading.value = false
+    isProcessing.value = false
+  }
 }
 </script>
 
@@ -103,6 +140,18 @@ const closeModal = () => {
               :disabled="isProcessing"
             />
           </div>
+        </div>
+
+        <div v-if="isAdmin && car.vin" class="form-group">
+          <button
+            type="button"
+            @click="handleRevertVin"
+            :disabled="isProcessing"
+            class="revert-btn"
+          >
+            <i class="fas fa-undo"></i>
+            Revert VIN to Null
+          </button>
         </div>
 
         <div v-if="error" class="error-message">
@@ -258,6 +307,26 @@ const closeModal = () => {
 
 .save-btn:hover {
   background-color: #2563eb;
+}
+
+.revert-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+  background-color: #dc2626;
+  color: white;
+  width: 100%;
+  justify-content: center;
+}
+
+.revert-btn:hover {
+  background-color: #b91c1c;
 }
 
 button:disabled {
