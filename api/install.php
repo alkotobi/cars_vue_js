@@ -61,8 +61,10 @@ try {
     $pdo->exec("CREATE TABLE IF NOT EXISTS `colors` (
         `id` int(11) NOT NULL AUTO_INCREMENT,
         `color` varchar(255) DEFAULT NULL,
+          `hexa` varchar(255) DEFAULT NULL,
         PRIMARY KEY (`id`),
-        UNIQUE KEY `color` (`color`)
+        UNIQUE KEY `color` (`color`),
+          UNIQUE KEY `hexa` (`hexa`)
     ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci");
 
     // Create discharge_ports table
