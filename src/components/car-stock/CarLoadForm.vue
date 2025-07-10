@@ -1,5 +1,5 @@
 <script setup>
-import { ref, defineProps, defineEmits } from 'vue'
+import { ref, defineProps, defineEmits, computed } from 'vue'
 import { useApi } from '../../composables/useApi'
 
 const props = defineProps({
@@ -22,6 +22,16 @@ const containerRef = ref(props.car.container_ref || '')
 const containerRefError = ref('')
 const loadingDate = ref(new Date().toISOString().split('T')[0]) // Default to today
 const loadingDateError = ref('')
+
+// Check if current user is admin
+const currentUser = computed(() => {
+  const userStr = localStorage.getItem('user')
+  return userStr ? JSON.parse(userStr) : null
+})
+
+const isAdmin = computed(() => {
+  return currentUser.value?.role_id === 1
+})
 
 const handleLoad = async () => {
   containerRefError.value = ''
@@ -68,6 +78,55 @@ const handleLoad = async () => {
       }, 2000) // Close after animation plays
     } else {
       throw new Error(result.error || 'Failed to update loading date')
+    }
+  } catch (err) {
+    error.value = err.message || 'An error occurred'
+  } finally {
+    loading.value = false
+  }
+}
+
+const handleRevert = async () => {
+  if (!isAdmin.value) {
+    error.value = 'Only admin can revert loading status'
+    return
+  }
+
+  if (!props.car.date_loding) {
+    error.value = 'Car is not loaded, nothing to revert'
+    return
+  }
+
+  const confirmed = confirm(
+    'Are you sure you want to revert the loading status? This will clear the container ref and loading date.',
+  )
+  if (!confirmed) return
+
+  try {
+    loading.value = true
+    error.value = null
+
+    const result = await callApi({
+      query: 'UPDATE cars_stock SET date_loding = NULL, container_ref = NULL WHERE id = ?',
+      params: [props.car.id],
+    })
+
+    if (result.success) {
+      const updatedCar = {
+        ...props.car,
+        date_loding: null,
+        container_ref: null,
+      }
+      Object.assign(props.car, updatedCar)
+      containerRef.value = ''
+      loadingDate.value = new Date().toISOString().split('T')[0]
+      success.value = true
+      setTimeout(() => {
+        emit('save', updatedCar)
+        emit('close')
+      }, 2000) // Close after animation plays
+    } else {
+      throw new Error(result.error || 'Failed to revert loading status')
     }
   } catch (err) {
     error.value = err.message || 'An error occurred'
@@ -146,6 +205,16 @@ const closeModal = () => {
             :class="{ disabled: !!props.car.date_loding }"
           >
             {{ loading ? 'Processing...' : 'Load Car' }}
+          </button>
+
+          <!-- Revert button for admin only -->
+          <button
+            v-if="isAdmin && props.car.date_loding"
+            class="action-btn revert-btn"
+            @click="handleRevert"
+            :disabled="loading"
+          >
+            {{ loading ? 'Processing...' : 'Revert Loading' }}
           </button>
         </div>
 
@@ -297,6 +366,7 @@ const closeModal = () => {
   font-size: 16px;
   font-weight: 500;
   transition: all 0.2s;
+  margin-bottom: 8px;
 }
 
 .load-btn {
@@ -310,6 +380,20 @@ const closeModal = () => {
 }
 
 .load-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.revert-btn {
+  background-color: #dc2626;
+  color: white;
+}
+
+.revert-btn:hover:not(:disabled) {
+  background-color: #b91c1c;
+  transform: translateY(-1px);
+}
+
+.revert-btn:active:not(:disabled) {
   transform: translateY(0);
 }
 
