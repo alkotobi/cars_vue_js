@@ -349,6 +349,23 @@ const getRateValue = (car) => {
   return 0
 }
 
+// Function to calculate text color based on background color
+const getTextColor = (backgroundColor) => {
+  if (!backgroundColor) return '#374151'
+
+  // Convert hex to RGB
+  const hex = backgroundColor.replace('#', '')
+  const r = parseInt(hex.substr(0, 2), 16)
+  const g = parseInt(hex.substr(2, 2), 16)
+  const b = parseInt(hex.substr(4, 2), 16)
+
+  // Calculate luminance
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+
+  // Return white text for dark backgrounds, black text for light backgrounds
+  return luminance > 0.5 ? '#000000' : '#ffffff'
+}
+
 const fetchCarsStock = async () => {
   loading.value = true
   error.value = null
@@ -391,6 +408,7 @@ const fetchCarsStock = async () => {
         c.name as client_name,
         cn.car_name,
         clr.color,
+        clr.hexa,
         lp.loading_port,
         dp.discharge_port,
         bd.price_sell as buy_price,
@@ -1242,7 +1260,13 @@ defineExpose({
                   </div>
                 </div>
                 <div v-if="car.color" class="car-detail-item">
-                  <div class="info-badge badge-color">
+                  <div
+                    class="info-badge badge-color"
+                    :style="{
+                      backgroundColor: car.hexa || '#000000',
+                      color: getTextColor(car.hexa || '#000000'),
+                    }"
+                  >
                     <i class="fas fa-palette"></i>
                     {{ car.color }}
                   </div>
@@ -1576,7 +1600,14 @@ defineExpose({
                 <i class="fas fa-barcode"></i>
                 {{ car.vin }}
               </div>
-              <div v-if="car.color" class="info-badge badge-color">
+              <div
+                v-if="car.color"
+                class="info-badge badge-color"
+                :style="{
+                  backgroundColor: car.hexa || '#000000',
+                  color: getTextColor(car.hexa || '#000000'),
+                }"
+              >
                 <i class="fas fa-palette"></i>
                 {{ car.color }}
               </div>
@@ -2429,9 +2460,11 @@ defineExpose({
 }
 
 .badge-color {
-  background-color: #fef3c7;
-  color: #92400e;
-  border: 1px solid #fde68a;
+  border: 1px solid #d1d5db;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  text-align: center;
+  justify-content: center;
 }
 
 .badge-buy-bill {

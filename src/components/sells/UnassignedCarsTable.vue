@@ -92,6 +92,7 @@ const fetchUnassignedCars = async () => {
           bd.amount as buy_price,
           cn.car_name,
           clr.color,
+          clr.hexa,
           bb.bill_ref as buy_bill_ref
         FROM cars_stock cs
         LEFT JOIN buy_details bd ON cs.id_buy_details = bd.id
@@ -192,6 +193,23 @@ const showBatchPricing = ref(false)
 
 // Add discharge ports for batch sell
 const dischargePorts = ref([])
+
+// Function to calculate text color based on background color
+const getTextColor = (backgroundColor) => {
+  if (!backgroundColor) return '#374151'
+
+  // Convert hex to RGB
+  const hex = backgroundColor.replace('#', '')
+  const r = parseInt(hex.substr(0, 2), 16)
+  const g = parseInt(hex.substr(2, 2), 16)
+  const b = parseInt(hex.substr(4, 2), 16)
+
+  // Calculate luminance
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+
+  // Return white text for dark backgrounds, black text for light backgrounds
+  return luminance > 0.5 ? '#000000' : '#ffffff'
+}
 
 // Function to fetch discharge ports
 const fetchDischargePorts = async () => {
@@ -717,7 +735,19 @@ onMounted(() => {
         <tr v-for="car in sortedCars" :key="car.id">
           <td>{{ car.id }}</td>
           <td>{{ car.car_name }}</td>
-          <td>{{ car.color }}</td>
+          <td>
+            <span
+              v-if="car.color"
+              class="badge color-badge"
+              :style="{
+                backgroundColor: car.hexa || '#000000',
+                color: getTextColor(car.hexa || '#000000'),
+              }"
+            >
+              {{ car.color }}
+            </span>
+            <span v-else>N/A</span>
+          </td>
           <td>{{ car.vin || 'N/A' }}</td>
           <td>{{ car.price_cell ? '$' + car.price_cell.toLocaleString() : 'N/A' }}</td>
           <td v-if="isAdmin">{{ car.buy_price ? '$' + car.buy_price.toLocaleString() : 'N/A' }}</td>
@@ -896,6 +926,23 @@ onMounted(() => {
 .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.badge {
+  padding: 4px 10px;
+  font-size: 0.95em;
+  font-weight: 500;
+  display: inline-block;
+  border-radius: 4px;
+  border: 1px solid #d1d5db;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  text-align: center;
+}
+
+.color-badge {
+  background-color: #fef2f2;
+  color: #dc2626;
 }
 
 .assign-btn {
