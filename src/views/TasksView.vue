@@ -60,15 +60,51 @@ const fetchTasks = async () => {
       return
     }
 
-    // Build the WHERE clause based on user role
-    let whereClause = ''
+    // Build the WHERE clause based on user role and filters
+    let whereConditions = []
     let params = []
 
+    // Role-based filtering
     if (!isAdmin.value) {
       // For non-admin users, show only tasks created by or assigned to them
-      whereClause = 'WHERE (t.id_user_create = ? OR t.id_user_receive = ?)'
-      params = [user.value.id, user.value.id]
+      whereConditions.push('(t.id_user_create = ? OR t.id_user_receive = ?)')
+      params.push(user.value.id, user.value.id)
     }
+
+    // Apply user-defined filters
+    if (filters.value.status && String(filters.value.status).trim() !== '') {
+      if (filters.value.status === 'pending') {
+        whereConditions.push('t.date_declare_done IS NULL')
+      } else if (filters.value.status === 'completed') {
+        whereConditions.push('t.date_declare_done IS NOT NULL AND t.date_confirm_done IS NULL')
+      } else if (filters.value.status === 'confirmed') {
+        whereConditions.push('t.date_confirm_done IS NOT NULL')
+      }
+    }
+
+    if (filters.value.priority && String(filters.value.priority).trim() !== '') {
+      whereConditions.push('t.id_priority = ?')
+      params.push(filters.value.priority)
+    }
+
+    if (filters.value.assignedTo && String(filters.value.assignedTo).trim() !== '') {
+      whereConditions.push('t.id_user_receive = ?')
+      params.push(filters.value.assignedTo)
+    }
+
+    if (filters.value.createdBy && String(filters.value.createdBy).trim() !== '') {
+      whereConditions.push('t.id_user_create = ?')
+      params.push(filters.value.createdBy)
+    }
+
+    if (filters.value.search && String(filters.value.search).trim() !== '') {
+      whereConditions.push('(t.title LIKE ? OR t.desciption LIKE ? OR t.notes LIKE ?)')
+      const searchTerm = `%${filters.value.search}%`
+      params.push(searchTerm, searchTerm, searchTerm)
+    }
+
+    // Combine all conditions
+    const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : ''
 
     // Main query with role-based filtering
     const result = await callApi({
