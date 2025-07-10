@@ -238,13 +238,15 @@ export const useApi = () => {
     try {
       // Removed: console.log('Attempting to handle cookie verification...')
 
-      // First, try to access the main page to establish cookies
-      const mainPageResponse = await fetch(API_BASE_URL, {
-        method: 'GET',
+      // First, try to access the API endpoint to establish cookies
+      const mainPageResponse = await fetch(API_URL, {
+        method: 'POST',
         headers: {
-          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Content-Type': 'application/json',
+          Accept: 'application/json, text/plain, */*',
           'Accept-Language': 'en-US,en;q=0.9',
         },
+        body: JSON.stringify({ action: 'ping' }),
       })
 
       // Removed: console.log('Main page response status:', mainPageResponse.status)

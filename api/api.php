@@ -133,6 +133,11 @@ $postData = json_decode(file_get_contents('php://input'), true);
 // Check if this is a special action request
 if (isset($postData['action'])) {
     switch($postData['action']) {
+        case 'ping':
+            // Simple ping action for cookie verification
+            echo json_encode(['success' => true, 'message' => 'pong']);
+            exit;
+            
         case 'execute_sql':
             // Check if user is admin (you may need to implement proper session/auth check)
             // For now, we'll add basic security measures

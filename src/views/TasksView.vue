@@ -1019,8 +1019,13 @@ onMounted(async () => {
 <style scoped>
 .tasks-view {
   padding: 20px;
-  max-width: 1400px;
-  margin: 0 auto;
+  max-width: 20000px;
+  margin: auto;
+}
+.actions-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .header {
