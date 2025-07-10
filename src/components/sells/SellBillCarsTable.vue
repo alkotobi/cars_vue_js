@@ -110,7 +110,8 @@ const unassignCar = async (carId) => {
             id_port_discharge = NULL, 
             freight = NULL,
             id_sell_pi = NULL,
-            is_tmp_client = 0
+            is_tmp_client = 0,
+            is_batch = 0
         WHERE id = ?
       `,
       params: [carId],
