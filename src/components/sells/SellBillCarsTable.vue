@@ -360,7 +360,8 @@ const fetchCarsByBillId = async (billId) => {
           dp.discharge_port,
           bd.amount as buy_price,
           cn.car_name,
-          clr.color
+          clr.color,
+          clr.hexa
         FROM cars_stock cs
         LEFT JOIN loading_ports lp ON cs.id_port_loading = lp.id
         LEFT JOIN clients c ON cs.id_client = c.id
@@ -507,6 +508,23 @@ const totalCfrUsd = computed(() => {
     return total + price + freight
   }, 0)
 })
+
+// Function to calculate text color based on background color
+const getTextColor = (backgroundColor) => {
+  if (!backgroundColor) return '#374151'
+
+  // Convert hex to RGB
+  const hex = backgroundColor.replace('#', '')
+  const r = parseInt(hex.substr(0, 2), 16)
+  const g = parseInt(hex.substr(2, 2), 16)
+  const b = parseInt(hex.substr(4, 2), 16)
+
+  // Calculate luminance
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+
+  // Return white text for dark backgrounds, black text for light backgrounds
+  return luminance > 0.5 ? '#000000' : '#ffffff'
+}
 </script>
 
 <template>
@@ -629,7 +647,16 @@ const totalCfrUsd = computed(() => {
             <div class="car-name">{{ car.car_name }}</div>
             <div class="car-vin" v-if="car.vin">{{ car.vin }}</div>
             <div class="car-badges">
-              <span v-if="car.color" class="badge color-badge">{{ car.color }}</span>
+              <span
+                v-if="car.color"
+                class="badge color-badge"
+                :style="{
+                  backgroundColor: car.hexa || '#000000',
+                  color: getTextColor(car.hexa || '#000000'),
+                }"
+              >
+                {{ car.color }}
+              </span>
             </div>
           </td>
           <td>{{ car.client_name || 'N/A' }}</td>
@@ -1411,6 +1438,7 @@ button:disabled {
 .car-badges {
   display: flex;
   gap: 4px;
+  width: 100%;
 }
 
 .badge {
@@ -1424,6 +1452,12 @@ button:disabled {
 .color-badge {
   background-color: #fef2f2;
   color: #dc2626;
+  border: 1px solid #d1d5db;
+  color: #374151;
+  font-weight: 500;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  text-align: center;
 }
 
 .vin-badge {
