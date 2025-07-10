@@ -94,6 +94,7 @@ const isProcessing = ref({
   documents: false,
   load: false,
   task: false,
+  notes: false,
 })
 
 // Add new refs and computed properties for VIN editing
@@ -1034,6 +1035,47 @@ const handleTaskAction = (car) => {
   showTaskForm.value = true
 }
 
+const showNotesModal = ref(false)
+const notesEditCar = ref(null)
+const notesEditValue = ref('')
+
+const handleNotesAction = (car) => {
+  closeTeleportDropdown()
+  notesEditCar.value = car
+  notesEditValue.value = car.notes || ''
+  showNotesModal.value = true
+}
+
+const saveNotes = async () => {
+  if (!notesEditCar.value) return
+  isProcessing.notes = true
+  try {
+    const result = await callApi({
+      query: 'UPDATE cars_stock SET notes = ? WHERE id = ?',
+      params: [notesEditValue.value, notesEditCar.value.id],
+    })
+    if (result.success) {
+      notesEditCar.value.notes = notesEditValue.value
+      // Also update in cars array if needed
+      if (cars.value && Array.isArray(cars.value)) {
+        const carIdx = cars.value.findIndex((c) => c.id === notesEditCar.value.id)
+        if (carIdx !== -1) cars.value[carIdx].notes = notesEditValue.value
+      }
+      showNotesModal.value = false
+    } else {
+      alert(result.error || 'Failed to update notes')
+    }
+  } catch (err) {
+    alert(err.message || 'Error updating notes')
+  } finally {
+    isProcessing.notes = false
+  }
+}
+
+const cancelNotes = () => {
+  showNotesModal.value = false
+}
+
 onMounted(() => {
   const userStr = localStorage.getItem('user')
   if (userStr) {
@@ -1563,6 +1605,20 @@ defineExpose({
                 </li>
                 <li>
                   <button
+                    @click="handleNotesAction(car)"
+                    :disabled="isProcessing.notes"
+                    :class="{ processing: isProcessing.notes }"
+                  >
+                    <i class="fas fa-sticky-note"></i>
+                    <span>Notes</span>
+                    <i
+                      v-if="isProcessing.notes"
+                      class="fas fa-spinner fa-spin loading-indicator"
+                    ></i>
+                  </button>
+                </li>
+                <li>
+                  <button
                     @click="handleSwitchPurchaseBill(car)"
                     :disabled="!isAdmin"
                     :title="
@@ -1904,6 +1960,17 @@ defineExpose({
         </li>
         <li>
           <button
+            @click="handleNotesAction(getCarById(teleportDropdown.carId))"
+            :disabled="isProcessing.notes"
+            :class="{ processing: isProcessing.notes }"
+          >
+            <i class="fas fa-sticky-note"></i>
+            <span>Notes</span>
+            <i v-if="isProcessing.notes" class="fas fa-spinner fa-spin loading-indicator"></i>
+          </button>
+        </li>
+        <li>
+          <button
             @click="handleSwitchPurchaseBill(getCarById(teleportDropdown.carId))"
             :disabled="!isAdmin"
             :title="
@@ -1919,6 +1986,27 @@ defineExpose({
       </ul>
     </div>
   </teleport>
+
+  <!-- Notes Edit Modal -->
+  <div v-if="showNotesModal" class="modal-overlay">
+    <div class="modal-content">
+      <h3>Edit Notes</h3>
+      <textarea
+        v-model="notesEditValue"
+        rows="6"
+        class="notes-textarea"
+        placeholder="Enter notes..."
+      ></textarea>
+      <div class="modal-actions">
+        <button @click="saveNotes" :disabled="isProcessing.notes" class="btn save-btn">
+          <i class="fas fa-save"></i> Save
+        </button>
+        <button @click="cancelNotes" :disabled="isProcessing.notes" class="btn cancel-btn">
+          <i class="fas fa-times"></i> Cancel
+        </button>
+      </div>
+    </div>
+  </div>
 </template>
 
 <style scoped>
@@ -2917,5 +3005,64 @@ defineExpose({
   color: #9ca3af !important;
   transform: none !important;
   box-shadow: none !important;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+.modal-content {
+  background: #fff;
+  border-radius: 8px;
+  padding: 24px;
+  min-width: 320px;
+  max-width: 90vw;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.notes-textarea {
+  width: 100%;
+  min-height: 120px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  padding: 8px;
+  font-size: 1em;
+  resize: vertical;
+}
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+.save-btn {
+  background: #10b981;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  cursor: pointer;
+}
+.cancel-btn {
+  background: #f3f4f6;
+  color: #374151;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  cursor: pointer;
+}
+.save-btn:disabled,
+.cancel-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 </style>
