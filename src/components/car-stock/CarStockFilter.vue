@@ -68,6 +68,7 @@ const advancedFilters = ref({
   bill_ref: '',
   sell_bill_ref: '',
   tmp_client_status: '',
+  exclude_whole_sale: false,
 })
 
 // Fetch reference data for filter dropdowns
@@ -633,6 +634,22 @@ fetchReferenceData()
           </select>
         </div>
 
+        <!-- Exclude Whole Sale Filter -->
+        <div class="filter-field checkbox-field">
+          <label for="exclude-whole-sale-filter" class="checkbox-label">
+            <input
+              id="exclude-whole-sale-filter"
+              type="checkbox"
+              v-model="advancedFilters.exclude_whole_sale"
+              :disabled="isProcessing.advanced"
+            />
+            <span class="checkbox-text">
+              <i class="fas fa-ban"></i>
+              Exclude Whole Sale Cars
+            </span>
+          </label>
+        </div>
+
         <!-- Add the Apply and Reset buttons at the bottom -->
         <div class="advanced-filter-actions">
           <button
@@ -900,6 +917,47 @@ button:disabled {
 .filter-field select:disabled {
   background-color: #f3f4f6;
   cursor: not-allowed;
+}
+
+/* Checkbox field styles */
+.checkbox-field {
+  display: flex;
+  align-items: center;
+}
+
+.checkbox-field .checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 14px;
+  font-weight: 500;
+  color: #4b5563;
+}
+
+.checkbox-field .checkbox-label input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #3b82f6;
+}
+
+.checkbox-field .checkbox-label input[type='checkbox']:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.checkbox-field .checkbox-text {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.checkbox-field .checkbox-text i {
+  color: #6b7280;
+  width: 16px;
+  text-align: center;
 }
 
 .range-inputs {

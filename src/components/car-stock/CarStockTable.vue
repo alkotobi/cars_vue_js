@@ -666,6 +666,11 @@ const fetchCarsStock = async () => {
           }
         }
 
+        // Exclude Whole Sale filter
+        if (adv.exclude_whole_sale) {
+          query += ` AND cs.is_batch = 0`
+        }
+
         if (adv.has_bl) {
           query += ` AND cs.date_get_bl IS NOT NULL`
         }
