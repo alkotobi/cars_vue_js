@@ -1534,6 +1534,57 @@ const handleContainerClick = async (containerId) => {
     console.error('Error fetching container on board status:', err)
     selectedContainerOnBoard.value = false
   }
+
+  // Scroll to unassigned cars table after a short delay to ensure it's rendered
+  setTimeout(() => {
+    if (unassignedCarsRef.value) {
+      // Get the actual DOM element, handling Vue 3 ref structure
+      let element = unassignedCarsRef.value.$el
+
+      // If it's a text node, try to get the parent element
+      if (element && element.nodeType === Node.TEXT_NODE) {
+        element = element.parentElement
+      }
+
+      // Alternative: try to get the element by querying the DOM
+      if (!element || !element.getBoundingClientRect) {
+        element =
+          document.querySelector('#unassigned-cars-table') ||
+          document.querySelector('.unassigned-cars-container')
+      }
+
+      if (element && element.getBoundingClientRect) {
+        const yOffset = -50 // Increased offset to account for any fixed headers
+        const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset
+        window.scrollTo({ top: y, behavior: 'smooth' })
+      }
+    }
+  }, 100) // Reduced delay for faster response
+
+  // Alternative scroll method if the first one doesn't work
+  setTimeout(() => {
+    let element = unassignedCarsRef.value?.$el
+
+    // If it's a text node, try to get the parent element
+    if (element && element.nodeType === Node.TEXT_NODE) {
+      element = element.parentElement
+    }
+
+    // Alternative: try to get the element by querying the DOM
+    if (!element || !element.scrollIntoView) {
+      element =
+        document.querySelector('#unassigned-cars-table') ||
+        document.querySelector('.unassigned-cars-container')
+    }
+
+    if (element && element.scrollIntoView) {
+      element.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+        inline: 'nearest',
+      })
+    }
+  }, 200)
 }
 
 const handleContainerCreated = async (newContainer) => {

@@ -236,7 +236,7 @@
               <td class="sell-bill-id-cell">{{ car.sell_bill_id || '-' }}</td>
               <td class="sell-bill-date-cell">{{ formatDate(car.sell_bill_date) }}</td>
               <td class="sell-bill-ref-cell">{{ car.sell_bill_ref || '-' }}</td>
-              <td class="discharge-port-cell">{{ dischargePortName || '-' }}</td>
+              <td class="discharge-port-cell">{{ car.discharge_port || '-' }}</td>
               <td class="actions-cell">
                 <div class="action-buttons">
                   <button
@@ -384,9 +384,6 @@ const sortOrder = ref('asc')
 // Filter visibility state
 const showFilters = ref(false)
 
-// New ref for discharge port name
-const dischargePortName = ref('')
-
 // Computed property to check if any filters are active
 const hasActiveFilters = computed(() => {
   return (
@@ -474,13 +471,15 @@ const fetchUnassignedCars = async () => {
           cl.id_no as client_id_no,
           sb.id as sell_bill_id,
           sb.date_sell as sell_bill_date,
-          sb.bill_ref as sell_bill_ref
+          sb.bill_ref as sell_bill_ref,
+          dp.discharge_port
         FROM cars_stock cs
         LEFT JOIN buy_details bd ON cs.id_buy_details = bd.id
         LEFT JOIN cars_names cn ON bd.id_car_name = cn.id
         LEFT JOIN colors c ON bd.id_color = c.id
         LEFT JOIN clients cl ON cs.id_client = cl.id
         LEFT JOIN sell_bill sb ON cs.id_sell = sb.id
+        LEFT JOIN discharge_ports dp ON cs.id_port_discharge = dp.id
         WHERE cs.id_loaded_container IS NULL
         AND cs.date_loding IS NULL
         AND cs.container_ref IS NULL
@@ -761,34 +760,6 @@ const clearFilters = () => {
 const toggleFilters = () => {
   showFilters.value = !showFilters.value
 }
-
-watch(
-  () => props.selectedLoadedContainerId,
-  async (newId) => {
-    if (!newId) {
-      dischargePortName.value = ''
-      return
-    }
-    // Fetch discharge port for the selected container
-    try {
-      const result = await callApi({
-        query: `SELECT dp.discharge_port FROM loaded_containers lc
-                LEFT JOIN loading l ON lc.id_loading = l.id
-                LEFT JOIN discharge_ports dp ON l.id_discharge_port = dp.id
-                WHERE lc.id = ?`,
-        params: [newId],
-      })
-      if (result.success && result.data && result.data.length > 0) {
-        dischargePortName.value = result.data[0].discharge_port || ''
-      } else {
-        dischargePortName.value = ''
-      }
-    } catch (err) {
-      dischargePortName.value = ''
-    }
-  },
-  { immediate: true },
-)
 
 // Watch assignedCarsCount and only re-enable assign button if count < 4
 watch(
