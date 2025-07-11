@@ -215,7 +215,7 @@ const sortedCars = computed(() => {
     }
 
     // Handle date values
-    if (['date_loding', 'date_buy'].includes(sortConfig.value.key)) {
+    if (['date_loding', 'date_buy', 'date_sell'].includes(sortConfig.value.key)) {
       aVal = aVal ? new Date(aVal).getTime() : 0
       bVal = bVal ? new Date(bVal).getTime() : 0
     }
@@ -1221,6 +1221,12 @@ defineExpose({
                 {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
               </span>
             </th>
+            <th @click="toggleSort('date_sell')" class="sortable">
+              Date Sell
+              <span v-if="sortConfig.key === 'date_sell'" class="sort-indicator">
+                {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
+              </span>
+            </th>
             <th @click="toggleSort('car_name')" class="sortable">
               Car Details
               <span v-if="sortConfig.key === 'car_name'" class="sort-indicator">
@@ -1292,6 +1298,7 @@ defineExpose({
             </td>
             <td>#{{ car.id }}</td>
             <td>{{ car.date_buy ? new Date(car.date_buy).toLocaleDateString() : '-' }}</td>
+            <td>{{ car.date_sell ? new Date(car.date_sell).toLocaleDateString() : '-' }}</td>
             <td class="car-details-cell">
               <div class="car-details-container">
                 <div class="car-name">{{ car.car_name }}</div>

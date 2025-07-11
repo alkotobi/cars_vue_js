@@ -37,6 +37,7 @@ const isProcessing = ref({
   containers: false,
   statistics: false,
   load: false,
+  loadingInquiry: false,
 })
 
 const { callApi } = useApi()
@@ -172,6 +173,16 @@ const handleLoadClick = async () => {
     isProcessing.value.load = false
   }
 }
+
+const handleLoadingInquiryClick = async () => {
+  if (isProcessing.value.loadingInquiry) return
+  isProcessing.value.loadingInquiry = true
+  try {
+    activeView.value = 'loading-inquiry'
+  } finally {
+    isProcessing.value.loadingInquiry = false
+  }
+}
 </script>
 
 <template>
@@ -257,6 +268,24 @@ const handleLoadClick = async () => {
           <i class="fas fa-truck-loading"></i>
           <span>Load</span>
           <i v-if="isProcessing.load" class="fas fa-spinner fa-spin loading-indicator"></i>
+        </button>
+
+        <button
+          v-if="canLoadCar"
+          @click="handleLoadingInquiryClick"
+          :class="{
+            active: activeView === 'loading-inquiry',
+            processing: isProcessing.loadingInquiry,
+          }"
+          class="sidebar-btn loading-inquiry-btn"
+          :disabled="isProcessing.loadingInquiry"
+        >
+          <i class="fas fa-list-alt" title="Loading Order"></i>
+          <span>Loading Order</span>
+          <i
+            v-if="isProcessing.loadingInquiry"
+            class="fas fa-spinner fa-spin loading-indicator"
+          ></i>
         </button>
 
         <button
