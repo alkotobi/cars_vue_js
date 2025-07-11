@@ -55,6 +55,13 @@ const closeMobileNav = () => {
   showMobileNav.value = false
 }
 
+// Sidebar hide/show state
+const sidebarCollapsed = ref(true)
+
+const toggleSidebar = () => {
+  sidebarCollapsed.value = !sidebarCollapsed.value
+}
+
 const navigateTo = async (view) => {
   if (isProcessing.value[view]) return
   isProcessing.value[view] = true
@@ -180,8 +187,15 @@ const handleLoadClick = async () => {
     <div v-if="showMobileNav" class="mobile-nav-overlay" @click="closeMobileNav"></div>
 
     <!-- Sidebar -->
-    <div class="sidebar" :class="{ 'mobile-open': showMobileNav }">
+    <div class="sidebar" :class="{ 'mobile-open': showMobileNav, collapsed: sidebarCollapsed }">
       <div class="sidebar-top">
+        <button
+          @click="toggleSidebar"
+          class="sidebar-toggle-btn"
+          :title="sidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'"
+        >
+          <i :class="sidebarCollapsed ? 'fas fa-chevron-right' : 'fas fa-chevron-left'"></i>
+        </button>
         <button
           @click="returnToDashboard"
           class="sidebar-btn return-btn"
@@ -422,6 +436,36 @@ const handleLoadClick = async () => {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  transition: width 0.3s ease;
+  position: relative;
+}
+
+.sidebar.collapsed {
+  width: 60px;
+  padding: 20px 10px;
+}
+
+.sidebar-toggle-btn {
+  position: absolute;
+  top: 20px;
+  right: -15px;
+  width: 30px;
+  height: 30px;
+  background-color: #2c3e50;
+  border: 2px solid #34495e;
+  border-radius: 50%;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  transition: all 0.2s ease;
+}
+
+.sidebar-toggle-btn:hover {
+  background-color: #34495e;
+  transform: scale(1.1);
 }
 
 .sidebar-top {
@@ -607,6 +651,24 @@ h2 {
 
 .sidebar-btn span {
   flex: 1;
+  transition: opacity 0.3s ease;
+}
+
+.sidebar.collapsed .sidebar-btn span {
+  opacity: 0;
+  width: 0;
+  overflow: hidden;
+}
+
+.sidebar.collapsed .sidebar-section-title {
+  opacity: 0;
+  width: 0;
+  overflow: hidden;
+}
+
+.sidebar.collapsed .sidebar-btn {
+  justify-content: center;
+  padding: 12px 8px;
 }
 
 .loading-indicator {
