@@ -252,6 +252,61 @@ const sortedCars = computed(() => {
   })
 })
 
+// Add selection functionality
+const selectedCars = ref(new Set())
+const selectAll = ref(false)
+
+// Function to toggle individual car selection
+const toggleCarSelection = (carId) => {
+  if (selectedCars.value.has(carId)) {
+    selectedCars.value.delete(carId)
+  } else {
+    selectedCars.value.add(carId)
+  }
+  updateSelectAllState()
+}
+
+// Function to select all cars
+const selectAllCars = () => {
+  if (selectAll.value) {
+    selectedCars.value.clear()
+    selectAll.value = false
+  } else {
+    sortedCars.value.forEach((car) => {
+      selectedCars.value.add(car.id)
+    })
+    selectAll.value = true
+  }
+}
+
+// Function to update select all state
+const updateSelectAllState = () => {
+  if (sortedCars.value.length === 0) {
+    selectAll.value = false
+    return
+  }
+
+  const allSelected = sortedCars.value.every((car) => selectedCars.value.has(car.id))
+  const someSelected = sortedCars.value.some((car) => selectedCars.value.has(car.id))
+
+  if (allSelected) {
+    selectAll.value = true
+  } else if (someSelected) {
+    selectAll.value = false
+  } else {
+    selectAll.value = false
+  }
+}
+
+// Watch for changes in sortedCars to update select all state
+watch(
+  sortedCars,
+  () => {
+    updateSelectAllState()
+  },
+  { immediate: true },
+)
+
 // Add new refs for teleport dropdown
 const teleportDropdown = ref({
   isOpen: false,
@@ -1213,6 +1268,15 @@ defineExpose({
       <table class="cars-table">
         <thead>
           <tr>
+            <th class="select-all-header">
+              <input
+                type="checkbox"
+                :checked="selectAll"
+                @change="selectAllCars"
+                :indeterminate="selectedCars.size > 0 && selectedCars.size < sortedCars.length"
+                title="Select All Cars"
+              />
+            </th>
             <th>Actions</th>
             <th @click="toggleSort('id')" class="sortable">
               ID
@@ -1290,7 +1354,19 @@ defineExpose({
           </tr>
         </thead>
         <tbody>
-          <tr v-for="car in sortedCars" :key="car.id" :class="{ 'used-car': car.is_used_car }">
+          <tr
+            v-for="car in sortedCars"
+            :key="car.id"
+            :class="{ 'used-car': car.is_used_car, selected: selectedCars.has(car.id) }"
+          >
+            <td class="select-cell">
+              <input
+                type="checkbox"
+                :checked="selectedCars.has(car.id)"
+                @change="toggleCarSelection(car.id)"
+                :title="`Select car #${car.id}`"
+              />
+            </td>
             <td>
               <!-- Teleport Dropdown Button -->
               <button
@@ -3076,5 +3152,41 @@ defineExpose({
 .cancel-btn:disabled {
   opacity: 0.7;
   cursor: not-allowed;
+}
+
+/* Selection checkbox styles */
+.select-all-header,
+.select-cell {
+  width: 40px;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.select-all-header input[type='checkbox'],
+.select-cell input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #3b82f6;
+}
+
+.select-all-header input[type='checkbox']:disabled,
+.select-cell input[type='checkbox']:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.select-all-header input[type='checkbox']:indeterminate {
+  accent-color: #f59e0b;
+}
+
+/* Highlight selected rows */
+.cars-table tbody tr.selected {
+  background-color: #eff6ff;
+  border-left: 3px solid #3b82f6;
+}
+
+.cars-table tbody tr.selected:hover {
+  background-color: #dbeafe;
 }
 </style>
