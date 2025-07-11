@@ -73,6 +73,10 @@
               <i class="fas fa-info-circle"></i>
               Press Ctrl+Enter (or Cmd+Enter) to execute
             </span>
+            <span v-if="hasMultipleStatements" class="multi-statement-indicator">
+              <i class="fas fa-layer-group"></i>
+              Multi-statement query ({{ statementCount }} statements)
+            </span>
             <span class="query-length">{{ sqlQuery.length }} characters</span>
           </div>
         </div>
@@ -574,6 +578,16 @@ const areParametersValid = computed(() => {
   )
 })
 
+// Check if query has multiple statements
+const hasMultipleStatements = computed(() => {
+  return splitSqlStatements(sqlQuery.value).length > 1
+})
+
+// Get statement count
+const statementCount = computed(() => {
+  return splitSqlStatements(sqlQuery.value).length
+})
+
 // Check if parameters are loaded from a template
 const hasLoadedParameters = computed(() => {
   if (!parameterMode.value || detectedParameters.value.length === 0) return false
@@ -740,30 +754,37 @@ const clearParameters = () => {
 const executeQuery = async () => {
   if (isProcessing.value || !sqlQuery.value.trim()) return
 
-  // Check if this is a non-SELECT query and ask for confirmation
-  const queryType = sqlQuery.value.trim().toUpperCase()
-  const isNonSelectQuery =
-    !queryType.startsWith('SELECT') &&
-    (queryType.startsWith('INSERT') ||
-      queryType.startsWith('UPDATE') ||
-      queryType.startsWith('DELETE') ||
-      queryType.startsWith('DROP') ||
-      queryType.startsWith('CREATE') ||
-      queryType.startsWith('ALTER') ||
-      queryType.startsWith('TRUNCATE'))
+  // Check if this is a multi-statement query
+  const statements = splitSqlStatements(sqlQuery.value)
+  const hasMultipleStatements = statements.length > 1
 
-  if (isNonSelectQuery) {
+  // Check if any statement is a non-SELECT query and ask for confirmation
+  const hasNonSelectStatements = statements.some((statement) => {
+    const queryType = statement.trim().toUpperCase()
+    return (
+      !queryType.startsWith('SELECT') &&
+      (queryType.startsWith('INSERT') ||
+        queryType.startsWith('UPDATE') ||
+        queryType.startsWith('DELETE') ||
+        queryType.startsWith('DROP') ||
+        queryType.startsWith('CREATE') ||
+        queryType.startsWith('ALTER') ||
+        queryType.startsWith('TRUNCATE'))
+    )
+  })
+
+  if (hasNonSelectStatements) {
+    const message = hasMultipleStatements
+      ? `This query contains ${statements.length} statements, some of which will modify data in the database. Are you sure you want to execute all statements?`
+      : `This query will modify data in the database. Are you sure you want to execute this statement?`
+
     try {
-      await ElMessageBox.confirm(
-        `This query will modify data in the database. Are you sure you want to execute this ${queryType.split(' ')[0]} statement?`,
-        'Confirm Database Modification',
-        {
-          confirmButtonText: 'Execute',
-          cancelButtonText: 'Cancel',
-          type: 'warning',
-          dangerouslyUseHTMLString: false,
-        },
-      )
+      await ElMessageBox.confirm(message, 'Confirm Database Modification', {
+        confirmButtonText: 'Execute',
+        cancelButtonText: 'Cancel',
+        type: 'warning',
+        dangerouslyUseHTMLString: false,
+      })
     } catch (err) {
       // User cancelled
       return
@@ -794,15 +815,32 @@ const executeQuery = async () => {
         return
       }
 
-      // Replace parameters with placeholders and collect values
-      detectedParameters.value.forEach((param, index) => {
-        finalQuery = finalQuery.replace(new RegExp(`:${param}`, 'g'), '?')
-        params.push(parameterValues.value[param])
-      })
+      // For multi-statement queries, we need to handle parameters differently
+      const statements = splitSqlStatements(sqlQuery.value)
+      const hasMultipleStatements = statements.length > 1
+
+      if (hasMultipleStatements) {
+        // For multi-statement queries, replace parameters with actual values
+        detectedParameters.value.forEach((param) => {
+          const paramValue = parameterValues.value[param]
+          // Escape the parameter value to prevent SQL injection
+          const escapedValue =
+            typeof paramValue === 'string' ? `'${paramValue.replace(/'/g, "''")}'` : paramValue
+          finalQuery = finalQuery.replace(new RegExp(`:${param}`, 'g'), escapedValue)
+        })
+        // No parameters array needed for multi-statement queries with direct value replacement
+        params = []
+      } else {
+        // For single statements, use parameterized queries
+        detectedParameters.value.forEach((param, index) => {
+          finalQuery = finalQuery.replace(new RegExp(`:${param}`, 'g'), '?')
+          params.push(parameterValues.value[param])
+        })
+      }
     }
 
     const response = await callApi({
-      action: 'execute_sql',
+      action: 'execute_multi_sql',
       query: finalQuery,
       params: params,
       requiresAuth: true,
@@ -815,7 +853,13 @@ const executeQuery = async () => {
       // Add to history
       addToHistory(sqlQuery.value, true)
 
-      if (isNonSelectQuery) {
+      if (hasMultipleStatements) {
+        const totalAffected = response.totalAffectedRows || 0
+        const totalResults = response.totalResults || 0
+        ElMessage.success(
+          `Multi-statement query executed successfully. ${totalAffected} rows affected, ${totalResults} results returned.`,
+        )
+      } else if (hasNonSelectStatements) {
         ElMessage.success(
           `Query executed successfully. ${response.affectedRows || 0} rows affected.`,
         )
@@ -825,7 +869,8 @@ const executeQuery = async () => {
         )
       }
     } else {
-      error.value = response.message || 'An error occurred while executing the query.'
+      error.value =
+        response.message || response.error || 'An error occurred while executing the query.'
       addToHistory(sqlQuery.value, false)
       ElMessage.error(error.value)
     }
@@ -836,6 +881,92 @@ const executeQuery = async () => {
   } finally {
     isProcessing.value = false
   }
+}
+
+// Helper function to split SQL statements
+const splitSqlStatements = (sql) => {
+  if (!sql.trim()) return []
+
+  // Split by semicolon, but handle semicolons inside strings and comments
+  const statements = []
+  let currentStatement = ''
+  let inString = false
+  let stringChar = null
+  let inComment = false
+  let commentType = null // '--' or '/*'
+  let i = 0
+
+  while (i < sql.length) {
+    const char = sql[i]
+    const nextChar = sql[i + 1]
+
+    // Handle comments
+    if (!inString && !inComment) {
+      if (char === '-' && nextChar === '-') {
+        inComment = true
+        commentType = '--'
+        currentStatement += char + nextChar
+        i += 2
+        continue
+      } else if (char === '/' && nextChar === '*') {
+        inComment = true
+        commentType = '/*'
+        currentStatement += char + nextChar
+        i += 2
+        continue
+      }
+    }
+
+    // Handle end of comments
+    if (inComment) {
+      if (commentType === '--' && char === '\n') {
+        inComment = false
+        commentType = null
+      } else if (commentType === '/*' && char === '*' && nextChar === '/') {
+        inComment = false
+        commentType = null
+        currentStatement += char + nextChar
+        i += 2
+        continue
+      }
+      currentStatement += char
+      i++
+      continue
+    }
+
+    // Handle strings
+    if (!inComment && (char === "'" || char === '"')) {
+      if (!inString) {
+        inString = true
+        stringChar = char
+      } else if (stringChar === char) {
+        inString = false
+        stringChar = null
+      }
+    }
+
+    // Handle semicolon (statement separator)
+    if (char === ';' && !inString && !inComment) {
+      currentStatement += char
+      const trimmedStatement = currentStatement.trim()
+      if (trimmedStatement) {
+        statements.push(trimmedStatement)
+      }
+      currentStatement = ''
+    } else {
+      currentStatement += char
+    }
+
+    i++
+  }
+
+  // Add the last statement if it's not empty
+  const trimmedStatement = currentStatement.trim()
+  if (trimmedStatement) {
+    statements.push(trimmedStatement)
+  }
+
+  return statements
 }
 
 const addToHistory = (query, success) => {
@@ -1340,6 +1471,19 @@ const clearTemplateFilters = () => {
 
 .query-length {
   font-weight: 500;
+}
+
+.multi-statement-indicator {
+  color: #8b5cf6;
+  font-size: 12px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background-color: #f3f4f6;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid #e5e7eb;
 }
 
 .parameters-section {

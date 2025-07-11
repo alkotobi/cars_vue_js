@@ -15,6 +15,8 @@ import CarStockPrintOptions from './CarStockPrintOptions.vue'
 import CarStockPrintReport from './CarStockPrintReport.vue'
 import VinAssignmentModal from './VinAssignmentModal.vue'
 import CarPortsBulkEditForm from './CarPortsBulkEditForm.vue'
+import CarWarehouseBulkEditForm from './CarWarehouseBulkEditForm.vue'
+import CarNotesBulkEditForm from './CarNotesBulkEditForm.vue'
 
 import { useRouter } from 'vue-router'
 
@@ -184,6 +186,12 @@ const showVinAssignmentModal = ref(false)
 
 // Add new refs for ports bulk edit form
 const showPortsBulkEditForm = ref(false)
+
+// Add new refs for warehouse bulk edit form
+const showWarehouseBulkEditForm = ref(false)
+
+// Add new refs for notes bulk edit form
+const showNotesBulkEditForm = ref(false)
 
 // Add computed property for admin permission
 const isAdmin = computed(() => {
@@ -1456,6 +1464,36 @@ const handlePortsBulkSave = (updatedCars) => {
   fetchCarsStock()
 }
 
+const handleWarehouseFromToolbar = () => {
+  if (selectedCars.value.size === 0) {
+    alert('No cars selected for warehouse editing')
+    return
+  }
+
+  showWarehouseBulkEditForm.value = true
+}
+
+const handleWarehouseBulkSave = (updatedCars) => {
+  console.log('Warehouse updated for cars:', updatedCars)
+  showWarehouseBulkEditForm.value = false
+  fetchCarsStock()
+}
+
+const handleNotesFromToolbar = () => {
+  if (selectedCars.value.size === 0) {
+    alert('No cars selected for notes editing')
+    return
+  }
+
+  showNotesBulkEditForm.value = true
+}
+
+const handleNotesBulkSave = (updatedCars) => {
+  console.log('Notes updated for cars:', updatedCars)
+  showNotesBulkEditForm.value = false
+  fetchCarsStock()
+}
+
 onMounted(() => {
   const userStr = localStorage.getItem('user')
   if (userStr) {
@@ -1602,6 +1640,8 @@ defineExpose({
         @loading-order="handleLoadingOrderFromToolbar"
         @vin="handleVinFromToolbar"
         @ports="handlePortsFromToolbar"
+        @warehouse="handleWarehouseFromToolbar"
+        @notes="handleNotesFromToolbar"
       />
 
       <div class="table-container">
@@ -1717,7 +1757,7 @@ defineExpose({
                   <i class="fas fa-ellipsis-h"></i>
                 </button>
               </td>
-              <td>#{{ car.id }}</td>
+              <td>{{ car.id }}</td>
               <td>{{ car.date_buy ? new Date(car.date_buy).toLocaleDateString() : '-' }}</td>
               <td>{{ car.date_sell ? new Date(car.date_sell).toLocaleDateString() : '-' }}</td>
               <td class="car-details-cell">
@@ -2454,6 +2494,24 @@ defineExpose({
     @close="showPortsBulkEditForm = false"
     @save="handlePortsBulkSave"
   />
+
+  <!-- Warehouse Bulk Edit Modal -->
+  <CarWarehouseBulkEditForm
+    :show="showWarehouseBulkEditForm"
+    :selected-cars="sortedCars.filter((car) => selectedCars.has(car.id))"
+    :is-admin="isAdmin"
+    @close="showWarehouseBulkEditForm = false"
+    @save="handleWarehouseBulkSave"
+  />
+
+  <!-- Notes Bulk Edit Modal -->
+  <CarNotesBulkEditForm
+    :show="showNotesBulkEditForm"
+    :selected-cars="sortedCars.filter((car) => selectedCars.has(car.id))"
+    :is-admin="isAdmin"
+    @close="showNotesBulkEditForm = false"
+    @save="handleNotesBulkSave"
+  />
 </template>
 
 <style scoped>
@@ -2553,6 +2611,63 @@ defineExpose({
 
 .cars-table tbody tr:hover {
   background-color: #f9fafb;
+}
+
+/* ID column width */
+.cars-table th:nth-child(3),
+.cars-table td:nth-child(3) {
+  width: 4ch;
+  min-width: 4ch;
+  max-width: 4ch;
+  text-align: center;
+}
+
+/* Select column width - make it compact */
+.cars-table th:nth-child(1),
+.cars-table td:nth-child(1) {
+  width: 2ch;
+  min-width: 2ch;
+  max-width: 2ch;
+  text-align: center;
+  padding: 8px 4px;
+}
+
+/* Car details column - make it compact */
+.cars-table th:nth-child(6),
+.cars-table td:nth-child(6) {
+  width: 20ch;
+  min-width: 20ch;
+  max-width: 20ch;
+}
+
+/* Freight column - make it compact */
+.cars-table th:nth-child(8),
+.cars-table td:nth-child(8) {
+  width: 8ch;
+  min-width: 8ch;
+  max-width: 8ch;
+  text-align: center;
+}
+
+/* Date columns - make them compact */
+.cars-table th:nth-child(4),
+.cars-table td:nth-child(4),
+.cars-table th:nth-child(5),
+.cars-table td:nth-child(5) {
+  width: 10ch;
+  min-width: 10ch;
+  max-width: 10ch;
+  text-align: center;
+}
+
+/* Actions column - make it compact */
+.cars-table th:nth-child(2),
+.cars-table td:nth-child(2) {
+  width: 3ch;
+  min-width: 3ch;
+  max-width: 3ch;
+  text-align: center;
+  padding: 8px 4px;
 }
 
 /* Status styles */

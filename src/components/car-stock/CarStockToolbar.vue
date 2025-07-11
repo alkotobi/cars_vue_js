@@ -13,7 +13,7 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['print-selected', 'loading-order', 'vin'])
+const emit = defineEmits(['print-selected', 'loading-order', 'vin', 'warehouse', 'notes'])
 </script>
 
 <template>
@@ -38,6 +38,24 @@ const emit = defineEmits(['print-selected', 'loading-order', 'vin'])
       >
         <i class="fas fa-anchor"></i>
         <span>Ports</span>
+      </button>
+      <button
+        @click="$emit('warehouse')"
+        class="warehouse-btn"
+        :disabled="selectedCars.size === 0"
+        :title="selectedCars.size === 0 ? 'No cars selected' : 'Edit warehouse for selected cars'"
+      >
+        <i class="fas fa-warehouse"></i>
+        <span>Warehouse</span>
+      </button>
+      <button
+        @click="$emit('notes')"
+        class="notes-btn"
+        :disabled="selectedCars.size === 0"
+        :title="selectedCars.size === 0 ? 'No cars selected' : 'Edit notes for selected cars'"
+      >
+        <i class="fas fa-sticky-note"></i>
+        <span>Notes</span>
       </button>
       <button
         @click="$emit('vin')"
@@ -108,6 +126,62 @@ const emit = defineEmits(['print-selected', 'loading-order', 'vin'])
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.warehouse-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background-color: #8b5cf6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.warehouse-btn:hover:not(:disabled) {
+  background-color: #7c3aed;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.warehouse-btn:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.notes-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background-color: #f59e0b;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.notes-btn:hover:not(:disabled) {
+  background-color: #d97706;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.notes-btn:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 .vin-btn {

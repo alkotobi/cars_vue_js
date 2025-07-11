@@ -76,6 +76,8 @@ function executeMultiQuery($sql, $params = []) {
         $statements = array_filter(array_map('trim', explode(';', $sql)));
         $results = [];
         $lastResult = null;
+        $totalAffectedRows = 0;
+        $totalResults = 0;
 
         foreach ($statements as $statement) {
             if (empty($statement)) continue;
@@ -88,18 +90,23 @@ function executeMultiQuery($sql, $params = []) {
             
             switch($queryType) {
                 case 'SELECT':
-                    $lastResult = ['type' => 'SELECT', 'data' => $stmt->fetchAll(PDO::FETCH_ASSOC)];
+                    $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                    $lastResult = ['type' => 'SELECT', 'data' => $data];
+                    $totalResults += count($data);
                     break;
                 case 'INSERT':
-                    $lastResult = ['type' => 'INSERT', 'lastInsertId' => $conn->lastInsertId()];
+                    $lastResult = ['type' => 'INSERT', 'lastInsertId' => $conn->lastInsertId(), 'affectedRows' => $stmt->rowCount()];
+                    $totalAffectedRows += $stmt->rowCount();
                     break;
                 case 'UPDATE':
                 case 'DELETE':
                     $lastResult = ['type' => $queryType, 'affectedRows' => $stmt->rowCount()];
+                    $totalAffectedRows += $stmt->rowCount();
                     break;
                 case 'SET':
                 case 'START':
                 case 'COMMIT':
+                case 'ROLLBACK':
                     $lastResult = ['type' => $queryType, 'success' => true];
                     break;
                 default:
@@ -111,9 +118,21 @@ function executeMultiQuery($sql, $params = []) {
 
         // Return the last SELECT result as the main data, or success status
         if ($lastResult && $lastResult['type'] === 'SELECT') {
-            return ['success' => true, 'data' => $lastResult['data'], 'allResults' => $results];
+            return [
+                'success' => true, 
+                'results' => $lastResult['data'], 
+                'allResults' => $results,
+                'totalAffectedRows' => $totalAffectedRows,
+                'totalResults' => $totalResults
+            ];
         } else {
-            return ['success' => true, 'message' => 'Multi-statement executed successfully', 'allResults' => $results];
+            return [
+                'success' => true, 
+                'message' => 'Multi-statement executed successfully', 
+                'allResults' => $results,
+                'totalAffectedRows' => $totalAffectedRows,
+                'totalResults' => $totalResults
+            ];
         }
         
     } catch(Exception $e) {
