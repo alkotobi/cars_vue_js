@@ -32,13 +32,17 @@ const formData = ref({
   title: '',
   description: '',
   notes: '',
-  id_user_receive: null,
+  id_user_receive: null, // Keep for backward compatibility
   id_priority: null,
   is_task_for_car: 0, // Will be set based on entity type
+  // New fields for multi-assign and multi-subjects
+  assigned_users_ids: [], // Array of user IDs for multi-assign
+  subject_ids: [], // Array of subject IDs for multi-subjects
 })
 
 const users = ref([])
 const priorities = ref([])
+const subjects = ref([]) // Add subjects for multi-subjects
 const currentUser = ref(null)
 
 // Add new state for priority creation
@@ -150,9 +154,12 @@ watch(
         title: '',
         description: '',
         notes: '',
-        id_user_receive: null,
+        id_user_receive: null, // Keep for backward compatibility
         id_priority: null,
         is_task_for_car: entityConfig.value.taskFlag,
+        // New fields for multi-assign and multi-subjects
+        assigned_users_ids: [],
+        subject_ids: [],
       }
       // Clear any error messages
       error.value = null
@@ -175,6 +182,7 @@ onMounted(async () => {
   await getCurrentUser()
   await fetchUsers()
   await fetchPriorities()
+  await fetchSubjects()
 })
 
 const getCurrentUser = () => {
@@ -192,8 +200,8 @@ const fetchUsers = async () => {
   try {
     const result = await callApi({
       query: `
-        SELECT id, username, email 
-        FROM users 
+        SELECT id, username, email
+        FROM users
         ORDER BY username ASC
       `,
       requiresAuth: true,
@@ -211,8 +219,8 @@ const fetchPriorities = async () => {
   try {
     const result = await callApi({
       query: `
-        SELECT id, priority, power 
-        FROM priorities 
+        SELECT id, priority, power
+        FROM priorities
         ORDER BY power ASC
       `,
       requiresAuth: true,
@@ -226,14 +234,44 @@ const fetchPriorities = async () => {
   }
 }
 
+const fetchSubjects = async () => {
+  try {
+    const result = await callApi({
+      query: `
+        SELECT id, name as subject_name
+        FROM subjects
+        WHERE is_active = 1
+        ORDER BY name ASC
+      `,
+      requiresAuth: true,
+    })
+
+    if (result.success && result.data) {
+      subjects.value = result.data
+    } else {
+      // If no subjects found, set empty array
+      subjects.value = []
+    }
+  } catch (err) {
+    console.error('Error fetching subjects:', err)
+    // Set empty array on error to prevent issues
+    subjects.value = []
+  }
+}
+
 const handleSubmit = async () => {
   if (!formData.value.title.trim()) {
     alert('Please enter a task title')
     return
   }
 
-  if (!formData.value.id_user_receive) {
-    alert('Please select a user to assign the task to')
+  // Check for user assignment (support both single and multi-assign)
+  const hasUserAssignment =
+    formData.value.id_user_receive ||
+    (formData.value.assigned_users_ids && formData.value.assigned_users_ids.length > 0)
+
+  if (!hasUserAssignment) {
+    alert('Please select at least one user to assign the task to')
     return
   }
 
@@ -245,33 +283,74 @@ const handleSubmit = async () => {
   try {
     // Create the entity link if not general task
     let finalTitle = formData.value.title.trim()
+    let finalDescription = formData.value.description.trim()
 
-    if (props.entityType !== 'general' && entityLink.value) {
-      // Add the entity link to the beginning of the title
+    if (props.entityType === 'car') {
+      // For car tasks, add [cars] prefix to indicate it's about cars
+      finalTitle = `[cars] ${finalTitle}`
+    } else if (props.entityType !== 'general' && entityLink.value) {
+      // Add the entity link to the beginning of the title (but not for car tasks)
       finalTitle = `${entityLink.value} ${finalTitle}`
+    }
+
+    // For car tasks, add car IDs to the description
+    if (props.entityType === 'car') {
+      const carIds = Array.isArray(props.entityData.id)
+        ? props.entityData.id
+        : [props.entityData.id]
+      const carIdsText = carIds.map((id) => `#${id}`).join(', ')
+      finalDescription = finalDescription
+        ? `${finalDescription}\n\nCar IDs: ${carIdsText}`
+        : `Car IDs: ${carIdsText}`
+    }
+
+    // Prepare user assignment data
+    const assignedUsersIds =
+      formData.value.assigned_users_ids && formData.value.assigned_users_ids.length > 0
+        ? JSON.stringify(formData.value.assigned_users_ids.map((id) => parseInt(id)))
+        : formData.value.id_user_receive
+          ? JSON.stringify([formData.value.id_user_receive])
+          : null
+
+    // Prepare subject data - for car tasks, this should be car IDs
+    let subjectIds = null
+
+    if (props.entityType === 'car') {
+      // For car tasks, subject_ids should contain the car ID(s)
+      const carIds = Array.isArray(props.entityData.id)
+        ? props.entityData.id
+        : [props.entityData.id]
+      subjectIds = JSON.stringify(carIds.map((id) => parseInt(id)))
+    } else if (formData.value.subject_ids && formData.value.subject_ids.length > 0) {
+      // For other entity types, use the selected subjects
+      subjectIds = JSON.stringify(formData.value.subject_ids.map((id) => parseInt(id)))
     }
 
     const result = await callApi({
       query: `
         INSERT INTO tasks (
-          id_user_create, 
-          id_user_receive, 
-          date_create, 
-          id_priority, 
-          title, 
-          desciption, 
-          notes, 
-          is_task_for_car
-        ) VALUES (?, ?, UTC_TIMESTAMP(), ?, ?, ?, ?, ?)
+          id_user_create,
+          id_user_receive,
+          date_create,
+          id_priority,
+          title,
+          desciption,
+          notes,
+          is_task_for_car,
+          assigned_users_ids,
+          subject_ids
+        ) VALUES (?, ?, UTC_TIMESTAMP(), ?, ?, ?, ?, ?, ?, ?)
       `,
       params: [
         currentUser.value.id,
-        formData.value.id_user_receive,
+        formData.value.id_user_receive || null, // Keep for backward compatibility
         formData.value.id_priority,
         finalTitle,
-        formData.value.description.trim(),
+        finalDescription,
         formData.value.notes.trim(),
-        entityConfig.value.taskFlag,
+        props.entityType === 'car' ? 1 : entityConfig.value.taskFlag,
+        assignedUsersIds,
+        subjectIds,
       ],
       requiresAuth: true,
     })
@@ -317,7 +396,7 @@ const handleAddPriority = async () => {
   try {
     const result = await callApi({
       query: `
-        INSERT INTO priorities (priority, power) 
+        INSERT INTO priorities (priority, power)
         VALUES (?, ?)
       `,
       params: [newPriority.value.priority.trim(), newPriority.value.power],
@@ -346,6 +425,27 @@ const cancelAddPriority = () => {
   newPriority.value = {
     priority: '',
     power: 1,
+  }
+}
+
+// Handle single user assignment changes
+const handleSingleUserChange = () => {
+  // If a single user is selected from dropdown, update multi-assign checkboxes
+  if (formData.value.id_user_receive) {
+    formData.value.assigned_users_ids = [formData.value.id_user_receive]
+  } else {
+    formData.value.assigned_users_ids = []
+  }
+}
+
+// Handle multi-user assignment changes
+const handleMultiUserChange = () => {
+  // If exactly one user is selected in multi-assign, update single assign dropdown
+  if (formData.value.assigned_users_ids && formData.value.assigned_users_ids.length === 1) {
+    formData.value.id_user_receive = formData.value.assigned_users_ids[0]
+  } else {
+    // If multiple users or no users are selected, clear single assign
+    formData.value.id_user_receive = null
   }
 }
 
@@ -426,13 +526,42 @@ const openEntityView = () => {
             <div class="form-row">
               <div class="form-group">
                 <label for="user_receive">Assign To *</label>
-                <select id="user_receive" v-model="formData.id_user_receive" required>
-                  <option value="">Select a user</option>
-                  <option v-for="user in users" :key="user.id" :value="user.id">
-                    {{ user.username }}
-                    <span v-if="user.email">({{ user.email }})</span>
-                  </option>
-                </select>
+                <div class="assignment-container">
+                  <!-- Single user assignment (for backward compatibility) -->
+                  <div class="single-assignment">
+                    <select
+                      id="user_receive"
+                      v-model="formData.id_user_receive"
+                      @change="handleSingleUserChange"
+                    >
+                      <option value="">Select a user</option>
+                      <option v-for="user in users" :key="user.id" :value="user.id">
+                        {{ user.username }}
+                        <span v-if="user.email">({{ user.email }})</span>
+                      </option>
+                    </select>
+                  </div>
+
+                  <!-- Multi-user assignment -->
+                  <div class="multi-assignment">
+                    <label class="multi-label">Or assign to multiple users:</label>
+                    <div class="multi-select-container">
+                      <div v-for="user in users" :key="user.id" class="user-checkbox-item">
+                        <input
+                          type="checkbox"
+                          :id="'user_' + user.id"
+                          :value="user.id"
+                          v-model="formData.assigned_users_ids"
+                          @change="handleMultiUserChange"
+                        />
+                        <label :for="'user_' + user.id" class="checkbox-label">
+                          {{ user.username }}
+                          <span v-if="user.email">({{ user.email }})</span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div class="form-group">
@@ -452,6 +581,24 @@ const openEntityView = () => {
                   >
                     <i class="fas fa-plus"></i>
                   </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Multi-subjects section -->
+            <div class="form-group" v-if="subjects.length > 0">
+              <label>Subjects (Optional)</label>
+              <div class="subjects-container">
+                <div v-for="subject in subjects" :key="subject.id" class="subject-checkbox-item">
+                  <input
+                    type="checkbox"
+                    :id="'subject_' + subject.id"
+                    :value="subject.id"
+                    v-model="formData.subject_ids"
+                  />
+                  <label :for="'subject_' + subject.id" class="checkbox-label">
+                    {{ subject.subject_name }}
+                  </label>
                 </div>
               </div>
             </div>
@@ -877,5 +1024,80 @@ textarea {
 
 .btn-title-link i {
   font-size: 0.9rem;
+}
+
+/* Multi-assignment styles */
+.assignment-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.single-assignment select {
+  width: 100%;
+}
+
+.multi-assignment {
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 12px;
+  background-color: #f9fafb;
+}
+
+.multi-label {
+  font-size: 0.85rem;
+  color: #6b7280;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.multi-select-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 8px;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.user-checkbox-item,
+.subject-checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+}
+
+.user-checkbox-item input[type='checkbox'],
+.subject-checkbox-item input[type='checkbox'] {
+  margin: 0;
+  width: auto;
+}
+
+.checkbox-label {
+  font-size: 0.9rem;
+  color: #374151;
+  cursor: pointer;
+  margin: 0;
+  flex: 1;
+}
+
+/* Subjects styles */
+.subjects-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 8px;
+  max-height: 120px;
+  overflow-y: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 12px;
+  background-color: #f9fafb;
+}
+
+@media (max-width: 640px) {
+  .multi-select-container,
+  .subjects-container {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

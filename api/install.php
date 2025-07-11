@@ -396,6 +396,16 @@ try {
         PRIMARY KEY (`id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
 
+    // Create subjects table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `subjects` (
+        `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+        `name` varchar(255) DEFAULT NULL,
+        `description` text DEFAULT NULL,
+        `is_active` tinyint(1) DEFAULT 1,
+        PRIMARY KEY (`id`),
+        UNIQUE KEY `name` (`name`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
     // Create tasks table
     $pdo->exec("CREATE TABLE IF NOT EXISTS `tasks` (
         `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
@@ -415,6 +425,8 @@ try {
         `is_task_for_client` tinyint(1) DEFAULT 0,
         `is_task_for_user` tinyint(1) DEFAULT 0,
         `id_chat_grroup` int(11) DEFAULT NULL,
+          `assigned_users_ids` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`assigned_users_ids`)),
+  `subject_ids` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`subject_ids`)),
         PRIMARY KEY (`id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
 

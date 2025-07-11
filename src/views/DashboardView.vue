@@ -172,16 +172,17 @@ const fetchPendingTasks = async () => {
           t.notes,
           p.priority as priority_name,
           p.power as priority_power,
-          u.username as creator_name
+          u.username as creator_name,
+          t.assigned_users_ids
         FROM tasks t
         LEFT JOIN priorities p ON t.id_priority = p.id
         LEFT JOIN users u ON t.id_user_create = u.id
         WHERE t.date_declare_done IS NULL
-        AND (t.id_user_receive = ? OR t.id_user_create = ?)
+        AND (t.id_user_receive = ? OR t.id_user_create = ? OR JSON_CONTAINS(t.assigned_users_ids, ?))
         ORDER BY t.date_create DESC
         LIMIT 5
       `,
-      params: [user.value.id, user.value.id],
+      params: [user.value.id, user.value.id, JSON.stringify(user.value.id)],
       requiresAuth: true,
     })
 

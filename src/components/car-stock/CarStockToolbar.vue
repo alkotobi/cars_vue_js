@@ -13,7 +13,7 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['print-selected', 'loading-order', 'vin', 'warehouse', 'notes'])
+const emit = defineEmits(['print-selected', 'loading-order', 'vin', 'warehouse', 'notes', 'task'])
 </script>
 
 <template>
@@ -56,6 +56,19 @@ const emit = defineEmits(['print-selected', 'loading-order', 'vin', 'warehouse',
       >
         <i class="fas fa-sticky-note"></i>
         <span>Notes</span>
+      </button>
+      <button
+        @click="$emit('task')"
+        class="task-btn"
+        :disabled="selectedCars.size === 0"
+        :title="
+          selectedCars.size === 0
+            ? 'No cars selected'
+            : `Create task for ${selectedCars.size} selected car${selectedCars.size === 1 ? '' : 's'}`
+        "
+      >
+        <i class="fas fa-tasks"></i>
+        <span>Task</span>
       </button>
       <button
         @click="$emit('vin')"
@@ -234,6 +247,34 @@ const emit = defineEmits(['print-selected', 'loading-order', 'vin', 'warehouse',
 }
 
 .ports-btn:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.task-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background-color: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.task-btn:hover:not(:disabled) {
+  background-color: #45a049;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.task-btn:disabled {
   background-color: #9ca3af;
   cursor: not-allowed;
   transform: none;

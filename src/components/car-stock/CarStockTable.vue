@@ -1283,9 +1283,11 @@ const handleTaskClose = () => {
 }
 
 const handleTaskSave = (result) => {
+  console.log('Task saved:', result)
   if (result.success) {
-    handleTaskClose()
+    alert('Task created successfully!')
   }
+  handleTaskClose()
 }
 
 // Add new methods for switch buy bill form
@@ -1488,6 +1490,32 @@ const handleNotesFromToolbar = () => {
   showNotesBulkEditForm.value = true
 }
 
+const handleTaskFromToolbar = () => {
+  if (selectedCars.value.size === 0) {
+    alert('No cars selected for task creation')
+    return
+  }
+
+  // Get all selected cars
+  const selectedCarIds = Array.from(selectedCars.value)
+  const selectedCarsData = sortedCars.value.filter((car) => selectedCarIds.includes(car.id))
+
+  if (selectedCarsData.length > 0) {
+    // Create a composite car object with all selected car IDs
+    const compositeCar = {
+      ...selectedCarsData[0], // Use first car as template
+      id: selectedCarIds, // Replace with array of all selected car IDs
+      car_name:
+        selectedCarsData.length === 1
+          ? selectedCarsData[0].car_name
+          : `${selectedCarsData.length} Selected Cars`,
+    }
+
+    selectedCarForTask.value = compositeCar
+    showTaskForm.value = true
+  }
+}
+
 const handleNotesBulkSave = (updatedCars) => {
   console.log('Notes updated for cars:', updatedCars)
   showNotesBulkEditForm.value = false
@@ -1642,6 +1670,7 @@ defineExpose({
         @ports="handlePortsFromToolbar"
         @warehouse="handleWarehouseFromToolbar"
         @notes="handleNotesFromToolbar"
+        @task="handleTaskFromToolbar"
       />
 
       <div class="table-container">

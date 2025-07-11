@@ -67,8 +67,11 @@ const fetchTasks = async () => {
     // Role-based filtering
     if (!isAdmin.value) {
       // For non-admin users, show only tasks created by or assigned to them
-      whereConditions.push('(t.id_user_create = ? OR t.id_user_receive = ?)')
-      params.push(user.value.id, user.value.id)
+      // Check both single assignment (id_user_receive) and multi-assignment (assigned_users_ids JSON)
+      whereConditions.push(
+        '(t.id_user_create = ? OR t.id_user_receive = ? OR JSON_CONTAINS(t.assigned_users_ids, ?))',
+      )
+      params.push(user.value.id, user.value.id, JSON.stringify(user.value.id))
     }
 
     // Apply user-defined filters
@@ -88,8 +91,9 @@ const fetchTasks = async () => {
     }
 
     if (filters.value.assignedTo && String(filters.value.assignedTo).trim() !== '') {
-      whereConditions.push('t.id_user_receive = ?')
-      params.push(filters.value.assignedTo)
+      // Check both single assignment and multi-assignment for the filter
+      whereConditions.push('(t.id_user_receive = ? OR JSON_CONTAINS(t.assigned_users_ids, ?))')
+      params.push(filters.value.assignedTo, JSON.stringify(filters.value.assignedTo))
     }
 
     if (filters.value.createdBy && String(filters.value.createdBy).trim() !== '') {
@@ -114,7 +118,9 @@ const fetchTasks = async () => {
           creator.username as creator_name,
           receiver.username as receiver_name,
           p.priority as priority_name,
-          p.power as priority_power
+          p.power as priority_power,
+          t.assigned_users_ids,
+          t.subject_ids
         FROM tasks t
         LEFT JOIN users creator ON t.id_user_create = creator.id
         LEFT JOIN users receiver ON t.id_user_receive = receiver.id
@@ -418,6 +424,58 @@ const doneTasks = computed(() => {
   return tasks.value.filter((task) => task.date_declare_done)
 })
 
+// Format assigned users for display
+const formatAssignedUsers = (task) => {
+  let assignedUsers = []
+
+  // Add single assigned user if exists
+  if (task.receiver_name) {
+    assignedUsers.push(task.receiver_name)
+  }
+
+  // Add multi-assigned users if exists
+  if (task.assigned_users_ids) {
+    try {
+      const assignedIds = JSON.parse(task.assigned_users_ids)
+      if (Array.isArray(assignedIds)) {
+        // Find usernames for the assigned user IDs
+        assignedIds.forEach((userId) => {
+          const user = users.value.find((u) => u.id === userId)
+          if (user && !assignedUsers.includes(user.username)) {
+            assignedUsers.push(user.username)
+          }
+        })
+      }
+    } catch (err) {
+      console.error('Error parsing assigned_users_ids:', err)
+    }
+  }
+
+  return assignedUsers.length > 0 ? assignedUsers.join(', ') : '-'
+}
+
+// Check if current user is assigned to a task (single or multi-assign)
+const isUserAssignedToTask = (task) => {
+  // Check single assignment
+  if (task.id_user_receive === user.value?.id) {
+    return true
+  }
+
+  // Check multi-assignment
+  if (task.assigned_users_ids) {
+    try {
+      const assignedIds = JSON.parse(task.assigned_users_ids)
+      if (Array.isArray(assignedIds) && assignedIds.includes(user.value?.id)) {
+        return true
+      }
+    } catch (err) {
+      console.error('Error parsing assigned_users_ids:', err)
+    }
+  }
+
+  return false
+}
+
 // TaskForm methods
 const openNewTaskForm = (entityType = 'general', entityData = {}) => {
   currentEntityType.value = entityType
@@ -677,7 +735,7 @@ onMounted(async () => {
                     {{ getStatusBadge(task).text }}
                   </span>
                 </td>
-                <td>{{ task.receiver_name || '-' }}</td>
+                <td>{{ formatAssignedUsers(task) }}</td>
                 <td>{{ task.creator_name || '-' }}</td>
                 <td>{{ formatDate(task.date_create) }}</td>
                 <td class="task-notes">{{ task.notes || '-' }}</td>
@@ -687,7 +745,7 @@ onMounted(async () => {
                     Chat
                   </button>
                   <button
-                    v-if="task.id_user_receive === user?.id"
+                    v-if="isUserAssignedToTask(task)"
                     @click="markTaskAsDone(task)"
                     class="btn-done"
                     title="Mark as done"
@@ -781,7 +839,7 @@ onMounted(async () => {
                     {{ getStatusBadge(task).text }}
                   </span>
                 </td>
-                <td>{{ task.receiver_name || '-' }}</td>
+                <td>{{ formatAssignedUsers(task) }}</td>
                 <td>{{ task.creator_name || '-' }}</td>
                 <td>{{ formatDate(task.date_create) }}</td>
                 <td>{{ formatDate(task.date_declare_done) }}</td>
@@ -797,7 +855,7 @@ onMounted(async () => {
                     Confirm Done
                   </button>
                   <button
-                    v-if="task.id_user_receive === user?.id && !task.date_confirm_done"
+                    v-if="isUserAssignedToTask(task) && !task.date_confirm_done"
                     @click="markTaskAsUndone(task)"
                     class="btn-undone"
                     title="Mark as undone"
@@ -880,7 +938,7 @@ onMounted(async () => {
             <div class="card-details">
               <div class="detail-row">
                 <div class="detail-label">Assigned To:</div>
-                <div class="detail-value">{{ task.receiver_name || '-' }}</div>
+                <div class="detail-value">{{ formatAssignedUsers(task) }}</div>
               </div>
               <div class="detail-row">
                 <div class="detail-label">Created By:</div>
@@ -902,7 +960,7 @@ onMounted(async () => {
                 Chat
               </button>
               <button
-                v-if="task.id_user_receive === user?.id"
+                v-if="isUserAssignedToTask(task)"
                 @click="markTaskAsDone(task)"
                 class="btn-done"
                 title="Mark as done"
@@ -968,7 +1026,7 @@ onMounted(async () => {
             <div class="card-details">
               <div class="detail-row">
                 <div class="detail-label">Assigned To:</div>
-                <div class="detail-value">{{ task.receiver_name || '-' }}</div>
+                <div class="detail-value">{{ formatAssignedUsers(task) }}</div>
               </div>
               <div class="detail-row">
                 <div class="detail-label">Created By:</div>
@@ -999,7 +1057,7 @@ onMounted(async () => {
                 Confirm Done
               </button>
               <button
-                v-if="task.id_user_receive === user?.id && !task.date_confirm_done"
+                v-if="isUserAssignedToTask(task) && !task.date_confirm_done"
                 @click="markTaskAsUndone(task)"
                 class="btn-undone"
                 title="Mark as undone"
