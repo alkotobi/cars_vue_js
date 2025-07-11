@@ -10,6 +10,8 @@ import CarDocumentsForm from './CarDocumentsForm.vue'
 import CarLoadForm from './CarLoadForm.vue'
 import TaskForm from './TaskForm.vue'
 import CarStockSwitchBuyBill from './CarStockSwitchBuyBill.vue'
+import CarStockToolbar from './CarStockToolbar.vue'
+import CarStockPrintOptions from './CarStockPrintOptions.vue'
 
 import { useRouter } from 'vue-router'
 
@@ -306,6 +308,55 @@ watch(
   },
   { immediate: true },
 )
+
+// Print options modal state
+const showPrintOptions = ref(false)
+const printOptionsActionType = ref('print') // 'print' or 'loading-order'
+
+// Print handler functions
+const handlePrintSelected = () => {
+  if (selectedCars.value.size === 0) {
+    alert('No cars selected for printing')
+    return
+  }
+
+  printOptionsActionType.value = 'print'
+  showPrintOptions.value = true
+}
+
+const handlePrintOptionsClose = () => {
+  showPrintOptions.value = false
+}
+
+const handlePrintWithOptions = (printData) => {
+  const { columns, cars } = printData
+  console.log('Printing with options:', { columns, cars })
+  // TODO: Implement actual print functionality with selected columns
+  alert(`Printing ${cars.length} cars with ${columns.length} columns`)
+
+  // Close the modal after handling the print event
+  showPrintOptions.value = false
+}
+
+const handleLoadingOrderFromToolbar = () => {
+  if (selectedCars.value.size === 0) {
+    alert('No cars selected for loading order')
+    return
+  }
+
+  printOptionsActionType.value = 'loading-order'
+  showPrintOptions.value = true
+}
+
+const handleLoadingOrderWithOptions = (data) => {
+  const { columns, cars } = data
+  console.log('Loading order with options:', { columns, cars })
+  // TODO: Implement actual loading order functionality with selected columns
+  alert(`Generating loading order for ${cars.length} cars with ${columns.length} columns`)
+
+  // Close the modal after handling the loading order event
+  showPrintOptions.value = false
+}
 
 // Add new refs for teleport dropdown
 const teleportDropdown = ref({
@@ -1238,6 +1289,15 @@ defineExpose({
       @save="handleSwitchBuyBillSave"
     />
 
+    <CarStockPrintOptions
+      :show="showPrintOptions"
+      :selected-cars="sortedCars.filter((car) => selectedCars.has(car.id))"
+      :action-type="printOptionsActionType"
+      @close="handlePrintOptionsClose"
+      @print="handlePrintWithOptions"
+      @loading-order="handleLoadingOrderWithOptions"
+    />
+
     <!-- <div class="table-actions">
       <button class="advanced-filter-btn" @click="showAdvancedFilter = true">
         <i class="fas fa-filter"></i>
@@ -1265,6 +1325,14 @@ defineExpose({
       <p>No cars in stock</p>
     </div>
     <div v-else class="table-container">
+      <!-- Toolbar -->
+      <CarStockToolbar
+        :selected-cars="selectedCars"
+        :total-cars="sortedCars.length"
+        @print-selected="handlePrintSelected"
+        @loading-order="handleLoadingOrderFromToolbar"
+      />
+
       <table class="cars-table">
         <thead>
           <tr>
@@ -2037,6 +2105,7 @@ defineExpose({
             <i v-if="isProcessing.load" class="fas fa-spinner fa-spin loading-indicator"></i>
           </button>
         </li>
+
         <li>
           <button
             @click="openSellBillTab(getCarById(teleportDropdown.carId))"
