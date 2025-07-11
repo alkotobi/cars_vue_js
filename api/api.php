@@ -237,6 +237,74 @@ if (isset($postData['action'])) {
                 $result = executeQuery($postData['query'], $postData['params']);
                 echo json_encode($result);
                 exit;
+
+        case 'assign_multiple_vins':
+            if (!isset($postData['assignments']) || !is_array($postData['assignments'])) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Assignments array is required']);
+                exit;
+            }
+            
+            $assignments = $postData['assignments'];
+            $successCount = 0;
+            $errors = [];
+            
+            try {
+                $conn = getConnection($db_config);
+                
+                if (is_array($conn) && isset($conn['error'])) {
+                    throw new Exception($conn['error']);
+                }
+                
+                // Start transaction
+                $conn->beginTransaction();
+                
+                foreach ($assignments as $assignment) {
+                    if (!isset($assignment['carId']) || !array_key_exists('vin', $assignment)) {
+                        $errors[] = 'Invalid assignment data';
+                        continue;
+                    }
+                    
+                    $carId = $assignment['carId'];
+                    $vin = $assignment['vin'];
+                    
+                    // Update the car with the new VIN
+                    $stmt = $conn->prepare('UPDATE cars_stock SET vin = ? WHERE id = ?');
+                    $result = $stmt->execute([$vin, $carId]);
+                    
+                    if ($result) {
+                        $successCount++;
+                    } else {
+                        $errors[] = "Failed to update car ID: $carId";
+                    }
+                }
+                
+                // Commit transaction if all updates were successful
+                if (empty($errors)) {
+                    $conn->commit();
+                    echo json_encode([
+                        'success' => true, 
+                        'message' => "Successfully assigned VINs to $successCount cars",
+                        'assignedCount' => $successCount
+                    ]);
+                } else {
+                    // Rollback on any error
+                    $conn->rollBack();
+                    echo json_encode([
+                        'success' => false, 
+                        'error' => 'Some assignments failed',
+                        'errors' => $errors,
+                        'successCount' => $successCount
+                    ]);
+                }
+                
+            } catch (Exception $e) {
+                if (isset($conn)) {
+                    $conn->rollBack();
+                }
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            }
+            exit;
     
         default:
             http_response_code(400);

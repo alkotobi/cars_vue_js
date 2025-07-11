@@ -13,7 +13,7 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['print-selected', 'loading-order'])
+const emit = defineEmits(['print-selected', 'loading-order', 'vin'])
 </script>
 
 <template>
@@ -30,6 +30,15 @@ const emit = defineEmits(['print-selected', 'loading-order'])
     </div>
 
     <div class="toolbar-right">
+      <button
+        @click="$emit('vin')"
+        class="vin-btn"
+        :disabled="selectedCars.size === 0"
+        :title="selectedCars.size === 0 ? 'No cars selected' : 'Edit VIN for selected cars'"
+      >
+        <i class="fas fa-barcode"></i>
+        <span>VIN</span>
+      </button>
       <CarStockPrintDropdown
         :selected-count="selectedCars.size"
         :total-count="totalCars"
@@ -85,6 +94,34 @@ const emit = defineEmits(['print-selected', 'loading-order'])
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.vin-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.vin-btn:hover:not(:disabled) {
+  background-color: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.vin-btn:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 @media (max-width: 768px) {

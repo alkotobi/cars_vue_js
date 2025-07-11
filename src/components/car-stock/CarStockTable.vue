@@ -13,6 +13,7 @@ import CarStockSwitchBuyBill from './CarStockSwitchBuyBill.vue'
 import CarStockToolbar from './CarStockToolbar.vue'
 import CarStockPrintOptions from './CarStockPrintOptions.vue'
 import CarStockPrintReport from './CarStockPrintReport.vue'
+import VinAssignmentModal from './VinAssignmentModal.vue'
 
 import { useRouter } from 'vue-router'
 
@@ -176,6 +177,9 @@ const selectedCarForTask = ref(null)
 // Add new refs for switch buy bill form
 const showSwitchBuyBillForm = ref(false)
 const selectedCarForSwitchBuyBill = ref(null)
+
+// Add new refs for VIN assignment modal
+const showVinAssignmentModal = ref(false)
 
 // Add computed property for admin permission
 const isAdmin = computed(() => {
@@ -356,8 +360,19 @@ const handlePrintWithOptions = (printData) => {
     `
     contentAfterTable = `
       <p><strong>Total Cars for Loading:</strong> ${cars.length}</p>
-      <p><strong>Loading Order Type:</strong> Standard Loading</p>
-      <p><strong>Instructions:</strong> Please ensure all vehicles are properly secured before transport.</p>
+      <p><strong>Instructions:</strong> Please ensure all vehicles are properly Loaded as soon as possible.</p>
+      <div style="margin-top: 40px; border-top: 1px solid #333; padding-top: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-end;">
+          <div style="text-align: center;">
+            <div style="border-bottom: 1px solid #333; width: 200px; height: 40px; margin-bottom: 5px;"></div>
+            <p style="margin: 0; font-size: 12px;"><strong>Receiver Signature</strong></p>
+          </div>
+          <div style="text-align: center;">
+            <div style="border-bottom: 1px solid #333; width: 200px; height: 40px; margin-bottom: 5px;"></div>
+            <p style="margin: 0; font-size: 12px;"><strong>Date</strong></p>
+          </div>
+        </div>
+      </div>
     `
   }
 
@@ -387,15 +402,94 @@ const handleLoadingOrderFromToolbar = () => {
 const handleLoadingOrderWithOptions = (data) => {
   const { columns, cars } = data
   console.log('Loading order with options:', { columns, cars })
-  // TODO: Implement actual loading order functionality with selected columns
-  alert(`Generating loading order for ${cars.length} cars with ${columns.length} columns`)
+
+  // Generate loading order content based on action type
+  let title = 'Loading Order Report'
+  let contentBeforeTable = `
+    <p>This loading order contains ${cars.length} car${cars.length === 1 ? '' : 's'} to be loaded.</p>
+    <p>Loading order generated on ${new Date().toLocaleDateString()}.</p>
+  `
+  let contentAfterTable = `
+    <p><strong>Total Cars for Loading:</strong> ${cars.length}</p>
+    <p><strong>Instructions:</strong> Please ensure all vehicles are properly Loaded as soon as possible.</p>
+    <div style="margin-top: 40px; border-top: 1px solid #333; padding-top: 20px;">
+      <div style="display: flex; justify-content: space-between; align-items: flex-end;">
+        <div style="text-align: center;">
+          <div style="border-bottom: 1px solid #333; width: 200px; height: 40px; margin-bottom: 5px;"></div>
+          <p style="margin: 0; font-size: 12px;"><strong>Receiver Signature</strong></p>
+        </div>
+        <div style="text-align: center;">
+          <div style="border-bottom: 1px solid #333; width: 200px; height: 40px; margin-bottom: 5px;"></div>
+          <p style="margin: 0; font-size: 12px;"><strong>Date</strong></p>
+        </div>
+      </div>
+    </div>
+  `
+
+  // Create and print the loading order report
+  printReport({
+    title,
+    cars,
+    columns,
+    contentBeforeTable,
+    contentAfterTable,
+  })
 
   // Close the modal after handling the loading order event
   showPrintOptions.value = false
 }
 
+const handleVinFromToolbar = () => {
+  if (selectedCars.value.size === 0) {
+    alert('No cars selected for VIN assignment')
+    return
+  }
+
+  console.log('Opening VIN assignment modal')
+  showVinAssignmentModal.value = true
+  console.log('Modal state after opening:', showVinAssignmentModal.value)
+}
+
 const printReport = (reportData) => {
   const { title, cars: reportCars, columns, contentBeforeTable, contentAfterTable } = reportData
+
+  // Generate REF number
+  const generateRef = () => {
+    // Get user name first 3 characters
+    const userName = user.value?.name || 'USR'
+    const userPrefix = userName.substring(0, 3).toUpperCase()
+
+    // Get button caption first letter of each word
+    let buttonCaption = ''
+    if (printOptionsActionType.value === 'print') {
+      buttonCaption = 'Print Selected'
+    } else if (printOptionsActionType.value === 'loading-order') {
+      buttonCaption = 'Loading Order'
+    }
+
+    const buttonPrefix = buttonCaption
+      .split(' ')
+      .map((word) => word.charAt(0))
+      .join('')
+      .toUpperCase()
+
+    // Get current date in dd+mm+yy format
+    const now = new Date()
+    const day = now.getDate().toString().padStart(2, '0')
+    const month = (now.getMonth() + 1).toString().padStart(2, '0')
+    const year = now.getFullYear().toString().slice(-2)
+    const dateStr = `${day}${month}${year}`
+
+    // Get sequential number from localStorage
+    const storageKey = `ref_sequence_${printOptionsActionType.value}_${dateStr}`
+    let sequence = parseInt(localStorage.getItem(storageKey) || '0') + 1
+    localStorage.setItem(storageKey, sequence.toString())
+
+    // Format sequence with leading zeros
+    const sequenceStr = sequence.toString().padStart(3, '0')
+
+    return `${userPrefix}${buttonPrefix}${dateStr}-${sequenceStr}`
+  }
 
   // Create a new window for printing
   const printWindow = window.open('', '_blank', 'width=800,height=600')
@@ -412,6 +506,7 @@ const printReport = (reportData) => {
         .report-header { text-align: center; margin-bottom: 20px; }
         .letter-head { max-width: 100%; height: auto; max-height: 120px; }
         .report-date { text-align: right; margin-bottom: 20px; font-size: 14px; color: #666; float: right; clear: both; width: 100%; }
+        .report-ref { text-align: right; margin-bottom: 20px; font-size: 14px; color: #666; float: right; clear: both; width: 100%; }
         .report-title { text-align: center; margin-bottom: 30px; font-size: 24px; font-weight: bold; color: #333; text-transform: uppercase; clear: both; }
         .content-before-table { margin-bottom: 20px; line-height: 1.6; font-size: 14px; }
         .table-container { margin-bottom: 20px; overflow-x: auto; }
@@ -420,7 +515,7 @@ const printReport = (reportData) => {
         .table-row:nth-child(even) { background-color: #f8f9fa; }
         .table-cell { border: 1px solid #dee2e6; padding: 8px 12px; text-align: left; vertical-align: top; }
         .content-after-table { margin-top: 20px; line-height: 1.6; font-size: 14px; }
-        @media print { body { padding: 0; margin: 0; } .report-table { font-size: 10px; } .table-header, .table-cell { padding: 6px 8px; } .company-name { font-size: 24px; } .report-title { font-size: 20px; margin-bottom: 20px; } }
+        @media print { body { padding: 0; margin: 0; } .report-table { font-size: 10px; } .table-header, .table-cell { padding: 6px 8px; } .letter-head { max-height: 80px; } .report-title { font-size: 20px; margin-bottom: 20px; } }
       </style>
     </head>
     <body>
@@ -435,7 +530,10 @@ const printReport = (reportData) => {
           />
         </div>
         <div class="report-date">
-          <span>${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+          <span><strong>Date:</strong> ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+        </div>
+        <div class="report-ref">
+          <span><strong>REF:</strong> ${generateRef()}</span>
         </div>
         <h1 class="report-title">${title}</h1>
         ${contentBeforeTable ? `<div class="content-before-table">${contentBeforeTable}</div>` : ''}
@@ -1327,6 +1425,18 @@ const cancelNotes = () => {
   showNotesModal.value = false
 }
 
+const handleVinsAssigned = (assignments) => {
+  console.log('VINs assigned:', assignments)
+  showVinAssignmentModal.value = false
+  fetchCarsStock()
+}
+
+// Add a separate close handler for debugging
+const handleVinAssignmentModalClose = () => {
+  console.log('Closing VIN assignment modal from parent')
+  showVinAssignmentModal.value = false
+}
+
 onMounted(() => {
   const userStr = localStorage.getItem('user')
   if (userStr) {
@@ -1471,6 +1581,7 @@ defineExpose({
         :total-cars="sortedCars.length"
         @print-selected="handlePrintSelected"
         @loading-order="handleLoadingOrderFromToolbar"
+        @vin="handleVinFromToolbar"
       />
 
       <table class="cars-table">
@@ -2304,6 +2415,14 @@ defineExpose({
       </div>
     </div>
   </div>
+
+  <!-- VIN Assignment Modal -->
+  <VinAssignmentModal
+    :is-visible="showVinAssignmentModal"
+    :selected-cars="sortedCars.filter((car) => selectedCars.has(car.id))"
+    @close="handleVinAssignmentModalClose"
+    @vins-assigned="handleVinsAssigned"
+  />
 </template>
 
 <style scoped>

@@ -32,6 +32,14 @@ const props = defineProps({
     type: Boolean,
     default: true,
   },
+  actionType: {
+    type: String,
+    default: 'print',
+  },
+  userName: {
+    type: String,
+    default: '',
+  },
 })
 
 const today = computed(() => {
@@ -40,6 +48,42 @@ const today = computed(() => {
     month: 'long',
     day: 'numeric',
   })
+})
+
+const generateRef = computed(() => {
+  // Get user name first 3 characters
+  const userPrefix = props.userName ? props.userName.substring(0, 3).toUpperCase() : 'USR'
+
+  // Get button caption first letter of each word
+  let buttonCaption = ''
+  if (props.actionType === 'print') {
+    buttonCaption = 'Print Selected'
+  } else if (props.actionType === 'loading-order') {
+    buttonCaption = 'Loading Order'
+  }
+
+  const buttonPrefix = buttonCaption
+    .split(' ')
+    .map((word) => word.charAt(0))
+    .join('')
+    .toUpperCase()
+
+  // Get current date in dd+mm+yy format
+  const now = new Date()
+  const day = now.getDate().toString().padStart(2, '0')
+  const month = (now.getMonth() + 1).toString().padStart(2, '0')
+  const year = now.getFullYear().toString().slice(-2)
+  const dateStr = `${day}${month}${year}`
+
+  // Get sequential number from localStorage
+  const storageKey = `ref_sequence_${props.actionType}_${dateStr}`
+  let sequence = parseInt(localStorage.getItem(storageKey) || '0') + 1
+  localStorage.setItem(storageKey, sequence.toString())
+
+  // Format sequence with leading zeros
+  const sequenceStr = sequence.toString().padStart(3, '0')
+
+  return `${userPrefix}${buttonPrefix}${dateStr}-${sequenceStr}`
 })
 
 const getCarValue = (car, columnKey) => {
@@ -81,7 +125,12 @@ const getCarValue = (car, columnKey) => {
 
     <!-- Date -->
     <div class="report-date">
-      <span>{{ today }}</span>
+      <span><strong>Date:</strong> {{ today }}</span>
+    </div>
+
+    <!-- REF -->
+    <div class="report-ref">
+      <span><strong>REF:</strong> {{ generateRef }}</span>
     </div>
 
     <!-- Title -->
@@ -141,6 +190,16 @@ const getCarValue = (car, columnKey) => {
 }
 
 .report-date {
+  text-align: right;
+  margin-bottom: 20px;
+  font-size: 14px;
+  color: #666;
+  float: right;
+  clear: both;
+  width: 100%;
+}
+
+.report-ref {
   text-align: right;
   margin-bottom: 20px;
   font-size: 14px;
