@@ -12,6 +12,7 @@ import TaskForm from './TaskForm.vue'
 import CarStockSwitchBuyBill from './CarStockSwitchBuyBill.vue'
 import CarStockToolbar from './CarStockToolbar.vue'
 import CarStockPrintOptions from './CarStockPrintOptions.vue'
+import CarStockPrintReport from './CarStockPrintReport.vue'
 
 import { useRouter } from 'vue-router'
 
@@ -331,8 +332,43 @@ const handlePrintOptionsClose = () => {
 const handlePrintWithOptions = (printData) => {
   const { columns, cars } = printData
   console.log('Printing with options:', { columns, cars })
-  // TODO: Implement actual print functionality with selected columns
-  alert(`Printing ${cars.length} cars with ${columns.length} columns`)
+
+  // Generate print content based on action type
+  let title = ''
+  let contentBeforeTable = ''
+  let contentAfterTable = ''
+
+  if (printOptionsActionType.value === 'print') {
+    title = 'Car Stock Report'
+    contentBeforeTable = `
+      <p>This report contains information about ${cars.length} car${cars.length === 1 ? '' : 's'} in stock.</p>
+      <p>Report generated on ${new Date().toLocaleDateString()}.</p>
+    `
+    contentAfterTable = `
+      <p><strong>Total Cars:</strong> ${cars.length}</p>
+      <p><strong>Report Type:</strong> Stock Inventory</p>
+    `
+  } else if (printOptionsActionType.value === 'loading-order') {
+    title = 'Loading Order Report'
+    contentBeforeTable = `
+      <p>This loading order contains ${cars.length} car${cars.length === 1 ? '' : 's'} to be loaded.</p>
+      <p>Loading order generated on ${new Date().toLocaleDateString()}.</p>
+    `
+    contentAfterTable = `
+      <p><strong>Total Cars for Loading:</strong> ${cars.length}</p>
+      <p><strong>Loading Order Type:</strong> Standard Loading</p>
+      <p><strong>Instructions:</strong> Please ensure all vehicles are properly secured before transport.</p>
+    `
+  }
+
+  // Create and print the report
+  printReport({
+    title,
+    cars,
+    columns,
+    contentBeforeTable,
+    contentAfterTable,
+  })
 
   // Close the modal after handling the print event
   showPrintOptions.value = false
@@ -356,6 +392,109 @@ const handleLoadingOrderWithOptions = (data) => {
 
   // Close the modal after handling the loading order event
   showPrintOptions.value = false
+}
+
+const printReport = (reportData) => {
+  const { title, cars: reportCars, columns, contentBeforeTable, contentAfterTable } = reportData
+
+  // Create a new window for printing
+  const printWindow = window.open('', '_blank', 'width=800,height=600')
+
+  // Create the HTML content for the report
+  const reportHTML = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>${title}</title>
+      <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+        .print-report { max-width: 210mm; margin: 0 auto; }
+        .report-header { text-align: center; margin-bottom: 20px; }
+        .letter-head { max-width: 100%; height: auto; max-height: 120px; }
+        .report-date { text-align: right; margin-bottom: 20px; font-size: 14px; color: #666; float: right; clear: both; width: 100%; }
+        .report-title { text-align: center; margin-bottom: 30px; font-size: 24px; font-weight: bold; color: #333; text-transform: uppercase; clear: both; }
+        .content-before-table { margin-bottom: 20px; line-height: 1.6; font-size: 14px; }
+        .table-container { margin-bottom: 20px; overflow-x: auto; }
+        .report-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .table-header { background-color: #f8f9fa; border: 1px solid #dee2e6; padding: 8px 12px; text-align: left; font-weight: bold; color: #495057; white-space: nowrap; }
+        .table-row:nth-child(even) { background-color: #f8f9fa; }
+        .table-cell { border: 1px solid #dee2e6; padding: 8px 12px; text-align: left; vertical-align: top; }
+        .content-after-table { margin-top: 20px; line-height: 1.6; font-size: 14px; }
+        @media print { body { padding: 0; margin: 0; } .report-table { font-size: 10px; } .table-header, .table-cell { padding: 6px 8px; } .company-name { font-size: 24px; } .report-title { font-size: 20px; margin-bottom: 20px; } }
+      </style>
+    </head>
+    <body>
+      <div class="print-report">
+        <div class="report-header">
+          <img 
+            src="/src/assets/letter_head.png" 
+            alt="Letter Head" 
+            class="letter-head"
+            style="max-width: 100%; height: auto; max-height: 120px;"
+            onerror="this.style.display='none'"
+          />
+        </div>
+        <div class="report-date">
+          <span>${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+        </div>
+        <h1 class="report-title">${title}</h1>
+        ${contentBeforeTable ? `<div class="content-before-table">${contentBeforeTable}</div>` : ''}
+        <div class="table-container">
+          <table class="report-table">
+            <thead>
+              <tr>
+                ${columns.map((col) => `<th class="table-header">${col.label}</th>`).join('')}
+              </tr>
+            </thead>
+            <tbody>
+              ${reportCars
+                .map(
+                  (car) => `
+                <tr class="table-row">
+                  ${columns
+                    .map((col) => {
+                      const value = car[col.key]
+                      let displayValue = '-'
+                      if (value !== null && value !== undefined) {
+                        if (col.key === 'client_id_picture' && value) {
+                          displayValue = `<img src="${getFileUrl(value)}" alt="Client ID" style="max-width: 100px; max-height: 60px; object-fit: contain;" />`
+                        } else if (col.key.includes('date') && value) {
+                          displayValue = new Date(value).toLocaleDateString()
+                        } else if (
+                          ['price_cell', 'freight', 'rate', 'cfr_usd', 'cfr_dza'].includes(
+                            col.key,
+                          ) &&
+                          value
+                        ) {
+                          displayValue = parseFloat(value).toLocaleString()
+                        } else {
+                          displayValue = value.toString()
+                        }
+                      }
+                      return `<td class="table-cell">${displayValue}</td>`
+                    })
+                    .join('')}
+                </tr>
+              `,
+                )
+                .join('')}
+            </tbody>
+          </table>
+        </div>
+        ${contentAfterTable ? `<div class="content-after-table">${contentAfterTable}</div>` : ''}
+      </div>
+    </body>
+    </html>
+  `
+
+  printWindow.document.write(reportHTML)
+  printWindow.document.close()
+
+  // Wait for content to load then print
+  printWindow.onload = () => {
+    printWindow.print()
+    printWindow.close()
+  }
 }
 
 // Add new refs for teleport dropdown
@@ -526,6 +665,7 @@ const fetchCarsStock = async () => {
         cs.is_used_car,
         cs.is_big_car,
         c.id_no as client_id_no,
+        c.id_copy_path as client_id_picture,
         cs.container_ref,
         CASE 
           WHEN cs.id_sell IS NOT NULL THEN 'Sold'
