@@ -14,6 +14,7 @@ import CarStockToolbar from './CarStockToolbar.vue'
 import CarStockPrintOptions from './CarStockPrintOptions.vue'
 import CarStockPrintReport from './CarStockPrintReport.vue'
 import VinAssignmentModal from './VinAssignmentModal.vue'
+import CarPortsBulkEditForm from './CarPortsBulkEditForm.vue'
 
 import { useRouter } from 'vue-router'
 
@@ -180,6 +181,9 @@ const selectedCarForSwitchBuyBill = ref(null)
 
 // Add new refs for VIN assignment modal
 const showVinAssignmentModal = ref(false)
+
+// Add new refs for ports bulk edit form
+const showPortsBulkEditForm = ref(false)
 
 // Add computed property for admin permission
 const isAdmin = computed(() => {
@@ -1437,6 +1441,21 @@ const handleVinAssignmentModalClose = () => {
   showVinAssignmentModal.value = false
 }
 
+const handlePortsFromToolbar = () => {
+  if (selectedCars.value.size === 0) {
+    alert('No cars selected for ports editing')
+    return
+  }
+
+  showPortsBulkEditForm.value = true
+}
+
+const handlePortsBulkSave = (updatedCars) => {
+  console.log('Ports updated for cars:', updatedCars)
+  showPortsBulkEditForm.value = false
+  fetchCarsStock()
+}
+
 onMounted(() => {
   const userStr = localStorage.getItem('user')
   if (userStr) {
@@ -1574,7 +1593,7 @@ defineExpose({
       <i class="fas fa-car fa-2x"></i>
       <p>No cars in stock</p>
     </div>
-    <div v-else class="table-container">
+    <div v-else>
       <!-- Toolbar -->
       <CarStockToolbar
         :selected-cars="selectedCars"
@@ -1582,297 +1601,300 @@ defineExpose({
         @print-selected="handlePrintSelected"
         @loading-order="handleLoadingOrderFromToolbar"
         @vin="handleVinFromToolbar"
+        @ports="handlePortsFromToolbar"
       />
 
-      <table class="cars-table">
-        <thead>
-          <tr>
-            <th class="select-all-header">
-              <input
-                type="checkbox"
-                :checked="selectAll"
-                @change="selectAllCars"
-                :indeterminate="selectedCars.size > 0 && selectedCars.size < sortedCars.length"
-                title="Select All Cars"
-              />
-            </th>
-            <th>Actions</th>
-            <th @click="toggleSort('id')" class="sortable">
-              ID
-              <span v-if="sortConfig.key === 'id'" class="sort-indicator">
-                {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
-              </span>
-            </th>
-            <th @click="toggleSort('date_buy')" class="sortable">
-              Date Buy
-              <span v-if="sortConfig.key === 'date_buy'" class="sort-indicator">
-                {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
-              </span>
-            </th>
-            <th @click="toggleSort('date_sell')" class="sortable">
-              Date Sell
-              <span v-if="sortConfig.key === 'date_sell'" class="sort-indicator">
-                {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
-              </span>
-            </th>
-            <th @click="toggleSort('car_name')" class="sortable">
-              Car Details
-              <span v-if="sortConfig.key === 'car_name'" class="sort-indicator">
-                {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
-              </span>
-            </th>
-            <th @click="toggleSort('client_name')" class="sortable">
-              Client
-              <span v-if="sortConfig.key === 'client_name'" class="sort-indicator">
-                {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
-              </span>
-            </th>
-            <th @click="toggleSort('loading_port')" class="sortable">
-              Ports
-              <span v-if="sortConfig.key === 'loading_port'" class="sort-indicator">
-                {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
-              </span>
-            </th>
-            <th @click="toggleSort('freight')" class="sortable">
-              Freight
-              <span v-if="sortConfig.key === 'freight'" class="sort-indicator">
-                {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
-              </span>
-            </th>
-            <th @click="toggleSort('price_cell')" class="sortable">
-              FOB
-              <span v-if="sortConfig.key === 'price_cell'" class="sort-indicator">
-                {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
-              </span>
-            </th>
-            <th @click="toggleSort('rate')" class="sortable">
-              CFR
-              <span v-if="sortConfig.key === 'rate'" class="sort-indicator">
-                {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
-              </span>
-            </th>
-            <th @click="toggleSort('status')" class="sortable">
-              Status
-              <span v-if="sortConfig.key === 'status'" class="sort-indicator">
-                {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
-              </span>
-            </th>
-            <th @click="toggleSort('warehouse_name')" class="sortable">
-              Warehouse
-              <span v-if="sortConfig.key === 'warehouse_name'" class="sort-indicator">
-                {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
-              </span>
-            </th>
-            <th>BL</th>
-            <th @click="toggleSort('notes')" class="sortable">
-              Notes
-              <span v-if="sortConfig.key === 'notes'" class="sort-indicator">
-                {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
-              </span>
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="car in sortedCars"
-            :key="car.id"
-            :class="{ 'used-car': car.is_used_car, selected: selectedCars.has(car.id) }"
-          >
-            <td class="select-cell">
-              <input
-                type="checkbox"
-                :checked="selectedCars.has(car.id)"
-                @change="toggleCarSelection(car.id)"
-                :title="`Select car #${car.id}`"
-              />
-            </td>
-            <td>
-              <!-- Teleport Dropdown Button -->
-              <button
-                @click="openTeleportDropdown(car.id, $event)"
-                class="teleport-dropdown-toggle"
-                title="Actions"
-              >
-                <i class="fas fa-ellipsis-h"></i>
-              </button>
-            </td>
-            <td>#{{ car.id }}</td>
-            <td>{{ car.date_buy ? new Date(car.date_buy).toLocaleDateString() : '-' }}</td>
-            <td>{{ car.date_sell ? new Date(car.date_sell).toLocaleDateString() : '-' }}</td>
-            <td class="car-details-cell">
-              <div class="car-details-container">
-                <div class="car-name">{{ car.car_name }}</div>
-                <div v-if="car.vin" class="car-detail-item">
-                  <div class="info-badge badge-vin">
-                    <i class="fas fa-barcode"></i>
-                    {{ car.vin }}
+      <div class="table-container">
+        <table class="cars-table">
+          <thead>
+            <tr>
+              <th class="select-all-header">
+                <input
+                  type="checkbox"
+                  :checked="selectAll"
+                  @change="selectAllCars"
+                  :indeterminate="selectedCars.size > 0 && selectedCars.size < sortedCars.length"
+                  title="Select All Cars"
+                />
+              </th>
+              <th>Actions</th>
+              <th @click="toggleSort('id')" class="sortable">
+                ID
+                <span v-if="sortConfig.key === 'id'" class="sort-indicator">
+                  {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
+                </span>
+              </th>
+              <th @click="toggleSort('date_buy')" class="sortable">
+                Date Buy
+                <span v-if="sortConfig.key === 'date_buy'" class="sort-indicator">
+                  {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
+                </span>
+              </th>
+              <th @click="toggleSort('date_sell')" class="sortable">
+                Date Sell
+                <span v-if="sortConfig.key === 'date_sell'" class="sort-indicator">
+                  {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
+                </span>
+              </th>
+              <th @click="toggleSort('car_name')" class="sortable">
+                Car Details
+                <span v-if="sortConfig.key === 'car_name'" class="sort-indicator">
+                  {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
+                </span>
+              </th>
+              <th @click="toggleSort('client_name')" class="sortable">
+                Client
+                <span v-if="sortConfig.key === 'client_name'" class="sort-indicator">
+                  {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
+                </span>
+              </th>
+              <th @click="toggleSort('loading_port')" class="sortable">
+                Ports
+                <span v-if="sortConfig.key === 'loading_port'" class="sort-indicator">
+                  {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
+                </span>
+              </th>
+              <th @click="toggleSort('freight')" class="sortable">
+                Freight
+                <span v-if="sortConfig.key === 'freight'" class="sort-indicator">
+                  {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
+                </span>
+              </th>
+              <th @click="toggleSort('price_cell')" class="sortable">
+                FOB
+                <span v-if="sortConfig.key === 'price_cell'" class="sort-indicator">
+                  {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
+                </span>
+              </th>
+              <th @click="toggleSort('rate')" class="sortable">
+                CFR
+                <span v-if="sortConfig.key === 'rate'" class="sort-indicator">
+                  {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
+                </span>
+              </th>
+              <th @click="toggleSort('status')" class="sortable">
+                Status
+                <span v-if="sortConfig.key === 'status'" class="sort-indicator">
+                  {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
+                </span>
+              </th>
+              <th @click="toggleSort('warehouse_name')" class="sortable">
+                Warehouse
+                <span v-if="sortConfig.key === 'warehouse_name'" class="sort-indicator">
+                  {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
+                </span>
+              </th>
+              <th>BL</th>
+              <th @click="toggleSort('notes')" class="sortable">
+                Notes
+                <span v-if="sortConfig.key === 'notes'" class="sort-indicator">
+                  {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
+                </span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="car in sortedCars"
+              :key="car.id"
+              :class="{ 'used-car': car.is_used_car, selected: selectedCars.has(car.id) }"
+            >
+              <td class="select-cell">
+                <input
+                  type="checkbox"
+                  :checked="selectedCars.has(car.id)"
+                  @change="toggleCarSelection(car.id)"
+                  :title="`Select car #${car.id}`"
+                />
+              </td>
+              <td>
+                <!-- Teleport Dropdown Button -->
+                <button
+                  @click="openTeleportDropdown(car.id, $event)"
+                  class="teleport-dropdown-toggle"
+                  title="Actions"
+                >
+                  <i class="fas fa-ellipsis-h"></i>
+                </button>
+              </td>
+              <td>#{{ car.id }}</td>
+              <td>{{ car.date_buy ? new Date(car.date_buy).toLocaleDateString() : '-' }}</td>
+              <td>{{ car.date_sell ? new Date(car.date_sell).toLocaleDateString() : '-' }}</td>
+              <td class="car-details-cell">
+                <div class="car-details-container">
+                  <div class="car-name">{{ car.car_name }}</div>
+                  <div v-if="car.vin" class="car-detail-item">
+                    <div class="info-badge badge-vin">
+                      <i class="fas fa-barcode"></i>
+                      {{ car.vin }}
+                    </div>
+                  </div>
+                  <div v-if="car.color" class="car-detail-item">
+                    <div
+                      class="info-badge badge-color"
+                      :style="{
+                        backgroundColor: car.hexa || '#000000',
+                        color: getTextColor(car.hexa || '#000000'),
+                      }"
+                    >
+                      <i class="fas fa-palette"></i>
+                      {{ car.color }}
+                    </div>
+                  </div>
+                  <div v-if="car.export_lisence_ref" class="car-detail-item">
+                    <div class="info-badge badge-export-license">
+                      <i class="fas fa-certificate"></i>
+                      Export License
+                    </div>
+                  </div>
+                  <div v-if="car.buy_bill_ref" class="car-detail-item">
+                    <div class="info-badge badge-buy-bill">
+                      <i class="fas fa-shopping-cart"></i>
+                      Buy: {{ car.buy_bill_ref }}
+                    </div>
+                  </div>
+                  <div v-if="car.sell_bill_ref" class="car-detail-item">
+                    <div class="info-badge badge-sell-bill">
+                      <i class="fas fa-file-invoice-dollar"></i>
+                      Sell: {{ car.sell_bill_ref }}
+                    </div>
                   </div>
                 </div>
-                <div v-if="car.color" class="car-detail-item">
-                  <div
-                    class="info-badge badge-color"
-                    :style="{
-                      backgroundColor: car.hexa || '#000000',
-                      color: getTextColor(car.hexa || '#000000'),
-                    }"
+              </td>
+              <td>
+                <div class="client-info">
+                  <div>{{ car.client_name || '-' }}</div>
+                  <div v-if="car.client_id_no" class="info-badge badge-client-id">
+                    <i class="fas fa-id-card"></i>
+                    {{ car.client_id_no }}
+                  </div>
+                  <div v-if="car.is_batch" class="info-badge badge-wholesale">
+                    <i class="fas fa-layer-group"></i>
+                    Whole Sale
+                  </div>
+                </div>
+              </td>
+              <td>
+                <div class="ports-container">
+                  <div class="port-item">
+                    <div v-if="car.loading_port" class="info-badge badge-loading-port">
+                      <i class="fas fa-ship"></i>
+                      {{ car.loading_port }}
+                    </div>
+                    <div v-else class="port-empty">-</div>
+                  </div>
+                  <div class="port-item">
+                    <div v-if="car.discharge_port" class="info-badge badge-discharge-port">
+                      <i class="fas fa-anchor"></i>
+                      {{ car.discharge_port }}
+                    </div>
+                    <div v-else class="port-empty">-</div>
+                  </div>
+                  <div v-if="car.container_ref" class="info-badge badge-container">
+                    <i class="fas fa-box"></i>
+                    {{ car.container_ref }}
+                  </div>
+                  <div v-if="car.date_pay_freight" class="info-badge badge-freight-paid">
+                    <i class="fas fa-check-circle"></i>
+                    Freight Paid
+                  </div>
+                </div>
+              </td>
+              <td>${{ getFreightValue(car) }}</td>
+              <td>${{ car.price_cell || '0' }}</td>
+              <td>
+                <div class="cfr-container">
+                  <div class="info-badge badge-cfr-usd">
+                    <i class="fas fa-dollar-sign"></i>
+                    USD: ${{ getCfrUsdValue(car) }}
+                  </div>
+                  <div class="info-badge badge-cfr-dza">
+                    <i class="fas fa-coins"></i>
+                    DZA: {{ getCfrDzaValue(car) }}
+                  </div>
+                  <div class="info-badge badge-cfr-rate">
+                    <i class="fas fa-percentage"></i>
+                    Rate: {{ getRateValue(car) }}
+                  </div>
+                </div>
+              </td>
+              <td>
+                <div class="status-container">
+                  <div class="status-item">
+                    <span
+                      :class="{
+                        'status-sold': car.id_sell,
+                        'status-available': !car.id_sell,
+                        'status-used': car.is_used_car,
+                      }"
+                    >
+                      <i
+                        :class="[
+                          car.id_sell ? 'fas fa-check-circle' : 'fas fa-clock',
+                          car.is_used_car ? 'fas fa-history' : '',
+                        ]"
+                      ></i>
+                      {{ car.id_sell ? 'Sold' : 'Available' }}
+                      {{ car.is_used_car ? '(Used)' : '' }}
+                    </span>
+                  </div>
+                  <div v-if="car.in_wharhouse_date" class="status-item">
+                    <div class="info-badge badge-in-warehouse">
+                      <i class="fas fa-warehouse"></i>
+                      In Warehouse
+                    </div>
+                  </div>
+                  <div v-if="car.date_get_bl" class="status-item">
+                    <div class="info-badge badge-bl-received">
+                      <i class="fas fa-file-contract"></i>
+                      BL Received
+                    </div>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <div v-if="car.warehouse_name" class="info-badge badge-warehouse">
+                  <i class="fas fa-building"></i>
+                  {{ car.warehouse_name }}
+                </div>
+                <div v-else>-</div>
+              </td>
+              <td class="documents-cell">
+                <div class="document-links">
+                  <a
+                    v-if="car.path_documents"
+                    :href="getFileUrl(car.path_documents)"
+                    target="_blank"
+                    class="document-link"
                   >
-                    <i class="fas fa-palette"></i>
-                    {{ car.color }}
-                  </div>
-                </div>
-                <div v-if="car.export_lisence_ref" class="car-detail-item">
-                  <div class="info-badge badge-export-license">
-                    <i class="fas fa-certificate"></i>
-                    Export License
-                  </div>
-                </div>
-                <div v-if="car.buy_bill_ref" class="car-detail-item">
-                  <div class="info-badge badge-buy-bill">
-                    <i class="fas fa-shopping-cart"></i>
-                    Buy: {{ car.buy_bill_ref }}
-                  </div>
-                </div>
-                <div v-if="car.sell_bill_ref" class="car-detail-item">
-                  <div class="info-badge badge-sell-bill">
+                    <i class="fas fa-file-pdf"></i>
+                    BL
+                  </a>
+                  <a
+                    v-if="car.sell_pi_path"
+                    :href="getFileUrl(car.sell_pi_path)"
+                    target="_blank"
+                    class="document-link"
+                  >
                     <i class="fas fa-file-invoice-dollar"></i>
-                    Sell: {{ car.sell_bill_ref }}
-                  </div>
-                </div>
-              </div>
-            </td>
-            <td>
-              <div class="client-info">
-                <div>{{ car.client_name || '-' }}</div>
-                <div v-if="car.client_id_no" class="info-badge badge-client-id">
-                  <i class="fas fa-id-card"></i>
-                  {{ car.client_id_no }}
-                </div>
-                <div v-if="car.is_batch" class="info-badge badge-wholesale">
-                  <i class="fas fa-layer-group"></i>
-                  Whole Sale
-                </div>
-              </div>
-            </td>
-            <td>
-              <div class="ports-container">
-                <div class="port-item">
-                  <div v-if="car.loading_port" class="info-badge badge-loading-port">
-                    <i class="fas fa-ship"></i>
-                    {{ car.loading_port }}
-                  </div>
-                  <div v-else class="port-empty">-</div>
-                </div>
-                <div class="port-item">
-                  <div v-if="car.discharge_port" class="info-badge badge-discharge-port">
-                    <i class="fas fa-anchor"></i>
-                    {{ car.discharge_port }}
-                  </div>
-                  <div v-else class="port-empty">-</div>
-                </div>
-                <div v-if="car.container_ref" class="info-badge badge-container">
-                  <i class="fas fa-box"></i>
-                  {{ car.container_ref }}
-                </div>
-                <div v-if="car.date_pay_freight" class="info-badge badge-freight-paid">
-                  <i class="fas fa-check-circle"></i>
-                  Freight Paid
-                </div>
-              </div>
-            </td>
-            <td>${{ getFreightValue(car) }}</td>
-            <td>${{ car.price_cell || '0' }}</td>
-            <td>
-              <div class="cfr-container">
-                <div class="info-badge badge-cfr-usd">
-                  <i class="fas fa-dollar-sign"></i>
-                  USD: ${{ getCfrUsdValue(car) }}
-                </div>
-                <div class="info-badge badge-cfr-dza">
-                  <i class="fas fa-coins"></i>
-                  DZA: {{ getCfrDzaValue(car) }}
-                </div>
-                <div class="info-badge badge-cfr-rate">
-                  <i class="fas fa-percentage"></i>
-                  Rate: {{ getRateValue(car) }}
-                </div>
-              </div>
-            </td>
-            <td>
-              <div class="status-container">
-                <div class="status-item">
-                  <span
-                    :class="{
-                      'status-sold': car.id_sell,
-                      'status-available': !car.id_sell,
-                      'status-used': car.is_used_car,
-                    }"
+                    INVOICE
+                  </a>
+                  <a
+                    v-if="car.buy_pi_path"
+                    :href="getFileUrl(car.buy_pi_path)"
+                    target="_blank"
+                    class="document-link"
                   >
-                    <i
-                      :class="[
-                        car.id_sell ? 'fas fa-check-circle' : 'fas fa-clock',
-                        car.is_used_car ? 'fas fa-history' : '',
-                      ]"
-                    ></i>
-                    {{ car.id_sell ? 'Sold' : 'Available' }}
-                    {{ car.is_used_car ? '(Used)' : '' }}
-                  </span>
-                </div>
-                <div v-if="car.in_wharhouse_date" class="status-item">
-                  <div class="info-badge badge-in-warehouse">
-                    <i class="fas fa-warehouse"></i>
-                    In Warehouse
-                  </div>
-                </div>
-                <div v-if="car.date_get_bl" class="status-item">
-                  <div class="info-badge badge-bl-received">
                     <i class="fas fa-file-contract"></i>
-                    BL Received
-                  </div>
+                    PACKING LIST
+                  </a>
                 </div>
-              </div>
-            </td>
-            <td>
-              <div v-if="car.warehouse_name" class="info-badge badge-warehouse">
-                <i class="fas fa-building"></i>
-                {{ car.warehouse_name }}
-              </div>
-              <div v-else>-</div>
-            </td>
-            <td class="documents-cell">
-              <div class="document-links">
-                <a
-                  v-if="car.path_documents"
-                  :href="getFileUrl(car.path_documents)"
-                  target="_blank"
-                  class="document-link"
-                >
-                  <i class="fas fa-file-pdf"></i>
-                  BL
-                </a>
-                <a
-                  v-if="car.sell_pi_path"
-                  :href="getFileUrl(car.sell_pi_path)"
-                  target="_blank"
-                  class="document-link"
-                >
-                  <i class="fas fa-file-invoice-dollar"></i>
-                  INVOICE
-                </a>
-                <a
-                  v-if="car.buy_pi_path"
-                  :href="getFileUrl(car.buy_pi_path)"
-                  target="_blank"
-                  class="document-link"
-                >
-                  <i class="fas fa-file-contract"></i>
-                  PACKING LIST
-                </a>
-              </div>
-            </td>
-            <td class="notes-cell" :title="car.notes">{{ car.notes || '-' }}</td>
-          </tr>
-        </tbody>
-      </table>
+              </td>
+              <td class="notes-cell" :title="car.notes">{{ car.notes || '-' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
     <!-- Mobile Cards Container -->
@@ -2423,6 +2445,15 @@ defineExpose({
     @close="handleVinAssignmentModalClose"
     @vins-assigned="handleVinsAssigned"
   />
+
+  <!-- Ports Bulk Edit Modal -->
+  <CarPortsBulkEditForm
+    :show="showPortsBulkEditForm"
+    :selected-cars="sortedCars.filter((car) => selectedCars.has(car.id))"
+    :is-admin="isAdmin"
+    @close="showPortsBulkEditForm = false"
+    @save="handlePortsBulkSave"
+  />
 </template>
 
 <style scoped>
@@ -2477,7 +2508,7 @@ defineExpose({
   overflow-y: auto;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
-  overflow-x: visible;
+  overflow-x: auto;
 }
 
 .cars-table {
@@ -2485,13 +2516,24 @@ defineExpose({
   border-collapse: separate;
   border-spacing: 0;
   position: relative;
+  table-layout: fixed;
 }
 
 .cars-table thead {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  background-color: #f8f9fa;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 100 !important;
+  background-color: #f8f9fa !important;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.cars-table thead th {
+  position: sticky !important;
+  top: 0 !important;
+  background-color: #f8f9fa !important;
+  z-index: 100 !important;
+  border-bottom: 2px solid #e5e7eb;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .cars-table th {

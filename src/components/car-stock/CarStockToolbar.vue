@@ -31,6 +31,15 @@ const emit = defineEmits(['print-selected', 'loading-order', 'vin'])
 
     <div class="toolbar-right">
       <button
+        @click="$emit('ports')"
+        class="ports-btn"
+        :disabled="selectedCars.size === 0"
+        :title="selectedCars.size === 0 ? 'No cars selected' : 'Edit ports for selected cars'"
+      >
+        <i class="fas fa-anchor"></i>
+        <span>Ports</span>
+      </button>
+      <button
         @click="$emit('vin')"
         class="vin-btn"
         :disabled="selectedCars.size === 0"
@@ -51,15 +60,20 @@ const emit = defineEmits(['print-selected', 'loading-order', 'vin'])
 
 <style scoped>
 .car-stock-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
   background-color: #f8f9fa;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  margin-bottom: 16px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border-bottom: 1px solid #e5e7eb;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(10px);
+  background-color: rgba(248, 249, 250, 0.95);
+  border-radius: 8px 8px 0 0;
+  margin-bottom: 0;
 }
 
 .toolbar-left {
@@ -124,11 +138,40 @@ const emit = defineEmits(['print-selected', 'loading-order', 'vin'])
   box-shadow: none;
 }
 
+.ports-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background-color: #10b981;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.ports-btn:hover:not(:disabled) {
+  background-color: #059669;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.ports-btn:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
 @media (max-width: 768px) {
   .car-stock-toolbar {
     flex-direction: column;
     gap: 12px;
     align-items: stretch;
+    padding: 8px 12px;
   }
 
   .toolbar-left,
