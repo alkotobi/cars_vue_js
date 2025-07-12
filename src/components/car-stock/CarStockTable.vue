@@ -347,29 +347,31 @@ const handlePrintOptionsClose = () => {
 }
 
 const handlePrintWithOptions = (printData) => {
-  const { columns, cars } = printData
-  console.log('Printing with options:', { columns, cars })
+  const { columns, cars, subject, coreContent } = printData
+  console.log('Printing with options:', { columns, cars, subject, coreContent })
 
   // Generate print content based on action type
-  let title = ''
+  let title = subject || ''
   let contentBeforeTable = ''
   let contentAfterTable = ''
 
   if (printOptionsActionType.value === 'print') {
-    title = 'Car Stock Report'
+    title = subject || 'Car Stock Report'
     contentBeforeTable = `
-      <p>This report contains information about ${cars.length} car${cars.length === 1 ? '' : 's'} in stock.</p>
-      <p>Report generated on ${new Date().toLocaleDateString()}.</p>
+      ${coreContent ? `<div style="margin: 20px 0; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #3b82f6; border-radius: 4px;">${coreContent}</div>` : ''}
     `
     contentAfterTable = `
       <p><strong>Total Cars:</strong> ${cars.length}</p>
       <p><strong>Report Type:</strong> Stock Inventory</p>
     `
   } else if (printOptionsActionType.value === 'loading-order') {
-    title = 'Loading Order Report'
+    title = subject || 'Loading Order Report'
     contentBeforeTable = `
       <p>This loading order contains ${cars.length} car${cars.length === 1 ? '' : 's'} to be loaded.</p>
       <p>Loading order generated on ${new Date().toLocaleDateString()}.</p>
+      <div style="margin: 20px 0; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #059669; border-radius: 4px;">
+        Core Content: ${coreContent || 'NO CORE CONTENT FOUND'}
+      </div>
     `
     contentAfterTable = `
       <p><strong>Total Cars for Loading:</strong> ${cars.length}</p>
@@ -413,14 +415,12 @@ const handleLoadingOrderFromToolbar = () => {
 }
 
 const handleLoadingOrderWithOptions = (data) => {
-  const { columns, cars } = data
-  console.log('Loading order with options:', { columns, cars })
+  const { columns, cars, subject, coreContent } = data
 
   // Generate loading order content based on action type
-  let title = 'Loading Order Report'
+  let title = subject || 'Loading Order Report'
   let contentBeforeTable = `
-    <p>This loading order contains ${cars.length} car${cars.length === 1 ? '' : 's'} to be loaded.</p>
-    <p>Loading order generated on ${new Date().toLocaleDateString()}.</p>
+    ${coreContent ? `<div style="margin: 20px 0; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #059669; border-radius: 4px;">${coreContent}</div>` : ''}
   `
   let contentAfterTable = `
     <p><strong>Total Cars for Loading:</strong> ${cars.length}</p>
@@ -1745,13 +1745,13 @@ defineExpose({
                   {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
                 </span>
               </th>
-              <th @click="toggleSort('loading_port')" class="sortable">
+              <th @click="toggleSort('loading_port')" class="sortable ports-column">
                 Ports
                 <span v-if="sortConfig.key === 'loading_port'" class="sort-indicator">
                   {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
                 </span>
               </th>
-              <th @click="toggleSort('freight')" class="sortable">
+              <th @click="toggleSort('freight')" class="sortable freight-column">
                 Freight
                 <span v-if="sortConfig.key === 'freight'" class="sort-indicator">
                   {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
@@ -1871,7 +1871,7 @@ defineExpose({
                   </div>
                 </div>
               </td>
-              <td>
+              <td class="ports-column">
                 <div class="ports-container">
                   <div class="port-item">
                     <div v-if="car.loading_port" class="info-badge badge-loading-port">
@@ -1897,7 +1897,7 @@ defineExpose({
                   </div>
                 </div>
               </td>
-              <td>${{ getFreightValue(car) }}</td>
+              <td class="freight-column">${{ getFreightValue(car) }}</td>
               <td>${{ car.price_cell || '0' }}</td>
               <td>
                 <div class="cfr-container">
@@ -3210,6 +3210,9 @@ defineExpose({
   background-color: #f3e8ff;
   color: #7c3aed;
   border: 1px solid #e9d5ff;
+  width: 100%;
+  text-align: center;
+  justify-content: center;
 }
 
 .badge-client-id {
@@ -3271,6 +3274,18 @@ defineExpose({
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.ports-column {
+  width: 13ch !important;
+  min-width: 13ch !important;
+  max-width: 13ch !important;
+}
+
+.freight-column {
+  width: 8ch !important;
+  min-width: 8ch !important;
+  max-width: 8ch !important;
 }
 
 .port-item {

@@ -21,6 +21,18 @@ const emit = defineEmits(['close', 'print', 'loading-order'])
 // Storage key for user preferences - now action-specific
 const getStorageKey = (actionType) => `car-stock-${actionType}-columns`
 
+// Storage key for subject text - action-specific
+const getSubjectStorageKey = (actionType) => `car-stock-${actionType}-subject`
+
+// Storage key for core content - action-specific
+const getCoreContentStorageKey = (actionType) => `car-stock-${actionType}-core-content`
+
+// Subject text for the report
+const subjectText = ref('')
+
+// Core content for the report
+const coreContentText = ref('')
+
 // Function to load saved column preferences for specific action
 const loadSavedColumns = (actionType) => {
   try {
@@ -43,6 +55,10 @@ const loadSavedColumns = (actionType) => {
     console.warn(`Failed to load saved column preferences for ${actionType}:`, error)
     setDefaultPreferences(actionType)
   }
+
+  // Also load saved subject text and core content
+  loadSavedSubject(actionType)
+  loadSavedCoreContent(actionType)
 }
 
 // Function to save column preferences for specific action
@@ -56,6 +72,84 @@ const saveColumnPreferences = (actionType) => {
     localStorage.setItem(storageKey, JSON.stringify(columnsToSave))
   } catch (error) {
     console.warn(`Failed to save column preferences for ${actionType}:`, error)
+  }
+}
+
+// Function to load saved subject text for specific action
+const loadSavedSubject = (actionType) => {
+  try {
+    const storageKey = getSubjectStorageKey(actionType)
+    const saved = localStorage.getItem(storageKey)
+    if (saved) {
+      subjectText.value = saved
+    } else {
+      // Set default subject based on action type
+      setDefaultSubject(actionType)
+    }
+  } catch (error) {
+    console.warn(`Failed to load saved subject for ${actionType}:`, error)
+    setDefaultSubject(actionType)
+  }
+}
+
+// Function to save subject text for specific action
+const saveSubjectText = (actionType) => {
+  try {
+    const storageKey = getSubjectStorageKey(actionType)
+    localStorage.setItem(storageKey, subjectText.value)
+  } catch (error) {
+    console.warn(`Failed to save subject for ${actionType}:`, error)
+  }
+}
+
+// Function to load saved core content for specific action
+const loadSavedCoreContent = (actionType) => {
+  try {
+    const storageKey = getCoreContentStorageKey(actionType)
+    const saved = localStorage.getItem(storageKey)
+    if (saved) {
+      coreContentText.value = saved
+    } else {
+      // Set default core content based on action type
+      setDefaultCoreContent(actionType)
+    }
+  } catch (error) {
+    console.warn(`Failed to load saved core content for ${actionType}:`, error)
+    setDefaultCoreContent(actionType)
+  }
+}
+
+// Function to save core content for specific action
+const saveCoreContent = (actionType) => {
+  try {
+    const storageKey = getCoreContentStorageKey(actionType)
+    localStorage.setItem(storageKey, coreContentText.value)
+  } catch (error) {
+    console.warn(`Failed to save core content for ${actionType}:`, error)
+  }
+}
+
+// Function to set default subject based on action type
+const setDefaultSubject = (actionType) => {
+  if (actionType === 'print') {
+    subjectText.value = 'Car Stock Report'
+  } else if (actionType === 'loading-order') {
+    subjectText.value = 'Loading Order Report'
+  } else {
+    subjectText.value = ''
+  }
+}
+
+// Function to set default core content based on action type
+const setDefaultCoreContent = (actionType) => {
+  if (actionType === 'print') {
+    coreContentText.value =
+      'This report contains detailed information about the selected vehicles in our inventory.'
+  } else if (actionType === 'loading-order') {
+    coreContentText.value =
+      'This loading order specifies the vehicles to be loaded and transported according to the requirements.'
+  } else {
+    coreContentText.value = ''
   }
 }
 
@@ -139,9 +233,12 @@ const isProcessing = ref(false)
 loadSavedColumns(props.actionType)
 
 // Watch for changes in actionType to reload preferences
-watch(() => props.actionType, (newActionType) => {
-  loadSavedColumns(newActionType)
-})
+watch(
+  () => props.actionType,
+  (newActionType) => {
+    loadSavedColumns(newActionType)
+  },
+)
 
 const handleClose = () => {
   emit('close')
@@ -155,19 +252,27 @@ const handleAction = () => {
     return
   }
 
+  // Save subject text and core content before emitting
+  saveSubjectText(props.actionType)
+  saveCoreContent(props.actionType)
+
   isProcessing.value = true
 
   if (props.actionType === 'loading-order') {
-    // Emit the loading order event with selected columns and cars
+    // Emit the loading order event with selected columns, cars, subject, and core content
     emit('loading-order', {
       columns: selectedColumns,
       cars: props.selectedCars,
+      subject: subjectText.value,
+      coreContent: coreContentText.value,
     })
   } else {
-    // Emit the print event with selected columns and cars
+    // Emit the print event with selected columns, cars, subject, and core content
     emit('print', {
       columns: selectedColumns,
       cars: props.selectedCars,
+      subject: subjectText.value,
+      coreContent: coreContentText.value,
     })
   }
 
@@ -226,6 +331,16 @@ const selectCommonColumns = () => {
   })
   saveColumnPreferences(props.actionType)
 }
+
+// Function to handle subject text changes
+const handleSubjectChange = () => {
+  saveSubjectText(props.actionType)
+}
+
+// Function to handle core content changes
+const handleCoreContentChange = () => {
+  saveCoreContent(props.actionType)
+}
 </script>
 
 <template>
@@ -248,6 +363,52 @@ const selectCommonColumns = () => {
             >{{ actionType === 'loading-order' ? 'Loading Order' : 'Printing' }}
             {{ selectedCars.length }} selected car{{ selectedCars.length === 1 ? '' : 's' }}</span
           >
+        </div>
+
+        <div class="subject-section">
+          <div class="section-header">
+            <h4>
+              <i class="fas fa-file-alt"></i>
+              Report Subject
+            </h4>
+          </div>
+          <div class="subject-input-container">
+            <input
+              v-model="subjectText"
+              @input="handleSubjectChange"
+              type="text"
+              class="subject-input"
+              placeholder="Enter report subject..."
+              maxlength="100"
+            />
+            <div class="subject-help">
+              <i class="fas fa-info-circle"></i>
+              <span>This text will be used as the subject/title of the report</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="core-content-section">
+          <div class="section-header">
+            <h4>
+              <i class="fas fa-align-left"></i>
+              Report Core Content
+            </h4>
+          </div>
+          <div class="core-content-container">
+            <textarea
+              v-model="coreContentText"
+              @input="handleCoreContentChange"
+              class="core-content-textarea"
+              placeholder="Enter the main content of the report..."
+              rows="4"
+              maxlength="500"
+            ></textarea>
+            <div class="core-content-help">
+              <i class="fas fa-info-circle"></i>
+              <span>This content will appear in the main body of the report before the table</span>
+            </div>
+          </div>
         </div>
 
         <div class="columns-section">
@@ -395,6 +556,99 @@ const selectCommonColumns = () => {
 
 .selection-info i {
   color: #3b82f6;
+}
+
+.subject-section {
+  margin-bottom: 20px;
+}
+
+.subject-input-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.subject-input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: all 0.2s ease;
+  background: white;
+}
+
+.subject-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.subject-input::placeholder {
+  color: #9ca3af;
+}
+
+.subject-help {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #6b7280;
+  font-style: italic;
+}
+
+.subject-help i {
+  color: #9ca3af;
+  font-size: 10px;
+}
+
+.core-content-section {
+  margin-bottom: 20px;
+}
+
+.core-content-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.core-content-textarea {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: all 0.2s ease;
+  background: white;
+  resize: vertical;
+  min-height: 100px;
+  line-height: 1.5;
+}
+
+.core-content-textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.core-content-textarea::placeholder {
+  color: #9ca3af;
+}
+
+.core-content-help {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #6b7280;
+  font-style: italic;
+}
+
+.core-content-help i {
+  color: #9ca3af;
+  font-size: 10px;
 }
 
 .columns-section {
