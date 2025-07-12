@@ -17,6 +17,7 @@ import VinAssignmentModal from './VinAssignmentModal.vue'
 import CarPortsBulkEditForm from './CarPortsBulkEditForm.vue'
 import CarWarehouseBulkEditForm from './CarWarehouseBulkEditForm.vue'
 import CarNotesBulkEditForm from './CarNotesBulkEditForm.vue'
+import CarColorBulkEditForm from './CarColorBulkEditForm.vue'
 
 import { useRouter } from 'vue-router'
 
@@ -1522,6 +1523,31 @@ const handleNotesBulkSave = (updatedCars) => {
   fetchCarsStock()
 }
 
+const handleColorFromToolbar = () => {
+  if (selectedCars.value.size === 0) {
+    alert('No cars selected for color editing')
+    return
+  }
+
+  showColorBulkEditForm.value = true
+}
+
+const handleColorBulkSave = (updatedCars) => {
+  console.log('Colors updated for cars:', updatedCars)
+  showColorBulkEditForm.value = false
+  fetchCarsStock()
+}
+
+// Add new refs for color bulk edit form
+const showColorBulkEditForm = ref(false)
+
+// Add computed property for color permission
+const can_change_car_color = computed(() => {
+  if (!user.value) return false
+  if (user.value.role_id === 1) return true
+  return user.value.permissions?.some((p) => p.permission_name === 'can_change_car_color')
+})
+
 onMounted(() => {
   const userStr = localStorage.getItem('user')
   if (userStr) {
@@ -1664,6 +1690,7 @@ defineExpose({
       <CarStockToolbar
         :selected-cars="selectedCars"
         :total-cars="sortedCars.length"
+        :can-change-color="can_change_car_color"
         @print-selected="handlePrintSelected"
         @loading-order="handleLoadingOrderFromToolbar"
         @vin="handleVinFromToolbar"
@@ -1671,6 +1698,7 @@ defineExpose({
         @warehouse="handleWarehouseFromToolbar"
         @notes="handleNotesFromToolbar"
         @task="handleTaskFromToolbar"
+        @color="handleColorFromToolbar"
       />
 
       <div class="table-container">
@@ -2540,6 +2568,15 @@ defineExpose({
     :is-admin="isAdmin"
     @close="showNotesBulkEditForm = false"
     @save="handleNotesBulkSave"
+  />
+
+  <!-- Color Bulk Edit Modal -->
+  <CarColorBulkEditForm
+    :show="showColorBulkEditForm"
+    :selected-cars="sortedCars.filter((car) => selectedCars.has(car.id))"
+    :is-admin="isAdmin"
+    @close="showColorBulkEditForm = false"
+    @save="handleColorBulkSave"
   />
 </template>
 

@@ -11,9 +11,21 @@ const props = defineProps({
     type: Number,
     default: 0,
   },
+  canChangeColor: {
+    type: Boolean,
+    default: false,
+  },
 })
 
-const emit = defineEmits(['print-selected', 'loading-order', 'vin', 'warehouse', 'notes', 'task'])
+const emit = defineEmits([
+  'print-selected',
+  'loading-order',
+  'vin',
+  'warehouse',
+  'notes',
+  'task',
+  'color',
+])
 </script>
 
 <template>
@@ -69,6 +81,16 @@ const emit = defineEmits(['print-selected', 'loading-order', 'vin', 'warehouse',
       >
         <i class="fas fa-tasks"></i>
         <span>Task</span>
+      </button>
+      <button
+        v-if="canChangeColor"
+        @click="$emit('color')"
+        class="color-btn"
+        :disabled="selectedCars.size === 0"
+        :title="selectedCars.size === 0 ? 'No cars selected' : 'Edit color for selected cars'"
+      >
+        <i class="fas fa-palette"></i>
+        <span>Color</span>
       </button>
       <button
         @click="$emit('vin')"
@@ -275,6 +297,34 @@ const emit = defineEmits(['print-selected', 'loading-order', 'vin', 'warehouse',
 }
 
 .task-btn:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.color-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background-color: #4f46e5;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.color-btn:hover:not(:disabled) {
+  background-color: #4338ca;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.color-btn:disabled {
   background-color: #9ca3af;
   cursor: not-allowed;
   transform: none;

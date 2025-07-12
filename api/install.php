@@ -510,7 +510,8 @@ try {
         ('can_purchase_cars', 'Can create and manage purchase orders for cars'),
         ('can_sell_cars', 'Can create and manage sales invoices for cars'),
         ('can_c_car_stock', 'Can view and manage car stock inventory'),
-        ('can_assign_to_tmp_clients', 'Can assign cars to temporary clients')
+        ('can_assign_to_tmp_clients', 'Can assign cars to temporary clients'),
+        ('can_change_car_color', 'Can change car color'),
     ");
     $stmt->execute();
 
