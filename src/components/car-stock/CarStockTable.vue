@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, defineProps, defineEmits, computed, watch, onUnmounted } from 'vue'
 import { useApi } from '../../composables/useApi'
+import letterHeadImage from '../../assets/letter_head.png'
 import VinEditForm from './VinEditForm.vue'
 import CarFilesUploadForm from './CarFilesUploadForm.vue'
 import CarPortsEditForm from './CarPortsEditForm.vue'
@@ -358,7 +359,7 @@ const handlePrintWithOptions = (printData) => {
   if (printOptionsActionType.value === 'print') {
     title = subject || 'Car Stock Report'
     contentBeforeTable = `
-      ${coreContent ? `<div style="margin: 20px 0; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #3b82f6; border-radius: 4px;">${coreContent}</div>` : ''}
+      ${coreContent ? `<div style="margin: 20px 0; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #3b82f6; border-radius: 4px; white-space: pre-wrap;">${coreContent}</div>` : ''}
     `
     contentAfterTable = `
       <p><strong>Total Cars:</strong> ${cars.length}</p>
@@ -420,7 +421,7 @@ const handleLoadingOrderWithOptions = (data) => {
   // Generate loading order content based on action type
   let title = subject || 'Loading Order Report'
   let contentBeforeTable = `
-    ${coreContent ? `<div style="margin: 20px 0; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #059669; border-radius: 4px;">${coreContent}</div>` : ''}
+    ${coreContent ? `<div style="margin: 20px 0; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #059669; border-radius: 4px; white-space: pre-wrap;">${coreContent}</div>` : ''}
   `
   let contentAfterTable = `
     <p><strong>Total Cars for Loading:</strong> ${cars.length}</p>
@@ -535,7 +536,7 @@ const printReport = (reportData) => {
       <div class="print-report">
         <div class="report-header">
           <img 
-            src="/src/assets/letter_head.png" 
+            src="${letterHeadImage}" 
             alt="Letter Head" 
             class="letter-head"
             style="max-width: 100%; height: auto; max-height: 120px;"
