@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useApi } from '../composables/useApi'
 import BuyBillsTable from '../components/buy/BuyBillsTable.vue'
 import BuyDetailsTable from '../components/buy/BuyDetailsTable.vue'
+import CarStockTable from '../components/car-stock/CarStockTable.vue'
 import TaskForm from '../components/car-stock/TaskForm.vue'
 import { useRouter } from 'vue-router'
 
@@ -59,12 +60,33 @@ const handleUpdateStock = async (bill) => {
 
     if (result.success) {
       await fetchBuyBills()
+
+      // Update the selected bill data to reflect the new status
+      if (selectedBill.value?.id === bill.id) {
+        const updatedBill = buyBills.value.find((b) => b.id === bill.id)
+        if (updatedBill) {
+          selectedBill.value = updatedBill
+        }
+      }
     } else {
       alert('Failed to update stock')
     }
   } catch (err) {
     console.error('Error updating stock:', err)
     alert('Failed to update stock')
+  }
+}
+
+const handleStockUpdated = async (billId) => {
+  // Refresh the bills list to get updated data
+  await fetchBuyBills()
+
+  // Update the selected bill data to reflect the new status
+  if (selectedBill.value?.id === billId) {
+    const updatedBill = buyBills.value.find((b) => b.id === billId)
+    if (updatedBill) {
+      selectedBill.value = updatedBill
+    }
   }
 }
 
@@ -379,7 +401,12 @@ const fetchBuyBills = async () => {
           SELECT SUM(amount * QTY)
           FROM buy_details
           WHERE id_buy_bill = bb.id
-        ), 0) as calculated_amount
+        ), 0) as calculated_amount,
+        (
+          SELECT COALESCE(SUM(bp.amount), 0)
+          FROM buy_payments bp
+          WHERE bp.id_buy_bill = bb.id
+        ) as total_paid
       FROM buy_bill bb 
       LEFT JOIN suppliers s ON bb.id_supplier = s.id 
       ORDER BY bb.date_buy DESC
@@ -391,6 +418,7 @@ const fetchBuyBills = async () => {
       ...bill,
       amount: Number(bill.calculated_amount),
       payed: Number(bill.payed),
+      total_paid: Number(bill.total_paid) || 0,
     }))
   }
   isLoadingBills.value = false
@@ -642,14 +670,28 @@ const handleTaskCreated = () => {
           </template>
         </BuyBillsTable>
 
+        <!-- Purchase Details: Only show if bill is pending -->
         <BuyDetailsTable
-          v-if="selectedBill"
+          v-if="selectedBill && selectedBill.is_stock_updated == 0"
           :buyDetails="buyDetails"
           :isAdmin="isAdmin"
           @add-detail="showAddDetailDialog = true"
           @delete-detail="handleDeleteDetail"
           @update-detail="handleUpdateDetail"
+          @stock-updated="handleStockUpdated"
         />
+
+        <!-- Cars in Purchase Bill: Only show if bill is updated -->
+        <div v-if="selectedBill && selectedBill.is_stock_updated == 1" class="cars-section">
+          <div class="section-header">
+            <h3>
+              <i class="fas fa-car"></i>
+              Cars in Purchase Bill #{{ selectedBill.id }}
+            </h3>
+            <p class="section-description">Showing all cars associated with this purchase bill</p>
+          </div>
+          <CarStockTable :buyBillId="selectedBill.id" :filters="{ basic: '', advanced: {} }" />
+        </div>
       </div>
     </div>
 
@@ -1299,5 +1341,36 @@ h3 {
 
 .task-btn i {
   font-size: 0.9rem;
+}
+
+/* Cars section styles */
+.cars-section {
+  margin-top: 20px;
+  border-top: 2px solid #e5e7eb;
+  padding-top: 20px;
+}
+
+.section-header {
+  margin-bottom: 20px;
+}
+
+.section-header h3 {
+  color: #1e293b;
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-header h3 i {
+  color: #3b82f6;
+}
+
+.section-description {
+  color: #64748b;
+  font-size: 0.875rem;
+  margin: 0;
 }
 </style>

@@ -29,6 +29,10 @@ const props = defineProps({
     type: Function,
     default: () => {},
   },
+  buyBillId: {
+    type: [Number, String],
+    default: null,
+  },
   filters: {
     type: Object,
     default: () => ({
@@ -78,6 +82,14 @@ watch(
     fetchCarsStock()
   },
   { deep: true },
+)
+
+// Add watcher for buyBillId
+watch(
+  () => props.buyBillId,
+  (newBuyBillId) => {
+    fetchCarsStock()
+  },
 )
 
 const user = ref(null)
@@ -798,6 +810,11 @@ const fetchCarsStock = async () => {
     `
 
     const params = []
+
+    // Apply buy bill filter if provided
+    if (props.buyBillId) {
+      query += ` AND bb.id = ${props.buyBillId}`
+    }
 
     // Apply filters if they exist
     if (props.filters) {

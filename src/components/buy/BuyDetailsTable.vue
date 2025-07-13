@@ -15,7 +15,7 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['add-detail', 'delete-detail', 'update-detail'])
+const emit = defineEmits(['add-detail', 'delete-detail', 'update-detail', 'stock-updated'])
 
 const showEditDialog = ref(false)
 const editingDetail = ref(null)
@@ -96,7 +96,7 @@ const showStockAlert = async () => {
 
       if (result.success) {
         alert('Stock has been successfully updated')
-        emit('update-detail', props.buyDetails[0]) // Trigger refresh of parent component
+        emit('stock-updated', props.buyDetails[0].id_buy_bill) // Emit the bill ID for parent refresh
       } else {
         console.error('Error updating is_stock_updated flag:', result.error)
         alert('Error updating stock')

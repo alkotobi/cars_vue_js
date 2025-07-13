@@ -126,6 +126,27 @@ const formatNumber = (value) => {
   const num = Number(value)
   return !isNaN(num) ? num.toFixed(2) : 'N/A'
 }
+
+// Add computed properties for payment status
+const getPaymentStatus = (bill) => {
+  const total = bill.amount || 0
+  const paid = bill.total_paid || 0
+  const remaining = total - paid
+
+  if (total === 0) {
+    return { status: 'no-amount', text: 'No Amount', color: 'gray' }
+  } else if (paid === 0) {
+    return { status: 'not-paid', text: 'Not Paid', color: 'red' }
+  } else if (remaining <= 0) {
+    return { status: 'paid', text: 'Paid', color: 'green' }
+  } else {
+    return {
+      status: 'partial',
+      text: `Left: $${remaining.toFixed(2)}`,
+      color: 'orange',
+    }
+  }
+}
 </script>
 
 <template>
@@ -308,6 +329,7 @@ const formatNumber = (value) => {
             <th><i class="fas fa-money-bill-wave"></i> Amount</th>
             <th><i class="fas fa-check-circle"></i> Paid</th>
             <th><i class="fas fa-balance-scale"></i> Balance</th>
+            <th><i class="fas fa-money-bill-wave"></i> Payment Status</th>
             <th><i class="fas fa-info-circle"></i> Status</th>
             <th><i class="fas fa-shopping-cart"></i> Order Status</th>
             <th><i class="fas fa-file-pdf"></i> PI Document</th>
@@ -327,6 +349,14 @@ const formatNumber = (value) => {
             <td>{{ formatNumber(bill.amount) }}</td>
             <td>{{ formatNumber(bill.payed) }}</td>
             <td>{{ formatNumber(bill.amount - bill.payed) }}</td>
+            <td>
+              <span
+                :class="['payment-badge', `payment-${getPaymentStatus(bill).status}`]"
+                :title="`Total: $${bill.amount.toFixed(2)} | Paid: $${bill.total_paid.toFixed(2)}`"
+              >
+                {{ getPaymentStatus(bill).text }}
+              </span>
+            </td>
             <td>
               <span :class="bill.is_stock_updated ? 'status-updated' : 'status-pending'">
                 <i class="fas" :class="bill.is_stock_updated ? 'fa-check' : 'fa-clock'"></i>
@@ -878,6 +908,42 @@ const formatNumber = (value) => {
 
 .data-table th:hover i:last-child {
   opacity: 1;
+}
+
+/* Payment status badges */
+.payment-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: center;
+  min-width: 80px;
+  cursor: help;
+}
+
+.payment-paid {
+  background-color: #dcfce7;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.payment-not-paid {
+  background-color: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.payment-partial {
+  background-color: #fed7aa;
+  color: #92400e;
+  border: 1px solid #fdba74;
+}
+
+.payment-no-amount {
+  background-color: #f3f4f6;
+  color: #6b7280;
+  border: 1px solid #e5e7eb;
 }
 
 /* Responsive adjustments */
