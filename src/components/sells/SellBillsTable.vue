@@ -147,7 +147,7 @@ const fetchSellBills = async () => {
   error.value = null
 
   try {
-    // Different query based on admin status - now includes payment information
+    // Different query based on admin status - now includes payment and loading information
     const query = isAdmin.value
       ? `
       SELECT 
@@ -163,7 +163,17 @@ const fetchSellBills = async () => {
           SELECT COALESCE(SUM(sp.amount_usd), 0)
           FROM sell_payments sp
           WHERE sp.id_sell_bill = sb.id
-        ) as total_paid
+        ) as total_paid,
+        (
+          SELECT COUNT(*)
+          FROM cars_stock cs
+          WHERE cs.id_sell = sb.id
+        ) as total_cars,
+        (
+          SELECT COUNT(*)
+          FROM cars_stock cs
+          WHERE cs.id_sell = sb.id AND cs.container_ref IS NOT NULL
+        ) as loaded_cars
       FROM sell_bill sb
       LEFT JOIN clients c ON sb.id_broker = c.id
       LEFT JOIN users u ON sb.id_user = u.id
@@ -183,7 +193,17 @@ const fetchSellBills = async () => {
           SELECT COALESCE(SUM(sp.amount_usd), 0)
           FROM sell_payments sp
           WHERE sp.id_sell_bill = sb.id
-        ) as total_paid
+        ) as total_paid,
+        (
+          SELECT COUNT(*)
+          FROM cars_stock cs
+          WHERE cs.id_sell = sb.id
+        ) as total_cars,
+        (
+          SELECT COUNT(*)
+          FROM cars_stock cs
+          WHERE cs.id_sell = sb.id AND cs.container_ref IS NOT NULL
+        ) as loaded_cars
       FROM sell_bill sb
       LEFT JOIN clients c ON sb.id_broker = c.id
       LEFT JOIN users u ON sb.id_user = u.id
@@ -200,6 +220,8 @@ const fetchSellBills = async () => {
         ...bill,
         total_cfr: Number(bill.total_cfr) || 0,
         total_paid: Number(bill.total_paid) || 0,
+        total_cars: Number(bill.total_cars) || 0,
+        loaded_cars: Number(bill.loaded_cars) || 0,
       }))
       applyFilters() // Apply filters after fetching
     } else {
@@ -372,6 +394,26 @@ const getPaymentStatus = (bill) => {
     }
   }
 }
+
+// Add computed properties for loading status
+const getLoadingStatus = (bill) => {
+  const totalCars = bill.total_cars || 0
+  const loadedCars = bill.loaded_cars || 0
+
+  if (totalCars === 0) {
+    return { status: 'no-cars', text: 'No Vehicles', color: 'gray' }
+  } else if (loadedCars === 0) {
+    return { status: 'not-loaded', text: 'Awaiting Loading', color: 'red' }
+  } else if (loadedCars === totalCars) {
+    return { status: 'fully-loaded', text: 'Fully Loaded', color: 'green' }
+  } else {
+    return {
+      status: 'partially-loaded',
+      text: `${loadedCars}/${totalCars} Loaded`,
+      color: 'orange',
+    }
+  }
+}
 </script>
 
 <template>
@@ -499,6 +541,7 @@ const getPaymentStatus = (bill) => {
               ></i>
             </th>
             <th><i class="fas fa-money-bill-wave"></i> Payment Status</th>
+            <th><i class="fas fa-shipping-fast"></i> Loading Status</th>
             <th><i class="fas fa-cog"></i> Actions</th>
           </tr>
         </thead>
@@ -521,6 +564,14 @@ const getPaymentStatus = (bill) => {
                 :title="`Total: $${bill.total_cfr.toFixed(2)} | Paid: $${bill.total_paid.toFixed(2)}`"
               >
                 {{ getPaymentStatus(bill).text }}
+              </span>
+            </td>
+            <td>
+              <span
+                :class="['loading-badge', `loading-${getLoadingStatus(bill).status}`]"
+                :title="`${bill.loaded_cars} of ${bill.total_cars} vehicles loaded`"
+              >
+                {{ getLoadingStatus(bill).text }}
               </span>
             </td>
             <td class="actions">
@@ -921,6 +972,42 @@ const getPaymentStatus = (bill) => {
 }
 
 .payment-no-amount {
+  background-color: #f3f4f6;
+  color: #6b7280;
+  border: 1px solid #e5e7eb;
+}
+
+/* Loading status badges */
+.loading-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: center;
+  min-width: 80px;
+  cursor: help;
+}
+
+.loading-fully-loaded {
+  background-color: #dcfce7;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.loading-not-loaded {
+  background-color: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.loading-partially-loaded {
+  background-color: #fed7aa;
+  color: #92400e;
+  border: 1px solid #fdba74;
+}
+
+.loading-no-cars {
   background-color: #f3f4f6;
   color: #6b7280;
   border: 1px solid #e5e7eb;
