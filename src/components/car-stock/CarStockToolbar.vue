@@ -101,6 +101,15 @@ const emit = defineEmits([
         <i class="fas fa-barcode"></i>
         <span>VIN</span>
       </button>
+      <button
+        @click="$emit('export-license')"
+        class="export-license-btn"
+        :disabled="selectedCars.size === 0"
+        :title="selectedCars.size === 0 ? 'No cars selected' : 'Edit export license for selected cars'"
+      >
+        <i class="fas fa-file-signature"></i>
+        <span>Export License</span>
+      </button>
       <CarStockPrintDropdown
         :selected-count="selectedCars.size"
         :total-count="totalCars"
@@ -325,6 +334,32 @@ const emit = defineEmits([
 }
 
 .color-btn:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.export-license-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+.export-license-btn:hover:not(:disabled) {
+  background-color: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+.export-license-btn:disabled {
   background-color: #9ca3af;
   cursor: not-allowed;
   transform: none;

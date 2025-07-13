@@ -217,6 +217,11 @@ const getWarehouseBadgeClass = (billId) => {
 const selectBill = (bill) => {
   emit('select-bill', bill)
 }
+
+// Expose functions to parent components
+defineExpose({
+  fetchWarehouseCounts,
+})
 </script>
 
 <template>

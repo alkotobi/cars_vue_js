@@ -96,29 +96,23 @@ const handleStockUpdated = async (billId) => {
 }
 
 const handleSelectBill = (bill) => {
-  console.log('handleSelectBill called with bill:', bill)
-  console.log('Bill status (is_stock_updated):', bill.is_stock_updated)
   selectedBill.value = bill
 
   // Scroll to the appropriate section based on bill status
   setTimeout(() => {
-    console.log('Attempting to scroll to appropriate section...')
     let element = null
 
     if (bill.is_stock_updated == 0) {
       // Scroll to buy details table (pending bill)
       element = buyDetailsTableRef.value?.$el
-      console.log('Scrolling to buy details table:', element)
     } else {
       // Scroll to car stock table (updated bill)
       element = carStockTableRef.value?.$el
-      console.log('Scrolling to car stock table:', element)
     }
 
     // If it's a text node, try to get the parent element
     if (element && element.nodeType === Node.TEXT_NODE) {
       element = element.parentElement
-      console.log('Using parent element:', element)
     }
 
     // Alternative: try to get the element by querying the DOM
@@ -131,22 +125,17 @@ const handleSelectBill = (bill) => {
         element =
           document.querySelector('#car-stock-table') || document.querySelector('.cars-section')
       }
-      console.log('Found element by querySelector:', element)
     }
 
     if (element && element.getBoundingClientRect) {
       const yOffset = -50 // Increased offset to account for any fixed headers
       const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset
-      console.log('Scrolling to position:', y)
       window.scrollTo({ top: y, behavior: 'smooth' })
-    } else {
-      console.log('Element not found or invalid')
     }
   }, 100)
 
   // Alternative scroll method if the first one doesn't work
   setTimeout(() => {
-    console.log('Attempting alternative scroll method...')
     let element = null
 
     if (bill.is_stock_updated == 0) {
@@ -173,14 +162,11 @@ const handleSelectBill = (bill) => {
     }
 
     if (element && element.scrollIntoView) {
-      console.log('Using scrollIntoView method')
       element.scrollIntoView({
         behavior: 'smooth',
         block: 'start',
         inline: 'nearest',
       })
-    } else {
-      console.log('Element not found for scrollIntoView')
     }
   }, 200)
 }
@@ -383,25 +369,16 @@ const addPurchase = async () => {
 
       // Get the new bill ID
       const newBillId = result.lastInsertId
-      console.log('New bill created with ID:', newBillId)
 
       // Refresh the bills list
       await fetchBuyBills()
 
       // Automatically select the newly created bill
       if (newBillId) {
-        console.log('Looking for bill with ID:', newBillId)
-        console.log(
-          'Available bills:',
-          buyBills.value.map((b) => ({ id: b.id, bill_ref: b.bill_ref })),
-        )
-
         const newBill = buyBills.value.find((b) => b.id == newBillId)
         if (newBill) {
-          console.log('Found new bill:', newBill)
           handleSelectBill(newBill)
         } else {
-          console.log('New bill not found in the list, trying to fetch it directly...')
           // If the bill is not in the list, try to fetch it directly
           const billResult = await callApi({
             query: `
@@ -432,10 +409,7 @@ const addPurchase = async () => {
               payed: Number(billResult.data[0].payed),
               total_paid: Number(billResult.data[0].total_paid) || 0,
             }
-            console.log('Fetched new bill directly:', newBill)
             handleSelectBill(newBill)
-          } else {
-            console.log('Could not fetch new bill directly')
           }
         }
       }
@@ -761,7 +735,6 @@ const openPayments = (bill) => {
 
 // Add task handling methods
 const openTaskForBill = (bill) => {
-  console.log('openTaskForBill called with bill:', bill)
   selectedBillForTask.value = bill
   showTaskForm.value = true
 }
@@ -770,6 +743,14 @@ const handleTaskCreated = () => {
   showTaskForm.value = false
   // Don't set selectedBillForTask to null to avoid prop validation errors
   // Optionally refresh data if needed
+}
+
+const handleWarehouseChanged = (updatedCar) => {
+  // Refresh the warehouse counts in BuyBillsTable when a car's warehouse status changes
+  if (buyBillsTableRef.value) {
+    // Call the fetchWarehouseCounts function to refresh the warehouse counts
+    buyBillsTableRef.value.fetchWarehouseCounts()
+  }
 }
 </script>
 
@@ -855,6 +836,7 @@ const handleTaskCreated = () => {
             ref="carStockTableRef"
             :buyBillId="selectedBill.id"
             :filters="{ basic: '', advanced: {} }"
+            @warehouse-changed="handleWarehouseChanged"
           />
         </div>
       </div>

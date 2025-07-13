@@ -16,9 +16,10 @@ import CarStockPrintOptions from './CarStockPrintOptions.vue'
 import CarStockPrintReport from './CarStockPrintReport.vue'
 import VinAssignmentModal from './VinAssignmentModal.vue'
 import CarPortsBulkEditForm from './CarPortsBulkEditForm.vue'
-import CarWarehouseBulkEditForm from './CarWarehouseBulkEditForm.vue'
+
 import CarNotesBulkEditForm from './CarNotesBulkEditForm.vue'
 import CarColorBulkEditForm from './CarColorBulkEditForm.vue'
+import CarExportLicenseBulkEditForm from './CarExportLicenseBulkEditForm.vue'
 
 import { useRouter } from 'vue-router'
 
@@ -99,7 +100,7 @@ const can_edit_cars_prop = computed(() => {
   return user.value.permissions?.some((p) => p.permission_name === 'can_edit_cars_prop')
 })
 
-const emit = defineEmits(['refresh'])
+const emit = defineEmits(['refresh', 'warehouse-changed'])
 
 const { callApi, getFileUrl } = useApi()
 const cars = ref([])
@@ -202,7 +203,6 @@ const showVinAssignmentModal = ref(false)
 const showPortsBulkEditForm = ref(false)
 
 // Add new refs for warehouse bulk edit form
-const showWarehouseBulkEditForm = ref(false)
 
 // Add new refs for notes bulk edit form
 const showNotesBulkEditForm = ref(false)
@@ -1247,12 +1247,28 @@ const handleWarehouseAction = (car) => {
   showWarehouseForm.value = true
 }
 
-const handleWarehouseSave = (updatedCar) => {
-  // Update the car in the local array
-  const index = cars.value.findIndex((c) => c.id === updatedCar.id)
-  if (index !== -1) {
-    cars.value[index] = { ...cars.value[index], ...updatedCar }
+const handleWarehouseSave = (updatedCarOrCars) => {
+  // Handle both single car and bulk cars updates
+  if (Array.isArray(updatedCarOrCars)) {
+    // Bulk update - update multiple cars
+    updatedCarOrCars.forEach((updatedCar) => {
+      const index = cars.value.findIndex((c) => c.id === updatedCar.id)
+      if (index !== -1) {
+        cars.value[index] = { ...cars.value[index], ...updatedCar }
+      }
+    })
+  } else {
+    // Single car update
+    const index = cars.value.findIndex((c) => c.id === updatedCarOrCars.id)
+    if (index !== -1) {
+      cars.value[index] = { ...cars.value[index], ...updatedCarOrCars }
+    }
   }
+}
+
+const handleWarehouseChanged = (updatedCarOrCars) => {
+  // Emit the warehouse-changed event to parent components
+  emit('warehouse-changed', updatedCarOrCars)
 }
 
 // Add new method for documents action
@@ -1491,13 +1507,13 @@ const handleWarehouseFromToolbar = () => {
     return
   }
 
-  showWarehouseBulkEditForm.value = true
-}
+  // Get selected cars data
+  const selectedCarIds = Array.from(selectedCars.value)
+  const selectedCarsData = sortedCars.value.filter((car) => selectedCarIds.includes(car.id))
 
-const handleWarehouseBulkSave = (updatedCars) => {
-  console.log('Warehouse updated for cars:', updatedCars)
-  showWarehouseBulkEditForm.value = false
-  fetchCarsStock()
+  // Set the selected cars for bulk editing
+  selectedCar.value = selectedCarsData[0] // Use first car for compatibility
+  showWarehouseForm.value = true
 }
 
 const handleNotesFromToolbar = () => {
@@ -1566,6 +1582,27 @@ const can_change_car_color = computed(() => {
   return user.value.permissions?.some((p) => p.permission_name === 'can_change_car_color')
 })
 
+const showExportLicenseBulkEditForm = ref(false)
+
+const handleExportLicenseFromToolbar = () => {
+  if (selectedCars.value.size === 0) {
+    alert('No cars selected for export license editing')
+    return
+  }
+  showExportLicenseBulkEditForm.value = true
+}
+
+const handleExportLicenseBulkSave = (updatedCars) => {
+  // Update the cars in the local array
+  updatedCars.forEach((updatedCar) => {
+    const index = cars.value.findIndex((c) => c.id === updatedCar.id)
+    if (index !== -1) {
+      cars.value[index] = { ...cars.value[index], ...updatedCar }
+    }
+  })
+  showExportLicenseBulkEditForm.value = false
+}
+
 onMounted(() => {
   const userStr = localStorage.getItem('user')
   if (userStr) {
@@ -1629,9 +1666,14 @@ defineExpose({
     <CarWarehouseForm
       v-if="showWarehouseForm"
       :car="selectedCar"
+      :cars="
+        selectedCars.size > 1 ? sortedCars.filter((car) => selectedCars.has(car.id)) : undefined
+      "
       :show="showWarehouseForm"
+      :is-admin="isAdmin"
       @close="showWarehouseForm = false"
       @save="handleWarehouseSave"
+      @warehouse-changed="handleWarehouseChanged"
     />
 
     <CarDocumentsForm
@@ -1717,6 +1759,7 @@ defineExpose({
         @notes="handleNotesFromToolbar"
         @task="handleTaskFromToolbar"
         @color="handleColorFromToolbar"
+        @export-license="handleExportLicenseFromToolbar"
       />
 
       <div class="table-container">
@@ -1859,7 +1902,13 @@ defineExpose({
                   <div v-if="car.export_lisence_ref" class="car-detail-item">
                     <div class="info-badge badge-export-license">
                       <i class="fas fa-certificate"></i>
-                      Export License
+                      {{ car.export_lisence_ref }}
+                    </div>
+                  </div>
+                  <div v-else class="car-detail-item">
+                    <div class="info-badge badge-export-license-empty">
+                      <i class="fas fa-certificate"></i>
+                      -
                     </div>
                   </div>
                   <div v-if="car.buy_bill_ref" class="car-detail-item">
@@ -2213,7 +2262,11 @@ defineExpose({
               </div>
               <div v-if="car.export_lisence_ref" class="info-badge badge-export-license">
                 <i class="fas fa-certificate"></i>
-                Export License
+                {{ car.export_lisence_ref }}
+              </div>
+              <div v-else class="info-badge badge-export-license-empty">
+                <i class="fas fa-certificate"></i>
+                -
               </div>
               <div v-if="car.buy_bill_ref" class="info-badge badge-buy-bill">
                 <i class="fas fa-shopping-cart"></i>
@@ -2570,15 +2623,6 @@ defineExpose({
     @save="handlePortsBulkSave"
   />
 
-  <!-- Warehouse Bulk Edit Modal -->
-  <CarWarehouseBulkEditForm
-    :show="showWarehouseBulkEditForm"
-    :selected-cars="sortedCars.filter((car) => selectedCars.has(car.id))"
-    :is-admin="isAdmin"
-    @close="showWarehouseBulkEditForm = false"
-    @save="handleWarehouseBulkSave"
-  />
-
   <!-- Notes Bulk Edit Modal -->
   <CarNotesBulkEditForm
     :show="showNotesBulkEditForm"
@@ -2595,6 +2639,14 @@ defineExpose({
     :is-admin="isAdmin"
     @close="showColorBulkEditForm = false"
     @save="handleColorBulkSave"
+  />
+
+  <CarExportLicenseBulkEditForm
+    :show="showExportLicenseBulkEditForm"
+    :selected-cars="sortedCars.filter((car) => selectedCars.has(car.id))"
+    :is-admin="isAdmin"
+    @close="showExportLicenseBulkEditForm.value = false"
+    @save="handleExportLicenseBulkSave"
   />
 </template>
 
@@ -3240,9 +3292,27 @@ defineExpose({
 }
 
 .badge-export-license {
-  background-color: #fef3c7;
-  color: #92400e;
-  border: 1px solid #fde68a;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #3b82f6;
+  color: #fff;
+  border-radius: 8px;
+  padding: 2px 10px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.badge-export-license-empty {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #e5e7eb;
+  color: #6b7280;
+  border-radius: 8px;
+  padding: 2px 10px;
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .badge-freight-paid {
