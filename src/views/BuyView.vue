@@ -20,6 +20,11 @@ const cars = ref([])
 const colors = ref([])
 const isLoadingBills = ref(false)
 
+// Component refs for scrolling
+const buyBillsTableRef = ref(null)
+const buyDetailsTableRef = ref(null)
+const carStockTableRef = ref(null)
+
 // Dialog controls
 const showAddDialog = ref(false)
 const showEditDialog = ref(false)
@@ -88,6 +93,96 @@ const handleStockUpdated = async (billId) => {
       selectedBill.value = updatedBill
     }
   }
+}
+
+const handleSelectBill = (bill) => {
+  console.log('handleSelectBill called with bill:', bill)
+  console.log('Bill status (is_stock_updated):', bill.is_stock_updated)
+  selectedBill.value = bill
+
+  // Scroll to the appropriate section based on bill status
+  setTimeout(() => {
+    console.log('Attempting to scroll to appropriate section...')
+    let element = null
+
+    if (bill.is_stock_updated == 0) {
+      // Scroll to buy details table (pending bill)
+      element = buyDetailsTableRef.value?.$el
+      console.log('Scrolling to buy details table:', element)
+    } else {
+      // Scroll to car stock table (updated bill)
+      element = carStockTableRef.value?.$el
+      console.log('Scrolling to car stock table:', element)
+    }
+
+    // If it's a text node, try to get the parent element
+    if (element && element.nodeType === Node.TEXT_NODE) {
+      element = element.parentElement
+      console.log('Using parent element:', element)
+    }
+
+    // Alternative: try to get the element by querying the DOM
+    if (!element || !element.getBoundingClientRect) {
+      if (bill.is_stock_updated == 0) {
+        element =
+          document.querySelector('#buy-details-table') ||
+          document.querySelector('.buy-details-table-component')
+      } else {
+        element =
+          document.querySelector('#car-stock-table') || document.querySelector('.cars-section')
+      }
+      console.log('Found element by querySelector:', element)
+    }
+
+    if (element && element.getBoundingClientRect) {
+      const yOffset = -50 // Increased offset to account for any fixed headers
+      const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset
+      console.log('Scrolling to position:', y)
+      window.scrollTo({ top: y, behavior: 'smooth' })
+    } else {
+      console.log('Element not found or invalid')
+    }
+  }, 100)
+
+  // Alternative scroll method if the first one doesn't work
+  setTimeout(() => {
+    console.log('Attempting alternative scroll method...')
+    let element = null
+
+    if (bill.is_stock_updated == 0) {
+      element = buyDetailsTableRef.value?.$el
+    } else {
+      element = carStockTableRef.value?.$el
+    }
+
+    // If it's a text node, try to get the parent element
+    if (element && element.nodeType === Node.TEXT_NODE) {
+      element = element.parentElement
+    }
+
+    // Alternative: try to get the element by querying the DOM
+    if (!element || !element.scrollIntoView) {
+      if (bill.is_stock_updated == 0) {
+        element =
+          document.querySelector('#buy-details-table') ||
+          document.querySelector('.buy-details-table-component')
+      } else {
+        element =
+          document.querySelector('#car-stock-table') || document.querySelector('.cars-section')
+      }
+    }
+
+    if (element && element.scrollIntoView) {
+      console.log('Using scrollIntoView method')
+      element.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+        inline: 'nearest',
+      })
+    } else {
+      console.log('Element not found for scrollIntoView')
+    }
+  }, 200)
 }
 
 const handleDeleteBill = async (bill) => {
@@ -285,7 +380,66 @@ const addPurchase = async () => {
 
     if (result.success) {
       showAddDialog.value = false
+
+      // Get the new bill ID
+      const newBillId = result.lastInsertId
+      console.log('New bill created with ID:', newBillId)
+
+      // Refresh the bills list
       await fetchBuyBills()
+
+      // Automatically select the newly created bill
+      if (newBillId) {
+        console.log('Looking for bill with ID:', newBillId)
+        console.log(
+          'Available bills:',
+          buyBills.value.map((b) => ({ id: b.id, bill_ref: b.bill_ref })),
+        )
+
+        const newBill = buyBills.value.find((b) => b.id == newBillId)
+        if (newBill) {
+          console.log('Found new bill:', newBill)
+          handleSelectBill(newBill)
+        } else {
+          console.log('New bill not found in the list, trying to fetch it directly...')
+          // If the bill is not in the list, try to fetch it directly
+          const billResult = await callApi({
+            query: `
+              SELECT 
+                bb.*,
+                s.name as supplier_name,
+                COALESCE((
+                  SELECT SUM(amount * QTY)
+                  FROM buy_details
+                  WHERE id_buy_bill = bb.id
+                ), 0) as calculated_amount,
+                (
+                  SELECT COALESCE(SUM(bp.amount), 0)
+                  FROM buy_payments bp
+                  WHERE bp.id_buy_bill = bb.id
+                ) as total_paid
+              FROM buy_bill bb 
+              LEFT JOIN suppliers s ON bb.id_supplier = s.id 
+              WHERE bb.id = ?
+            `,
+            params: [newBillId],
+          })
+
+          if (billResult.success && billResult.data.length > 0) {
+            const newBill = {
+              ...billResult.data[0],
+              amount: Number(billResult.data[0].calculated_amount),
+              payed: Number(billResult.data[0].payed),
+              total_paid: Number(billResult.data[0].total_paid) || 0,
+            }
+            console.log('Fetched new bill directly:', newBill)
+            handleSelectBill(newBill)
+          } else {
+            console.log('Could not fetch new bill directly')
+          }
+        }
+      }
+
       // Reset form
       newPurchase.value = {
         id_supplier: null,
@@ -629,10 +783,11 @@ const handleTaskCreated = () => {
     <div class="content">
       <div class="master-detail-vertical">
         <BuyBillsTable
+          ref="buyBillsTableRef"
           :buyBills="buyBills"
           :selectedBill="selectedBill"
           :loading="isLoadingBills"
-          @select-bill="selectBill"
+          @select-bill="handleSelectBill"
         >
           <!-- Toolbar actions -->
           <template #actions="{ bill }">
@@ -672,6 +827,8 @@ const handleTaskCreated = () => {
 
         <!-- Purchase Details: Only show if bill is pending -->
         <BuyDetailsTable
+          ref="buyDetailsTableRef"
+          id="buy-details-table"
           v-if="selectedBill && selectedBill.is_stock_updated == 0"
           :buyDetails="buyDetails"
           :isAdmin="isAdmin"
@@ -682,7 +839,11 @@ const handleTaskCreated = () => {
         />
 
         <!-- Cars in Purchase Bill: Only show if bill is updated -->
-        <div v-if="selectedBill && selectedBill.is_stock_updated == 1" class="cars-section">
+        <div
+          v-if="selectedBill && selectedBill.is_stock_updated == 1"
+          class="cars-section"
+          id="car-stock-table"
+        >
           <div class="section-header">
             <h3>
               <i class="fas fa-car"></i>
@@ -690,7 +851,11 @@ const handleTaskCreated = () => {
             </h3>
             <p class="section-description">Showing all cars associated with this purchase bill</p>
           </div>
-          <CarStockTable :buyBillId="selectedBill.id" :filters="{ basic: '', advanced: {} }" />
+          <CarStockTable
+            ref="carStockTableRef"
+            :buyBillId="selectedBill.id"
+            :filters="{ basic: '', advanced: {} }"
+          />
         </div>
       </div>
     </div>

@@ -147,6 +147,11 @@ const getPaymentStatus = (bill) => {
     }
   }
 }
+
+const selectBill = (bill) => {
+  console.log('selectBill called with bill:', bill)
+  emit('select-bill', bill)
+}
 </script>
 
 <template>
