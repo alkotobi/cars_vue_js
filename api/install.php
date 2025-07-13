@@ -308,16 +308,17 @@ try {
     ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci");
 
     // Create sell_bill table
-    $pdo->exec("CREATE TABLE IF NOT EXISTS `sell_bill` (
-        `id` int(11) NOT NULL AUTO_INCREMENT,
-        `id_client` int(11) DEFAULT NULL,
-        `date_sell` datetime DEFAULT NULL,
-        `amount` decimal(10,2) DEFAULT NULL,
-        `received` decimal(10,2) DEFAULT NULL,
-        `bill_ref` varchar(255) DEFAULT NULL,
-        PRIMARY KEY (`id`),
-        KEY `id_client` (`id_client`)
-    ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci");
+    $pdo->exec("CREATE TABLE IF NOT EXISTS  `sell_bill` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `id_broker` int(11) DEFAULT NULL,
+  `date_sell` date DEFAULT NULL,
+  `notes` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `id_user` int(11) DEFAULT NULL,
+  `path_pi` varchar(255) DEFAULT NULL,
+  `bill_ref` varchar(255) DEFAULT NULL,
+  `is_batch_sell` tinyint(1) DEFAULT 0,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=155 DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;");
 
     // Create sell_payments table
     $pdo->exec("CREATE TABLE IF NOT EXISTS `sell_payments` (

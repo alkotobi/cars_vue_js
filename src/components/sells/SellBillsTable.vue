@@ -147,7 +147,7 @@ const fetchSellBills = async () => {
   error.value = null
 
   try {
-    // Different query based on admin status
+    // Different query based on admin status - now includes payment information
     const query = isAdmin.value
       ? `
       SELECT 
@@ -158,7 +158,12 @@ const fetchSellBills = async () => {
           SELECT SUM(cs.price_cell + COALESCE(cs.freight, 0))
           FROM cars_stock cs
           WHERE cs.id_sell = sb.id
-        ) as total_cfr
+        ) as total_cfr,
+        (
+          SELECT COALESCE(SUM(sp.amount_usd), 0)
+          FROM sell_payments sp
+          WHERE sp.id_sell_bill = sb.id
+        ) as total_paid
       FROM sell_bill sb
       LEFT JOIN clients c ON sb.id_broker = c.id
       LEFT JOIN users u ON sb.id_user = u.id
@@ -173,7 +178,12 @@ const fetchSellBills = async () => {
           SELECT SUM(cs.price_cell + COALESCE(cs.freight, 0))
           FROM cars_stock cs
           WHERE cs.id_sell = sb.id
-        ) as total_cfr
+        ) as total_cfr,
+        (
+          SELECT COALESCE(SUM(sp.amount_usd), 0)
+          FROM sell_payments sp
+          WHERE sp.id_sell_bill = sb.id
+        ) as total_paid
       FROM sell_bill sb
       LEFT JOIN clients c ON sb.id_broker = c.id
       LEFT JOIN users u ON sb.id_user = u.id
@@ -189,6 +199,7 @@ const fetchSellBills = async () => {
       allSellBills.value = result.data.map((bill) => ({
         ...bill,
         total_cfr: Number(bill.total_cfr) || 0,
+        total_paid: Number(bill.total_paid) || 0,
       }))
       applyFilters() // Apply filters after fetching
     } else {
@@ -340,6 +351,27 @@ watch(
 
 // Expose the fetchSellBills method to parent component
 defineExpose({ fetchSellBills })
+
+// Add computed properties for payment status
+const getPaymentStatus = (bill) => {
+  const total = bill.total_cfr || 0
+  const paid = bill.total_paid || 0
+  const remaining = total - paid
+
+  if (total === 0) {
+    return { status: 'no-amount', text: 'No Amount', color: 'gray' }
+  } else if (paid === 0) {
+    return { status: 'not-paid', text: 'Not Paid', color: 'red' }
+  } else if (remaining <= 0) {
+    return { status: 'paid', text: 'Paid', color: 'green' }
+  } else {
+    return {
+      status: 'partial',
+      text: `Left: $${remaining.toFixed(2)}`,
+      color: 'orange',
+    }
+  }
+}
 </script>
 
 <template>
@@ -466,6 +498,7 @@ defineExpose({ fetchSellBills })
                 :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
               ></i>
             </th>
+            <th><i class="fas fa-money-bill-wave"></i> Payment Status</th>
             <th><i class="fas fa-cog"></i> Actions</th>
           </tr>
         </thead>
@@ -482,6 +515,14 @@ defineExpose({ fetchSellBills })
             <td>{{ bill.broker_name || 'N/A' }}</td>
             <td>{{ bill.created_by || 'N/A' }}</td>
             <td>{{ bill.notes || 'N/A' }}</td>
+            <td>
+              <span
+                :class="['payment-badge', `payment-${getPaymentStatus(bill).status}`]"
+                :title="`Total: $${bill.total_cfr.toFixed(2)} | Paid: $${bill.total_paid.toFixed(2)}`"
+              >
+                {{ getPaymentStatus(bill).text }}
+              </span>
+            </td>
             <td class="actions">
               <button
                 v-if="can_edit_sell_bill"
@@ -847,5 +888,41 @@ defineExpose({ fetchSellBills })
   overflow-y: auto; /* Make it scrollable */
   border: 1px solid #e5e7eb;
   border-radius: 8px;
+}
+
+/* Payment status badges */
+.payment-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: center;
+  min-width: 80px;
+  cursor: help;
+}
+
+.payment-paid {
+  background-color: #dcfce7;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.payment-not-paid {
+  background-color: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.payment-partial {
+  background-color: #fed7aa;
+  color: #92400e;
+  border: 1px solid #fdba74;
+}
+
+.payment-no-amount {
+  background-color: #f3f4f6;
+  color: #6b7280;
+  border: 1px solid #e5e7eb;
 }
 </style>

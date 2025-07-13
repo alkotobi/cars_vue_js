@@ -355,6 +355,7 @@ const fetchCarsByBillId = async (billId) => {
           cs.path_documents,
           cs.is_big_car,
           cs.is_used_car,
+          cs.container_ref,
           lp.loading_port,
           c.name as client_name,
           dp.discharge_port,
@@ -525,6 +526,15 @@ const getTextColor = (backgroundColor) => {
   // Return white text for dark backgrounds, black text for light backgrounds
   return luminance > 0.5 ? '#000000' : '#ffffff'
 }
+
+// Function to get container status
+const getContainerStatus = (car) => {
+  if (car.container_ref) {
+    return { status: 'loaded', text: car.container_ref, color: 'blue' }
+  } else {
+    return { status: 'not-loaded', text: 'Not Loaded', color: 'gray' }
+  }
+}
 </script>
 
 <template>
@@ -633,6 +643,7 @@ const getTextColor = (backgroundColor) => {
           <th><i class="fas fa-hashtag"></i> ID</th>
           <th><i class="fas fa-car"></i> Car</th>
           <th><i class="fas fa-user"></i> Client</th>
+          <th><i class="fas fa-shipping-fast"></i> Container</th>
           <th><i class="fas fa-dollar-sign"></i> Price</th>
           <th><i class="fas fa-ship"></i> Freight</th>
           <th><i class="fas fa-calculator"></i> CFR</th>
@@ -660,6 +671,15 @@ const getTextColor = (backgroundColor) => {
             </div>
           </td>
           <td>{{ car.client_name || 'N/A' }}</td>
+          <td>
+            <span
+              :class="['container-badge', `container-badge-${getContainerStatus(car).status}`]"
+              :title="getContainerStatus(car).text"
+            >
+              <i class="fas fa-shipping-fast"></i>
+              {{ getContainerStatus(car).text }}
+            </span>
+          </td>
           <td>{{ car.price_cell ? '$' + car.price_cell.toLocaleString() : 'N/A' }}</td>
           <td>{{ car.freight ? '$' + car.freight.toLocaleString() : 'N/A' }}</td>
           <td class="cfr-cell">
@@ -1513,5 +1533,29 @@ button:disabled {
   font-size: 0.95em;
   font-weight: 500;
   display: inline-block;
+}
+
+/* Container badge styles */
+.container-badge {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-align: center;
+  min-width: 100px;
+  cursor: help;
+}
+
+.container-badge-loaded {
+  background-color: #dbeafe;
+  color: #1d4ed8;
+  border: 1px solid #93c5fd;
+}
+
+.container-badge-not-loaded {
+  background-color: #f3f4f6;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
 }
 </style>
