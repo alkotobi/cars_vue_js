@@ -843,11 +843,12 @@ const fetchCarsStock = async () => {
               c.id_no LIKE ? OR
               w.warhouse_name LIKE ? OR
               bb.bill_ref LIKE ? OR
-              sb.bill_ref LIKE ?
+              sb.bill_ref LIKE ? OR
+              cs.export_lisence_ref LIKE ?
             )
           `
-          // Add the search parameter 11 times (once for each field)
-          for (let i = 0; i < 11; i++) {
+          // Add the search parameter 12 times (once for each field)
+          for (let i = 0; i < 12; i++) {
             params.push(term)
           }
         } else {
@@ -865,16 +866,17 @@ const fetchCarsStock = async () => {
               c.id_no LIKE ? OR
               w.warhouse_name LIKE ? OR
               bb.bill_ref LIKE ? OR
-              sb.bill_ref LIKE ?
+              sb.bill_ref LIKE ? OR
+              cs.export_lisence_ref LIKE ?
             )`
           })
 
           query += ` AND (${conditions.join(` ${operator} `)})`
 
-          // Add parameters for each search term (11 parameters per term)
+          // Add parameters for each search term (12 parameters per term)
           searchTerms.forEach((searchTerm) => {
             const term = `%${searchTerm.trim()}%`
-            for (let i = 0; i < 11; i++) {
+            for (let i = 0; i < 12; i++) {
               params.push(term)
             }
           })
@@ -982,6 +984,12 @@ const fetchCarsStock = async () => {
         if (adv.container_ref && adv.container_ref.trim() !== '') {
           query += ` AND cs.container_ref LIKE ?`
           params.push(`%${adv.container_ref.trim()}%`)
+        }
+
+        // Export License filter
+        if (adv.export_lisence_ref && adv.export_lisence_ref.trim() !== '') {
+          query += ` AND cs.export_lisence_ref LIKE ?`
+          params.push(`%${adv.export_lisence_ref.trim()}%`)
         }
 
         // Loading Status filter
@@ -1899,18 +1907,11 @@ defineExpose({
                       {{ car.color }}
                     </div>
                   </div>
-                  <div v-if="car.export_lisence_ref" class="car-detail-item">
-                    <div class="info-badge badge-export-license">
-                      <i class="fas fa-certificate"></i>
-                      {{ car.export_lisence_ref }}
-                    </div>
+                  <div v-if="car.export_lisence_ref" class="info-badge badge-export-license">
+                    <i class="fas fa-certificate"></i>
+                    {{ car.export_lisence_ref }}
                   </div>
-                  <div v-else class="car-detail-item">
-                    <div class="info-badge badge-export-license-empty">
-                      <i class="fas fa-certificate"></i>
-                      -
-                    </div>
-                  </div>
+
                   <div v-if="car.buy_bill_ref" class="car-detail-item">
                     <div class="info-badge badge-buy-bill">
                       <i class="fas fa-shopping-cart"></i>

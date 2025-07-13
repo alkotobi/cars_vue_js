@@ -61,6 +61,7 @@ const advancedFilters = ref({
   client_id_no: '',
   warehouse: '',
   container_ref: '',
+  export_lisence_ref: '',
   loading_status: '',
   documents_status: '',
   bl_status: '',
@@ -214,7 +215,7 @@ fetchReferenceData()
           <input
             type="text"
             v-model="basicFilter"
-            placeholder="Search: ID, Car, Color, VIN, Ports, Client... (Multiple words = AND/OR search)"
+            placeholder="Search: ID, Car, Color, VIN, Ports, Client, Export License... (Multiple words = AND/OR search)"
             @keydown="handleBasicFilterKeydown"
             :disabled="isProcessing.basic || showAdvancedFilter"
           />
@@ -515,6 +516,21 @@ fetchReferenceData()
             type="text"
             v-model="advancedFilters.container_ref"
             placeholder="Container Reference"
+            :disabled="isProcessing.advanced"
+          />
+        </div>
+
+        <!-- Export License Filter -->
+        <div class="filter-field">
+          <label for="export-license-filter">
+            <i class="fas fa-file-signature"></i>
+            Export License
+          </label>
+          <input
+            id="export-license-filter"
+            type="text"
+            v-model="advancedFilters.export_lisence_ref"
+            placeholder="Export License Reference"
             :disabled="isProcessing.advanced"
           />
         </div>
