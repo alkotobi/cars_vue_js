@@ -1,6 +1,6 @@
 <script setup>
 import { defineProps, defineEmits } from 'vue'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useApi } from '../../composables/useApi'
 
 const props = defineProps({
@@ -20,7 +20,7 @@ const props = defineProps({
 
 const emit = defineEmits(['select-bill'])
 
-const { getFileUrl } = useApi()
+const { getFileUrl, callApi } = useApi()
 
 // Add filter states
 const filters = ref({
@@ -148,8 +148,73 @@ const getPaymentStatus = (bill) => {
   }
 }
 
+// Add warehouse car count data
+const warehouseCarCounts = ref({})
+
+// Function to get warehouse car count and total car count for a bill
+const getWarehouseCarCount = async (billId) => {
+  try {
+    const result = await callApi({
+      query: `
+        SELECT 
+          COUNT(*) as total_count,
+          SUM(CASE WHEN cs.in_wharhouse_date IS NOT NULL THEN 1 ELSE 0 END) as warehouse_count
+        FROM cars_stock cs
+        INNER JOIN buy_details bd ON cs.id_buy_details = bd.id
+        WHERE bd.id_buy_bill = ?
+      `,
+      params: [billId],
+    })
+
+    if (result.success && result.data.length > 0) {
+      return {
+        total: result.data[0].total_count,
+        warehouse: result.data[0].warehouse_count,
+      }
+    }
+    return { total: 0, warehouse: 0 }
+  } catch (error) {
+    console.error('Error fetching warehouse car count:', error)
+    return { total: 0, warehouse: 0 }
+  }
+}
+
+// Function to fetch warehouse counts for all bills
+const fetchWarehouseCounts = async () => {
+  const counts = {}
+  for (const bill of props.buyBills) {
+    counts[bill.id] = await getWarehouseCarCount(bill.id)
+  }
+  warehouseCarCounts.value = counts
+}
+
+// Watch for changes in buyBills to update warehouse counts
+watch(
+  () => props.buyBills,
+  () => {
+    if (props.buyBills.length > 0) {
+      fetchWarehouseCounts()
+    }
+  },
+  { immediate: true },
+)
+
+// Function to get badge class for warehouse status
+const getWarehouseBadgeClass = (billId) => {
+  const counts = warehouseCarCounts.value[billId]
+  if (!counts) return ''
+
+  // Convert to numbers to handle string values from database
+  const total = Number(counts.total) || 0
+  const warehouse = Number(counts.warehouse) || 0
+
+  if (total === 0) return 'no-bill-cars'
+  if (warehouse === 0) return 'no-cars'
+  if (warehouse > 0) return 'has-warehouse-cars'
+  return ''
+}
+
 const selectBill = (bill) => {
-  console.log('selectBill called with bill:', bill)
   emit('select-bill', bill)
 }
 </script>
@@ -363,10 +428,33 @@ const selectBill = (bill) => {
               </span>
             </td>
             <td>
-              <span :class="bill.is_stock_updated ? 'status-updated' : 'status-pending'">
-                <i class="fas" :class="bill.is_stock_updated ? 'fa-check' : 'fa-clock'"></i>
-                {{ bill.is_stock_updated ? 'Updated' : 'Pending' }}
-              </span>
+              <div class="status-container">
+                <span :class="bill.is_stock_updated ? 'status-updated' : 'status-pending'">
+                  <i class="fas" :class="bill.is_stock_updated ? 'fa-check' : 'fa-clock'"></i>
+                  {{ bill.is_stock_updated ? 'Updated' : 'Pending' }}
+                </span>
+                <span
+                  class="warehouse-badge"
+                  :class="getWarehouseBadgeClass(bill.id)"
+                  :title="
+                    warehouseCarCounts[bill.id]?.total > 0
+                      ? `${warehouseCarCounts[bill.id]?.warehouse} of ${warehouseCarCounts[bill.id]?.total} car${warehouseCarCounts[bill.id]?.total === 1 ? '' : 's'} received in warehouse`
+                      : 'No cars in this purchase bill'
+                  "
+                >
+                  <i
+                    class="fas"
+                    :class="
+                      warehouseCarCounts[bill.id]?.warehouse > 0 ? 'fa-warehouse' : 'fa-clock'
+                    "
+                  ></i>
+                  <span v-if="warehouseCarCounts[bill.id]?.total > 0">
+                    {{ warehouseCarCounts[bill.id]?.warehouse }} of
+                    {{ warehouseCarCounts[bill.id]?.total }}
+                  </span>
+                  <span v-else>No cars</span>
+                </span>
+              </div>
             </td>
             <td>
               <span :class="bill.is_ordered ? 'status-ordered' : 'status-not_ordered'">
@@ -721,6 +809,13 @@ const selectBill = (bill) => {
   transform: scale(1.1);
 }
 
+.status-container {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+}
+
 .status-updated,
 .status-pending {
   font-weight: 500;
@@ -730,6 +825,58 @@ const selectBill = (bill) => {
   padding: 4px 8px;
   border-radius: 4px;
   transition: all 0.2s ease;
+}
+
+.warehouse-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  background-color: #8b5cf6;
+  color: white;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  cursor: help;
+}
+
+.warehouse-badge.has-warehouse-cars {
+  background-color: #8b5cf6 !important;
+  color: white !important;
+}
+
+.warehouse-badge.no-cars {
+  background-color: #ef4444 !important;
+  color: white !important;
+  border: 2px solid #dc2626 !important;
+  box-shadow: 0 0 10px #ef4444 !important;
+}
+
+.warehouse-badge.no-bill-cars {
+  background-color: #9ca3af !important;
+  color: #6b7280 !important;
+}
+
+.warehouse-badge:hover {
+  background-color: #7c3aed;
+  transform: scale(1.05);
+}
+
+.warehouse-badge.no-cars:hover {
+  background-color: #dc2626;
+}
+
+.warehouse-badge.no-bill-cars:hover {
+  background-color: #6b7280;
+}
+
+.warehouse-badge.has-warehouse-cars:hover {
+  background-color: #7c3aed;
+}
+
+.warehouse-badge i {
+  font-size: 0.7rem;
 }
 
 .status-updated {
