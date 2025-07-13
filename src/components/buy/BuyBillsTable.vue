@@ -151,6 +151,9 @@ const getPaymentStatus = (bill) => {
 // Add warehouse car count data
 const warehouseCarCounts = ref({})
 
+// Add export license car count data
+const exportLicenseCarCounts = ref({})
+
 // Function to get warehouse car count and total car count for a bill
 const getWarehouseCarCount = async (billId) => {
   try {
@@ -179,6 +182,34 @@ const getWarehouseCarCount = async (billId) => {
   }
 }
 
+// Function to get export license car count and total car count for a bill
+const getExportLicenseCarCount = async (billId) => {
+  try {
+    const result = await callApi({
+      query: `
+        SELECT 
+          COUNT(*) as total_count,
+          SUM(CASE WHEN cs.export_lisence_ref IS NOT NULL AND cs.export_lisence_ref != '' THEN 1 ELSE 0 END) as export_license_count
+        FROM cars_stock cs
+        INNER JOIN buy_details bd ON cs.id_buy_details = bd.id
+        WHERE bd.id_buy_bill = ?
+      `,
+      params: [billId],
+    })
+
+    if (result.success && result.data.length > 0) {
+      return {
+        total: result.data[0].total_count,
+        exportLicense: result.data[0].export_license_count,
+      }
+    }
+    return { total: 0, exportLicense: 0 }
+  } catch (error) {
+    console.error('Error fetching export license car count:', error)
+    return { total: 0, exportLicense: 0 }
+  }
+}
+
 // Function to fetch warehouse counts for all bills
 const fetchWarehouseCounts = async () => {
   const counts = {}
@@ -188,12 +219,22 @@ const fetchWarehouseCounts = async () => {
   warehouseCarCounts.value = counts
 }
 
+// Function to fetch export license counts for all bills
+const fetchExportLicenseCounts = async () => {
+  const counts = {}
+  for (const bill of props.buyBills) {
+    counts[bill.id] = await getExportLicenseCarCount(bill.id)
+  }
+  exportLicenseCarCounts.value = counts
+}
+
 // Watch for changes in buyBills to update warehouse counts
 watch(
   () => props.buyBills,
   () => {
     if (props.buyBills.length > 0) {
       fetchWarehouseCounts()
+      fetchExportLicenseCounts()
     }
   },
   { immediate: true },
@@ -214,6 +255,21 @@ const getWarehouseBadgeClass = (billId) => {
   return ''
 }
 
+// Function to get badge class for export license status
+const getExportLicenseBadgeClass = (billId) => {
+  const counts = exportLicenseCarCounts.value[billId]
+  if (!counts) return ''
+
+  // Convert to numbers to handle string values from database
+  const total = Number(counts.total) || 0
+  const exportLicense = Number(counts.exportLicense) || 0
+
+  if (total === 0) return 'no-bill-cars'
+  if (exportLicense === 0) return 'no-cars'
+  if (exportLicense > 0) return 'has-export-license-cars'
+  return ''
+}
+
 const selectBill = (bill) => {
   emit('select-bill', bill)
 }
@@ -221,6 +277,7 @@ const selectBill = (bill) => {
 // Expose functions to parent components
 defineExpose({
   fetchWarehouseCounts,
+  fetchExportLicenseCounts,
 })
 </script>
 
@@ -369,7 +426,7 @@ defineExpose({
       <table class="data-table" :class="{ 'with-selection': selectedBill }">
         <thead>
           <tr>
-            <th @click="handleSort('id')">
+            <th @click="handleSort('id')" class="id-column">
               <i class="fas fa-hashtag"></i> ID
               <i
                 v-if="sortConfig.field === 'id'"
@@ -377,7 +434,7 @@ defineExpose({
               >
               </i>
             </th>
-            <th @click="handleSort('date_buy')" class="sortable">
+            <th @click="handleSort('date_buy')" class="sortable date-column">
               <i class="fas fa-calendar"></i> Date
               <i
                 v-if="sortConfig.field === 'date_buy'"
@@ -405,7 +462,7 @@ defineExpose({
             <th><i class="fas fa-check-circle"></i> Paid</th>
             <th><i class="fas fa-balance-scale"></i> Balance</th>
             <th><i class="fas fa-money-bill-wave"></i> Payment Status</th>
-            <th><i class="fas fa-info-circle"></i> Status</th>
+            <th class="status-column"><i class="fas fa-info-circle"></i> Status</th>
             <th><i class="fas fa-shopping-cart"></i> Order Status</th>
             <th><i class="fas fa-file-pdf"></i> PI Document</th>
           </tr>
@@ -432,7 +489,7 @@ defineExpose({
                 {{ getPaymentStatus(bill).text }}
               </span>
             </td>
-            <td>
+            <td class="status-column">
               <div class="status-container">
                 <span :class="bill.is_stock_updated ? 'status-updated' : 'status-pending'">
                   <i class="fas" :class="bill.is_stock_updated ? 'fa-check' : 'fa-clock'"></i>
@@ -447,15 +504,26 @@ defineExpose({
                       : 'No cars in this purchase bill'
                   "
                 >
-                  <i
-                    class="fas"
-                    :class="
-                      warehouseCarCounts[bill.id]?.warehouse > 0 ? 'fa-warehouse' : 'fa-clock'
-                    "
-                  ></i>
+                  <span class="badge-label">Warehouse:</span>
                   <span v-if="warehouseCarCounts[bill.id]?.total > 0">
                     {{ warehouseCarCounts[bill.id]?.warehouse }} of
                     {{ warehouseCarCounts[bill.id]?.total }}
+                  </span>
+                  <span v-else>No cars</span>
+                </span>
+                <span
+                  class="export-license-badge"
+                  :class="getExportLicenseBadgeClass(bill.id)"
+                  :title="
+                    exportLicenseCarCounts[bill.id]?.total > 0
+                      ? `${exportLicenseCarCounts[bill.id]?.exportLicense} of ${exportLicenseCarCounts[bill.id]?.total} car${exportLicenseCarCounts[bill.id]?.total === 1 ? '' : 's'} have export license`
+                      : 'No cars in this purchase bill'
+                  "
+                >
+                  <span class="badge-label">Export License:</span>
+                  <span v-if="exportLicenseCarCounts[bill.id]?.total > 0">
+                    {{ exportLicenseCarCounts[bill.id]?.exportLicense }} of
+                    {{ exportLicenseCarCounts[bill.id]?.total }}
                   </span>
                   <span v-else>No cars</span>
                 </span>
@@ -593,6 +661,30 @@ defineExpose({
   font-weight: 600;
   color: #374151;
   white-space: nowrap;
+}
+
+.data-table th.id-column {
+  width: 4ch;
+  min-width: 4ch;
+  max-width: 4ch;
+}
+
+.data-table th.date-column {
+  width: 10ch;
+  min-width: 10ch;
+  max-width: 10ch;
+}
+
+.data-table th.status-column {
+  width: 25ch;
+  min-width: 25ch;
+  max-width: 25ch;
+}
+
+.data-table td.status-column {
+  width: 25ch;
+  min-width: 25ch;
+  max-width: 25ch;
 }
 
 .data-table th i {
@@ -880,8 +972,64 @@ defineExpose({
   background-color: #7c3aed;
 }
 
-.warehouse-badge i {
+.warehouse-badge .badge-label {
   font-size: 0.7rem;
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+.export-license-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  background-color: #10b981;
+  color: white;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  cursor: help;
+}
+
+.export-license-badge.has-export-license-cars {
+  background-color: #10b981 !important;
+  color: white !important;
+}
+
+.export-license-badge.no-cars {
+  background-color: #ef4444 !important;
+  color: white !important;
+  border: 2px solid #dc2626 !important;
+  box-shadow: 0 0 10px #ef4444 !important;
+}
+
+.export-license-badge.no-bill-cars {
+  background-color: #9ca3af !important;
+  color: #6b7280 !important;
+}
+
+.export-license-badge:hover {
+  background-color: #059669;
+  transform: scale(1.05);
+}
+
+.export-license-badge.no-cars:hover {
+  background-color: #dc2626;
+}
+
+.export-license-badge.no-bill-cars:hover {
+  background-color: #6b7280;
+}
+
+.export-license-badge.has-export-license-cars:hover {
+  background-color: #059669;
+}
+
+.export-license-badge .badge-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  opacity: 0.9;
 }
 
 .status-updated {
