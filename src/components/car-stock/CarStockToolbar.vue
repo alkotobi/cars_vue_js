@@ -25,6 +25,7 @@ const emit = defineEmits([
   'notes',
   'task',
   'color',
+  'export-license',
 ])
 </script>
 
@@ -105,7 +106,9 @@ const emit = defineEmits([
         @click="$emit('export-license')"
         class="export-license-btn"
         :disabled="selectedCars.size === 0"
-        :title="selectedCars.size === 0 ? 'No cars selected' : 'Edit export license for selected cars'"
+        :title="
+          selectedCars.size === 0 ? 'No cars selected' : 'Edit export license for selected cars'
+        "
       >
         <i class="fas fa-file-signature"></i>
         <span>Export License</span>

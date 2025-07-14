@@ -2684,7 +2684,7 @@ defineExpose({
     :show="showExportLicenseBulkEditForm"
     :selected-cars="sortedCars.filter((car) => selectedCars.has(car.id))"
     :is-admin="isAdmin"
-    @close="showExportLicenseBulkEditForm.value = false"
+    @close="showExportLicenseBulkEditForm = false"
     @save="handleExportLicenseBulkSave"
   />
 </template>
