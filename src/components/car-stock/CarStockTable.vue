@@ -3485,18 +3485,24 @@ defineExpose({
   background-color: #dcfce7;
   color: #166534;
   border: 1px solid #bbf7d0;
+  width: fit-content;
+  display: inline-block;
 }
 
 .badge-cfr-dza {
   background-color: #fef3c7;
   color: #92400e;
   border: 1px solid #fde68a;
+  width: fit-content;
+  display: inline-block;
 }
 
 .badge-cfr-rate {
   background-color: #dbeafe;
   color: #1e40af;
   border: 1px solid #bfdbfe;
+  width: fit-content;
+  display: inline-block;
 }
 
 /* Mobile Responsive Styles */
