@@ -58,8 +58,8 @@ const closeModal = () => {
 </script>
 
 <template>
-  <div v-if="show" class="modal-overlay">
-    <div class="modal-content">
+  <div v-if="show" class="modal-overlay" @click="closeModal">
+    <div class="modal-content" @click.stop>
       <div class="modal-header">
         <h3><i class="fas fa-file-signature"></i> Bulk Export License Edit</h3>
         <button class="close-btn" @click="closeModal" :disabled="loading">

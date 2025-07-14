@@ -1,5 +1,5 @@
 <template>
-  <div class="alerts-view" v-if="hasAlerts">
+  <div class="alerts-view" v-if="hasAlerts" :class="{ 'refreshing': isRefreshing }">
     <div class="alerts-container">
       <!-- Unloaded Cars Alert -->
       <div v-if="unloadedCount > 0" class="alert-badge unloaded" @click="handleUnloadedClick">
@@ -41,11 +41,17 @@
         >
       </div>
     </div>
+    
+    <!-- Refresh indicator -->
+    <div v-if="lastRefreshTime" class="refresh-indicator">
+      <i class="fas fa-sync-alt" :class="{ 'spinning': isRefreshing }"></i>
+      <span>Last updated: {{ formatLastRefreshTime() }}</span>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, onUnmounted } from 'vue'
 import { useApi } from '../composables/useApi'
 
 const { callApi } = useApi()
@@ -57,6 +63,11 @@ const noLicenseCount = ref(0)
 const noDocsSentCount = ref(0)
 const loading = ref(false)
 
+// Auto-refresh functionality
+const refreshInterval = ref(null)
+const isRefreshing = ref(false)
+const lastRefreshTime = ref(null)
+
 // Computed property to check if there are any alerts
 const hasAlerts = computed(() => {
   return (
@@ -66,6 +77,20 @@ const hasAlerts = computed(() => {
     noDocsSentCount.value > 0
   )
 })
+
+// Format last refresh time
+const formatLastRefreshTime = () => {
+  if (!lastRefreshTime.value) return ''
+  const now = new Date()
+  const diff = now - lastRefreshTime.value
+  const minutes = Math.floor(diff / 60000)
+  const seconds = Math.floor((diff % 60000) / 1000)
+  
+  if (minutes > 0) {
+    return `${minutes}m ${seconds}s ago`
+  }
+  return `${seconds}s ago`
+}
 
 // Fetch defaults settings
 const fetchDefaults = async () => {
@@ -183,9 +208,14 @@ const fetchNoDocsSentCount = async () => {
   }
 }
 
-// Fetch all alert data
-const fetchAlertData = async () => {
-  loading.value = true
+// Fetch all alert data with refresh indicator
+const fetchAlertData = async (isAutoRefresh = false) => {
+  if (isAutoRefresh) {
+    isRefreshing.value = true
+  } else {
+    loading.value = true
+  }
+  
   try {
     await fetchDefaults()
     if (defaults.value) {
@@ -196,15 +226,43 @@ const fetchAlertData = async () => {
         fetchNoDocsSentCount(),
       ])
     }
+    lastRefreshTime.value = new Date()
   } catch (error) {
     console.error('Error fetching alert data:', error)
   } finally {
     loading.value = false
+    isRefreshing.value = false
+  }
+}
+
+// Start auto-refresh interval
+const startAutoRefresh = () => {
+  // Clear any existing interval
+  if (refreshInterval.value) {
+    clearInterval(refreshInterval.value)
+  }
+  
+  // Set up new interval (15 minutes = 900000 milliseconds)
+  refreshInterval.value = setInterval(() => {
+    fetchAlertData(true)
+  }, 900000)
+}
+
+// Stop auto-refresh interval
+const stopAutoRefresh = () => {
+  if (refreshInterval.value) {
+    clearInterval(refreshInterval.value)
+    refreshInterval.value = null
   }
 }
 
 onMounted(() => {
   fetchAlertData()
+  startAutoRefresh()
+})
+
+onUnmounted(() => {
+  stopAutoRefresh()
 })
 
 // Click handlers for alert badges
@@ -235,6 +293,13 @@ const handleNoDocsClick = () => {
   padding: 10px 20px;
   background-color: #fef2f2;
   border-bottom: 1px solid #fecaca;
+  transition: all 0.3s ease;
+}
+
+.alerts-view.refreshing {
+  background-color: #fef7f0;
+  border-bottom-color: #fbbf24;
+  box-shadow: 0 0 10px rgba(251, 191, 36, 0.3);
 }
 
 .alerts-container {
@@ -291,6 +356,35 @@ const handleNoDocsClick = () => {
 
 .badge-text {
   white-space: nowrap;
+}
+
+.refresh-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 11px;
+  color: #6b7280;
+  opacity: 0.8;
+}
+
+.refresh-indicator i {
+  font-size: 12px;
+  transition: transform 0.3s ease;
+}
+
+.refresh-indicator i.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @media (max-width: 768px) {

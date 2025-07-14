@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import BanksTable from '../components/params/BanksTable.vue'
 import DefaultsForm from '../components/params/DefaultsForm.vue'
+import AlertSettingsForm from '../components/params/AlertSettingsForm.vue'
 
 const router = useRouter()
 const loading = ref(false)
@@ -13,6 +14,7 @@ const isProcessing = ref({
   general: false,
   company: false,
   billing: false,
+  alerts: false,
   notifications: false,
   security: false,
   advanced_sql: false,
@@ -122,6 +124,17 @@ const navigateToAdvancedSql = () => {
         </button>
 
         <button
+          @click="setActiveSection('alerts')"
+          class="sidebar-btn"
+          :class="{ active: activeSection === 'alerts', processing: isProcessing.alerts }"
+          :disabled="isProcessing.alerts"
+        >
+          <i class="fas fa-bell"></i>
+          <span>Alert Settings</span>
+          <i v-if="isProcessing.alerts" class="fas fa-spinner fa-spin loading-indicator"></i>
+        </button>
+
+        <button
           @click="setActiveSection('notifications')"
           class="sidebar-btn"
           :class="{
@@ -173,6 +186,9 @@ const navigateToAdvancedSql = () => {
         </div>
         <div v-else-if="activeSection === 'billing'">
           <DefaultsForm />
+        </div>
+        <div v-else-if="activeSection === 'alerts'">
+          <AlertSettingsForm />
         </div>
         <div v-else class="empty-state">
           <i class="fas fa-tools fa-3x"></i>

@@ -8,11 +8,12 @@ const error = ref(null)
 const isProcessing = ref(false)
 const hasChanges = ref(false)
 
-// Form data - only billing settings
+// Form data - only alert settings
 const formData = ref({
-  rate: '',
-  freight_small: '',
-  freight_big: '',
+  alert_unloaded_after_days: '',
+  alert_not_arrived_after_days: '',
+  alert_no_licence_after_days: '',
+  alert_no_docs_sent_after_days: '',
 })
 
 const fetchDefaults = async () => {
@@ -25,22 +26,24 @@ const fetchDefaults = async () => {
     if (result.success && result.data.length > 0) {
       const defaults = result.data[0]
       formData.value = {
-        rate: defaults.rate?.toString() || '',
-        freight_small: defaults.freight_small?.toString() || '',
-        freight_big: defaults.freight_big?.toString() || '',
+        alert_unloaded_after_days: defaults.alert_unloaded_after_days?.toString() || '',
+        alert_not_arrived_after_days: defaults.alert_not_arrived_after_days?.toString() || '',
+        alert_no_licence_after_days: defaults.alert_no_licence_after_days?.toString() || '',
+        alert_no_docs_sent_after_days: defaults.alert_no_docs_sent_after_days?.toString() || '',
       }
     } else {
       // If no record exists, create one with default values
       await callApi({
         query: `
-          INSERT INTO defaults (rate, freight_small, freight_big)
-          VALUES (0, 0, 0)
+          INSERT INTO defaults (alert_unloaded_after_days, alert_not_arrived_after_days, alert_no_licence_after_days, alert_no_docs_sent_after_days)
+          VALUES (30, 30, 30, 30)
         `,
       })
       formData.value = {
-        rate: '0',
-        freight_small: '0',
-        freight_big: '0',
+        alert_unloaded_after_days: '30',
+        alert_not_arrived_after_days: '30',
+        alert_no_licence_after_days: '30',
+        alert_no_docs_sent_after_days: '30',
       }
     }
   } catch (err) {
@@ -63,20 +66,22 @@ const handleSubmit = async () => {
     const result = await callApi({
       query: `
         UPDATE defaults 
-        SET rate = ?, freight_small = ?, freight_big = ?
+        SET alert_unloaded_after_days = ?, alert_not_arrived_after_days = ?, 
+            alert_no_licence_after_days = ?, alert_no_docs_sent_after_days = ?
         WHERE id = 1
       `,
       params: [
-        parseFloat(formData.value.rate) || 0,
-        parseFloat(formData.value.freight_small) || 0,
-        parseFloat(formData.value.freight_big) || 0,
+        parseInt(formData.value.alert_unloaded_after_days) || 30,
+        parseInt(formData.value.alert_not_arrived_after_days) || 30,
+        parseInt(formData.value.alert_no_licence_after_days) || 30,
+        parseInt(formData.value.alert_no_docs_sent_after_days) || 30,
       ],
     })
 
     if (result.success) {
       hasChanges.value = false
     } else {
-      error.value = 'Failed to save defaults'
+      error.value = 'Failed to save alert settings'
     }
   } catch (err) {
     error.value = err.message
@@ -91,10 +96,10 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="defaults-form">
+  <div class="alert-settings-form">
     <div class="header">
-      <h2>Billing Defaults</h2>
-      <p class="description">Configure default rates and freight costs for car sales</p>
+      <h2>Alert Settings</h2>
+      <p class="description">Configure when alerts should be triggered for overdue cars</p>
     </div>
 
     <div v-if="error" class="error-message">
@@ -104,61 +109,82 @@ onMounted(() => {
     <!-- Loading State -->
     <div v-if="loading" class="loading">
       <i class="fas fa-spinner fa-spin"></i>
-      Loading billing defaults...
+      Loading alert settings...
     </div>
 
     <!-- Form -->
     <div v-else class="form-container">
       <form @submit.prevent="handleSubmit">
         <div class="form-group">
-          <label for="rate">Default Rate</label>
+          <label for="alert_unloaded_after_days">Unloaded Cars Alert (Days)</label>
           <div class="input-group">
             <input
-              id="rate"
-              v-model="formData.rate"
+              id="alert_unloaded_after_days"
+              v-model="formData.alert_unloaded_after_days"
               type="number"
-              step="0.01"
-              min="0"
+              min="1"
+              max="365"
               required
-              placeholder="Enter default rate"
+              placeholder="Enter days"
               @input="handleInput"
             />
-            <span class="currency">DA</span>
+            <span class="unit">days after sell date</span>
           </div>
+          <small class="help-text">Alert for cars sold but not unloaded after this many days</small>
         </div>
 
         <div class="form-group">
-          <label for="freight_small">Small Car Freight</label>
+          <label for="alert_not_arrived_after_days">Not Arrived Cars Alert (Days)</label>
           <div class="input-group">
             <input
-              id="freight_small"
-              v-model="formData.freight_small"
+              id="alert_not_arrived_after_days"
+              v-model="formData.alert_not_arrived_after_days"
               type="number"
-              step="0.01"
-              min="0"
+              min="1"
+              max="365"
               required
-              placeholder="Enter small car freight"
+              placeholder="Enter days"
               @input="handleInput"
             />
-            <span class="currency">USD</span>
+            <span class="unit">days after buy date</span>
           </div>
+          <small class="help-text">Alert for cars purchased but not arrived at warehouse after this many days</small>
         </div>
 
         <div class="form-group">
-          <label for="freight_big">Big Car Freight</label>
+          <label for="alert_no_licence_after_days">No License Cars Alert (Days)</label>
           <div class="input-group">
             <input
-              id="freight_big"
-              v-model="formData.freight_big"
+              id="alert_no_licence_after_days"
+              v-model="formData.alert_no_licence_after_days"
               type="number"
-              step="0.01"
-              min="0"
+              min="1"
+              max="365"
               required
-              placeholder="Enter big car freight"
+              placeholder="Enter days"
               @input="handleInput"
             />
-            <span class="currency">USD</span>
+            <span class="unit">days after buy date</span>
           </div>
+          <small class="help-text">Alert for cars purchased but without export license after this many days</small>
+        </div>
+
+        <div class="form-group">
+          <label for="alert_no_docs_sent_after_days">No Docs Sent Alert (Days)</label>
+          <div class="input-group">
+            <input
+              id="alert_no_docs_sent_after_days"
+              v-model="formData.alert_no_docs_sent_after_days"
+              type="number"
+              min="1"
+              max="365"
+              required
+              placeholder="Enter days"
+              @input="handleInput"
+            />
+            <span class="unit">days after sell date</span>
+          </div>
+          <small class="help-text">Alert for cars sold but documents not sent after this many days</small>
         </div>
 
         <div class="form-actions">
@@ -181,7 +207,7 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.defaults-form {
+.alert-settings-form {
   width: 100%;
   max-width: 600px;
   margin: 0 auto;
@@ -242,10 +268,18 @@ onMounted(() => {
   ring: 2px solid #3b82f6;
 }
 
-.currency {
+.unit {
   color: #6b7280;
-  font-weight: 500;
-  min-width: 40px;
+  font-size: 0.875rem;
+  min-width: 120px;
+}
+
+.help-text {
+  display: block;
+  margin-top: 4px;
+  color: #6b7280;
+  font-size: 0.75rem;
+  font-style: italic;
 }
 
 .form-actions {
@@ -317,12 +351,22 @@ onMounted(() => {
 }
 
 @media (max-width: 768px) {
-  .defaults-form {
+  .alert-settings-form {
     max-width: 100%;
   }
 
   .form-container {
     padding: 16px;
   }
+
+  .input-group {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .unit {
+    min-width: auto;
+    text-align: center;
+  }
 }
-</style>
+</style> 
