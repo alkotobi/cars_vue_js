@@ -1,51 +1,58 @@
 <template>
-  <div class="alerts-view" v-if="hasAlerts" :class="{ 'refreshing': isRefreshing }">
+  <div class="alerts-view" v-if="hasAlerts" :class="{ refreshing: isRefreshing }">
     <div class="alerts-container">
-      <!-- Unloaded Cars Alert -->
-      <div v-if="unloadedCount > 0" class="alert-badge unloaded" @click="handleUnloadedClick">
-        <i class="fas fa-truck"></i>
-        <span class="badge-text"
-          >{{ unloadedCount }} cars unloaded after
-          {{ defaults?.alert_unloaded_after_days || 0 }} days from sell date</span
+      <div class="alerts-badges">
+        <!-- Unloaded Cars Alert -->
+        <div v-if="unloadedCount > 0" class="alert-badge unloaded" @click="handleUnloadedClick">
+          <i class="fas fa-truck"></i>
+          <span class="badge-text"
+            >{{ unloadedCount }} cars unloaded after
+            {{ defaults?.alert_unloaded_after_days || 0 }} days from sell date</span
+          >
+        </div>
+
+        <!-- Not Arrived Cars Alert -->
+        <div
+          v-if="notArrivedCount > 0"
+          class="alert-badge not-arrived"
+          @click="handleNotArrivedClick"
         >
+          <i class="fas fa-ship"></i>
+          <span class="badge-text"
+            >{{ notArrivedCount }} cars not arrived after
+            {{ defaults?.alert_not_arrived_after_days || 0 }} days from buy date</span
+          >
+        </div>
+
+        <!-- No License Cars Alert -->
+        <div v-if="noLicenseCount > 0" class="alert-badge no-license" @click="handleNoLicenseClick">
+          <i class="fas fa-passport"></i>
+          <span class="badge-text"
+            >{{ noLicenseCount }} cars no license after
+            {{ defaults?.alert_no_licence_after_days || 0 }} days from buy date</span
+          >
+        </div>
+
+        <!-- No Docs Sent Cars Alert -->
+        <div v-if="noDocsSentCount > 0" class="alert-badge no-docs" @click="handleNoDocsClick">
+          <i class="fas fa-file-alt"></i>
+          <span class="badge-text"
+            >{{ noDocsSentCount }} cars no docs sent after
+            {{ defaults?.alert_no_docs_sent_after_days || 0 }} days from sell date</span
+          >
+        </div>
       </div>
 
-      <!-- Not Arrived Cars Alert -->
-      <div
-        v-if="notArrivedCount > 0"
-        class="alert-badge not-arrived"
-        @click="handleNotArrivedClick"
+      <!-- Manual refresh button -->
+      <button
+        @click="handleManualRefresh"
+        class="refresh-button"
+        :disabled="isRefreshing"
+        :title="isRefreshing ? 'Refreshing...' : 'Refresh alerts'"
       >
-        <i class="fas fa-ship"></i>
-        <span class="badge-text"
-          >{{ notArrivedCount }} cars not arrived after
-          {{ defaults?.alert_not_arrived_after_days || 0 }} days from buy date</span
-        >
-      </div>
-
-      <!-- No License Cars Alert -->
-      <div v-if="noLicenseCount > 0" class="alert-badge no-license" @click="handleNoLicenseClick">
-        <i class="fas fa-passport"></i>
-        <span class="badge-text"
-          >{{ noLicenseCount }} cars no license after
-          {{ defaults?.alert_no_licence_after_days || 0 }} days from buy date</span
-        >
-      </div>
-
-      <!-- No Docs Sent Cars Alert -->
-      <div v-if="noDocsSentCount > 0" class="alert-badge no-docs" @click="handleNoDocsClick">
-        <i class="fas fa-file-alt"></i>
-        <span class="badge-text"
-          >{{ noDocsSentCount }} cars no docs sent after
-          {{ defaults?.alert_no_docs_sent_after_days || 0 }} days from sell date</span
-        >
-      </div>
-    </div>
-    
-    <!-- Refresh indicator -->
-    <div v-if="lastRefreshTime" class="refresh-indicator">
-      <i class="fas fa-sync-alt" :class="{ 'spinning': isRefreshing }"></i>
-      <span>Last updated: {{ formatLastRefreshTime() }}</span>
+        <i class="fas fa-sync-alt" :class="{ spinning: isRefreshing }"></i>
+        <span>{{ isRefreshing ? 'Refreshing...' : 'Refresh' }}</span>
+      </button>
     </div>
   </div>
 </template>
@@ -85,7 +92,7 @@ const formatLastRefreshTime = () => {
   const diff = now - lastRefreshTime.value
   const minutes = Math.floor(diff / 60000)
   const seconds = Math.floor((diff % 60000) / 1000)
-  
+
   if (minutes > 0) {
     return `${minutes}m ${seconds}s ago`
   }
@@ -215,7 +222,7 @@ const fetchAlertData = async (isAutoRefresh = false) => {
   } else {
     loading.value = true
   }
-  
+
   try {
     await fetchDefaults()
     if (defaults.value) {
@@ -241,11 +248,28 @@ const startAutoRefresh = () => {
   if (refreshInterval.value) {
     clearInterval(refreshInterval.value)
   }
-  
+
   // Set up new interval (15 minutes = 900000 milliseconds)
   refreshInterval.value = setInterval(() => {
     fetchAlertData(true)
   }, 900000)
+}
+
+// Manual refresh handler
+const handleManualRefresh = () => {
+  if (!isRefreshing.value) {
+    fetchAlertData(true)
+    // Add visual effect to badges after manual refresh
+    setTimeout(() => {
+      const badges = document.querySelectorAll('.alert-badge')
+      badges.forEach((badge) => {
+        badge.classList.add('refresh-effect')
+        setTimeout(() => {
+          badge.classList.remove('refresh-effect')
+        }, 1000)
+      })
+    }, 100) // Small delay to ensure data is updated
+  }
 }
 
 // Stop auto-refresh interval
@@ -304,9 +328,62 @@ const handleNoDocsClick = () => {
 
 .alerts-container {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.alerts-badges {
+  display: flex;
   flex-wrap: wrap;
   gap: 12px;
-  justify-content: center;
+  flex: 1;
+}
+
+.refresh-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background-color: transparent;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 400;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  height: 32px;
+  white-space: nowrap;
+  opacity: 0.7;
+}
+
+.refresh-button:hover:not(:disabled) {
+  background-color: #f3f4f6;
+  color: #374151;
+  border-color: #9ca3af;
+  opacity: 1;
+  transform: none;
+  box-shadow: none;
+}
+
+.refresh-button:disabled {
+  background-color: transparent;
+  color: #9ca3af;
+  border-color: #e5e7eb;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+  opacity: 0.5;
+}
+
+.refresh-button i {
+  font-size: 12px;
+  transition: transform 0.3s ease;
+}
+
+.refresh-button i.spinning {
+  animation: spin 1s linear infinite;
 }
 
 .alert-badge {
@@ -324,6 +401,25 @@ const handleNoDocsClick = () => {
 .alert-badge:hover {
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.alert-badge.refresh-effect {
+  animation: refreshPulse 1s ease-in-out;
+}
+
+@keyframes refreshPulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .alert-badge.unloaded {
