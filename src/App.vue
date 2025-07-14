@@ -1,6 +1,7 @@
 <script setup>
 import { RouterView } from 'vue-router'
 import AppHeader from './components/AppHeader.vue'
+import AlertsView from './views/AlertsView.vue'
 import { onMounted } from 'vue'
 import { useApi } from './composables/useApi'
 
@@ -18,9 +19,10 @@ onMounted(async () => {
 
 <template>
   <div id="app">
+    <AlertsView />
     <AppHeader />
     <main class="app-main">
-  <RouterView />
+      <RouterView />
     </main>
   </div>
 </template>

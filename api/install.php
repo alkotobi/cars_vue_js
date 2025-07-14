@@ -291,12 +291,16 @@ try {
 
     // Create defaults table
     $pdo->exec("CREATE TABLE IF NOT EXISTS `defaults` (
-        `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
-        `rate` decimal(10,2) DEFAULT NULL,
-        `freight_small` decimal(10,2) DEFAULT NULL,
-        `freight_big` decimal(10,2) DEFAULT NULL,
-        PRIMARY KEY (`id`)
-    ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_general_ci");
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `rate` decimal(10,2) DEFAULT NULL,
+  `freight_small` decimal(10,2) DEFAULT NULL,
+  `freight_big` decimal(10,2) DEFAULT NULL,
+  `alert_unloaded_after_days` int(11) DEFAULT NULL,
+  `alert_not_arrived_after_days` int(11) DEFAULT NULL,
+  `alert_no_licence_after_days` int(11) DEFAULT NULL,
+  `alert_no_docs_sent_after_days` int(11) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=latin1 COLLATE=latin1_general_ci;");
 
     // Create warehouses table
     $pdo->exec("CREATE TABLE IF NOT EXISTS `warehouses` (

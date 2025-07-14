@@ -1,11 +1,12 @@
 <script setup>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import CarStockTable from '../components/car-stock/CarStockTable.vue'
 import CarStockForm from '../components/car-stock/CarStockForm.vue'
 import CarStockFilter from '../components/car-stock/CarStockFilter.vue'
 
 const router = useRouter()
+const route = useRoute()
 const showEditDialog = ref(false)
 const editingCar = ref(null)
 const carStockTableRef = ref(null)
@@ -17,6 +18,24 @@ const isLoading = ref(false)
 const isProcessing = ref({
   edit: false,
   warehouses: false,
+})
+
+// Alert-specific props from URL parameters
+const alertType = ref(null)
+const alertDays = ref(null)
+const alertTitle = ref('')
+
+onMounted(() => {
+  // Check for alert parameters in URL
+  const urlParams = new URLSearchParams(window.location.search)
+  alertType.value = urlParams.get('alertType')
+  alertDays.value = urlParams.get('alertDays') ? parseInt(urlParams.get('alertDays')) : null
+  alertTitle.value = urlParams.get('title') || ''
+
+  // Update page title if alert title is provided
+  if (alertTitle.value) {
+    document.title = alertTitle.value
+  }
 })
 
 const handleEditCar = async (car) => {
@@ -62,7 +81,7 @@ const navigateToWarehouses = async () => {
     <div class="header">
       <h2>
         <i class="fas fa-warehouse"></i>
-        Cars Stock Management
+        {{ alertTitle || 'Cars Stock Management' }}
       </h2>
     </div>
 
@@ -70,7 +89,13 @@ const navigateToWarehouses = async () => {
       <!-- Add the filter component -->
       <CarStockFilter @filter="handleFilter" ref="filterRef" />
 
-      <CarStockTable ref="carStockTableRef" :onEdit="handleEditCar" :filters="filters" />
+      <CarStockTable
+        ref="carStockTableRef"
+        :onEdit="handleEditCar"
+        :filters="filters"
+        :alertType="alertType"
+        :alertDays="alertDays"
+      />
 
       <!-- Add Warehouses Button at the bottom -->
       <div class="warehouses-button-container">

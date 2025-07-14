@@ -323,7 +323,7 @@ if (isset($postData['action'])) {
                 }
                 echo json_encode(['success' => false, 'error' => $e->getMessage()]);
             }
-            exit;
+                exit;
     
         default:
             http_response_code(400);

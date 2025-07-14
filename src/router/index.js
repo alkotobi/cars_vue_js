@@ -112,6 +112,11 @@ const router = createRouter({
       component: () => import('../views/CarsStock.vue'),
     },
     {
+      path: '/alert-cars/:alertType/:alertDays',
+      name: 'alert-cars',
+      component: () => import('../views/AlertCarsView.vue'),
+    },
+    {
       path: '/warehouses',
       name: 'warehouses',
       component: () => import('../views/WarehousesView.vue'),

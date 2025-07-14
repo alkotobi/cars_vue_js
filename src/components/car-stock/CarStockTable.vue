@@ -34,6 +34,14 @@ const props = defineProps({
     type: [Number, String],
     default: null,
   },
+  alertType: {
+    type: String,
+    default: null, // 'unloaded', 'not_arrived', 'no_license', 'no_docs'
+  },
+  alertDays: {
+    type: Number,
+    default: null,
+  },
   filters: {
     type: Object,
     default: () => ({
@@ -56,6 +64,7 @@ const props = defineProps({
         client_id_no: '',
         warehouse: '',
         container_ref: '',
+        export_lisence_ref: '',
         has_bl: false,
         freight_paid: false,
         has_supplier_docs: false,
@@ -1080,6 +1089,35 @@ const fetchCarsStock = async () => {
 
         if (adv.has_vin) {
           query += ` AND cs.vin IS NOT NULL AND cs.vin != ''`
+        }
+
+        // Alert-specific filtering
+        if (props.alertType && props.alertDays) {
+          switch (props.alertType) {
+            case 'unloaded':
+              query += ` AND cs.date_loding IS NULL AND cs.date_send_documents IS NULL AND cs.hidden = 0`
+              query += ` AND sb.date_sell < DATE_SUB(NOW(), INTERVAL ? DAY)`
+              params.push(props.alertDays)
+              break
+            case 'not_arrived':
+              query += ` AND cs.in_wharhouse_date IS NULL AND cs.hidden = 0`
+              query += ` AND bb.date_buy < DATE_SUB(NOW(), INTERVAL ? DAY)`
+              params.push(props.alertDays)
+              break
+            case 'no_licence':
+            case 'no_license':
+              query += ` AND (cs.export_lisence_ref IS NULL OR cs.export_lisence_ref = '')`
+              query += ` AND cs.date_send_documents IS NULL AND cs.hidden = 0`
+              query += ` AND bb.date_buy < DATE_SUB(NOW(), INTERVAL ? DAY)`
+              params.push(props.alertDays)
+              break
+            case 'no_docs_sent':
+            case 'no_docs':
+              query += ` AND cs.date_send_documents IS NULL AND cs.hidden = 0`
+              query += ` AND sb.date_sell < DATE_SUB(NOW(), INTERVAL ? DAY)`
+              params.push(props.alertDays)
+              break
+          }
         }
       }
     }

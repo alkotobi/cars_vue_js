@@ -52,3 +52,46 @@ FROM (
     GROUP BY vin 
     HAVING COUNT(*) > 1
 ) duplicates; 
+
+-- Query to count cars purchased before a given time that haven't arrived at port or don't have export license
+-- Replace '2024-01-01' with your desired purchase date threshold
+
+SELECT 
+    COUNT(*) as total_cars_not_ready
+FROM cars_stock cs
+INNER JOIN buy_details bd ON cs.id_buy_details = bd.id
+INNER JOIN buy_bill bb ON bd.id_buy_bill = bb.id
+WHERE 
+    bb.date_buy < '2024-01-01'  -- Replace with your desired purchase date threshold
+    AND (
+        -- Cars that haven't arrived at port (no loading date)
+        cs.date_loding IS NULL 
+        OR 
+        -- Cars that don't have export license
+        cs.export_lisence_ref IS NULL 
+        OR 
+        cs.export_lisence_ref = ''
+    )
+    AND cs.hidden = 0  -- Exclude hidden cars
+    AND cs.date_send_documents IS NULL;  -- Exclude sold cars
+
+-- Alternative query with more detailed breakdown:
+SELECT 
+    COUNT(*) as total_cars_not_ready,
+    SUM(CASE WHEN cs.date_loding IS NULL THEN 1 ELSE 0 END) as cars_not_loaded,
+    SUM(CASE WHEN cs.export_lisence_ref IS NULL OR cs.export_lisence_ref = '' THEN 1 ELSE 0 END) as cars_no_export_license,
+    SUM(CASE WHEN cs.date_loding IS NULL AND (cs.export_lisence_ref IS NULL OR cs.export_lisence_ref = '') THEN 1 ELSE 0 END) as cars_both_issues
+FROM cars_stock cs
+INNER JOIN buy_details bd ON cs.id_buy_details = bd.id
+INNER JOIN buy_bill bb ON bd.id_buy_bill = bb.id
+WHERE 
+    bb.date_buy < '2024-01-01'  -- Replace with your desired purchase date threshold
+    AND (
+        cs.date_loding IS NULL 
+        OR 
+        cs.export_lisence_ref IS NULL 
+        OR 
+        cs.export_lisence_ref = ''
+    )
+    AND cs.hidden = 0
+    AND cs.date_send_documents IS NULL; 
