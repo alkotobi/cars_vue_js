@@ -26,7 +26,7 @@ export default {
   computed: {
     alertTitle() {
       const titles = {
-        unloaded: 'Cars Not Unloaded',
+        unloaded: 'Cars Not Loaded',
         not_arrived: 'Cars Not Arrived',
         no_licence: 'Cars Without Export License',
         no_docs_sent: 'Cars Without Documents Sent',
@@ -35,7 +35,7 @@ export default {
     },
     alertDescription() {
       const descriptions = {
-        unloaded: `Cars sold more than ${this.alertDays} days ago that haven't been unloaded`,
+        unloaded: `Cars sold more than ${this.alertDays} days ago that haven't been loaded`,
         not_arrived: `Cars purchased more than ${this.alertDays} days ago that haven't arrived at port`,
         no_licence: `Cars purchased more than ${this.alertDays} days ago without export license`,
         no_docs_sent: `Cars sold more than ${this.alertDays} days ago without documents sent`,

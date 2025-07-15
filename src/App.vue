@@ -1,11 +1,27 @@
 <script setup>
-import { RouterView } from 'vue-router'
+import { RouterView, useRoute } from 'vue-router'
 import AppHeader from './components/AppHeader.vue'
 import AlertsView from './views/AlertsView.vue'
-import { onMounted } from 'vue'
+import { onMounted, computed } from 'vue'
 import { useApi } from './composables/useApi'
 
 const { handleCookieVerification } = useApi()
+const route = useRoute()
+
+// Define routes where alerts should be hidden
+const hideAlertsRoutes = [
+  '/login',
+  '/print',
+  '/print-car',
+  '/advanced-sql',
+  '/alert-cars',
+  '/clients',
+]
+
+// Computed property to determine if alerts should be shown
+const showAlerts = computed(() => {
+  return !hideAlertsRoutes.some((hideRoute) => route.path.startsWith(hideRoute))
+})
 
 onMounted(async () => {
   // Handle cookie verification on app start
@@ -19,7 +35,7 @@ onMounted(async () => {
 
 <template>
   <div id="app">
-    <AlertsView />
+    <AlertsView v-if="showAlerts" />
     <AppHeader />
     <main class="app-main">
       <RouterView />
@@ -42,7 +58,9 @@ onMounted(async () => {
 @media print {
   .app-header,
   header,
-  .app-header * {
+  .app-header *,
+  .alerts-view,
+  .alerts-view * {
     display: none !important;
     visibility: hidden !important;
     height: 0 !important;

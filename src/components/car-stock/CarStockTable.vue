@@ -1096,11 +1096,15 @@ const fetchCarsStock = async () => {
           switch (props.alertType) {
             case 'unloaded':
               query += ` AND cs.date_loding IS NULL AND cs.date_send_documents IS NULL AND cs.hidden = 0`
+              query += ` AND cs.is_batch = 0 AND sb.is_batch_sell = 0`
+              query += ` AND (cs.container_ref IS NULL OR cs.container_ref = '')`
               query += ` AND sb.date_sell < DATE_SUB(NOW(), INTERVAL ? DAY)`
               params.push(props.alertDays)
               break
             case 'not_arrived':
               query += ` AND cs.in_wharhouse_date IS NULL AND cs.hidden = 0`
+              query += ` AND cs.is_batch = 0`
+              query += ` AND (cs.container_ref IS NULL OR cs.container_ref = '')`
               query += ` AND bb.date_buy < DATE_SUB(NOW(), INTERVAL ? DAY)`
               params.push(props.alertDays)
               break
@@ -1108,12 +1112,15 @@ const fetchCarsStock = async () => {
             case 'no_license':
               query += ` AND (cs.export_lisence_ref IS NULL OR cs.export_lisence_ref = '')`
               query += ` AND cs.date_send_documents IS NULL AND cs.hidden = 0`
+              query += ` AND cs.is_batch = 0`
+              query += ` AND (cs.container_ref IS NULL OR cs.container_ref = '')`
               query += ` AND bb.date_buy < DATE_SUB(NOW(), INTERVAL ? DAY)`
               params.push(props.alertDays)
               break
             case 'no_docs_sent':
             case 'no_docs':
               query += ` AND cs.date_send_documents IS NULL AND cs.hidden = 0`
+              query += ` AND cs.is_batch = 0 AND sb.is_batch_sell = 0`
               query += ` AND sb.date_sell < DATE_SUB(NOW(), INTERVAL ? DAY)`
               params.push(props.alertDays)
               break

@@ -116,7 +116,7 @@ onMounted(() => {
     <div v-else class="form-container">
       <form @submit.prevent="handleSubmit">
         <div class="form-group">
-          <label for="alert_unloaded_after_days">Unloaded Cars Alert (Days)</label>
+          <label for="alert_unloaded_after_days">Not Loaded Cars Alert (Days)</label>
           <div class="input-group">
             <input
               id="alert_unloaded_after_days"
@@ -130,7 +130,7 @@ onMounted(() => {
             />
             <span class="unit">days after sell date</span>
           </div>
-          <small class="help-text">Alert for cars sold but not unloaded after this many days</small>
+          <small class="help-text">Alert for cars sold but not loaded after this many days</small>
         </div>
 
         <div class="form-group">
@@ -148,7 +148,9 @@ onMounted(() => {
             />
             <span class="unit">days after buy date</span>
           </div>
-          <small class="help-text">Alert for cars purchased but not arrived at warehouse after this many days</small>
+          <small class="help-text"
+            >Alert for cars purchased but not arrived at warehouse after this many days</small
+          >
         </div>
 
         <div class="form-group">
@@ -166,7 +168,9 @@ onMounted(() => {
             />
             <span class="unit">days after buy date</span>
           </div>
-          <small class="help-text">Alert for cars purchased but without export license after this many days</small>
+          <small class="help-text"
+            >Alert for cars purchased but without export license after this many days</small
+          >
         </div>
 
         <div class="form-group">
@@ -184,7 +188,9 @@ onMounted(() => {
             />
             <span class="unit">days after sell date</span>
           </div>
-          <small class="help-text">Alert for cars sold but documents not sent after this many days</small>
+          <small class="help-text"
+            >Alert for cars sold but documents not sent after this many days</small
+          >
         </div>
 
         <div class="form-actions">
@@ -369,4 +375,4 @@ onMounted(() => {
     text-align: center;
   }
 }
-</style> 
+</style>

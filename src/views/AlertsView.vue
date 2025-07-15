@@ -2,11 +2,11 @@
   <div class="alerts-view" v-if="hasAlerts" :class="{ refreshing: isRefreshing }">
     <div class="alerts-container">
       <div class="alerts-badges">
-        <!-- Unloaded Cars Alert -->
+        <!-- Not Loaded Cars Alert -->
         <div v-if="unloadedCount > 0" class="alert-badge unloaded" @click="handleUnloadedClick">
           <i class="fas fa-truck"></i>
           <span class="badge-text"
-            >{{ unloadedCount }} cars unloaded after
+            >{{ unloadedCount }} cars not loaded after
             {{ defaults?.alert_unloaded_after_days || 0 }} days from sell date</span
           >
         </div>
@@ -127,6 +127,9 @@ const fetchUnloadedCount = async () => {
         WHERE cs.date_loding IS NULL
         AND cs.date_send_documents IS NULL
         AND cs.hidden = 0
+        AND cs.is_batch = 0
+        AND sb.is_batch_sell = 0
+        AND (cs.container_ref IS NULL OR cs.container_ref = '')
         AND sb.date_sell < DATE_SUB(NOW(), INTERVAL ? DAY)
       `,
       params: [defaults.value.alert_unloaded_after_days],
@@ -153,6 +156,8 @@ const fetchNotArrivedCount = async () => {
         WHERE cs.in_wharhouse_date IS NULL
         AND cs.date_send_documents IS NULL
         AND cs.hidden = 0
+        AND cs.is_batch = 0
+        AND (cs.container_ref IS NULL OR cs.container_ref = '')
         AND bb.date_buy < DATE_SUB(NOW(), INTERVAL ? DAY)
       `,
       params: [defaults.value.alert_not_arrived_after_days],
@@ -179,6 +184,8 @@ const fetchNoLicenseCount = async () => {
         WHERE (cs.export_lisence_ref IS NULL OR cs.export_lisence_ref = '')
         AND cs.date_send_documents IS NULL
         AND cs.hidden = 0
+        AND cs.is_batch = 0
+        AND (cs.container_ref IS NULL OR cs.container_ref = '')
         AND bb.date_buy < DATE_SUB(NOW(), INTERVAL ? DAY)
       `,
       params: [defaults.value.alert_no_licence_after_days],
@@ -203,6 +210,8 @@ const fetchNoDocsSentCount = async () => {
         INNER JOIN sell_bill sb ON cs.id_sell = sb.id
         WHERE cs.date_send_documents IS NULL
         AND cs.hidden = 0
+        AND cs.is_batch = 0
+        AND sb.is_batch_sell = 0
         AND sb.date_sell < DATE_SUB(NOW(), INTERVAL ? DAY)
       `,
       params: [defaults.value.alert_no_docs_sent_after_days],
