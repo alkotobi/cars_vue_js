@@ -16,6 +16,11 @@ const props = defineProps({
 })
 const user = ref(null)
 const isAdmin = computed(() => user.value?.role_id === 1)
+const can_c_all_bills = computed(() => {
+  if (!user.value) return false
+  if (user.value.role_id === 1) return true
+  return user.value.permissions?.some((p) => p.permission_name === 'can_c_other_users_sells')
+})
 const emit = defineEmits(['refresh', 'select-bill'])
 
 const router = useRouter()
@@ -148,7 +153,7 @@ const fetchSellBills = async () => {
 
   try {
     // Different query based on admin status - now includes payment and loading information
-    const query = isAdmin.value
+    const query = can_c_all_bills.value
       ? `
       SELECT 
         sb.*,
@@ -211,7 +216,7 @@ const fetchSellBills = async () => {
       ORDER BY sb.date_sell DESC
     `
 
-    const params = isAdmin.value ? [] : [user.value?.id]
+    const params = can_c_all_bills.value ? [] : [user.value?.id]
     const result = await callApi({ query, params })
 
     if (result.success) {

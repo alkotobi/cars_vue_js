@@ -42,6 +42,14 @@ const props = defineProps({
     type: Number,
     default: null,
   },
+  clientId: {
+    type: [Number, String],
+    default: null,
+  },
+  showClientFilter: {
+    type: Boolean,
+    default: false,
+  },
   filters: {
     type: Object,
     default: () => ({
@@ -98,6 +106,14 @@ watch(
 watch(
   () => props.buyBillId,
   (newBuyBillId) => {
+    fetchCarsStock()
+  },
+)
+
+// Add watcher for clientId
+watch(
+  () => props.clientId,
+  (newClientId) => {
     fetchCarsStock()
   },
 )
@@ -823,6 +839,11 @@ const fetchCarsStock = async () => {
     // Apply buy bill filter if provided
     if (props.buyBillId) {
       query += ` AND bb.id = ${props.buyBillId}`
+    }
+
+    // Apply client filter if provided
+    if (props.clientId) {
+      query += ` AND cs.id_client = ${props.clientId}`
     }
 
     // Apply filters if they exist
