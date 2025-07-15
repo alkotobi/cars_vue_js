@@ -202,6 +202,8 @@ try {
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;");
 
+    $pdo->exec( "INSERT INTO `versions` (`id`, `version`) VALUES (NULL, '1');");
+
     // Create cars_stock table
     $pdo->exec("CREATE TABLE IF NOT EXISTS `cars_stock` (
         `id` int(11) NOT NULL AUTO_INCREMENT,

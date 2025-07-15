@@ -1,0 +1,94 @@
+/* RTL Support for Arabic */
+[dir='rtl'] {
+  direction: rtl;
+  text-align: right;
+}
+
+[dir='rtl'] .header-right {
+  flex-direction: row-reverse;
+}
+
+[dir='rtl'] .language-switcher {
+  margin-left: 0;
+  margin-right: 15px;
+}
+
+[dir='rtl'] .user-info {
+  margin-left: 0;
+  margin-right: 15px;
+}
+
+[dir='rtl'] .chat-btn {
+  margin-left: 0;
+  margin-right: 15px;
+}
+
+[dir='rtl'] .tasks-btn {
+  margin-left: 0;
+  margin-right: 15px;
+}
+
+/* RTL for forms */
+[dir='rtl'] .form-group {
+  text-align: right;
+}
+
+[dir='rtl'] .form-label {
+  text-align: right;
+}
+
+[dir='rtl'] .form-input {
+  text-align: right;
+}
+
+/* RTL for tables */
+[dir='rtl'] .table th,
+[dir='rtl'] .table td {
+  text-align: right;
+}
+
+/* RTL for buttons */
+[dir='rtl'] .btn-group {
+  flex-direction: row-reverse;
+}
+
+/* RTL for modals */
+[dir='rtl'] .modal-header {
+  flex-direction: row-reverse;
+}
+
+[dir='rtl'] .modal-footer {
+  flex-direction: row-reverse;
+}
+
+/* RTL for navigation */
+[dir='rtl'] .nav-item {
+  text-align: right;
+}
+
+/* RTL for dropdowns */
+[dir='rtl'] .dropdown-menu {
+  text-align: right;
+}
+
+/* RTL for alerts */
+[dir='rtl'] .alert {
+  text-align: right;
+}
+
+/* RTL for badges */
+[dir='rtl'] .badge {
+  margin-left: 0;
+  margin-right: 5px;
+}
+
+/* RTL for icons */
+[dir='rtl'] .icon-left {
+  margin-left: 0;
+  margin-right: 8px;
+}
+
+[dir='rtl'] .icon-right {
+  margin-right: 0;
+  margin-left: 8px;
+}

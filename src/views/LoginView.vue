@@ -2,9 +2,13 @@
 import { ref, watch, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useApi } from '../composables/useApi'
+import { useI18n } from 'vue-i18n'
+import LanguageSwitcher from '../components/LanguageSwitcher.vue'
 
 const router = useRouter()
 const { callApi, error: apiError, loading } = useApi()
+const { t } = useI18n()
+
 const username = ref('')
 const password = ref('')
 const error = ref('')
@@ -41,7 +45,7 @@ const login = async () => {
     if (isProcessing.value) return // Prevent double-clicks
 
     if (!username.value || !password.value) {
-      error.value = 'Please enter both username and password'
+      error.value = t('auth.enterUsernamePassword')
       return
     }
 
@@ -96,13 +100,13 @@ const login = async () => {
 
         router.push('/dashboard')
       } else {
-        error.value = 'Invalid username or password'
+        error.value = t('auth.invalidCredentials')
       }
     } else {
-      error.value = 'Invalid username or password'
+      error.value = t('auth.invalidCredentials')
     }
   } catch (err) {
-    error.value = 'An error occurred during login'
+    error.value = t('auth.loginError')
     console.error(err)
   } finally {
     isProcessing.value = false // End processing
@@ -115,17 +119,17 @@ const changePassword = async () => {
     if (isProcessing.value) return // Prevent double-clicks
 
     if (!username.value || !password.value) {
-      error.value = 'Please enter your current username and password'
+      error.value = t('auth.enterCurrentCredentials')
       return
     }
 
     if (!newPassword.value || !confirmPassword.value) {
-      error.value = 'Please enter and confirm your new password'
+      error.value = t('auth.enterNewPassword')
       return
     }
 
     if (newPassword.value !== confirmPassword.value) {
-      error.value = 'Passwords do not match'
+      error.value = t('auth.passwordsNotMatch')
       return
     }
 
@@ -142,15 +146,7 @@ const changePassword = async () => {
     })
 
     if (!result.success || !result.data.length) {
-      error.value =
-        'User not found ' +
-        username.value +
-        ' ' +
-        result.success +
-        ' ' +
-        result.data.length +
-        ' ' +
-        result.error
+      error.value = t('auth.invalidCredentials')
       return
     }
 
@@ -164,7 +160,7 @@ const changePassword = async () => {
     })
 
     if (!verifyResult.success) {
-      error.value = 'Current password is incorrect'
+      error.value = t('auth.currentPasswordIncorrect')
       return
     }
 
@@ -176,16 +172,16 @@ const changePassword = async () => {
     })
 
     if (updateResult.success) {
-      successMessage.value = 'Password changed successfully'
+      successMessage.value = t('auth.passwordChangeSuccess')
       showChangePassword.value = false
       newPassword.value = ''
       confirmPassword.value = ''
       password.value = ''
     } else {
-      error.value = 'Failed to change password'
+      error.value = t('auth.passwordChangeError')
     }
   } catch (err) {
-    error.value = 'An error occurred while changing password'
+    error.value = t('auth.passwordChangeErrorOccurred')
     console.error(err)
   } finally {
     isProcessing.value = false // End processing
@@ -202,10 +198,15 @@ onUnmounted(() => {
 
 <template>
   <div class="login-container">
+    <!-- Language Switcher -->
+    <div class="language-switcher-container">
+      <LanguageSwitcher />
+    </div>
+
     <form @submit.prevent="showChangePassword ? changePassword() : login()" class="login-form">
       <h2>
         <i :class="showChangePassword ? 'fas fa-key' : 'fas fa-sign-in-alt'"></i>
-        {{ showChangePassword ? 'Change Password' : 'Login' }}
+        {{ showChangePassword ? $t('auth.changePassword') : $t('auth.login') }}
       </h2>
 
       <!-- Username field -->
@@ -215,7 +216,7 @@ onUnmounted(() => {
           <input
             type="text"
             v-model="username"
-            placeholder="Username"
+            :placeholder="$t('auth.username')"
             required
             :disabled="isProcessing"
             autocomplete="username"
@@ -230,7 +231,7 @@ onUnmounted(() => {
           <input
             :type="showPassword ? 'text' : 'password'"
             v-model="password"
-            placeholder="Current Password"
+            :placeholder="$t('auth.currentPassword')"
             required
             :disabled="isProcessing"
             autocomplete="current-password"
@@ -254,7 +255,7 @@ onUnmounted(() => {
             <input
               :type="showNewPassword ? 'text' : 'password'"
               v-model="newPassword"
-              placeholder="New Password"
+              :placeholder="$t('auth.newPassword')"
               required
               :disabled="isProcessing"
               autocomplete="new-password"
@@ -275,7 +276,7 @@ onUnmounted(() => {
             <input
               :type="showConfirmPassword ? 'text' : 'password'"
               v-model="confirmPassword"
-              placeholder="Confirm New Password"
+              :placeholder="$t('auth.confirmPassword')"
               required
               :disabled="isProcessing"
               autocomplete="new-password"
@@ -314,7 +315,13 @@ onUnmounted(() => {
                   : 'fas fa-sign-in-alt'
             "
           ></i>
-          {{ isProcessing ? 'Processing...' : showChangePassword ? 'Change Password' : 'Login' }}
+          {{
+            isProcessing
+              ? $t('auth.processing')
+              : showChangePassword
+                ? $t('auth.changePassword')
+                : $t('auth.login')
+          }}
         </span>
       </button>
 
@@ -326,7 +333,7 @@ onUnmounted(() => {
         :disabled="isProcessing"
       >
         <i :class="showChangePassword ? 'fas fa-arrow-left' : 'fas fa-key'"></i>
-        {{ showChangePassword ? 'Back to Login' : 'Change Password' }}
+        {{ showChangePassword ? $t('auth.backToLogin') : $t('auth.changePassword') }}
       </button>
     </form>
     <div class="copyright">© Merhab Noureddine 2025</div>
@@ -340,6 +347,20 @@ onUnmounted(() => {
   align-items: center;
   height: 100vh;
   background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  position: relative;
+}
+
+.language-switcher-container {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+}
+
+/* RTL Support for login page */
+[dir='rtl'] .language-switcher-container {
+  right: auto;
+  left: 20px;
 }
 
 .login-form {
