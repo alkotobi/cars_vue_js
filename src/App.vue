@@ -2,11 +2,14 @@
 import { RouterView, useRoute } from 'vue-router'
 import AppHeader from './components/AppHeader.vue'
 import AlertsView from './views/AlertsView.vue'
-import { onMounted, computed } from 'vue'
+import { onMounted, computed, ref } from 'vue'
 import { useApi } from './composables/useApi'
 
 const { handleCookieVerification } = useApi()
 const route = useRoute()
+
+// Add user state
+const user = ref(null)
 
 // Define routes where alerts should be hidden
 const hideAlertsRoutes = [
@@ -18,9 +21,15 @@ const hideAlertsRoutes = [
   '/clients',
 ]
 
+// Computed property to check if user is admin
+const isAdmin = computed(() => {
+  return user.value?.role_id === 1
+})
+
 // Computed property to determine if alerts should be shown
 const showAlerts = computed(() => {
-  return !hideAlertsRoutes.some((hideRoute) => route.path.startsWith(hideRoute))
+  // Only show alerts if user is admin and not on hidden routes
+  return isAdmin.value && !hideAlertsRoutes.some((hideRoute) => route.path.startsWith(hideRoute))
 })
 
 onMounted(async () => {
@@ -29,6 +38,12 @@ onMounted(async () => {
     await handleCookieVerification()
   } catch (error) {
     console.error('Cookie verification failed:', error)
+  }
+
+  // Get user from localStorage
+  const userStr = localStorage.getItem('user')
+  if (userStr) {
+    user.value = JSON.parse(userStr)
   }
 })
 </script>

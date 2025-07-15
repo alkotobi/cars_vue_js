@@ -153,7 +153,18 @@
                 <span v-else class="no-client">-</span>
               </td>
               <td class="sell-bill-id-cell">{{ car.sell_bill_id || '-' }}</td>
-              <td class="sell-bill-date-cell">{{ formatDate(car.sell_bill_date) }}</td>
+              <td class="sell-bill-date-cell">
+                <div class="date-badges">
+                  <span class="badge sell-bill-date-badge">
+                    <i class="fas fa-calendar"></i>
+                    Sell: {{ formatDate(car.sell_bill_date) }}
+                  </span>
+                  <span v-if="isAdmin" class="badge assigned-date-badge">
+                    <i class="fas fa-clock"></i>
+                    Assigned: {{ car.date_assigned ? formatDate(car.date_assigned) : 'Not Set' }}
+                  </span>
+                </div>
+              </td>
               <td class="sell-bill-ref-cell">{{ car.sell_bill_ref || '-' }}</td>
               <td class="actions-cell">
                 <div class="action-buttons">
@@ -206,6 +217,18 @@ const selectedCarId = ref(null)
 const isUnassigning = ref(false)
 const sortBy = ref('id')
 const sortOrder = ref('desc')
+const user = ref(null)
+
+// Check if user is admin
+const isAdmin = computed(() => {
+  const adminStatus = user.value?.role_id === 1
+  console.log('LoadingAssignedCars - Admin check:', {
+    user: user.value,
+    role_id: user.value?.role_id,
+    isAdmin: adminStatus,
+  })
+  return adminStatus
+})
 
 // Computed property for sorted cars
 const sortedAssignedCars = computed(() => {
@@ -263,7 +286,8 @@ const fetchAssignedCars = async () => {
           lc.date_on_board,
           sb.id as sell_bill_id,
           sb.date_sell as sell_bill_date,
-          sb.bill_ref as sell_bill_ref
+          sb.bill_ref as sell_bill_ref,
+          cs.date_assigned
         FROM cars_stock cs
         LEFT JOIN buy_details bd ON cs.id_buy_details = bd.id
         LEFT JOIN cars_names cn ON bd.id_car_name = cn.id
@@ -377,12 +401,27 @@ watch(
   { immediate: true },
 )
 
+// Load user data on component mount
+const loadUserData = () => {
+  const userStr = localStorage.getItem('user')
+  if (userStr) {
+    user.value = JSON.parse(userStr)
+    console.log('LoadingAssignedCars - User loaded:', user.value)
+    console.log('LoadingAssignedCars - Is admin:', isAdmin.value)
+  } else {
+    console.log('LoadingAssignedCars - No user found in localStorage')
+  }
+}
+
 // Expose methods to parent component
 defineExpose({
   refreshData,
   fetchAssignedCars,
   assignedCars,
 })
+
+// Load user data when component is mounted
+loadUserData()
 </script>
 
 <style scoped>
@@ -716,11 +755,53 @@ defineExpose({
   font-family: monospace;
 }
 
+.date-assigned-cell {
+  text-align: center;
+  font-size: 0.9rem;
+  color: #6b7280;
+  font-family: monospace;
+}
+
 .sortable-header {
   cursor: pointer;
 }
 
 .sort-inactive {
   opacity: 0.5;
+}
+
+.date-badges {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.sell-bill-date-badge,
+.assigned-date-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  font-family: inherit;
+  text-align: center;
+  width: 100%;
+  box-sizing: border-box;
+  justify-content: center;
+}
+
+.sell-bill-date-badge {
+  background-color: #eff6ff;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+}
+
+.assigned-date-badge {
+  background-color: #f3e8ff;
+  color: #6b21a8;
+  border: 1px solid #d9b8ff;
 }
 </style>

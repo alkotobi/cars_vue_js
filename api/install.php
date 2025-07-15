@@ -230,7 +230,8 @@ try {
         `is_tmp_client` tinyint(1) DEFAULT 0,
         `id_loaded_container` int(11) DEFAULT NULL,
         `is_batch` tinyint(1) DEFAULT 0,
-          `is_loading_inquiry_sent` tinyint(1) DEFAULT 0,
+        `is_loading_inquiry_sent` tinyint(1) DEFAULT 0,
+        `date_assigned` timestamp NULL DEFAULT NULL,
         PRIMARY KEY (`id`),
         KEY `id_client` (`id_client`),
         KEY `id_port_loading` (`id_port_loading`),
@@ -321,6 +322,7 @@ try {
   `path_pi` varchar(255) DEFAULT NULL,
   `bill_ref` varchar(255) DEFAULT NULL,
   `is_batch_sell` tinyint(1) DEFAULT 0,
+    `time_created` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=155 DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;");
 

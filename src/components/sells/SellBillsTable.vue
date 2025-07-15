@@ -559,7 +559,19 @@ const getLoadingStatus = (bill) => {
           >
             <td>{{ bill.id }}</td>
             <td>{{ bill.bill_ref || 'N/A' }}</td>
-            <td>{{ new Date(bill.date_sell).toLocaleDateString() }}</td>
+            <td>
+              <div class="date-badges">
+                <span class="badge sell-date-badge">
+                  <i class="fas fa-calendar"></i>
+                  Sell: {{ new Date(bill.date_sell).toLocaleDateString() }}
+                </span>
+                <span v-if="isAdmin" class="badge created-date-badge">
+                  <i class="fas fa-clock"></i>
+                  Created:
+                  {{ bill.time_created ? new Date(bill.time_created).toLocaleDateString() : 'N/A' }}
+                </span>
+              </div>
+            </td>
             <td>{{ bill.broker_name || 'N/A' }}</td>
             <td>{{ bill.created_by || 'N/A' }}</td>
             <td>{{ bill.notes || 'N/A' }}</td>
@@ -1016,5 +1028,41 @@ const getLoadingStatus = (bill) => {
   background-color: #f3f4f6;
   color: #6b7280;
   border: 1px solid #e5e7eb;
+}
+
+/* New styles for date badges */
+.date-badges {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.sell-date-badge,
+.created-date-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  font-family: inherit;
+  text-align: center;
+  width: 100%;
+  box-sizing: border-box;
+  justify-content: center;
+}
+
+.sell-date-badge {
+  background-color: #eff6ff;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+}
+
+.created-date-badge {
+  background-color: #f3e8ff;
+  color: #6b21a8;
+  border: 1px solid #d9b8ff;
 }
 </style>

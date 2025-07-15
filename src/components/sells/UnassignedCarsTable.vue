@@ -290,7 +290,8 @@ const assignCarToBatchSell = async (carId) => {
             freight = ?,
             rate = ?,
             date_sell = ?,
-            id_sell_pi = ?
+            id_sell_pi = ?,
+            date_assigned = NOW()
         WHERE id = ?
       `,
       params: [

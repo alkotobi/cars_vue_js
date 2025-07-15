@@ -176,8 +176,8 @@ const saveBill = async () => {
       // First insert the bill to get the ID
       result = await callApi({
         query: `
-          INSERT INTO sell_bill (id_broker, date_sell, notes, id_user, is_batch_sell)
-          VALUES (?, ?, ?, ?, ?)
+          INSERT INTO sell_bill (id_broker, date_sell, notes, id_user, is_batch_sell, time_created)
+          VALUES (?, ?, ?, ?, ?, NOW())
         `,
         params: [
           formData.value.id_broker || null,

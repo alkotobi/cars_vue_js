@@ -356,6 +356,7 @@ const fetchCarsByBillId = async (billId) => {
           cs.is_big_car,
           cs.is_used_car,
           cs.container_ref,
+          cs.date_assigned,
           lp.loading_port,
           c.name as client_name,
           dp.discharge_port,
@@ -535,6 +536,19 @@ const getContainerStatus = (car) => {
     return { status: 'not-loaded', text: 'Not Loaded', color: 'gray' }
   }
 }
+
+// Function to format date
+const formatDate = (dateString) => {
+  if (!dateString) return 'N/A'
+  const date = new Date(dateString)
+  return date.toLocaleDateString('ar-DZ', {
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: 'numeric',
+  })
+}
 </script>
 
 <template>
@@ -667,6 +681,18 @@ const getContainerStatus = (car) => {
                 }"
               >
                 {{ car.color }}
+              </span>
+              <span
+                v-if="isAdmin"
+                class="badge assigned-date-badge"
+                :class="{ 'not-assigned': !car.date_assigned }"
+              >
+                <i class="fas fa-clock"></i>
+                {{
+                  car.date_assigned
+                    ? `Timestamp: ${formatDate(car.date_assigned)}`
+                    : 'Timestamp: Not Set'
+                }}
               </span>
             </div>
           </td>
@@ -1457,16 +1483,21 @@ button:disabled {
 
 .car-badges {
   display: flex;
+  flex-direction: column;
   gap: 4px;
   width: 100%;
 }
 
 .badge {
-  padding: 4px 8px;
-  border-radius: 4px;
-  background-color: #f3f4f6;
-  color: #6b7280;
+  padding: 4px 10px;
   font-size: 0.875rem;
+  font-weight: 500;
+  font-family: inherit;
+  display: inline-block;
+  width: 100%;
+  text-align: center;
+  box-sizing: border-box;
+  border-radius: 6px;
 }
 
 .color-badge {
@@ -1475,9 +1506,12 @@ button:disabled {
   border: 1px solid #d1d5db;
   color: #374151;
   font-weight: 500;
+  font-family: inherit;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
   width: 100%;
   text-align: center;
+  box-sizing: border-box;
+  border-radius: 6px;
 }
 
 .vin-badge {
@@ -1489,14 +1523,16 @@ button:disabled {
   font-size: 0.875rem;
   color: #6b7280;
   margin-bottom: 4px;
-  font-family: monospace;
+  font-family: inherit;
   background-color: #f3f4f6;
   padding: 4px 8px;
-  border-radius: 4px;
+  border-radius: 6px;
   display: inline-block;
-  border: none;
+  border: 1px solid #d1d5db;
   box-shadow: none;
-  width: auto;
+  width: 100%;
+  text-align: center;
+  box-sizing: border-box;
 }
 
 .cfr-cell {
@@ -1530,9 +1566,14 @@ button:disabled {
 
 .badge {
   padding: 4px 10px;
-  font-size: 0.95em;
+  font-size: 0.875rem;
   font-weight: 500;
+  font-family: inherit;
   display: inline-block;
+  width: 100%;
+  text-align: center;
+  box-sizing: border-box;
+  border-radius: 6px;
 }
 
 /* Container badge styles */
@@ -1557,5 +1598,38 @@ button:disabled {
   background-color: #f3f4f6;
   color: #6b7280;
   border: 1px solid #d1d5db;
+}
+
+.assigned-date-badge {
+  background-color: #eff6ff;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+  font-size: 0.875rem;
+  padding: 4px 10px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  font-weight: 500;
+  font-family: inherit;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  width: 100%;
+  justify-content: center;
+}
+
+.assigned-date-badge i {
+  font-size: 0.7rem;
+  color: #3b82f6;
+}
+
+.assigned-date-badge.not-assigned {
+  background-color: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.assigned-date-badge.not-assigned i {
+  color: #dc2626;
 }
 </style>
