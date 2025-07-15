@@ -100,10 +100,9 @@ const handleSave = async () => {
 
     const result = await callApi({
       query: `
-        UPDATE buy_details bd
-        INNER JOIN cars_stock cs ON bd.id = cs.id_buy_details
-        SET bd.id_color = ? 
-        WHERE cs.id IN (${carIds.map(() => '?').join(',')})
+        UPDATE cars_stock
+        SET id_color = ?
+        WHERE id IN (${carIds.map(() => '?').join(',')})
       `,
       params: [colorId, ...carIds],
       requiresAuth: true,
@@ -139,10 +138,9 @@ const handleRevert = async () => {
 
     const result = await callApi({
       query: `
-        UPDATE buy_details bd
-        INNER JOIN cars_stock cs ON bd.id = cs.id_buy_details
-        SET bd.id_color = NULL 
-        WHERE cs.id IN (${carIds.map(() => '?').join(',')})
+        UPDATE cars_stock
+        SET id_color = NULL
+        WHERE id IN (${carIds.map(() => '?').join(',')})
       `,
       params: carIds,
       requiresAuth: true,

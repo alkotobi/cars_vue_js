@@ -232,6 +232,7 @@ try {
         `is_batch` tinyint(1) DEFAULT 0,
         `is_loading_inquiry_sent` tinyint(1) DEFAULT 0,
         `date_assigned` timestamp NULL DEFAULT NULL,
+        `id_color` int(11) DEFAULT NULL,
         PRIMARY KEY (`id`),
         KEY `id_client` (`id_client`),
         KEY `id_port_loading` (`id_port_loading`),

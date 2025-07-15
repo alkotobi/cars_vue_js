@@ -816,6 +816,7 @@ const fetchCarsStock = async () => {
         c.id_no as client_id_no,
         c.id_copy_path as client_id_picture,
         cs.container_ref,
+        cs.id_color as car_id_color,
         CASE 
           WHEN cs.id_sell IS NOT NULL THEN 'Sold'
           ELSE 'Available'
@@ -826,7 +827,7 @@ const fetchCarsStock = async () => {
       LEFT JOIN buy_bill bb ON bd.id_buy_bill = bb.id
       LEFT JOIN sell_bill sb ON cs.id_sell = sb.id
       LEFT JOIN cars_names cn ON bd.id_car_name = cn.id
-      LEFT JOIN colors clr ON bd.id_color = clr.id
+      LEFT JOIN colors clr ON cs.id_color = clr.id
       LEFT JOIN loading_ports lp ON cs.id_port_loading = lp.id
       LEFT JOIN discharge_ports dp ON cs.id_port_discharge = dp.id
       LEFT JOIN warehouses w ON cs.id_warehouse = w.id
@@ -1825,6 +1826,7 @@ defineExpose({
         :selected-cars="selectedCars"
         :total-cars="sortedCars.length"
         :can-change-color="can_change_car_color"
+        :is-admin="user?.role_id === 1"
         @print-selected="handlePrintSelected"
         @loading-order="handleLoadingOrderFromToolbar"
         @vin="handleVinFromToolbar"

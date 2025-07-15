@@ -15,6 +15,10 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  isAdmin: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 const emit = defineEmits([
@@ -44,6 +48,7 @@ const emit = defineEmits([
 
     <div class="toolbar-right">
       <button
+        v-if="isAdmin"
         @click="$emit('ports')"
         class="ports-btn"
         :disabled="selectedCars.size === 0"
@@ -53,6 +58,7 @@ const emit = defineEmits([
         <span>Ports</span>
       </button>
       <button
+        v-if="isAdmin"
         @click="$emit('warehouse')"
         class="warehouse-btn"
         :disabled="selectedCars.size === 0"
@@ -62,6 +68,7 @@ const emit = defineEmits([
         <span>Warehouse</span>
       </button>
       <button
+        v-if="isAdmin"
         @click="$emit('notes')"
         class="notes-btn"
         :disabled="selectedCars.size === 0"
@@ -84,7 +91,7 @@ const emit = defineEmits([
         <span>Task</span>
       </button>
       <button
-        v-if="canChangeColor"
+        v-if="isAdmin && canChangeColor"
         @click="$emit('color')"
         class="color-btn"
         :disabled="selectedCars.size === 0"
@@ -94,6 +101,7 @@ const emit = defineEmits([
         <span>Color</span>
       </button>
       <button
+        v-if="isAdmin"
         @click="$emit('vin')"
         class="vin-btn"
         :disabled="selectedCars.size === 0"
@@ -103,6 +111,7 @@ const emit = defineEmits([
         <span>VIN</span>
       </button>
       <button
+        v-if="isAdmin"
         @click="$emit('export-license')"
         class="export-license-btn"
         :disabled="selectedCars.size === 0"
