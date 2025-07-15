@@ -2,6 +2,7 @@
 import { ref, onMounted, computed, onUnmounted } from 'vue'
 import { useApi } from '../composables/useApi'
 import TaskForm from '../components/car-stock/TaskForm.vue'
+import CarStockTable from '../components/car-stock/CarStockTable.vue'
 
 const clients = ref([])
 const { callApi, uploadFile, getFileUrl, error } = useApi()
@@ -31,6 +32,13 @@ const teleportDropdown = ref({
   buttonElement: null,
 })
 
+// Add selected client state for showing cars
+const selectedClient = ref(null)
+const showClientCars = ref(false)
+
+// Add selected row state
+const selectedRowId = ref(null)
+
 // Add task creation methods
 const openTaskForClient = (client) => {
   console.log('openTaskForClient called with client:', client)
@@ -57,6 +65,69 @@ const handleDeleteClient = (clientId) => {
 
 const handleViewDetails = () => {
   closeTeleportDropdown()
+}
+
+// Add function to handle client selection for showing cars
+const handleViewClientCars = (client) => {
+  selectedClient.value = client
+  showClientCars.value = true
+  closeTeleportDropdown()
+
+  // Scroll to the CarStockTable after a short delay to ensure it's rendered
+  setTimeout(() => {
+    const carsSection = document.querySelector('.client-cars-section')
+    if (carsSection) {
+      carsSection.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      })
+    }
+  }, 100)
+}
+
+// Add function to handle row selection
+const handleRowSelect = (clientId) => {
+  selectedRowId.value = selectedRowId.value === clientId ? null : clientId
+}
+
+// Add function to handle row click with car viewing
+const handleRowClick = (client) => {
+  // Toggle row selection
+  selectedRowId.value = selectedRowId.value === client.id ? null : client.id
+
+  // Show cars if client has any
+  if (client.cars_count > 0) {
+    selectedClient.value = client
+    showClientCars.value = true
+    closeTeleportDropdown()
+
+    // Scroll to the CarStockTable after a short delay to ensure it's rendered
+    setTimeout(() => {
+      const carsSection = document.querySelector('.client-cars-section')
+      if (carsSection) {
+        carsSection.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+        })
+      }
+    }, 100)
+  } else {
+    // Show message for clients with no cars
+    selectedClient.value = client
+    showClientCars.value = true
+    closeTeleportDropdown()
+
+    // Scroll to the message section
+    setTimeout(() => {
+      const carsSection = document.querySelector('.client-cars-section')
+      if (carsSection) {
+        carsSection.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+        })
+      }
+    }, 100)
+  }
 }
 
 const toggleTaskDropdown = (clientId, event) => {
@@ -884,7 +955,13 @@ const handleTaskCancel = () => {
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="client in filteredAndSortedClients" :key="client.id" class="client-row">
+                <tr
+                  v-for="client in filteredAndSortedClients"
+                  :key="client.id"
+                  class="client-row"
+                  :class="{ selected: selectedRowId === client.id }"
+                  @click="handleRowClick(client)"
+                >
                   <td class="client-name">
                     <div class="name-content">
                       <div class="name-text">{{ client.name || 'Unnamed Client' }}</div>
@@ -908,7 +985,16 @@ const handleTaskCancel = () => {
                     <span class="id-number">{{ client.id_no }}</span>
                   </td>
                   <td class="cars-count">
-                    <div class="cars-badge" :class="{ 'has-cars': client.cars_count > 0 }">
+                    <div
+                      class="cars-badge"
+                      :class="{
+                        'has-cars': client.cars_count > 0,
+                        'no-cars': client.cars_count === 0,
+                      }"
+                      :title="
+                        client.cars_count > 0 ? 'Click row to view cars' : 'No cars available'
+                      "
+                    >
                       <i class="fas fa-car"></i>
                       <span>{{ client.cars_count || 0 }}</span>
                     </div>
@@ -1008,7 +1094,13 @@ const handleTaskCancel = () => {
       </div>
 
       <div v-else class="mobile-cards-grid">
-        <div v-for="client in filteredAndSortedClients" :key="client.id" class="client-card">
+        <div
+          v-for="client in filteredAndSortedClients"
+          :key="client.id"
+          class="client-card"
+          :class="{ selected: selectedRowId === client.id }"
+          @click="handleRowClick(client)"
+        >
           <div class="card-header">
             <div class="card-id">#{{ client.id }}</div>
             <div class="card-badges">
@@ -1070,7 +1162,14 @@ const handleTaskCancel = () => {
                 Cars:
               </div>
               <div class="detail-value">
-                <div class="cars-badge" :class="{ 'has-cars': client.cars_count > 0 }">
+                <div
+                  class="cars-badge"
+                  :class="{
+                    'has-cars': client.cars_count > 0,
+                    'no-cars': client.cars_count === 0,
+                  }"
+                  :title="client.cars_count > 0 ? 'Click card to view cars' : 'No cars available'"
+                >
                   <i class="fas fa-car"></i>
                   <span>{{ client.cars_count || 0 }}</span>
                 </div>
@@ -1630,6 +1729,33 @@ const handleTaskCancel = () => {
         </ul>
       </div>
     </teleport>
+
+    <!-- Client Cars Section -->
+    <div v-if="showClientCars && selectedClient" class="client-cars-section">
+      <div class="client-cars-header">
+        <div class="client-cars-title">
+          <h2>
+            <i class="fas fa-car"></i>
+            Cars for {{ selectedClient.name }}
+          </h2>
+          <button @click="showClientCars = false" class="btn-secondary">
+            <i class="fas fa-times"></i>
+            Close
+          </button>
+        </div>
+      </div>
+
+      <div v-if="selectedClient.cars_count > 0">
+        <CarStockTable :clientId="selectedClient.id" :showClientFilter="true" />
+      </div>
+      <div v-else class="no-cars-message">
+        <div class="no-cars-content">
+          <i class="fas fa-car"></i>
+          <h3>No Cars Available</h3>
+          <p>{{ selectedClient.name }} doesn't have any cars assigned yet.</p>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -1912,6 +2038,16 @@ const handleTaskCancel = () => {
 
 .client-row {
   cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.client-row.selected {
+  background-color: #dbeafe;
+  border-left: 4px solid #2563eb;
+}
+
+.client-row.selected:hover {
+  background-color: #bfdbfe;
 }
 
 .client-name {
@@ -1995,6 +2131,19 @@ const handleTaskCancel = () => {
 .cars-badge.has-cars {
   background-color: #dbeafe;
   color: #2563eb;
+}
+
+.cars-badge.no-cars {
+  background-color: #f3f4f6;
+  color: #9ca3af;
+  cursor: default;
+  opacity: 0.7;
+}
+
+.cars-badge.no-cars:hover {
+  transform: none;
+  box-shadow: none;
+  border-color: transparent;
 }
 
 .document-preview {
@@ -2828,6 +2977,10 @@ const handleTaskCancel = () => {
 }
 
 .table-wrapper {
+  max-height: 520px; /* Height for exactly 10 rows (10 * 52px per row) */
+  overflow-y: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
   overflow-x: auto;
 }
 
@@ -3349,6 +3502,17 @@ const handleTaskCancel = () => {
     transform: translateY(-2px);
   }
 
+  .client-card.selected {
+    background-color: #dbeafe;
+    border-color: #2563eb;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+  }
+
+  .client-card.selected:hover {
+    background-color: #bfdbfe;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+  }
+
   .card-header {
     display: flex;
     justify-content: space-between;
@@ -3483,6 +3647,19 @@ const handleTaskCancel = () => {
   .mobile-cards-container .cars-badge.has-cars {
     background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
     color: #1d4ed8;
+  }
+
+  .mobile-cards-container .cars-badge.no-cars {
+    background-color: #f3f4f6;
+    color: #9ca3af;
+    cursor: default;
+    opacity: 0.7;
+  }
+
+  .mobile-cards-container .cars-badge.no-cars:hover {
+    transform: none;
+    box-shadow: none;
+    border-color: transparent;
   }
 
   /* Mobile Document Preview */
@@ -3642,5 +3819,83 @@ const handleTaskCancel = () => {
       width: 100%;
     }
   }
+}
+
+/* Client Cars Section */
+.client-cars-section {
+  margin-top: 24px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.client-cars-header {
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  color: white;
+}
+
+.client-cars-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.client-cars-title h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.client-cars-title .btn-secondary {
+  color: white;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 8px 12px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.client-cars-title .btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+/* No Cars Message */
+.no-cars-message {
+  padding: 40px 20px;
+  text-align: center;
+  background: white;
+}
+
+.no-cars-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  color: #6b7280;
+}
+
+.no-cars-content i {
+  font-size: 3rem;
+  color: #d1d5db;
+}
+
+.no-cars-content h3 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.no-cars-content p {
+  margin: 0;
+  font-size: 1rem;
+  color: #6b7280;
+  max-width: 400px;
+  line-height: 1.5;
 }
 </style>
