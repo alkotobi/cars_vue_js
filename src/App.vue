@@ -4,6 +4,7 @@ import AppHeader from './components/AppHeader.vue'
 import AlertsView from './views/AlertsView.vue'
 import { onMounted, computed, ref } from 'vue'
 import { useApi } from './composables/useApi'
+import DatabaseVersionCheck from '@/components/DatabaseVersionCheck.vue'
 
 const { handleCookieVerification } = useApi()
 const route = useRoute()
@@ -50,6 +51,7 @@ onMounted(async () => {
 
 <template>
   <div id="app">
+    <DatabaseVersionCheck />
     <AlertsView v-if="showAlerts" />
     <AppHeader />
     <main class="app-main">

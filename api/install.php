@@ -196,6 +196,12 @@ try {
         UNIQUE KEY `client_name_unic` (`name`)
     ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci");
 
+    $pdo->exec("CREATE TABLE `versions` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `version` int(11) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;");
+
     // Create cars_stock table
     $pdo->exec("CREATE TABLE IF NOT EXISTS `cars_stock` (
         `id` int(11) NOT NULL AUTO_INCREMENT,
