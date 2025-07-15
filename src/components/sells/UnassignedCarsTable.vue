@@ -97,7 +97,7 @@ const fetchUnassignedCars = async () => {
         FROM cars_stock cs
         LEFT JOIN buy_details bd ON cs.id_buy_details = bd.id
         LEFT JOIN cars_names cn ON bd.id_car_name = cn.id
-        LEFT JOIN colors clr ON bd.id_color = clr.id
+        LEFT JOIN colors clr ON cs.id_color = clr.id
         LEFT JOIN buy_bill bb ON bd.id_buy_bill = bb.id
         WHERE cs.id_sell IS NULL
         `

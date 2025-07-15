@@ -291,7 +291,7 @@ const fetchAssignedCars = async () => {
         FROM cars_stock cs
         LEFT JOIN buy_details bd ON cs.id_buy_details = bd.id
         LEFT JOIN cars_names cn ON bd.id_car_name = cn.id
-        LEFT JOIN colors c ON bd.id_color = c.id
+        LEFT JOIN colors c ON cs.id_color = c.id
         LEFT JOIN loaded_containers lc ON cs.id_loaded_container = lc.id
         LEFT JOIN containers cont ON lc.id_container = cont.id
         LEFT JOIN clients cl ON cs.id_client = cl.id

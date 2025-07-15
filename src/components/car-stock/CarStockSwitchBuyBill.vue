@@ -137,7 +137,7 @@ const fetchCarsByPurchaseBill = async () => {
         FROM cars_stock cs
         LEFT JOIN buy_details bd ON cs.id_buy_details = bd.id
         LEFT JOIN cars_names cn ON bd.id_car_name = cn.id
-        LEFT JOIN colors c ON bd.id_color = c.id
+        LEFT JOIN colors c ON cs.id_color = c.id
         LEFT JOIN buy_bill bb ON bd.id_buy_bill = bb.id
         LEFT JOIN suppliers s ON bb.id_supplier = s.id
         LEFT JOIN sell_bill sb ON cs.id_sell = sb.id

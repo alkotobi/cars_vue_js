@@ -1750,7 +1750,7 @@ const printLoadingRecord = async () => {
         LEFT JOIN cars_stock cs ON lc.id = cs.id_loaded_container
         LEFT JOIN buy_details bd ON cs.id_buy_details = bd.id
         LEFT JOIN cars_names cn ON bd.id_car_name = cn.id
-        LEFT JOIN colors clr ON bd.id_color = clr.id
+        LEFT JOIN colors clr ON cs.id_color = clr.id
         LEFT JOIN clients cl ON cs.id_client = cl.id
         WHERE lc.id_loading = ?
         ORDER BY lc.id, cs.id

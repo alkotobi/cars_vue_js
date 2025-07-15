@@ -54,7 +54,7 @@ const fetchCarData = async () => {
         FROM cars_stock cs
         LEFT JOIN buy_details bd ON cs.id_buy_details = bd.id
         LEFT JOIN cars_names cn ON bd.id_car_name = cn.id
-        LEFT JOIN colors clr ON bd.id_color = clr.id
+        LEFT JOIN colors clr ON cs.id_color = clr.id
         LEFT JOIN loading_ports lp ON cs.id_port_loading = lp.id
         LEFT JOIN discharge_ports dp ON cs.id_port_discharge = dp.id
         LEFT JOIN clients c ON cs.id_client = c.id
@@ -757,4 +757,3 @@ onMounted(() => {
   text-align: right;
 }
 </style>
- 

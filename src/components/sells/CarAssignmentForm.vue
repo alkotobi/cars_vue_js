@@ -226,7 +226,7 @@ const fetchCarDetails = async () => {
         FROM cars_stock cs
         LEFT JOIN buy_details bd ON cs.id_buy_details = bd.id
         LEFT JOIN cars_names cn ON bd.id_car_name = cn.id
-        LEFT JOIN colors clr ON bd.id_color = clr.id
+        LEFT JOIN colors clr ON cs.id_color = clr.id
         WHERE cs.id = ?
       `,
       params: [props.carId],

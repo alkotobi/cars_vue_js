@@ -100,7 +100,7 @@ const fetchBillData = async () => {
           LEFT JOIN discharge_ports dp ON cs.id_port_discharge = dp.id
           LEFT JOIN buy_details bd ON cs.id_buy_details = bd.id
           LEFT JOIN cars_names cn ON bd.id_car_name = cn.id
-          LEFT JOIN colors clr ON bd.id_color = clr.id
+          LEFT JOIN colors clr ON cs.id_color = clr.id
           WHERE cs.id_sell = ? AND cs.hidden = 0
           ORDER BY cs.id DESC
         `,

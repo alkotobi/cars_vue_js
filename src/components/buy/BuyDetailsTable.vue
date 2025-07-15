@@ -68,8 +68,8 @@ const showStockAlert = async () => {
           const result = await callApi({
             query: `
               INSERT INTO cars_stock 
-              (id_buy_details, price_cell, notes, is_used_car, is_big_car)
-              VALUES (?, ?, ?, ?, ?)
+              (id_buy_details, price_cell, notes, is_used_car, is_big_car, id_color)
+              VALUES (?, ?, ?, ?, ?, ?)
             `,
             params: [
               detail.id,
@@ -77,6 +77,7 @@ const showStockAlert = async () => {
               detail.notes,
               detail.is_used_car,
               detail.is_big_car,
+              detail.id_color,
             ],
           })
 
