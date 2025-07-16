@@ -52,6 +52,8 @@ try {
         `id_brand` int(11) DEFAULT NULL,
         `notes` text DEFAULT NULL,
         `is_big_car` tinyint(1) DEFAULT 0,
+        `cbm` decimal(10,2) DEFAULT NULL,
+        `gw` decimal(10,2) DEFAULT NULL,
         PRIMARY KEY (`id`),
         UNIQUE KEY `car_name` (`car_name`),
         KEY `id_brand` (`id_brand`)

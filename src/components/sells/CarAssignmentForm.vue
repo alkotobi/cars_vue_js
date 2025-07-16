@@ -1,8 +1,11 @@
 <script setup>
 import { ref, onMounted, watch, defineProps, defineEmits, computed } from 'vue'
+import { useEnhancedI18n } from '../../composables/useI18n'
 import { useApi } from '../../composables/useApi'
 import { ElSelect, ElOption, ElDialog, ElButton, ElInput, ElCheckbox } from 'element-plus'
 import 'element-plus/dist/index.css'
+
+const { t } = useEnhancedI18n()
 
 const props = defineProps({
   carId: {
@@ -540,7 +543,7 @@ onMounted(() => {
       <div class="form-header">
         <h3>
           <i class="fas fa-link"></i>
-          Assign Car to Bill
+          {{ t('sellBills.assign_car_to_bill') }}
         </h3>
         <button @click="$emit('close')" class="close-btn">&times;</button>
       </div>
@@ -551,28 +554,28 @@ onMounted(() => {
         <div class="detail-item">
           <span class="label">
             <i class="fas fa-car"></i>
-            Car:
+            {{ t('sellBills.car') }}:
           </span>
           <span class="value">{{ carDetails.car_name }}</span>
         </div>
         <div class="detail-item">
           <span class="label">
             <i class="fas fa-palette"></i>
-            Color:
+            {{ t('sellBills.color') }}:
           </span>
           <span class="value">{{ carDetails.color }}</span>
         </div>
         <div class="detail-item">
           <span class="label">
             <i class="fas fa-fingerprint"></i>
-            VIN:
+            {{ t('sellBills.vin') }}:
           </span>
           <span class="value">{{ carDetails.vin || 'N/A' }}</span>
         </div>
         <div v-if="isAdmin" class="detail-item">
           <span class="label">
             <i class="fas fa-dollar-sign"></i>
-            Buy Price:
+            {{ t('sellBills.buy_price') }}:
           </span>
           <span class="value">${{ carDetails.buy_price }}</span>
         </div>
@@ -582,7 +585,7 @@ onMounted(() => {
         <div class="form-group">
           <label for="client">
             <i class="fas fa-user"></i>
-            Client: <span class="required">*</span>
+            {{ t('sellBills.client') }}: <span class="required">*</span>
           </label>
           <div class="client-select-wrapper">
             <el-select
@@ -591,7 +594,7 @@ onMounted(() => {
               remote
               :remote-method="remoteMethod"
               :loading="loading"
-              placeholder="Select or search client"
+              :placeholder="t('sellBills.select_or_search_client')"
               style="width: 100%"
               @change="handleClientChange"
             >
@@ -611,7 +614,7 @@ onMounted(() => {
             </el-select>
             <el-button type="primary" @click="showAddDialog = true" class="new-client-btn">
               <i class="fas fa-plus"></i>
-              New
+              {{ t('sellBills.new') }}
             </el-button>
           </div>
         </div>
@@ -619,10 +622,10 @@ onMounted(() => {
         <div class="form-group">
           <label for="discharge-port">
             <i class="fas fa-anchor"></i>
-            Discharge Port: <span class="required">*</span>
+            {{ t('sellBills.discharge_port') }}: <span class="required">*</span>
           </label>
           <select id="discharge-port" v-model="formData.id_port_discharge" required>
-            <option value="">Select Discharge Port</option>
+            <option value="">{{ t('sellBills.select_discharge_port') }}</option>
             <option v-for="port in dischargePorts" :key="port.id" :value="port.id">
               {{ port.discharge_port }}
             </option>
@@ -631,7 +634,7 @@ onMounted(() => {
         <div class="form-group">
           <label for="cfr-da">
             <i class="fas fa-calculator"></i>
-            CFR DA:
+            {{ t('sellBills.cfr_da') }}:
           </label>
           <div class="input-with-info">
             <input
@@ -648,7 +651,7 @@ onMounted(() => {
         <div class="form-group">
           <label for="sell-price">
             <i class="fas fa-dollar-sign"></i>
-            Sell Price: <span class="required">*</span>
+            {{ t('sellBills.sell_price_required') }}:
           </label>
           <div class="input-with-info">
             <input
@@ -668,7 +671,7 @@ onMounted(() => {
               v-if="carDetails?.price_cell && formData.price_cell === carDetails.price_cell"
               class="default-badge"
             >
-              Default
+              {{ t('sellBills.default') }}
             </span>
           </div>
         </div>
@@ -676,7 +679,7 @@ onMounted(() => {
         <div class="form-group">
           <label for="freight">
             <i class="fas fa-ship"></i>
-            Freight:
+            {{ t('sellBills.freight_cost') }}:
           </label>
           <div class="input-with-info">
             <input
@@ -688,7 +691,11 @@ onMounted(() => {
               :class="{ 'default-value': formData.freight !== null }"
             />
             <span v-if="formData.freight !== null" class="default-badge">
-              Default ({{ carDetails?.is_big_car ? 'Big' : 'Small' }} Car)
+              {{ t('sellBills.default') }} ({{
+                carDetails?.is_big_car
+                  ? t('sellBills.default_big_car')
+                  : t('sellBills.default_small_car')
+              }})
             </span>
           </div>
         </div>
@@ -696,7 +703,7 @@ onMounted(() => {
         <div class="form-group">
           <label for="rate">
             <i class="fas fa-exchange-alt"></i>
-            Rate: <span class="required">*</span>
+            {{ t('sellBills.rate_required') }}:
           </label>
           <div class="input-with-info">
             <input
@@ -708,19 +715,21 @@ onMounted(() => {
               required
               :class="{ 'default-value': formData.rate !== null }"
             />
-            <span v-if="formData.rate !== null" class="default-badge">Default</span>
+            <span v-if="formData.rate !== null" class="default-badge">{{
+              t('sellBills.default')
+            }}</span>
           </div>
         </div>
 
         <div class="form-group">
           <label for="notes">
             <i class="fas fa-sticky-note"></i>
-            Notes:
+            {{ t('sellBills.notes') }}:
           </label>
           <textarea
             id="notes"
             v-model="formData.notes"
-            placeholder="Add any notes about this car assignment..."
+            :placeholder="t('sellBills.add_notes_about_car')"
             rows="3"
             class="textarea-field"
             :disabled="isSubmitting"
@@ -737,9 +746,9 @@ onMounted(() => {
               :disabled="isSubmitting"
             />
             <i class="fas fa-clock"></i>
-            Temporary Client
+            {{ t('sellBills.temporary_client') }}
           </label>
-          <small class="help-text">Mark this client as temporary for this assignment</small>
+          <small class="help-text">{{ t('sellBills.help_text_temporary_client') }}</small>
         </div>
 
         <div
@@ -748,7 +757,7 @@ onMounted(() => {
         >
           <span class="label">
             <i class="fas fa-dollar-sign"></i>
-            Estimated Profit:
+            {{ t('sellBills.estimated_profit') }}:
           </span>
           <span class="value profit">${{ calculateProfit() }}</span>
         </div>
@@ -756,11 +765,11 @@ onMounted(() => {
         <div class="form-actions">
           <button type="button" @click="$emit('close')" class="cancel-btn">
             <i class="fas fa-times"></i>
-            Cancel
+            {{ t('sellBills.cancel') }}
           </button>
           <button type="submit" class="assign-btn" :disabled="isProcessing">
             <i class="fas fa-save"></i>
-            {{ isProcessing ? 'Assigning...' : 'Assign Car' }}
+            {{ isProcessing ? t('sellBills.assigning_car') : t('sellBills.assign_car') }}
           </button>
         </div>
       </form>
@@ -770,7 +779,7 @@ onMounted(() => {
   <!-- New Client Dialog -->
   <el-dialog
     v-model="showAddDialog"
-    title="Add New Client"
+    :title="t('sellBills.add_new_client')"
     width="60%"
     :close-on-click-modal="false"
     append-to-body
@@ -779,56 +788,60 @@ onMounted(() => {
 
     <div class="form-container">
       <div class="form-group">
-        <label>Name</label>
-        <el-input v-model="newClient.name" placeholder="Enter client name" />
+        <label>{{ t('sellBills.name') }}</label>
+        <el-input v-model="newClient.name" :placeholder="t('sellBills.enter_client_name')" />
       </div>
 
       <div class="form-group">
-        <label>Address</label>
-        <el-input v-model="newClient.address" placeholder="Enter address" />
+        <label>{{ t('sellBills.address') }}</label>
+        <el-input v-model="newClient.address" :placeholder="t('sellBills.enter_address')" />
       </div>
 
       <div class="form-group">
-        <label>Email</label>
-        <el-input v-model="newClient.email" placeholder="Enter email" type="email" />
+        <label>{{ t('sellBills.phone') }}</label>
+        <el-input
+          v-model="newClient.email"
+          :placeholder="t('sellBills.enter_email')"
+          type="email"
+        />
       </div>
 
       <div class="form-group">
-        <label>Mobile Numbers*</label>
-        <el-input v-model="newClient.mobiles" placeholder="Enter mobile numbers" />
+        <label>{{ t('sellBills.mobile_numbers') }}</label>
+        <el-input v-model="newClient.mobiles" :placeholder="t('sellBills.enter_mobile_numbers')" />
       </div>
 
       <div class="form-group">
-        <label>ID Number*</label>
-        <el-input v-model="newClient.id_no" placeholder="Enter ID number" />
+        <label>{{ t('sellBills.id_number') }}</label>
+        <el-input v-model="newClient.id_no" :placeholder="t('sellBills.enter_id_number')" />
       </div>
 
       <div class="form-group">
-        <label>ID Document Copy*</label>
+        <label>{{ t('sellBills.id_document_copy') }}</label>
         <input type="file" @change="handleFileChange" accept="image/*,.pdf" class="file-input" />
       </div>
 
       <div class="form-group">
-        <label>Notes</label>
+        <label>{{ t('sellBills.notes') }}</label>
         <el-input
           v-model="newClient.notes"
           type="textarea"
-          placeholder="Enter any additional notes"
+          :placeholder="t('sellBills.enter_additional_notes')"
           :rows="3"
         />
       </div>
 
       <div class="form-group">
-        <el-checkbox v-model="newClient.is_broker">Is Broker</el-checkbox>
+        <el-checkbox v-model="newClient.is_broker">{{ t('sellBills.is_broker') }}</el-checkbox>
       </div>
     </div>
 
     <template #footer>
       <div class="dialog-footer">
-        <el-button @click="showAddDialog = false">Cancel</el-button>
+        <el-button @click="showAddDialog = false">{{ t('sellBills.cancel') }}</el-button>
         <el-button type="primary" @click="addClient" :loading="isSubmitting">
           <i class="fas fa-save"></i>
-          Add Client
+          {{ t('sellBills.add_client') }}
         </el-button>
       </div>
     </template>

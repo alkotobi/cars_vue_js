@@ -38,9 +38,15 @@ export default defineConfig({
         entryFileNames: `[name].[hash].js`,
         chunkFileNames: `[name].[hash].js`,
         assetFileNames: `[name].[hash].[ext]`,
+        manualChunks: {
+          vendor: ['vue', 'vue-router', 'pinia'],
+          ui: ['element-plus'],
+          utils: ['axios', 'lodash'],
+        },
       },
     },
     manifest: true,
     sourcemap: true,
+    chunkSizeWarningLimit: 1000, // Increase warning limit to 1MB
   },
 })

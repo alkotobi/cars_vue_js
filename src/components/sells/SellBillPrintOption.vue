@@ -1,10 +1,12 @@
 <script setup>
 import { ref, defineProps, defineEmits, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { useEnhancedI18n } from '../../composables/useI18n'
 import { useApi } from '../../composables/useApi'
 
 const router = useRouter()
 const { callApi } = useApi()
+const { t } = useEnhancedI18n()
 
 const props = defineProps({
   visible: {
@@ -142,19 +144,17 @@ const handleCancel = () => {
   <div v-if="visible" class="print-options-dialog">
     <div class="dialog-content">
       <div class="dialog-header">
-        <h3><i class="fas fa-print"></i> Print Options</h3>
+        <h3><i class="fas fa-print"></i> {{ t('sellBills.print_options') }}</h3>
         <p class="dialog-subtitle">
-          Configure your
-          {{ documentType === 'car' ? 'car document' : 'sell bill document' }} settings before
-          printing
+          {{ t('sellBills.configure_document_settings') }}
         </p>
       </div>
 
       <div class="form-container">
         <div class="form-section">
-          <h4><i class="fas fa-file-alt"></i> Document Settings</h4>
+          <h4><i class="fas fa-file-alt"></i> {{ t('sellBills.document_settings') }}</h4>
           <div class="form-group">
-            <label>Document Type:</label>
+            <label>{{ t('sellBills.document_type') }}:</label>
             <select v-model="formData.documentType" class="form-select">
               <option v-for="type in documentTypes" :key="type.value" :value="type.value">
                 {{ type.label }}
@@ -164,10 +164,10 @@ const handleCancel = () => {
         </div>
 
         <div class="form-section">
-          <h4><i class="fas fa-credit-card"></i> Payment Settings</h4>
+          <h4><i class="fas fa-credit-card"></i> {{ t('sellBills.payment_settings') }}</h4>
           <div class="form-row">
             <div class="form-group">
-              <label>Payment Terms:</label>
+              <label>{{ t('sellBills.payment_terms') }}:</label>
               <select v-model="formData.paymentTerms" class="form-select">
                 <option v-for="term in paymentTermsOptions" :key="term.value" :value="term.value">
                   {{ term.label }}
@@ -176,7 +176,7 @@ const handleCancel = () => {
             </div>
 
             <div class="form-group">
-              <label>Payment Mode:</label>
+              <label>{{ t('sellBills.payment_mode') }}:</label>
               <select v-model="formData.paymentMode" class="form-select">
                 <option v-for="type in paymentTypes" :key="type.value" :value="type.value">
                   {{ type.label }}
@@ -186,7 +186,7 @@ const handleCancel = () => {
           </div>
 
           <div class="form-group">
-            <label>Currency:</label>
+            <label>{{ t('sellBills.currency') }}:</label>
             <select v-model="formData.currency" class="form-select">
               <option
                 v-for="currency in currencyOptions"
@@ -200,14 +200,14 @@ const handleCancel = () => {
         </div>
 
         <div class="form-section">
-          <h4><i class="fas fa-university"></i> Bank Information</h4>
+          <h4><i class="fas fa-university"></i> {{ t('sellBills.bank_information') }}</h4>
           <div class="form-group">
-            <label>Select Bank:</label>
+            <label>{{ t('sellBills.select_bank') }}:</label>
             <select v-model="formData.bankId" :disabled="isLoadingBanks" class="form-select">
               <option v-if="isLoadingBanks" value="">
-                <i class="fas fa-spinner fa-spin"></i> Loading banks...
+                <i class="fas fa-spinner fa-spin"></i> {{ t('sellBills.loading_banks') }}
               </option>
-              <option v-else value="">Select Bank</option>
+              <option v-else value="">{{ t('sellBills.select_bank') }}</option>
               <option v-for="bank in banks" :key="bank.id" :value="bank.id">
                 {{ bank.company_name }}
               </option>
@@ -218,10 +218,10 @@ const handleCancel = () => {
 
       <div class="dialog-buttons">
         <button @click="handleCancel" class="cancel-btn">
-          <i class="fas fa-times"></i> Cancel
+          <i class="fas fa-times"></i> {{ t('sellBills.cancel') }}
         </button>
         <button @click="handleProceed" class="proceed-btn">
-          <i class="fas fa-print"></i> Print Document
+          <i class="fas fa-print"></i> {{ t('sellBills.print_document') }}
         </button>
       </div>
     </div>
