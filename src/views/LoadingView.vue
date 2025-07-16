@@ -3,7 +3,7 @@
     <div class="header">
       <h2>
         <i class="fas fa-truck-loading"></i>
-        Loading Management
+        {{ t('loading.loading_management') }}
       </h2>
     </div>
 
@@ -14,7 +14,10 @@
 </template>
 
 <script setup>
+import { useEnhancedI18n } from '../composables/useI18n'
 import LoadingTable from '../components/loading/LoadingTable.vue'
+
+const { t } = useEnhancedI18n()
 </script>
 
 <style scoped>

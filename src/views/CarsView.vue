@@ -1,6 +1,7 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
+import { useEnhancedI18n } from '../composables/useI18n'
 import CarsStock from './CarsStock.vue'
 import ClientsView from './ClientsView.vue'
 import BrokersView from './BrokersView.vue'
@@ -19,6 +20,7 @@ import { useApi } from '../composables/useApi'
 import FinishedOrdersTable from '../components/FinishedOrdersTable.vue'
 
 const router = useRouter()
+const { t } = useEnhancedI18n()
 const activeView = ref(null)
 const isLoading = ref(false)
 const isProcessing = ref({
@@ -44,6 +46,12 @@ const { callApi } = useApi()
 const showFinishedOrders = ref(false)
 const finishedOrders = ref([])
 const finishedOrdersLoading = ref(false)
+
+// Add a computed property to ensure stable view rendering
+const currentView = computed(() => {
+  if (!activeView.value) return null
+  return activeView.value
+})
 
 // Mobile navigation state
 const showMobileNav = ref(false)
@@ -166,9 +174,21 @@ const openCarsStockInNewTab = () => {
 
 const handleLoadClick = async () => {
   if (isProcessing.value.load) return
-  isProcessing.value.load = true
+
   try {
+    isProcessing.value.load = true
+
+    // First, ensure any current view is properly unmounted
+    if (activeView.value && activeView.value !== 'load') {
+      activeView.value = null
+      await nextTick()
+    }
+
+    // Then set the new view
     activeView.value = 'load'
+    await nextTick()
+  } catch (error) {
+    console.error('Error in handleLoadClick:', error)
   } finally {
     isProcessing.value.load = false
   }
@@ -176,9 +196,21 @@ const handleLoadClick = async () => {
 
 const handleLoadingInquiryClick = async () => {
   if (isProcessing.value.loadingInquiry) return
-  isProcessing.value.loadingInquiry = true
+
   try {
+    isProcessing.value.loadingInquiry = true
+
+    // First, ensure any current view is properly unmounted
+    if (activeView.value && activeView.value !== 'loading-inquiry') {
+      activeView.value = null
+      await nextTick()
+    }
+
+    // Then set the new view
     activeView.value = 'loading-inquiry'
+    await nextTick()
+  } catch (error) {
+    console.error('Error in handleLoadingInquiryClick:', error)
   } finally {
     isProcessing.value.loadingInquiry = false
   }
@@ -214,7 +246,7 @@ const handleLoadingInquiryClick = async () => {
           :class="{ processing: isProcessing.dashboard }"
         >
           <i class="fas fa-arrow-left"></i>
-          <span>Return to Dashboard</span>
+          <span>{{ t('cars.returnToDashboard') }}</span>
           <i v-if="isProcessing.dashboard" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
         <button
@@ -224,7 +256,7 @@ const handleLoadingInquiryClick = async () => {
           class="sidebar-btn buy-btn"
         >
           <i class="fas fa-shopping-cart"></i>
-          <span>Purchases</span>
+          <span>{{ t('cars.purchases') }}</span>
           <i v-if="isProcessing.buy" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
         <button
@@ -235,7 +267,7 @@ const handleLoadingInquiryClick = async () => {
           :disabled="isProcessing.sell"
         >
           <i class="fas fa-dollar-sign"></i>
-          <span>Sell</span>
+          <span>{{ t('cars.sell') }}</span>
           <i v-if="isProcessing.sell" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
         <button
@@ -245,7 +277,7 @@ const handleLoadingInquiryClick = async () => {
           class="sidebar-btn sell-bills-btn"
         >
           <i class="fas fa-file-invoice-dollar"></i>
-          <span>Sells</span>
+          <span>{{ t('cars.sells') }}</span>
           <i v-if="isProcessing.sellBills" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
         <button
@@ -254,7 +286,7 @@ const handleLoadingInquiryClick = async () => {
           class="sidebar-btn stock-btn"
         >
           <i class="fas fa-warehouse"></i>
-          <span>Cars Stock</span>
+          <span>{{ t('cars.carsStock') }}</span>
           <i class="fas fa-external-link-alt" style="margin-left: auto; font-size: 0.8em"></i>
         </button>
 
@@ -266,7 +298,7 @@ const handleLoadingInquiryClick = async () => {
           :disabled="isProcessing.load"
         >
           <i class="fas fa-truck-loading"></i>
-          <span>Load</span>
+          <span>{{ t('cars.load') }}</span>
           <i v-if="isProcessing.load" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
 
@@ -281,7 +313,7 @@ const handleLoadingInquiryClick = async () => {
           :disabled="isProcessing.loadingInquiry"
         >
           <i class="fas fa-list-alt" title="Loading Order"></i>
-          <span>Loading Order</span>
+          <span>{{ t('cars.loadingOrder') }}</span>
           <i
             v-if="isProcessing.loadingInquiry"
             class="fas fa-spinner fa-spin loading-indicator"
@@ -296,7 +328,7 @@ const handleLoadingInquiryClick = async () => {
           :disabled="isProcessing.statistics"
         >
           <i class="fas fa-chart-bar"></i>
-          <span>Statistics</span>
+          <span>{{ t('cars.statistics') }}</span>
           <i v-if="isProcessing.statistics" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
         <button
@@ -305,12 +337,12 @@ const handleLoadingInquiryClick = async () => {
           class="sidebar-btn finished-orders-btn"
         >
           <i class="fas fa-check-circle"></i>
-          <span>Finished Orders</span>
+          <span>{{ t('cars.finishedOrders') }}</span>
         </button>
       </div>
 
       <div class="sidebar-bottom">
-        <div class="sidebar-section-title"><i class="fas fa-cog"></i> Settings</div>
+        <div class="sidebar-section-title"><i class="fas fa-cog"></i> {{ t('cars.settings') }}</div>
         <button
           v-if="canPurchaseCars"
           @click="navigateTo('models')"
@@ -319,7 +351,7 @@ const handleLoadingInquiryClick = async () => {
           :disabled="isProcessing.models"
         >
           <i class="fas fa-car"></i>
-          <span>Car Models</span>
+          <span>{{ t('cars.carModels') }}</span>
           <i v-if="isProcessing.models" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
         <button
@@ -330,7 +362,7 @@ const handleLoadingInquiryClick = async () => {
           :disabled="isProcessing.colors"
         >
           <i class="fas fa-palette"></i>
-          <span>Colors</span>
+          <span>{{ t('cars.colors') }}</span>
           <i v-if="isProcessing.colors" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
         <button
@@ -344,7 +376,7 @@ const handleLoadingInquiryClick = async () => {
           :disabled="isProcessing.dischargePorts"
         >
           <i class="fas fa-anchor"></i>
-          <span>Discharge Ports</span>
+          <span>{{ t('cars.dischargePorts') }}</span>
           <i
             v-if="isProcessing.dischargePorts"
             class="fas fa-spinner fa-spin loading-indicator"
@@ -358,7 +390,7 @@ const handleLoadingInquiryClick = async () => {
           :disabled="isProcessing.loadingPorts"
         >
           <i class="fas fa-ship"></i>
-          <span>Loading Ports</span>
+          <span>{{ t('cars.loadingPorts') }}</span>
           <i v-if="isProcessing.loadingPorts" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
         <button
@@ -369,7 +401,7 @@ const handleLoadingInquiryClick = async () => {
           :disabled="isProcessing.clients"
         >
           <i class="fas fa-users"></i>
-          <span>Clients</span>
+          <span>{{ t('cars.clients') }}</span>
           <i v-if="isProcessing.clients" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
         <button
@@ -380,7 +412,7 @@ const handleLoadingInquiryClick = async () => {
           :disabled="isProcessing.brokers"
         >
           <i class="fas fa-handshake"></i>
-          <span>Brokers</span>
+          <span>{{ t('cars.brokers') }}</span>
           <i v-if="isProcessing.brokers" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
         <button
@@ -391,7 +423,7 @@ const handleLoadingInquiryClick = async () => {
           :disabled="isProcessing.suppliers"
         >
           <i class="fas fa-truck"></i>
-          <span>Suppliers</span>
+          <span>{{ t('cars.suppliers') }}</span>
           <i v-if="isProcessing.suppliers" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
         <button
@@ -402,7 +434,7 @@ const handleLoadingInquiryClick = async () => {
           :disabled="isProcessing.warehouses"
         >
           <i class="fas fa-building"></i>
-          <span>Warehouses</span>
+          <span>{{ t('cars.warehouses') }}</span>
           <i v-if="isProcessing.warehouses" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
         <button
@@ -413,7 +445,7 @@ const handleLoadingInquiryClick = async () => {
           :disabled="isProcessing.containers"
         >
           <i class="fas fa-box"></i>
-          <span>Containers</span>
+          <span>{{ t('cars.containers') }}</span>
           <i v-if="isProcessing.containers" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
       </div>
@@ -421,32 +453,33 @@ const handleLoadingInquiryClick = async () => {
     <div class="main-content">
       <h1>
         <i class="fas fa-car-side"></i>
-        Cars Management
+        {{ t('cars.carsManagement') }}
       </h1>
       <div class="content">
         <FinishedOrdersTable v-if="showFinishedOrders" @close="showFinishedOrders = false" />
         <div v-else>
-          <div v-if="!activeView" class="empty-state">
+          <div v-if="!currentView" class="empty-state">
             <i class="fas fa-hand-point-left fa-2x"></i>
-            <p>Please select an option from the sidebar</p>
+            <p>{{ t('cars.pleaseSelectOption') }}</p>
           </div>
-          <BuyView v-if="activeView === 'buy'" />
-          <SellBillsView v-if="activeView === 'sell-bills'" />
-          <CarsStock v-if="activeView === 'stock'" />
-          <CarModelsView v-if="activeView === 'models'" />
-          <ColorsView v-if="activeView === 'colors'" />
-          <DischargePortsView v-if="activeView === 'discharge-ports'" />
-          <LoadingPortsView v-if="activeView === 'loading-ports'" />
-          <ClientsView v-if="activeView === 'clients'" />
-          <BrokersView v-if="activeView === 'brokers'" />
-          <SuppliersView v-if="activeView === 'suppliers'" />
-          <WarehousesView v-if="activeView === 'warehouses'" />
-          <ContainersView v-if="activeView === 'containers'" />
-          <StatisticsView v-if="activeView === 'statistics'" />
-          <LoadingView v-if="activeView === 'load'" />
+          <BuyView v-if="currentView === 'buy'" />
+          <SellBillsView v-if="currentView === 'sell-bills'" />
+          <CarsStock v-if="currentView === 'stock'" />
+          <CarModelsView v-if="currentView === 'models'" />
+          <ColorsView v-if="currentView === 'colors'" />
+          <DischargePortsView v-if="currentView === 'discharge-ports'" />
+          <LoadingPortsView v-if="currentView === 'loading-ports'" />
+          <ClientsView v-if="currentView === 'clients'" />
+          <BrokersView v-if="currentView === 'brokers'" />
+          <SuppliersView v-if="currentView === 'suppliers'" />
+          <WarehousesView v-if="currentView === 'warehouses'" />
+          <ContainersView v-if="currentView === 'containers'" />
+          <StatisticsView v-if="currentView === 'statistics'" />
+          <LoadingView v-if="currentView === 'load'" :key="'loading-view'" />
+          <LoadingView v-if="currentView === 'loading-inquiry'" :key="'loading-inquiry-view'" />
         </div>
       </div>
-      <div class="copyright">© Merhab Noureddine 2025</div>
+      <div class="copyright">{{ t('cars.copyright') }}</div>
     </div>
   </div>
 </template>

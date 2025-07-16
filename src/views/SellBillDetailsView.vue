@@ -1,8 +1,10 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
+import { useEnhancedI18n } from '../composables/useI18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useApi } from '../composables/useApi'
 
+const { t } = useEnhancedI18n()
 const route = useRoute()
 const router = useRouter()
 const { callApi, getFileUrl } = useApi()
@@ -98,41 +100,55 @@ onMounted(fetchData)
 
 <template>
   <div class="sell-bill-details-view">
-    <button v-if="false" class="back-btn" @click="router.back()">&larr; Back</button>
-    <h2>Sell Bill Details</h2>
-    <div v-if="loading" class="loading">Loading...</div>
+    <button v-if="false" class="back-btn" @click="router.back()">
+      &larr; {{ t('sellBills.back') }}
+    </button>
+    <h2>{{ t('sellBills.sell_bill_details') }}</h2>
+    <div v-if="loading" class="loading">{{ t('sellBills.loading') }}</div>
     <div v-else-if="error" class="error">{{ error }}</div>
     <div v-else-if="bill">
       <div class="bill-info">
-        <div><strong>ID:</strong> {{ bill.id }}</div>
-        <div><strong>Reference:</strong> {{ bill.bill_ref || 'N/A' }}</div>
         <div>
-          <strong>Date:</strong>
+          <strong>{{ t('sellBills.id') }}:</strong> {{ bill.id }}
+        </div>
+        <div>
+          <strong>{{ t('sellBills.reference') }}:</strong> {{ bill.bill_ref || 'N/A' }}
+        </div>
+        <div>
+          <strong>{{ t('sellBills.date') }}:</strong>
           {{ bill.date_sell ? new Date(bill.date_sell).toLocaleDateString() : 'N/A' }}
         </div>
-        <div><strong>Amount USD:</strong> {{ amountUsd }}</div>
-        <div><strong>Amount DA:</strong> {{ amountDa }}</div>
+        <div>
+          <strong>{{ t('sellBills.amount_usd') }}:</strong> {{ amountUsd }}
+        </div>
+        <div>
+          <strong>{{ t('sellBills.amount_da') }}:</strong> {{ amountDa }}
+        </div>
         <div v-if="false">
-          <strong>Received:</strong>
+          <strong>{{ t('sellBills.received') }}:</strong>
           {{ bill.received !== null && bill.received !== undefined ? bill.received : 'N/A' }}
         </div>
-        <div><strong>Broker:</strong> {{ bill.client_name || 'N/A' }}</div>
+        <div>
+          <strong>{{ t('sellBills.broker') }}:</strong> {{ bill.client_name || 'N/A' }}
+        </div>
       </div>
-      <h3>Cars in this Sell Bill</h3>
-      <div v-if="cars.length === 0" class="no-cars">No cars found for this sell bill.</div>
+      <h3>{{ t('sellBills.cars_in_this_sell_bill') }}</h3>
+      <div v-if="cars.length === 0" class="no-cars">
+        {{ t('sellBills.no_cars_found_for_sell_bill') }}
+      </div>
       <table v-else class="cars-table">
         <thead>
           <tr>
-            <th>ID</th>
-            <th>Car Name</th>
-            <th>Freight</th>
-            <th>Price</th>
-            <th>Rate</th>
-            <th>Price CFR DA</th>
-            <th>Discharge Port</th>
-            <th>Client</th>
-            <th>Client ID</th>
-            <th>Notes</th>
+            <th>{{ t('sellBills.id') }}</th>
+            <th>{{ t('sellBills.car_name') }}</th>
+            <th>{{ t('sellBills.freight') }}</th>
+            <th>{{ t('sellBills.price') }}</th>
+            <th>{{ t('sellBills.rate') }}</th>
+            <th>{{ t('sellBills.price_cfr_da') }}</th>
+            <th>{{ t('sellBills.discharge_port') }}</th>
+            <th>{{ t('sellBills.client') }}</th>
+            <th>{{ t('sellBills.client_id') }}</th>
+            <th>{{ t('sellBills.notes') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -164,7 +180,7 @@ onMounted(fetchData)
                 class="image-preview"
                 @click="handleImageClick(car.client_id_copy)"
               >
-                <img :src="getFileUrl(car.client_id_copy)" alt="Client ID" />
+                <img :src="getFileUrl(car.client_id_copy)" :alt="t('sellBills.client_id')" />
               </div>
               <a
                 v-else-if="car.client_id_copy"
@@ -173,11 +189,11 @@ onMounted(fetchData)
                 class="document-link"
               >
                 <i class="fas fa-file-download"></i>
-                View Document
+                {{ t('sellBills.view_document') }}
               </a>
               <span v-else class="no-document">
                 <i class="fas fa-times-circle"></i>
-                No ID
+                {{ t('sellBills.no_id') }}
               </span>
             </td>
             <td>{{ car.notes || 'N/A' }}</td>

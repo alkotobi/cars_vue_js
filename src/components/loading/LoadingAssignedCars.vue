@@ -3,7 +3,7 @@
     <div class="table-header">
       <h3>
         <i class="fas fa-car"></i>
-        Assigned Cars
+        {{ t('loading.assigned_cars') }}
       </h3>
       <div class="header-actions" v-if="selectedLoadedContainerId">
         <button
@@ -13,7 +13,7 @@
           :class="{ processing: loading }"
         >
           <i class="fas fa-sync-alt"></i>
-          <span>Refresh</span>
+          <span>{{ t('loading.refresh') }}</span>
           <i v-if="loading" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
       </div>
@@ -21,13 +21,13 @@
 
     <div v-if="!selectedLoadedContainerId" class="empty-state">
       <i class="fas fa-mouse-pointer fa-2x"></i>
-      <p>Click on a container line above to view assigned cars</p>
+      <p>{{ t('loading.click_container_to_view_assigned_cars') }}</p>
     </div>
 
     <div v-else class="table-wrapper">
       <div v-if="loading" class="loading-overlay">
         <i class="fas fa-spinner fa-spin"></i>
-        <span>Loading assigned cars...</span>
+        <span>{{ t('loading.loading_assigned_cars') }}</span>
       </div>
 
       <div v-else-if="error" class="error-message">
@@ -37,7 +37,7 @@
 
       <div v-else-if="assignedCars.length === 0" class="empty-state">
         <i class="fas fa-car-side"></i>
-        <p>No cars assigned to containers in this loading record</p>
+        <p>{{ t('loading.no_cars_assigned_to_containers') }}</p>
       </div>
 
       <div v-else class="table-content">
@@ -45,7 +45,7 @@
           <thead>
             <tr>
               <th @click="sortByColumn('id')" class="sortable-header">
-                ID
+                {{ t('loading.id') }}
                 <i
                   v-if="sortBy === 'id'"
                   :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
@@ -53,7 +53,7 @@
                 <i v-else class="fas fa-sort sort-inactive"></i>
               </th>
               <th @click="sortByColumn('car_name')" class="sortable-header">
-                Car Name
+                {{ t('loading.car_name') }}
                 <i
                   v-if="sortBy === 'car_name'"
                   :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
@@ -61,7 +61,7 @@
                 <i v-else class="fas fa-sort sort-inactive"></i>
               </th>
               <th @click="sortByColumn('color')" class="sortable-header">
-                Color
+                {{ t('loading.color') }}
                 <i
                   v-if="sortBy === 'color'"
                   :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
@@ -69,7 +69,7 @@
                 <i v-else class="fas fa-sort sort-inactive"></i>
               </th>
               <th @click="sortByColumn('vin')" class="sortable-header">
-                VIN
+                {{ t('loading.vin') }}
                 <i
                   v-if="sortBy === 'vin'"
                   :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
@@ -77,7 +77,7 @@
                 <i v-else class="fas fa-sort sort-inactive"></i>
               </th>
               <th @click="sortByColumn('container_name')" class="sortable-header">
-                Container
+                {{ t('loading.container') }}
                 <i
                   v-if="sortBy === 'container_name'"
                   :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
@@ -85,7 +85,7 @@
                 <i v-else class="fas fa-sort sort-inactive"></i>
               </th>
               <th @click="sortByColumn('container_ref')" class="sortable-header">
-                Container Ref
+                {{ t('loading.container_ref') }}
                 <i
                   v-if="sortBy === 'container_ref'"
                   :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
@@ -93,7 +93,7 @@
                 <i v-else class="fas fa-sort sort-inactive"></i>
               </th>
               <th @click="sortByColumn('client_name')" class="sortable-header">
-                Client
+                {{ t('loading.client') }}
                 <i
                   v-if="sortBy === 'client_name'"
                   :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
@@ -101,7 +101,7 @@
                 <i v-else class="fas fa-sort sort-inactive"></i>
               </th>
               <th @click="sortByColumn('sell_bill_id')" class="sortable-header">
-                Sell Bill ID
+                {{ t('loading.sell_bill_id') }}
                 <i
                   v-if="sortBy === 'sell_bill_id'"
                   :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
@@ -109,7 +109,7 @@
                 <i v-else class="fas fa-sort sort-inactive"></i>
               </th>
               <th @click="sortByColumn('sell_bill_date')" class="sortable-header">
-                Sell Bill Date
+                {{ t('loading.sell_bill_date') }}
                 <i
                   v-if="sortBy === 'sell_bill_date'"
                   :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
@@ -117,14 +117,14 @@
                 <i v-else class="fas fa-sort sort-inactive"></i>
               </th>
               <th @click="sortByColumn('sell_bill_ref')" class="sortable-header">
-                Sell Bill Ref
+                {{ t('loading.sell_bill_ref') }}
                 <i
                   v-if="sortBy === 'sell_bill_ref'"
                   :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
                 ></i>
                 <i v-else class="fas fa-sort sort-inactive"></i>
               </th>
-              <th>Actions</th>
+              <th>{{ t('loading.actions') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -144,7 +144,9 @@
                 <div v-if="car.id_client && car.id_copy_path" class="client-info">
                   <img
                     :src="getFileUrl(car.id_copy_path)"
-                    :alt="'ID for ' + (car.client_name || 'Client')"
+                    :alt="
+                      t('loading.id_for_client', { client: car.client_name || t('loading.client') })
+                    "
                     class="client-id-image"
                     @click.stop="openClientId(car.id_copy_path)"
                   />
@@ -157,11 +159,12 @@
                 <div class="date-badges">
                   <span class="badge sell-bill-date-badge">
                     <i class="fas fa-calendar"></i>
-                    Sell: {{ formatDate(car.sell_bill_date) }}
+                    {{ t('loading.sell') }}: {{ formatDate(car.sell_bill_date) }}
                   </span>
                   <span v-if="isAdmin" class="badge assigned-date-badge">
                     <i class="fas fa-clock"></i>
-                    Assigned: {{ car.date_assigned ? formatDate(car.date_assigned) : 'Not Set' }}
+                    {{ t('loading.assigned') }}:
+                    {{ car.date_assigned ? formatDate(car.date_assigned) : t('loading.not_set') }}
                   </span>
                 </div>
               </td>
@@ -174,8 +177,8 @@
                     :class="{ disabled: car.date_on_board }"
                     :title="
                       car.date_on_board
-                        ? `Container on board since ${car.date_on_board}`
-                        : 'Unassign from Container'
+                        ? t('loading.container_on_board_since', { date: car.date_on_board })
+                        : t('loading.unassign_from_container')
                     "
                     :disabled="isUnassigning || car.date_on_board"
                   >
@@ -190,14 +193,19 @@
     </div>
 
     <div class="table-footer">
-      <span class="record-count"> Showing {{ sortedAssignedCars.length }} assigned cars </span>
+      <span class="record-count">
+        {{ t('loading.showing_assigned_cars', { count: sortedAssignedCars.length }) }}
+      </span>
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, watch, defineExpose, computed } from 'vue'
+import { useEnhancedI18n } from '@/composables/useI18n'
 import { useApi } from '@/composables/useApi'
+
+const { t } = useEnhancedI18n()
 
 const props = defineProps({
   selectedLoadedContainerId: {
@@ -305,10 +313,10 @@ const fetchAssignedCars = async () => {
     if (result.success) {
       assignedCars.value = result.data || []
     } else {
-      error.value = result.error || 'Failed to load assigned cars'
+      error.value = result.error || t('loading.failed_to_load_assigned_cars')
     }
   } catch (err) {
-    error.value = 'Error loading assigned cars: ' + err.message
+    error.value = t('loading.error_loading_assigned_cars', { message: err.message })
   } finally {
     loading.value = false
   }
@@ -339,12 +347,15 @@ const unassignCar = async (car) => {
   // Check if container has date_on_board (container is on board)
   if (car.date_on_board) {
     alert(
-      `Cannot unassign car #${car.id}. Container is already on board (date: ${car.date_on_board})`,
+      t('loading.cannot_unassign_car_container_on_board', {
+        carId: car.id,
+        date: car.date_on_board,
+      }),
     )
     return
   }
 
-  if (!confirm(`Are you sure you want to unassign car #${car.id} from this container?`)) {
+  if (!confirm(t('loading.confirm_unassign_car', { carId: car.id }))) {
     return
   }
 
@@ -362,10 +373,10 @@ const unassignCar = async (car) => {
       // Emit an event to refresh unassigned cars table
       emit('car-unassigned')
     } else {
-      error.value = result.error || 'Failed to unassign car'
+      error.value = result.error || t('loading.failed_to_unassign_car')
     }
   } catch (err) {
-    error.value = 'Error unassigning car: ' + err.message
+    error.value = t('loading.error_unassigning_car', { message: err.message })
   } finally {
     isUnassigning.value = false
   }

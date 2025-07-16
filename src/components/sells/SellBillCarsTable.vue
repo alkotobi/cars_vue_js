@@ -1,11 +1,13 @@
 <script setup>
 import { ref, watch, defineProps, defineEmits, onMounted, computed } from 'vue'
+import { useEnhancedI18n } from '../../composables/useI18n'
 import { useApi } from '../../composables/useApi'
 import { useRouter } from 'vue-router'
 import { ElSelect, ElOption } from 'element-plus'
 import 'element-plus/dist/index.css'
 import SellBillPrintOption from './SellBillPrintOption.vue'
 
+const { t } = useEnhancedI18n()
 const props = defineProps({
   sellBillId: {
     type: Number,
@@ -93,7 +95,7 @@ const handleCFRDAChange = (event) => {
 
 // Function to unassign a car from the sell bill
 const unassignCar = async (carId) => {
-  if (!confirm('Are you sure you want to unassign this car from the sell bill?')) {
+  if (!confirm(t('sellBills.confirm_unassign_car_message'))) {
     return
   }
 
@@ -124,10 +126,10 @@ const unassignCar = async (carId) => {
       // Emit refresh event to parent to update other components
       emit('refresh')
     } else {
-      error.value = result.error || 'Failed to unassign car'
+      error.value = result.error || t('sellBills.failed_to_unassign_car')
     }
   } catch (err) {
-    error.value = err.message || 'An error occurred'
+    error.value = err.message || t('sellBills.error_occurred')
   } finally {
     loading.value = false
     isProcessing.value = false
@@ -556,26 +558,26 @@ const formatDate = (dateString) => {
     <!-- Loading Overlay -->
     <div v-if="loading" class="loading-overlay">
       <i class="fas fa-spinner fa-spin fa-2x"></i>
-      <span>Loading cars...</span>
+      <span>{{ t('sellBills.loading_cars') }}</span>
     </div>
 
     <div class="table-header">
       <h3>
         <i class="fas fa-car"></i>
-        Cars in Bill
+        {{ t('sellBills.cars_in_bill') }}
       </h3>
       <div class="total-info" v-if="cars.length > 0">
         <span>
           <i class="fas fa-hashtag"></i>
-          Total Cars: {{ filteredCars.length }} / {{ cars.length }}
+          {{ t('sellBills.total_cars') }}: {{ filteredCars.length }} / {{ cars.length }}
         </span>
         <span v-if="totalValue > 0">
           <i class="fas fa-money-bill-wave"></i>
-          Total CFR DA: {{ totalValue.toLocaleString() }} DZD
+          {{ t('sellBills.total_cfr_da') }}: {{ totalValue.toLocaleString() }} DZD
         </span>
         <span v-if="totalCfrUsd > 0">
           <i class="fas fa-dollar-sign"></i>
-          Total CFR USD:
+          {{ t('sellBills.total_cfr_usd') }}:
           {{
             totalCfrUsd.toLocaleString(undefined, {
               minimumFractionDigits: 2,
@@ -592,11 +594,11 @@ const formatDate = (dateString) => {
       <div class="filters-header">
         <h4>
           <i class="fas fa-filter"></i>
-          Filters
+          {{ t('sellBills.filters') }}
         </h4>
         <button @click="clearFilters" class="clear-filters-btn">
           <i class="fas fa-times"></i>
-          Clear Filters
+          {{ t('sellBills.clear_filters') }}
         </button>
       </div>
 
@@ -604,28 +606,48 @@ const formatDate = (dateString) => {
         <div class="filter-group">
           <label>
             <i class="fas fa-car"></i>
-            Car Name
+            {{ t('sellBills.car_name') }}
           </label>
-          <input type="text" v-model="filters.carName" placeholder="Filter by car name..." />
+          <input
+            type="text"
+            v-model="filters.carName"
+            :placeholder="t('sellBills.filter_by_car_name')"
+          />
         </div>
 
         <div class="filter-group">
           <label>
             <i class="fas fa-user"></i>
-            Client Name
+            {{ t('sellBills.client_name') }}
           </label>
-          <input type="text" v-model="filters.clientName" placeholder="Filter by client name..." />
+          <input
+            type="text"
+            v-model="filters.clientName"
+            :placeholder="t('sellBills.filter_by_client_name')"
+          />
         </div>
 
         <div class="filter-group price-range">
           <label>
             <i class="fas fa-dollar-sign"></i>
-            Price Range
+            {{ t('sellBills.price_range') }}
           </label>
           <div class="price-inputs">
-            <input type="number" v-model="filters.minPrice" placeholder="Min" step="0.01" min="0" />
+            <input
+              type="number"
+              v-model="filters.minPrice"
+              :placeholder="t('sellBills.min')"
+              step="0.01"
+              min="0"
+            />
             <span class="separator">-</span>
-            <input type="number" v-model="filters.maxPrice" placeholder="Max" step="0.01" min="0" />
+            <input
+              type="number"
+              v-model="filters.maxPrice"
+              :placeholder="t('sellBills.max')"
+              step="0.01"
+              min="0"
+            />
           </div>
         </div>
       </div>
@@ -638,31 +660,31 @@ const formatDate = (dateString) => {
 
     <div v-else-if="!sellBillId" class="no-selection">
       <i class="fas fa-hand-pointer fa-2x"></i>
-      <p>Please select a sell bill to view its cars</p>
+      <p>{{ t('sellBills.please_select_sell_bill') }}</p>
     </div>
 
     <div v-else-if="cars.length === 0" class="no-data">
       <i class="fas fa-car fa-2x"></i>
-      <p>No cars found in this bill</p>
+      <p>{{ t('sellBills.no_cars_found_in_bill') }}</p>
     </div>
 
     <div v-else-if="filteredCars.length === 0" class="no-data">
       <i class="fas fa-filter fa-2x"></i>
-      <p>No cars match the current filters</p>
+      <p>{{ t('sellBills.no_cars_match_filters') }}</p>
     </div>
 
     <table v-else class="cars-table">
       <thead>
         <tr>
-          <th><i class="fas fa-hashtag"></i> ID</th>
-          <th><i class="fas fa-car"></i> Car</th>
-          <th><i class="fas fa-user"></i> Client</th>
-          <th><i class="fas fa-shipping-fast"></i> Container</th>
-          <th><i class="fas fa-dollar-sign"></i> Price</th>
-          <th><i class="fas fa-ship"></i> Freight</th>
-          <th><i class="fas fa-calculator"></i> CFR</th>
-          <th><i class="fas fa-sticky-note"></i> Notes</th>
-          <th><i class="fas fa-cog"></i> Actions</th>
+          <th><i class="fas fa-hashtag"></i> {{ t('sellBills.id') }}</th>
+          <th><i class="fas fa-car"></i> {{ t('sellBills.car') }}</th>
+          <th><i class="fas fa-user"></i> {{ t('sellBills.client') }}</th>
+          <th><i class="fas fa-shipping-fast"></i> {{ t('sellBills.container') }}</th>
+          <th><i class="fas fa-dollar-sign"></i> {{ t('sellBills.price') }}</th>
+          <th><i class="fas fa-ship"></i> {{ t('sellBills.freight') }}</th>
+          <th><i class="fas fa-calculator"></i> {{ t('sellBills.cfr') }}</th>
+          <th><i class="fas fa-sticky-note"></i> {{ t('sellBills.notes') }}</th>
+          <th><i class="fas fa-cog"></i> {{ t('sellBills.actions') }}</th>
         </tr>
       </thead>
       <tbody>
@@ -690,8 +712,8 @@ const formatDate = (dateString) => {
                 <i class="fas fa-clock"></i>
                 {{
                   car.date_assigned
-                    ? `Timestamp: ${formatDate(car.date_assigned)}`
-                    : 'Timestamp: Not Set'
+                    ? `${t('sellBills.timestamp')}: ${formatDate(car.date_assigned)}`
+                    : `${t('sellBills.timestamp')}: ${t('sellBills.not_set')}`
                 }}
               </span>
             </div>
@@ -710,9 +732,15 @@ const formatDate = (dateString) => {
           <td>{{ car.freight ? '$' + car.freight.toLocaleString() : 'N/A' }}</td>
           <td class="cfr-cell">
             <div class="cfr-badges">
-              <span class="badge cfr-da-badge">DA: {{ calculateCFRDA(car) }}</span>
-              <span class="badge cfr-usd-badge">USD: {{ calculateCFRUSD(car) }}</span>
-              <span class="badge cfr-rate-badge">Rate: {{ car.rate || 'N/A' }}</span>
+              <span class="badge cfr-da-badge"
+                >{{ t('sellBills.da') }}: {{ calculateCFRDA(car) }}</span
+              >
+              <span class="badge cfr-usd-badge"
+                >{{ t('sellBills.usd') }}: {{ calculateCFRUSD(car) }}</span
+              >
+              <span class="badge cfr-rate-badge"
+                >{{ t('sellBills.rate') }}: {{ car.rate || 'N/A' }}</span
+              >
             </div>
           </td>
           <td>{{ car.notes || 'N/A' }}</td>
@@ -721,7 +749,7 @@ const formatDate = (dateString) => {
               @click="handleEdit(car)"
               :disabled="isProcessing"
               class="btn edit-btn"
-              title="Edit Car"
+              :title="t('sellBills.edit_car')"
             >
               <i class="fas fa-edit"></i>
             </button>
@@ -729,7 +757,7 @@ const formatDate = (dateString) => {
               @click="handlePrint(car)"
               :disabled="isProcessing"
               class="btn print-btn"
-              title="Print Car Document"
+              :title="t('sellBills.print_car_document')"
             >
               <i class="fas fa-print"></i>
             </button>
@@ -737,7 +765,7 @@ const formatDate = (dateString) => {
               @click="handleUnassign(car.id)"
               :disabled="isProcessing"
               class="btn unassign-btn"
-              title="Unassign Car"
+              :title="t('sellBills.unassign_car')"
             >
               <i class="fas fa-unlink"></i>
             </button>
@@ -752,7 +780,7 @@ const formatDate = (dateString) => {
         <div class="dialog-header">
           <h3>
             <i class="fas fa-edit"></i>
-            Edit Car Details
+            {{ t('sellBills.edit_car_details') }}
           </h3>
           <button @click="showEditDialog = false" class="close-btn">
             <i class="fas fa-times"></i>
@@ -765,20 +793,24 @@ const formatDate = (dateString) => {
         </div>
 
         <div v-if="editingCar" class="car-details">
-          <p><strong>Car:</strong> {{ editingCar.car_name }}</p>
-          <p><strong>VIN:</strong> {{ editingCar.vin }}</p>
+          <p>
+            <strong>{{ t('sellBills.car') }}:</strong> {{ editingCar.car_name }}
+          </p>
+          <p>
+            <strong>{{ t('sellBills.vin') }}:</strong> {{ editingCar.vin }}
+          </p>
         </div>
 
         <form @submit.prevent="handleSaveEdit" class="edit-form">
           <div class="form-group">
-            <label>Client: <span class="required">*</span></label>
+            <label>{{ t('sellBills.client') }}: <span class="required">*</span></label>
             <el-select
               v-model="editFormData.id_client"
               filterable
               remote
               :remote-method="remoteClientSearch"
               :loading="isProcessing"
-              placeholder="Search client"
+              :placeholder="t('sellBills.search_client')"
               class="custom-select"
               required
             >
@@ -801,14 +833,14 @@ const formatDate = (dateString) => {
           </div>
 
           <div class="form-group">
-            <label>Discharge Port: <span class="required">*</span></label>
+            <label>{{ t('sellBills.discharge_port') }}: <span class="required">*</span></label>
             <el-select
               v-model="editFormData.id_port_discharge"
               filterable
               remote
               :remote-method="remotePortSearch"
               :loading="isProcessing"
-              placeholder="Search port"
+              :placeholder="t('sellBills.search_port')"
               class="custom-select"
               required
             >
@@ -829,7 +861,7 @@ const formatDate = (dateString) => {
           <div class="form-group">
             <label>
               <i class="fas fa-dollar-sign"></i>
-              Price: <span class="required">*</span>
+              {{ t('sellBills.price') }}: <span class="required">*</span>
             </label>
             <div class="input-with-info">
               <input
@@ -847,7 +879,7 @@ const formatDate = (dateString) => {
           <div class="form-group">
             <label>
               <i class="fas fa-ship"></i>
-              Freight:
+              {{ t('sellBills.freight') }}:
             </label>
             <div class="input-with-info">
               <input
@@ -861,10 +893,7 @@ const formatDate = (dateString) => {
           </div>
 
           <div class="form-group">
-            <label for="edit-rate">
-              <i class="fas fa-exchange-alt"></i>
-              Rate:
-            </label>
+            <label for="edit-rate">{{ t('sellBills.rate') }}:</label>
             <input
               type="number"
               id="edit-rate"
@@ -876,14 +905,11 @@ const formatDate = (dateString) => {
           </div>
 
           <div class="form-group">
-            <label for="edit-notes">
-              <i class="fas fa-sticky-note"></i>
-              Notes:
-            </label>
+            <label for="edit-notes">{{ t('sellBills.notes') }}:</label>
             <textarea
               id="edit-notes"
               v-model="editFormData.notes"
-              placeholder="Add any notes about this car..."
+              :placeholder="t('sellBills.add_notes_about_car')"
               rows="3"
               class="textarea-field"
               :disabled="isProcessing"
@@ -900,16 +926,13 @@ const formatDate = (dateString) => {
                 :disabled="isProcessing"
               />
               <i class="fas fa-clock"></i>
-              Temporary Client
+              {{ t('sellBills.temporary_client') }}
             </label>
-            <small class="help-text">Mark this client as temporary for this assignment</small>
+            <small class="help-text">{{ t('sellBills.help_text_temporary_client') }}</small>
           </div>
 
           <div class="form-group">
-            <label>
-              <i class="fas fa-calculator"></i>
-              CFR DA:
-            </label>
+            <label>{{ t('sellBills.cfr_da') }}:</label>
             <div class="input-with-info">
               <input
                 type="number"
@@ -930,11 +953,11 @@ const formatDate = (dateString) => {
               :disabled="isProcessing"
             >
               <i class="fas fa-times"></i>
-              Cancel
+              {{ t('sellBills.cancel') }}
             </button>
             <button type="submit" class="save-btn" :disabled="isProcessing">
               <i class="fas fa-save"></i>
-              {{ isProcessing ? 'Saving...' : 'Save Changes' }}
+              {{ isProcessing ? t('sellBills.saving') : t('sellBills.save_changes') }}
             </button>
           </div>
         </form>

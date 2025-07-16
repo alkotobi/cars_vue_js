@@ -3,27 +3,27 @@
     <div class="table-header">
       <h3>
         <i class="fas fa-box"></i>
-        Containers
+        {{ t('loading.containers') }}
       </h3>
       <div class="header-actions" v-if="selectedLoadingId">
         <button
           @click="openAddDialog"
           class="add-btn"
           :disabled="loading || !props.selectedLoadingId"
-          title="Add New Container"
+          :title="t('loading.add_new_container')"
         >
           <i class="fas fa-plus"></i>
-          Add Container
+          {{ t('loading.add_container') }}
         </button>
         <button
           @click="refreshData"
           class="refresh-btn"
           :disabled="loading"
           :class="{ processing: loading }"
-          title="Refresh Containers"
+          :title="t('loading.refresh_containers')"
         >
           <i class="fas fa-sync-alt"></i>
-          <span>Refresh</span>
+          <span>{{ t('loading.refresh') }}</span>
           <i v-if="loading" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
       </div>
@@ -31,13 +31,13 @@
 
     <div v-if="!selectedLoadingId" class="empty-state">
       <i class="fas fa-mouse-pointer"></i>
-      <p>Click on a loading record above to view its containers</p>
+      <p>{{ t('loading.click_loading_record_to_view_containers') }}</p>
     </div>
 
     <div v-else class="table-wrapper">
       <div v-if="loading" class="loading-overlay">
         <i class="fas fa-spinner fa-spin fa-2x"></i>
-        <span>Loading...</span>
+        <span>{{ t('loading.loading') }}</span>
       </div>
 
       <div v-else-if="error" class="error-message">
@@ -47,15 +47,15 @@
 
       <div v-else-if="!props.selectedLoadingId" class="empty-state">
         <i class="fas fa-mouse-pointer fa-2x"></i>
-        <p>Please select a loading record above to view containers</p>
+        <p>{{ t('loading.please_select_loading_record') }}</p>
       </div>
 
       <div v-else-if="containers.length === 0" class="empty-state">
         <i class="fas fa-box-open fa-2x"></i>
-        <p>No containers found for this loading record</p>
+        <p>{{ t('loading.no_containers_found_for_loading_record') }}</p>
         <button @click="openAddDialog" class="add-first-btn">
           <i class="fas fa-plus"></i>
-          Add First Container
+          {{ t('loading.add_first_container') }}
         </button>
       </div>
 
@@ -64,7 +64,7 @@
           <thead>
             <tr>
               <th @click="sortByColumn('id')" class="sortable-header">
-                ID
+                {{ t('loading.id') }}
                 <i
                   v-if="sortBy === 'id'"
                   :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
@@ -72,7 +72,7 @@
                 <i v-else class="fas fa-sort sort-inactive"></i>
               </th>
               <th @click="sortByColumn('container_name')" class="sortable-header">
-                Container
+                {{ t('loading.container') }}
                 <i
                   v-if="sortBy === 'container_name'"
                   :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
@@ -80,7 +80,7 @@
                 <i v-else class="fas fa-sort sort-inactive"></i>
               </th>
               <th @click="sortByColumn('ref_container')" class="sortable-header">
-                Reference
+                {{ t('loading.reference') }}
                 <i
                   v-if="sortBy === 'ref_container'"
                   :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
@@ -88,7 +88,7 @@
                 <i v-else class="fas fa-sort sort-inactive"></i>
               </th>
               <th @click="sortByColumn('so')" class="sortable-header">
-                SO
+                {{ t('loading.so') }}
                 <i
                   v-if="sortBy === 'so'"
                   :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
@@ -96,7 +96,7 @@
                 <i v-else class="fas fa-sort sort-inactive"></i>
               </th>
               <th @click="sortByColumn('date_departed')" class="sortable-header">
-                Date Departed
+                {{ t('loading.date_departed') }}
                 <i
                   v-if="sortBy === 'date_departed'"
                   :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
@@ -104,7 +104,7 @@
                 <i v-else class="fas fa-sort sort-inactive"></i>
               </th>
               <th @click="sortByColumn('date_loaded')" class="sortable-header">
-                Date Loaded
+                {{ t('loading.date_loaded') }}
                 <i
                   v-if="sortBy === 'date_loaded'"
                   :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
@@ -112,7 +112,7 @@
                 <i v-else class="fas fa-sort sort-inactive"></i>
               </th>
               <th @click="sortByColumn('date_on_board')" class="sortable-header">
-                Date On Board
+                {{ t('loading.date_on_board') }}
                 <i
                   v-if="sortBy === 'date_on_board'"
                   :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
@@ -120,7 +120,7 @@
                 <i v-else class="fas fa-sort sort-inactive"></i>
               </th>
               <th @click="sortByColumn('is_released')" class="sortable-header">
-                Released
+                {{ t('loading.released') }}
                 <i
                   v-if="sortBy === 'is_released'"
                   :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
@@ -128,14 +128,14 @@
                 <i v-else class="fas fa-sort sort-inactive"></i>
               </th>
               <th @click="sortByColumn('note')" class="sortable-header">
-                Notes
+                {{ t('loading.notes') }}
                 <i
                   v-if="sortBy === 'note'"
                   :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
                 ></i>
                 <i v-else class="fas fa-sort sort-inactive"></i>
               </th>
-              <th>Actions</th>
+              <th>{{ t('loading.actions') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -155,7 +155,7 @@
                   </span>
                   <span v-else class="no-ref-error">
                     <i class="fas fa-exclamation-triangle"></i>
-                    No Reference
+                    {{ t('loading.no_reference') }}
                   </span>
                 </div>
               </td>
@@ -171,7 +171,7 @@
                   }"
                 >
                   <i :class="[container.is_released ? 'fas fa-check-circle' : 'fas fa-clock']"></i>
-                  {{ container.is_released ? 'Released' : 'Not Released' }}
+                  {{ container.is_released ? t('loading.released') : t('loading.not_released') }}
                 </span>
               </td>
               <td class="note-cell">{{ truncateText(container.note, 30) }}</td>
@@ -180,7 +180,7 @@
                   <button
                     @click.stop="editContainer(container)"
                     class="action-btn edit-btn"
-                    title="Edit Container"
+                    :title="t('loading.edit_container')"
                   >
                     <i class="fas fa-edit"></i>
                   </button>
@@ -195,7 +195,7 @@
                   <button
                     @click.stop="deleteContainer(container)"
                     class="action-btn delete-btn"
-                    title="Delete Container"
+                    :title="t('loading.delete_container')"
                   >
                     <i class="fas fa-trash"></i>
                   </button>
@@ -213,7 +213,11 @@
         <div class="dialog-header">
           <h3>
             <i class="fas fa-box"></i>
-            {{ isEditing ? 'Edit Container Assignment' : 'Add Container to Loading' }}
+            {{
+              isEditing
+                ? t('loading.edit_container_assignment')
+                : t('loading.add_container_to_loading')
+            }}
           </h3>
           <button class="close-btn" @click="closeDialog" :disabled="isSubmitting">
             <i class="fas fa-times"></i>
@@ -225,7 +229,7 @@
             <div class="form-group">
               <label for="id_container">
                 <i class="fas fa-box"></i>
-                Container
+                {{ t('loading.container') }}
               </label>
               <div class="input-with-button">
                 <select
@@ -234,7 +238,7 @@
                   required
                   :disabled="isSubmitting"
                 >
-                  <option value="">Select Container</option>
+                  <option value="">{{ t('loading.select_container') }}</option>
                   <option
                     v-for="container in availableContainers"
                     :key="container.id"
@@ -248,7 +252,7 @@
                   @click="openAddContainerDialog"
                   class="add-item-btn"
                   :disabled="isSubmitting"
-                  title="Add New Container"
+                  :title="t('loading.add_new_container')"
                 >
                   <i class="fas fa-plus"></i>
                 </button>
@@ -258,14 +262,14 @@
             <div class="form-group">
               <label for="ref_container">
                 <i class="fas fa-tag"></i>
-                Reference
+                {{ t('loading.reference') }}
               </label>
               <input
                 type="text"
                 id="ref_container"
                 v-model="formData.ref_container"
                 :disabled="isSubmitting"
-                placeholder="Container reference"
+                :placeholder="t('loading.container_reference')"
                 maxlength="255"
               />
             </div>
@@ -275,14 +279,14 @@
             <div class="form-group">
               <label for="so">
                 <i class="fas fa-file-invoice"></i>
-                SO
+                {{ t('loading.so') }}
               </label>
               <input
                 type="text"
                 id="so"
                 v-model="formData.so"
                 :disabled="isSubmitting"
-                placeholder="SO number"
+                :placeholder="t('loading.so_number')"
                 maxlength="255"
               />
             </div>
@@ -290,7 +294,7 @@
             <div class="form-group">
               <label for="date_departed">
                 <i class="fas fa-calendar"></i>
-                Date Departed
+                {{ t('loading.date_departed') }}
               </label>
               <input
                 type="date"
@@ -306,7 +310,7 @@
           <div class="form-group">
             <label for="date_loaded">
               <i class="fas fa-calendar"></i>
-              Date Loaded
+              {{ t('loading.date_loaded') }}
             </label>
             <input
               type="date"
@@ -321,7 +325,7 @@
           <div class="form-group">
             <label for="date_on_board">
               <i class="fas fa-calendar"></i>
-              Date On Board
+              {{ t('loading.date_on_board') }}
             </label>
             <input
               type="date"
@@ -336,7 +340,7 @@
           <div class="form-group">
             <label for="is_released">
               <i class="fas fa-check-circle"></i>
-              Released
+              {{ t('loading.released') }}
             </label>
             <input
               type="checkbox"
@@ -349,20 +353,20 @@
           <div class="form-group">
             <label for="note">
               <i class="fas fa-sticky-note"></i>
-              Notes
+              {{ t('loading.notes') }}
             </label>
             <textarea
               id="note"
               v-model="formData.note"
               :disabled="isSubmitting"
-              placeholder="Additional notes"
+              :placeholder="t('loading.additional_notes')"
               rows="3"
             ></textarea>
           </div>
 
           <div class="form-actions">
             <button type="button" @click="closeDialog" class="cancel-btn" :disabled="isSubmitting">
-              Cancel
+              {{ t('loading.cancel') }}
             </button>
             <button
               type="submit"
@@ -371,7 +375,7 @@
               :class="{ processing: isSubmitting }"
             >
               <i v-if="isSubmitting" class="fas fa-spinner fa-spin"></i>
-              <span>{{ isEditing ? 'Update' : 'Add' }}</span>
+              <span>{{ isEditing ? t('loading.update') : t('loading.add') }}</span>
             </button>
           </div>
         </form>
@@ -384,7 +388,7 @@
         <div class="dialog-header">
           <h3>
             <i class="fas fa-box"></i>
-            Add New Container
+            {{ t('loading.add_new_container') }}
           </h3>
           <button class="close-btn" @click="closeAddContainerDialog" :disabled="isAddingContainer">
             <i class="fas fa-times"></i>
@@ -395,7 +399,7 @@
           <div class="form-group">
             <label for="new_container_name">
               <i class="fas fa-tag"></i>
-              Container Name
+              {{ t('loading.container_name') }}
             </label>
             <input
               type="text"
@@ -404,7 +408,7 @@
               required
               :disabled="isAddingContainer"
               maxlength="30"
-              placeholder="Enter container name"
+              :placeholder="t('loading.enter_container_name')"
             />
           </div>
 
@@ -415,7 +419,7 @@
               class="cancel-btn"
               :disabled="isAddingContainer"
             >
-              Cancel
+              {{ t('loading.cancel') }}
             </button>
             <button
               type="submit"
@@ -424,7 +428,7 @@
               :class="{ processing: isAddingContainer }"
             >
               <i v-if="isAddingContainer" class="fas fa-spinner fa-spin"></i>
-              <span>Create</span>
+              <span>{{ t('loading.create') }}</span>
             </button>
           </div>
         </form>
@@ -437,7 +441,7 @@
         <div class="dialog-header">
           <h3>
             <i class="fas fa-exclamation-triangle"></i>
-            Confirm Delete
+            {{ t('loading.confirm_delete') }}
           </h3>
           <button class="close-btn" @click="closeDeleteDialog" :disabled="isDeleting">
             <i class="fas fa-times"></i>
@@ -447,8 +451,11 @@
         <div class="dialog-content">
           <div class="delete-message">
             <p>
-              Are you sure you want to remove container
-              <strong>"{{ containerToDelete?.container_name }}"</strong> from this loading record?
+              {{
+                t('loading.confirm_delete_container_message', {
+                  containerName: containerToDelete?.container_name,
+                })
+              }}
             </p>
           </div>
 
@@ -459,7 +466,7 @@
               class="cancel-btn"
               :disabled="isDeleting"
             >
-              Cancel
+              {{ t('loading.cancel') }}
             </button>
             <button
               type="button"
@@ -469,7 +476,7 @@
               :class="{ processing: isDeleting }"
             >
               <i v-if="isDeleting" class="fas fa-spinner fa-spin"></i>
-              <span>Delete</span>
+              <span>{{ t('loading.delete') }}</span>
             </button>
           </div>
         </div>
@@ -482,7 +489,7 @@
         <div class="dialog-header">
           <h3>
             <i class="fas fa-ship"></i>
-            Set Container On Board
+            {{ t('loading.set_container_on_board') }}
           </h3>
           <button class="close-btn" @click="closeOnBoardDialog" :disabled="isSubmittingOnBoard">
             <i class="fas fa-times"></i>
@@ -493,7 +500,7 @@
           <div class="form-group">
             <label for="onboard_date">
               <i class="fas fa-calendar"></i>
-              Date On Board
+              {{ t('loading.date_on_board') }}
             </label>
             <input
               type="date"
@@ -509,20 +516,27 @@
           <div class="form-group">
             <label>
               <i class="fas fa-info-circle"></i>
-              Container Information
+              {{ t('loading.container_information') }}
             </label>
             <div class="info-display">
-              <p><strong>Container:</strong> {{ onBoardData.container_name }}</p>
-              <p><strong>Reference:</strong> {{ onBoardData.ref_container || 'N/A' }}</p>
-              <p><strong>Assigned Cars:</strong> {{ onBoardData.assigned_cars_count || 0 }}</p>
+              <p>
+                <strong>{{ t('loading.container') }}:</strong> {{ onBoardData.container_name }}
+              </p>
+              <p>
+                <strong>{{ t('loading.reference') }}:</strong>
+                {{ onBoardData.ref_container || t('loading.na') }}
+              </p>
+              <p>
+                <strong>{{ t('loading.assigned_cars') }}:</strong>
+                {{ onBoardData.assigned_cars_count || 0 }}
+              </p>
             </div>
           </div>
 
           <div class="warning-message">
             <i class="fas fa-exclamation-triangle"></i>
             <p>
-              <strong>Warning:</strong> Once a container is set on board, cars cannot be unassigned
-              from it.
+              <strong>{{ t('loading.warning') }}:</strong>{{ t('loading.warning_message') }}
             </p>
           </div>
         </div>
@@ -534,7 +548,7 @@
             class="cancel-btn"
             :disabled="isSubmittingOnBoard"
           >
-            Cancel
+            {{ t('loading.cancel') }}
           </button>
           <button
             type="button"
@@ -544,7 +558,7 @@
             :class="{ processing: isSubmittingOnBoard }"
           >
             <i v-if="isSubmittingOnBoard" class="fas fa-spinner fa-spin"></i>
-            <span>Set On Board</span>
+            <span>{{ t('loading.set_on_board') }}</span>
           </button>
         </div>
       </div>
@@ -554,8 +568,10 @@
 
 <script setup>
 import { ref, watch, defineExpose, onMounted } from 'vue'
+import { useEnhancedI18n } from '@/composables/useI18n'
 import { useApi } from '@/composables/useApi'
 
+const { t } = useEnhancedI18n()
 const props = defineProps({
   selectedLoadingId: {
     type: [Number, String],
@@ -1133,15 +1149,15 @@ const confirmOnBoard = async () => {
 
 const getOnBoardButtonTitle = (container) => {
   if (container.date_on_board) {
-    return 'Container is already on board'
+    return t('loading.container_already_on_board')
   }
   if (!container.ref_container || container.ref_container.trim() === '') {
-    return 'Set container reference first'
+    return t('loading.set_container_reference_first')
   }
   if (container.assigned_cars_count === 0) {
-    return 'No cars assigned to this container'
+    return t('loading.no_cars_assigned_to_this_container')
   }
-  return 'Set On Board'
+  return t('loading.set_on_board')
 }
 
 const sortByColumn = (column) => {

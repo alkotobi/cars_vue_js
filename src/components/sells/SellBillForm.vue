@@ -1,9 +1,11 @@
 <script setup>
 import { ref, onMounted, watch, defineProps, defineEmits, computed } from 'vue'
+import { useEnhancedI18n } from '../../composables/useI18n'
 import { useApi } from '../../composables/useApi'
 import { ElSelect, ElOption } from 'element-plus'
 import 'element-plus/dist/index.css'
 
+const { t } = useEnhancedI18n()
 const props = defineProps({
   mode: {
     type: String,
@@ -308,12 +310,12 @@ onMounted(() => {
     <!-- Loading Overlay -->
     <div v-if="loading" class="loading-overlay">
       <i class="fas fa-spinner fa-spin fa-2x"></i>
-      <span>{{ isSubmitting ? 'Saving...' : 'Loading...' }}</span>
+      <span>{{ isSubmitting ? t('sellBills.saving') : t('sellBills.loading') }}</span>
     </div>
 
     <h3 class="form-title">
       <i class="fas fa-file-invoice-dollar"></i>
-      {{ mode === 'add' ? 'Add New Sell Bill' : 'Edit Sell Bill' }}
+      {{ mode === 'add' ? t('sellBills.add_new_sell_bill') : t('sellBills.edit_sell_bill') }}
     </h3>
 
     <div v-if="error" class="error-message">
@@ -325,7 +327,7 @@ onMounted(() => {
       <div class="form-group">
         <label for="broker">
           <i class="fas fa-user-tie"></i>
-          Broker:
+          {{ t('sellBills.broker') }}
         </label>
         <el-select
           v-model="formData.id_broker"
@@ -333,7 +335,7 @@ onMounted(() => {
           remote
           :remote-method="remoteMethod"
           :loading="loading"
-          placeholder="Select a broker"
+          :placeholder="t('sellBills.select_broker')"
           class="broker-select"
         >
           <el-option
@@ -355,7 +357,7 @@ onMounted(() => {
       <div v-if="isAdmin" class="form-group">
         <label for="user">
           <i class="fas fa-user"></i>
-          User:
+          {{ t('sellBills.user') }}
         </label>
         <el-select
           v-model="formData.id_user"
@@ -363,7 +365,7 @@ onMounted(() => {
           remote
           :remote-method="remoteMethodUsers"
           :loading="loading"
-          placeholder="Select a user"
+          :placeholder="t('sellBills.select_user')"
           class="user-select"
         >
           <el-option
@@ -385,7 +387,7 @@ onMounted(() => {
       <div class="form-group">
         <label for="date">
           <i class="fas fa-calendar"></i>
-          Date:
+          {{ t('sellBills.date') }}
         </label>
         <input
           type="date"
@@ -399,13 +401,13 @@ onMounted(() => {
       <div class="form-group">
         <label for="notes">
           <i class="fas fa-sticky-note"></i>
-          Notes:
+          {{ t('sellBills.notes') }}
         </label>
         <textarea
           id="notes"
           v-model="formData.notes"
           :disabled="isSubmitting"
-          placeholder="Enter any additional notes..."
+          :placeholder="t('sellBills.enter_notes_placeholder')"
         ></textarea>
       </div>
 
@@ -417,18 +419,18 @@ onMounted(() => {
             v-model="formData.is_batch_sell"
             class="form-checkbox"
           />
-          <label for="is_batch_sell" class="checkbox-label">Batch Sell</label>
+          <label for="is_batch_sell" class="checkbox-label">{{ t('sellBills.batch_sell') }}</label>
         </div>
       </div>
 
       <div class="form-actions">
         <button type="button" @click="$emit('cancel')" :disabled="isSubmitting" class="cancel-btn">
           <i class="fas fa-times"></i>
-          Cancel
+          {{ t('sellBills.cancel') }}
         </button>
         <button type="submit" :disabled="isSubmitting" class="save-btn">
           <i class="fas fa-save"></i>
-          {{ isSubmitting ? 'Saving...' : 'Save' }}
+          {{ isSubmitting ? t('sellBills.saving') : t('sellBills.save') }}
         </button>
       </div>
     </form>

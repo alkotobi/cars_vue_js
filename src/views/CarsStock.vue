@@ -1,12 +1,14 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { useEnhancedI18n } from '../composables/useI18n'
 import CarStockTable from '../components/car-stock/CarStockTable.vue'
 import CarStockForm from '../components/car-stock/CarStockForm.vue'
 import CarStockFilter from '../components/car-stock/CarStockFilter.vue'
 
 const router = useRouter()
 const route = useRoute()
+const { t } = useEnhancedI18n()
 const showEditDialog = ref(false)
 const editingCar = ref(null)
 const carStockTableRef = ref(null)
@@ -81,7 +83,7 @@ const navigateToWarehouses = async () => {
     <div class="header">
       <h2>
         <i class="fas fa-warehouse"></i>
-        {{ alertTitle || 'Cars Stock Management' }}
+        {{ alertTitle || t('carsStockManagementTitle') }}
       </h2>
     </div>
 
@@ -106,7 +108,7 @@ const navigateToWarehouses = async () => {
           :class="{ processing: isProcessing.warehouses }"
         >
           <i class="fas fa-building"></i>
-          <span>Manage Warehouses</span>
+          <span>{{ t('manageWarehousesButtonText') }}</span>
           <i v-if="isProcessing.warehouses" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
       </div>
@@ -118,7 +120,7 @@ const navigateToWarehouses = async () => {
         <div class="dialog-header">
           <h3>
             <i class="fas fa-edit"></i>
-            Edit Car Details
+            {{ t('editCarDetailsTitle') }}
           </h3>
           <button class="close-btn" @click="showEditDialog = false" :disabled="isProcessing.edit">
             <i class="fas fa-times"></i>

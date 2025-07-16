@@ -2,12 +2,12 @@
 import { ref, watch, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useApi } from '../composables/useApi'
-import { useI18n } from 'vue-i18n'
+import { useEnhancedI18n } from '../composables/useI18n'
 import LanguageSwitcher from '../components/LanguageSwitcher.vue'
 
 const router = useRouter()
 const { callApi, error: apiError, loading } = useApi()
-const { t } = useI18n()
+const { t } = useEnhancedI18n()
 
 const username = ref('')
 const password = ref('')

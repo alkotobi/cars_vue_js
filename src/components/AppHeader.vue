@@ -1,12 +1,14 @@
 <script setup>
 import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useEnhancedI18n } from '../composables/useI18n'
 import { useApi } from '../composables/useApi'
 import LogoutButton from './LogoutButton.vue'
 import ChatModal from './ChatModal.vue'
 import ChatMessages from './chat/ChatMessages.vue'
 
 const router = useRouter()
+const { t } = useEnhancedI18n()
 const { callApi } = useApi()
 const user = ref(null)
 const showChatModal = ref(false)
@@ -152,29 +154,29 @@ const isLoginPage = computed(() => {
 const currentPageName = computed(() => {
   const route = router.currentRoute.value
   const routeNames = {
-    dashboard: 'Dashboard',
-    users: 'Users Management',
-    roles: 'Roles Management',
-    transfers: 'Transfers',
-    'send-transfer': 'Send Transfer',
-    'receive-transfer': 'Receive Transfer',
-    'sell-bills': 'Sell Bills',
-    'buy-payments': 'Buy Payments',
-    params: 'Parameters',
-    'advanced-sql': 'Advanced SQL',
-    'transfers-list': 'Transfers List',
-    cars: 'Cars',
-    'cars-stock': 'Cars Stock',
-    warehouses: 'Warehouses',
-    containers: 'Containers',
-    clients: 'Clients',
-    cashier: 'Cashier',
-    rates: 'Exchange Rates',
-    tasks: 'Tasks',
-    statistics: 'Statistics',
-    chat: 'Chat',
+    dashboard: t('navigation.dashboard'),
+    users: t('navigation.users'),
+    roles: t('navigation.roles'),
+    transfers: t('navigation.transfers'),
+    'send-transfer': t('navigation.sendTransfer'),
+    'receive-transfer': t('navigation.receiveTransfer'),
+    'sell-bills': t('navigation.sellBills'),
+    'buy-payments': t('navigation.buyPayments'),
+    params: t('navigation.params'),
+    'advanced-sql': t('navigation.advancedSql'),
+    'transfers-list': t('navigation.transfersList'),
+    cars: t('navigation.cars'),
+    'cars-stock': t('navigation.carsStock'),
+    warehouses: t('navigation.warehouses'),
+    containers: t('navigation.containers'),
+    clients: t('navigation.clients'),
+    cashier: t('navigation.cashier'),
+    rates: t('navigation.rates'),
+    tasks: t('navigation.tasks'),
+    statistics: t('navigation.statistics'),
+    chat: t('navigation.chat'),
   }
-  return routeNames[route.name] || 'Dashboard'
+  return routeNames[route.name] || t('navigation.dashboard')
 })
 
 // Chat functions
@@ -287,8 +289,8 @@ onUnmounted(() => {
         <div class="logo-section">
           <img src="../assets/logo.png" alt="Company Logo" class="company-logo" />
           <div class="company-info">
-            <h1 class="company-name">GML Trading</h1>
-            <p class="company-tagline">Car Trading Management System</p>
+            <h1 class="company-name">{{ t('app.companyName') }}</h1>
+            <p class="company-tagline">{{ t('app.subtitle') }}</p>
           </div>
         </div>
       </div>
@@ -305,21 +307,21 @@ onUnmounted(() => {
           <div class="user-details">
             <i class="fas fa-user-circle"></i>
             <span class="username">{{ user.username }}</span>
-            <span class="user-role">{{ user.role_name || 'User' }}</span>
+            <span class="user-role">{{ user.role_name || t('app.defaultRole') }}</span>
           </div>
         </div>
 
-        <button @click="openChat" class="chat-btn" title="Open Chat">
+        <button @click="openChat" class="chat-btn" :title="t('app.openChat')">
           <i class="fas fa-comments"></i>
-          <span class="chat-label">Chat</span>
+          <span class="chat-label">{{ t('navigation.chat') }}</span>
           <span v-if="unreadMessageCount > 0" class="notification-badge">
             {{ unreadMessageCount > 99 ? '99+' : unreadMessageCount }}
           </span>
         </button>
 
-        <button @click="router.push('/tasks')" class="tasks-btn" title="View Tasks">
+        <button @click="router.push('/tasks')" class="tasks-btn" :title="t('app.viewTasks')">
           <i class="fas fa-tasks"></i>
-          <span class="tasks-label">Tasks</span>
+          <span class="tasks-label">{{ t('navigation.tasks') }}</span>
           <span v-if="pendingTasksCount > 0" class="notification-badge">
             {{ pendingTasksCount > 99 ? '99+' : pendingTasksCount }}
           </span>
@@ -336,7 +338,7 @@ onUnmounted(() => {
       <div class="chat-modal-header">
         <h3>
           <i class="fas fa-comments"></i>
-          Team Chat
+          {{ t('app.teamChat') }}
         </h3>
         <button @click="closeChat" class="close-chat-btn">
           <i class="fas fa-times"></i>

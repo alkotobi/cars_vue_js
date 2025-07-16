@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useEnhancedI18n } from '../composables/useI18n'
 import { useApi } from '../composables/useApi'
 import BuyBillsTable from '../components/buy/BuyBillsTable.vue'
 import BuyDetailsTable from '../components/buy/BuyDetailsTable.vue'
@@ -10,6 +11,7 @@ import { useRouter } from 'vue-router'
 // API and base setup
 const { callApi, uploadFile, getFileUrl, error } = useApi()
 const router = useRouter()
+const { t } = useEnhancedI18n()
 
 // State management
 const buyBills = ref([])
@@ -49,7 +51,7 @@ const canUpdateStock = (bill) => {
 }
 
 const handleUpdateStock = async (bill) => {
-  if (!confirm('Are you sure you want to update the stock? This action cannot be undone.')) {
+  if (!confirm(t('confirm_update_stock'))) {
     return
   }
 
@@ -74,11 +76,11 @@ const handleUpdateStock = async (bill) => {
         }
       }
     } else {
-      alert('Failed to update stock')
+      alert(t('failed_update_stock'))
     }
   } catch (err) {
     console.error('Error updating stock:', err)
-    alert('Failed to update stock')
+    alert(t('failed_update_stock'))
   }
 }
 
@@ -172,18 +174,14 @@ const handleSelectBill = (bill) => {
 }
 
 const handleDeleteBill = async (bill) => {
-  if (
-    !confirm(
-      'Are you sure you want to delete this purchase and all its details? This action cannot be undone.',
-    )
-  ) {
+  if (!confirm(t('confirm_delete_purchase_details'))) {
     return
   }
 
   try {
     // First check if the bill can be deleted
     if (bill.is_stock_updated) {
-      alert('Cannot delete a purchase that has already been updated in stock')
+      alert(t('cannot_delete_stock_updated_purchase'))
       return
     }
 
@@ -195,7 +193,7 @@ const handleDeleteBill = async (bill) => {
     })
 
     if (!deletePayments.success) {
-      throw new Error('Failed to delete related payments')
+      throw new Error(t('failed_delete_related_payments'))
     }
 
     // 2. Delete details
@@ -205,7 +203,7 @@ const handleDeleteBill = async (bill) => {
     })
 
     if (!deleteDetails.success) {
-      throw new Error('Failed to delete purchase details')
+      throw new Error(t('failed_delete_purchase_details'))
     }
 
     // 3. Finally delete the bill
@@ -221,11 +219,11 @@ const handleDeleteBill = async (bill) => {
       }
       await fetchBuyBills()
     } else {
-      throw new Error('Failed to delete purchase')
+      throw new Error(t('failed_delete_purchase'))
     }
   } catch (err) {
     console.error('Error deleting purchase:', err)
-    alert(err.message || 'Failed to delete purchase')
+    alert(err.message || t('failed_delete_purchase'))
   }
 }
 
@@ -288,7 +286,7 @@ const handlePiFileChange = (event) => {
   const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp']
 
   if (!allowedTypes.includes(file.type)) {
-    alert('Only PDF and image files (JPEG, PNG, GIF, WEBP) are allowed')
+    alert(t('only_pdf_image_files_allowed'))
     event.target.value = ''
     return
   }
@@ -319,7 +317,7 @@ const addPurchase = async () => {
 
     // Validate that PI document is provided
     if (!newPurchase.value.pi_file) {
-      alert('PI document is required. Please select a file.')
+      alert(t('pi_document_required'))
       return
     }
 
@@ -340,14 +338,14 @@ const addPurchase = async () => {
       const uploadResult = await uploadFile(newPurchase.value.pi_file, 'purchase_pi', filename)
 
       if (!uploadResult.success) {
-        throw new Error(uploadResult.message || 'Failed to upload PI document')
+        throw new Error(uploadResult.message || t('failed_upload_pi_document'))
       }
 
       // Store just the relative path
       newPurchase.value.pi_path = `purchase_pi/${filename}`
     } catch (uploadError) {
       console.error('Upload error:', uploadError)
-      throw new Error(`Failed to upload PI document: ${uploadError.message}`)
+      throw new Error(`${t('failed_upload_pi_document')}: ${uploadError.message}`)
     }
 
     const result = await callApi({
@@ -424,7 +422,7 @@ const addPurchase = async () => {
         is_ordered: 1,
       }
     } else {
-      throw new Error(result.error || 'Failed to add purchase')
+      throw new Error(result.error || t('failed_add_purchase'))
     }
   } catch (err) {
     console.error('Error adding purchase:', err)
@@ -445,7 +443,7 @@ const updatePurchase = async () => {
 
     // Validate that PI document exists (either existing or new file)
     if (!newPurchase.value.pi_file && !newPurchase.value.pi_path) {
-      alert('PI document is required. Please select a file.')
+      alert(t('pi_document_required'))
       return
     }
 
@@ -467,14 +465,14 @@ const updatePurchase = async () => {
         const uploadResult = await uploadFile(newPurchase.value.pi_file, 'purchase_pi', filename)
 
         if (!uploadResult.success) {
-          throw new Error(uploadResult.message || 'Failed to upload PI document')
+          throw new Error(uploadResult.message || t('failed_upload_pi_document'))
         }
 
         // Store just the relative path
         newPurchase.value.pi_path = `purchase_pi/${filename}`
       } catch (uploadError) {
         console.error('Upload error:', uploadError)
-        throw new Error(`Failed to upload PI document: ${uploadError.message}`)
+        throw new Error(`${t('failed_upload_pi_document')}: ${uploadError.message}`)
       }
     }
 
@@ -508,7 +506,7 @@ const updatePurchase = async () => {
         is_ordered: 1,
       }
     } else {
-      throw new Error(result.error || 'Failed to update purchase')
+      throw new Error(result.error || t('failed_update_purchase'))
     }
   } catch (err) {
     console.error('Error updating purchase:', err)
@@ -669,7 +667,7 @@ const addDetail = async () => {
     }
   } catch (err) {
     console.error('Error adding detail:', err)
-    alert('Failed to add detail. Please try again.')
+    alert(t('failed_add_detail'))
   } finally {
     isSubmittingDetail.value = false
   }
@@ -694,7 +692,7 @@ const handleDeleteDetail = async (detailId) => {
     await fetchBuyDetails(selectedBill.value.id)
     await fetchBuyBills() // Refresh bills to show updated amount
   } else {
-    alert('Failed to delete detail. Please try again.')
+    alert(t('failed_delete_detail'))
     console.error('Error deleting detail:', result.error)
   }
 }
@@ -723,7 +721,7 @@ const handleUpdateDetail = async (updatedDetail) => {
     await fetchBuyDetails(selectedBill.value.id)
     await fetchBuyBills()
   } else {
-    alert('Failed to update detail. Please try again.')
+    alert(t('failed_update_detail'))
     console.error('Error updating detail:', result.error)
   }
 }
@@ -757,8 +755,8 @@ const handleWarehouseChanged = (updatedCar) => {
 <template>
   <div class="buy-view">
     <div class="header">
-      <h2>Buy Management</h2>
-      <button @click="openAddDialog" class="add-btn">Add New Purchase</button>
+      <h2>{{ t('buy_management') }}</h2>
+      <button @click="openAddDialog" class="add-btn">{{ t('add_new_purchase') }}</button>
     </div>
 
     <div class="content">
@@ -772,13 +770,15 @@ const handleWarehouseChanged = (updatedCar) => {
         >
           <!-- Toolbar actions -->
           <template #actions="{ bill }">
-            <button @click.stop="openPayments(bill)" class="payment-btn">Payments</button>
+            <button @click.stop="openPayments(bill)" class="payment-btn">
+              {{ t('payments') }}
+            </button>
             <button
               @click.stop="openEditDialog(bill)"
               class="action-btn edit-btn"
               :disabled="bill.is_stock_updated"
             >
-              Edit
+              {{ t('edit') }}
             </button>
             <button
               v-if="false"
@@ -786,7 +786,7 @@ const handleWarehouseChanged = (updatedCar) => {
               class="action-btn update-btn"
               :disabled="!canUpdateStock(bill)"
             >
-              Update Stock
+              {{ t('update_stock') }}
             </button>
             <button
               v-if="isAdmin"
@@ -794,12 +794,12 @@ const handleWarehouseChanged = (updatedCar) => {
               class="action-btn delete-btn"
               :disabled="bill.is_stock_updated"
             >
-              Delete
+              {{ t('delete') }}
             </button>
             <button
               @click.stop="openTaskForBill(bill)"
               class="action-btn task-btn"
-              title="Add New Task"
+              :title="t('add_new_task')"
             >
               <i class="fas fa-tasks"></i>
             </button>
@@ -828,9 +828,11 @@ const handleWarehouseChanged = (updatedCar) => {
           <div class="section-header">
             <h3>
               <i class="fas fa-car"></i>
-              Cars in Purchase Bill #{{ selectedBill.id }}
+              {{ t('cars_in_purchase_bill') }} #{{ selectedBill.id }}
             </h3>
-            <p class="section-description">Showing all cars associated with this purchase bill</p>
+            <p class="section-description">
+              {{ t('showing_all_cars_associated_with_purchase_bill') }}
+            </p>
           </div>
           <CarStockTable
             ref="carStockTableRef"
@@ -845,12 +847,12 @@ const handleWarehouseChanged = (updatedCar) => {
     <!-- Dialogs -->
     <div v-if="showAddDialog" class="dialog-overlay">
       <div class="dialog">
-        <h3>Add New Purchase</h3>
+        <h3>{{ t('add_new_purchase') }}</h3>
         <form @submit.prevent="addPurchase">
           <div class="form-group">
-            <label>Supplier</label>
+            <label>{{ t('supplier') }}</label>
             <select v-model="newPurchase.id_supplier" required>
-              <option value="">Select Supplier</option>
+              <option value="">{{ t('select_supplier') }}</option>
               <option v-for="supplier in suppliers" :key="supplier.id" :value="supplier.id">
                 {{ supplier.name }}
               </option>
@@ -858,22 +860,25 @@ const handleWarehouseChanged = (updatedCar) => {
           </div>
 
           <div class="form-group">
-            <label>Date</label>
+            <label>{{ t('date') }}</label>
             <input type="datetime-local" v-model="newPurchase.date_buy" required />
           </div>
 
           <div class="form-group">
-            <label>Bill Reference <span class="required">*</span></label>
+            <label>{{ t('bill_reference') }} <span class="required">*</span></label>
             <input
               type="text"
               v-model="newPurchase.bill_ref"
-              placeholder="Enter bill reference number"
+              :placeholder="t('enter_bill_reference_number')"
               required
             />
           </div>
 
           <div class="form-group">
-            <label>PI Document (PDF or Image) <span class="required">*</span></label>
+            <label
+              >{{ t('pi_document') }} ({{ t('pdf_or_image') }})
+              <span class="required">*</span></label
+            >
             <input
               type="file"
               @change="handlePiFileChange"
@@ -886,7 +891,7 @@ const handleWarehouseChanged = (updatedCar) => {
               target="_blank"
               class="current-file-link"
             >
-              View Current PI Document
+              {{ t('view_current_pi_document') }}
             </a>
           </div>
 
@@ -898,16 +903,18 @@ const handleWarehouseChanged = (updatedCar) => {
                 :true-value="1"
                 :false-value="0"
               />
-              Order Confirmed
+              {{ t('order_confirmed') }}
             </label>
-            <small class="help-text">Mark this purchase as confirmed order</small>
+            <small class="help-text">{{ t('mark_this_purchase_as_confirmed_order') }}</small>
           </div>
 
           <div class="dialog-buttons">
-            <button type="button" @click="showAddDialog = false" class="cancel-btn">Cancel</button>
+            <button type="button" @click="showAddDialog = false" class="cancel-btn">
+              {{ t('cancel') }}
+            </button>
             <button type="submit" class="submit-btn" :disabled="isSubmittingPurchase">
               <span v-if="isSubmittingPurchase" class="spinner"></span>
-              {{ isSubmittingPurchase ? 'Adding...' : 'Add Purchase' }}
+              {{ isSubmittingPurchase ? t('adding') : t('add_purchase') }}
             </button>
           </div>
         </form>
@@ -917,12 +924,12 @@ const handleWarehouseChanged = (updatedCar) => {
     <!-- Edit Purchase Dialog -->
     <div v-if="showEditDialog" class="dialog-overlay">
       <div class="dialog">
-        <h3>Edit Purchase</h3>
+        <h3>{{ t('edit_purchase') }}</h3>
         <form @submit.prevent="updatePurchase">
           <div class="form-group">
-            <label>Supplier</label>
+            <label>{{ t('supplier') }}</label>
             <select v-model="newPurchase.id_supplier" required>
-              <option value="">Select Supplier</option>
+              <option value="">{{ t('select_supplier') }}</option>
               <option v-for="supplier in suppliers" :key="supplier.id" :value="supplier.id">
                 {{ supplier.name }}
               </option>
@@ -930,22 +937,25 @@ const handleWarehouseChanged = (updatedCar) => {
           </div>
 
           <div class="form-group">
-            <label>Date</label>
+            <label>{{ t('date') }}</label>
             <input type="datetime-local" v-model="newPurchase.date_buy" required />
           </div>
 
           <div class="form-group">
-            <label>Bill Reference <span class="required">*</span></label>
+            <label>{{ t('bill_reference') }} <span class="required">*</span></label>
             <input
               type="text"
               v-model="newPurchase.bill_ref"
-              placeholder="Enter bill reference number"
+              :placeholder="t('enter_bill_reference_number')"
               required
             />
           </div>
 
           <div class="form-group">
-            <label>PI Document (PDF or Image) <span class="required">*</span></label>
+            <label
+              >{{ t('pi_document') }} ({{ t('pdf_or_image') }})
+              <span class="required">*</span></label
+            >
             <input
               type="file"
               @change="handlePiFileChange"
@@ -957,10 +967,10 @@ const handleWarehouseChanged = (updatedCar) => {
               target="_blank"
               class="current-file-link"
             >
-              View Current PI Document
+              {{ t('view_current_pi_document') }}
             </a>
             <div v-if="!newPurchase.pi_path && !newPurchase.pi_file" class="validation-message">
-              PI document is required
+              {{ t('pi_document_required') }}
             </div>
           </div>
 
@@ -972,16 +982,18 @@ const handleWarehouseChanged = (updatedCar) => {
                 :true-value="1"
                 :false-value="0"
               />
-              Order Confirmed
+              {{ t('order_confirmed') }}
             </label>
-            <small class="help-text">Mark this purchase as confirmed order</small>
+            <small class="help-text">{{ t('mark_this_purchase_as_confirmed_order') }}</small>
           </div>
 
           <div class="dialog-buttons">
-            <button type="button" @click="showEditDialog = false" class="cancel-btn">Cancel</button>
+            <button type="button" @click="showEditDialog = false" class="cancel-btn">
+              {{ t('cancel') }}
+            </button>
             <button type="submit" class="submit-btn" :disabled="isSubmittingPurchase">
               <span v-if="isSubmittingPurchase" class="spinner"></span>
-              {{ isSubmittingPurchase ? 'Updating...' : 'Update Purchase' }}
+              {{ isSubmittingPurchase ? t('updating') : t('update_purchase') }}
             </button>
           </div>
         </form>
@@ -990,12 +1002,12 @@ const handleWarehouseChanged = (updatedCar) => {
 
     <div v-if="showAddDetailDialog" class="dialog-overlay">
       <div class="dialog">
-        <h3>Add Purchase Detail</h3>
+        <h3>{{ t('add_purchase_detail') }}</h3>
         <form @submit.prevent="addDetail">
           <div class="form-group">
-            <label>Car</label>
+            <label>{{ t('car') }}</label>
             <select v-model="newDetail.id_car_name" required>
-              <option value="">Select Car</option>
+              <option value="">{{ t('select_car') }}</option>
               <option v-for="car in cars" :key="car.id" :value="car.id">
                 {{ car.car_name }}
               </option>
@@ -1003,9 +1015,9 @@ const handleWarehouseChanged = (updatedCar) => {
           </div>
 
           <div class="form-group">
-            <label>Color</label>
+            <label>{{ t('color') }}</label>
             <select v-model="newDetail.id_color" required>
-              <option value="">Select Color</option>
+              <option value="">{{ t('select_color') }}</option>
               <option v-for="color in colors" :key="color.id" :value="color.id">
                 {{ color.color }}
               </option>
@@ -1013,58 +1025,58 @@ const handleWarehouseChanged = (updatedCar) => {
           </div>
 
           <div class="form-group">
-            <label>Quantity</label>
+            <label>{{ t('quantity') }}</label>
             <input type="number" v-model="newDetail.QTY" min="1" required />
           </div>
 
           <div class="form-group">
-            <label>Amount</label>
+            <label>{{ t('amount') }}</label>
             <input type="number" v-model="newDetail.amount" step="0.01" required />
           </div>
 
           <div class="form-row">
             <div class="form-group half">
-              <label>Year</label>
+              <label>{{ t('year') }}</label>
               <input type="number" v-model="newDetail.year" required />
             </div>
 
             <div class="form-group half">
-              <label>Month</label>
+              <label>{{ t('month') }}</label>
               <input type="number" v-model="newDetail.month" min="1" max="12" required />
             </div>
           </div>
 
           <div class="form-group">
-            <label>Price Sell</label>
+            <label>{{ t('price_sell') }}</label>
             <input type="number" v-model="newDetail.price_sell" step="0.01" required />
           </div>
 
           <div class="form-group">
-            <label>Notes</label>
+            <label>{{ t('notes') }}</label>
             <textarea v-model="newDetail.notes" rows="3"></textarea>
           </div>
 
           <div class="form-group checkbox">
             <label>
               <input type="checkbox" v-model="newDetail.is_used_car" />
-              Used Car
+              {{ t('used_car') }}
             </label>
           </div>
 
           <div class="form-group checkbox">
             <label>
               <input type="checkbox" v-model="newDetail.is_big_car" />
-              Big Car
+              {{ t('big_car') }}
             </label>
           </div>
 
           <div class="dialog-buttons">
             <button type="button" @click="showAddDetailDialog = false" class="cancel-btn">
-              Cancel
+              {{ t('cancel') }}
             </button>
             <button type="submit" class="submit-btn" :disabled="isSubmittingDetail">
               <span v-if="isSubmittingDetail" class="spinner"></span>
-              {{ isSubmittingDetail ? 'Adding...' : 'Add Detail' }}
+              {{ isSubmittingDetail ? t('adding') : t('add_detail') }}
             </button>
           </div>
         </form>

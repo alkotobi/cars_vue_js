@@ -1,8 +1,10 @@
 <script setup>
 import { ref, onMounted, defineEmits, computed } from 'vue'
+import { useEnhancedI18n } from '../../composables/useI18n'
 import { useApi } from '../../composables/useApi'
 import CarAssignmentForm from './CarAssignmentForm.vue'
 
+const { t } = useEnhancedI18n()
 const emit = defineEmits(['refresh', 'assign-car'])
 
 const { callApi } = useApi()
@@ -115,10 +117,10 @@ const fetchUnassignedCars = async () => {
       allUnassignedCars.value = result.data
       applyFilters() // Apply filters to the fetched data
     } else {
-      error.value = result.error || 'Failed to fetch unassigned cars'
+      error.value = result.error || t('sellBills.failed_to_fetch_unassigned_cars')
     }
   } catch (err) {
-    error.value = err.message || 'An error occurred'
+    error.value = err.message || t('sellBills.error_occurred')
   } finally {
     loading.value = false
   }
@@ -272,7 +274,7 @@ const assignCarToBatchSell = async (carId) => {
     })
 
     if (!billResult.success || !billResult.data.length) {
-      error.value = 'Failed to get bill reference'
+      error.value = t('sellBills.failed_to_get_bill_reference')
       return
     }
 
@@ -311,10 +313,10 @@ const assignCarToBatchSell = async (carId) => {
       await fetchUnassignedCars()
       emit('refresh')
     } else {
-      error.value = result.error || 'Failed to assign car'
+      error.value = result.error || t('sellBills.failed_to_assign_car')
     }
   } catch (err) {
-    error.value = err.message || 'An error occurred'
+    error.value = err.message || t('sellBills.error_occurred')
   } finally {
     isProcessing.value = false
   }
@@ -354,7 +356,7 @@ const setDefaultBatchPricing = async () => {
 // Open assignment form for a car
 const openAssignmentForm = async (carId) => {
   if (!selectedSellBillId.value) {
-    alert('Please select a sell bill first')
+    alert(t('sellBills.please_select_sell_bill_first'))
     return
   }
 
@@ -419,12 +421,12 @@ onMounted(() => {
     <div class="table-header">
       <h3>
         <i class="fas fa-car"></i>
-        Unassigned Cars
+        {{ t('sellBills.unassigned_cars') }}
       </h3>
       <div class="total-info" v-if="unassignedCars.length > 0">
         <span>
           <i class="fas fa-hashtag"></i>
-          Total Cars: {{ unassignedCars.length }}
+          {{ t('sellBills.total_cars') }}: {{ unassignedCars.length }}
         </span>
       </div>
     </div>
@@ -433,11 +435,11 @@ onMounted(() => {
       <div class="filters-header">
         <h3>
           <i class="fas fa-filter"></i>
-          Filters
+          {{ t('sellBills.filters') }}
         </h3>
         <button @click="resetFilters" class="reset-btn">
           <i class="fas fa-undo"></i>
-          Reset
+          {{ t('sellBills.reset') }}
         </button>
       </div>
 
@@ -445,52 +447,52 @@ onMounted(() => {
         <div class="filter-group">
           <label>
             <i class="fas fa-car"></i>
-            Car Name:
+            {{ t('sellBills.car_name') }}:
           </label>
           <input
             type="text"
             v-model="filters.carName"
             @input="handleFilterChange"
-            placeholder="Search car name..."
+            :placeholder="t('sellBills.search_car_name')"
           />
         </div>
 
         <div class="filter-group">
           <label>
             <i class="fas fa-palette"></i>
-            Color:
+            {{ t('sellBills.color') }}:
           </label>
           <input
             type="text"
             v-model="filters.color"
             @input="handleFilterChange"
-            placeholder="Search color..."
+            :placeholder="t('sellBills.search_color')"
           />
         </div>
 
         <div class="filter-group">
           <label>
             <i class="fas fa-fingerprint"></i>
-            VIN:
+            {{ t('sellBills.vin') }}:
           </label>
           <input
             type="text"
             v-model="filters.vin"
             @input="handleFilterChange"
-            placeholder="Search VIN..."
+            :placeholder="t('sellBills.search_vin')"
           />
         </div>
 
         <div class="filter-group">
           <label>
             <i class="fas fa-file-alt"></i>
-            Buy Bill Ref:
+            {{ t('sellBills.buy_bill_ref') }}:
           </label>
           <input
             type="text"
             v-model="filters.buyBillRef"
             @input="handleFilterChange"
-            placeholder="Search buy bill ref..."
+            :placeholder="t('sellBills.search_buy_bill_ref')"
           />
         </div>
       </div>
@@ -501,13 +503,13 @@ onMounted(() => {
       <div class="batch-pricing-header">
         <h4>
           <i class="fas fa-dollar-sign"></i>
-          Batch Sell Pricing
+          {{ t('sellBills.batch_sell_pricing') }}
           <span
             v-if="batchPrice || batchFreight || batchRate || batchDischargePort"
             class="pricing-active-indicator"
           >
             <i class="fas fa-check-circle"></i>
-            Active
+            {{ t('sellBills.active') }}
           </span>
         </h4>
         <div class="batch-pricing-actions">
@@ -517,15 +519,24 @@ onMounted(() => {
             :class="{ active: showBatchPricing }"
           >
             <i class="fas fa-cog"></i>
-            {{ showBatchPricing ? 'Hide' : 'Show' }} Pricing
+            {{ showBatchPricing ? t('sellBills.hide') : t('sellBills.show') }}
+            {{ t('sellBills.pricing') }}
           </button>
-          <button @click="setDefaultBatchPricing" class="default-btn" title="Set Default Freight">
+          <button
+            @click="setDefaultBatchPricing"
+            class="default-btn"
+            :title="t('sellBills.set_default_freight')"
+          >
             <i class="fas fa-magic"></i>
-            Defaults
+            {{ t('sellBills.defaults') }}
           </button>
-          <button @click="clearBatchPricing" class="clear-btn" title="Clear All Pricing">
+          <button
+            @click="clearBatchPricing"
+            class="clear-btn"
+            :title="t('sellBills.clear_all_pricing')"
+          >
             <i class="fas fa-eraser"></i>
-            Clear
+            {{ t('sellBills.clear') }}
           </button>
         </div>
       </div>
@@ -533,7 +544,9 @@ onMounted(() => {
       <!-- Broker Info -->
       <div v-if="brokerInfo" class="broker-info">
         <i class="fas fa-user-tie"></i>
-        <span><strong>Broker/Client:</strong> {{ brokerInfo.broker_name }}</span>
+        <span
+          ><strong>{{ t('sellBills.broker_client') }}:</strong> {{ brokerInfo.broker_name }}</span
+        >
         <span v-if="brokerInfo.broker_phone" class="broker-phone">
           <i class="fas fa-phone"></i>
           {{ brokerInfo.broker_phone }}
@@ -543,23 +556,19 @@ onMounted(() => {
       <div v-if="showBatchPricing" class="batch-pricing-form">
         <div class="pricing-info">
           <i class="fas fa-info-circle"></i>
-          <span
-            >Set pricing and discharge port once and they will be applied to all cars you assign.
-            The broker will automatically be set as the client for all cars. You can change the
-            settings at any time.</span
-          >
+          <span>{{ t('sellBills.batch_pricing_info') }}</span>
         </div>
 
         <div class="pricing-grid">
           <div class="pricing-group">
             <label>
               <i class="fas fa-dollar-sign"></i>
-              Price (USD):
+              {{ t('sellBills.price_usd') }}:
             </label>
             <input
               type="number"
               v-model="batchPrice"
-              placeholder="Enter price..."
+              :placeholder="t('sellBills.enter_price')"
               step="0.01"
               min="0"
             />
@@ -568,12 +577,12 @@ onMounted(() => {
           <div class="pricing-group">
             <label>
               <i class="fas fa-ship"></i>
-              Freight (USD):
+              {{ t('sellBills.freight_usd') }}:
             </label>
             <input
               type="number"
               v-model="batchFreight"
-              placeholder="Enter freight..."
+              :placeholder="t('sellBills.enter_freight')"
               step="0.01"
               min="0"
             />
@@ -582,12 +591,12 @@ onMounted(() => {
           <div class="pricing-group">
             <label>
               <i class="fas fa-exchange-alt"></i>
-              Rate (DA):
+              {{ t('sellBills.rate_da') }}:
             </label>
             <input
               type="number"
               v-model="batchRate"
-              placeholder="Enter rate..."
+              :placeholder="t('sellBills.enter_rate')"
               step="0.01"
               min="0"
             />
@@ -596,10 +605,10 @@ onMounted(() => {
           <div class="pricing-group">
             <label>
               <i class="fas fa-anchor"></i>
-              Discharge Port:
+              {{ t('sellBills.discharge_port') }}:
             </label>
             <select v-model="batchDischargePort" class="discharge-port-select">
-              <option value="">Select discharge port...</option>
+              <option value="">{{ t('sellBills.select_discharge_port') }}</option>
               <option v-for="port in dischargePorts" :key="port.id" :value="port.id">
                 {{ port.discharge_port }}
               </option>
@@ -612,34 +621,36 @@ onMounted(() => {
           v-if="batchPrice || batchFreight || batchRate || batchDischargePort"
         >
           <div class="summary-item">
-            <span class="label">Price:</span>
+            <span class="label">{{ t('sellBills.price') }}:</span>
             <span class="value">{{
-              batchPrice ? '$' + parseFloat(batchPrice).toLocaleString() : 'Not set'
+              batchPrice ? '$' + parseFloat(batchPrice).toLocaleString() : t('sellBills.not_set')
             }}</span>
           </div>
           <div class="summary-item">
-            <span class="label">Freight:</span>
+            <span class="label">{{ t('sellBills.freight') }}:</span>
             <span class="value">{{
-              batchFreight ? '$' + parseFloat(batchFreight).toLocaleString() : 'Not set'
+              batchFreight
+                ? '$' + parseFloat(batchFreight).toLocaleString()
+                : t('sellBills.not_set')
             }}</span>
           </div>
           <div class="summary-item">
-            <span class="label">Rate:</span>
+            <span class="label">{{ t('sellBills.rate') }}:</span>
             <span class="value">{{
-              batchRate ? parseFloat(batchRate).toLocaleString() + ' DA' : 'Not set'
+              batchRate ? parseFloat(batchRate).toLocaleString() + ' DA' : t('sellBills.not_set')
             }}</span>
           </div>
           <div class="summary-item">
-            <span class="label">Discharge Port:</span>
+            <span class="label">{{ t('sellBills.discharge_port') }}:</span>
             <span class="value">{{
               batchDischargePort
                 ? dischargePorts.find((p) => p.id === batchDischargePort)?.discharge_port ||
-                  'Selected'
-                : 'Not set'
+                  t('sellBills.selected')
+                : t('sellBills.not_set')
             }}</span>
           </div>
           <div class="summary-item total" v-if="batchPrice && batchRate">
-            <span class="label">Total (DA):</span>
+            <span class="label">{{ t('sellBills.total_da') }}:</span>
             <span class="value"
               >{{
                 (
@@ -657,7 +668,7 @@ onMounted(() => {
     <!-- Loading Overlay -->
     <div v-if="loading" class="loading-overlay">
       <i class="fas fa-spinner fa-spin fa-2x"></i>
-      <span>Loading unassigned cars...</span>
+      <span>{{ t('sellBills.loading_unassigned_cars') }}</span>
     </div>
 
     <div v-if="error" class="error-message">
@@ -667,69 +678,69 @@ onMounted(() => {
 
     <div v-else-if="unassignedCars.length === 0" class="no-data">
       <i class="fas fa-car fa-2x"></i>
-      <p>No unassigned cars available</p>
+      <p>{{ t('sellBills.no_unassigned_cars_available') }}</p>
     </div>
 
     <table v-else class="cars-table">
       <thead>
         <tr>
           <th @click="handleSort('id')" class="sortable">
-            <i class="fas fa-hashtag"></i> ID
+            <i class="fas fa-hashtag"></i> {{ t('sellBills.id') }}
             <i
               v-if="sortConfig.field === 'id'"
               :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
             ></i>
           </th>
           <th @click="handleSort('car_name')" class="sortable">
-            <i class="fas fa-car"></i> Car
+            <i class="fas fa-car"></i> {{ t('sellBills.car') }}
             <i
               v-if="sortConfig.field === 'car_name'"
               :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
             ></i>
           </th>
           <th @click="handleSort('color')" class="sortable">
-            <i class="fas fa-palette"></i> Color
+            <i class="fas fa-palette"></i> {{ t('sellBills.color') }}
             <i
               v-if="sortConfig.field === 'color'"
               :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
             ></i>
           </th>
           <th @click="handleSort('vin')" class="sortable">
-            <i class="fas fa-fingerprint"></i> VIN
+            <i class="fas fa-fingerprint"></i> {{ t('sellBills.vin') }}
             <i
               v-if="sortConfig.field === 'vin'"
               :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
             ></i>
           </th>
           <th @click="handleSort('price_cell')" class="sortable">
-            <i class="fas fa-dollar-sign"></i> Sell Price
+            <i class="fas fa-dollar-sign"></i> {{ t('sellBills.sell_price') }}
             <i
               v-if="sortConfig.field === 'price_cell'"
               :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
             ></i>
           </th>
           <th v-if="isAdmin" @click="handleSort('buy_price')" class="sortable">
-            <i class="fas fa-tags"></i> Buy Price
+            <i class="fas fa-tags"></i> {{ t('sellBills.buy_price') }}
             <i
               v-if="sortConfig.field === 'buy_price'"
               :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
             ></i>
           </th>
           <th @click="handleSort('buy_bill_ref')" class="sortable">
-            <i class="fas fa-file-alt"></i> Buy Bill Ref
+            <i class="fas fa-file-alt"></i> {{ t('sellBills.buy_bill_ref') }}
             <i
               v-if="sortConfig.field === 'buy_bill_ref'"
               :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
             ></i>
           </th>
           <th @click="handleSort('notes')" class="sortable">
-            <i class="fas fa-sticky-note"></i> Notes
+            <i class="fas fa-sticky-note"></i> {{ t('sellBills.notes') }}
             <i
               v-if="sortConfig.field === 'notes'"
               :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
             ></i>
           </th>
-          <th><i class="fas fa-cog"></i> Actions</th>
+          <th><i class="fas fa-cog"></i> {{ t('sellBills.actions') }}</th>
         </tr>
       </thead>
       <tbody>
@@ -766,9 +777,9 @@ onMounted(() => {
                 {{
                   isBatchSell
                     ? batchPrice
-                      ? `Quick Assign ($${parseFloat(batchPrice).toLocaleString()})`
-                      : 'Quick Assign'
-                    : 'Assign'
+                      ? `${t('sellBills.quick_assign')} ($${parseFloat(batchPrice).toLocaleString()})`
+                      : t('sellBills.quick_assign')
+                    : t('sellBills.assign')
                 }}
                 {{ isBatchSell && brokerInfo ? ` → ${brokerInfo.broker_name}` : '' }}
               </span>

@@ -3,30 +3,33 @@
     <div class="table-header">
       <h3>
         <i class="fas fa-truck-loading"></i>
-        Recent Loading Records
+        {{ t('loading.recent_loading_records') }}
       </h3>
       <div class="header-actions">
         <button
           @click="toggleFilters"
           class="toggle-filters-btn"
           :class="{ active: showFilters }"
-          title="Toggle Filters"
+          :title="t('loading.toggle_filters')"
         >
           <i class="fas fa-filter"></i>
-          <span>{{ showFilters ? 'Hide' : 'Show' }} Filters</span>
+          <span
+            >{{ showFilters ? t('loading.hide') : t('loading.show') }}
+            {{ t('loading.filters') }}</span
+          >
         </button>
         <button @click="openAddDialog" class="add-btn" :disabled="loading">
           <i class="fas fa-plus"></i>
-          <span>Add Record</span>
+          <span>{{ t('loading.add_record') }}</span>
         </button>
         <button
           @click="printLoadingRecord"
           class="print-btn"
           :disabled="!selectedLoadingId || loading"
-          title="Print Loading Record"
+          :title="t('loading.print_loading_record')"
         >
           <i class="fas fa-print"></i>
-          <span>Print</span>
+          <span>{{ t('loading.print') }}</span>
         </button>
         <button
           @click="refreshData"
@@ -35,7 +38,7 @@
           :class="{ processing: loading }"
         >
           <i class="fas fa-sync-alt"></i>
-          <span>Refresh</span>
+          <span>{{ t('loading.refresh') }}</span>
           <i v-if="loading" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
       </div>
@@ -46,91 +49,81 @@
       <div class="filters-header">
         <h4>
           <i class="fas fa-filter"></i>
-          Filters & Sorting
+          {{ t('loading.filters') }}
         </h4>
-        <button @click="clearFilters" class="clear-filters-btn" v-if="hasActiveFilters">
+        <button @click="clearFilters" class="clear-filters-btn">
           <i class="fas fa-times"></i>
-          Clear Filters
+          {{ t('loading.clear_filters') }}
         </button>
       </div>
 
       <div class="filters-grid">
         <div class="filter-group">
-          <label for="search-filter">Search</label>
+          <label>
+            <i class="fas fa-search"></i>
+            {{ t('loading.search') }}:
+          </label>
           <input
             type="text"
-            id="search-filter"
             v-model="filters.search"
-            placeholder="Search by ID, shipping line, ports..."
-            @input="applyFilters"
+            @input="handleFilterChange"
+            :placeholder="t('loading.search_placeholder')"
           />
         </div>
 
         <div class="filter-group">
-          <label for="shipping-line-filter">Shipping Line</label>
-          <select id="shipping-line-filter" v-model="filters.shippingLine" @change="applyFilters">
-            <option value="">All Shipping Lines</option>
-            <option v-for="line in shippingLines" :key="line.id" :value="line.id">
+          <label>
+            <i class="fas fa-ship"></i>
+            {{ t('loading.shipping_line') }}:
+          </label>
+          <select v-model="filters.shippingLine" @change="handleFilterChange">
+            <option value="">{{ t('loading.all_shipping_lines') }}</option>
+            <option v-for="line in shippingLines" :key="line.id" :value="line.name">
               {{ line.name }}
             </option>
           </select>
         </div>
 
         <div class="filter-group">
-          <label for="loading-port-filter">Loading Port</label>
-          <select id="loading-port-filter" v-model="filters.loadingPort" @change="applyFilters">
-            <option value="">All Loading Ports</option>
-            <option v-for="port in loadingPorts" :key="port.id" :value="port.id">
+          <label>
+            <i class="fas fa-anchor"></i>
+            {{ t('loading.loading_port') }}:
+          </label>
+          <select v-model="filters.loadingPort" @change="handleFilterChange">
+            <option value="">{{ t('loading.all_loading_ports') }}</option>
+            <option v-for="port in loadingPorts" :key="port.id" :value="port.loading_port">
               {{ port.loading_port }}
             </option>
           </select>
         </div>
 
         <div class="filter-group">
-          <label for="discharge-port-filter">Discharge Port</label>
-          <select id="discharge-port-filter" v-model="filters.dischargePort" @change="applyFilters">
-            <option value="">All Discharge Ports</option>
-            <option v-for="port in dischargePorts" :key="port.id" :value="port.id">
+          <label>
+            <i class="fas fa-anchor"></i>
+            {{ t('loading.discharge_port') }}:
+          </label>
+          <select v-model="filters.dischargePort" @change="handleFilterChange">
+            <option value="">{{ t('loading.all_discharge_ports') }}</option>
+            <option v-for="port in dischargePorts" :key="port.id" :value="port.discharge_port">
               {{ port.discharge_port }}
             </option>
           </select>
         </div>
 
         <div class="filter-group">
-          <label for="date-from-filter">Date From</label>
-          <input
-            type="date"
-            id="date-from-filter"
-            v-model="filters.dateFrom"
-            @change="applyFilters"
-          />
+          <label>
+            <i class="fas fa-calendar"></i>
+            {{ t('loading.date_from') }}:
+          </label>
+          <input type="date" v-model="filters.dateFrom" @change="handleFilterChange" />
         </div>
 
         <div class="filter-group">
-          <label for="date-to-filter">Date To</label>
-          <input type="date" id="date-to-filter" v-model="filters.dateTo" @change="applyFilters" />
-        </div>
-
-        <div class="filter-group">
-          <label for="sort-by">Sort By</label>
-          <select id="sort-by" v-model="sortBy" @change="applySorting">
-            <option value="id">ID</option>
-            <option value="date_loading">Operation Date</option>
-            <option value="shipping_line_name">Shipping Line</option>
-            <option value="freight">Freight</option>
-            <option value="loading_port_name">Loading Port</option>
-            <option value="discharge_port_name">Discharge Port</option>
-            <option value="EDD">EDD</option>
-            <option value="date_loaded">Loaded Date</option>
-          </select>
-        </div>
-
-        <div class="filter-group">
-          <label for="sort-order">Order</label>
-          <select id="sort-order" v-model="sortOrder" @change="applySorting">
-            <option value="desc">Descending</option>
-            <option value="asc">Ascending</option>
-          </select>
+          <label>
+            <i class="fas fa-calendar"></i>
+            {{ t('loading.date_to') }}:
+          </label>
+          <input type="date" v-model="filters.dateTo" @change="handleFilterChange" />
         </div>
       </div>
     </div>
@@ -138,7 +131,7 @@
     <div class="table-wrapper">
       <div v-if="loading" class="loading-overlay">
         <i class="fas fa-spinner fa-spin fa-2x"></i>
-        <span>Loading...</span>
+        <span>{{ t('loading.loading') }}</span>
       </div>
 
       <div v-else-if="error" class="error-message">
@@ -148,10 +141,10 @@
 
       <div v-else-if="loadingRecords.length === 0" class="empty-state">
         <i class="fas fa-inbox fa-2x"></i>
-        <p>No loading records found</p>
+        <p>{{ t('loading.no_loading_records_found') }}</p>
         <button @click="openAddDialog" class="add-first-btn">
           <i class="fas fa-plus"></i>
-          Add First Record
+          {{ t('loading.add_first_record') }}
         </button>
       </div>
 
@@ -160,7 +153,7 @@
           <thead>
             <tr>
               <th @click="sortByColumn('id')" class="sortable-header">
-                ID
+                {{ t('loading.id') }}
                 <i
                   v-if="sortBy === 'id'"
                   :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
@@ -168,7 +161,7 @@
                 <i v-else class="fas fa-sort sort-inactive"></i>
               </th>
               <th @click="sortByColumn('date_loading')" class="sortable-header">
-                Operation Date
+                {{ t('loading.operation_date') }}
                 <i
                   v-if="sortBy === 'date_loading'"
                   :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
@@ -176,7 +169,7 @@
                 <i v-else class="fas fa-sort sort-inactive"></i>
               </th>
               <th @click="sortByColumn('shipping_line_name')" class="sortable-header">
-                Shipping Line
+                {{ t('loading.shipping_line') }}
                 <i
                   v-if="sortBy === 'shipping_line_name'"
                   :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
@@ -184,7 +177,7 @@
                 <i v-else class="fas fa-sort sort-inactive"></i>
               </th>
               <th @click="sortByColumn('freight')" class="sortable-header">
-                Freight
+                {{ t('loading.freight') }}
                 <i
                   v-if="sortBy === 'freight'"
                   :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
@@ -192,7 +185,7 @@
                 <i v-else class="fas fa-sort sort-inactive"></i>
               </th>
               <th @click="sortByColumn('loading_port_name')" class="sortable-header">
-                Loading Port
+                {{ t('loading.loading_port') }}
                 <i
                   v-if="sortBy === 'loading_port_name'"
                   :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
@@ -200,7 +193,7 @@
                 <i v-else class="fas fa-sort sort-inactive"></i>
               </th>
               <th @click="sortByColumn('discharge_port_name')" class="sortable-header">
-                Discharge Port
+                {{ t('loading.discharge_port') }}
                 <i
                   v-if="sortBy === 'discharge_port_name'"
                   :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
@@ -208,7 +201,7 @@
                 <i v-else class="fas fa-sort sort-inactive"></i>
               </th>
               <th @click="sortByColumn('EDD')" class="sortable-header">
-                EDD
+                {{ t('loading.edd') }}
                 <i
                   v-if="sortBy === 'EDD'"
                   :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
@@ -216,15 +209,22 @@
                 <i v-else class="fas fa-sort sort-inactive"></i>
               </th>
               <th @click="sortByColumn('date_loaded')" class="sortable-header">
-                Loaded Date
+                {{ t('loading.loaded_date') }}
                 <i
                   v-if="sortBy === 'date_loaded'"
                   :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
                 ></i>
                 <i v-else class="fas fa-sort sort-inactive"></i>
               </th>
-              <th>Notes</th>
-              <th>Actions</th>
+              <th @click="sortByColumn('note')" class="sortable-header">
+                {{ t('loading.notes') }}
+                <i
+                  v-if="sortBy === 'note'"
+                  :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
+                ></i>
+                <i v-else class="fas fa-sort sort-inactive"></i>
+              </th>
+              <th>{{ t('loading.actions') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -266,21 +266,21 @@
                   <button
                     @click="editRecord(record)"
                     class="action-btn edit-btn"
-                    title="Edit Record"
+                    :title="t('loading.edit_record')"
                   >
                     <i class="fas fa-edit"></i>
                   </button>
                   <button
                     @click="openTaskForLoading(record)"
                     class="action-btn task-btn"
-                    title="Add Task"
+                    :title="t('loading.add_task')"
                   >
                     <i class="fas fa-tasks"></i>
                   </button>
                   <button
                     @click="deleteRecord(record)"
                     class="action-btn delete-btn"
-                    title="Delete Record"
+                    :title="t('loading.delete_record')"
                   >
                     <i class="fas fa-trash"></i>
                   </button>
@@ -294,7 +294,7 @@
 
     <div class="table-footer">
       <span class="record-count">
-        Showing {{ loadingRecords.length }} of {{ totalRecords }} records
+        {{ t('loading.showing_records', { count: loadingRecords.length, total: totalRecords }) }}
       </span>
     </div>
 
@@ -715,12 +715,14 @@
 
 <script setup>
 import { ref, onMounted, watch, nextTick, computed } from 'vue'
+import { useEnhancedI18n } from '@/composables/useI18n'
 import { useApi } from '@/composables/useApi'
 import ContainersTable from './ContainersTable.vue'
 import LoadingAssignedCars from './LoadingAssignedCars.vue'
 import UnassignedCars from './UnassignedCars.vue'
 import TaskForm from '../car-stock/TaskForm.vue'
 
+const { t } = useEnhancedI18n()
 const { callApi, getFileUrl } = useApi()
 
 const loadingRecords = ref([])

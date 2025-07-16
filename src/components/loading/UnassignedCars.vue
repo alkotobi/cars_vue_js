@@ -3,17 +3,20 @@
     <div class="table-header">
       <h3>
         <i class="fas fa-car"></i>
-        Unassigned Cars
+        {{ t('loading.unassigned_cars') }}
       </h3>
       <div class="header-actions" v-if="unassignedCars.length > 0">
         <button
           @click="toggleFilters"
           class="toggle-filters-btn"
           :class="{ active: showFilters }"
-          title="Toggle Filters"
+          :title="t('loading.toggle_filters')"
         >
           <i class="fas fa-filter"></i>
-          <span>{{ showFilters ? 'Hide' : 'Show' }} Filters</span>
+          <span
+            >{{ showFilters ? t('loading.hide') : t('loading.show') }}
+            {{ t('loading.filters') }}</span
+          >
         </button>
         <button
           @click="refreshData"
@@ -22,7 +25,7 @@
           :class="{ processing: loading }"
         >
           <i class="fas fa-sync-alt"></i>
-          <span>Refresh</span>
+          <span>{{ t('loading.refresh') }}</span>
           <i v-if="loading" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
       </div>
@@ -34,39 +37,39 @@
         <div class="filter-group">
           <label for="carNameFilter">
             <i class="fas fa-car"></i>
-            Car Name
+            {{ t('loading.car_name') }}
           </label>
           <input
             type="text"
             id="carNameFilter"
             v-model="filters.carName"
-            placeholder="Filter by car name..."
+            :placeholder="t('loading.filter_by_car_name')"
             @input="applyFilters"
           />
         </div>
         <div class="filter-group">
           <label for="colorFilter">
             <i class="fas fa-palette"></i>
-            Color
+            {{ t('loading.color') }}
           </label>
           <input
             type="text"
             id="colorFilter"
             v-model="filters.color"
-            placeholder="Filter by color..."
+            :placeholder="t('loading.filter_by_color')"
             @input="applyFilters"
           />
         </div>
         <div class="filter-group">
           <label for="vinFilter">
             <i class="fas fa-barcode"></i>
-            VIN
+            {{ t('loading.vin') }}
           </label>
           <input
             type="text"
             id="vinFilter"
             v-model="filters.vin"
-            placeholder="Filter by VIN..."
+            :placeholder="t('loading.filter_by_vin')"
             @input="applyFilters"
           />
         </div>
@@ -75,33 +78,33 @@
         <div class="filter-group">
           <label for="clientNameFilter">
             <i class="fas fa-user"></i>
-            Client Name
+            {{ t('loading.client_name') }}
           </label>
           <input
             type="text"
             id="clientNameFilter"
             v-model="filters.clientName"
-            placeholder="Filter by client name..."
+            :placeholder="t('loading.filter_by_client_name')"
             @input="applyFilters"
           />
         </div>
         <div class="filter-group">
           <label for="clientIdFilter">
             <i class="fas fa-id-card"></i>
-            Client ID No
+            {{ t('loading.client_id_no') }}
           </label>
           <input
             type="text"
             id="clientIdFilter"
             v-model="filters.clientId"
-            placeholder="Filter by client ID..."
+            :placeholder="t('loading.filter_by_client_id')"
             @input="applyFilters"
           />
         </div>
         <div class="filter-actions">
           <button @click="clearFilters" class="clear-filters-btn">
             <i class="fas fa-times"></i>
-            Clear Filters
+            {{ t('loading.clear_filters') }}
           </button>
         </div>
       </div>
@@ -110,7 +113,7 @@
     <div class="table-wrapper">
       <div v-if="loading" class="loading-overlay">
         <i class="fas fa-spinner fa-spin fa-2x"></i>
-        <span>Loading...</span>
+        <span>{{ t('loading.loading') }}</span>
       </div>
 
       <div v-else-if="error" class="error-message">
@@ -120,12 +123,12 @@
 
       <div v-else-if="!props.selectedLoadedContainerId" class="empty-state">
         <i class="fas fa-mouse-pointer fa-2x"></i>
-        <p>Please select a loading record above to view unassigned cars</p>
+        <p>{{ t('loading.please_select_loading_record_to_view_unassigned_cars') }}</p>
       </div>
 
       <div v-else-if="unassignedCars.length === 0" class="empty-state">
         <i class="fas fa-check-circle fa-2x"></i>
-        <p>All cars are assigned to containers</p>
+        <p>{{ t('loading.all_cars_assigned_to_containers') }}</p>
       </div>
 
       <div v-else class="table-content">
@@ -133,7 +136,7 @@
           <thead>
             <tr>
               <th @click="sortByColumn('id')" class="sortable-header">
-                ID
+                {{ t('loading.id') }}
                 <i
                   v-if="sortBy === 'id'"
                   :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
@@ -141,7 +144,7 @@
                 <i v-else class="fas fa-sort sort-inactive"></i>
               </th>
               <th @click="sortByColumn('car_name')" class="sortable-header">
-                Car Name
+                {{ t('loading.car_name') }}
                 <i
                   v-if="sortBy === 'car_name'"
                   :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
@@ -149,7 +152,7 @@
                 <i v-else class="fas fa-sort sort-inactive"></i>
               </th>
               <th @click="sortByColumn('color')" class="sortable-header">
-                Color
+                {{ t('loading.color') }}
                 <i
                   v-if="sortBy === 'color'"
                   :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
@@ -157,7 +160,7 @@
                 <i v-else class="fas fa-sort sort-inactive"></i>
               </th>
               <th @click="sortByColumn('vin')" class="sortable-header">
-                VIN
+                {{ t('loading.vin') }}
                 <i
                   v-if="sortBy === 'vin'"
                   :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
@@ -165,7 +168,7 @@
                 <i v-else class="fas fa-sort sort-inactive"></i>
               </th>
               <th @click="sortByColumn('client_name')" class="sortable-header">
-                Client
+                {{ t('loading.client') }}
                 <i
                   v-if="sortBy === 'client_name'"
                   :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
@@ -173,7 +176,7 @@
                 <i v-else class="fas fa-sort sort-inactive"></i>
               </th>
               <th @click="sortByColumn('sell_bill_id')" class="sortable-header">
-                Sell Bill ID
+                {{ t('loading.sell_bill_id') }}
                 <i
                   v-if="sortBy === 'sell_bill_id'"
                   :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
@@ -181,7 +184,7 @@
                 <i v-else class="fas fa-sort sort-inactive"></i>
               </th>
               <th @click="sortByColumn('sell_bill_date')" class="sortable-header">
-                Sell Bill Date
+                {{ t('loading.sell_bill_date') }}
                 <i
                   v-if="sortBy === 'sell_bill_date'"
                   :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
@@ -189,7 +192,7 @@
                 <i v-else class="fas fa-sort sort-inactive"></i>
               </th>
               <th @click="sortByColumn('sell_bill_ref')" class="sortable-header">
-                Sell Bill Ref
+                {{ t('loading.sell_bill_ref') }}
                 <i
                   v-if="sortBy === 'sell_bill_ref'"
                   :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
@@ -197,14 +200,14 @@
                 <i v-else class="fas fa-sort sort-inactive"></i>
               </th>
               <th @click="sortByColumn('discharge_port')" class="sortable-header">
-                Discharge Port
+                {{ t('loading.discharge_port') }}
                 <i
                   v-if="sortBy === 'discharge_port'"
                   :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
                 ></i>
                 <i v-else class="fas fa-sort sort-inactive"></i>
               </th>
-              <th>Actions</th>
+              <th>{{ t('loading.actions') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -222,13 +225,15 @@
                 <div v-if="car.id_client && car.id_copy_path" class="client-info">
                   <img
                     :src="getFileUrl(car.id_copy_path)"
-                    :alt="'ID for ' + (car.client_name || 'Client')"
+                    :alt="
+                      t('loading.id_for_client', { client: car.client_name || t('loading.client') })
+                    "
                     class="client-id-image"
                     @click.stop="openClientId(car.id_copy_path)"
                   />
                   <div class="client-details">
                     <span class="client-name">{{ car.client_name }}</span>
-                    <span class="client-id-no">{{ car.client_id_no || 'No ID' }}</span>
+                    <span class="client-id-no">{{ car.client_id_no || t('loading.no_id') }}</span>
                   </div>
                 </div>
                 <span v-else class="no-client">-</span>
@@ -259,8 +264,13 @@
 
     <div class="table-footer">
       <span class="record-count">
-        Showing {{ sortedAndFilteredCars.length }} of {{ allUnassignedCars.length }} unassigned cars
-        <span v-if="hasActiveFilters" class="filter-indicator">(filtered)</span>
+        {{
+          t('loading.showing_unassigned_cars', {
+            count: sortedAndFilteredCars.length,
+            total: allUnassignedCars.length,
+          })
+        }}
+        <span v-if="hasActiveFilters" class="filter-indicator">{{ t('loading.filtered') }}</span>
       </span>
     </div>
 
@@ -270,7 +280,7 @@
         <div class="dialog-header">
           <h3>
             <i class="fas fa-car"></i>
-            Enter VIN for Car #{{ carToAssign?.id }}
+            {{ t('loading.enter_vin_for_car', { carId: carToAssign?.id }) }}
           </h3>
           <button class="close-btn" @click="closeVinDialog" :disabled="isSubmittingVin">
             <i class="fas fa-times"></i>
@@ -279,21 +289,29 @@
 
         <div class="dialog-content">
           <div class="car-info">
-            <p><strong>Car:</strong> {{ carToAssign?.car_name || 'N/A' }}</p>
-            <p><strong>Color:</strong> {{ carToAssign?.color || 'N/A' }}</p>
-            <p><strong>Client:</strong> {{ carToAssign?.client_name || 'N/A' }}</p>
+            <p>
+              <strong>{{ t('loading.car') }}:</strong>
+              {{ carToAssign?.car_name || t('loading.na') }}
+            </p>
+            <p>
+              <strong>{{ t('loading.color') }}:</strong> {{ carToAssign?.color || t('loading.na') }}
+            </p>
+            <p>
+              <strong>{{ t('loading.client') }}:</strong>
+              {{ carToAssign?.client_name || t('loading.na') }}
+            </p>
           </div>
 
           <div class="form-group">
             <label for="vin-input">
               <i class="fas fa-barcode"></i>
-              VIN Number <span style="color: red">*</span>
+              {{ t('loading.vin_number') }} <span style="color: red">*</span>
             </label>
             <input
               type="text"
               id="vin-input"
               v-model="vinInput"
-              placeholder="Enter VIN number"
+              :placeholder="t('loading.enter_vin_number')"
               :disabled="isSubmittingVin"
               @keyup.enter="submitVinAndAssign"
               maxlength="17"
@@ -304,7 +322,10 @@
 
           <div class="warning-message">
             <i class="fas fa-exclamation-triangle"></i>
-            <p><strong>Note:</strong> VIN is required before assigning a car to a container.</p>
+            <p>
+              <strong>{{ t('loading.note') }}:</strong>
+              {{ t('loading.vin_required_before_assigning') }}
+            </p>
           </div>
         </div>
 
@@ -315,7 +336,7 @@
             class="cancel-btn"
             :disabled="isSubmittingVin"
           >
-            Cancel
+            {{ t('loading.cancel') }}
           </button>
           <button
             type="button"
@@ -325,7 +346,7 @@
             :class="{ processing: isSubmittingVin }"
           >
             <i v-if="isSubmittingVin" class="fas fa-spinner fa-spin"></i>
-            <span>Update VIN & Assign</span>
+            <span>{{ t('loading.update_vin_and_assign') }}</span>
           </button>
         </div>
       </div>
@@ -335,6 +356,7 @@
 
 <script setup>
 import { ref, onMounted, computed, watch } from 'vue'
+import { useEnhancedI18n } from '@/composables/useI18n'
 import { useApi } from '@/composables/useApi'
 
 const props = defineProps({
@@ -354,6 +376,7 @@ const props = defineProps({
 
 const emit = defineEmits(['car-assigned'])
 
+const { t } = useEnhancedI18n()
 const { callApi, getFileUrl } = useApi()
 
 const unassignedCars = ref([])
@@ -494,10 +517,10 @@ const fetchUnassignedCars = async () => {
       allUnassignedCars.value = result.data || []
       applyFilters() // Apply any existing filters
     } else {
-      error.value = result.error || 'Failed to load unassigned cars'
+      error.value = result.error || t('loading.failed_to_load_unassigned_cars')
     }
   } catch (err) {
-    error.value = 'Error loading unassigned cars: ' + err.message
+    error.value = t('loading.error_loading_unassigned_cars', { message: err.message })
   } finally {
     loading.value = false
   }
@@ -544,12 +567,12 @@ const assignCar = async (car) => {
 
   // Prevent assignment if limit reached
   if (props.assignedCarsCount >= 4) {
-    alert('Maximum 4 cars allowed per container')
+    alert(t('loading.maximum_4_cars_allowed_per_container'))
     return
   }
 
   if (!props.selectedLoadedContainerId) {
-    alert('Please select a container first')
+    alert(t('loading.please_select_container_first'))
     return
   }
 
@@ -582,17 +605,19 @@ const assignCar = async (car) => {
       const container = containerResult.data[0]
       if (container.date_on_board) {
         alert(
-          `Cannot assign car to this container. Container is already on board since ${container.date_on_board}`,
+          t('loading.cannot_assign_car_to_container_already_on_board', {
+            date: container.date_on_board,
+          }),
         )
         return
       }
     }
   } catch (err) {
-    error.value = 'Error checking container status: ' + err.message
+    error.value = t('loading.error_checking_container_status', { message: err.message })
     return
   }
 
-  if (!confirm(`Are you sure you want to assign car #${car.id} to this container?`)) {
+  if (!confirm(t('loading.confirm_assign_car', { carId: car.id }))) {
     return
   }
 
@@ -610,7 +635,7 @@ const performCarAssignment = async (car) => {
     })
 
     if (!containerResult.success || !containerResult.data || containerResult.data.length === 0) {
-      error.value = 'Failed to get container reference'
+      error.value = t('loading.failed_to_get_container_reference')
       return
     }
 
@@ -627,10 +652,10 @@ const performCarAssignment = async (car) => {
       // Emit an event to refresh assigned cars table
       emit('car-assigned')
     } else {
-      error.value = result.error || 'Failed to assign car'
+      error.value = result.error || t('loading.failed_to_assign_car')
     }
   } catch (err) {
-    error.value = 'Error assigning car: ' + err.message
+    error.value = t('loading.error_assigning_car', { message: err.message })
   } finally {
     isAssigning.value = false
   }
@@ -641,7 +666,7 @@ const submitVinAndAssign = async () => {
 
   // Validate VIN input
   if (!vinInput.value || vinInput.value.trim() === '') {
-    vinError.value = 'VIN is required'
+    vinError.value = t('loading.vin_is_required')
     return
   }
 
@@ -658,7 +683,7 @@ const submitVinAndAssign = async () => {
     })
 
     if (!updateResult.success) {
-      vinError.value = 'Failed to update VIN'
+      vinError.value = t('loading.failed_to_update_vin')
       return
     }
 
@@ -676,7 +701,7 @@ const submitVinAndAssign = async () => {
     // Now assign the car
     await performCarAssignment(updatedCar)
   } catch (err) {
-    vinError.value = 'Error updating VIN: ' + err.message
+    vinError.value = t('loading.error_updating_vin', { message: err.message })
   } finally {
     isSubmittingVin.value = false
   }
@@ -692,12 +717,12 @@ const closeVinDialog = () => {
 
 const getAssignButtonTitle = () => {
   if (props.selectedContainerOnBoard) {
-    return 'Container is already on board'
+    return t('loading.container_already_on_board')
   }
   if (props.assignedCarsCount >= 4) {
-    return 'Maximum 4 cars allowed per container'
+    return t('loading.maximum_4_cars_allowed_per_container')
   }
-  return 'Assign to Container'
+  return t('loading.assign_to_container')
 }
 
 const applyFilters = () => {

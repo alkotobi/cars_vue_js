@@ -6,8 +6,8 @@
         <div v-if="unloadedCount > 0" class="alert-badge unloaded" @click="handleUnloadedClick">
           <i class="fas fa-truck"></i>
           <span class="badge-text"
-            >{{ unloadedCount }} cars not loaded after
-            {{ defaults?.alert_unloaded_after_days || 0 }} days from sell date</span
+            >{{ unloadedCount }} {{ t('alerts.carsNotLoaded') }}
+            {{ defaults?.alert_unloaded_after_days || 0 }} {{ t('alerts.daysFromSellDate') }}</span
           >
         </div>
 
@@ -19,8 +19,9 @@
         >
           <i class="fas fa-ship"></i>
           <span class="badge-text"
-            >{{ notArrivedCount }} cars not arrived after
-            {{ defaults?.alert_not_arrived_after_days || 0 }} days from buy date</span
+            >{{ notArrivedCount }} {{ t('alerts.carsNotArrived') }}
+            {{ defaults?.alert_not_arrived_after_days || 0 }}
+            {{ t('alerts.daysFromBuyDate') }}</span
           >
         </div>
 
@@ -28,8 +29,8 @@
         <div v-if="noLicenseCount > 0" class="alert-badge no-license" @click="handleNoLicenseClick">
           <i class="fas fa-passport"></i>
           <span class="badge-text"
-            >{{ noLicenseCount }} cars no license after
-            {{ defaults?.alert_no_licence_after_days || 0 }} days from buy date</span
+            >{{ noLicenseCount }} {{ t('alerts.carsNoLicense') }}
+            {{ defaults?.alert_no_licence_after_days || 0 }} {{ t('alerts.daysFromBuyDate') }}</span
           >
         </div>
 
@@ -37,8 +38,9 @@
         <div v-if="noDocsSentCount > 0" class="alert-badge no-docs" @click="handleNoDocsClick">
           <i class="fas fa-file-alt"></i>
           <span class="badge-text"
-            >{{ noDocsSentCount }} cars no docs sent after
-            {{ defaults?.alert_no_docs_sent_after_days || 0 }} days from sell date</span
+            >{{ noDocsSentCount }} {{ t('alerts.carsNoDocsSent') }}
+            {{ defaults?.alert_no_docs_sent_after_days || 0 }}
+            {{ t('alerts.daysFromSellDate') }}</span
           >
         </div>
       </div>
@@ -48,10 +50,10 @@
         @click="handleManualRefresh"
         class="refresh-button"
         :disabled="isRefreshing"
-        :title="isRefreshing ? 'Refreshing...' : 'Refresh alerts'"
+        :title="isRefreshing ? t('alerts.refreshing') : t('alerts.refreshAlerts')"
       >
         <i class="fas fa-sync-alt" :class="{ spinning: isRefreshing }"></i>
-        <span>{{ isRefreshing ? 'Refreshing...' : 'Refresh' }}</span>
+        <span>{{ isRefreshing ? t('alerts.refreshing') : t('alerts.refresh') }}</span>
       </button>
     </div>
   </div>
@@ -59,8 +61,10 @@
 
 <script setup>
 import { ref, onMounted, computed, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useApi } from '../composables/useApi'
 
+const { t } = useI18n()
 const { callApi } = useApi()
 
 const defaults = ref(null)

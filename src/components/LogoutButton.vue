@@ -1,7 +1,9 @@
 <script setup>
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 
 const router = useRouter()
+const { t } = useI18n()
 
 const logout = () => {
   // Clear all localStorage data
@@ -15,7 +17,7 @@ const logout = () => {
 </script>
 
 <template>
-  <button @click="logout" class="logout-btn">Logout</button>
+  <button @click="logout" class="logout-btn">{{ t('auth.logout') }}</button>
 </template>
 
 <style scoped>

@@ -1,9 +1,11 @@
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useEnhancedI18n } from '../../composables/useI18n'
 import { useApi } from '../../composables/useApi'
 import logoImage from '@/assets/logo.png'
 import stampImage from '@/assets/gml2.png'
 
+const { t } = useEnhancedI18n()
 const props = defineProps({
   carId: {
     type: Number,
@@ -132,18 +134,18 @@ onMounted(() => {
 
 <template>
   <div class="print-document">
-    <div v-if="loading" class="loading">Loading...</div>
+    <div v-if="loading" class="loading">{{ t('sellBills.loading') }}</div>
     <div v-else-if="error" class="error">{{ error }}</div>
     <div v-else class="a4-page">
       <!-- Floating Stamp -->
       <div class="floating-stamp">
-        <img :src="stampImage" alt="Company Stamp" />
+        <img :src="stampImage" :alt="t('sellBills.company_stamp')" />
       </div>
 
       <!-- Professional Header -->
       <div class="car_print_header">
         <div class="company-info">
-          <img :src="company.logo" alt="Company Logo" class="company-logo" />
+          <img :src="company.logo" :alt="t('sellBills.company_logo')" class="company-logo" />
           <div class="company-text">
             <h1 class="company-name">{{ company.name }}</h1>
             <div class="company-details">
@@ -155,19 +157,19 @@ onMounted(() => {
         </div>
         <div class="document-info">
           <div class="document-header">
-            <h2 class="document-title">COMMERCIAL INVOICE</h2>
+            <h2 class="document-title">{{ t('sellBills.commercial_invoice') }}</h2>
           </div>
           <div class="document-details">
             <div class="detail-row">
-              <span class="detail-label">CI No:</span>
+              <span class="detail-label">{{ t('sellBills.ci_no') }}:</span>
               <span class="detail-value">{{ billData.bill_ref }}-{{ carData.id }}</span>
             </div>
             <div class="detail-row">
-              <span class="detail-label">Date:</span>
+              <span class="detail-label">{{ t('sellBills.date') }}:</span>
               <span class="detail-value">{{ formatDate(billData.date_sell) }}</span>
             </div>
             <div class="detail-row">
-              <span class="detail-label">Currency:</span>
+              <span class="detail-label">{{ t('sellBills.currency') }}:</span>
               <span class="detail-value">{{ options.currency.toUpperCase() }}</span>
             </div>
           </div>
@@ -177,20 +179,20 @@ onMounted(() => {
       <!-- Buyer Information Section -->
       <div class="section buyer-section">
         <div class="section-header">
-          <h3><i class="fas fa-user"></i> Buyer Information</h3>
+          <h3><i class="fas fa-user"></i> {{ t('sellBills.buyer_information') }}</h3>
         </div>
         <div class="buyer-details">
           <div class="buyer-info">
             <div class="info-group">
-              <label>Name:</label>
+              <label>{{ t('sellBills.name') }}:</label>
               <span class="info-value">{{ carData.client_name }}</span>
             </div>
             <div class="info-group">
-              <label>Address:</label>
+              <label>{{ t('sellBills.address') }}:</label>
               <span class="info-value">{{ billData.broker_address }}</span>
             </div>
             <div class="info-group">
-              <label>Phone:</label>
+              <label>{{ t('sellBills.phone') }}:</label>
               <span class="info-value">{{ billData.broker_phone }}</span>
             </div>
           </div>
@@ -200,18 +202,18 @@ onMounted(() => {
       <!-- Vehicle Details Table -->
       <div class="section vehicle-section">
         <div class="section-header">
-          <h3><i class="fas fa-car"></i> Vehicle Details</h3>
+          <h3><i class="fas fa-car"></i> {{ t('sellBills.vehicle_details') }}</h3>
         </div>
         <div class="table-container">
           <table class="vehicle-table">
             <thead>
               <tr>
-                <th class="col-vehicle">Vehicle</th>
-                <th class="col-color">Color</th>
-                <th class="col-vin">VIN</th>
-                <th class="col-port">Port</th>
+                <th class="col-vehicle">{{ t('sellBills.vehicle') }}</th>
+                <th class="col-color">{{ t('sellBills.color') }}</th>
+                <th class="col-vin">{{ t('sellBills.vin') }}</th>
+                <th class="col-port">{{ t('sellBills.port') }}</th>
                 <th class="col-price">
-                  Price {{ options.paymentTerms.toUpperCase() }}
+                  {{ t('sellBills.price') }} {{ options.paymentTerms.toUpperCase() }}
                   {{ options.currency.toUpperCase() }}
                 </th>
               </tr>
@@ -228,7 +230,7 @@ onMounted(() => {
             <tfoot>
               <tr class="total-row">
                 <td colspan="4" class="total-label">
-                  <strong>Total:</strong>
+                  <strong>{{ t('sellBills.total') }}:</strong>
                 </td>
                 <td class="total-value">
                   <strong>{{ formatPrice(calculateCarPrice()) }}</strong>
@@ -242,13 +244,13 @@ onMounted(() => {
       <!-- Payment Details - Compact -->
       <div class="section payment-section">
         <div class="section-header">
-          <h3><i class="fas fa-credit-card"></i> Payment Details</h3>
+          <h3><i class="fas fa-credit-card"></i> {{ t('sellBills.payment_details') }}</h3>
         </div>
         <div class="payment-details">
           <div class="info-row">
-            <span class="info-label">Payment Terms:</span>
+            <span class="info-label">{{ t('sellBills.payment_terms') }}:</span>
             <span class="info-value">{{ options.paymentTerms.toUpperCase() }}</span>
-            <span class="info-label">Mode:</span>
+            <span class="info-label">{{ t('sellBills.mode') }}:</span>
             <span class="info-value">{{ options.paymentMode }}</span>
           </div>
         </div>
@@ -257,9 +259,9 @@ onMounted(() => {
       <!-- Footer -->
       <div class="footer">
         <div class="footer-content">
-          <p>Thank you for your business!</p>
+          <p>{{ t('sellBills.thank_you_for_business') }}</p>
           <p class="footer-note">
-            This document is computer generated and valid without signature.
+            {{ t('sellBills.computer_generated_document') }}
           </p>
         </div>
       </div>

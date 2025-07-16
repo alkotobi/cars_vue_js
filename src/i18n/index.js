@@ -8,13 +8,87 @@ import zh from '@/locales/zh.json'
 const getStoredLanguage = () => {
   const stored = localStorage.getItem('app_language')
   if (stored) return stored
-  
+
   // Detect browser language
   const browserLang = navigator.language || navigator.userLanguage
   if (browserLang.startsWith('ar')) return 'ar'
   if (browserLang.startsWith('fr')) return 'fr'
   if (browserLang.startsWith('zh')) return 'zh'
   return 'en'
+}
+
+// Custom missing handler to provide fallbacks
+const missingHandler = (locale, key, instance, values) => {
+  try {
+    // Try to find the key in the fallback locale (English)
+    const englishMessages = en
+    const fallbackValue = getNestedValue(englishMessages, key)
+    if (fallbackValue) {
+      return fallbackValue
+    }
+
+    // If not found in fallback, try to find a similar key
+    const similarKey = findSimilarKey(key, englishMessages)
+    if (similarKey) {
+      return getNestedValue(englishMessages, similarKey)
+    }
+
+    // If still not found, return the key itself as a last resort
+    return key
+  } catch (error) {
+    console.warn(`Missing handler error for key "${key}":`, error)
+    return key
+  }
+}
+
+// Helper function to get nested object values by dot notation
+const getNestedValue = (obj, path) => {
+  try {
+    return path.split('.').reduce((current, key) => current && current[key], obj)
+  } catch (error) {
+    return undefined
+  }
+}
+
+// Helper function to find similar keys
+const findSimilarKey = (key, messages) => {
+  try {
+    const keys = getAllKeys(messages)
+
+    // Try to find keys that contain the same words
+    const keyWords = key.split('.')
+    for (const msgKey of keys) {
+      const msgKeyWords = msgKey.split('.')
+      if (keyWords.some((word) => msgKeyWords.includes(word))) {
+        return msgKey
+      }
+    }
+
+    // Try to find keys that end with the same suffix
+    for (const msgKey of keys) {
+      if (msgKey.endsWith(key.split('.').pop())) {
+        return msgKey
+      }
+    }
+
+    return null
+  } catch (error) {
+    return null
+  }
+}
+
+// Helper function to get all keys from nested object
+const getAllKeys = (obj, prefix = '') => {
+  const keys = []
+  for (const key in obj) {
+    const fullKey = prefix ? `${prefix}.${key}` : key
+    if (typeof obj[key] === 'object' && obj[key] !== null) {
+      keys.push(...getAllKeys(obj[key], fullKey))
+    } else {
+      keys.push(fullKey)
+    }
+  }
+  return keys
 }
 
 // Create i18n instance
@@ -26,36 +100,41 @@ const i18n = createI18n({
     en,
     ar,
     fr,
-    zh
+    zh,
   },
   // Global properties
   globalInjection: true,
+  // Silent mode to prevent console warnings for missing keys
+  silentTranslationWarn: true,
+  silentFallbackWarn: true,
+  // Custom missing handler
+  missing: missingHandler,
   // RTL support
   numberFormats: {
     en: {
       currency: {
         style: 'currency',
-        currency: 'USD'
-      }
+        currency: 'USD',
+      },
     },
     ar: {
       currency: {
         style: 'currency',
-        currency: 'DZD'
-      }
+        currency: 'DZD',
+      },
     },
     fr: {
       currency: {
         style: 'currency',
-        currency: 'EUR'
-      }
+        currency: 'EUR',
+      },
     },
     zh: {
       currency: {
         style: 'currency',
-        currency: 'CNY'
-      }
-    }
+        currency: 'CNY',
+      },
+    },
   },
   // Date formats
   datetimeFormats: {
@@ -63,38 +142,38 @@ const i18n = createI18n({
       short: {
         year: 'numeric',
         month: 'short',
-        day: 'numeric'
-      }
+        day: 'numeric',
+      },
     },
     ar: {
       short: {
         year: 'numeric',
         month: 'short',
-        day: 'numeric'
-      }
+        day: 'numeric',
+      },
     },
     fr: {
       short: {
         year: 'numeric',
         month: 'short',
-        day: 'numeric'
-      }
+        day: 'numeric',
+      },
     },
     zh: {
       short: {
         year: 'numeric',
         month: 'short',
-        day: 'numeric'
-      }
-    }
-  }
+        day: 'numeric',
+      },
+    },
+  },
 })
 
 // Function to change language
 export const changeLanguage = (locale) => {
   i18n.global.locale.value = locale
   localStorage.setItem('app_language', locale)
-  
+
   // Update document direction for RTL languages
   if (locale === 'ar') {
     document.documentElement.dir = 'rtl'

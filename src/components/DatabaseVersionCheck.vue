@@ -3,32 +3,32 @@
     <div class="version-modal">
       <div class="version-modal-header">
         <i class="fas fa-exclamation-triangle"></i>
-        <h2>Application Update Required</h2>
+        <h2>{{ t('app.updateRequired') }}</h2>
       </div>
 
       <div class="version-modal-content">
-        <p>The application has been updated and requires a refresh to work properly.</p>
+        <p>{{ t('app.updateMessage') }}</p>
 
         <div class="version-info">
           <div class="version-item">
-            <span class="version-label">Database Version:</span>
+            <span class="version-label">{{ t('app.databaseVersion') }}:</span>
             <span class="version-value">{{ dbVersion }}</span>
           </div>
           <div class="version-item">
-            <span class="version-label">Application Version:</span>
+            <span class="version-label">{{ t('app.applicationVersion') }}:</span>
             <span class="version-value">{{ currentAppVersion }}</span>
           </div>
         </div>
 
         <div class="version-warning">
           <i class="fas fa-info-circle"></i>
-          <span>Please refresh the page to use the latest version.</span>
+          <span>{{ t('app.refreshMessage') }}</span>
         </div>
 
         <div class="version-actions">
           <button @click="forceRefresh" class="btn-refresh">
             <i class="fas fa-sync-alt"></i>
-            Refresh Now
+            {{ t('app.refreshNow') }}
           </button>
         </div>
       </div>
@@ -38,8 +38,10 @@
 
 <script setup>
 import { onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useVersionCheck } from '@/composables/useVersionCheck'
 
+const { t } = useI18n()
 const { currentAppVersion, dbVersion, isLoading, hasVersionMismatch, checkVersion, forceRefresh } =
   useVersionCheck()
 

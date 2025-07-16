@@ -1,11 +1,14 @@
 <script setup>
 import { RouterView, useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import AppHeader from './components/AppHeader.vue'
 import AlertsView from './views/AlertsView.vue'
 import { onMounted, computed, ref } from 'vue'
 import { useApi } from './composables/useApi'
 import DatabaseVersionCheck from '@/components/DatabaseVersionCheck.vue'
+import I18nDebugPanel from '@/components/I18nDebugPanel.vue'
 
+const { t } = useI18n()
 const { handleCookieVerification } = useApi()
 const route = useRoute()
 
@@ -57,6 +60,7 @@ onMounted(async () => {
     <main class="app-main">
       <RouterView />
     </main>
+    <I18nDebugPanel />
   </div>
 </template>
 

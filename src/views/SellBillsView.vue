@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted, computed, watch } from 'vue'
+import { useEnhancedI18n } from '../composables/useI18n'
 import { useApi } from '../composables/useApi'
 import SellBillsTable from '../components/sells/SellBillsTable.vue'
 import SellBillForm from '../components/sells/SellBillForm.vue'
@@ -7,6 +8,7 @@ import SellBillCarsTable from '../components/sells/SellBillCarsTable.vue'
 import UnassignedCarsTable from '../components/sells/UnassignedCarsTable.vue'
 import TaskForm from '../components/car-stock/TaskForm.vue'
 
+const { t } = useEnhancedI18n()
 const { callApi } = useApi()
 const showAddDialog = ref(false)
 const showEditDialog = ref(false)
@@ -131,14 +133,10 @@ const handleEditBill = (bill) => {
 
 const handleDeleteBill = async (id) => {
   if (!isAdmin.value) {
-    alert('Only admins can delete sell bills.')
+    alert(t('sellBills.only_admins_can_delete_sell_bills'))
     return
   }
-  if (
-    !confirm(
-      'Are you sure you want to delete this sell bill? This will also unassign all cars from this bill.',
-    )
-  ) {
+  if (!confirm(t('sellBills.confirm_delete_sell_bill_message'))) {
     return
   }
 
@@ -162,7 +160,9 @@ const handleDeleteBill = async (id) => {
 
     if (!unassignResult.success) {
       console.error('Failed to unassign cars:', unassignResult.error)
-      alert('Failed to unassign cars from bill: ' + unassignResult.error)
+      alert(
+        t('sellBills.failed_to_unassign_cars_from_bill_message', { error: unassignResult.error }),
+      )
       return
     }
 
@@ -187,11 +187,11 @@ const handleDeleteBill = async (id) => {
       handleCarsTableRefresh()
     } else {
       console.error('Failed to delete sell bill:', result.error)
-      alert('Failed to delete sell bill: ' + result.error)
+      alert(t('sellBills.failed_to_delete_sell_bill_message', { error: result.error }))
     }
   } catch (err) {
     console.error('Error deleting sell bill:', err)
-    alert('Error deleting sell bill: ' + err.message)
+    alert(t('sellBills.error_deleting_sell_bill_message', { error: err.message }))
   } finally {
     isProcessing.value = false
   }
@@ -253,7 +253,7 @@ const handleTaskCreated = () => {
 <template>
   <div class="sell-bills-view">
     <div class="header">
-      <h2>Sell Bills Management</h2>
+      <h2>{{ t('sellBills.sell_bills_management') }}</h2>
       <div class="header-actions">
         <button
           v-if="can_create_sell_bill"
@@ -261,7 +261,7 @@ const handleTaskCreated = () => {
           class="add-btn"
           :disabled="isProcessing"
         >
-          <i class="fas fa-plus"></i> Add Sell Bill
+          <i class="fas fa-plus"></i> {{ t('sellBills.add_sell_bill') }}
         </button>
       </div>
     </div>

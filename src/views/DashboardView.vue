@@ -1,8 +1,10 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { useEnhancedI18n } from '../composables/useI18n'
 import { useApi } from '../composables/useApi'
 const router = useRouter()
+const { t } = useEnhancedI18n()
 const user = ref(null)
 const latestRate = ref(null)
 const { callApi } = useApi()
@@ -212,11 +214,12 @@ const formatDate = (dateString) => {
   <div class="dashboard" :class="{ 'is-loading': loading }">
     <div class="welcome-section">
       <div class="welcome-info">
-        <h1><i class="fas fa-home"></i> Welcome to Dashboard</h1>
+        <h1><i class="fas fa-home"></i> {{ t('dashboard.welcome') }}</h1>
         <p v-if="latestRate" class="rate-info">
           <i class="fas fa-chart-line"></i>
-          Current Rate: <strong>{{ latestRate.rate }}</strong> (Updated:
-          {{ new Date(latestRate.created_on).toLocaleString() }})
+          {{ t('dashboard.currentRate') }}: <strong>{{ latestRate.rate }}</strong> ({{
+            t('dashboard.updatedOn')
+          }}: {{ new Date(latestRate.created_on).toLocaleString() }})
         </p>
       </div>
     </div>
@@ -230,7 +233,7 @@ const formatDate = (dateString) => {
         :class="{ processing: isProcessing.users }"
       >
         <i class="fas fa-users"></i>
-        <span>Users</span>
+        <span>{{ t('dashboard.users') }}</span>
         <i v-if="isProcessing.users" class="fas fa-spinner fa-spin loading-indicator"></i>
       </button>
       <button
@@ -241,7 +244,7 @@ const formatDate = (dateString) => {
         :class="{ processing: isProcessing.transfers }"
       >
         <i class="fas fa-exchange-alt"></i>
-        <span>Transfers</span>
+        <span>{{ t('dashboard.transfers') }}</span>
         <i v-if="isProcessing.transfers" class="fas fa-spinner fa-spin loading-indicator"></i>
       </button>
       <button
@@ -252,7 +255,7 @@ const formatDate = (dateString) => {
         :class="{ processing: isProcessing.cars }"
       >
         <i class="fas fa-car"></i>
-        <span>Cars</span>
+        <span>{{ t('dashboard.cars') }}</span>
         <i v-if="isProcessing.cars" class="fas fa-spinner fa-spin loading-indicator"></i>
       </button>
       <button
@@ -263,7 +266,7 @@ const formatDate = (dateString) => {
         :class="{ processing: isProcessing.cashier }"
       >
         <i class="fas fa-cash-register"></i>
-        <span>Cashier</span>
+        <span>{{ t('dashboard.cashier') }}</span>
         <i v-if="isProcessing.cashier" class="fas fa-spinner fa-spin loading-indicator"></i>
       </button>
       <button
@@ -274,7 +277,7 @@ const formatDate = (dateString) => {
         :class="{ processing: isProcessing.rates }"
       >
         <i class="fas fa-percentage"></i>
-        <span>Rates</span>
+        <span>{{ t('dashboard.rates') }}</span>
         <i v-if="isProcessing.rates" class="fas fa-spinner fa-spin loading-indicator"></i>
       </button>
       <button
@@ -285,7 +288,7 @@ const formatDate = (dateString) => {
         :class="{ processing: isProcessing.params }"
       >
         <i class="fas fa-cogs"></i>
-        <span>Params</span>
+        <span>{{ t('dashboard.params') }}</span>
         <i v-if="isProcessing.params" class="fas fa-spinner fa-spin loading-indicator"></i>
       </button>
       <button
@@ -295,7 +298,7 @@ const formatDate = (dateString) => {
         :class="{ processing: isProcessing.tasks }"
       >
         <i class="fas fa-tasks"></i>
-        <span>Tasks</span>
+        <span>{{ t('dashboard.tasks') }}</span>
         <i v-if="isProcessing.tasks" class="fas fa-spinner fa-spin loading-indicator"></i>
       </button>
     </div>
@@ -303,26 +306,34 @@ const formatDate = (dateString) => {
     <!-- Pending Tasks Section -->
     <div class="pending-tasks-section">
       <div class="section-header">
-        <h2><i class="fas fa-clock"></i> Your Pending Tasks ({{ pendingTasks.length }})</h2>
+        <h2>
+          <i class="fas fa-clock"></i> {{ t('dashboard.yourPendingTasks') }} ({{
+            pendingTasks.length
+          }})
+        </h2>
         <div class="header-actions">
-          <button @click="fetchPendingTasks" class="refresh-btn" title="Refresh tasks">
+          <button
+            @click="fetchPendingTasks"
+            class="refresh-btn"
+            title="{{ t('dashboard.refreshTasks') }}"
+          >
             <i class="fas fa-sync-alt"></i>
           </button>
           <button @click="handleTasksClick" class="view-all-btn">
             <i class="fas fa-external-link-alt"></i>
-            View All Tasks
+            {{ t('dashboard.viewAllTasks') }}
           </button>
         </div>
       </div>
 
       <div v-if="pendingTasksLoading" class="loading-tasks">
         <i class="fas fa-spinner fa-spin"></i>
-        Loading your tasks...
+        {{ t('dashboard.loadingYourTasks') }}
       </div>
 
       <div v-else-if="pendingTasks.length === 0" class="no-tasks">
         <i class="fas fa-check-circle"></i>
-        <p>No pending tasks! You're all caught up.</p>
+        <p>{{ t('dashboard.noPendingTasks') }}</p>
       </div>
 
       <div v-else class="tasks-list">
@@ -341,7 +352,7 @@ const formatDate = (dateString) => {
             </span>
             <span v-if="task.creator_name" class="task-creator">
               <i class="fas fa-user"></i>
-              Created by {{ task.creator_name }}
+              {{ t('dashboard.createdBy') }} {{ task.creator_name }}
             </span>
           </div>
           <p v-if="task.notes" class="task-notes">
@@ -352,7 +363,7 @@ const formatDate = (dateString) => {
       </div>
     </div>
 
-    <div class="copyright">© Merhab Noureddine 2025</div>
+    <div class="copyright">{{ t('dashboard.copyright') }}</div>
   </div>
 </template>
 <style scoped>

@@ -1,9 +1,11 @@
 <script setup>
 import { ref, onMounted, defineProps, defineEmits, computed, watch } from 'vue'
+import { useEnhancedI18n } from '../../composables/useI18n'
 import { useApi } from '../../composables/useApi'
 import { useRouter } from 'vue-router'
 import SellBillPrintOption from './SellBillPrintOption.vue'
 
+const { t } = useEnhancedI18n()
 const props = defineProps({
   onEdit: Function,
   onDelete: Function,
@@ -386,15 +388,15 @@ const getPaymentStatus = (bill) => {
   const remaining = total - paid
 
   if (total === 0) {
-    return { status: 'no-amount', text: 'No Amount', color: 'gray' }
+    return { status: 'no-amount', text: t('sellBills.no_amount'), color: 'gray' }
   } else if (paid === 0) {
-    return { status: 'not-paid', text: 'Not Paid', color: 'red' }
+    return { status: 'not-paid', text: t('sellBills.not_paid'), color: 'red' }
   } else if (remaining <= 0) {
-    return { status: 'paid', text: 'Paid', color: 'green' }
+    return { status: 'paid', text: t('sellBills.paid'), color: 'green' }
   } else {
     return {
       status: 'partial',
-      text: `Left: $${remaining.toFixed(2)}`,
+      text: `${t('sellBills.left')}: $${remaining.toFixed(2)}`,
       color: 'orange',
     }
   }
@@ -406,15 +408,15 @@ const getLoadingStatus = (bill) => {
   const loadedCars = bill.loaded_cars || 0
 
   if (totalCars === 0) {
-    return { status: 'no-cars', text: 'No Vehicles', color: 'gray' }
+    return { status: 'no-cars', text: t('sellBills.no_vehicles'), color: 'gray' }
   } else if (loadedCars === 0) {
-    return { status: 'not-loaded', text: 'Awaiting Loading', color: 'red' }
+    return { status: 'not-loaded', text: t('sellBills.awaiting_loading'), color: 'red' }
   } else if (loadedCars === totalCars) {
-    return { status: 'fully-loaded', text: 'Fully Loaded', color: 'green' }
+    return { status: 'fully-loaded', text: t('sellBills.fully_loaded'), color: 'green' }
   } else {
     return {
       status: 'partially-loaded',
-      text: `${loadedCars}/${totalCars} Loaded`,
+      text: `${loadedCars}/${totalCars} ${t('sellBills.loaded')}`,
       color: 'orange',
     }
   }
@@ -428,11 +430,11 @@ const getLoadingStatus = (bill) => {
       <div class="filters-header">
         <h3>
           <i class="fas fa-filter"></i>
-          Filters
+          {{ t('sellBills.filters') }}
         </h3>
         <button @click="resetFilters" class="reset-btn">
           <i class="fas fa-undo"></i>
-          Reset
+          {{ t('sellBills.reset') }}
         </button>
       </div>
 
@@ -440,7 +442,7 @@ const getLoadingStatus = (bill) => {
         <div class="filter-group">
           <label>
             <i class="fas fa-calendar"></i>
-            Date From:
+            {{ t('sellBills.date_from') }}
           </label>
           <input type="date" v-model="filters.dateFrom" />
         </div>
@@ -448,7 +450,7 @@ const getLoadingStatus = (bill) => {
         <div class="filter-group">
           <label>
             <i class="fas fa-calendar"></i>
-            Date To:
+            {{ t('sellBills.date_to') }}
           </label>
           <input type="date" v-model="filters.dateTo" />
         </div>
@@ -456,28 +458,32 @@ const getLoadingStatus = (bill) => {
         <div class="filter-group">
           <label>
             <i class="fas fa-user-tie"></i>
-            Broker:
+            {{ t('sellBills.broker') }}
           </label>
-          <input type="text" v-model="filters.broker" placeholder="Search broker..." />
+          <input type="text" v-model="filters.broker" :placeholder="t('sellBills.search_broker')" />
         </div>
 
         <div class="filter-group">
           <label>
             <i class="fas fa-barcode"></i>
-            Reference:
+            {{ t('sellBills.reference') }}
           </label>
-          <input type="text" v-model="filters.reference" placeholder="Search reference..." />
+          <input
+            type="text"
+            v-model="filters.reference"
+            :placeholder="t('sellBills.search_reference')"
+          />
         </div>
 
         <div class="filter-group">
           <label>
             <i class="fas fa-layer-group"></i>
-            Batch Sell:
+            {{ t('sellBills.batch_sell') }}
           </label>
           <select v-model="filters.isBatchSell">
-            <option :value="null">All</option>
-            <option :value="true">Yes</option>
-            <option :value="false">No</option>
+            <option :value="null">{{ t('sellBills.all') }}</option>
+            <option :value="true">{{ t('sellBills.yes') }}</option>
+            <option :value="false">{{ t('sellBills.no') }}</option>
           </select>
         </div>
       </div>
@@ -486,7 +492,7 @@ const getLoadingStatus = (bill) => {
     <!-- Loading Overlay -->
     <div v-if="loading" class="loading-overlay">
       <i class="fas fa-spinner fa-spin fa-2x"></i>
-      <span>Loading bills...</span>
+      <span>{{ t('sellBills.loading_bills') }}</span>
     </div>
 
     <div v-if="error" class="error">
@@ -496,7 +502,7 @@ const getLoadingStatus = (bill) => {
 
     <div v-else-if="sortedAndLimitedBills.length === 0" class="no-data">
       <i class="fas fa-inbox fa-2x"></i>
-      <p>No sell bills found</p>
+      <p>{{ t('sellBills.no_bills_found') }}</p>
     </div>
 
     <div v-else class="table-container">
@@ -504,50 +510,50 @@ const getLoadingStatus = (bill) => {
         <thead>
           <tr>
             <th @click="handleSort('id')" class="sortable">
-              <i class="fas fa-hashtag"></i> ID
+              <i class="fas fa-hashtag"></i> {{ t('sellBills.id') }}
               <i
                 v-if="sortConfig.field === 'id'"
                 :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
               ></i>
             </th>
             <th @click="handleSort('bill_ref')" class="sortable">
-              <i class="fas fa-barcode"></i> Reference
+              <i class="fas fa-barcode"></i> {{ t('sellBills.reference') }}
               <i
                 v-if="sortConfig.field === 'bill_ref'"
                 :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
               ></i>
             </th>
             <th @click="handleSort('date_sell')" class="sortable">
-              <i class="fas fa-calendar"></i> Date
+              <i class="fas fa-calendar"></i> {{ t('sellBills.date') }}
               <i
                 v-if="sortConfig.field === 'date_sell'"
                 :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
               ></i>
             </th>
             <th @click="handleSort('broker_name')" class="sortable">
-              <i class="fas fa-user-tie"></i> Broker
+              <i class="fas fa-user-tie"></i> {{ t('sellBills.broker') }}
               <i
                 v-if="sortConfig.field === 'broker_name'"
                 :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
               ></i>
             </th>
             <th @click="handleSort('created_by')" class="sortable">
-              <i class="fas fa-user"></i> Created By
+              <i class="fas fa-user"></i> {{ t('sellBills.created_by') }}
               <i
                 v-if="sortConfig.field === 'created_by'"
                 :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
               ></i>
             </th>
             <th @click="handleSort('notes')" class="sortable">
-              <i class="fas fa-sticky-note"></i> Notes
+              <i class="fas fa-sticky-note"></i> {{ t('sellBills.notes') }}
               <i
                 v-if="sortConfig.field === 'notes'"
                 :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
               ></i>
             </th>
-            <th><i class="fas fa-money-bill-wave"></i> Payment Status</th>
-            <th><i class="fas fa-shipping-fast"></i> Loading Status</th>
-            <th><i class="fas fa-cog"></i> Actions</th>
+            <th><i class="fas fa-money-bill-wave"></i> {{ t('sellBills.payment_status') }}</th>
+            <th><i class="fas fa-shipping-fast"></i> {{ t('sellBills.loading_status') }}</th>
+            <th><i class="fas fa-cog"></i> {{ t('sellBills.actions') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -563,11 +569,11 @@ const getLoadingStatus = (bill) => {
               <div class="date-badges">
                 <span class="badge sell-date-badge">
                   <i class="fas fa-calendar"></i>
-                  Sell: {{ new Date(bill.date_sell).toLocaleDateString() }}
+                  {{ t('sellBills.sell') }} {{ new Date(bill.date_sell).toLocaleDateString() }}
                 </span>
                 <span v-if="isAdmin" class="badge created-date-badge">
                   <i class="fas fa-clock"></i>
-                  Created:
+                  {{ t('sellBills.created') }}
                   {{ bill.time_created ? new Date(bill.time_created).toLocaleDateString() : 'N/A' }}
                 </span>
               </div>
@@ -578,7 +584,7 @@ const getLoadingStatus = (bill) => {
             <td>
               <span
                 :class="['payment-badge', `payment-${getPaymentStatus(bill).status}`]"
-                :title="`Total: $${bill.total_cfr.toFixed(2)} | Paid: $${bill.total_paid.toFixed(2)}`"
+                :title="`${t('sellBills.total')} $${bill.total_cfr.toFixed(2)} | ${t('sellBills.paid_amount')} $${bill.total_paid.toFixed(2)}`"
               >
                 {{ getPaymentStatus(bill).text }}
               </span>
@@ -586,7 +592,7 @@ const getLoadingStatus = (bill) => {
             <td>
               <span
                 :class="['loading-badge', `loading-${getLoadingStatus(bill).status}`]"
-                :title="`${bill.loaded_cars} of ${bill.total_cars} vehicles loaded`"
+                :title="`${bill.loaded_cars} ${t('sellBills.vehicles_loaded', { total: bill.total_cars })}`"
               >
                 {{ getLoadingStatus(bill).text }}
               </span>
@@ -597,7 +603,7 @@ const getLoadingStatus = (bill) => {
                 @click.stop="handleEdit(bill)"
                 :disabled="isProcessing"
                 class="btn edit-btn"
-                title="Edit Bill"
+                :title="t('sellBills.edit_bill')"
               >
                 <i class="fas fa-edit"></i>
               </button>
@@ -606,7 +612,7 @@ const getLoadingStatus = (bill) => {
                 @click.stop="handleDelete(bill.id)"
                 :disabled="isProcessing"
                 class="btn delete-btn"
-                title="Delete Bill"
+                :title="t('sellBills.delete_bill')"
               >
                 <i class="fas fa-trash-alt"></i>
               </button>
@@ -614,7 +620,7 @@ const getLoadingStatus = (bill) => {
                 @click.stop="handlePrint(bill.id)"
                 :disabled="isProcessing"
                 class="btn print-btn"
-                title="Print Bill"
+                :title="t('sellBills.print_bill')"
               >
                 <i class="fas fa-print"></i>
               </button>
@@ -623,7 +629,7 @@ const getLoadingStatus = (bill) => {
                 @click.stop="handlePayments(bill.id)"
                 :disabled="isProcessing"
                 class="btn payment-btn"
-                title="View Payments"
+                :title="t('sellBills.view_payments')"
               >
                 <i class="fas fa-money-bill-wave"></i>
               </button>
@@ -631,7 +637,7 @@ const getLoadingStatus = (bill) => {
                 @click.stop="handleTask(bill)"
                 :disabled="isProcessing"
                 class="btn task-btn"
-                title="Add New Task"
+                :title="t('sellBills.add_new_task')"
               >
                 <i class="fas fa-tasks"></i>
               </button>
