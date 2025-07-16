@@ -1,6 +1,9 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
 import { useApi } from '../../composables/useApi'
+import { useEnhancedI18n } from '@/composables/useI18n'
+
+const { t } = useEnhancedI18n()
 
 const props = defineProps({
   show: {
@@ -89,7 +92,7 @@ const fetchColors = async () => {
 
 const handleSave = async () => {
   if (!selectedColor.value) {
-    alert('Please select a color')
+    alert(t('carColorBulkEditForm.pleaseSelectAColor'))
     return
   }
 
@@ -115,11 +118,11 @@ const handleSave = async () => {
         props.selectedCars.map((car) => ({ ...car, id_color: colorId })),
       )
     } else {
-      alert('Failed to update car colors. Please try again.')
+      alert(t('carColorBulkEditForm.failedToUpdateCarColors'))
     }
   } catch (err) {
     console.error('Error updating car colors:', err)
-    alert('Error updating car colors. Please try again.')
+    alert(t('carColorBulkEditForm.errorUpdatingCarColors'))
   } finally {
     isProcessing.value = false
   }
@@ -128,7 +131,7 @@ const handleSave = async () => {
 const handleRevert = async () => {
   if (!props.isAdmin) return
 
-  if (!confirm('Are you sure you want to remove color from all selected cars?')) {
+  if (!confirm(t('carColorBulkEditForm.confirmRemoveColorFromAllSelectedCars'))) {
     return
   }
 
@@ -153,11 +156,11 @@ const handleRevert = async () => {
         props.selectedCars.map((car) => ({ ...car, id_color: null })),
       )
     } else {
-      alert('Failed to remove car colors. Please try again.')
+      alert(t('carColorBulkEditForm.failedToRemoveCarColors'))
     }
   } catch (err) {
     console.error('Error removing car colors:', err)
-    alert('Error removing car colors. Please try again.')
+    alert(t('carColorBulkEditForm.errorRemovingCarColors'))
   } finally {
     isProcessing.value = false
   }
@@ -177,7 +180,11 @@ const handleClose = () => {
           <div class="form-header">
             <h3>
               <i class="fas fa-palette"></i>
-              Edit Color for {{ selectedCars.length }} Car{{ selectedCars.length === 1 ? '' : 's' }}
+              {{
+                selectedCars.length === 1
+                  ? t('carColorBulkEditForm.editColorForCars', { count: selectedCars.length })
+                  : t('carColorBulkEditForm.editColorForCarsPlural', { count: selectedCars.length })
+              }}
             </h3>
             <button class="close-btn" @click="handleClose" :disabled="isProcessing">
               <i class="fas fa-times"></i>
@@ -186,7 +193,7 @@ const handleClose = () => {
 
           <div class="form-content">
             <div class="selected-cars-info">
-              <p>Selected cars:</p>
+              <p>{{ t('carColorBulkEditForm.selectedCars') }}</p>
               <div class="cars-list">
                 <div v-for="car in selectedCars" :key="car.id" class="car-item">
                   <span class="car-id">#{{ car.id }}</span>
@@ -196,9 +203,9 @@ const handleClose = () => {
             </div>
 
             <div class="form-group">
-              <label for="color">Select Color</label>
+              <label for="color">{{ t('carColorBulkEditForm.selectColor') }}</label>
               <select id="color" v-model="selectedColor" class="color-select">
-                <option value="">Choose a color</option>
+                <option value="">{{ t('carColorBulkEditForm.chooseAColor') }}</option>
                 <option v-for="color in colors" :key="color.id" :value="color.id">
                   {{ color.name }}
                 </option>
@@ -221,10 +228,10 @@ const handleClose = () => {
                 :disabled="!selectedColor || isProcessing"
               >
                 <i v-if="isProcessing" class="fas fa-spinner fa-spin"></i>
-                <span v-else>Save Color</span>
+                <span v-else>{{ t('carColorBulkEditForm.saveColor') }}</span>
               </button>
               <button @click="handleClose" class="btn btn-secondary" :disabled="isProcessing">
-                Cancel
+                {{ t('carColorBulkEditForm.cancel') }}
               </button>
             </div>
           </div>

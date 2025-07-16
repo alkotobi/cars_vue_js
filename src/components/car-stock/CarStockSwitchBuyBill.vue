@@ -1,6 +1,9 @@
 <script setup>
 import { defineProps, defineEmits, ref, onMounted, computed } from 'vue'
 import { useApi } from '../../composables/useApi'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps({
   car: {
@@ -98,7 +101,7 @@ const handleSave = () => {
   console.log('Save button clicked, selectedCarId:', selectedCarId.value)
 
   if (!selectedCarId.value) {
-    alert('Please select a car to switch with')
+    alert(t('switchBuyBill.selectCarToSwitch'))
     return
   }
 
@@ -162,11 +165,11 @@ const fetchCarsByPurchaseBill = async () => {
       console.log('Cars loaded:', result.data?.length || 0)
     } else {
       console.error('API Error:', result)
-      error.value = result.error || result.message || 'Failed to fetch cars'
+      error.value = result.error || result.message || t('switchBuyBill.fetchError')
     }
   } catch (err) {
     console.error('Error fetching cars:', err)
-    error.value = err.message || 'Error fetching cars from server'
+    error.value = err.message || t('switchBuyBill.serverError')
   } finally {
     loading.value = false
   }
@@ -212,7 +215,7 @@ watch(
       <div class="modal-header">
         <h3>
           <i class="fas fa-exchange-alt"></i>
-          Switch Purchase Bill (Same Model Only)
+          {{ t('switchBuyBill.title') }}
         </h3>
         <button class="close-btn" @click="handleClose">
           <i class="fas fa-times"></i>
@@ -221,20 +224,33 @@ watch(
 
       <div class="modal-body">
         <div class="car-info">
-          <p><strong>Car ID:</strong> {{ car?.id }}</p>
-          <p><strong>Car Name:</strong> {{ car?.car_name }}</p>
-          <p><strong>Current Purchase Bill:</strong> {{ car?.buy_bill_ref || 'None' }}</p>
-          <p v-if="car?.sell_bill_ref"><strong>Sell Bill:</strong> {{ car.sell_bill_ref }}</p>
-          <p v-if="car?.client_name"><strong>Client:</strong> {{ car.client_name }}</p>
-          <p v-if="car?.container_ref"><strong>Container:</strong> {{ car.container_ref }}</p>
+          <p>
+            <strong>{{ t('switchBuyBill.carId') }}:</strong> {{ car?.id }}
+          </p>
+          <p>
+            <strong>{{ t('switchBuyBill.carName') }}:</strong> {{ car?.car_name }}
+          </p>
+          <p>
+            <strong>{{ t('switchBuyBill.currentPurchaseBill') }}:</strong>
+            {{ car?.buy_bill_ref || t('switchBuyBill.none') }}
+          </p>
+          <p v-if="car?.sell_bill_ref">
+            <strong>{{ t('switchBuyBill.sellBill') }}:</strong> {{ car.sell_bill_ref }}
+          </p>
+          <p v-if="car?.client_name">
+            <strong>{{ t('switchBuyBill.client') }}:</strong> {{ car.client_name }}
+          </p>
+          <p v-if="car?.container_ref">
+            <strong>{{ t('switchBuyBill.container') }}:</strong> {{ car.container_ref }}
+          </p>
           <p class="filter-note">
-            <strong>Note:</strong> Only showing cars with the same model:
+            <strong>{{ t('switchBuyBill.note') }}:</strong> {{ t('switchBuyBill.sameModelOnly') }}:
             <em>{{ car?.car_name }}</em>
           </p>
         </div>
 
         <div class="selection-section">
-          <h4>Select a car with the same model to switch purchase bills with:</h4>
+          <h4>{{ t('switchBuyBill.selectCarToSwitch') }}</h4>
 
           <!-- Search and Filter Controls -->
           <div class="filter-controls">
@@ -243,7 +259,7 @@ watch(
               <input
                 v-model="searchTerm"
                 type="text"
-                placeholder="Search cars by VIN, name, color, bill ref, client, container..."
+                :placeholder="t('switchBuyBill.searchPlaceholder')"
                 class="search-input"
               />
             </div>
@@ -251,22 +267,22 @@ watch(
             <div class="filter-options">
               <label class="filter-checkbox">
                 <input v-model="filterOptions.hasSellBill" type="checkbox" />
-                <span>Has Sell Bill</span>
+                <span>{{ t('switchBuyBill.hasSellBill') }}</span>
               </label>
 
               <label class="filter-checkbox">
                 <input v-model="filterOptions.hasClient" type="checkbox" />
-                <span>Has Client</span>
+                <span>{{ t('switchBuyBill.hasClient') }}</span>
               </label>
 
               <label class="filter-checkbox">
                 <input v-model="filterOptions.hasContainer" type="checkbox" />
-                <span>Has Container</span>
+                <span>{{ t('switchBuyBill.hasContainer') }}</span>
               </label>
 
               <label class="filter-checkbox">
                 <input v-model="filterOptions.availableOnly" type="checkbox" />
-                <span>Available Only</span>
+                <span>{{ t('switchBuyBill.availableOnly') }}</span>
               </label>
 
               <button
@@ -275,37 +291,41 @@ watch(
                 class="clear-filters-btn"
               >
                 <i class="fas fa-times"></i>
-                Clear Filters
+                {{ t('switchBuyBill.clearFilters') }}
               </button>
             </div>
           </div>
 
           <div v-if="loading" class="loading">
             <i class="fas fa-spinner fa-spin"></i>
-            Loading cars...
+            {{ t('switchBuyBill.loadingCars') }}
           </div>
 
           <div v-else-if="error" class="error">
             <i class="fas fa-exclamation-circle"></i>
             <div class="error-message">
-              <strong>Error loading cars:</strong>
+              <strong>{{ t('switchBuyBill.errorLoadingCars') }}:</strong>
               <p>{{ error }}</p>
-              <small>Please check the browser console for more details.</small>
+              <small>{{ t('switchBuyBill.checkConsoleForDetails') }}</small>
             </div>
           </div>
 
           <div v-else-if="groupedCars.length === 0" class="empty-state">
             <i class="fas fa-car"></i>
             <p v-if="searchTerm || Object.values(filterOptions).some((v) => v)">
-              No cars match your search/filter criteria
+              {{ t('switchBuyBill.noCarsMatchCriteria') }}
             </p>
-            <p v-else>No other cars found with the same model</p>
+            <p v-else>{{ t('switchBuyBill.noOtherCarsSameModel') }}</p>
           </div>
 
           <div v-else class="results-info">
             <p>
-              Found {{ filteredCars.length }} car{{ filteredCars.length !== 1 ? 's' : '' }} in
-              {{ groupedCars.length }} purchase bill{{ groupedCars.length !== 1 ? 's' : '' }}
+              {{
+                t('switchBuyBill.foundCars', {
+                  count: filteredCars.length,
+                  bills: groupedCars.length,
+                })
+              }}
             </p>
           </div>
 
@@ -314,7 +334,7 @@ watch(
               <div class="group-header">
                 <h5>
                   <i class="fas fa-file-invoice-dollar"></i>
-                  {{ group.buy_bill_ref || 'No Purchase Bill' }}
+                  {{ group.buy_bill_ref || t('switchBuyBill.noPurchaseBill') }}
                 </h5>
                 <div class="group-details">
                   <span v-if="group.supplier_name">
@@ -354,15 +374,18 @@ watch(
                     </div>
                     <div v-if="car.sell_bill_ref" class="car-sell-bill">
                       <i class="fas fa-file-invoice"></i>
-                      <span class="label">Sell Bill:</span> {{ car.sell_bill_ref }}
+                      <span class="label">{{ t('switchBuyBill.sellBill') }}:</span>
+                      {{ car.sell_bill_ref }}
                     </div>
                     <div v-if="car.client_name" class="car-client">
                       <i class="fas fa-user"></i>
-                      <span class="label">Client:</span> {{ car.client_name }}
+                      <span class="label">{{ t('switchBuyBill.client') }}:</span>
+                      {{ car.client_name }}
                     </div>
                     <div v-if="car.container_ref" class="car-container">
                       <i class="fas fa-shipping-fast"></i>
-                      <span class="label">Container:</span> {{ car.container_ref }}
+                      <span class="label">{{ t('switchBuyBill.container') }}:</span>
+                      {{ car.container_ref }}
                     </div>
                   </div>
                 </div>
@@ -372,9 +395,9 @@ watch(
         </div>
 
         <div class="modal-actions">
-          <button class="cancel-btn" @click="handleClose">Cancel</button>
+          <button class="cancel-btn" @click="handleClose">{{ t('switchBuyBill.cancel') }}</button>
           <button class="save-btn" @click="handleSave" :disabled="!selectedCarId">
-            Switch Purchase Bill
+            {{ t('switchBuyBill.switchPurchaseBill') }}
           </button>
         </div>
       </div>

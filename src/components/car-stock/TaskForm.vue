@@ -1,8 +1,10 @@
 <script setup>
 import { ref, onMounted, watch, computed } from 'vue'
+import { useEnhancedI18n } from '@/composables/useI18n'
 import { useApi } from '../../composables/useApi'
 import { useRouter } from 'vue-router'
 
+const { t } = useEnhancedI18n()
 const router = useRouter()
 
 const props = defineProps({
@@ -57,66 +59,66 @@ const entityConfig = computed(() => {
   const configs = {
     car: {
       icon: 'fas fa-car',
-      label: 'Car',
+      label: t('taskForm.car'),
       idField: 'id',
       nameField: 'car_name',
       route: '/cars/stock',
       taskFlag: 1,
-      defaultTitle: 'Car Task',
+      defaultTitle: t('taskForm.car_task'),
     },
     client: {
       icon: 'fas fa-user',
-      label: 'Client',
+      label: t('taskForm.client'),
       idField: 'id',
       nameField: 'name',
       route: '/clients',
       taskFlag: 0,
-      defaultTitle: 'Client Task',
+      defaultTitle: t('taskForm.client_task'),
     },
     supplier: {
       icon: 'fas fa-truck',
-      label: 'Supplier',
+      label: t('taskForm.supplier'),
       idField: 'id',
       nameField: 'name',
       route: '/suppliers',
       taskFlag: 0,
-      defaultTitle: 'Supplier Task',
+      defaultTitle: t('taskForm.supplier_task'),
     },
     sell: {
       icon: 'fas fa-handshake',
-      label: 'Sell Bill',
+      label: t('taskForm.sell_bill'),
       idField: 'id',
       nameField: 'bill_ref',
       route: '/sells',
       taskFlag: 0,
-      defaultTitle: 'Sell Task',
+      defaultTitle: t('taskForm.sell_task'),
     },
     buy: {
       icon: 'fas fa-shopping-cart',
-      label: 'Buy Bill',
+      label: t('taskForm.buy_bill'),
       idField: 'id',
       nameField: 'bill_ref',
       route: '/buy',
       taskFlag: 0,
-      defaultTitle: 'Buy Task',
+      defaultTitle: t('taskForm.buy_task'),
     },
     loading: {
       icon: 'fas fa-truck-loading',
-      label: 'Loading Record',
+      label: t('taskForm.loading_record'),
       idField: 'id',
       nameField: 'shipping_line_name',
       route: '/loading',
       taskFlag: 0,
-      defaultTitle: 'Loading Task',
+      defaultTitle: t('taskForm.loading_task'),
     },
     general: {
       icon: 'fas fa-tasks',
-      label: 'General',
+      label: t('taskForm.general'),
       idField: null,
       nameField: null,
       route: null,
       taskFlag: 0,
-      defaultTitle: 'General Task',
+      defaultTitle: t('taskForm.general_task'),
     },
   }
   return configs[props.entityType] || configs.general
@@ -125,11 +127,11 @@ const entityConfig = computed(() => {
 const entityDisplayName = computed(() => {
   const config = entityConfig.value
   if (props.entityType === 'general') {
-    return 'General Task'
+    return t('taskForm.general_task')
   }
 
   const id = props.entityData[config.idField]
-  const name = props.entityData[config.nameField] || 'Unknown'
+  const name = props.entityData[config.nameField] || t('taskForm.unknown')
   return `${config.label} #${id} - ${name}`
 })
 
@@ -140,7 +142,7 @@ const entityLink = computed(() => {
   }
 
   const id = props.entityData[config.idField]
-  const name = props.entityData[config.nameField] || 'Unknown'
+  const name = props.entityData[config.nameField] || t('taskForm.unknown')
   return `[${config.label} #${id} - ${name}]`
 })
 
@@ -261,7 +263,7 @@ const fetchSubjects = async () => {
 
 const handleSubmit = async () => {
   if (!formData.value.title.trim()) {
-    alert('Please enter a task title')
+    alert(t('taskForm.please_enter_task_title'))
     return
   }
 
@@ -271,12 +273,12 @@ const handleSubmit = async () => {
     (formData.value.assigned_users_ids && formData.value.assigned_users_ids.length > 0)
 
   if (!hasUserAssignment) {
-    alert('Please select at least one user to assign the task to')
+    alert(t('taskForm.please_select_at_least_one_user'))
     return
   }
 
   if (!formData.value.id_priority) {
-    alert('Please select a priority')
+    alert(t('taskForm.please_select_priority'))
     return
   }
 
@@ -300,8 +302,8 @@ const handleSubmit = async () => {
         : [props.entityData.id]
       const carIdsText = carIds.map((id) => `#${id}`).join(', ')
       finalDescription = finalDescription
-        ? `${finalDescription}\n\nCar IDs: ${carIdsText}`
-        : `Car IDs: ${carIdsText}`
+        ? `${finalDescription}\n\n${t('taskForm.car_ids')}: ${carIdsText}`
+        : `${t('taskForm.car_ids')}: ${carIdsText}`
     }
 
     // Prepare user assignment data
@@ -360,11 +362,11 @@ const handleSubmit = async () => {
       emit('task-created', { success: true, taskId: result.lastInsertId })
     } else {
       console.error('Failed to create task:', result)
-      alert('Failed to create task. Please try again.')
+      alert(t('taskForm.failed_to_create_task'))
     }
   } catch (err) {
     console.error('Error creating task:', err)
-    alert('Error creating task. Please try again.')
+    alert(t('taskForm.error_creating_task'))
   }
 }
 
@@ -389,7 +391,7 @@ const showAddPriorityForm = () => {
 
 const handleAddPriority = async () => {
   if (!newPriority.value.priority.trim()) {
-    alert('Please enter a priority name')
+    alert(t('taskForm.please_enter_priority_name'))
     return
   }
 
@@ -412,11 +414,11 @@ const handleAddPriority = async () => {
       showPriorityForm.value = false
     } else {
       console.error('Failed to create priority:', result)
-      alert('Failed to create priority. Please try again.')
+      alert(t('taskForm.failed_to_create_priority'))
     }
   } catch (err) {
     console.error('Error creating priority:', err)
-    alert('Error creating priority. Please try again.')
+    alert(t('taskForm.error_creating_priority'))
   }
 }
 
@@ -467,7 +469,7 @@ const openEntityView = () => {
           <div class="form-header">
             <h3>
               <i :class="entityConfig.icon"></i>
-              Create Task for {{ entityConfig.label }}
+              {{ entityConfig.label }}
             </h3>
             <div v-if="entityType !== 'general'" class="entity-info-container">
               <p class="entity-info">
@@ -479,23 +481,23 @@ const openEntityView = () => {
                 type="button"
                 @click="openEntityView"
                 class="btn-view-entity"
-                :title="`View ${entityConfig.label.toLowerCase()}`"
+                :title="`${t('taskForm.view')} ${entityConfig.label.toLowerCase()}`"
               >
                 <i class="fas fa-external-link-alt"></i>
-                View {{ entityConfig.label }}
+                {{ t('taskForm.view') }} {{ entityConfig.label }}
               </button>
             </div>
           </div>
 
           <form @submit.prevent="handleSubmit" class="form">
             <div class="form-group">
-              <label for="title">Task Title *</label>
+              <label for="title">{{ t('taskForm.task_title') }} *</label>
               <div class="title-input-container">
                 <input
                   id="title"
                   v-model="formData.title"
                   type="text"
-                  :placeholder="`Enter ${entityConfig.defaultTitle.toLowerCase()} title`"
+                  :placeholder="`${t('taskForm.enter')} ${entityConfig.defaultTitle.toLowerCase()}`"
                   required
                   maxlength="255"
                   class="title-input"
@@ -505,7 +507,7 @@ const openEntityView = () => {
                   type="button"
                   @click="openEntityView"
                   class="btn-title-link"
-                  :title="`Open ${entityConfig.label.toLowerCase()} view`"
+                  :title="`${t('taskForm.open')} ${entityConfig.label.toLowerCase()} ${t('taskForm.view')}`"
                 >
                   <i class="fas fa-external-link-alt"></i>
                 </button>
@@ -513,11 +515,11 @@ const openEntityView = () => {
             </div>
 
             <div class="form-group">
-              <label for="description">Description</label>
+              <label for="description">{{ t('taskForm.description') }}</label>
               <textarea
                 id="description"
                 v-model="formData.description"
-                placeholder="Enter task description"
+                :placeholder="t('taskForm.enter_task_description')"
                 rows="3"
                 maxlength="1000"
               ></textarea>
@@ -525,7 +527,7 @@ const openEntityView = () => {
 
             <div class="form-row">
               <div class="form-group">
-                <label for="user_receive">Assign To *</label>
+                <label for="user_receive">{{ t('taskForm.assign_to') }} *</label>
                 <div class="assignment-container">
                   <!-- Single user assignment (for backward compatibility) -->
                   <div class="single-assignment">
@@ -534,7 +536,7 @@ const openEntityView = () => {
                       v-model="formData.id_user_receive"
                       @change="handleSingleUserChange"
                     >
-                      <option value="">Select a user</option>
+                      <option value="">{{ t('taskForm.select_a_user') }}</option>
                       <option v-for="user in users" :key="user.id" :value="user.id">
                         {{ user.username }}
                         <span v-if="user.email">({{ user.email }})</span>
@@ -544,7 +546,9 @@ const openEntityView = () => {
 
                   <!-- Multi-user assignment -->
                   <div class="multi-assignment">
-                    <label class="multi-label">Or assign to multiple users:</label>
+                    <label class="multi-label">{{
+                      t('taskForm.or_assign_to_multiple_users')
+                    }}</label>
                     <div class="multi-select-container">
                       <div v-for="user in users" :key="user.id" class="user-checkbox-item">
                         <input
@@ -565,10 +569,10 @@ const openEntityView = () => {
               </div>
 
               <div class="form-group">
-                <label for="priority">Priority *</label>
+                <label for="priority">{{ t('taskForm.priority') }} *</label>
                 <div class="priority-select-container">
                   <select id="priority" v-model="formData.id_priority" required>
-                    <option value="">Select priority</option>
+                    <option value="">{{ t('taskForm.select_priority') }}</option>
                     <option v-for="priority in priorities" :key="priority.id" :value="priority.id">
                       {{ priority.priority }}
                     </option>
@@ -577,7 +581,7 @@ const openEntityView = () => {
                     type="button"
                     @click="showAddPriorityForm"
                     class="btn-add-priority"
-                    title="Add new priority"
+                    :title="t('taskForm.add_new_priority')"
                   >
                     <i class="fas fa-plus"></i>
                   </button>
@@ -587,7 +591,7 @@ const openEntityView = () => {
 
             <!-- Multi-subjects section -->
             <div class="form-group" v-if="subjects.length > 0">
-              <label>Subjects (Optional)</label>
+              <label>{{ t('taskForm.subjects') }} ({{ t('taskForm.optional') }})</label>
               <div class="subjects-container">
                 <div v-for="subject in subjects" :key="subject.id" class="subject-checkbox-item">
                   <input
@@ -604,11 +608,11 @@ const openEntityView = () => {
             </div>
 
             <div class="form-group">
-              <label for="notes">Notes</label>
+              <label for="notes">{{ t('taskForm.notes') }}</label>
               <textarea
                 id="notes"
                 v-model="formData.notes"
-                placeholder="Additional notes"
+                :placeholder="t('taskForm.additional_notes')"
                 rows="2"
                 maxlength="1000"
               ></textarea>
@@ -621,11 +625,11 @@ const openEntityView = () => {
                 class="btn btn-secondary"
                 :disabled="loading"
               >
-                Cancel
+                {{ t('taskForm.cancel') }}
               </button>
               <button type="submit" class="btn btn-primary" :disabled="loading">
                 <i v-if="loading" class="fas fa-spinner fa-spin"></i>
-                <span v-else>Create Task</span>
+                <span v-else>{{ t('taskForm.create_task') }}</span>
               </button>
             </div>
 
@@ -647,41 +651,41 @@ const openEntityView = () => {
           <div class="form-header">
             <h3>
               <i class="fas fa-plus-circle"></i>
-              Add New Priority
+              {{ t('taskForm.add_new_priority') }}
             </h3>
           </div>
 
           <form @submit.prevent="handleAddPriority" class="form">
             <div class="form-group">
-              <label for="new_priority_name">Priority Name *</label>
+              <label for="new_priority_name">{{ t('taskForm.priority_name') }} *</label>
               <input
                 id="new_priority_name"
                 v-model="newPriority.priority"
                 type="text"
-                placeholder="Enter priority name"
+                :placeholder="t('taskForm.enter_priority_name')"
                 required
                 maxlength="255"
               />
             </div>
 
             <div class="form-group">
-              <label for="new_priority_power">Priority Level</label>
+              <label for="new_priority_power">{{ t('taskForm.priority_level') }}</label>
               <select id="new_priority_power" v-model="newPriority.power">
-                <option value="1">Low (1)</option>
-                <option value="2">Medium (2)</option>
-                <option value="3">High (3)</option>
-                <option value="4">Urgent (4)</option>
-                <option value="5">Critical (5)</option>
+                <option value="1">{{ t('taskForm.low') }} (1)</option>
+                <option value="2">{{ t('taskForm.medium') }} (2)</option>
+                <option value="3">{{ t('taskForm.high') }} (3)</option>
+                <option value="4">{{ t('taskForm.urgent') }} (4)</option>
+                <option value="5">{{ t('taskForm.critical') }} (5)</option>
               </select>
             </div>
 
             <div class="form-actions">
               <button type="button" @click="cancelAddPriority" class="btn btn-secondary">
-                Cancel
+                {{ t('taskForm.cancel') }}
               </button>
               <button type="submit" class="btn btn-primary">
                 <i v-if="loading" class="fas fa-spinner fa-spin"></i>
-                <span v-else>Add Priority</span>
+                <span v-else>{{ t('taskForm.add_priority') }}</span>
               </button>
             </div>
           </form>

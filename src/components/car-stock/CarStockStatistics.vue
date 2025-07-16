@@ -1,6 +1,9 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useApi } from '../../composables/useApi'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const { callApi } = useApi()
 
@@ -64,10 +67,10 @@ const fetchStatistics = async () => {
         carStats: carNameStats.data,
       }
     } else {
-      error.value = overallStats.error || carNameStats.error || 'Failed to fetch statistics'
+      error.value = overallStats.error || carNameStats.error || t('statistics.fetchError')
     }
   } catch (err) {
-    error.value = err.message || 'An error occurred'
+    error.value = err.message || t('statistics.generalError')
   } finally {
     loading.value = false
   }
@@ -105,14 +108,14 @@ defineExpose({
           <i class="fas fa-warehouse"></i>
         </div>
         <div class="stat-content">
-          <h3>Available Cars</h3>
+          <h3>{{ t('statistics.availableCars') }}</h3>
           <div class="stat-value">
             <span v-if="loading">
               <i class="fas fa-spinner fa-spin"></i>
             </span>
             <span v-else>{{ formattedStats.available }}</span>
           </div>
-          <div class="stat-label">In Stock</div>
+          <div class="stat-label">{{ t('statistics.inStock') }}</div>
         </div>
       </div>
 
@@ -122,14 +125,14 @@ defineExpose({
           <i class="fas fa-calendar-alt"></i>
         </div>
         <div class="stat-content">
-          <h3>Sold This Month</h3>
+          <h3>{{ t('statistics.soldThisMonth') }}</h3>
           <div class="stat-value">
             <span v-if="loading">
               <i class="fas fa-spinner fa-spin"></i>
             </span>
             <span v-else>{{ formattedStats.soldThisMonth }}</span>
           </div>
-          <div class="stat-label">Current Month</div>
+          <div class="stat-label">{{ t('statistics.currentMonth') }}</div>
         </div>
       </div>
 
@@ -139,14 +142,14 @@ defineExpose({
           <i class="fas fa-chart-line"></i>
         </div>
         <div class="stat-content">
-          <h3>Sold This Year</h3>
+          <h3>{{ t('statistics.soldThisYear') }}</h3>
           <div class="stat-value">
             <span v-if="loading">
               <i class="fas fa-spinner fa-spin"></i>
             </span>
             <span v-else>{{ formattedStats.soldThisYear }}</span>
           </div>
-          <div class="stat-label">Year to Date</div>
+          <div class="stat-label">{{ t('statistics.yearToDate') }}</div>
         </div>
       </div>
     </div>
@@ -155,24 +158,24 @@ defineExpose({
     <div class="car-model-stats">
       <h3 class="section-title">
         <i class="fas fa-car"></i>
-        Statistics by Car Model
+        {{ t('statistics.statisticsByCarModel') }}
       </h3>
 
       <div class="car-stats-table-wrapper">
         <table class="car-stats-table">
           <thead>
             <tr>
-              <th>Car Model</th>
-              <th>Available</th>
-              <th>Sold This Month</th>
-              <th>Total Sold</th>
+              <th>{{ t('statistics.carModel') }}</th>
+              <th>{{ t('statistics.available') }}</th>
+              <th>{{ t('statistics.soldThisMonth') }}</th>
+              <th>{{ t('statistics.totalSold') }}</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="loading">
               <td colspan="4" class="loading-row">
                 <i class="fas fa-spinner fa-spin"></i>
-                Loading car statistics...
+                {{ t('statistics.loadingCarStatistics') }}
               </td>
             </tr>
             <tr v-else v-for="car in stats.carStats" :key="car.car_name">
@@ -182,7 +185,7 @@ defineExpose({
               <td>{{ formatNumber(car.total_sold) }}</td>
             </tr>
             <tr v-if="!loading && stats.carStats.length === 0">
-              <td colspan="4" class="empty-row">No car models found</td>
+              <td colspan="4" class="empty-row">{{ t('statistics.noCarModelsFound') }}</td>
             </tr>
           </tbody>
         </table>

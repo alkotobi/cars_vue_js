@@ -1,6 +1,9 @@
 <script setup>
 import { ref, defineProps, defineEmits } from 'vue'
 import { useApi } from '../../composables/useApi'
+import { useEnhancedI18n } from '@/composables/useI18n'
+
+const { t } = useEnhancedI18n()
 
 const props = defineProps({
   car: {
@@ -28,15 +31,15 @@ const handleSubmit = async () => {
   if (isProcessing.value || loading.value) return
   // Validate inputs
   if (price.value && isNaN(parseFloat(price.value))) {
-    error.value = 'Price must be a valid number'
+    error.value = t('carMoneyEditForm.priceMustBeValidNumber')
     return
   }
   if (freight.value && isNaN(parseFloat(freight.value))) {
-    error.value = 'Freight must be a valid number'
+    error.value = t('carMoneyEditForm.freightMustBeValidNumber')
     return
   }
   if (rate.value && isNaN(parseFloat(rate.value))) {
-    error.value = 'Rate must be a valid number'
+    error.value = t('carMoneyEditForm.rateMustBeValidNumber')
     return
   }
 
@@ -64,7 +67,7 @@ const handleSubmit = async () => {
     }
 
     if (updates.length === 0) {
-      error.value = 'Please fill at least one field to update'
+      error.value = t('carMoneyEditForm.pleaseFillAtLeastOneField')
       loading.value = false
       return
     }
@@ -86,10 +89,10 @@ const handleSubmit = async () => {
       emit('save', updatedCar)
       emit('close')
     } else {
-      throw new Error(result.error || 'Failed to update money fields')
+      throw new Error(result.error || t('carMoneyEditForm.failedToUpdateMoneyFields'))
     }
   } catch (err) {
-    error.value = err.message || 'An error occurred'
+    error.value = err.message || t('carMoneyEditForm.anErrorOccurred')
   } finally {
     loading.value = false
     isProcessing.value = false
@@ -111,7 +114,7 @@ const closeModal = () => {
       <div class="modal-header">
         <h3>
           <i class="fas fa-dollar-sign"></i>
-          Edit Money Fields
+          {{ t('carMoneyEditForm.editMoneyFields') }}
         </h3>
         <button class="close-btn" @click="closeModal" :disabled="isProcessing">
           <i class="fas fa-times"></i>
@@ -122,7 +125,7 @@ const closeModal = () => {
         <div class="form-group">
           <label for="price">
             <i class="fas fa-tag"></i>
-            Price:
+            {{ t('carMoneyEditForm.price') }}:
           </label>
           <div class="input-group">
             <span class="currency-symbol">
@@ -132,7 +135,7 @@ const closeModal = () => {
               type="number"
               id="price"
               v-model="price"
-              placeholder="Enter price"
+              :placeholder="t('carMoneyEditForm.enterPrice')"
               step="0.01"
               min="0"
               class="input-field"
@@ -144,7 +147,7 @@ const closeModal = () => {
         <div class="form-group">
           <label for="freight">
             <i class="fas fa-ship"></i>
-            Freight:
+            {{ t('carMoneyEditForm.freight') }}:
           </label>
           <div class="input-group">
             <span class="currency-symbol">
@@ -154,7 +157,7 @@ const closeModal = () => {
               type="number"
               id="freight"
               v-model="freight"
-              placeholder="Enter freight"
+              :placeholder="t('carMoneyEditForm.enterFreight')"
               step="0.01"
               min="0"
               class="input-field"
@@ -166,14 +169,14 @@ const closeModal = () => {
         <div class="form-group">
           <label for="rate">
             <i class="fas fa-percentage"></i>
-            Rate:
+            {{ t('carMoneyEditForm.rate') }}:
           </label>
           <div class="input-group">
             <input
               type="number"
               id="rate"
               v-model="rate"
-              placeholder="Enter rate"
+              :placeholder="t('carMoneyEditForm.enterRate')"
               step="0.01"
               min="0"
               class="input-field"
@@ -194,7 +197,7 @@ const closeModal = () => {
       <div class="modal-footer">
         <button class="cancel-btn" @click="closeModal" :disabled="isProcessing">
           <i class="fas fa-times"></i>
-          Cancel
+          {{ t('carMoneyEditForm.cancel') }}
         </button>
         <button
           class="save-btn"
@@ -203,7 +206,9 @@ const closeModal = () => {
           :class="{ 'is-processing': isProcessing }"
         >
           <i class="fas fa-save"></i>
-          <span>{{ isProcessing ? 'Saving...' : 'Save Changes' }}</span>
+          <span>{{
+            isProcessing ? t('carMoneyEditForm.saving') : t('carMoneyEditForm.saveChanges')
+          }}</span>
           <i v-if="isProcessing" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
       </div>

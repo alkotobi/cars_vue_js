@@ -1,6 +1,9 @@
 <script setup>
 import { defineProps, computed } from 'vue'
 import { useApi } from '../../composables/useApi'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 // Import the letter head image using the proper Vue.js way
 const letterHeadUrl = new URL('../../assets/letter_head.png', import.meta.url).href
@@ -57,9 +60,9 @@ const generateRef = computed(() => {
   // Get button caption first letter of each word
   let buttonCaption = ''
   if (props.actionType === 'print') {
-    buttonCaption = 'Print Selected'
+    buttonCaption = t('printReport.printSelected')
   } else if (props.actionType === 'loading-order') {
-    buttonCaption = 'Loading Order'
+    buttonCaption = t('printReport.loadingOrder')
   }
 
   const buttonPrefix = buttonCaption
@@ -125,12 +128,16 @@ const getCarValue = (car, columnKey) => {
 
     <!-- Date -->
     <div class="report-date">
-      <span><strong>Date:</strong> {{ today }}</span>
+      <span
+        ><strong>{{ t('printReport.date') }}:</strong> {{ today }}</span
+      >
     </div>
 
     <!-- REF -->
     <div class="report-ref">
-      <span><strong>REF:</strong> {{ generateRef }}</span>
+      <span
+        ><strong>{{ t('printReport.ref') }}:</strong> {{ generateRef }}</span
+      >
     </div>
 
     <!-- Title -->

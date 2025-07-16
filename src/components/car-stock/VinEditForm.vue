@@ -1,6 +1,9 @@
 <script setup>
 import { ref, defineProps, defineEmits, computed } from 'vue'
+import { useEnhancedI18n } from '@/composables/useI18n'
 import { useApi } from '../../composables/useApi'
+
+const { t } = useEnhancedI18n()
 
 const props = defineProps({
   car: {
@@ -29,7 +32,7 @@ const isAdmin = computed(() => user.value?.role_id === 1)
 const handleSubmit = async () => {
   if (isProcessing.value || loading.value) return
   if (!newVin.value.trim()) {
-    error.value = 'VIN number is required'
+    error.value = t('vinEditForm.vin_number_required')
     return
   }
 
@@ -47,10 +50,10 @@ const handleSubmit = async () => {
       emit('save', { ...props.car, vin: newVin.value.trim() })
       emit('close')
     } else {
-      error.value = result.error || 'Failed to update VIN'
+      error.value = result.error || t('vinEditForm.failed_to_update_vin')
     }
   } catch (err) {
-    error.value = err.message || 'An error occurred'
+    error.value = err.message || t('vinEditForm.an_error_occurred')
   } finally {
     loading.value = false
     isProcessing.value = false
@@ -66,7 +69,7 @@ const closeModal = () => {
 const handleRevertVin = async () => {
   if (!isAdmin.value) return
 
-  if (!confirm('Are you sure you want to revert the VIN to null? This action cannot be undone.')) {
+  if (!confirm(t('vinEditForm.confirm_revert_vin'))) {
     return
   }
 
@@ -84,10 +87,10 @@ const handleRevertVin = async () => {
       emit('save', { ...props.car, vin: null })
       emit('close')
     } else {
-      error.value = result.error || 'Failed to revert VIN'
+      error.value = result.error || t('vinEditForm.failed_to_revert_vin')
     }
   } catch (err) {
-    error.value = err.message || 'An error occurred'
+    error.value = err.message || t('vinEditForm.an_error_occurred')
   } finally {
     loading.value = false
     isProcessing.value = false
@@ -101,7 +104,7 @@ const handleRevertVin = async () => {
       <div class="modal-header">
         <h3>
           <i class="fas fa-barcode"></i>
-          Edit VIN Number
+          {{ t('vinEditForm.edit_vin_number') }}
         </h3>
         <button class="close-btn" @click="closeModal" :disabled="isProcessing">
           <i class="fas fa-times"></i>
@@ -112,13 +115,13 @@ const handleRevertVin = async () => {
         <div class="form-group">
           <label for="current-vin">
             <i class="fas fa-tag"></i>
-            Current VIN:
+            {{ t('vinEditForm.current_vin') }}:
           </label>
           <div class="input-wrapper">
             <input
               type="text"
               id="current-vin"
-              :value="car.vin || 'N/A'"
+              :value="car.vin || t('vinEditForm.na')"
               disabled
               class="input-disabled"
             />
@@ -128,14 +131,14 @@ const handleRevertVin = async () => {
         <div class="form-group">
           <label for="new-vin">
             <i class="fas fa-edit"></i>
-            New VIN:
+            {{ t('vinEditForm.new_vin') }}:
           </label>
           <div class="input-wrapper">
             <input
               type="text"
               id="new-vin"
               v-model="newVin"
-              placeholder="Enter new VIN number"
+              :placeholder="t('vinEditForm.enter_new_vin_number')"
               class="input-field"
               :disabled="isProcessing"
             />
@@ -150,7 +153,7 @@ const handleRevertVin = async () => {
             class="revert-btn"
           >
             <i class="fas fa-undo"></i>
-            Revert VIN to Null
+            {{ t('vinEditForm.revert_vin_to_null') }}
           </button>
         </div>
 
@@ -163,7 +166,7 @@ const handleRevertVin = async () => {
       <div class="modal-footer">
         <button class="cancel-btn" @click="closeModal" :disabled="isProcessing">
           <i class="fas fa-times"></i>
-          Cancel
+          {{ t('vinEditForm.cancel') }}
         </button>
         <button
           class="save-btn"
@@ -172,7 +175,7 @@ const handleRevertVin = async () => {
           :class="{ 'is-processing': isProcessing }"
         >
           <i class="fas fa-save"></i>
-          <span>{{ isProcessing ? 'Saving...' : 'Save Changes' }}</span>
+          <span>{{ isProcessing ? t('vinEditForm.saving') : t('vinEditForm.save_changes') }}</span>
           <i v-if="isProcessing" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
       </div>

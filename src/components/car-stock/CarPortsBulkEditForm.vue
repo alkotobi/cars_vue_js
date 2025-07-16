@@ -1,6 +1,9 @@
 <script setup>
 import { ref, defineProps, defineEmits, onMounted, computed } from 'vue'
 import { useApi } from '../../composables/useApi'
+import { useEnhancedI18n } from '@/composables/useI18n'
+
+const { t } = useEnhancedI18n()
 
 const props = defineProps({
   selectedCars: {
@@ -58,7 +61,7 @@ const fetchPorts = async () => {
       dischargePorts.value = dischargePortsResult.data
     }
   } catch (err) {
-    error.value = 'Failed to load ports data'
+    error.value = t('carPortsBulkEditForm.failedToLoadPortsData')
     console.error('Error fetching ports:', err)
   } finally {
     isFetchingPorts.value = false
@@ -68,7 +71,7 @@ const fetchPorts = async () => {
 const handleSubmit = async () => {
   if (isProcessing.value || loading.value) return
   if (!selectedLoadingPort.value && !selectedDischargePort.value) {
-    error.value = 'Please select at least one port to update'
+    error.value = t('carPortsBulkEditForm.pleaseSelectAtLeastOnePort')
     return
   }
 
@@ -124,10 +127,10 @@ const handleSubmit = async () => {
       emit('save', updatedCars)
       emit('close')
     } else {
-      throw new Error(result.error || 'Failed to update ports')
+      throw new Error(result.error || t('carPortsBulkEditForm.failedToUpdatePorts'))
     }
   } catch (err) {
-    error.value = err.message || 'An error occurred'
+    error.value = err.message || t('carPortsBulkEditForm.anErrorOccurred')
   } finally {
     loading.value = false
     isProcessing.value = false
@@ -139,7 +142,7 @@ const handleRevertPorts = async () => {
 
   // Add confirmation dialog
   const confirmed = confirm(
-    `Are you sure you want to revert ports to null for ${selectedCarsCount.value} selected cars? This action cannot be undone.`,
+    t('carPortsBulkEditForm.confirmRevertPorts', { count: selectedCarsCount.value }),
   )
   if (!confirmed) return
 
@@ -170,10 +173,10 @@ const handleRevertPorts = async () => {
       emit('save', updatedCars)
       emit('close')
     } else {
-      throw new Error(result.error || 'Failed to revert ports')
+      throw new Error(result.error || t('carPortsBulkEditForm.failedToRevertPorts'))
     }
   } catch (err) {
-    error.value = err.message || 'An error occurred'
+    error.value = err.message || t('carPortsBulkEditForm.anErrorOccurred')
   } finally {
     loading.value = false
     isProcessing.value = false
@@ -197,7 +200,7 @@ onMounted(fetchPorts)
       <div class="modal-header">
         <h3>
           <i class="fas fa-anchor"></i>
-          Edit Ports for {{ selectedCarsCount }} Cars
+          {{ t('carPortsBulkEditForm.editPortsForCars', { count: selectedCarsCount }) }}
         </h3>
         <button class="close-btn" @click="closeModal" :disabled="isProcessing">
           <i class="fas fa-times"></i>
@@ -206,20 +209,25 @@ onMounted(fetchPorts)
 
       <div class="modal-body">
         <div class="info-section">
-          <p><strong>Selected Cars:</strong> {{ selectedCarsCount }}</p>
-          <p><strong>Action:</strong> Update ports for all selected cars</p>
+          <p>
+            <strong>{{ t('carPortsBulkEditForm.selectedCars') }}:</strong> {{ selectedCarsCount }}
+          </p>
+          <p>
+            <strong>{{ t('carPortsBulkEditForm.action') }}:</strong>
+            {{ t('carPortsBulkEditForm.updatePortsForAllSelectedCars') }}
+          </p>
         </div>
 
         <div v-if="isFetchingPorts" class="loading-state">
           <i class="fas fa-spinner fa-spin"></i>
-          Loading ports data...
+          {{ t('carPortsBulkEditForm.loadingPortsData') }}
         </div>
 
         <template v-else>
           <div class="form-group">
             <label for="loading-port">
               <i class="fas fa-ship"></i>
-              Loading Port:
+              {{ t('carPortsBulkEditForm.loadingPorts') }}:
             </label>
             <div class="select-wrapper">
               <select
@@ -228,7 +236,7 @@ onMounted(fetchPorts)
                 class="select-field"
                 :disabled="isProcessing"
               >
-                <option value="">Select Loading Port</option>
+                <option value="">{{ t('carPortsBulkEditForm.selectLoadingPort') }}</option>
                 <option v-for="port in loadingPorts" :key="port.id" :value="port.id">
                   {{ port.loading_port }}
                 </option>
@@ -240,7 +248,7 @@ onMounted(fetchPorts)
           <div class="form-group">
             <label for="discharge-port">
               <i class="fas fa-anchor"></i>
-              Discharge Port:
+              {{ t('carPortsBulkEditForm.dischargePorts') }}:
             </label>
             <div class="select-wrapper">
               <select
@@ -249,7 +257,7 @@ onMounted(fetchPorts)
                 class="select-field"
                 :disabled="isProcessing"
               >
-                <option value="">Select Discharge Port</option>
+                <option value="">{{ t('carPortsBulkEditForm.selectDischargePort') }}</option>
                 <option v-for="port in dischargePorts" :key="port.id" :value="port.id">
                   {{ port.discharge_port }}
                 </option>
@@ -273,13 +281,17 @@ onMounted(fetchPorts)
           :disabled="isProcessing || isFetchingPorts"
         >
           <i class="fas fa-undo"></i>
-          <span>{{ isProcessing ? 'Reverting...' : 'Revert to Null' }}</span>
+          <span>{{
+            isProcessing
+              ? t('carPortsBulkEditForm.reverting')
+              : t('carPortsBulkEditForm.revertToNull')
+          }}</span>
           <i v-if="isProcessing" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
         <div class="modal-footer-spacer"></div>
         <button class="cancel-btn" @click="closeModal" :disabled="isProcessing">
           <i class="fas fa-times"></i>
-          Cancel
+          {{ t('carPortsBulkEditForm.cancel') }}
         </button>
         <button
           class="save-btn"
@@ -288,7 +300,9 @@ onMounted(fetchPorts)
           :class="{ 'is-processing': isProcessing }"
         >
           <i class="fas fa-save"></i>
-          <span>{{ isProcessing ? 'Saving...' : 'Save Changes' }}</span>
+          <span>{{
+            isProcessing ? t('carPortsBulkEditForm.saving') : t('carPortsBulkEditForm.saveChanges')
+          }}</span>
           <i v-if="isProcessing" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
       </div>

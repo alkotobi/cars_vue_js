@@ -3,44 +3,54 @@
     <div class="vin-modal-overlay" @click="closeModal"></div>
     <div class="vin-modal-content" @click.stop>
       <div class="vin-modal-header">
-        <h3>VIN Assignment</h3>
+        <h3>{{ t('vinAssignmentModal.vin_assignment') }}</h3>
         <button class="vin-close-btn" @click="closeModal">&times;</button>
       </div>
 
       <div class="vin-modal-body">
         <div class="vin-info-section">
-          <p><strong>Selected Cars:</strong> {{ selectedCarsCount }}</p>
-          <p><strong>VINs to Assign:</strong> {{ vinList.length }}</p>
+          <p>
+            <strong>{{ t('vinAssignmentModal.selected_cars') }}:</strong> {{ selectedCarsCount }}
+          </p>
+          <p>
+            <strong>{{ t('vinAssignmentModal.vins_to_assign') }}:</strong> {{ vinList.length }}
+          </p>
 
           <div v-if="vinList.length !== selectedCarsCount" class="vin-warning">
             <span v-if="vinList.length > selectedCarsCount">
-              ⚠️ You have more VINs ({{ vinList.length }}) than selected cars ({{
-                selectedCarsCount
-              }})
+              ⚠️
+              {{
+                t('vinAssignmentModal.more_vins_than_cars', {
+                  vins: vinList.length,
+                  cars: selectedCarsCount,
+                })
+              }}
             </span>
             <span v-else>
-              ⚠️ You have fewer VINs ({{ vinList.length }}) than selected cars ({{
-                selectedCarsCount
-              }})
+              ⚠️
+              {{
+                t('vinAssignmentModal.fewer_vins_than_cars', {
+                  vins: vinList.length,
+                  cars: selectedCarsCount,
+                })
+              }}
             </span>
           </div>
         </div>
 
         <div class="vin-input-section">
-          <label for="vin-input"
-            >Paste VINs (separated by space, comma, semicolon, or new line):</label
-          >
+          <label for="vin-input">{{ t('vinAssignmentModal.paste_vins_label') }}</label>
           <textarea
             id="vin-input"
             v-model="vinInput"
-            placeholder="Enter VINs here..."
+            :placeholder="t('vinAssignmentModal.enter_vins_placeholder')"
             rows="8"
             @input="parseVins"
           ></textarea>
         </div>
 
         <div class="vin-preview" v-if="vinList.length > 0">
-          <h4>VINs to Assign:</h4>
+          <h4>{{ t('vinAssignmentModal.vins_to_assign') }}:</h4>
           <div class="vin-list">
             <div
               v-for="(vin, index) in vinList"
@@ -54,7 +64,7 @@
         </div>
 
         <div class="selected-cars-preview" v-if="selectedCars.length > 0">
-          <h4>Selected Cars:</h4>
+          <h4>{{ t('vinAssignmentModal.selected_cars') }}:</h4>
           <div class="cars-list">
             <div v-for="(car, index) in selectedCars" :key="car.id" class="car-item">
               <span class="car-ref">{{ car.ref }}</span>
@@ -73,18 +83,20 @@
           @click="revertVins"
           :disabled="selectedCarsCount === 0 || isProcessing"
         >
-          <span v-if="isProcessing">Reverting...</span>
-          <span v-else>Revert VINs to Null</span>
+          <span v-if="isProcessing">{{ t('vinAssignmentModal.reverting') }}</span>
+          <span v-else>{{ t('vinAssignmentModal.revert_vins_to_null') }}</span>
         </button>
         <div class="vin-modal-footer-spacer"></div>
-        <button class="vin-btn vin-btn-secondary" @click="closeModal">Cancel</button>
+        <button class="vin-btn vin-btn-secondary" @click="closeModal">
+          {{ t('vinAssignmentModal.cancel') }}
+        </button>
         <button
           class="vin-btn vin-btn-primary"
           @click="assignVins"
           :disabled="!canAssign || isProcessing"
         >
-          <span v-if="isProcessing">Assigning...</span>
-          <span v-else>Assign VINs</span>
+          <span v-if="isProcessing">{{ t('vinAssignmentModal.assigning') }}</span>
+          <span v-else>{{ t('vinAssignmentModal.assign_vins') }}</span>
         </button>
       </div>
     </div>
@@ -93,6 +105,7 @@
 
 <script>
 import { ref, computed, watch } from 'vue'
+import { useEnhancedI18n } from '@/composables/useI18n'
 import { useApi } from '@/composables/useApi'
 
 export default {
@@ -109,6 +122,7 @@ export default {
   },
   emits: ['close', 'vins-assigned'],
   setup(props, { emit }) {
+    const { t } = useEnhancedI18n()
     const { callApi } = useApi()
     const vinInput = ref('')
     const vinList = ref([])
@@ -160,11 +174,15 @@ export default {
           emit('vins-assigned', assignments)
           closeModal()
         } else {
-          alert('Error assigning VINs: ' + (response.message || 'Unknown error'))
+          alert(
+            t('vinAssignmentModal.error_assigning_vins') +
+              ': ' +
+              (response.message || t('vinAssignmentModal.unknown_error')),
+          )
         }
       } catch (error) {
         console.error('Error assigning VINs:', error)
-        alert('Error assigning VINs: ' + error.message)
+        alert(t('vinAssignmentModal.error_assigning_vins') + ': ' + error.message)
       } finally {
         isProcessing.value = false
       }
@@ -175,7 +193,7 @@ export default {
 
       // Add confirmation dialog
       const confirmed = confirm(
-        `Are you sure you want to revert VINs to null for ${selectedCarsCount.value} selected cars? This action cannot be undone.`,
+        t('vinAssignmentModal.confirm_revert_vins', { count: selectedCarsCount.value }),
       )
       if (!confirmed) return
 
@@ -201,11 +219,15 @@ export default {
           closeModal()
         } else {
           console.error('Revert VIN failed:', response)
-          alert('Error reverting VINs: ' + (response.message || response.error || 'Unknown error'))
+          alert(
+            t('vinAssignmentModal.error_reverting_vins') +
+              ': ' +
+              (response.message || response.error || t('vinAssignmentModal.unknown_error')),
+          )
         }
       } catch (error) {
         console.error('Error reverting VINs:', error)
-        alert('Error reverting VINs: ' + error.message)
+        alert(t('vinAssignmentModal.error_reverting_vins') + ': ' + error.message)
       } finally {
         isProcessing.value = false
       }
@@ -243,6 +265,7 @@ export default {
     })
 
     return {
+      t,
       vinInput,
       vinList,
       assignedVins,

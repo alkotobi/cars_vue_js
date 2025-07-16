@@ -2,6 +2,9 @@
 import { ref, defineProps, defineEmits, computed } from 'vue'
 import { useApi } from '../../composables/useApi'
 import { ElMessageBox } from 'element-plus'
+import { useEnhancedI18n } from '@/composables/useI18n'
+
+const { t } = useEnhancedI18n()
 
 const props = defineProps({
   car: {
@@ -51,7 +54,7 @@ const clientDocsDate = ref(new Date().toISOString().split('T')[0])
 // Handle BL received
 const handleGetBL = async () => {
   try {
-    const confirmed = confirm('Are you sure you want to mark the BL as received?')
+    const confirmed = confirm(t('carDocumentsForm.confirmMarkBlAsReceived'))
     if (!confirmed) return
 
     loading.value = true
@@ -64,7 +67,7 @@ const handleGetBL = async () => {
     })
 
     if (result.success) {
-      success.value = 'BL received date updated'
+      success.value = t('carDocumentsForm.blReceivedDateUpdated')
       const updatedCar = {
         ...props.car,
         date_get_bl: blDate.value,
@@ -72,10 +75,10 @@ const handleGetBL = async () => {
       Object.assign(props.car, updatedCar)
       emit('save', updatedCar)
     } else {
-      throw new Error(result.error || 'Failed to update BL received date')
+      throw new Error(result.error || t('carDocumentsForm.failedToUpdateBlReceivedDate'))
     }
   } catch (err) {
-    error.value = err.message || 'An error occurred'
+    error.value = err.message || t('carDocumentsForm.anErrorOccurred')
   } finally {
     loading.value = false
   }
@@ -84,7 +87,7 @@ const handleGetBL = async () => {
 // Handle freight payment
 const handleFreightPaid = async () => {
   try {
-    const confirmed = confirm('Are you sure you want to mark the freight as paid?')
+    const confirmed = confirm(t('carDocumentsForm.confirmMarkFreightAsPaid'))
     if (!confirmed) return
 
     loading.value = true
@@ -97,7 +100,7 @@ const handleFreightPaid = async () => {
     })
 
     if (result.success) {
-      success.value = 'Freight payment date updated'
+      success.value = t('carDocumentsForm.freightPaymentDateUpdated')
       const updatedCar = {
         ...props.car,
         date_pay_freight: freightDate.value,
@@ -105,10 +108,10 @@ const handleFreightPaid = async () => {
       Object.assign(props.car, updatedCar)
       emit('save', updatedCar)
     } else {
-      throw new Error(result.error || 'Failed to update freight payment date')
+      throw new Error(result.error || t('carDocumentsForm.failedToUpdateFreightPaymentDate'))
     }
   } catch (err) {
-    error.value = err.message || 'An error occurred'
+    error.value = err.message || t('carDocumentsForm.anErrorOccurred')
   } finally {
     loading.value = false
   }
@@ -117,9 +120,7 @@ const handleFreightPaid = async () => {
 // Handle documents received from supplier
 const handleDocsFromSupplier = async () => {
   try {
-    const confirmed = confirm(
-      'Are you sure you want to mark the documents as received from supplier?',
-    )
+    const confirmed = confirm(t('carDocumentsForm.confirmMarkDocsAsReceivedFromSupplier'))
     if (!confirmed) return
 
     loading.value = true
@@ -132,7 +133,7 @@ const handleDocsFromSupplier = async () => {
     })
 
     if (result.success) {
-      success.value = 'Documents from supplier date updated'
+      success.value = t('carDocumentsForm.documentsFromSupplierDateUpdated')
       const updatedCar = {
         ...props.car,
         date_get_documents_from_supp: supplierDocsDate.value,
@@ -140,10 +141,10 @@ const handleDocsFromSupplier = async () => {
       Object.assign(props.car, updatedCar)
       emit('save', updatedCar)
     } else {
-      throw new Error(result.error || 'Failed to update documents from supplier date')
+      throw new Error(result.error || t('carDocumentsForm.failedToUpdateDocumentsFromSupplierDate'))
     }
   } catch (err) {
-    error.value = err.message || 'An error occurred'
+    error.value = err.message || t('carDocumentsForm.anErrorOccurred')
   } finally {
     loading.value = false
   }
@@ -152,7 +153,7 @@ const handleDocsFromSupplier = async () => {
 // Handle documents sent to client
 const handleDocsSentToClient = async () => {
   try {
-    const confirmed = confirm('Are you sure you want to mark the documents as sent to client?')
+    const confirmed = confirm(t('carDocumentsForm.confirmMarkDocsAsSentToClient'))
     if (!confirmed) return
 
     loading.value = true
@@ -165,7 +166,7 @@ const handleDocsSentToClient = async () => {
     })
 
     if (result.success) {
-      success.value = 'Documents sent to client date updated'
+      success.value = t('carDocumentsForm.documentsSentToClientDateUpdated')
       const updatedCar = {
         ...props.car,
         date_send_documents: clientDocsDate.value,
@@ -177,10 +178,10 @@ const handleDocsSentToClient = async () => {
         emit('close')
       }, 1500)
     } else {
-      throw new Error(result.error || 'Failed to update documents sent date')
+      throw new Error(result.error || t('carDocumentsForm.failedToUpdateDocumentsSentDate'))
     }
   } catch (err) {
-    error.value = err.message || 'An error occurred'
+    error.value = err.message || t('carDocumentsForm.anErrorOccurred')
   } finally {
     loading.value = false
   }
@@ -189,7 +190,7 @@ const handleDocsSentToClient = async () => {
 // Handle export license update
 const handleExportLicenseUpdate = async () => {
   try {
-    const confirmed = confirm('Are you sure you want to update the export license reference?')
+    const confirmed = confirm(t('carDocumentsForm.confirmUpdateExportLicenseReference'))
     if (!confirmed) return
 
     loading.value = true
@@ -202,7 +203,7 @@ const handleExportLicenseUpdate = async () => {
     })
 
     if (result.success) {
-      success.value = 'Export license reference updated'
+      success.value = t('carDocumentsForm.exportLicenseReferenceUpdated')
       const updatedCar = {
         ...props.car,
         export_lisence_ref: exportLicenseRef.value,
@@ -210,10 +211,10 @@ const handleExportLicenseUpdate = async () => {
       Object.assign(props.car, updatedCar)
       emit('save', updatedCar)
     } else {
-      throw new Error(result.error || 'Failed to update export license reference')
+      throw new Error(result.error || t('carDocumentsForm.failedToUpdateExportLicenseReference'))
     }
   } catch (err) {
-    error.value = err.message || 'An error occurred'
+    error.value = err.message || t('carDocumentsForm.anErrorOccurred')
   } finally {
     loading.value = false
   }
@@ -225,7 +226,7 @@ const handleRevertBL = async () => {
   if (!isAdmin.value) return
 
   try {
-    const confirmed = confirm('Are you sure you want to revert the BL received status?')
+    const confirmed = confirm(t('carDocumentsForm.confirmRevertBlReceivedStatus'))
     if (!confirmed) return
 
     loading.value = true
@@ -238,7 +239,7 @@ const handleRevertBL = async () => {
     })
 
     if (result.success) {
-      success.value = 'BL received status reverted'
+      success.value = t('carDocumentsForm.blReceivedStatusReverted')
       const updatedCar = {
         ...props.car,
         date_get_bl: null,
@@ -246,10 +247,10 @@ const handleRevertBL = async () => {
       Object.assign(props.car, updatedCar)
       emit('save', updatedCar)
     } else {
-      throw new Error(result.error || 'Failed to revert BL received status')
+      throw new Error(result.error || t('carDocumentsForm.failedToRevertBlReceivedStatus'))
     }
   } catch (err) {
-    error.value = err.message || 'An error occurred'
+    error.value = err.message || t('carDocumentsForm.anErrorOccurred')
   } finally {
     loading.value = false
   }
@@ -260,7 +261,7 @@ const handleRevertFreight = async () => {
   if (!isAdmin.value) return
 
   try {
-    const confirmed = confirm('Are you sure you want to revert the freight payment status?')
+    const confirmed = confirm(t('carDocumentsForm.confirmRevertFreightPaymentStatus'))
     if (!confirmed) return
 
     loading.value = true
@@ -273,7 +274,7 @@ const handleRevertFreight = async () => {
     })
 
     if (result.success) {
-      success.value = 'Freight payment status reverted'
+      success.value = t('carDocumentsForm.freightPaymentStatusReverted')
       const updatedCar = {
         ...props.car,
         date_pay_freight: null,
@@ -281,10 +282,10 @@ const handleRevertFreight = async () => {
       Object.assign(props.car, updatedCar)
       emit('save', updatedCar)
     } else {
-      throw new Error(result.error || 'Failed to revert freight payment status')
+      throw new Error(result.error || t('carDocumentsForm.failedToRevertFreightPaymentStatus'))
     }
   } catch (err) {
-    error.value = err.message || 'An error occurred'
+    error.value = err.message || t('carDocumentsForm.anErrorOccurred')
   } finally {
     loading.value = false
   }
@@ -295,9 +296,7 @@ const handleRevertSupplierDocs = async () => {
   if (!isAdmin.value) return
 
   try {
-    const confirmed = confirm(
-      'Are you sure you want to revert the supplier documents received status?',
-    )
+    const confirmed = confirm(t('carDocumentsForm.confirmRevertSupplierDocumentsReceivedStatus'))
     if (!confirmed) return
 
     loading.value = true
@@ -310,7 +309,7 @@ const handleRevertSupplierDocs = async () => {
     })
 
     if (result.success) {
-      success.value = 'Supplier documents status reverted'
+      success.value = t('carDocumentsForm.supplierDocumentsStatusReverted')
       const updatedCar = {
         ...props.car,
         date_get_documents_from_supp: null,
@@ -318,10 +317,10 @@ const handleRevertSupplierDocs = async () => {
       Object.assign(props.car, updatedCar)
       emit('save', updatedCar)
     } else {
-      throw new Error(result.error || 'Failed to revert supplier documents status')
+      throw new Error(result.error || t('carDocumentsForm.failedToRevertSupplierDocumentsStatus'))
     }
   } catch (err) {
-    error.value = err.message || 'An error occurred'
+    error.value = err.message || t('carDocumentsForm.anErrorOccurred')
   } finally {
     loading.value = false
   }
@@ -332,7 +331,7 @@ const handleRevertClientDocs = async () => {
   if (!isAdmin.value) return
 
   try {
-    const confirmed = confirm('Are you sure you want to revert the client documents sent status?')
+    const confirmed = confirm(t('carDocumentsForm.confirmRevertClientDocumentsSentStatus'))
     if (!confirmed) return
 
     loading.value = true
@@ -345,7 +344,7 @@ const handleRevertClientDocs = async () => {
     })
 
     if (result.success) {
-      success.value = 'Client documents sent status reverted'
+      success.value = t('carDocumentsForm.clientDocumentsSentStatusReverted')
       const updatedCar = {
         ...props.car,
         date_send_documents: null,
@@ -353,10 +352,10 @@ const handleRevertClientDocs = async () => {
       Object.assign(props.car, updatedCar)
       emit('save', updatedCar)
     } else {
-      throw new Error(result.error || 'Failed to revert client documents sent status')
+      throw new Error(result.error || t('carDocumentsForm.failedToRevertClientDocumentsSentStatus'))
     }
   } catch (err) {
-    error.value = err.message || 'An error occurred'
+    error.value = err.message || t('carDocumentsForm.anErrorOccurred')
   } finally {
     loading.value = false
   }
@@ -379,7 +378,7 @@ const closeModal = () => {
   <div v-if="show" class="modal-overlay">
     <div class="modal-content">
       <div class="modal-header">
-        <h3>Car Documents Management</h3>
+        <h3>{{ t('carDocumentsForm.carDocumentsManagement') }}</h3>
         <button class="close-btn" @click="closeModal">&times;</button>
       </div>
 
@@ -388,21 +387,25 @@ const closeModal = () => {
         <div class="document-grid">
           <!-- BL Section -->
           <div class="document-section">
-            <h4>Bill of Lading (BL)</h4>
+            <h4>{{ t('carDocumentsForm.billOfLading') }}</h4>
             <div class="status-info">
-              <span class="status-label">Status:</span>
+              <span class="status-label">{{ t('carDocumentsForm.status') }}:</span>
               <span :class="['status-value', props.car.date_get_bl ? 'received' : 'pending']">
-                {{ props.car.date_get_bl ? 'Received' : 'Pending' }}
+                {{
+                  props.car.date_get_bl
+                    ? t('carDocumentsForm.received')
+                    : t('carDocumentsForm.pending')
+                }}
               </span>
             </div>
             <div v-if="props.car.date_get_bl" class="date-info">
-              <span class="date-label">Received Date:</span>
+              <span class="date-label">{{ t('carDocumentsForm.receivedDate') }}:</span>
               <span class="date-value">{{
                 new Date(props.car.date_get_bl).toLocaleDateString()
               }}</span>
             </div>
             <div v-if="!props.car.date_get_bl" class="date-input-group">
-              <label for="bl-date">Date:</label>
+              <label for="bl-date">{{ t('carDocumentsForm.date') }}:</label>
               <input
                 type="date"
                 id="bl-date"
@@ -418,7 +421,7 @@ const closeModal = () => {
                 :disabled="loading || !!props.car.date_get_bl"
                 :class="{ disabled: !!props.car.date_get_bl }"
               >
-                {{ loading ? 'Processing...' : 'We Get BL' }}
+                {{ loading ? t('carDocumentsForm.processing') : t('carDocumentsForm.weGetBl') }}
               </button>
               <button
                 v-if="isAdmin && props.car.date_get_bl"
@@ -434,21 +437,25 @@ const closeModal = () => {
 
           <!-- Freight Payment Section -->
           <div class="document-section">
-            <h4>Freight Payment</h4>
+            <h4>{{ t('carDocumentsForm.freightPayment') }}</h4>
             <div class="status-info">
-              <span class="status-label">Status:</span>
+              <span class="status-label">{{ t('carDocumentsForm.status') }}:</span>
               <span :class="['status-value', props.car.date_pay_freight ? 'paid' : 'pending']">
-                {{ props.car.date_pay_freight ? 'Paid' : 'Pending' }}
+                {{
+                  props.car.date_pay_freight
+                    ? t('carDocumentsForm.paid')
+                    : t('carDocumentsForm.pending')
+                }}
               </span>
             </div>
             <div v-if="props.car.date_pay_freight" class="date-info">
-              <span class="date-label">Payment Date:</span>
+              <span class="date-label">{{ t('carDocumentsForm.paymentDate') }}:</span>
               <span class="date-value">{{
                 new Date(props.car.date_pay_freight).toLocaleDateString()
               }}</span>
             </div>
             <div v-if="!props.car.date_pay_freight" class="date-input-group">
-              <label for="freight-date">Date:</label>
+              <label for="freight-date">{{ t('carDocumentsForm.date') }}:</label>
               <input
                 type="date"
                 id="freight-date"
@@ -464,7 +471,7 @@ const closeModal = () => {
                 :disabled="loading || !!props.car.date_pay_freight"
                 :class="{ disabled: !!props.car.date_pay_freight }"
               >
-                {{ loading ? 'Processing...' : 'Freight Paid' }}
+                {{ loading ? t('carDocumentsForm.processing') : t('carDocumentsForm.freightPaid') }}
               </button>
               <button
                 v-if="isAdmin && props.car.date_pay_freight"
@@ -480,26 +487,30 @@ const closeModal = () => {
 
           <!-- Supplier Documents Section -->
           <div class="document-section">
-            <h4>Supplier Documents</h4>
+            <h4>{{ t('carDocumentsForm.supplierDocuments') }}</h4>
             <div class="status-info">
-              <span class="status-label">Status:</span>
+              <span class="status-label">{{ t('carDocumentsForm.status') }}:</span>
               <span
                 :class="[
                   'status-value',
                   props.car.date_get_documents_from_supp ? 'received' : 'pending',
                 ]"
               >
-                {{ props.car.date_get_documents_from_supp ? 'Received' : 'Pending' }}
+                {{
+                  props.car.date_get_documents_from_supp
+                    ? t('carDocumentsForm.received')
+                    : t('carDocumentsForm.pending')
+                }}
               </span>
             </div>
             <div v-if="props.car.date_get_documents_from_supp" class="date-info">
-              <span class="date-label">Received Date:</span>
+              <span class="date-label">{{ t('carDocumentsForm.receivedDate') }}:</span>
               <span class="date-value">{{
                 new Date(props.car.date_get_documents_from_supp).toLocaleDateString()
               }}</span>
             </div>
             <div v-if="!props.car.date_get_documents_from_supp" class="date-input-group">
-              <label for="supplier-docs-date">Date:</label>
+              <label for="supplier-docs-date">{{ t('carDocumentsForm.date') }}:</label>
               <input
                 type="date"
                 id="supplier-docs-date"
@@ -515,7 +526,11 @@ const closeModal = () => {
                 :disabled="loading || !!props.car.date_get_documents_from_supp"
                 :class="{ disabled: !!props.car.date_get_documents_from_supp }"
               >
-                {{ loading ? 'Processing...' : 'We Get Docs from Supplier' }}
+                {{
+                  loading
+                    ? t('carDocumentsForm.processing')
+                    : t('carDocumentsForm.weGetDocsFromSupplier')
+                }}
               </button>
               <button
                 v-if="isAdmin && props.car.date_get_documents_from_supp"
@@ -531,21 +546,25 @@ const closeModal = () => {
 
           <!-- Client Documents Section -->
           <div class="document-section">
-            <h4>We Send Client Documents</h4>
+            <h4>{{ t('carDocumentsForm.weSendClientDocuments') }}</h4>
             <div class="status-info">
-              <span class="status-label">Status:</span>
+              <span class="status-label">{{ t('carDocumentsForm.status') }}:</span>
               <span :class="['status-value', props.car.date_send_documents ? 'sent' : 'pending']">
-                {{ props.car.date_send_documents ? 'Sent' : 'Pending' }}
+                {{
+                  props.car.date_send_documents
+                    ? t('carDocumentsForm.sent')
+                    : t('carDocumentsForm.pending')
+                }}
               </span>
             </div>
             <div v-if="props.car.date_send_documents" class="date-info">
-              <span class="date-label">Sent Date:</span>
+              <span class="date-label">{{ t('carDocumentsForm.sentDate') }}:</span>
               <span class="date-value">{{
                 new Date(props.car.date_send_documents).toLocaleDateString()
               }}</span>
             </div>
             <div v-if="!props.car.date_send_documents" class="date-input-group">
-              <label for="client-docs-date">Date:</label>
+              <label for="client-docs-date">{{ t('carDocumentsForm.date') }}:</label>
               <input
                 type="date"
                 id="client-docs-date"
@@ -561,7 +580,11 @@ const closeModal = () => {
                 :disabled="loading || !!props.car.date_send_documents"
                 :class="{ disabled: !!props.car.date_send_documents }"
               >
-                {{ loading ? 'Processing...' : 'Documents Sent to Client' }}
+                {{
+                  loading
+                    ? t('carDocumentsForm.processing')
+                    : t('carDocumentsForm.documentsSentToClient')
+                }}
               </button>
               <button
                 v-if="isAdmin && props.car.date_send_documents"
@@ -578,20 +601,20 @@ const closeModal = () => {
 
         <!-- Export License Section -->
         <div class="export-license-section">
-          <h4>Export License</h4>
+          <h4>{{ t('carDocumentsForm.exportLicense') }}</h4>
           <div class="form-group">
-            <label for="export-license">Reference Number:</label>
+            <label for="export-license">{{ t('carDocumentsForm.referenceNumber') }}:</label>
             <div class="input-group">
               <input
                 type="text"
                 id="export-license"
                 v-model="exportLicenseRef"
-                placeholder="Enter export license reference"
+                :placeholder="t('carDocumentsForm.enterExportLicenseReference')"
                 class="input-field"
                 :disabled="loading"
               />
               <button class="update-btn" @click="handleExportLicenseUpdate" :disabled="loading">
-                Update
+                {{ t('carDocumentsForm.update') }}
               </button>
             </div>
           </div>
@@ -606,7 +629,9 @@ const closeModal = () => {
       </div>
 
       <div class="modal-footer">
-        <button class="close-btn-secondary" @click="closeModal" :disabled="loading">Close</button>
+        <button class="close-btn-secondary" @click="closeModal" :disabled="loading">
+          {{ t('carDocumentsForm.close') }}
+        </button>
       </div>
     </div>
   </div>

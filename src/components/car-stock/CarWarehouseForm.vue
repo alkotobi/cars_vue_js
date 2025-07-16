@@ -1,6 +1,9 @@
 <script setup>
 import { ref, defineProps, defineEmits, onMounted, computed, watch } from 'vue'
 import { useApi } from '../../composables/useApi'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps({
   car: {
@@ -74,7 +77,7 @@ const fetchWarehouses = async () => {
       console.log('Warehouses loaded:', warehouses.value)
     } else {
       console.error('API Error:', result.error)
-      throw new Error(result.error || 'Failed to fetch warehouses')
+      throw new Error(result.error || t('warehouse.fetchError'))
     }
   } catch (err) {
     console.error('Full error details:', {
@@ -82,7 +85,7 @@ const fetchWarehouses = async () => {
       stack: err.stack,
       response: err.response,
     })
-    error.value = `Failed to load warehouses data: ${err.message}`
+    error.value = `${t('warehouse.loadError')}: ${err.message}`
   } finally {
     isFetchingWarehouses.value = false
   }
@@ -91,7 +94,7 @@ const fetchWarehouses = async () => {
 const handleGetCar = async () => {
   if (isProcessing.value || loading.value) return
   if (!can_receive_car.value) {
-    error.value = 'You do not have permission to receive cars'
+    error.value = t('warehouse.noPermission')
     return
   }
 
@@ -99,13 +102,11 @@ const handleGetCar = async () => {
     // Check if any cars are already in warehouse
     const carsInWarehouse = props.cars.filter((car) => car.in_wharhouse_date)
     if (carsInWarehouse.length > 0) {
-      error.value = 'Some cars are already in warehouse. Please use individual car actions.'
+      error.value = t('warehouse.carsAlreadyInWarehouse')
       return
     }
 
-    if (
-      !confirm(`Are you sure you want to mark ${carCount.value} cars as received in warehouse?`)
-    ) {
+    if (!confirm(t('warehouse.confirmBulkReceive', { count: carCount.value }))) {
       return
     }
   } else {
@@ -137,11 +138,11 @@ const handleGetCar = async () => {
           ...car,
           in_wharhouse_date: currentDate,
         }))
-        success.value = `Successfully marked ${carCount.value} cars as received in warehouse`
+        success.value = t('warehouse.bulkReceiveSuccess', { count: carCount.value })
         emit('save', updatedCars)
         emit('warehouse-changed', updatedCars)
       } else {
-        throw new Error(result.error || 'Failed to update warehouse date')
+        throw new Error(result.error || t('warehouse.updateError'))
       }
     } else {
       const result = await callApi({
@@ -150,7 +151,7 @@ const handleGetCar = async () => {
       })
 
       if (result.success) {
-        success.value = 'Car received in warehouse'
+        success.value = t('warehouse.receiveSuccess')
         const updatedCar = {
           ...currentCar.value,
           in_wharhouse_date: currentDate,
@@ -160,11 +161,11 @@ const handleGetCar = async () => {
         emit('save', updatedCar)
         emit('warehouse-changed', updatedCar)
       } else {
-        throw new Error(result.error || 'Failed to update warehouse date')
+        throw new Error(result.error || t('warehouse.updateError'))
       }
     }
   } catch (err) {
-    error.value = err.message || 'An error occurred'
+    error.value = err.message || t('warehouse.generalError')
   } finally {
     loading.value = false
     isProcessing.value = false
@@ -174,14 +175,11 @@ const handleGetCar = async () => {
 const handleWarehouseChange = async () => {
   if (isProcessing.value || loading.value) return
   if (!selectedWarehouse.value) {
-    error.value = 'Please select a warehouse'
+    error.value = t('warehouse.selectWarehouse')
     return
   }
 
-  if (
-    isBulkEdit.value &&
-    !confirm(`Are you sure you want to assign ${carCount.value} cars to the selected warehouse?`)
-  ) {
+  if (isBulkEdit.value && !confirm(t('warehouse.confirmBulkAssign', { count: carCount.value }))) {
     return
   }
 
@@ -217,7 +215,10 @@ const handleWarehouseChange = async () => {
           id_warehouse: parseInt(selectedWarehouse.value),
           warehouse_name: warehouse?.name,
         }))
-        success.value = `Successfully assigned ${carCount.value} cars to ${warehouse?.name || 'warehouse'}`
+        success.value = t('warehouse.bulkAssignSuccess', {
+          count: carCount.value,
+          warehouse: warehouse?.name || t('warehouse.warehouse'),
+        })
         emit('save', updatedCars)
         emit('warehouse-changed', updatedCars)
       } else {
@@ -226,16 +227,16 @@ const handleWarehouseChange = async () => {
           id_warehouse: parseInt(selectedWarehouse.value),
           warehouse_name: warehouse?.name,
         }
-        success.value = 'Warehouse updated successfully'
+        success.value = t('warehouse.updateSuccess')
         Object.assign(props.car, updatedCar)
         emit('save', updatedCar)
         emit('warehouse-changed', updatedCar)
       }
     } else {
-      throw new Error(result.error || 'Failed to update warehouse')
+      throw new Error(result.error || t('warehouse.updateError'))
     }
   } catch (err) {
-    error.value = err.message || 'An error occurred'
+    error.value = err.message || t('warehouse.generalError')
   } finally {
     loading.value = false
     isProcessing.value = false
@@ -245,11 +246,7 @@ const handleWarehouseChange = async () => {
 const handleRevertWarehouse = async () => {
   if (!props.isAdmin) return
 
-  if (
-    !confirm(
-      `Are you sure you want to revert warehouse assignment to null for ${carCount.value} cars? This action cannot be undone.`,
-    )
-  ) {
+  if (!confirm(t('warehouse.confirmRevertWarehouse', { count: carCount.value }))) {
     return
   }
 
@@ -283,7 +280,7 @@ const handleRevertWarehouse = async () => {
           id_warehouse: null,
           warehouse_name: null,
         }))
-        success.value = `Successfully reverted warehouse assignment for ${carCount.value} cars`
+        success.value = t('warehouse.bulkRevertSuccess', { count: carCount.value })
         emit('save', updatedCars)
         emit('warehouse-changed', updatedCars)
       } else {
@@ -292,16 +289,16 @@ const handleRevertWarehouse = async () => {
           id_warehouse: null,
           warehouse_name: null,
         }
-        success.value = 'Warehouse assignment reverted successfully'
+        success.value = t('warehouse.revertSuccess')
         Object.assign(props.car, updatedCar)
         emit('save', updatedCar)
         emit('warehouse-changed', updatedCar)
       }
     } else {
-      throw new Error(result.error || 'Failed to revert warehouse')
+      throw new Error(result.error || t('warehouse.revertError'))
     }
   } catch (err) {
-    error.value = err.message || 'An error occurred'
+    error.value = err.message || t('warehouse.generalError')
   } finally {
     loading.value = false
     isProcessing.value = false
@@ -311,11 +308,7 @@ const handleRevertWarehouse = async () => {
 const handleRevertGetCar = async () => {
   if (!props.isAdmin) return
 
-  if (
-    !confirm(
-      `Are you sure you want to revert the "We Get Cars" action for ${carCount.value} cars? This will remove the received date.`,
-    )
-  ) {
+  if (!confirm(t('warehouse.confirmRevertGetCar', { count: carCount.value }))) {
     return
   }
 
@@ -348,7 +341,7 @@ const handleRevertGetCar = async () => {
           ...car,
           in_wharhouse_date: null,
         }))
-        success.value = `Successfully reverted "We Get Cars" for ${carCount.value} cars`
+        success.value = t('warehouse.bulkRevertGetCarSuccess', { count: carCount.value })
         emit('save', updatedCars)
         emit('warehouse-changed', updatedCars)
       } else {
@@ -356,16 +349,16 @@ const handleRevertGetCar = async () => {
           ...currentCar.value,
           in_wharhouse_date: null,
         }
-        success.value = 'Successfully reverted "We Get Car"'
+        success.value = t('warehouse.revertGetCarSuccess')
         Object.assign(props.car, updatedCar)
         emit('save', updatedCar)
         emit('warehouse-changed', updatedCar)
       }
     } else {
-      throw new Error(result.error || 'Failed to revert "We Get Cars"')
+      throw new Error(result.error || t('warehouse.revertGetCarError'))
     }
   } catch (err) {
-    error.value = err.message || 'An error occurred'
+    error.value = err.message || t('warehouse.generalError')
   } finally {
     loading.value = false
     isProcessing.value = false
@@ -400,7 +393,7 @@ onMounted(fetchWarehouses)
       <div class="modal-header">
         <h3>
           <i class="fas fa-warehouse"></i>
-          {{ isBulkEdit ? 'Bulk Warehouse Management' : 'Warehouse Management' }}
+          {{ isBulkEdit ? t('warehouse.bulkManagementTitle') : t('warehouse.managementTitle') }}
         </h3>
         <button class="close-btn" @click="closeModal" :disabled="isProcessing">
           <i class="fas fa-times"></i>
@@ -412,12 +405,12 @@ onMounted(fetchWarehouses)
         <div v-if="!isBulkEdit" class="status-section">
           <h4>
             <i class="fas fa-info-circle"></i>
-            Warehouse Status
+            {{ t('warehouse.statusTitle') }}
           </h4>
           <div class="status-info">
             <span class="status-label">
               <i class="fas fa-circle-check"></i>
-              Current Status:
+              {{ t('warehouse.currentStatusLabel') }}:
             </span>
             <span
               :class="[
@@ -426,13 +419,17 @@ onMounted(fetchWarehouses)
               ]"
             >
               <i :class="currentCar.in_wharhouse_date ? 'fas fa-check-circle' : 'fas fa-clock'"></i>
-              {{ currentCar.in_wharhouse_date ? 'In Warehouse' : 'Not In Warehouse' }}
+              {{
+                currentCar.in_wharhouse_date
+                  ? t('warehouse.inWarehouse')
+                  : t('warehouse.notInWarehouse')
+              }}
             </span>
           </div>
           <div v-if="currentCar.in_wharhouse_date" class="date-info">
             <span class="date-label">
               <i class="fas fa-calendar-alt"></i>
-              Received Date:
+              {{ t('warehouse.receivedDateLabel') }}:
             </span>
             <span class="date-value">
               {{ new Date(currentCar.in_wharhouse_date).toLocaleDateString() }}
@@ -444,22 +441,22 @@ onMounted(fetchWarehouses)
         <div v-if="isBulkEdit" class="info-section">
           <h4>
             <i class="fas fa-info-circle"></i>
-            Selected Cars
+            {{ t('warehouse.selectedCarsTitle') }}
           </h4>
-          <p>You have selected {{ carCount }} cars to assign to a warehouse.</p>
+          <p>{{ t('warehouse.selectedCarsInfo', { count: carCount }) }}</p>
         </div>
 
         <!-- Warehouse Selection Section -->
         <div v-if="isFetchingWarehouses" class="loading-state">
           <i class="fas fa-spinner fa-spin"></i>
-          Loading warehouses...
+          {{ t('warehouse.loadingWarehouses') }}
         </div>
 
         <template v-else>
           <div class="form-group">
             <label for="warehouse">
               <i class="fas fa-building"></i>
-              Warehouse:
+              {{ t('warehouse.warehouseLabel') }}:
             </label>
             <div class="select-wrapper">
               <select
@@ -468,7 +465,7 @@ onMounted(fetchWarehouses)
                 class="select-field"
                 :disabled="isProcessing"
               >
-                <option value="">Select Warehouse</option>
+                <option value="">{{ t('warehouse.selectWarehouseOption') }}</option>
                 <option v-for="warehouse in warehouses" :key="warehouse.id" :value="warehouse.id">
                   {{ warehouse.name }}
                 </option>
@@ -484,10 +481,10 @@ onMounted(fetchWarehouses)
               <i class="fas fa-sync-alt"></i>
               <span>{{
                 isProcessing
-                  ? 'Updating...'
+                  ? t('warehouse.updating')
                   : isBulkEdit
-                    ? 'Assign to Warehouse'
-                    : 'Update Warehouse'
+                    ? t('warehouse.assignWarehouse')
+                    : t('warehouse.updateWarehouse')
               }}</span>
               <i v-if="isProcessing" class="fas fa-spinner fa-spin loading-indicator"></i>
             </button>
@@ -503,7 +500,7 @@ onMounted(fetchWarehouses)
           >
             <button class="revert-btn" @click="handleRevertWarehouse" :disabled="isProcessing">
               <i class="fas fa-undo"></i>
-              Revert Warehouse to Null
+              {{ t('warehouse.revertWarehouse') }}
             </button>
           </div>
 
@@ -524,13 +521,17 @@ onMounted(fetchWarehouses)
             >
               <i class="fas fa-truck-loading"></i>
               <span>{{
-                isProcessing ? 'Processing...' : isBulkEdit ? 'We Get Cars' : 'We Get Car'
+                isProcessing
+                  ? t('warehouse.processing')
+                  : isBulkEdit
+                    ? t('warehouse.weGetCars')
+                    : t('warehouse.weGetCar')
               }}</span>
               <i v-if="isProcessing" class="fas fa-spinner fa-spin loading-indicator"></i>
             </button>
             <div v-if="!can_receive_car && !currentCar.in_wharhouse_date" class="permission-notice">
               <i class="fas fa-lock"></i>
-              You need permission to receive cars
+              {{ t('warehouse.permissionNotice') }}
             </div>
           </div>
 
@@ -546,7 +547,7 @@ onMounted(fetchWarehouses)
           >
             <button class="revert-get-car-btn" @click="handleRevertGetCar" :disabled="isProcessing">
               <i class="fas fa-undo"></i>
-              Revert "We Get Cars"
+              {{ t('warehouse.revertGetCar') }}
             </button>
           </div>
 
@@ -564,7 +565,7 @@ onMounted(fetchWarehouses)
       <div class="modal-footer">
         <button class="close-btn-secondary" @click="closeModal" :disabled="isProcessing">
           <i class="fas fa-times"></i>
-          Close
+          {{ t('warehouse.close') }}
         </button>
       </div>
     </div>

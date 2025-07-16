@@ -1,6 +1,9 @@
 <script setup>
 import { ref, defineEmits, watch } from 'vue'
 import { useApi } from '../../composables/useApi'
+import { useEnhancedI18n } from '@/composables/useI18n'
+
+const { t } = useEnhancedI18n()
 
 const emit = defineEmits(['filter'])
 
@@ -215,7 +218,7 @@ fetchReferenceData()
           <input
             type="text"
             v-model="basicFilter"
-            placeholder="Search: ID, Car, Color, VIN, Ports, Client, Export License... (Multiple words = AND/OR search)"
+            :placeholder="t('carStockFilter.searchPlaceholder')"
             @keydown="handleBasicFilterKeydown"
             :disabled="isProcessing.basic || showAdvancedFilter"
           />
@@ -224,7 +227,9 @@ fetchReferenceData()
             class="search-btn"
             :disabled="isProcessing.basic || showAdvancedFilter"
             :class="{ processing: isProcessing.basic }"
-            :title="`Press Enter or click to search. Multiple words will be combined with ${useAndOperator ? 'AND' : 'OR'} operator.`"
+            :title="
+              t('carStockFilter.searchButtonTitle', { operator: useAndOperator ? 'AND' : 'OR' })
+            "
           >
             <i class="fas fa-search"></i>
             <i v-if="isProcessing.basic" class="fas fa-spinner fa-spin loading-indicator"></i>
@@ -239,10 +244,12 @@ fetchReferenceData()
             />
             <span class="checkbox-label">
               <i class="fas fa-link"></i>
-              If checked all words must mached
+              {{ t('carStockFilter.ifCheckedAllWordsMustMatched') }}
             </span>
           </label>
-          <span class="operator-hint"> {{ useAndOperator ? 'AND' : 'OR' }} mode </span>
+          <span class="operator-hint">
+            {{ useAndOperator ? t('carStockFilter.andMode') : t('carStockFilter.orMode') }}
+          </span>
         </div>
         <div class="filter-actions">
           <button
@@ -251,7 +258,11 @@ fetchReferenceData()
             :disabled="isProcessing.advanced"
           >
             <i class="fas fa-sliders-h"></i>
-            <span>{{ showAdvancedFilter ? 'Hide Advanced' : 'Show Advanced' }}</span>
+            <span>{{
+              showAdvancedFilter
+                ? t('carStockFilter.hideAdvanced')
+                : t('carStockFilter.showAdvanced')
+            }}</span>
           </button>
           <button
             @click="resetFilters"
@@ -260,7 +271,7 @@ fetchReferenceData()
             :class="{ processing: isProcessing.reset }"
           >
             <i class="fas fa-undo-alt"></i>
-            <span>Reset</span>
+            <span>{{ t('carStockFilter.reset') }}</span>
             <i v-if="isProcessing.reset" class="fas fa-spinner fa-spin loading-indicator"></i>
           </button>
         </div>
@@ -274,13 +285,13 @@ fetchReferenceData()
         <div class="filter-field">
           <label for="id-filter">
             <i class="fas fa-hashtag"></i>
-            ID
+            {{ t('carStockFilter.id') }}
           </label>
           <input
             id="id-filter"
             type="text"
             v-model="advancedFilters.id"
-            placeholder="Car ID"
+            :placeholder="t('carStockFilter.carId')"
             :disabled="isProcessing.advanced"
           />
         </div>
@@ -289,14 +300,14 @@ fetchReferenceData()
         <div class="filter-field">
           <label for="car-name-filter">
             <i class="fas fa-car"></i>
-            Car
+            {{ t('carStockFilter.car') }}
           </label>
           <select
             id="car-name-filter"
             v-model="advancedFilters.car_name"
             :disabled="isProcessing.advanced"
           >
-            <option value="">All Cars</option>
+            <option value="">{{ t('carStockFilter.allCars') }}</option>
             <option v-for="car in carNames" :key="car.id" :value="car.car_name">
               {{ car.car_name }}
             </option>
@@ -307,14 +318,14 @@ fetchReferenceData()
         <div class="filter-field">
           <label for="color-filter">
             <i class="fas fa-palette"></i>
-            Color
+            {{ t('carStockFilter.color') }}
           </label>
           <select
             id="color-filter"
             v-model="advancedFilters.color"
             :disabled="isProcessing.advanced"
           >
-            <option value="">All Colors</option>
+            <option value="">{{ t('carStockFilter.allColors') }}</option>
             <option v-for="color in colors" :key="color.id" :value="color.color">
               {{ color.color }}
             </option>
@@ -325,13 +336,13 @@ fetchReferenceData()
         <div class="filter-field">
           <label for="vin-filter">
             <i class="fas fa-barcode"></i>
-            VIN
+            {{ t('carStockFilter.vin') }}
           </label>
           <input
             id="vin-filter"
             type="text"
             v-model="advancedFilters.vin"
-            placeholder="VIN Number"
+            :placeholder="t('carStockFilter.vinNumber')"
             :disabled="isProcessing.advanced"
           />
         </div>
@@ -340,14 +351,14 @@ fetchReferenceData()
         <div class="filter-field">
           <label for="loading-port-filter">
             <i class="fas fa-ship"></i>
-            Loading Port
+            {{ t('carStockFilter.loadingPort') }}
           </label>
           <select
             id="loading-port-filter"
             v-model="advancedFilters.loading_port"
             :disabled="isProcessing.advanced"
           >
-            <option value="">All Loading Ports</option>
+            <option value="">{{ t('carStockFilter.allLoadingPorts') }}</option>
             <option v-for="port in loadingPorts" :key="port.id" :value="port.loading_port">
               {{ port.loading_port }}
             </option>
@@ -358,14 +369,14 @@ fetchReferenceData()
         <div class="filter-field">
           <label for="discharge-port-filter">
             <i class="fas fa-anchor"></i>
-            Discharge Port
+            {{ t('carStockFilter.dischargePort') }}
           </label>
           <select
             id="discharge-port-filter"
             v-model="advancedFilters.discharge_port"
             :disabled="isProcessing.advanced"
           >
-            <option value="">All Discharge Ports</option>
+            <option value="">{{ t('carStockFilter.allDischargePorts') }}</option>
             <option v-for="port in dischargePorts" :key="port.id" :value="port.discharge_port">
               {{ port.discharge_port }}
             </option>
@@ -376,19 +387,19 @@ fetchReferenceData()
         <div class="filter-field range-field">
           <label>
             <i class="fas fa-dollar-sign"></i>
-            Freight Range
+            {{ t('carStockFilter.freightRange') }}
           </label>
           <div class="range-inputs">
             <input
               type="number"
               v-model="advancedFilters.freight_min"
-              placeholder="Min"
+              :placeholder="t('carStockFilter.min')"
               :disabled="isProcessing.advanced"
             />
             <input
               type="number"
               v-model="advancedFilters.freight_max"
-              placeholder="Max"
+              :placeholder="t('carStockFilter.max')"
               :disabled="isProcessing.advanced"
             />
           </div>
@@ -398,19 +409,19 @@ fetchReferenceData()
         <div class="filter-field range-field">
           <label>
             <i class="fas fa-tags"></i>
-            Price Range
+            {{ t('carStockFilter.priceRange') }}
           </label>
           <div class="range-inputs">
             <input
               type="number"
               v-model="advancedFilters.price_min"
-              placeholder="Min"
+              :placeholder="t('carStockFilter.min')"
               :disabled="isProcessing.advanced"
             />
             <input
               type="number"
               v-model="advancedFilters.price_max"
-              placeholder="Max"
+              :placeholder="t('carStockFilter.max')"
               :disabled="isProcessing.advanced"
             />
           </div>
@@ -420,7 +431,7 @@ fetchReferenceData()
         <div class="filter-field range-field">
           <label>
             <i class="fas fa-calendar-alt"></i>
-            Loading Date Range
+            {{ t('carStockFilter.loadingDateRange') }}
           </label>
           <div class="range-inputs">
             <input
@@ -440,16 +451,16 @@ fetchReferenceData()
         <div class="filter-field">
           <label for="status-filter">
             <i class="fas fa-info-circle"></i>
-            Status
+            {{ t('carStockFilter.status') }}
           </label>
           <select
             id="status-filter"
             v-model="advancedFilters.status"
             :disabled="isProcessing.advanced"
           >
-            <option value="">All Status</option>
-            <option value="available">Available</option>
-            <option value="sold">Sold</option>
+            <option value="">{{ t('carStockFilter.allStatus') }}</option>
+            <option value="available">{{ t('carStockFilter.available') }}</option>
+            <option value="sold">{{ t('carStockFilter.sold') }}</option>
           </select>
         </div>
 
@@ -457,13 +468,13 @@ fetchReferenceData()
         <div class="filter-field">
           <label for="client-filter">
             <i class="fas fa-user"></i>
-            Client
+            {{ t('carStockFilter.client') }}
           </label>
           <input
             id="client-filter"
             type="text"
             v-model="advancedFilters.client"
-            placeholder="Client Name"
+            :placeholder="t('carStockFilter.clientName')"
             :disabled="isProcessing.advanced"
           />
         </div>
@@ -472,13 +483,13 @@ fetchReferenceData()
         <div class="filter-field">
           <label for="client-id-no-filter">
             <i class="fas fa-id-card"></i>
-            Client ID Number
+            {{ t('carStockFilter.clientIdNumber') }}
           </label>
           <input
             id="client-id-no-filter"
             type="text"
             v-model="advancedFilters.client_id_no"
-            placeholder="Client ID Number"
+            :placeholder="t('carStockFilter.clientIdNumber')"
             :disabled="isProcessing.advanced"
           />
         </div>
@@ -487,14 +498,14 @@ fetchReferenceData()
         <div class="filter-field">
           <label for="warehouse-filter">
             <i class="fas fa-warehouse"></i>
-            Warehouse
+            {{ t('carStockFilter.warehouse') }}
           </label>
           <select
             id="warehouse-filter"
             v-model="advancedFilters.warehouse"
             :disabled="isProcessing.advanced"
           >
-            <option value="">All Warehouses</option>
+            <option value="">{{ t('carStockFilter.allWarehouses') }}</option>
             <option
               v-for="warehouse in warehouses"
               :key="warehouse.id"
@@ -509,13 +520,13 @@ fetchReferenceData()
         <div class="filter-field">
           <label for="container-ref-filter">
             <i class="fas fa-box"></i>
-            Container Ref
+            {{ t('carStockFilter.containerRef') }}
           </label>
           <input
             id="container-ref-filter"
             type="text"
             v-model="advancedFilters.container_ref"
-            placeholder="Container Reference"
+            :placeholder="t('carStockFilter.containerReference')"
             :disabled="isProcessing.advanced"
           />
         </div>
@@ -524,13 +535,13 @@ fetchReferenceData()
         <div class="filter-field">
           <label for="export-license-filter">
             <i class="fas fa-file-signature"></i>
-            Export License
+            {{ t('carStockFilter.exportLicense') }}
           </label>
           <input
             id="export-license-filter"
             type="text"
             v-model="advancedFilters.export_lisence_ref"
-            placeholder="Export License Reference"
+            :placeholder="t('carStockFilter.exportLicenseReference')"
             :disabled="isProcessing.advanced"
           />
         </div>
@@ -539,16 +550,16 @@ fetchReferenceData()
         <div class="filter-field">
           <label for="loading-status-filter">
             <i class="fas fa-truck-loading"></i>
-            Loading Status
+            {{ t('carStockFilter.loadingStatus') }}
           </label>
           <select
             id="loading-status-filter"
             v-model="advancedFilters.loading_status"
             :disabled="isProcessing.advanced"
           >
-            <option value="">All</option>
-            <option value="loaded">Loaded</option>
-            <option value="not_loaded">Not Loaded</option>
+            <option value="">{{ t('carStockFilter.all') }}</option>
+            <option value="loaded">{{ t('carStockFilter.loaded') }}</option>
+            <option value="not_loaded">{{ t('carStockFilter.notLoaded') }}</option>
           </select>
         </div>
 
@@ -556,16 +567,16 @@ fetchReferenceData()
         <div class="filter-field">
           <label for="documents-status-filter">
             <i class="fas fa-file-alt"></i>
-            Documents Status
+            {{ t('carStockFilter.documentsStatus') }}
           </label>
           <select
             id="documents-status-filter"
             v-model="advancedFilters.documents_status"
             :disabled="isProcessing.advanced"
           >
-            <option value="">All</option>
-            <option value="received">Documents Received</option>
-            <option value="not_received">Documents Not Received</option>
+            <option value="">{{ t('carStockFilter.all') }}</option>
+            <option value="received">{{ t('carStockFilter.documentsReceived') }}</option>
+            <option value="not_received">{{ t('carStockFilter.documentsNotReceived') }}</option>
           </select>
         </div>
 
@@ -573,16 +584,16 @@ fetchReferenceData()
         <div class="filter-field">
           <label for="bl-status-filter">
             <i class="fas fa-ship"></i>
-            BL Status
+            {{ t('carStockFilter.blStatus') }}
           </label>
           <select
             id="bl-status-filter"
             v-model="advancedFilters.bl_status"
             :disabled="isProcessing.advanced"
           >
-            <option value="">All</option>
-            <option value="received">BL Received</option>
-            <option value="not_received">BL Not Received</option>
+            <option value="">{{ t('carStockFilter.all') }}</option>
+            <option value="received">{{ t('carStockFilter.blReceived') }}</option>
+            <option value="not_received">{{ t('carStockFilter.blNotReceived') }}</option>
           </select>
         </div>
 
@@ -590,16 +601,16 @@ fetchReferenceData()
         <div class="filter-field">
           <label for="warehouse-status-filter">
             <i class="fas fa-warehouse"></i>
-            Warehouse Status
+            {{ t('carStockFilter.warehouseStatus') }}
           </label>
           <select
             id="warehouse-status-filter"
             v-model="advancedFilters.warehouse_status"
             :disabled="isProcessing.advanced"
           >
-            <option value="">All</option>
-            <option value="in_warehouse">In Warehouse</option>
-            <option value="not_in_warehouse">Not In Warehouse</option>
+            <option value="">{{ t('carStockFilter.all') }}</option>
+            <option value="in_warehouse">{{ t('carStockFilter.inWarehouse') }}</option>
+            <option value="not_in_warehouse">{{ t('carStockFilter.notInWarehouse') }}</option>
           </select>
         </div>
 
@@ -607,13 +618,13 @@ fetchReferenceData()
         <div class="filter-field">
           <label for="bill-ref-filter">
             <i class="fas fa-file-invoice"></i>
-            Buy Bill
+            {{ t('carStockFilter.buyBill') }}
           </label>
           <input
             id="bill-ref-filter"
             type="text"
             v-model="advancedFilters.bill_ref"
-            placeholder="Buy Bill Reference"
+            :placeholder="t('carStockFilter.buyBillReference')"
             :disabled="isProcessing.advanced"
           />
         </div>
@@ -622,13 +633,13 @@ fetchReferenceData()
         <div class="filter-field">
           <label for="sell-bill-ref-filter">
             <i class="fas fa-file-invoice-dollar"></i>
-            Sell Bill
+            {{ t('carStockFilter.sellBill') }}
           </label>
           <input
             id="sell-bill-ref-filter"
             type="text"
             v-model="advancedFilters.sell_bill_ref"
-            placeholder="Sell Bill Reference"
+            :placeholder="t('carStockFilter.sellBillReference')"
             :disabled="isProcessing.advanced"
           />
         </div>
@@ -637,16 +648,16 @@ fetchReferenceData()
         <div class="filter-field">
           <label for="tmp-client-status-filter">
             <i class="fas fa-user-clock"></i>
-            Temporary Client
+            {{ t('carStockFilter.temporaryClient') }}
           </label>
           <select
             id="tmp-client-status-filter"
             v-model="advancedFilters.tmp_client_status"
             :disabled="isProcessing.advanced"
           >
-            <option value="">All</option>
-            <option value="tmp">Temporary Client</option>
-            <option value="permanent">Permanent Client</option>
+            <option value="">{{ t('carStockFilter.all') }}</option>
+            <option value="tmp">{{ t('carStockFilter.temporaryClientOption') }}</option>
+            <option value="permanent">{{ t('carStockFilter.permanentClientOption') }}</option>
           </select>
         </div>
 
@@ -661,7 +672,7 @@ fetchReferenceData()
             />
             <span class="checkbox-text">
               <i class="fas fa-ban"></i>
-              Exclude Whole Sale Cars
+              {{ t('carStockFilter.excludeWholeSaleCars') }}
             </span>
           </label>
         </div>
@@ -675,7 +686,7 @@ fetchReferenceData()
             :class="{ processing: isProcessing.advanced }"
           >
             <i class="fas fa-check"></i>
-            <span>Apply Filters</span>
+            <span>{{ t('carStockFilter.applyFilters') }}</span>
             <i v-if="isProcessing.advanced" class="fas fa-spinner fa-spin loading-indicator"></i>
           </button>
           <button
@@ -685,7 +696,7 @@ fetchReferenceData()
             :class="{ processing: isProcessing.reset }"
           >
             <i class="fas fa-undo-alt"></i>
-            <span>Reset All</span>
+            <span>{{ t('carStockFilter.resetAll') }}</span>
             <i v-if="isProcessing.reset" class="fas fa-spinner fa-spin loading-indicator"></i>
           </button>
         </div>

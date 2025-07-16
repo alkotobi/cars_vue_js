@@ -1,6 +1,9 @@
 <script setup>
 import { ref, defineProps, defineEmits, computed } from 'vue'
 import { useApi } from '../../composables/useApi'
+import { useEnhancedI18n } from '@/composables/useI18n'
+
+const { t } = useEnhancedI18n()
 
 const props = defineProps({
   selectedCars: {
@@ -40,11 +43,15 @@ const can_edit_car_notes = computed(() => {
 const handleNotesChange = async () => {
   if (isProcessing.value || loading.value) return
   if (!newNotes.value.trim()) {
-    error.value = 'Please enter notes'
+    error.value = t('carNotesBulkEditForm.pleaseEnterNotes')
     return
   }
 
-  if (!confirm(`Are you sure you want to update notes for ${props.selectedCars.length} cars?`)) {
+  if (
+    !confirm(
+      t('carNotesBulkEditForm.confirmUpdateNotesForCars', { count: props.selectedCars.length }),
+    )
+  ) {
     return
   }
 
@@ -62,7 +69,9 @@ const handleNotesChange = async () => {
     })
 
     if (result.success) {
-      success.value = `Successfully updated notes for ${props.selectedCars.length} cars`
+      success.value = t('carNotesBulkEditForm.successfullyUpdatedNotesForCars', {
+        count: props.selectedCars.length,
+      })
 
       // Update the cars data
       const updatedCars = props.selectedCars.map((car) => ({
@@ -72,10 +81,10 @@ const handleNotesChange = async () => {
 
       emit('save', updatedCars)
     } else {
-      throw new Error(result.error || 'Failed to update notes')
+      throw new Error(result.error || t('carNotesBulkEditForm.failedToUpdateNotes'))
     }
   } catch (err) {
-    error.value = err.message || 'An error occurred'
+    error.value = err.message || t('carNotesBulkEditForm.anErrorOccurred')
   } finally {
     loading.value = false
     isProcessing.value = false
@@ -87,7 +96,7 @@ const handleRevertNotes = async () => {
 
   if (
     !confirm(
-      `Are you sure you want to revert notes to null for ${props.selectedCars.length} cars? This action cannot be undone.`,
+      t('carNotesBulkEditForm.confirmRevertNotesForCars', { count: props.selectedCars.length }),
     )
   ) {
     return
@@ -107,7 +116,9 @@ const handleRevertNotes = async () => {
     })
 
     if (result.success) {
-      success.value = `Successfully reverted notes for ${props.selectedCars.length} cars`
+      success.value = t('carNotesBulkEditForm.successfullyRevertedNotesForCars', {
+        count: props.selectedCars.length,
+      })
 
       // Update the cars data
       const updatedCars = props.selectedCars.map((car) => ({
@@ -117,10 +128,10 @@ const handleRevertNotes = async () => {
 
       emit('save', updatedCars)
     } else {
-      throw new Error(result.error || 'Failed to revert notes')
+      throw new Error(result.error || t('carNotesBulkEditForm.failedToRevertNotes'))
     }
   } catch (err) {
-    error.value = err.message || 'An error occurred'
+    error.value = err.message || t('carNotesBulkEditForm.anErrorOccurred')
   } finally {
     loading.value = false
     isProcessing.value = false
@@ -141,7 +152,7 @@ const closeModal = () => {
       <div class="modal-header">
         <h3>
           <i class="fas fa-sticky-note"></i>
-          Bulk Notes Edit
+          {{ t('carNotesBulkEditForm.bulkNotesEdit') }}
         </h3>
         <button class="close-btn" @click="closeModal" :disabled="isProcessing">
           <i class="fas fa-times"></i>
@@ -152,21 +163,27 @@ const closeModal = () => {
         <div class="info-section">
           <h4>
             <i class="fas fa-info-circle"></i>
-            Selected Cars
+            {{ t('carNotesBulkEditForm.selectedCars') }}
           </h4>
-          <p>You have selected {{ selectedCars.length }} cars to update notes.</p>
+          <p>
+            {{
+              t('carNotesBulkEditForm.youHaveSelectedCarsToUpdateNotes', {
+                count: selectedCars.length,
+              })
+            }}
+          </p>
         </div>
 
         <div class="form-group">
           <label for="notes">
             <i class="fas fa-edit"></i>
-            Notes:
+            {{ t('carNotesBulkEditForm.notes') }}:
           </label>
           <div class="textarea-wrapper">
             <textarea
               id="notes"
               v-model="newNotes"
-              placeholder="Enter notes for the selected cars..."
+              :placeholder="t('carNotesBulkEditForm.enterNotesForSelectedCars')"
               class="notes-textarea"
               :disabled="isProcessing"
               rows="4"
@@ -179,7 +196,11 @@ const closeModal = () => {
             :class="{ 'is-processing': isProcessing }"
           >
             <i class="fas fa-save"></i>
-            <span>{{ isProcessing ? 'Updating...' : 'Update Notes' }}</span>
+            <span>{{
+              isProcessing
+                ? t('carNotesBulkEditForm.updating')
+                : t('carNotesBulkEditForm.updateNotes')
+            }}</span>
             <i v-if="isProcessing" class="fas fa-spinner fa-spin loading-indicator"></i>
           </button>
         </div>
@@ -188,7 +209,7 @@ const closeModal = () => {
         <div v-if="isAdmin" class="form-group">
           <button class="revert-btn" @click="handleRevertNotes" :disabled="isProcessing">
             <i class="fas fa-undo"></i>
-            Revert Notes to Null
+            {{ t('carNotesBulkEditForm.revertNotesToNull') }}
           </button>
         </div>
 
@@ -205,7 +226,7 @@ const closeModal = () => {
       <div class="modal-footer">
         <button class="close-btn-secondary" @click="closeModal" :disabled="isProcessing">
           <i class="fas fa-times"></i>
-          Close
+          {{ t('carNotesBulkEditForm.close') }}
         </button>
       </div>
     </div>

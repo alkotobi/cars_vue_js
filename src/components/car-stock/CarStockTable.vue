@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted, defineProps, defineEmits, computed, watch, onUnmounted } from 'vue'
+import { useEnhancedI18n } from '@/composables/useI18n'
 import { useApi } from '../../composables/useApi'
 import letterHeadImage from '../../assets/letter_head.png'
 import VinEditForm from './VinEditForm.vue'
@@ -23,6 +24,7 @@ import CarExportLicenseBulkEditForm from './CarExportLicenseBulkEditForm.vue'
 
 import { useRouter } from 'vue-router'
 
+const { t } = useEnhancedI18n()
 const isDropdownOpen = ref({})
 const props = defineProps({
   cars: Array,
@@ -372,7 +374,7 @@ const printOptionsActionType = ref('print') // 'print' or 'loading-order'
 // Print handler functions
 const handlePrintSelected = () => {
   if (selectedCars.value.size === 0) {
-    alert('No cars selected for printing')
+    alert(t('carStock.no_cars_selected_for_printing'))
     return
   }
 
@@ -444,7 +446,7 @@ const handlePrintWithOptions = (printData) => {
 
 const handleLoadingOrderFromToolbar = () => {
   if (selectedCars.value.size === 0) {
-    alert('No cars selected for loading order')
+    alert(t('carStock.no_cars_selected_for_loading_order'))
     return
   }
 
@@ -492,7 +494,7 @@ const handleLoadingOrderWithOptions = (data) => {
 
 const handleVinFromToolbar = () => {
   if (selectedCars.value.size === 0) {
-    alert('No cars selected for VIN assignment')
+    alert(t('carStock.no_cars_selected_for_vin_assignment'))
     return
   }
 
@@ -1394,10 +1396,10 @@ const handleTaskClose = () => {
 
 const handleTaskSave = (result) => {
   console.log('Task saved:', result)
-  if (result.success) {
-    alert('Task created successfully!')
-  }
-  handleTaskClose()
+  showTaskForm.value = false
+  selectedCarForTask.value = null
+  alert(t('carStock.task_created_successfully'))
+  fetchCarsStock()
 }
 
 // Add new methods for switch buy bill form
@@ -1408,71 +1410,46 @@ const handleSwitchBuyBillClose = () => {
 
 const handleSwitchBuyBillSave = async (result) => {
   console.log('Switch result received:', result)
+  showSwitchBuyBillForm.value = false
+  selectedCarForSwitchBuyBill.value = null
 
-  if (result.success) {
-    try {
-      console.log('Starting switch process for cars:', result.carId1, 'and', result.carId2)
+  console.log('Starting switch process for cars:', result.carId1, 'and', result.carId2)
 
-      // Use the original SQL with direct ID insertion
-      const switchResult = await callApi({
-        action: 'execute_multi_sql',
-        query: `
-          SET @id1 = ${result.carId1};
-          SET @id2 = ${result.carId2};
+  try {
+    const switchResult = await callApi({
+      query: `
+        UPDATE cars_stock 
+        SET id_buy_details = CASE 
+          WHEN id = ? THEN (SELECT id_buy_details FROM cars_stock WHERE id = ?)
+          WHEN id = ? THEN (SELECT id_buy_details FROM cars_stock WHERE id = ?)
+        END
+        WHERE id IN (?, ?)
+      `,
+      params: [
+        result.carId1,
+        result.carId2,
+        result.carId2,
+        result.carId1,
+        result.carId1,
+        result.carId2,
+      ],
+    })
 
-          -- Start transaction to ensure data integrity
-          START TRANSACTION;
+    console.log('Switch result:', switchResult)
 
-          -- Get the current id_buy_details values
-          SET @buy_details_1 = (SELECT id_buy_details FROM cars_stock WHERE id = @id1);
-          SET @buy_details_2 = (SELECT id_buy_details FROM cars_stock WHERE id = @id2);
-
-          -- Update the first record with the second record's id_buy_details
-          UPDATE cars_stock 
-          SET id_buy_details = @buy_details_2 
-          WHERE id = @id1;
-
-          -- Update the second record with the first record's id_buy_details
-          UPDATE cars_stock 
-          SET id_buy_details = @buy_details_1 
-          WHERE id = @id2;
-
-          -- Commit the transaction
-          COMMIT;
-
-          -- Optional: Verify the switch was successful
-          SELECT 
-              id,
-              id_buy_details,
-              CASE 
-                  WHEN id = @id1 THEN 'First Record (was @buy_details_1, now @buy_details_2)'
-                  WHEN id = @id2 THEN 'Second Record (was @buy_details_2, now @buy_details_1)'
-              END as switch_info
-          FROM cars_stock 
-          WHERE id IN (@id1, @id2)
-          ORDER BY id;
-        `,
-        params: [],
-      })
-
-      console.log('Switch result:', switchResult)
-
-      if (switchResult.success) {
-        alert('Purchase bills switched successfully!')
-        handleSwitchBuyBillClose()
-        // Refresh the cars data
-        await fetchCarsStock()
-      } else {
-        console.error('Switch failed:', switchResult)
-        alert('Failed to switch purchase bills')
-      }
-    } catch (err) {
-      console.error('Error switching purchase bills:', err)
-      alert('Error switching purchase bills')
+    if (switchResult.success) {
+      alert(t('carStock.purchase_bills_switched_successfully'))
+      fetchCarsStock()
+    } else {
+      console.error('Switch failed:', switchResult)
+      alert(t('carStock.failed_to_switch_purchase_bills'))
     }
-  } else {
-    console.log('Switch result was not successful:', result)
+  } catch (err) {
+    console.error('Error switching purchase bills:', err)
+    alert(t('carStock.error_switching_purchase_bills'))
   }
+
+  console.log('Switch result was not successful:', result)
 }
 
 // Add this method after other methods
@@ -1519,29 +1496,21 @@ const handleNotesAction = (car) => {
   showNotesModal.value = true
 }
 
-const saveNotes = async () => {
-  if (!notesEditCar.value) return
-  isProcessing.notes = true
+const handleNotesSave = async (result) => {
   try {
-    const result = await callApi({
+    const response = await callApi({
       query: 'UPDATE cars_stock SET notes = ? WHERE id = ?',
-      params: [notesEditValue.value, notesEditCar.value.id],
+      params: [result.notes, result.carId],
     })
-    if (result.success) {
-      notesEditCar.value.notes = notesEditValue.value
-      // Also update in cars array if needed
-      if (cars.value && Array.isArray(cars.value)) {
-        const carIdx = cars.value.findIndex((c) => c.id === notesEditCar.value.id)
-        if (carIdx !== -1) cars.value[carIdx].notes = notesEditValue.value
-      }
-      showNotesModal.value = false
+
+    if (response.success) {
+      alert(t('carStock.notes_updated_successfully'))
+      fetchCarsStock()
     } else {
-      alert(result.error || 'Failed to update notes')
+      alert(result.error || t('carStock.failed_to_update_notes'))
     }
   } catch (err) {
-    alert(err.message || 'Error updating notes')
-  } finally {
-    isProcessing.notes = false
+    alert(err.message || t('carStock.error_updating_notes'))
   }
 }
 
@@ -1563,10 +1532,12 @@ const handleVinAssignmentModalClose = () => {
 
 const handlePortsFromToolbar = () => {
   if (selectedCars.value.size === 0) {
-    alert('No cars selected for ports editing')
+    alert(t('carStock.no_cars_selected_for_ports_editing'))
     return
   }
 
+  const updatedCars = sortedCars.value.filter((car) => selectedCars.value.has(car.id))
+  console.log('Ports updated for cars:', updatedCars)
   showPortsBulkEditForm.value = true
 }
 
@@ -1578,52 +1549,35 @@ const handlePortsBulkSave = (updatedCars) => {
 
 const handleWarehouseFromToolbar = () => {
   if (selectedCars.value.size === 0) {
-    alert('No cars selected for warehouse editing')
+    alert(t('carStock.no_cars_selected_for_warehouse_editing'))
     return
   }
 
-  // Get selected cars data
-  const selectedCarIds = Array.from(selectedCars.value)
-  const selectedCarsData = sortedCars.value.filter((car) => selectedCarIds.includes(car.id))
-
-  // Set the selected cars for bulk editing
-  selectedCar.value = selectedCarsData[0] // Use first car for compatibility
+  const selectedCarsForWarehouse = sortedCars.value.filter((car) => selectedCars.value.has(car.id))
+  selectedCar.value = selectedCarsForWarehouse[0]
   showWarehouseForm.value = true
 }
 
 const handleNotesFromToolbar = () => {
   if (selectedCars.value.size === 0) {
-    alert('No cars selected for notes editing')
+    alert(t('carStock.no_cars_selected_for_notes_editing'))
     return
   }
 
+  const updatedCars = sortedCars.value.filter((car) => selectedCars.value.has(car.id))
+  console.log('Notes updated for cars:', updatedCars)
   showNotesBulkEditForm.value = true
 }
 
 const handleTaskFromToolbar = () => {
   if (selectedCars.value.size === 0) {
-    alert('No cars selected for task creation')
+    alert(t('carStock.no_cars_selected_for_task_creation'))
     return
   }
 
-  // Get all selected cars
-  const selectedCarIds = Array.from(selectedCars.value)
-  const selectedCarsData = sortedCars.value.filter((car) => selectedCarIds.includes(car.id))
-
-  if (selectedCarsData.length > 0) {
-    // Create a composite car object with all selected car IDs
-    const compositeCar = {
-      ...selectedCarsData[0], // Use first car as template
-      id: selectedCarIds, // Replace with array of all selected car IDs
-      car_name:
-        selectedCarsData.length === 1
-          ? selectedCarsData[0].car_name
-          : `${selectedCarsData.length} Selected Cars`,
-    }
-
-    selectedCarForTask.value = compositeCar
-    showTaskForm.value = true
-  }
+  const selectedCarsForTask = sortedCars.value.filter((car) => selectedCars.value.has(car.id))
+  selectedCarForTask.value = selectedCarsForTask[0]
+  showTaskForm.value = true
 }
 
 const handleNotesBulkSave = (updatedCars) => {
@@ -1634,10 +1588,12 @@ const handleNotesBulkSave = (updatedCars) => {
 
 const handleColorFromToolbar = () => {
   if (selectedCars.value.size === 0) {
-    alert('No cars selected for color editing')
+    alert(t('carStock.no_cars_selected_for_color_editing'))
     return
   }
 
+  const updatedCars = sortedCars.value.filter((car) => selectedCars.value.has(car.id))
+  console.log('Colors updated for cars:', updatedCars)
   showColorBulkEditForm.value = true
 }
 
@@ -1661,9 +1617,12 @@ const showExportLicenseBulkEditForm = ref(false)
 
 const handleExportLicenseFromToolbar = () => {
   if (selectedCars.value.size === 0) {
-    alert('No cars selected for export license editing')
+    alert(t('carStock.no_cars_selected_for_export_license_editing'))
     return
   }
+
+  const updatedCars = sortedCars.value.filter((car) => selectedCars.value.has(car.id))
+  console.log('Export licenses updated for cars:', updatedCars)
   showExportLicenseBulkEditForm.value = true
 }
 
@@ -1810,7 +1769,7 @@ defineExpose({
 
     <div v-if="loading" class="loading">
       <i class="fas fa-spinner fa-spin"></i>
-      Loading...
+      {{ t('carStock.loading') }}
     </div>
     <div v-else-if="error" class="error">
       <i class="fas fa-exclamation-circle"></i>
@@ -1818,7 +1777,7 @@ defineExpose({
     </div>
     <div v-else-if="cars.length === 0" class="empty-state">
       <i class="fas fa-car fa-2x"></i>
-      <p>No cars in stock</p>
+      <p>{{ t('carStock.no_cars_in_stock') }}</p>
     </div>
     <div v-else>
       <!-- Toolbar -->
@@ -1848,79 +1807,79 @@ defineExpose({
                   :checked="selectAll"
                   @change="selectAllCars"
                   :indeterminate="selectedCars.size > 0 && selectedCars.size < sortedCars.length"
-                  title="Select All Cars"
+                  :title="t('carStock.select_all_cars')"
                 />
               </th>
-              <th>Actions</th>
+              <th>{{ t('carStock.actions') }}</th>
               <th @click="toggleSort('id')" class="sortable">
-                ID
+                {{ t('carStock.id') }}
                 <span v-if="sortConfig.key === 'id'" class="sort-indicator">
                   {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
                 </span>
               </th>
               <th @click="toggleSort('date_buy')" class="sortable">
-                Date Buy
+                {{ t('carStock.date_buy') }}
                 <span v-if="sortConfig.key === 'date_buy'" class="sort-indicator">
                   {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
                 </span>
               </th>
               <th @click="toggleSort('date_sell')" class="sortable">
-                Date Sell
+                {{ t('carStock.date_sell') }}
                 <span v-if="sortConfig.key === 'date_sell'" class="sort-indicator">
                   {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
                 </span>
               </th>
               <th @click="toggleSort('car_name')" class="sortable">
-                Car Details
+                {{ t('carStock.car_details') }}
                 <span v-if="sortConfig.key === 'car_name'" class="sort-indicator">
                   {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
                 </span>
               </th>
               <th @click="toggleSort('client_name')" class="sortable">
-                Client
+                {{ t('carStock.client') }}
                 <span v-if="sortConfig.key === 'client_name'" class="sort-indicator">
                   {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
                 </span>
               </th>
               <th @click="toggleSort('loading_port')" class="sortable ports-column">
-                Ports
+                {{ t('carStock.ports') }}
                 <span v-if="sortConfig.key === 'loading_port'" class="sort-indicator">
                   {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
                 </span>
               </th>
               <th @click="toggleSort('freight')" class="sortable freight-column">
-                Freight
+                {{ t('carStock.freight') }}
                 <span v-if="sortConfig.key === 'freight'" class="sort-indicator">
                   {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
                 </span>
               </th>
               <th @click="toggleSort('price_cell')" class="sortable">
-                FOB
+                {{ t('carStock.fob') }}
                 <span v-if="sortConfig.key === 'price_cell'" class="sort-indicator">
                   {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
                 </span>
               </th>
               <th @click="toggleSort('rate')" class="sortable">
-                CFR
+                {{ t('carStock.cfr') }}
                 <span v-if="sortConfig.key === 'rate'" class="sort-indicator">
                   {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
                 </span>
               </th>
               <th @click="toggleSort('status')" class="sortable">
-                Status
+                {{ t('carStock.status') }}
                 <span v-if="sortConfig.key === 'status'" class="sort-indicator">
                   {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
                 </span>
               </th>
               <th @click="toggleSort('warehouse_name')" class="sortable">
-                Warehouse
+                {{ t('carStock.warehouse') }}
                 <span v-if="sortConfig.key === 'warehouse_name'" class="sort-indicator">
                   {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
                 </span>
               </th>
-              <th>BL</th>
+              <th>{{ t('carStock.bl') }}</th>
               <th @click="toggleSort('notes')" class="sortable">
-                Notes
+                {{ t('carStock.notes') }}
                 <span v-if="sortConfig.key === 'notes'" class="sort-indicator">
                   {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
                 </span>
@@ -2154,7 +2113,7 @@ defineExpose({
                     :class="{ processing: isProcessing.task }"
                   >
                     <i class="fas fa-tasks"></i>
-                    <span>Task</span>
+                    <span>{{ t('carStock.task') }}</span>
                     <i
                       v-if="isProcessing.task"
                       class="fas fa-spinner fa-spin loading-indicator"
@@ -2168,7 +2127,7 @@ defineExpose({
                     :class="{ disabled: !can_edit_vin, processing: isProcessing.vin }"
                   >
                     <i class="fas fa-barcode"></i>
-                    <span>VIN</span>
+                    <span>{{ t('carStock.vin') }}</span>
                     <i v-if="isProcessing.vin" class="fas fa-spinner fa-spin loading-indicator"></i>
                   </button>
                 </li>
@@ -2179,7 +2138,7 @@ defineExpose({
                     :class="{ disabled: !can_upload_car_files, processing: isProcessing.files }"
                   >
                     <i class="fas fa-file-upload"></i>
-                    <span>Files</span>
+                    <span>{{ t('carStock.files') }}</span>
                     <i
                       v-if="isProcessing.files"
                       class="fas fa-spinner fa-spin loading-indicator"
@@ -2193,7 +2152,7 @@ defineExpose({
                     :class="{ disabled: !can_edit_cars_ports, processing: isProcessing.ports }"
                   >
                     <i class="fas fa-anchor"></i>
-                    <span>Ports</span>
+                    <span>{{ t('carStock.ports') }}</span>
                     <i
                       v-if="isProcessing.ports"
                       class="fas fa-spinner fa-spin loading-indicator"
@@ -2207,7 +2166,7 @@ defineExpose({
                     :class="{ disabled: !can_edit_car_money, processing: isProcessing.money }"
                   >
                     <i class="fas fa-dollar-sign"></i>
-                    <span>Money</span>
+                    <span>{{ t('carStock.money') }}</span>
                     <i
                       v-if="isProcessing.money"
                       class="fas fa-spinner fa-spin loading-indicator"
@@ -2221,7 +2180,7 @@ defineExpose({
                     :class="{ disabled: !can_edit_warehouse, processing: isProcessing.warehouse }"
                   >
                     <i class="fas fa-warehouse"></i>
-                    <span>Warehouse</span>
+                    <span>{{ t('carStock.warehouse') }}</span>
                     <i
                       v-if="isProcessing.warehouse"
                       class="fas fa-spinner fa-spin loading-indicator"
@@ -2238,7 +2197,7 @@ defineExpose({
                     }"
                   >
                     <i class="fas fa-file-alt"></i>
-                    <span>Car Documents</span>
+                    <span>{{ t('carStock.car_documents') }}</span>
                     <i
                       v-if="isProcessing.documents"
                       class="fas fa-spinner fa-spin loading-indicator"
@@ -2252,7 +2211,7 @@ defineExpose({
                     :class="{ disabled: !can_load_car, processing: isProcessing.load }"
                   >
                     <i class="fas fa-truck-loading"></i>
-                    <span>Load</span>
+                    <span>{{ t('carStock.load') }}</span>
                     <i
                       v-if="isProcessing.load"
                       class="fas fa-spinner fa-spin loading-indicator"
@@ -2262,7 +2221,7 @@ defineExpose({
                 <li>
                   <button @click="openSellBillTab(car)" :disabled="!car.id_sell">
                     <i class="fas fa-file-invoice-dollar"></i>
-                    <span>Sell Bill</span>
+                    <span>{{ t('carStock.sell_bill') }}</span>
                   </button>
                 </li>
                 <li>
@@ -2272,7 +2231,7 @@ defineExpose({
                     :class="{ processing: isProcessing.notes }"
                   >
                     <i class="fas fa-sticky-note"></i>
-                    <span>Notes</span>
+                    <span>{{ t('carStock.notes') }}</span>
                     <i
                       v-if="isProcessing.notes"
                       class="fas fa-spinner fa-spin loading-indicator"
@@ -2285,12 +2244,12 @@ defineExpose({
                     :disabled="!isAdmin"
                     :title="
                       !isAdmin
-                        ? 'Only administrators can switch purchase bills'
-                        : 'Switch purchase bill with another car'
+                        ? t('carStock.only_administrators_can_switch_purchase_bills')
+                        : t('carStock.switch_purchase_bill_with_another_car')
                     "
                   >
                     <i class="fas fa-exchange-alt"></i>
-                    <span>Switch Purchase Bill</span>
+                    <span>{{ t('carStock.switch_purchase_bill') }}</span>
                   </button>
                 </li>
               </ul>
@@ -2642,12 +2601,12 @@ defineExpose({
             :disabled="!isAdmin"
             :title="
               !isAdmin
-                ? 'Only administrators can switch purchase bills'
-                : 'Switch purchase bill with another car'
+                ? t('carStock.only_administrators_can_switch_purchase_bills')
+                : t('carStock.switch_purchase_bill_with_another_car')
             "
           >
             <i class="fas fa-exchange-alt"></i>
-            <span>Switch Purchase Bill</span>
+            <span>{{ t('carStock.switch_purchase_bill') }}</span>
           </button>
         </li>
       </ul>

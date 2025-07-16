@@ -1,6 +1,9 @@
 <script setup>
 import { ref, defineProps, defineEmits, computed } from 'vue'
 import { useApi } from '../../composables/useApi'
+import { useEnhancedI18n } from '@/composables/useI18n'
+
+const { t } = useEnhancedI18n()
 
 const props = defineProps({
   car: {
@@ -89,13 +92,7 @@ const isValidFileType = (file) => {
 }
 
 const getFileTypeErrorMessage = () => {
-  return (
-    'Only the following file types are allowed:\n' +
-    '- PDF files\n' +
-    '- Images (JPEG, PNG, GIF, WEBP, HEIC)\n' +
-    '- Microsoft Office files (DOC, DOCX, XLS, XLSX, PPT, PPTX)\n' +
-    '- Apple iWork files (Pages, Numbers, Keynote)'
-  )
+  return t('carFilesUploadForm.onlyFollowingFileTypesAllowed')
 }
 
 const getFileExtension = (file) => {
@@ -158,7 +155,7 @@ const handleFileUpload = async (file, type) => {
 
 const handleRevertFile = async (fileType) => {
   if (!isAdmin.value) {
-    error.value = 'Only admin can revert file uploads'
+    error.value = t('carFilesUploadForm.onlyAdminCanRevertFileUploads')
     return
   }
 
@@ -171,17 +168,17 @@ const handleRevertFile = async (fileType) => {
     case 'documents':
       filePath = props.car.path_documents
       dbField = 'path_documents'
-      displayName = 'BL'
+      displayName = t('carFilesUploadForm.bl')
       break
     case 'sell_pi':
       filePath = props.car.sell_pi_path
       dbField = 'sell_pi_path'
-      displayName = 'INVOICE'
+      displayName = t('carFilesUploadForm.invoice')
       break
     case 'buy_pi':
       filePath = props.car.buy_pi_path
       dbField = 'buy_pi_path'
-      displayName = 'PACKING LIST'
+      displayName = t('carFilesUploadForm.packingList')
       break
     default:
       error.value = 'Invalid file type'
@@ -252,7 +249,7 @@ const handleSubmit = async () => {
             if (path) updates.path_documents = path
           })
           .catch((err) => {
-            throw new Error(`Documents upload failed: ${err.message}`)
+            throw new Error(t('carFilesUploadForm.documentsUploadFailed') + `: ${err.message}`)
           }),
       )
     }
@@ -264,7 +261,7 @@ const handleSubmit = async () => {
             if (path) updates.sell_pi_path = path
           })
           .catch((err) => {
-            throw new Error(`Sell PI upload failed: ${err.message}`)
+            throw new Error(t('carFilesUploadForm.sellPiUploadFailed') + `: ${err.message}`)
           }),
       )
     }
@@ -276,7 +273,7 @@ const handleSubmit = async () => {
             if (path) updates.buy_pi_path = path
           })
           .catch((err) => {
-            throw new Error(`Buy PI upload failed: ${err.message}`)
+            throw new Error(t('carFilesUploadForm.buyPiUploadFailed') + `: ${err.message}`)
           }),
       )
     }
@@ -296,7 +293,7 @@ const handleSubmit = async () => {
       })
 
       if (result.success) {
-        success.value = 'Files uploaded successfully'
+        success.value = t('carFilesUploadForm.filesUploadedSuccessfully')
         emit('save', { ...props.car, ...updates })
         // Reset all file inputs
         documentsFile.value = null
@@ -307,10 +304,10 @@ const handleSubmit = async () => {
           closeModal()
         }, 1000)
       } else {
-        throw new Error(result.error || 'Failed to update file paths')
+        throw new Error(result.error || t('carFilesUploadForm.failedToUpdateFilePaths'))
       }
     } else {
-      success.value = 'No files selected for upload'
+      success.value = t('carFilesUploadForm.noFilesSelectedForUpload')
       // Close the modal after a short delay if no files were selected
       setTimeout(() => {
         closeModal()
@@ -318,7 +315,7 @@ const handleSubmit = async () => {
     }
   } catch (err) {
     console.error('Submit error:', err)
-    error.value = err.message || 'An error occurred during upload'
+    error.value = err.message || t('carFilesUploadForm.anErrorOccurredDuringUpload')
   } finally {
     loading.value = false
     isProcessing.value = false
@@ -371,7 +368,7 @@ const handleFileChange = (event, type) => {
 
   if (file.size > 10 * 1024 * 1024) {
     // 10MB limit
-    error.value = 'File size must be less than 10MB'
+    error.value = t('carFilesUploadForm.fileSizeMustBeLessThan10mb')
     event.target.value = ''
     return
   }
@@ -408,7 +405,7 @@ const handleDrop = (event, type, dragRef) => {
 
   if (file.size > 10 * 1024 * 1024) {
     // 10MB limit
-    error.value = 'File size must be less than 10MB'
+    error.value = t('carFilesUploadForm.fileSizeMustBeLessThan10mb')
     return
   }
 
@@ -435,7 +432,7 @@ const handleDrop = (event, type, dragRef) => {
       <div class="modal-header">
         <h3>
           <i class="fas fa-file-upload"></i>
-          Upload Car Files
+          {{ t('carFilesUploadForm.uploadCarFiles') }}
         </h3>
         <button class="close-btn" @click="closeModal" :disabled="isProcessing">
           <i class="fas fa-times"></i>
@@ -446,7 +443,7 @@ const handleDrop = (event, type, dragRef) => {
         <div class="form-group">
           <label for="documents">
             <i class="fas fa-file-pdf"></i>
-            BL:
+            {{ t('carFilesUploadForm.bl') }}:
           </label>
           <div
             class="file-input-container"
@@ -468,7 +465,7 @@ const handleDrop = (event, type, dragRef) => {
             />
             <div class="file-input-overlay">
               <i class="fas fa-cloud-upload-alt fa-2x"></i>
-              <span>Choose or drop file</span>
+              <span>{{ t('carFilesUploadForm.chooseOrDropFile') }}</span>
               <i v-if="isUploading.documents" class="fas fa-spinner fa-spin"></i>
             </div>
             <div v-if="documentsFile" class="selected-file">
@@ -481,7 +478,7 @@ const handleDrop = (event, type, dragRef) => {
             </div>
             <div v-if="props.car.path_documents" class="current-file">
               <i class="fas fa-check-circle text-success"></i>
-              Current: {{ props.car.path_documents.split('/').pop() }}
+              {{ t('carFilesUploadForm.current') }}: {{ props.car.path_documents.split('/').pop() }}
             </div>
           </div>
           <!-- Revert button for admin only - outside file input container -->
@@ -493,7 +490,7 @@ const handleDrop = (event, type, dragRef) => {
               title="Remove documents file"
             >
               <i class="fas fa-trash"></i>
-              Remove BL File
+              {{ t('carFilesUploadForm.removeBlFile') }}
             </button>
           </div>
         </div>
@@ -501,7 +498,7 @@ const handleDrop = (event, type, dragRef) => {
         <div class="form-group">
           <label for="sell-pi">
             <i class="fas fa-file-invoice-dollar"></i>
-            INVOICE:
+            {{ t('carFilesUploadForm.invoice') }}:
           </label>
           <div
             class="file-input-container"
@@ -523,7 +520,7 @@ const handleDrop = (event, type, dragRef) => {
             />
             <div class="file-input-overlay">
               <i class="fas fa-cloud-upload-alt fa-2x"></i>
-              <span>Choose or drop file</span>
+              <span>{{ t('carFilesUploadForm.chooseOrDropFile') }}</span>
               <i v-if="isUploading.sell_pi" class="fas fa-spinner fa-spin"></i>
             </div>
             <div v-if="sellPiFile" class="selected-file">
@@ -536,7 +533,7 @@ const handleDrop = (event, type, dragRef) => {
             </div>
             <div v-if="props.car.sell_pi_path" class="current-file">
               <i class="fas fa-check-circle text-success"></i>
-              Current: {{ props.car.sell_pi_path.split('/').pop() }}
+              {{ t('carFilesUploadForm.current') }}: {{ props.car.sell_pi_path.split('/').pop() }}
             </div>
           </div>
           <!-- Revert button for admin only - outside file input container -->
@@ -548,7 +545,7 @@ const handleDrop = (event, type, dragRef) => {
               title="Remove sell PI file"
             >
               <i class="fas fa-trash"></i>
-              Remove INVOICE File
+              {{ t('carFilesUploadForm.removeInvoiceFile') }}
             </button>
           </div>
         </div>
@@ -556,7 +553,7 @@ const handleDrop = (event, type, dragRef) => {
         <div class="form-group">
           <label for="buy-pi">
             <i class="fas fa-file-contract"></i>
-            PACKING LIST:
+            {{ t('carFilesUploadForm.packingList') }}:
           </label>
           <div
             class="file-input-container"
@@ -578,7 +575,7 @@ const handleDrop = (event, type, dragRef) => {
             />
             <div class="file-input-overlay">
               <i class="fas fa-cloud-upload-alt fa-2x"></i>
-              <span>Choose or drop file</span>
+              <span>{{ t('carFilesUploadForm.chooseOrDropFile') }}</span>
               <i v-if="isUploading.buy_pi" class="fas fa-spinner fa-spin"></i>
             </div>
             <div v-if="buyPiFile" class="selected-file">
@@ -591,7 +588,7 @@ const handleDrop = (event, type, dragRef) => {
             </div>
             <div v-if="props.car.buy_pi_path" class="current-file">
               <i class="fas fa-check-circle text-success"></i>
-              Current: {{ props.car.buy_pi_path.split('/').pop() }}
+              {{ t('carFilesUploadForm.current') }}: {{ props.car.buy_pi_path.split('/').pop() }}
             </div>
           </div>
           <!-- Revert button for admin only - outside file input container -->
@@ -603,7 +600,7 @@ const handleDrop = (event, type, dragRef) => {
               title="Remove buy PI file"
             >
               <i class="fas fa-trash"></i>
-              Remove PACKING LIST File
+              {{ t('carFilesUploadForm.removePackingListFile') }}
             </button>
           </div>
         </div>
@@ -621,7 +618,7 @@ const handleDrop = (event, type, dragRef) => {
       <div class="modal-footer">
         <button class="cancel-btn" @click="closeModal" :disabled="isProcessing">
           <i class="fas fa-times"></i>
-          Cancel
+          {{ t('carFilesUploadForm.cancel') }}
         </button>
         <button
           class="save-btn"
@@ -630,7 +627,9 @@ const handleDrop = (event, type, dragRef) => {
           :class="{ 'is-processing': isProcessing }"
         >
           <i class="fas fa-upload"></i>
-          <span>{{ isProcessing ? 'Uploading...' : 'Upload Files' }}</span>
+          <span>{{
+            isProcessing ? t('carFilesUploadForm.uploading') : t('carFilesUploadForm.uploadFiles')
+          }}</span>
           <i v-if="isProcessing" class="fas fa-spinner fa-spin"></i>
         </button>
       </div>

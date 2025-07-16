@@ -1,6 +1,9 @@
 <script setup>
 import { defineProps, defineEmits } from 'vue'
+import { useEnhancedI18n } from '@/composables/useI18n'
 import CarStockPrintDropdown from './CarStockPrintDropdown.vue'
+
+const { t } = useEnhancedI18n()
 
 const props = defineProps({
   selectedCars: {
@@ -38,11 +41,17 @@ const emit = defineEmits([
     <div class="toolbar-left">
       <div class="selection-info" v-if="selectedCars.size > 0">
         <i class="fas fa-check-circle"></i>
-        <span>{{ selectedCars.size }} car{{ selectedCars.size === 1 ? '' : 's' }} selected</span>
+        <span
+          >{{ selectedCars.size }} {{ t('carStockToolbar.car', { count: selectedCars.size }) }}
+          {{ t('carStockToolbar.selected') }}</span
+        >
       </div>
       <div class="total-info" v-else>
         <i class="fas fa-car"></i>
-        <span>{{ totalCars }} car{{ totalCars === 1 ? '' : 's' }} in stock</span>
+        <span
+          >{{ totalCars }} {{ t('carStockToolbar.car', { count: totalCars }) }}
+          {{ t('carStockToolbar.in_stock') }}</span
+        >
       </div>
     </div>
 
@@ -52,30 +61,42 @@ const emit = defineEmits([
         @click="$emit('ports')"
         class="ports-btn"
         :disabled="selectedCars.size === 0"
-        :title="selectedCars.size === 0 ? 'No cars selected' : 'Edit ports for selected cars'"
+        :title="
+          selectedCars.size === 0
+            ? t('carStockToolbar.no_cars_selected')
+            : t('carStockToolbar.edit_ports_for_selected_cars')
+        "
       >
         <i class="fas fa-anchor"></i>
-        <span>Ports</span>
+        <span>{{ t('carStockToolbar.ports') }}</span>
       </button>
       <button
         v-if="isAdmin"
         @click="$emit('warehouse')"
         class="warehouse-btn"
         :disabled="selectedCars.size === 0"
-        :title="selectedCars.size === 0 ? 'No cars selected' : 'Edit warehouse for selected cars'"
+        :title="
+          selectedCars.size === 0
+            ? t('carStockToolbar.no_cars_selected')
+            : t('carStockToolbar.edit_warehouse_for_selected_cars')
+        "
       >
         <i class="fas fa-warehouse"></i>
-        <span>Warehouse</span>
+        <span>{{ t('carStockToolbar.warehouse') }}</span>
       </button>
       <button
         v-if="isAdmin"
         @click="$emit('notes')"
         class="notes-btn"
         :disabled="selectedCars.size === 0"
-        :title="selectedCars.size === 0 ? 'No cars selected' : 'Edit notes for selected cars'"
+        :title="
+          selectedCars.size === 0
+            ? t('carStockToolbar.no_cars_selected')
+            : t('carStockToolbar.edit_notes_for_selected_cars')
+        "
       >
         <i class="fas fa-sticky-note"></i>
-        <span>Notes</span>
+        <span>{{ t('carStockToolbar.notes') }}</span>
       </button>
       <button
         @click="$emit('task')"
@@ -83,32 +104,40 @@ const emit = defineEmits([
         :disabled="selectedCars.size === 0"
         :title="
           selectedCars.size === 0
-            ? 'No cars selected'
-            : `Create task for ${selectedCars.size} selected car${selectedCars.size === 1 ? '' : 's'}`
+            ? t('carStockToolbar.no_cars_selected')
+            : t('carStockToolbar.create_task_for_selected_cars', { count: selectedCars.size })
         "
       >
         <i class="fas fa-tasks"></i>
-        <span>Task</span>
+        <span>{{ t('carStockToolbar.task') }}</span>
       </button>
       <button
         v-if="isAdmin && canChangeColor"
         @click="$emit('color')"
         class="color-btn"
         :disabled="selectedCars.size === 0"
-        :title="selectedCars.size === 0 ? 'No cars selected' : 'Edit color for selected cars'"
+        :title="
+          selectedCars.size === 0
+            ? t('carStockToolbar.no_cars_selected')
+            : t('carStockToolbar.edit_color_for_selected_cars')
+        "
       >
         <i class="fas fa-palette"></i>
-        <span>Color</span>
+        <span>{{ t('carStockToolbar.color') }}</span>
       </button>
       <button
         v-if="isAdmin"
         @click="$emit('vin')"
         class="vin-btn"
         :disabled="selectedCars.size === 0"
-        :title="selectedCars.size === 0 ? 'No cars selected' : 'Edit VIN for selected cars'"
+        :title="
+          selectedCars.size === 0
+            ? t('carStockToolbar.no_cars_selected')
+            : t('carStockToolbar.edit_vin_for_selected_cars')
+        "
       >
         <i class="fas fa-barcode"></i>
-        <span>VIN</span>
+        <span>{{ t('carStockToolbar.vin') }}</span>
       </button>
       <button
         v-if="isAdmin"
@@ -116,11 +145,13 @@ const emit = defineEmits([
         class="export-license-btn"
         :disabled="selectedCars.size === 0"
         :title="
-          selectedCars.size === 0 ? 'No cars selected' : 'Edit export license for selected cars'
+          selectedCars.size === 0
+            ? t('carStockToolbar.no_cars_selected')
+            : t('carStockToolbar.edit_export_license_for_selected_cars')
         "
       >
         <i class="fas fa-file-signature"></i>
-        <span>Export License</span>
+        <span>{{ t('carStockToolbar.export_license') }}</span>
       </button>
       <CarStockPrintDropdown
         :selected-count="selectedCars.size"

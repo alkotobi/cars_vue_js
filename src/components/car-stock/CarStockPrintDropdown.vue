@@ -1,5 +1,8 @@
 <script setup>
 import { ref, defineProps, defineEmits } from 'vue'
+import { useEnhancedI18n } from '@/composables/useI18n'
+
+const { t } = useEnhancedI18n()
 
 const props = defineProps({
   selectedCount: {
@@ -59,10 +62,10 @@ onUnmounted(() => {
       @click="toggleDropdown"
       class="print-dropdown-toggle"
       :disabled="totalCount === 0"
-      title="Print Options"
+      :title="t('carStockPrintDropdown.printOptions')"
     >
       <i class="fas fa-print"></i>
-      <span>Print</span>
+      <span>{{ t('carStockPrintDropdown.print') }}</span>
       <i class="fas fa-chevron-down dropdown-arrow" :class="{ rotated: isDropdownOpen }"></i>
     </button>
 
@@ -73,12 +76,14 @@ onUnmounted(() => {
         :disabled="selectedCount === 0"
         :title="
           selectedCount === 0
-            ? 'No cars selected'
-            : `Print ${selectedCount} selected car${selectedCount === 1 ? '' : 's'}`
+            ? t('carStockPrintDropdown.noCarsSelected')
+            : selectedCount === 1
+              ? t('carStockPrintDropdown.printSelectedCars', { count: selectedCount })
+              : t('carStockPrintDropdown.printSelectedCarsPlural', { count: selectedCount })
         "
       >
         <i class="fas fa-check-square"></i>
-        <span>Print Selected ({{ selectedCount }})</span>
+        <span>{{ t('carStockPrintDropdown.printSelected') }} ({{ selectedCount }})</span>
       </button>
       <button
         @click="handleLoadingOrder"
@@ -86,12 +91,14 @@ onUnmounted(() => {
         :disabled="selectedCount === 0"
         :title="
           selectedCount === 0
-            ? 'No cars selected'
-            : `Loading order for ${selectedCount} selected car${selectedCount === 1 ? '' : 's'}`
+            ? t('carStockPrintDropdown.noCarsSelected')
+            : selectedCount === 1
+              ? t('carStockPrintDropdown.loadingOrderForCars', { count: selectedCount })
+              : t('carStockPrintDropdown.loadingOrderForCarsPlural', { count: selectedCount })
         "
       >
         <i class="fas fa-spinner"></i>
-        <span>Loading Order ({{ selectedCount }})</span>
+        <span>{{ t('carStockPrintDropdown.loadingOrder') }} ({{ selectedCount }})</span>
       </button>
     </div>
   </div>

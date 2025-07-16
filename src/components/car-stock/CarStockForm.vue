@@ -1,6 +1,9 @@
 <script setup>
 import { ref, onMounted, watch, defineProps, defineEmits, computed } from 'vue'
 import { useApi } from '../../composables/useApi'
+import { useEnhancedI18n } from '@/composables/useI18n'
+
+const { t } = useEnhancedI18n()
 
 const props = defineProps({
   carData: {
@@ -240,7 +243,7 @@ const fetchReferenceData = async () => {
       warehouses.value = warehousesResult.data
     }
   } catch (err) {
-    error.value = err.message || 'Failed to fetch reference data'
+    error.value = t('carStockForm.failedToFetchReferenceData')
   }
 }
 
@@ -320,7 +323,7 @@ const saveCar = async () => {
     if (result.success) {
       emit('save')
     } else {
-      throw new Error(result.error || 'Failed to save car')
+      throw new Error(result.error || t('carStockForm.failedToSaveCar'))
     }
   } catch (err) {
     error.value = err.message
@@ -341,22 +344,22 @@ onMounted(() => {
 
 <template>
   <div class="car-stock-form">
-    <h3>{{ formData.id ? 'Edit' : 'Add' }} Car Stock</h3>
+    <h3>{{ formData.id ? t('carStockForm.editCarStock') : t('carStockForm.addCarStock') }}</h3>
 
     <div class="form-grid">
       <!-- Basic Information -->
       <div class="form-section">
-        <h4>Basic Information</h4>
+        <h4>{{ t('carStockForm.basicInformation') }}</h4>
 
         <div class="form-group">
-          <label for="vin">VIN:</label>
+          <label for="vin">{{ t('carStockForm.vin') }}:</label>
           <input :disabled="!can_edit_vin" type="text" id="vin" v-model="formData.vin" />
         </div>
 
         <div class="form-group">
-          <label for="id_buy_details">Buy Details:</label>
+          <label for="id_buy_details">{{ t('carStockForm.buyDetails') }}:</label>
           <select id="id_buy_details" v-model="formData.id_buy_details">
-            <option value="">Select Buy Details</option>
+            <option value="">{{ t('carStockForm.selectBuyDetails') }}</option>
             <option v-for="detail in buyDetails" :key="detail.id" :value="detail.id">
               {{ detail.car_name }} - {{ detail.color }} (ID: {{ detail.id }})
             </option>
@@ -364,17 +367,17 @@ onMounted(() => {
         </div>
 
         <div class="form-group">
-          <label for="notes">Notes:</label>
+          <label for="notes">{{ t('carStockForm.notes') }}:</label>
           <textarea id="notes" v-model="formData.notes"></textarea>
         </div>
       </div>
 
       <!-- Pricing and Client -->
       <div class="form-section">
-        <h4>Pricing and Client</h4>
+        <h4>{{ t('carStockForm.pricingAndClient') }}</h4>
 
         <div class="form-group">
-          <label for="price_cell">Price Cell:</label>
+          <label for="price_cell">{{ t('carStockForm.priceCell') }}:</label>
           <input
             :disabled="!can_edit_cars_sell_price"
             type="number"
@@ -385,12 +388,12 @@ onMounted(() => {
         </div>
 
         <div class="form-group">
-          <label for="freight">Freight:</label>
+          <label for="freight">{{ t('carStockForm.freight') }}:</label>
           <input type="number" id="freight" v-model="formData.freight" step="0.01" />
         </div>
 
         <div class="form-group">
-          <label for="rate">Rate:</label>
+          <label for="rate">{{ t('carStockForm.rate') }}:</label>
           <input
             :disabled="!can_edit_cars_sell_rate"
             type="number"
@@ -401,9 +404,9 @@ onMounted(() => {
         </div>
 
         <div class="form-group">
-          <label for="id_client">Client:</label>
+          <label for="id_client">{{ t('carStockForm.client') }}:</label>
           <select :disabled="!can_edit_car_client_name" id="id_client" v-model="formData.id_client">
-            <option value="">Select Client</option>
+            <option value="">{{ t('carStockForm.selectClient') }}</option>
             <option v-for="client in clients" :key="client.id" :value="client.id">
               {{ client.name }}
             </option>
@@ -411,19 +414,19 @@ onMounted(() => {
         </div>
 
         <div class="form-group">
-          <label for="date_sell">Sell Date:</label>
+          <label for="date_sell">{{ t('carStockForm.sellDate') }}:</label>
           <input type="date" id="date_sell" v-model="formData.date_sell" />
         </div>
       </div>
 
       <!-- Ports and Shipping -->
       <div class="form-section">
-        <h4>Ports and Shipping</h4>
+        <h4>{{ t('carStockForm.portsAndShipping') }}</h4>
 
         <div class="form-group">
-          <label for="id_port_loading">Loading Port:</label>
+          <label for="id_port_loading">{{ t('carStockForm.loadingPort') }}:</label>
           <select id="id_port_loading" v-model="formData.id_port_loading">
-            <option value="">Select Loading Port</option>
+            <option value="">{{ t('carStockForm.selectLoadingPort') }}</option>
             <option v-for="port in loadingPorts" :key="port.id" :value="port.id">
               {{ port.loading_port }}
             </option>
@@ -431,13 +434,13 @@ onMounted(() => {
         </div>
 
         <div class="form-group">
-          <label for="id_port_discharge">Discharge Port:</label>
+          <label for="id_port_discharge">{{ t('carStockForm.dischargePort') }}:</label>
           <select
             :disabled="!can_edit_cars_discharge_port"
             id="id_port_discharge"
             v-model="formData.id_port_discharge"
           >
-            <option value="">Select Discharge Port</option>
+            <option value="">{{ t('carStockForm.selectDischargePort') }}</option>
             <option v-for="port in dischargePorts" :key="port.id" :value="port.id">
               {{ port.discharge_port }}
             </option>
@@ -445,19 +448,19 @@ onMounted(() => {
         </div>
 
         <div class="form-group">
-          <label for="date_loding">Operation Date:</label>
+          <label for="date_loding">{{ t('carStockForm.operationDate') }}:</label>
           <input type="date" id="date_loding" v-model="formData.date_loding" />
         </div>
 
         <div class="form-group">
-          <label for="export_lisence_ref">Export License Ref:</label>
+          <label for="export_lisence_ref">{{ t('carStockForm.exportLicenseRef') }}:</label>
           <input type="text" id="export_lisence_ref" v-model="formData.export_lisence_ref" />
         </div>
       </div>
 
       <!-- Documents Upload -->
       <div class="form-group">
-        <label>Documents:</label>
+        <label>{{ t('carStockForm.documents') }}:</label>
         <div class="file-upload-container">
           <input
             type="file"
@@ -471,14 +474,14 @@ onMounted(() => {
             target="_blank"
             class="current-file-link"
           >
-            View Current Document
+            {{ t('carStockForm.viewCurrentDocument') }}
           </a>
         </div>
       </div>
 
       <!-- Sell PI Upload -->
       <div class="form-group">
-        <label>Sell PI:</label>
+        <label>{{ t('carStockForm.sellPi') }}:</label>
         <div class="file-upload-container">
           <input
             type="file"
@@ -492,14 +495,14 @@ onMounted(() => {
             target="_blank"
             class="current-file-link"
           >
-            View Sell PI
+            {{ t('carStockForm.viewSellPi') }}
           </a>
         </div>
       </div>
 
       <!-- Buy PI Upload -->
       <div class="form-group">
-        <label>Buy PI:</label>
+        <label>{{ t('carStockForm.buyPi') }}:</label>
         <div class="file-upload-container">
           <input
             type="file"
@@ -513,7 +516,7 @@ onMounted(() => {
             target="_blank"
             class="current-file-link"
           >
-            View Buy PI
+            {{ t('carStockForm.viewBuyPi') }}
           </a>
         </div>
       </div>
@@ -521,9 +524,11 @@ onMounted(() => {
 
     <div class="form-actions">
       <button @click="saveCar" :disabled="loading" class="btn save-btn">
-        {{ loading ? 'Saving...' : 'Save' }}
+        {{ loading ? t('carStockForm.saving') : t('carStockForm.save') }}
       </button>
-      <button @click="$emit('cancel')" class="btn cancel-btn">Cancel</button>
+      <button @click="$emit('cancel')" class="btn cancel-btn">
+        {{ t('carStockForm.cancel') }}
+      </button>
     </div>
 
     <div v-if="error" class="error-message">{{ error }}</div>

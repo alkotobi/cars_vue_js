@@ -1,6 +1,9 @@
 <script setup>
 import { ref, defineProps, defineEmits } from 'vue'
 import { useApi } from '../../composables/useApi'
+import { useEnhancedI18n } from '@/composables/useI18n'
+
+const { t } = useEnhancedI18n()
 
 const props = defineProps({
   show: Boolean,
@@ -17,7 +20,7 @@ const success = ref('')
 
 const handleSave = async () => {
   if (!exportLicense.value) {
-    error.value = 'Please enter an export license value.'
+    error.value = t('carExportLicenseBulkEditForm.pleaseEnterExportLicenseValue')
     return
   }
   loading.value = true
@@ -33,17 +36,19 @@ const handleSave = async () => {
       params: [exportLicense.value, ...carIds],
     })
     if (result.success) {
-      success.value = `Export license updated for ${carIds.length} cars.`
+      success.value = t('carExportLicenseBulkEditForm.exportLicenseUpdatedForCars', {
+        count: carIds.length,
+      })
       emit(
         'save',
         props.selectedCars.map((car) => ({ ...car, export_lisence_ref: exportLicense.value })),
       )
       emit('close')
     } else {
-      throw new Error(result.error || 'Failed to update export license')
+      throw new Error(result.error || t('carExportLicenseBulkEditForm.failedToUpdateExportLicense'))
     }
   } catch (err) {
-    error.value = err.message || 'An error occurred'
+    error.value = err.message || t('carExportLicenseBulkEditForm.anErrorOccurred')
   } finally {
     loading.value = false
   }
@@ -61,24 +66,38 @@ const closeModal = () => {
   <div v-if="show" class="modal-overlay" @click="closeModal">
     <div class="modal-content" @click.stop>
       <div class="modal-header">
-        <h3><i class="fas fa-file-signature"></i> Bulk Export License Edit</h3>
+        <h3>
+          <i class="fas fa-file-signature"></i>
+          {{ t('carExportLicenseBulkEditForm.bulkExportLicenseEdit') }}
+        </h3>
         <button class="close-btn" @click="closeModal" :disabled="loading">
           <i class="fas fa-times"></i>
         </button>
       </div>
       <div class="modal-body">
         <div class="info-section">
-          <h4><i class="fas fa-info-circle"></i> Selected Cars</h4>
-          <p>You have selected {{ selectedCars.length }} cars to update export license.</p>
+          <h4>
+            <i class="fas fa-info-circle"></i> {{ t('carExportLicenseBulkEditForm.selectedCars') }}
+          </h4>
+          <p>
+            {{
+              t('carExportLicenseBulkEditForm.youHaveSelectedCarsToUpdateExportLicense', {
+                count: selectedCars.length,
+              })
+            }}
+          </p>
         </div>
         <div class="form-group">
-          <label for="export-license"><i class="fas fa-id-card"></i> Export License</label>
+          <label for="export-license"
+            ><i class="fas fa-id-card"></i>
+            {{ t('carExportLicenseBulkEditForm.exportLicense') }}</label
+          >
           <input
             id="export-license"
             v-model="exportLicense"
             class="input-field"
             type="text"
-            placeholder="Enter export license value"
+            :placeholder="t('carExportLicenseBulkEditForm.enterExportLicenseValue')"
             :disabled="loading"
             @keyup.enter="handleSave"
           />
@@ -90,10 +109,15 @@ const closeModal = () => {
           <i class="fas fa-check-circle"></i> {{ success }}
         </div>
         <button class="save-btn" @click="handleSave" :disabled="loading">
-          <i class="fas fa-save"></i> {{ loading ? 'Saving...' : 'Save' }}
+          <i class="fas fa-save"></i>
+          {{
+            loading
+              ? t('carExportLicenseBulkEditForm.saving')
+              : t('carExportLicenseBulkEditForm.save')
+          }}
         </button>
         <button class="close-btn-secondary" @click="closeModal" :disabled="loading">
-          <i class="fas fa-times"></i> Close
+          <i class="fas fa-times"></i> {{ t('carExportLicenseBulkEditForm.close') }}
         </button>
       </div>
     </div>

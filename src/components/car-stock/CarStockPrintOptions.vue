@@ -1,5 +1,8 @@
 <script setup>
 import { ref, defineProps, defineEmits, watch } from 'vue'
+import { useEnhancedI18n } from '@/composables/useI18n'
+
+const { t } = useEnhancedI18n()
 
 const props = defineProps({
   show: {
@@ -132,9 +135,9 @@ const saveCoreContent = (actionType) => {
 // Function to set default subject based on action type
 const setDefaultSubject = (actionType) => {
   if (actionType === 'print') {
-    subjectText.value = 'Car Stock Report'
+    subjectText.value = t('carStockPrintOptions.reportSubject')
   } else if (actionType === 'loading-order') {
-    subjectText.value = 'Loading Order Report'
+    subjectText.value = t('carStockPrintOptions.loadingOrderOptions')
   } else {
     subjectText.value = ''
   }
@@ -143,11 +146,9 @@ const setDefaultSubject = (actionType) => {
 // Function to set default core content based on action type
 const setDefaultCoreContent = (actionType) => {
   if (actionType === 'print') {
-    coreContentText.value =
-      'This report contains detailed information about the selected vehicles in our inventory.'
+    coreContentText.value = t('carStockPrintOptions.reportCoreContentPlaceholder')
   } else if (actionType === 'loading-order') {
-    coreContentText.value =
-      'This loading order specifies the vehicles to be loaded and transported according to the requirements.'
+    coreContentText.value = t('carStockPrintOptions.reportCoreContentPlaceholder')
   } else {
     coreContentText.value = ''
   }
@@ -202,29 +203,29 @@ const setDefaultPreferences = (actionType) => {
 
 // Available columns for printing
 const availableColumns = ref([
-  { key: 'id', label: 'ID', checked: true },
-  { key: 'date_buy', label: 'Date Buy', checked: true },
-  { key: 'date_sell', label: 'Date Sell', checked: true },
-  { key: 'car_name', label: 'Car Name', checked: true },
-  { key: 'vin', label: 'VIN', checked: true },
-  { key: 'color', label: 'Color', checked: true },
-  { key: 'client_name', label: 'Client', checked: true },
-  { key: 'client_id_no', label: 'Client ID', checked: false },
-  { key: 'client_id_picture', label: 'Client ID Picture', checked: false },
-  { key: 'loading_port', label: 'Loading Port', checked: true },
-  { key: 'discharge_port', label: 'Discharge Port', checked: true },
-  { key: 'container_ref', label: 'Container Ref', checked: true },
-  { key: 'freight', label: 'Freight', checked: true },
-  { key: 'price_cell', label: 'FOB Price', checked: true },
-  { key: 'cfr_usd', label: 'CFR USD', checked: true },
-  { key: 'cfr_dza', label: 'CFR DZA', checked: true },
-  { key: 'rate', label: 'Rate', checked: true },
-  { key: 'status', label: 'Status', checked: true },
-  { key: 'warehouse_name', label: 'Warehouse', checked: true },
-  { key: 'buy_bill_ref', label: 'Buy Bill Ref', checked: false },
-  { key: 'sell_bill_ref', label: 'Sell Bill Ref', checked: false },
-  { key: 'export_lisence_ref', label: 'Export License', checked: false },
-  { key: 'notes', label: 'Notes', checked: false },
+  { key: 'id', label: t('carStockPrintOptions.id'), checked: true },
+  { key: 'date_buy', label: t('carStockPrintOptions.dateBuy'), checked: true },
+  { key: 'date_sell', label: t('carStockPrintOptions.dateSell'), checked: true },
+  { key: 'car_name', label: t('carStockPrintOptions.carName'), checked: true },
+  { key: 'vin', label: t('carStockPrintOptions.vin'), checked: true },
+  { key: 'color', label: t('carStockPrintOptions.color'), checked: true },
+  { key: 'client_name', label: t('carStockPrintOptions.client'), checked: true },
+  { key: 'client_id_no', label: t('carStockPrintOptions.clientId'), checked: false },
+  { key: 'client_id_picture', label: t('carStockPrintOptions.clientIdPicture'), checked: false },
+  { key: 'loading_port', label: t('carStockPrintOptions.loadingPort'), checked: true },
+  { key: 'discharge_port', label: t('carStockPrintOptions.dischargePort'), checked: true },
+  { key: 'container_ref', label: t('carStockPrintOptions.containerRef'), checked: true },
+  { key: 'freight', label: t('carStockPrintOptions.freight'), checked: true },
+  { key: 'price_cell', label: t('carStockPrintOptions.fobPrice'), checked: true },
+  { key: 'cfr_usd', label: t('carStockPrintOptions.cfrUsd'), checked: true },
+  { key: 'cfr_dza', label: t('carStockPrintOptions.cfrDza'), checked: true },
+  { key: 'rate', label: t('carStockPrintOptions.rate'), checked: true },
+  { key: 'status', label: t('carStockPrintOptions.status'), checked: true },
+  { key: 'warehouse_name', label: t('carStockPrintOptions.warehouse'), checked: true },
+  { key: 'buy_bill_ref', label: t('carStockPrintOptions.buyBillRef'), checked: false },
+  { key: 'sell_bill_ref', label: t('carStockPrintOptions.sellBillRef'), checked: false },
+  { key: 'export_lisence_ref', label: t('carStockPrintOptions.exportLicense'), checked: false },
+  { key: 'notes', label: t('carStockPrintOptions.notes'), checked: false },
 ])
 
 const isProcessing = ref(false)
@@ -248,7 +249,7 @@ const handleAction = () => {
   const selectedColumns = availableColumns.value.filter((col) => col.checked)
 
   if (selectedColumns.length === 0) {
-    alert('Please select at least one column')
+    alert(t('carStockPrintOptions.pleaseSelectAtLeastOneColumn'))
     return
   }
 
@@ -349,9 +350,13 @@ const handleCoreContentChange = () => {
       <div class="modal-header">
         <h3>
           <i :class="actionType === 'loading-order' ? 'fas fa-list-alt' : 'fas fa-print'"></i>
-          {{ actionType === 'loading-order' ? 'Loading Order' : 'Print' }} Options
+          {{
+            actionType === 'loading-order'
+              ? t('carStockPrintOptions.loadingOrderOptions')
+              : t('carStockPrintOptions.printOptions')
+          }}
         </h3>
-        <button @click="handleClose" class="close-btn" title="Close">
+        <button @click="handleClose" class="close-btn" :title="t('carStockPrintOptions.close')">
           <i class="fas fa-times"></i>
         </button>
       </div>
@@ -359,17 +364,24 @@ const handleCoreContentChange = () => {
       <div class="modal-content">
         <div class="selection-info">
           <i class="fas fa-info-circle"></i>
-          <span
-            >{{ actionType === 'loading-order' ? 'Loading Order' : 'Printing' }}
-            {{ selectedCars.length }} selected car{{ selectedCars.length === 1 ? '' : 's' }}</span
-          >
+          <span>
+            {{
+              actionType === 'loading-order'
+                ? selectedCars.length === 1
+                  ? t('carStockPrintOptions.loadingOrderInfo', { count: selectedCars.length })
+                  : t('carStockPrintOptions.loadingOrderInfoPlural', { count: selectedCars.length })
+                : selectedCars.length === 1
+                  ? t('carStockPrintOptions.selectedCarsInfo', { count: selectedCars.length })
+                  : t('carStockPrintOptions.selectedCarsInfoPlural', { count: selectedCars.length })
+            }}
+          </span>
         </div>
 
         <div class="subject-section">
           <div class="section-header">
             <h4>
               <i class="fas fa-file-alt"></i>
-              Report Subject
+              {{ t('carStockPrintOptions.reportSubject') }}
             </h4>
           </div>
           <div class="subject-input-container">
@@ -378,12 +390,12 @@ const handleCoreContentChange = () => {
               @input="handleSubjectChange"
               type="text"
               class="subject-input"
-              placeholder="Enter report subject..."
+              :placeholder="t('carStockPrintOptions.reportSubjectPlaceholder')"
               maxlength="100"
             />
             <div class="subject-help">
               <i class="fas fa-info-circle"></i>
-              <span>This text will be used as the subject/title of the report</span>
+              <span>{{ t('carStockPrintOptions.reportSubjectHelp') }}</span>
             </div>
           </div>
         </div>
@@ -392,7 +404,7 @@ const handleCoreContentChange = () => {
           <div class="section-header">
             <h4>
               <i class="fas fa-align-left"></i>
-              Report Core Content
+              {{ t('carStockPrintOptions.reportCoreContent') }}
             </h4>
           </div>
           <div class="core-content-container">
@@ -400,13 +412,13 @@ const handleCoreContentChange = () => {
               v-model="coreContentText"
               @input="handleCoreContentChange"
               class="core-content-textarea"
-              placeholder="Enter the main content of the report..."
+              :placeholder="t('carStockPrintOptions.reportCoreContentPlaceholder')"
               rows="4"
               maxlength="500"
             ></textarea>
             <div class="core-content-help">
               <i class="fas fa-info-circle"></i>
-              <span>This content will appear in the main body of the report before the table</span>
+              <span>{{ t('carStockPrintOptions.reportCoreContentHelp') }}</span>
             </div>
           </div>
         </div>
@@ -415,20 +427,32 @@ const handleCoreContentChange = () => {
           <div class="section-header">
             <h4>
               <i class="fas fa-columns"></i>
-              Select Columns to Print
+              {{ t('carStockPrintOptions.selectColumnsToPrint') }}
             </h4>
             <div class="column-actions">
-              <button @click="selectAllColumns" class="action-btn" title="Select All Columns">
+              <button
+                @click="selectAllColumns"
+                class="action-btn"
+                :title="t('carStockPrintOptions.selectAllColumnsTitle')"
+              >
                 <i class="fas fa-check-square"></i>
-                All
+                {{ t('carStockPrintOptions.selectAllColumns') }}
               </button>
-              <button @click="deselectAllColumns" class="action-btn" title="Deselect All Columns">
+              <button
+                @click="deselectAllColumns"
+                class="action-btn"
+                :title="t('carStockPrintOptions.deselectAllColumnsTitle')"
+              >
                 <i class="fas fa-square"></i>
-                None
+                {{ t('carStockPrintOptions.deselectAllColumns') }}
               </button>
-              <button @click="selectCommonColumns" class="action-btn" title="Select Common Columns">
+              <button
+                @click="selectCommonColumns"
+                class="action-btn"
+                :title="t('carStockPrintOptions.selectCommonColumnsTitle')"
+              >
                 <i class="fas fa-star"></i>
-                Common
+                {{ t('carStockPrintOptions.selectCommonColumns') }}
               </button>
             </div>
           </div>
@@ -450,7 +474,7 @@ const handleCoreContentChange = () => {
       <div class="modal-actions">
         <button @click="handleClose" class="cancel-btn">
           <i class="fas fa-times"></i>
-          Cancel
+          {{ t('carStockPrintOptions.cancel') }}
         </button>
         <button
           @click="handleAction"
@@ -461,7 +485,11 @@ const handleCoreContentChange = () => {
           :disabled="isProcessing || availableColumns.filter((col) => col.checked).length === 0"
         >
           <i :class="actionType === 'loading-order' ? 'fas fa-list-alt' : 'fas fa-print'"></i>
-          <span>{{ actionType === 'loading-order' ? 'Generate Loading Order' : 'Print' }}</span>
+          <span>{{
+            actionType === 'loading-order'
+              ? t('carStockPrintOptions.generateLoadingOrder')
+              : t('carStockPrintOptions.print')
+          }}</span>
           <i v-if="isProcessing" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
       </div>

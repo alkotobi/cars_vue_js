@@ -1,6 +1,9 @@
 <script setup>
 import { ref, defineProps, defineEmits, computed } from 'vue'
 import { useApi } from '../../composables/useApi'
+import { useEnhancedI18n } from '@/composables/useI18n'
+
+const { t } = useEnhancedI18n()
 
 const props = defineProps({
   car: {
@@ -39,20 +42,20 @@ const handleLoad = async () => {
 
   // Validate container ref
   if (!containerRef.value.trim()) {
-    containerRefError.value = 'Container Ref is required.'
+    containerRefError.value = t('carLoadForm.containerRefRequired')
     return
   }
 
   // Validate loading date
   if (!loadingDate.value) {
-    loadingDateError.value = 'Loading date is required.'
+    loadingDateError.value = t('carLoadForm.loadingDateRequired')
     return
   }
 
   if (props.car.date_loding) return
 
   // Use native browser confirmation instead of Element Plus
-  const confirmed = confirm('Are you sure you want to mark this car as loaded?')
+  const confirmed = confirm(t('carLoadForm.confirmMarkCarAsLoaded'))
   if (!confirmed) return
 
   try {
@@ -77,10 +80,10 @@ const handleLoad = async () => {
         emit('close')
       }, 2000) // Close after animation plays
     } else {
-      throw new Error(result.error || 'Failed to update loading date')
+      throw new Error(result.error || t('carLoadForm.failedToUpdateLoadingDate'))
     }
   } catch (err) {
-    error.value = err.message || 'An error occurred'
+    error.value = err.message || t('carLoadForm.anErrorOccurred')
   } finally {
     loading.value = false
   }
@@ -88,18 +91,16 @@ const handleLoad = async () => {
 
 const handleRevert = async () => {
   if (!isAdmin.value) {
-    error.value = 'Only admin can revert loading status'
+    error.value = t('carLoadForm.onlyAdminCanRevertLoadingStatus')
     return
   }
 
   if (!props.car.date_loding) {
-    error.value = 'Car is not loaded, nothing to revert'
+    error.value = t('carLoadForm.carIsNotLoadedNothingToRevert')
     return
   }
 
-  const confirmed = confirm(
-    'Are you sure you want to revert the loading status? This will clear the container ref and loading date.',
-  )
+  const confirmed = confirm(t('carLoadForm.confirmRevertLoadingStatus'))
   if (!confirmed) return
 
   try {
@@ -126,10 +127,10 @@ const handleRevert = async () => {
         emit('close')
       }, 2000) // Close after animation plays
     } else {
-      throw new Error(result.error || 'Failed to revert loading status')
+      throw new Error(result.error || t('carLoadForm.failedToRevertLoadingStatus'))
     }
   } catch (err) {
-    error.value = err.message || 'An error occurred'
+    error.value = err.message || t('carLoadForm.anErrorOccurred')
   } finally {
     loading.value = false
   }
@@ -150,28 +151,29 @@ const closeModal = () => {
   <div v-if="show" class="modal-overlay">
     <div class="modal-content">
       <div class="modal-header">
-        <h3>Car Loading</h3>
+        <h3>{{ t('carLoadForm.carLoading') }}</h3>
         <button class="close-btn" @click="closeModal" v-if="!success">&times;</button>
       </div>
 
       <div class="modal-body">
         <div v-if="!success" class="loading-status">
-          <h4>Loading Status</h4>
+          <h4>{{ t('carLoadForm.loadingStatus') }}</h4>
           <div class="status-info">
-            <span class="status-label">Current Status:</span>
+            <span class="status-label">{{ t('carLoadForm.currentStatus') }}:</span>
             <span :class="['status-value', props.car.date_loding ? 'loaded' : 'pending']">
-              {{ props.car.date_loding ? 'Loaded' : 'Pending' }}
+              {{ props.car.date_loding ? t('carLoadForm.loaded') : t('carLoadForm.pending') }}
             </span>
           </div>
           <div v-if="props.car.date_loding" class="date-info">
-            <span class="date-label">Loading Date:</span>
+            <span class="date-label">{{ t('carLoadForm.loadingDate') }}:</span>
             <span class="date-value">{{
               new Date(props.car.date_loding).toLocaleDateString()
             }}</span>
           </div>
           <div class="form-group">
             <label for="container-ref"
-              ><strong>Container Ref</strong> <span style="color: red">*</span></label
+              ><strong>{{ t('carLoadForm.containerRef') }}</strong>
+              <span style="color: red">*</span></label
             >
             <input
               id="container-ref"
@@ -186,7 +188,8 @@ const closeModal = () => {
 
           <div class="form-group">
             <label for="loading-date"
-              ><strong>Loading Date</strong> <span style="color: red">*</span></label
+              ><strong>{{ t('carLoadForm.loadingDate') }}</strong>
+              <span style="color: red">*</span></label
             >
             <input
               id="loading-date"
@@ -204,7 +207,7 @@ const closeModal = () => {
             :disabled="loading || !!props.car.date_loding"
             :class="{ disabled: !!props.car.date_loding }"
           >
-            {{ loading ? 'Processing...' : 'Load Car' }}
+            {{ loading ? t('carLoadForm.processing') : t('carLoadForm.loadCar') }}
           </button>
 
           <!-- Revert button for admin only -->
@@ -214,7 +217,7 @@ const closeModal = () => {
             @click="handleRevert"
             :disabled="loading"
           >
-            {{ loading ? 'Processing...' : 'Revert Loading' }}
+            {{ loading ? t('carLoadForm.processing') : t('carLoadForm.revertLoading') }}
           </button>
         </div>
 
@@ -222,8 +225,8 @@ const closeModal = () => {
           <div class="checkmark-circle">
             <div class="checkmark"></div>
           </div>
-          <h2 class="congratulations">Congratulations!</h2>
-          <p class="success-message">Car has been successfully loaded</p>
+          <h2 class="congratulations">{{ t('carLoadForm.congratulations') }}</h2>
+          <p class="success-message">{{ t('carLoadForm.carHasBeenSuccessfullyLoaded') }}</p>
         </div>
 
         <div v-if="error" class="error-message">
