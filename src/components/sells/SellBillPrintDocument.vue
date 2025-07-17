@@ -4,6 +4,7 @@ import { useEnhancedI18n } from '../../composables/useI18n'
 import { useApi } from '../../composables/useApi'
 import logoImage from '@/assets/logo.png'
 import stampImage from '@/assets/gml2.png'
+import letterHeadImage from '@/assets/letter_head.png'
 
 const { t } = useEnhancedI18n()
 
@@ -181,9 +182,9 @@ const calculateCarPrice = (car) => {
 const formatPrice = (price) => {
   if (props.options.currency.toUpperCase() === 'DA') {
     if (price === 'Rate not set') return price
-    return `DZD ${price}`
+    return price
   }
-  return `USD ${price}`
+  return price
 }
 
 const numberToWords = (num) => {
@@ -280,196 +281,149 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="print-document">
-    <div v-if="loading" class="loading">{{ t('sellBills.loading') }}</div>
-    <div v-else-if="error" class="error">{{ error }}</div>
-    <div v-else class="a4-page">
-      <!-- Floating Stamp -->
-      <div class="floating-stamp">
-        <img :src="stampImage" :alt="t('sellBills.company_stamp')" />
-      </div>
+  <div class="print-report">
+    <!-- Header Image -->
+    <div class="report-header">
+      <img :src="letterHeadImage" alt="Letter Head" class="letter-head" />
+    </div>
 
-      <!-- Professional Header -->
-      <div class="sell_bill_header">
-        <div class="company-info">
-          <img :src="company.logo" :alt="t('sellBills.company_logo')" class="company-logo" />
-          <div class="company-text">
-            <h1 class="company-name">{{ selectedBank?.company_name || company.name }}</h1>
-            <div class="company-details">
-              <p>
-                <i class="fas fa-map-marker-alt"></i>
-                {{ selectedBank?.bank_address || company.address }}
-              </p>
-              <p><i class="fas fa-phone"></i> {{ company.phone }}</p>
-              <p><i class="fas fa-envelope"></i> {{ company.email }}</p>
-            </div>
-          </div>
-        </div>
-        <div class="document-info">
-          <div class="document-header">
-            <h2 class="document-title">
-              {{
-                options.documentType === 'contract'
-                  ? t('sellBills.contract')
-                  : options.documentType === 'invoice'
-                    ? t('sellBills.invoice')
-                    : t('sellBills.proforma')
-              }}
-            </h2>
-          </div>
-          <div class="document-details">
-            <div class="detail-row">
-              <span class="detail-label">{{ t('sellBills.ci_no') }}:</span>
-              <span class="detail-value">{{ billData.bill_ref }}</span>
-            </div>
-            <div class="detail-row">
-              <span class="detail-label">{{ t('sellBills.date') }}:</span>
-              <span class="detail-value">{{ formatDate(billData.date_sell) }}</span>
-            </div>
-            <div class="detail-row">
-              <span class="detail-label">{{ t('sellBills.currency') }}:</span>
-              <span class="detail-value">{{ options.currency.toUpperCase() }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
+    <!-- Date and Reference -->
+    <div class="report-meta">
+      <span
+        ><strong>{{ t('sellBills.date') }}:</strong>
+        {{ billData ? formatDate(billData.date_sell) : '' }}</span
+      >
+      <span class="report-ref"
+        ><strong>{{ t('sellBills.ci_no') }}:</strong> {{ billData ? billData.bill_ref : '' }}</span
+      >
+    </div>
 
-      <!-- Buyer Information Section -->
-      <div class="section buyer-section">
-        <div class="section-header">
-          <h3><i class="fas fa-user"></i> {{ t('sellBills.buyer_information') }}</h3>
-        </div>
-        <div class="buyer-details">
-          <div class="buyer-info">
-            <div class="info-group">
-              <label>{{ t('sellBills.name') }}:</label>
-              <span class="info-value">{{ billData.broker_name }}</span>
-            </div>
-            <div class="info-group">
-              <label>{{ t('sellBills.address') }}:</label>
-              <span class="info-value">{{ billData.broker_address }}</span>
-            </div>
-            <div class="info-group">
-              <label>{{ t('sellBills.phone') }}:</label>
-              <span class="info-value">{{ billData.broker_phone }}</span>
-            </div>
+    <!-- Title -->
+    <h1 class="report-title">
+      {{
+        options.documentType === 'contract'
+          ? t('sellBills.contract')
+          : options.documentType === 'invoice'
+            ? t('sellBills.invoice')
+            : t('sellBills.proforma')
+      }}
+    </h1>
+
+    <!-- Buyer Information Section -->
+    <div class="section buyer-section">
+      <div class="buyer-details">
+        <div class="buyer-info">
+          <div class="info-group">
+            <label class="bold-label">{{ t('sellBills.name') }}:</label>
+            <span class="info-value">{{ billData?.broker_name }}</span>
           </div>
-        </div>
-      </div>
-
-      <!-- Vehicle Details Table -->
-      <div class="section vehicles-section">
-        <div class="section-header">
-          <h3><i class="fas fa-car"></i> {{ t('sellBills.vehicle_details') }}</h3>
-        </div>
-        <div class="table-container">
-          <table class="vehicles-table">
-            <thead>
-              <tr>
-                <th class="col-no">No.</th>
-                <th class="col-vehicle">{{ t('sellBills.vehicle') }}</th>
-                <th class="col-color">{{ t('sellBills.color') }}</th>
-                <th class="col-vin">{{ t('sellBills.vin') }}</th>
-                <th class="col-client">{{ t('sellBills.client') }}</th>
-                <th class="col-port">{{ t('sellBills.port') }}</th>
-                <th class="col-price">
-                  {{ t('sellBills.price') }} {{ options.paymentTerms.toUpperCase() }}
-                  {{ props.options.currency.toUpperCase() }}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(car, index) in carsData" :key="car.id" class="vehicle-row">
-                <td class="col-no">{{ index + 1 }}</td>
-                <td class="col-vehicle">{{ car.car_name }}</td>
-                <td class="col-color">{{ car.color }}</td>
-                <td class="col-vin">{{ car.vin }}</td>
-                <td class="col-client">{{ car.client_name }}</td>
-                <td class="col-port">{{ car.discharge_port }}</td>
-                <td class="col-price">{{ formatPrice(calculateCarPrice(car)) }}</td>
-              </tr>
-            </tbody>
-            <tfoot>
-              <tr class="total-row">
-                <td colspan="6" class="total-label">
-                  <strong>{{ t('sellBills.total') }}:</strong>
-                </td>
-                <td class="total-value">
-                  <strong>{{ formatPrice(calculateTotal()) }}</strong>
-                </td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-        <div class="amount-in-words">
-          <span class="words-label">{{ t('sellBills.total') }} in words:</span>
-          <span class="words-value">
-            <strong
-              >{{ numberToWords(calculateTotal()) }}
-              {{ props.options.currency.toUpperCase() }}</strong
-            >
-          </span>
-        </div>
-      </div>
-
-      <!-- Payment & Bank Information - Compact -->
-      <div class="section payment-bank-section">
-        <div class="section-header">
-          <h3><i class="fas fa-credit-card"></i> {{ t('sellBills.payment_details') }}</h3>
-        </div>
-        <div class="payment-bank-details">
-          <div class="payment-info">
-            <div class="info-row">
-              <span class="info-label">{{ t('sellBills.payment_terms') }}:</span>
-              <span class="info-value">{{ options.paymentTerms.toUpperCase() }}</span>
-              <span class="info-label">{{ t('sellBills.mode') }}:</span>
-              <span class="info-value">{{ options.paymentMode }}</span>
-            </div>
+          <div class="info-group">
+            <label class="bold-label">{{ t('sellBills.address') }}:</label>
+            <span class="info-value">{{ billData?.broker_address }}</span>
           </div>
-          <div class="bank-info" v-if="selectedBank">
-            <div class="info-row">
-              <span class="info-label">{{ t('sellBills.bank_information') }}:</span>
-              <span class="info-value">{{ selectedBank.bank_name }}</span>
-              <span class="info-label">Account:</span>
-              <span class="info-value">{{ selectedBank.bank_account }}</span>
-            </div>
-            <div class="info-row">
-              <span class="info-label">SWIFT:</span>
-              <span class="info-value">{{ selectedBank.swift_code }}</span>
-            </div>
+          <div class="info-group">
+            <label class="bold-label">{{ t('sellBills.phone') }}:</label>
+            <span class="info-value">{{ billData?.broker_phone }}</span>
           </div>
-        </div>
-      </div>
-
-      <!-- Notes Section -->
-      <div class="section notes-section" v-if="billData.notes">
-        <div class="section-header">
-          <h3><i class="fas fa-sticky-note"></i> {{ t('sellBills.notes') }}</h3>
-        </div>
-        <div class="notes-content">
-          <p>{{ billData.notes }}</p>
-        </div>
-      </div>
-
-      <!-- Footer -->
-      <div class="footer">
-        <div class="footer-content">
-          <p>{{ t('sellBills.thank_you_for_business') }}</p>
-          <p class="footer-note">
-            {{ t('sellBills.computer_generated_document') }}
-          </p>
         </div>
       </div>
     </div>
 
+    <!-- Vehicle Details Table -->
+    <div class="section vehicles-section">
+      <div class="table-container">
+        <table class="report-table">
+          <thead>
+            <tr>
+              <th>No.</th>
+              <th>{{ t('sellBills.vehicle') }}</th>
+              <th>{{ t('sellBills.color') }}</th>
+              <th>{{ t('sellBills.vin') }}</th>
+              <th>{{ t('sellBills.client') }}</th>
+              <th>{{ t('sellBills.port') }}</th>
+              <th>
+                {{ t('sellBills.price') }} {{ options.paymentTerms.toUpperCase() }}
+                {{ options.currency.toUpperCase() }}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(car, index) in carsData" :key="car.id">
+              <td>{{ index + 1 }}</td>
+              <td>{{ car.car_name }}</td>
+              <td>{{ car.color }}</td>
+              <td>{{ car.vin }}</td>
+              <td>{{ car.client_name }}</td>
+              <td>{{ car.discharge_port }}</td>
+              <td>{{ formatPrice(calculateCarPrice(car)) }}</td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="6" class="total-label">
+                <strong>{{ t('sellBills.total') }}:</strong>
+              </td>
+              <td class="total-value">
+                <strong>{{ formatPrice(calculateTotal()) }}</strong>
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      <div class="amount-in-words">
+        <span class="words-label">{{ t('sellBills.total') }} in words:</span>
+        <span class="words-value">
+          <strong
+            >{{ numberToWords(calculateTotal()) }} {{ options.currency.toUpperCase() }}</strong
+          >
+        </span>
+      </div>
+    </div>
+
+    <!-- Payment & Bank Information -->
+    <div class="section payment-bank-section">
+      <div class="payment-bank-details">
+        <div class="payment-info">
+          <div class="info-row">
+            <span class="info-label bold-label">{{ t('sellBills.payment_terms') }}:</span>
+            <span class="info-value">{{ options.paymentTerms.toUpperCase() }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label bold-label">{{ t('sellBills.mode') }}:</span>
+            <span class="info-value">{{ options.paymentMode }}</span>
+          </div>
+        </div>
+        <div class="bank-info" v-if="selectedBank">
+          <div class="info-row">
+            <span class="info-label bold-label">{{ t('sellBills.bank_information') }}:</span>
+            <span class="info-value">{{ selectedBank.bank_name }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label bold-label">Account:</span>
+            <span class="info-value">{{ selectedBank.bank_account }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label bold-label">SWIFT:</span>
+            <span class="info-value">{{ selectedBank.swift_code }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Notes Section -->
+    <div class="section notes-section" v-if="billData?.notes">
+      <div class="notes-content">
+        <p>{{ billData.notes }}</p>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <div class="footer-content"></div>
+    </div>
+
     <!-- Second Page (Terms and Conditions) -->
     <div v-if="options.documentType === 'contract'" class="a4-page terms-page">
-      <!-- Floating Stamp -->
-      <div class="floating-stamp">
-        <img :src="stampImage" :alt="t('sellBills.company_stamp')" />
-      </div>
-
-      <!-- Contract Terms -->
       <div class="section contract-terms">
         <h3>Terms and Conditions</h3>
         <div class="terms-list">
@@ -581,8 +535,6 @@ onMounted(() => {
           </div>
         </div>
       </div>
-
-      <!-- Signatures -->
       <div class="signatures">
         <div class="signature-box">
           <p>Seller's Signature</p>
@@ -598,424 +550,136 @@ onMounted(() => {
 </template>
 
 <style scoped>
-/* Professional Invoice Design - Compact for 2-page printing */
-.a4-page {
-  width: 210mm;
-  min-height: 297mm;
-  padding: 15mm;
+.print-report {
+  font-family: 'Arial', sans-serif;
+  max-width: 210mm;
   margin: 0 auto;
+  padding: 20px;
   background: white;
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
-  position: relative;
-  margin-bottom: 20mm;
-  font-family: 'Arial', 'Helvetica', sans-serif;
-  color: #2c3e50;
-  line-height: 1.4;
+  color: #333;
 }
 
-@media print {
-  .a4-page {
-    box-shadow: none;
-    margin: 0;
-    padding: 12mm;
-  }
-}
-
-/* Header Styles - Compact */
-.sell_bill_header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 25px;
-  padding-bottom: 15px;
-  border-bottom: 2px solid #3498db;
-}
-
-.company-info {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  flex: 1;
-}
-
-.company-logo {
-  width: 80px;
-  height: auto;
-  object-fit: contain;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
-}
-
-.company-text {
-  display: flex;
-  flex-direction: column;
-}
-
-.company-name {
-  font-size: 20px;
-  font-weight: bold;
-  color: #2c3e50;
-  margin-bottom: 8px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.company-details {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.company-details p {
-  margin: 0;
-  color: #7f8c8d;
-  font-size: 11px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.company-details i {
-  color: #3498db;
-  width: 12px;
-}
-
-.document-info {
-  text-align: right;
-  min-width: 250px;
-}
-
-.document-header {
-  margin-bottom: 12px;
-}
-
-.document-title {
-  font-size: 24px;
-  font-weight: bold;
-  color: #2c3e50;
-  margin: 0 0 10px 0;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-}
-
-.document-details {
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-  padding: 12px;
-  border-radius: 6px;
-  border-left: 3px solid #3498db;
-}
-
-.detail-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 6px;
-  padding: 4px 0;
-  border-bottom: 1px solid #dee2e6;
-}
-
-.detail-row:last-child {
-  border-bottom: none;
-  margin-bottom: 0;
-}
-
-.detail-label {
-  font-weight: 600;
-  color: #495057;
-  font-size: 11px;
-}
-
-.detail-value {
-  font-weight: bold;
-  color: #2c3e50;
-  font-size: 12px;
-}
-
-/* Section Styles - Compact */
-.section {
+.report-header {
+  text-align: center;
   margin-bottom: 20px;
-  background: #ffffff;
-  border-radius: 6px;
-  overflow: hidden;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
 }
 
-.section-header {
-  background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
-  padding: 10px 15px;
-  margin: 0;
+.letter-head {
+  max-width: 100%;
+  height: auto;
+  max-height: 120px;
+}
+
+.report-meta {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+.report-title {
+  text-align: center;
+  font-size: 2rem;
+  margin: 20px 0 30px 0;
+  color: #2c3e50;
+}
+
+.section {
+  margin-bottom: 30px;
 }
 
 .section-header h3 {
-  color: white;
-  margin: 0;
-  font-size: 14px;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.section-header i {
-  font-size: 12px;
-}
-
-/* Buyer Section - Compact */
-.buyer-section {
-  border: 1px solid #e9ecef;
-}
-
-.buyer-details {
-  padding: 15px;
-}
-
-.buyer-info {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 12px;
-}
-
-.info-group {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.info-group label {
-  font-weight: 600;
-  color: #495057;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-}
-
-.info-value {
-  font-size: 12px;
-  color: #2c3e50;
-  font-weight: 500;
-  padding: 6px 8px;
-  background: #f8f9fa;
-  border-radius: 3px;
-  border-left: 2px solid #3498db;
-}
-
-/* Vehicles Section - Compact */
-.vehicles-section {
-  border: 1px solid #e9ecef;
+  font-size: 1.2rem;
+  margin-bottom: 10px;
+  color: #3498db;
 }
 
 .table-container {
-  padding: 15px;
+  overflow-x: auto;
 }
 
-.vehicles-table {
+.report-table {
   width: 100%;
   border-collapse: collapse;
-  margin-bottom: 12px;
   background: white;
-  border-radius: 6px;
-  overflow: hidden;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-.vehicles-table th {
-  background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
-  color: white;
-  padding: 8px 6px;
-  font-weight: 600;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
+.report-table th,
+.report-table td {
+  padding: 12px;
   text-align: left;
-  border: none;
+  border-bottom: 1px solid #ddd;
 }
 
-.vehicles-table td {
-  padding: 6px;
-  border-bottom: 1px solid #e9ecef;
-  font-size: 11px;
-  vertical-align: middle;
-}
-
-.vehicle-row:hover {
-  background-color: #f8f9fa;
-}
-
-.vehicle-row:nth-child(even) {
-  background-color: #fafbfc;
-}
-
-.vehicle-row:nth-child(even):hover {
-  background-color: #f1f3f4;
-}
-
-.col-no {
-  width: 40px;
-  text-align: center;
+.report-table th {
+  background-color: #f5f5f5;
   font-weight: bold;
+  color: #333;
 }
 
-.col-vehicle {
-  width: 120px;
-}
-
-.col-color {
-  width: 80px;
-}
-
-.col-vin {
-  width: 140px;
-  font-family: 'Courier New', monospace;
-  font-weight: 600;
-}
-
-.col-client {
-  width: 100px;
-}
-
-.col-port {
-  width: 80px;
-}
-
-.col-price {
-  width: 100px;
-  text-align: right;
-  font-weight: bold;
-}
-
-.total-row {
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
-  border-top: 1px solid #3498db;
+.report-table tr:hover {
+  background-color: #f9f9f9;
 }
 
 .total-label {
   text-align: right;
-  font-size: 12px;
-  color: #2c3e50;
-  padding: 8px 6px;
 }
 
 .total-value {
-  text-align: right;
-  font-size: 14px;
-  color: #2c3e50;
-  padding: 8px 6px;
-  background: #3498db;
-  color: white;
   font-weight: bold;
+  color: #3498db;
 }
 
 .amount-in-words {
-  background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
-  padding: 10px 12px;
-  border-radius: 4px;
-  border-left: 3px solid #f39c12;
-  margin-top: 12px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  margin-top: 10px;
+  font-size: 1rem;
+  color: #555;
 }
 
 .words-label {
-  font-weight: 600;
-  color: #856404;
-  font-size: 11px;
-  text-transform: uppercase;
+  font-weight: 500;
 }
 
 .words-value {
-  font-weight: bold;
-  color: #856404;
-  font-size: 12px;
+  margin-left: 10px;
   font-style: italic;
 }
 
-/* Two Columns Layout - Compact */
-.two-columns {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-  margin-bottom: 20px;
-}
-
-@media (max-width: 768px) {
-  .two-columns {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* Payment & Bank Section - Compact */
-.payment-bank-section {
-  border: 1px solid #e9ecef;
-}
-
-.payment-bank-details {
-  padding: 12px;
-}
-
-.payment-info,
-.bank-info {
-  margin-bottom: 8px;
-}
-
-.payment-info:last-child,
-.bank-info:last-child {
-  margin-bottom: 0;
-}
-
-.info-row {
+.vehicle-summary {
   display: flex;
+  flex-direction: column;
+  gap: 15px;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid #3498db;
+}
+
+.summary-item {
+  display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
-  flex-wrap: wrap;
+  padding: 10px 0;
+  border-bottom: 1px solid #e9ecef;
 }
 
-.info-row:last-child {
-  margin-bottom: 0;
+.summary-item:last-child {
+  border-bottom: none;
 }
 
-.info-label {
+.summary-label {
   font-weight: 600;
   color: #495057;
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  min-width: 80px;
+  font-size: 14px;
 }
 
-.info-value {
+.summary-value {
   font-weight: bold;
   color: #2c3e50;
-  font-size: 11px;
-  padding: 3px 6px;
-  background: transparent;
-  border-radius: 3px;
-  border: none;
-  margin-right: 12px;
+  font-size: 16px;
 }
 
-/* Notes Section - Compact */
-.notes-section {
-  border: 1px solid #e9ecef;
-}
-
-.notes-content {
-  padding: 15px;
-}
-
-.notes-content p {
-  margin: 0;
-  font-size: 11px;
-  line-height: 1.4;
-  color: #495057;
-  background: #f8f9fa;
-  padding: 10px;
-  border-radius: 4px;
-  border-left: 3px solid #6c757d;
-}
-
-/* Footer - Compact */
 .footer {
   margin-top: 20px;
   padding-top: 15px;
@@ -1029,13 +693,6 @@ onMounted(() => {
   border-radius: 6px;
 }
 
-.footer-content p {
-  margin: 0 0 6px 0;
-  font-size: 12px;
-  color: #2c3e50;
-  font-weight: 500;
-}
-
 .footer-note {
   font-size: 10px !important;
   color: #6c757d !important;
@@ -1043,242 +700,7 @@ onMounted(() => {
   margin-top: 8px !important;
 }
 
-/* Floating Stamp - Smaller */
-.floating-stamp {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%) rotate(-30deg);
-  opacity: 1;
-  pointer-events: none;
-  z-index: 100;
-  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
-}
-
-.floating-stamp img {
-  width: 250px;
-  height: auto;
-}
-
-/* Print Styles - Preserve Colors for Color Printing */
-@media print {
-  .a4-page {
-    box-shadow: none;
-    margin: 0;
-    page-break-inside: avoid;
-    background: white;
-  }
-
-  .floating-stamp {
-    opacity: 1;
-  }
-
-  /* Preserve gradients and colors for color printing */
-  .section {
-    box-shadow: none;
-    border: 1px solid #dee2e6;
-  }
-
-  .vehicles-table {
-    box-shadow: none;
-    border: 1px solid #dee2e6;
-  }
-
-  .two-columns {
-    break-inside: avoid;
-  }
-
-  /* Preserve table header gradient */
-  .vehicles-table th {
-    background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%) !important;
-    color: white !important;
-    -webkit-print-color-adjust: exact;
-    color-adjust: exact;
-  }
-
-  /* Preserve total row gradient */
-  .total-row {
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
-    -webkit-print-color-adjust: exact;
-    color-adjust: exact;
-  }
-
-  /* Preserve total value background */
-  .total-value {
-    background: #3498db !important;
-    color: white !important;
-    -webkit-print-color-adjust: exact;
-    color-adjust: exact;
-  }
-
-  /* Preserve footer gradient */
-  .footer-content {
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
-    -webkit-print-color-adjust: exact;
-    color-adjust: exact;
-  }
-
-  /* Preserve section headers */
-  .section-header h3 {
-    background: linear-gradient(135deg, #3498db 0%, #2980b9 100%) !important;
-    color: white !important;
-    -webkit-print-color-adjust: exact;
-    color-adjust: exact;
-  }
-
-  /* Preserve document details gradient */
-  .document-details {
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
-    -webkit-print-color-adjust: exact;
-    color-adjust: exact;
-  }
-
-  /* Preserve payment and bank info background */
-  .payment-bank-info {
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
-    -webkit-print-color-adjust: exact;
-    color-adjust: exact;
-  }
-
-  /* Preserve term items background */
-  .term-item {
-    background-color: #f9fafb !important;
-    -webkit-print-color-adjust: exact;
-    color-adjust: exact;
-  }
-
-  /* Ensure proper color printing */
-  * {
-    -webkit-print-color-adjust: exact;
-    color-adjust: exact;
-  }
-}
-
-/* Legacy styles for compatibility */
-.loading,
-.error {
-  text-align: center;
-  padding: 20px;
-  font-size: 16px;
-}
-
-.loading {
-  color: #3498db;
-}
-
-.error {
-  color: #e74c3c;
-}
-
-.text-right {
-  text-align: right;
-}
-
-.signatures {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 30px;
-}
-
-.signature-box {
-  width: 150px;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.signature-line {
-  margin-top: 30px;
-  border-top: 1px solid #000;
-}
-
-/* Bank selection styles */
-.bank-selection {
-  margin-bottom: 20px;
-  padding: 10px;
-  background-color: #f9fafb;
-  border: 1px solid #e5e7eb;
-  border-radius: 4px;
-}
-
-.bank-selection label {
-  margin-right: 10px;
-  font-weight: 600;
-}
-
-.bank-selection select {
-  padding: 5px 10px;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  min-width: 200px;
-}
-
-/* Contract terms styles - Compact */
-.contract-terms {
-  margin: 20px 0;
-  page-break-inside: avoid;
-  font-size: 9px;
-}
-
-.terms-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.term-item {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding: 8px;
-  background-color: #f9fafb;
-  border-radius: 4px;
-}
-
-.term-item p {
-  margin: 0;
-  line-height: 1.3;
-}
-
-.english {
-  color: #1f2937;
-}
-
-.arabic {
-  font-family: 'Arial', sans-serif;
-  direction: rtl;
-  text-align: right;
-  color: #374151;
-}
-
-.chinese {
-  font-family: 'SimSun', 'Microsoft YaHei', sans-serif;
-  color: #4b5563;
-}
-
-@media print {
-  .print-hide {
-    display: none;
-  }
-
-  .term-item {
-    background-color: transparent;
-    border: 1px solid #e5e7eb;
-  }
-}
-
-.company-stamp {
-  width: 80px;
-  height: auto;
-  margin-top: 8px;
-  object-fit: contain;
-}
-
-.page-footer {
-  margin-top: 20px;
-  text-align: center;
-  font-size: 10px;
-  color: #6c757d;
+.bold-label {
+  font-weight: bold !important;
 }
 </style>

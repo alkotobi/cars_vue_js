@@ -4,6 +4,7 @@ import { useEnhancedI18n } from '../../composables/useI18n'
 import { useApi } from '../../composables/useApi'
 import logoImage from '@/assets/logo.png'
 import stampImage from '@/assets/gml2.png'
+import letterHeadImage from '@/assets/letter_head.png'
 
 const { t } = useEnhancedI18n()
 const props = defineProps({
@@ -122,9 +123,9 @@ const calculateCarPrice = () => {
 const formatPrice = (price) => {
   if (props.options.currency.toUpperCase() === 'DA') {
     if (price === 'Rate not set') return price
-    return `DZD ${price}`
+    return price
   }
-  return `USD ${price}`
+  return price
 }
 
 onMounted(() => {
@@ -133,66 +134,52 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="print-document">
+  <div class="print-report">
     <div v-if="loading" class="loading">{{ t('sellBills.loading') }}</div>
     <div v-else-if="error" class="error">{{ error }}</div>
-    <div v-else class="a4-page">
-      <!-- Floating Stamp -->
-      <div class="floating-stamp">
-        <img :src="stampImage" :alt="t('sellBills.company_stamp')" />
+    <div v-else>
+      <!-- Header Image -->
+      <div class="report-header">
+        <img :src="letterHeadImage" alt="Letter Head" class="letter-head" />
       </div>
 
-      <!-- Professional Header -->
-      <div class="car_print_header">
-        <div class="company-info">
-          <img :src="company.logo" :alt="t('sellBills.company_logo')" class="company-logo" />
-          <div class="company-text">
-            <h1 class="company-name">{{ company.name }}</h1>
-            <div class="company-details">
-              <p><i class="fas fa-map-marker-alt"></i> {{ company.address }}</p>
-              <p><i class="fas fa-phone"></i> {{ company.phone }}</p>
-              <p><i class="fas fa-envelope"></i> {{ company.email }}</p>
-            </div>
-          </div>
-        </div>
-        <div class="document-info">
-          <div class="document-header">
-            <h2 class="document-title">{{ t('sellBills.commercial_invoice') }}</h2>
-          </div>
-          <div class="document-details">
-            <div class="detail-row">
-              <span class="detail-label">{{ t('sellBills.ci_no') }}:</span>
-              <span class="detail-value">{{ billData.bill_ref }}-{{ carData.id }}</span>
-            </div>
-            <div class="detail-row">
-              <span class="detail-label">{{ t('sellBills.date') }}:</span>
-              <span class="detail-value">{{ formatDate(billData.date_sell) }}</span>
-            </div>
-            <div class="detail-row">
-              <span class="detail-label">{{ t('sellBills.currency') }}:</span>
-              <span class="detail-value">{{ options.currency.toUpperCase() }}</span>
-            </div>
-          </div>
-        </div>
+      <!-- Date and Reference -->
+      <div class="report-meta">
+        <span
+          ><strong>{{ t('sellBills.date') }}:</strong>
+          {{ billData ? formatDate(billData.date_sell) : '' }}</span
+        >
+        <span class="report-ref"
+          ><strong>{{ t('sellBills.ci_no') }}:</strong>
+          {{ billData ? billData.bill_ref + '-' + carData.id : '' }}</span
+        >
       </div>
+
+      <!-- Title -->
+      <h1 class="report-title">
+        {{
+          options.documentType === 'contract'
+            ? t('sellBills.contract')
+            : options.documentType === 'invoice'
+              ? t('sellBills.invoice')
+              : t('sellBills.proforma')
+        }}
+      </h1>
 
       <!-- Buyer Information Section -->
       <div class="section buyer-section">
-        <div class="section-header">
-          <h3><i class="fas fa-user"></i> {{ t('sellBills.buyer_information') }}</h3>
-        </div>
         <div class="buyer-details">
           <div class="buyer-info">
             <div class="info-group">
-              <label>{{ t('sellBills.name') }}:</label>
+              <label class="bold-label">{{ t('sellBills.name') }}:</label>
               <span class="info-value">{{ carData.client_name }}</span>
             </div>
             <div class="info-group">
-              <label>{{ t('sellBills.address') }}:</label>
+              <label class="bold-label">{{ t('sellBills.address') }}:</label>
               <span class="info-value">{{ billData.broker_address }}</span>
             </div>
             <div class="info-group">
-              <label>{{ t('sellBills.phone') }}:</label>
+              <label class="bold-label">{{ t('sellBills.phone') }}:</label>
               <span class="info-value">{{ billData.broker_phone }}</span>
             </div>
           </div>
@@ -200,36 +187,35 @@ onMounted(() => {
       </div>
 
       <!-- Vehicle Details Table -->
-      <div class="section vehicle-section">
-        <div class="section-header">
-          <h3><i class="fas fa-car"></i> {{ t('sellBills.vehicle_details') }}</h3>
-        </div>
+      <div class="section vehicles-section">
         <div class="table-container">
-          <table class="vehicle-table">
+          <table class="report-table">
             <thead>
               <tr>
-                <th class="col-vehicle">{{ t('sellBills.vehicle') }}</th>
-                <th class="col-color">{{ t('sellBills.color') }}</th>
-                <th class="col-vin">{{ t('sellBills.vin') }}</th>
-                <th class="col-port">{{ t('sellBills.port') }}</th>
-                <th class="col-price">
+                <th>No.</th>
+                <th>{{ t('sellBills.vehicle') }}</th>
+                <th>{{ t('sellBills.color') }}</th>
+                <th>{{ t('sellBills.vin') }}</th>
+                <th>{{ t('sellBills.port') }}</th>
+                <th>
                   {{ t('sellBills.price') }} {{ options.paymentTerms.toUpperCase() }}
                   {{ options.currency.toUpperCase() }}
                 </th>
               </tr>
             </thead>
             <tbody>
-              <tr class="vehicle-row">
-                <td class="col-vehicle">{{ carData.car_name }}</td>
-                <td class="col-color">{{ carData.color }}</td>
-                <td class="col-vin">{{ carData.vin }}</td>
-                <td class="col-port">{{ carData.discharge_port }}</td>
-                <td class="col-price">{{ formatPrice(calculateCarPrice()) }}</td>
+              <tr>
+                <td>1</td>
+                <td>{{ carData.car_name }}</td>
+                <td>{{ carData.color }}</td>
+                <td>{{ carData.vin }}</td>
+                <td>{{ carData.discharge_port }}</td>
+                <td>{{ formatPrice(calculateCarPrice()) }}</td>
               </tr>
             </tbody>
             <tfoot>
-              <tr class="total-row">
-                <td colspan="4" class="total-label">
+              <tr>
+                <td colspan="5" class="total-label">
                   <strong>{{ t('sellBills.total') }}:</strong>
                 </td>
                 <td class="total-value">
@@ -241,221 +227,77 @@ onMounted(() => {
         </div>
       </div>
 
-      <!-- Payment Details - Compact -->
-      <div class="section payment-section">
-        <div class="section-header">
-          <h3><i class="fas fa-credit-card"></i> {{ t('sellBills.payment_details') }}</h3>
-        </div>
-        <div class="payment-details">
-          <div class="info-row">
-            <span class="info-label">{{ t('sellBills.payment_terms') }}:</span>
-            <span class="info-value">{{ options.paymentTerms.toUpperCase() }}</span>
-            <span class="info-label">{{ t('sellBills.mode') }}:</span>
-            <span class="info-value">{{ options.paymentMode }}</span>
+      <!-- Payment & Bank Information -->
+      <div class="section payment-bank-section">
+        <div class="payment-bank-details">
+          <div class="payment-info">
+            <div class="info-row">
+              <span class="info-label bold-label">{{ t('sellBills.payment_terms') }}:</span>
+              <span class="info-value">{{ options.paymentTerms.toUpperCase() }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label bold-label">{{ t('sellBills.mode') }}:</span>
+              <span class="info-value">{{ options.paymentMode }}</span>
+            </div>
           </div>
         </div>
       </div>
 
       <!-- Footer -->
       <div class="footer">
-        <div class="footer-content">
-          <p>{{ t('sellBills.thank_you_for_business') }}</p>
-          <p class="footer-note">
-            {{ t('sellBills.computer_generated_document') }}
-          </p>
-        </div>
+        <div class="footer-content"></div>
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-/* Professional Invoice Design - Compact for 2-page printing */
-.a4-page {
-  width: 210mm;
-  min-height: 297mm;
-  padding: 15mm;
+.print-report {
+  font-family: 'Arial', sans-serif;
+  max-width: 210mm;
   margin: 0 auto;
+  padding: 20px;
   background: white;
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
-  position: relative;
-  margin-bottom: 20mm;
-  font-family: 'Arial', 'Helvetica', sans-serif;
-  color: #2c3e50;
-  line-height: 1.4;
+  color: #333;
 }
 
-@media print {
-  @page {
-    size: A4;
-    margin: 8mm;
-  }
-  .a4-page {
-    box-shadow: none;
-    margin: 0 !important;
-    padding-bottom: 0 !important;
-    page-break-inside: avoid;
-    background: white;
-    height: auto !important;
-    max-height: 100% !important;
-  }
-  .floating-stamp {
-    margin-bottom: 0 !important;
-  }
-}
-
-/* Header Styles - Compact */
-.car_print_header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 25px;
-  padding-bottom: 15px;
-  border-bottom: 2px solid #3498db;
-}
-
-.company-info {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  flex: 1;
-}
-
-.company-logo {
-  width: 80px;
-  height: auto;
-  object-fit: contain;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
-}
-
-.company-text {
-  display: flex;
-  flex-direction: column;
-}
-
-.company-name {
-  font-size: 20px;
-  font-weight: bold;
-  color: #2c3e50;
-  margin-bottom: 8px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.company-details {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.company-details p {
-  margin: 0;
-  color: #7f8c8d;
-  font-size: 11px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.company-details i {
-  color: #3498db;
-  width: 12px;
-}
-
-.document-info {
-  text-align: right;
-  min-width: 250px;
-}
-
-.document-header {
-  margin-bottom: 12px;
-}
-
-.document-title {
-  font-size: 24px;
-  font-weight: bold;
-  color: #2c3e50;
-  margin: 0 0 10px 0;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-}
-
-.document-details {
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-  padding: 12px;
-  border-radius: 6px;
-  border-left: 3px solid #3498db;
-}
-
-.detail-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 6px;
-  padding: 4px 0;
-  border-bottom: 1px solid #dee2e6;
-}
-
-.detail-row:last-child {
-  border-bottom: none;
-  margin-bottom: 0;
-}
-
-.detail-label {
-  font-weight: 600;
-  color: #495057;
-  font-size: 11px;
-}
-
-.detail-value {
-  font-weight: bold;
-  color: #2c3e50;
-  font-size: 12px;
-}
-
-/* Section Styles - Compact */
-.section {
+.report-header {
+  text-align: center;
   margin-bottom: 20px;
-  background: #ffffff;
-  border-radius: 6px;
-  overflow: hidden;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
 }
 
-.section-header {
-  background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
-  padding: 10px 15px;
-  margin: 0;
+.letter-head {
+  max-width: 100%;
+  height: auto;
+  max-height: 120px;
+}
+
+.report-meta {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+.report-title {
+  text-align: center;
+  font-size: 2rem;
+  margin: 20px 0 30px 0;
+  color: #2c3e50;
+}
+
+.section {
+  margin-bottom: 30px;
 }
 
 .section-header h3 {
-  color: white;
-  margin: 0;
-  font-size: 14px;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.section-header i {
-  font-size: 12px;
-}
-
-/* Buyer Section - Compact */
-.buyer-section {
-  border: 1px solid #e9ecef;
+  font-size: 1.2rem;
+  margin-bottom: 10px;
+  color: #3498db;
 }
 
 .buyer-details {
   padding: 15px;
-}
-
-.buyer-info {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 12px;
 }
 
 .info-group {
@@ -464,154 +306,107 @@ onMounted(() => {
   gap: 3px;
 }
 
-.info-group label {
-  font-weight: 600;
-  color: #495057;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-}
-
-.info-value {
-  font-size: 12px;
-  color: #2c3e50;
-  font-weight: 500;
-  padding: 6px 8px;
-  background: #f8f9fa;
-  border-radius: 3px;
-  border-left: 2px solid #3498db;
-}
-
-/* Vehicle Section - Compact */
-.vehicle-section {
-  border: 1px solid #e9ecef;
-}
-
 .table-container {
-  padding: 15px;
+  overflow-x: auto;
 }
 
-.vehicle-table {
+.report-table {
   width: 100%;
   border-collapse: collapse;
-  margin-bottom: 12px;
   background: white;
-  border-radius: 6px;
-  overflow: hidden;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-.vehicle-table th {
-  background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
-  color: white;
-  padding: 8px 6px;
-  font-weight: 600;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
+.report-table th,
+.report-table td {
+  padding: 12px;
   text-align: left;
-  border: none;
+  border-bottom: 1px solid #ddd;
 }
 
-.vehicle-table td {
-  padding: 6px;
-  border-bottom: 1px solid #e9ecef;
-  font-size: 11px;
-  vertical-align: middle;
-}
-
-.vehicle-row:hover {
-  background-color: #f8f9fa;
-}
-
-.col-vehicle {
-  width: 120px;
-}
-
-.col-color {
-  width: 80px;
-}
-
-.col-vin {
-  width: 140px;
-  font-family: 'Courier New', monospace;
-  font-weight: 600;
-}
-
-.col-port {
-  width: 80px;
-}
-
-.col-price {
-  width: 100px;
-  text-align: right;
+.report-table th {
+  background-color: #f5f5f5;
   font-weight: bold;
+  color: #333;
 }
 
-.total-row {
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
-  border-top: 1px solid #3498db;
+.report-table th:last-child,
+.report-table td:last-child {
+  text-align: right;
+}
+
+.report-table tr:hover {
+  background-color: #f9f9f9;
 }
 
 .total-label {
   text-align: right;
-  font-size: 12px;
-  color: #2c3e50;
-  padding: 8px 6px;
 }
 
 .total-value {
-  text-align: right;
-  font-size: 14px;
-  color: #2c3e50;
-  padding: 8px 6px;
-  background: #3498db;
-  color: white;
   font-weight: bold;
+  color: #3498db;
 }
 
-/* Payment Section - Compact */
-.payment-section {
-  border: 1px solid #e9ecef;
+.amount-in-words {
+  margin-top: 10px;
+  font-size: 1rem;
+  color: #555;
 }
 
-.payment-details {
-  padding: 12px;
+.words-label {
+  font-weight: 500;
 }
 
-.info-row {
+.words-value {
+  margin-left: 10px;
+  font-style: italic;
+}
+
+.vehicle-summary {
   display: flex;
+  flex-direction: column;
+  gap: 15px;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid #3498db;
+}
+
+.summary-item {
+  display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
-  flex-wrap: wrap;
+  padding: 10px 0;
+  border-bottom: 1px solid #e9ecef;
 }
 
-.info-row:last-child {
-  margin-bottom: 0;
+.summary-item:last-child {
+  border-bottom: none;
 }
 
-.info-label {
+.summary-label {
   font-weight: 600;
   color: #495057;
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  min-width: 80px;
+  font-size: 14px;
 }
 
-.info-value {
+.summary-value {
   font-weight: bold;
   color: #2c3e50;
-  font-size: 11px;
-  padding: 3px 6px;
-  background: transparent;
-  border-radius: 3px;
-  border: none;
-  margin-right: 12px;
+  font-size: 16px;
 }
 
-/* Footer - Compact */
+.notes-content {
+  padding: 15px;
+}
+
+.notes-content p {
+  margin: 0;
+  color: #2c3e50;
+  line-height: 1.6;
+}
+
 .footer {
   margin-top: 20px;
   padding-top: 15px;
@@ -625,13 +420,6 @@ onMounted(() => {
   border-radius: 6px;
 }
 
-.footer-content p {
-  margin: 0 0 6px 0;
-  font-size: 12px;
-  color: #2c3e50;
-  font-weight: 500;
-}
-
 .footer-note {
   font-size: 10px !important;
   color: #6c757d !important;
@@ -639,107 +427,10 @@ onMounted(() => {
   margin-top: 8px !important;
 }
 
-/* Floating Stamp - Smaller */
-.floating-stamp {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%) rotate(-30deg);
-  opacity: 1;
-  pointer-events: none;
-  z-index: 100;
-  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
+.bold-label {
+  font-weight: bold !important;
 }
 
-.floating-stamp img {
-  width: 250px;
-  height: auto;
-}
-
-/* Print Styles - Preserve Colors for Color Printing */
-@media print {
-  .a4-page {
-    box-shadow: none;
-    margin: 0;
-    page-break-inside: avoid;
-    background: white;
-  }
-
-  .floating-stamp {
-    opacity: 1;
-    position: absolute !important;
-    page-break-inside: avoid !important;
-    top: 50% !important;
-    left: 50% !important;
-    transform: translate(-50%, -50%) rotate(-30deg) !important;
-    max-width: 90%;
-    max-height: 90%;
-  }
-
-  /* Preserve gradients and colors for color printing */
-  .section {
-    box-shadow: none;
-    border: 1px solid #dee2e6;
-  }
-
-  .vehicle-table {
-    box-shadow: none;
-    border: 1px solid #dee2e6;
-  }
-
-  /* Preserve table header gradient */
-  .vehicle-table th {
-    background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%) !important;
-    color: white !important;
-    -webkit-print-color-adjust: exact;
-    color-adjust: exact;
-  }
-
-  /* Preserve total row gradient */
-  .total-row {
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
-    -webkit-print-color-adjust: exact;
-    color-adjust: exact;
-  }
-
-  /* Preserve total value background */
-  .total-value {
-    background: #3498db !important;
-    color: white !important;
-    -webkit-print-color-adjust: exact;
-    color-adjust: exact;
-  }
-
-  /* Preserve footer gradient */
-  .footer-content {
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
-    -webkit-print-color-adjust: exact;
-    color-adjust: exact;
-  }
-
-  /* Preserve section headers */
-  .section-header h3 {
-    background: linear-gradient(135deg, #3498db 0%, #2980b9 100%) !important;
-    color: white !important;
-    -webkit-print-color-adjust: exact;
-    color-adjust: exact;
-  }
-
-  /* Preserve document details gradient */
-  .document-details {
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
-    -webkit-print-color-adjust: exact;
-    color-adjust: exact;
-  }
-
-  /* Ensure proper color printing */
-  * {
-    -webkit-print-color-adjust: exact;
-    color-adjust: exact;
-  }
-}
-
-/* Legacy styles for compatibility */
 .loading,
 .error {
   text-align: center;
@@ -755,7 +446,76 @@ onMounted(() => {
   color: #e74c3c;
 }
 
-.text-right {
-  text-align: right;
+/* Terms and Conditions Page */
+.terms-page {
+  margin-top: 20mm;
+}
+
+.contract-terms {
+  padding: 20px;
+}
+
+.contract-terms h3 {
+  font-size: 1.5rem;
+  color: #2c3e50;
+  margin-bottom: 20px;
+  text-align: center;
+  border-bottom: 2px solid #3498db;
+  padding-bottom: 10px;
+}
+
+.terms-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.term-item {
+  border-left: 3px solid #3498db;
+  padding-left: 15px;
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 0 6px 6px 0;
+}
+
+.term-item p {
+  margin: 0 0 8px 0;
+  line-height: 1.6;
+}
+
+.term-item .english {
+  color: #2c3e50;
+  font-weight: 500;
+}
+
+.term-item .chinese {
+  color: #7f8c8d;
+  font-size: 0.9em;
+}
+
+.signatures {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 40px;
+  padding-top: 20px;
+  border-top: 1px solid #e9ecef;
+}
+
+.signature-box {
+  text-align: center;
+  flex: 1;
+  margin: 0 20px;
+}
+
+.signature-box p {
+  margin: 0 0 10px 0;
+  font-weight: bold;
+  color: #2c3e50;
+}
+
+.signature-line {
+  height: 2px;
+  background: #2c3e50;
+  margin-top: 20px;
 }
 </style>

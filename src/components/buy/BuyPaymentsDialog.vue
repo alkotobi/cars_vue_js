@@ -79,7 +79,7 @@ const handleSwiftFileChange = (event) => {
   if (!file) return
 
   const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp']
-
+  
   if (!allowedTypes.includes(file.type)) {
     alert(t('buy.paymentsDialog.onlyPdfAndImageFilesAllowed'))
     event.target.value = ''
@@ -93,11 +93,11 @@ const handleSwiftFileChange = (event) => {
 const fetchPayments = async () => {
   loading.value = true
   error.value = null
-
+  
   try {
     const result = await callApi({
       query: `
-        SELECT
+        SELECT 
           bp.*,
           u.username as created_by
         FROM buy_payments bp
@@ -107,7 +107,7 @@ const fetchPayments = async () => {
       `,
       params: [props.billId],
     })
-
+    
     if (result.success) {
       payments.value = result.data.map((payment) => ({
         ...payment,
@@ -127,7 +127,7 @@ const fetchPayments = async () => {
 const addPayment = async () => {
   if (!validateForm()) return
   if (loading.value) return // Prevent double-click
-
+  
   loading.value = true
   error.value = null
 
@@ -145,7 +145,7 @@ const addPayment = async () => {
 
     const result = await callApi({
       query: `
-        INSERT INTO buy_payments
+        INSERT INTO buy_payments 
         (id_buy_bill, date_payment, amount, swift_path, notes, id_user)
         VALUES (?, ?, ?, ?, ?, ?)
       `,
@@ -163,7 +163,7 @@ const addPayment = async () => {
       // Update the payed amount in buy_bill
       await callApi({
         query: `
-          UPDATE buy_bill
+          UPDATE buy_bill 
           SET payed = (
             SELECT COALESCE(SUM(amount), 0)
             FROM buy_payments
@@ -215,11 +215,11 @@ const formatNumber = (value) => {
 watch(
   () => props.show,
   (newVal) => {
-    if (newVal) {
-      fetchPayments()
-    } else {
-      resetForm()
-    }
+  if (newVal) {
+    fetchPayments()
+  } else {
+    resetForm()
+  }
   },
 )
 </script>
@@ -275,8 +275,8 @@ watch(
               <i class="fas fa-money-bill-wave"></i>
               {{ t('buy.paymentsDialog.amount') }}
             </label>
-            <input
-              type="number"
+            <input 
+              type="number" 
               id="amount"
               v-model="paymentForm.amount"
               step="0.01"
@@ -290,8 +290,8 @@ watch(
               <i class="fas fa-calendar-alt"></i>
               {{ t('buy.paymentsDialog.paymentDate') }}
             </label>
-            <input
-              type="datetime-local"
+            <input 
+              type="datetime-local" 
               id="date"
               v-model="paymentForm.date_payment"
               required
@@ -304,7 +304,7 @@ watch(
               <i class="fas fa-file-alt"></i>
               {{ t('buy.paymentsDialog.swiftDocument') }}
             </label>
-            <input
+            <input 
               type="file"
               id="swift"
               @change="handleSwiftFileChange"
@@ -322,7 +322,7 @@ watch(
               <i class="fas fa-sticky-note"></i>
               {{ t('buy.paymentsDialog.notes') }}
             </label>
-            <textarea
+            <textarea 
               id="notes"
               v-model="paymentForm.notes"
               rows="3"
@@ -341,7 +341,7 @@ watch(
               <span>{{
                 loading ? t('buy.detailsTable.processing') : t('buy.paymentsDialog.addPayment')
               }}</span>
-            </button>
+          </button>
           </div>
         </form>
 
@@ -745,4 +745,4 @@ watch(
   color: #4b5563;
   font-size: 0.875rem;
 }
-</style>
+</style> 
