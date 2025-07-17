@@ -2,6 +2,9 @@
 import { defineProps, defineEmits } from 'vue'
 import { ref, computed, watch } from 'vue'
 import { useApi } from '../../composables/useApi'
+import { useEnhancedI18n } from '../../composables/useI18n'
+
+const { t } = useEnhancedI18n()
 
 const props = defineProps({
   buyBills: {
@@ -134,15 +137,15 @@ const getPaymentStatus = (bill) => {
   const remaining = total - paid
 
   if (total === 0) {
-    return { status: 'no-amount', text: 'No Amount', color: 'gray' }
+    return { status: 'no-amount', text: t('buy.billsTable.noAmount'), color: 'gray' }
   } else if (paid === 0) {
-    return { status: 'not-paid', text: 'Not Paid', color: 'red' }
+    return { status: 'not-paid', text: t('buy.billsTable.notPaid'), color: 'red' }
   } else if (remaining <= 0) {
-    return { status: 'paid', text: 'Paid', color: 'green' }
+    return { status: 'paid', text: t('buy.billsTable.paid'), color: 'green' }
   } else {
     return {
       status: 'partial',
-      text: `Left: $${remaining.toFixed(2)}`,
+      text: `${t('buy.billsTable.left')}: $${remaining.toFixed(2)}`,
       color: 'orange',
     }
   }
@@ -286,13 +289,13 @@ defineExpose({
     <!-- Loading Overlay -->
     <div v-if="loading" class="loading-overlay">
       <i class="fas fa-spinner fa-spin fa-2x"></i>
-      <span>Loading bills...</span>
+      <span>{{ t('buy.billsTable.loadingBills') }}</span>
     </div>
 
     <!-- No Selection Message -->
     <div v-if="!loading && buyBills.length === 0" class="no-selection">
       <i class="fas fa-inbox fa-2x"></i>
-      <p>No purchase bills found</p>
+      <p>{{ t('buy.billsTable.noPurchaseBillsFound') }}</p>
     </div>
 
     <div v-else-if="!loading">
@@ -301,7 +304,7 @@ defineExpose({
         <div class="filter-group">
           <label>
             <i class="fas fa-calendar"></i>
-            Date From
+            {{ t('buy.billsTable.filters.dateFrom') }}
           </label>
           <input type="date" v-model="filters.dateFrom" class="filter-input" />
         </div>
@@ -309,7 +312,7 @@ defineExpose({
         <div class="filter-group">
           <label>
             <i class="fas fa-calendar"></i>
-            Date To
+            {{ t('buy.billsTable.filters.dateTo') }}
           </label>
           <input type="date" v-model="filters.dateTo" class="filter-input" />
         </div>
@@ -317,12 +320,12 @@ defineExpose({
         <div class="filter-group">
           <label>
             <i class="fas fa-building"></i>
-            Supplier
+            {{ t('buy.billsTable.filters.supplier') }}
           </label>
           <input
             type="text"
             v-model="filters.supplier"
-            placeholder="Search supplier..."
+            :placeholder="t('buy.billsTable.filters.searchSupplier')"
             class="filter-input"
           />
         </div>
@@ -330,12 +333,12 @@ defineExpose({
         <div class="filter-group">
           <label>
             <i class="fas fa-file-alt"></i>
-            Bill Ref
+            {{ t('buy.billsTable.filters.billRef') }}
           </label>
           <input
             type="text"
             v-model="filters.billRef"
-            placeholder="Search bill ref..."
+            :placeholder="t('buy.billsTable.filters.searchBillRef')"
             class="filter-input"
           />
         </div>
@@ -343,30 +346,30 @@ defineExpose({
         <div class="filter-group">
           <label>
             <i class="fas fa-info-circle"></i>
-            Status
+            {{ t('buy.billsTable.filters.status') }}
           </label>
           <select v-model="filters.status" class="filter-input">
-            <option value="">All</option>
-            <option value="updated">Updated</option>
-            <option value="pending">Pending</option>
+            <option value="">{{ t('buy.billsTable.filters.all') }}</option>
+            <option value="updated">{{ t('buy.billsTable.filters.updated') }}</option>
+            <option value="pending">{{ t('buy.billsTable.filters.pending') }}</option>
           </select>
         </div>
 
         <div class="filter-group">
           <label>
             <i class="fas fa-info-circle"></i>
-            Is Ordered
+            {{ t('buy.billsTable.filters.isOrdered') }}
           </label>
           <select v-model="filters.isOrdered" class="filter-input">
-            <option value="">All</option>
-            <option value="ordered">Ordered</option>
-            <option value="not_ordered">Not Ordered</option>
+            <option value="">{{ t('buy.billsTable.filters.all') }}</option>
+            <option value="ordered">{{ t('buy.billsTable.filters.ordered') }}</option>
+            <option value="not_ordered">{{ t('buy.billsTable.filters.notOrdered') }}</option>
           </select>
         </div>
 
         <button @click="resetFilters" class="reset-btn">
           <i class="fas fa-undo"></i>
-          Reset Filters
+          {{ t('buy.billsTable.filters.resetFilters') }}
         </button>
       </div>
 
@@ -375,27 +378,27 @@ defineExpose({
         <div class="bill-info">
           <div class="bill-id">
             <i class="fas fa-file-invoice-dollar"></i>
-            Purchase #{{ selectedBill.id }}
+            {{ t('buy.billsTable.purchase') }} #{{ selectedBill.id }}
           </div>
           <div class="bill-details">
             <div class="detail-item">
               <i class="fas fa-building"></i>
-              <span class="label">Supplier:</span>
+              <span class="label">{{ t('buy.billsTable.supplier') }}:</span>
               <span class="value">{{ selectedBill.supplier_name }}</span>
             </div>
             <div class="detail-item">
               <i class="fas fa-money-bill-wave"></i>
-              <span class="label">Amount:</span>
+              <span class="label">{{ t('buy.billsTable.amount') }}:</span>
               <span class="value">{{ formatNumber(selectedBill.amount) }}</span>
             </div>
             <div class="detail-item">
               <i class="fas fa-check-circle"></i>
-              <span class="label">Paid:</span>
+              <span class="label">{{ t('buy.billsTable.paid') }}:</span>
               <span class="value">{{ formatNumber(selectedBill.payed) }}</span>
             </div>
             <div class="detail-item">
               <i class="fas fa-balance-scale"></i>
-              <span class="label">Balance:</span>
+              <span class="label">{{ t('buy.billsTable.balance') }}:</span>
               <span class="value">{{
                 formatNumber(selectedBill.amount - selectedBill.payed)
               }}</span>
@@ -407,12 +410,16 @@ defineExpose({
                   selectedBill.is_stock_updated ? 'fa-check text-success' : 'fa-clock text-warning'
                 "
               ></i>
-              <span class="label">Status:</span>
+              <span class="label">{{ t('buy.billsTable.status') }}:</span>
               <span
                 class="value"
                 :class="selectedBill.is_stock_updated ? 'status-updated' : 'status-pending'"
               >
-                {{ selectedBill.is_stock_updated ? 'Updated' : 'Pending' }}
+                {{
+                  selectedBill.is_stock_updated
+                    ? t('buy.billsTable.updated')
+                    : t('buy.billsTable.pending')
+                }}
               </span>
             </div>
           </div>
@@ -427,7 +434,7 @@ defineExpose({
         <thead>
           <tr>
             <th @click="handleSort('id')" class="id-column">
-              <i class="fas fa-hashtag"></i> ID
+              <i class="fas fa-hashtag"></i> {{ t('loading.id') }}
               <i
                 v-if="sortConfig.field === 'id'"
                 :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
@@ -435,7 +442,7 @@ defineExpose({
               </i>
             </th>
             <th @click="handleSort('date_buy')" class="sortable date-column">
-              <i class="fas fa-calendar"></i> Date
+              <i class="fas fa-calendar"></i> {{ t('buy.billsTable.date') }}
               <i
                 v-if="sortConfig.field === 'date_buy'"
                 :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
@@ -443,7 +450,7 @@ defineExpose({
               </i>
             </th>
             <th @click="handleSort('supplier_name')" class="sortable">
-              <i class="fas fa-building"></i> Supplier
+              <i class="fas fa-building"></i> {{ t('buy.billsTable.supplier') }}
               <i
                 v-if="sortConfig.field === 'supplier_name'"
                 :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
@@ -451,20 +458,22 @@ defineExpose({
               </i>
             </th>
             <th @click="handleSort('bill_ref')" class="sortable">
-              <i class="fas fa-file-alt"></i> Bill Ref
+              <i class="fas fa-file-alt"></i> {{ t('buy.billsTable.billRef') }}
               <i
                 v-if="sortConfig.field === 'bill_ref'"
                 :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
               >
               </i>
             </th>
-            <th><i class="fas fa-money-bill-wave"></i> Amount</th>
-            <th><i class="fas fa-check-circle"></i> Paid</th>
-            <th><i class="fas fa-balance-scale"></i> Balance</th>
-            <th><i class="fas fa-money-bill-wave"></i> Payment Status</th>
-            <th class="status-column"><i class="fas fa-info-circle"></i> Status</th>
-            <th><i class="fas fa-shopping-cart"></i> Order Status</th>
-            <th><i class="fas fa-file-pdf"></i> PI Document</th>
+            <th><i class="fas fa-money-bill-wave"></i> {{ t('buy.billsTable.amount') }}</th>
+            <th><i class="fas fa-check-circle"></i> {{ t('buy.billsTable.paid') }}</th>
+            <th><i class="fas fa-balance-scale"></i> {{ t('buy.billsTable.balance') }}</th>
+            <th><i class="fas fa-money-bill-wave"></i> {{ t('buy.billsTable.paymentStatus') }}</th>
+            <th class="status-column">
+              <i class="fas fa-info-circle"></i> {{ t('buy.billsTable.status') }}
+            </th>
+            <th><i class="fas fa-shopping-cart"></i> {{ t('buy.billsTable.orderStatus') }}</th>
+            <th><i class="fas fa-file-pdf"></i> {{ t('buy.billsTable.piDocument') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -484,7 +493,7 @@ defineExpose({
             <td>
               <span
                 :class="['payment-badge', `payment-${getPaymentStatus(bill).status}`]"
-                :title="`Total: $${bill.amount.toFixed(2)} | Paid: $${bill.total_paid.toFixed(2)}`"
+                :title="`${t('buy.billsTable.total')}: $${bill.amount.toFixed(2)} | ${t('buy.billsTable.paid')}: $${bill.total_paid.toFixed(2)}`"
               >
                 {{ getPaymentStatus(bill).text }}
               </span>
@@ -493,46 +502,59 @@ defineExpose({
               <div class="status-container">
                 <span :class="bill.is_stock_updated ? 'status-updated' : 'status-pending'">
                   <i class="fas" :class="bill.is_stock_updated ? 'fa-check' : 'fa-clock'"></i>
-                  {{ bill.is_stock_updated ? 'Updated' : 'Pending' }}
+                  {{
+                    bill.is_stock_updated
+                      ? t('buy.billsTable.updated')
+                      : t('buy.billsTable.pending')
+                  }}
                 </span>
                 <span
                   class="warehouse-badge"
                   :class="getWarehouseBadgeClass(bill.id)"
                   :title="
                     warehouseCarCounts[bill.id]?.total > 0
-                      ? `${warehouseCarCounts[bill.id]?.warehouse} of ${warehouseCarCounts[bill.id]?.total} car${warehouseCarCounts[bill.id]?.total === 1 ? '' : 's'} received in warehouse`
-                      : 'No cars in this purchase bill'
+                      ? t('buy.billsTable.carsReceivedInWarehouse', {
+                          warehouse: warehouseCarCounts[bill.id]?.warehouse,
+                          total: warehouseCarCounts[bill.id]?.total,
+                          plural: warehouseCarCounts[bill.id]?.total === 1 ? '' : 's',
+                        })
+                      : t('buy.billsTable.noCarsInPurchaseBill')
                   "
                 >
-                  <span class="badge-label">Warehouse:</span>
+                  <span class="badge-label">{{ t('buy.billsTable.warehouse') }}:</span>
                   <span v-if="warehouseCarCounts[bill.id]?.total > 0">
-                    {{ warehouseCarCounts[bill.id]?.warehouse }} of
+                    {{ warehouseCarCounts[bill.id]?.warehouse }} {{ t('buy.billsTable.of') }}
                     {{ warehouseCarCounts[bill.id]?.total }}
                   </span>
-                  <span v-else>No cars</span>
+                  <span v-else>{{ t('buy.billsTable.noCars') }}</span>
                 </span>
                 <span
                   class="export-license-badge"
                   :class="getExportLicenseBadgeClass(bill.id)"
                   :title="
                     exportLicenseCarCounts[bill.id]?.total > 0
-                      ? `${exportLicenseCarCounts[bill.id]?.exportLicense} of ${exportLicenseCarCounts[bill.id]?.total} car${exportLicenseCarCounts[bill.id]?.total === 1 ? '' : 's'} have export license`
-                      : 'No cars in this purchase bill'
+                      ? t('buy.billsTable.carsHaveExportLicense', {
+                          exportLicense: exportLicenseCarCounts[bill.id]?.exportLicense,
+                          total: exportLicenseCarCounts[bill.id]?.total,
+                          plural: exportLicenseCarCounts[bill.id]?.total === 1 ? '' : 's',
+                        })
+                      : t('buy.billsTable.noCarsInPurchaseBill')
                   "
                 >
-                  <span class="badge-label">Export License:</span>
+                  <span class="badge-label">{{ t('buy.billsTable.exportLicense') }}:</span>
                   <span v-if="exportLicenseCarCounts[bill.id]?.total > 0">
-                    {{ exportLicenseCarCounts[bill.id]?.exportLicense }} of
+                    {{ exportLicenseCarCounts[bill.id]?.exportLicense }}
+                    {{ t('buy.billsTable.of') }}
                     {{ exportLicenseCarCounts[bill.id]?.total }}
                   </span>
-                  <span v-else>No cars</span>
+                  <span v-else>{{ t('buy.billsTable.noCars') }}</span>
                 </span>
               </div>
             </td>
             <td>
               <span :class="bill.is_ordered ? 'status-ordered' : 'status-not_ordered'">
                 <i class="fas" :class="bill.is_ordered ? 'fa-check' : 'fa-times'"></i>
-                {{ bill.is_ordered ? 'Ordered' : 'Not Ordered' }}
+                {{ bill.is_ordered ? t('buy.billsTable.ordered') : t('buy.billsTable.notOrdered') }}
               </span>
             </td>
             <td>
@@ -544,11 +566,11 @@ defineExpose({
                 @click.stop
               >
                 <i class="fas fa-file-pdf"></i>
-                View PI
+                {{ t('buy.billsTable.viewPi') }}
               </a>
               <span v-else class="no-document">
                 <i class="fas fa-times-circle"></i>
-                No document
+                {{ t('buy.billsTable.noDocument') }}
               </span>
             </td>
           </tr>
@@ -558,7 +580,7 @@ defineExpose({
       <!-- Selection Message -->
       <div v-if="!selectedBill" class="no-selection">
         <i class="fas fa-hand-pointer fa-2x"></i>
-        <p>Please select a purchase bill to view its details</p>
+        <p>{{ t('buy.billsTable.pleaseSelectPurchaseBill') }}</p>
       </div>
     </div>
   </div>

@@ -1,6 +1,9 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { useApi } from '../../composables/useApi'
+import { useEnhancedI18n } from '../../composables/useI18n'
+
+const { t } = useEnhancedI18n()
 
 const props = defineProps({
   billId: {
@@ -56,15 +59,15 @@ const remainingBalance = computed(() => {
 // Form validation
 const validateForm = () => {
   if (!paymentForm.value.amount) {
-    error.value = 'Amount is required'
+    error.value = t('buy.paymentsDialog.amountRequired')
     return false
   }
   if (!paymentForm.value.date_payment) {
-    error.value = 'Date is required'
+    error.value = t('buy.paymentsDialog.dateRequired')
     return false
   }
   if (!paymentForm.value.swift_file && !paymentForm.value.swift_path) {
-    error.value = 'Swift document is required'
+    error.value = t('buy.paymentsDialog.swiftDocumentRequired')
     return false
   }
   return true
@@ -76,9 +79,9 @@ const handleSwiftFileChange = (event) => {
   if (!file) return
 
   const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp']
-  
+
   if (!allowedTypes.includes(file.type)) {
-    alert('Only PDF and image files (JPEG, PNG, GIF, WEBP) are allowed')
+    alert(t('buy.paymentsDialog.onlyPdfAndImageFilesAllowed'))
     event.target.value = ''
     return
   }
@@ -90,11 +93,11 @@ const handleSwiftFileChange = (event) => {
 const fetchPayments = async () => {
   loading.value = true
   error.value = null
-  
+
   try {
     const result = await callApi({
       query: `
-        SELECT 
+        SELECT
           bp.*,
           u.username as created_by
         FROM buy_payments bp
@@ -104,7 +107,7 @@ const fetchPayments = async () => {
       `,
       params: [props.billId],
     })
-    
+
     if (result.success) {
       payments.value = result.data.map((payment) => ({
         ...payment,
@@ -124,7 +127,7 @@ const fetchPayments = async () => {
 const addPayment = async () => {
   if (!validateForm()) return
   if (loading.value) return // Prevent double-click
-  
+
   loading.value = true
   error.value = null
 
@@ -135,14 +138,14 @@ const addPayment = async () => {
     if (paymentForm.value.swift_file) {
       const uploadResult = await uploadFile(paymentForm.value.swift_file)
       if (!uploadResult.success) {
-        throw new Error('Failed to upload swift document')
+        throw new Error(t('buy.paymentsDialog.failedToUploadSwiftDocument'))
       }
       swiftPath = uploadResult.path
     }
 
     const result = await callApi({
       query: `
-        INSERT INTO buy_payments 
+        INSERT INTO buy_payments
         (id_buy_bill, date_payment, amount, swift_path, notes, id_user)
         VALUES (?, ?, ?, ?, ?, ?)
       `,
@@ -160,7 +163,7 @@ const addPayment = async () => {
       // Update the payed amount in buy_bill
       await callApi({
         query: `
-          UPDATE buy_bill 
+          UPDATE buy_bill
           SET payed = (
             SELECT COALESCE(SUM(amount), 0)
             FROM buy_payments
@@ -175,7 +178,7 @@ const addPayment = async () => {
       emit('payment-added')
       resetForm()
     } else {
-      throw new Error(result.error || 'Failed to add payment')
+      throw new Error(result.error || t('buy.paymentsDialog.failedToAddPayment'))
     }
   } catch (err) {
     error.value = err.message
@@ -212,11 +215,11 @@ const formatNumber = (value) => {
 watch(
   () => props.show,
   (newVal) => {
-  if (newVal) {
-    fetchPayments()
-  } else {
-    resetForm()
-  }
+    if (newVal) {
+      fetchPayments()
+    } else {
+      resetForm()
+    }
   },
 )
 </script>
@@ -227,13 +230,13 @@ watch(
       <!-- Loading Overlay -->
       <div v-if="loading" class="loading-overlay">
         <i class="fas fa-spinner fa-spin fa-2x"></i>
-        <span>Processing payment...</span>
+        <span>{{ t('buy.paymentsDialog.processingPayment') }}</span>
       </div>
 
       <div class="dialog-header">
         <h3>
           <i class="fas fa-money-check-alt"></i>
-          Payment Management
+          {{ t('buy.paymentsDialog.paymentManagement') }}
         </h3>
         <button @click="$emit('update:show', false)" class="close-btn">
           <i class="fas fa-times"></i>
@@ -245,17 +248,17 @@ watch(
         <div class="payment-summary">
           <div class="summary-item">
             <i class="fas fa-file-invoice-dollar"></i>
-            <span>Total Amount:</span>
+            <span>{{ t('buy.paymentsDialog.totalAmount') }}:</span>
             <span class="amount">{{ formatNumber(totalAmount) }}</span>
           </div>
           <div class="summary-item">
             <i class="fas fa-check-circle"></i>
-            <span>Total Paid:</span>
+            <span>{{ t('buy.paymentsDialog.totalPaid') }}:</span>
             <span class="amount paid">{{ formatNumber(totalPayments) }}</span>
           </div>
           <div class="summary-item">
             <i class="fas fa-balance-scale"></i>
-            <span>Remaining:</span>
+            <span>{{ t('buy.paymentsDialog.remaining') }}:</span>
             <span class="amount remaining">{{ formatNumber(remainingBalance) }}</span>
           </div>
         </div>
@@ -264,16 +267,16 @@ watch(
         <form @submit.prevent="addPayment" class="payment-form">
           <h4>
             <i class="fas fa-plus-circle"></i>
-            Add New Payment
+            {{ t('buy.paymentsDialog.addNewPayment') }}
           </h4>
 
           <div class="form-group">
             <label for="amount">
               <i class="fas fa-money-bill-wave"></i>
-              Amount
+              {{ t('buy.paymentsDialog.amount') }}
             </label>
-            <input 
-              type="number" 
+            <input
+              type="number"
               id="amount"
               v-model="paymentForm.amount"
               step="0.01"
@@ -285,10 +288,10 @@ watch(
           <div class="form-group">
             <label for="date">
               <i class="fas fa-calendar-alt"></i>
-              Payment Date
+              {{ t('buy.paymentsDialog.paymentDate') }}
             </label>
-            <input 
-              type="datetime-local" 
+            <input
+              type="datetime-local"
               id="date"
               v-model="paymentForm.date_payment"
               required
@@ -299,9 +302,9 @@ watch(
           <div class="form-group">
             <label for="swift">
               <i class="fas fa-file-alt"></i>
-              Swift Document
+              {{ t('buy.paymentsDialog.swiftDocument') }}
             </label>
-            <input 
+            <input
               type="file"
               id="swift"
               @change="handleSwiftFileChange"
@@ -310,16 +313,16 @@ watch(
             />
             <div v-if="paymentForm.swift_path" class="current-file">
               <i class="fas fa-check-circle"></i>
-              Current: {{ paymentForm.swift_path.split('/').pop() }}
+              {{ t('buy.paymentsDialog.current') }}: {{ paymentForm.swift_path.split('/').pop() }}
             </div>
           </div>
 
           <div class="form-group">
             <label for="notes">
               <i class="fas fa-sticky-note"></i>
-              Notes
+              {{ t('buy.paymentsDialog.notes') }}
             </label>
-            <textarea 
+            <textarea
               id="notes"
               v-model="paymentForm.notes"
               rows="3"
@@ -335,8 +338,10 @@ watch(
           <div class="form-buttons">
             <button type="submit" class="submit-btn" :disabled="loading">
               <i class="fas" :class="loading ? 'fa-spinner fa-spin' : 'fa-save'"></i>
-              <span>{{ loading ? 'Processing...' : 'Add Payment' }}</span>
-          </button>
+              <span>{{
+                loading ? t('buy.detailsTable.processing') : t('buy.paymentsDialog.addPayment')
+              }}</span>
+            </button>
           </div>
         </form>
 
@@ -344,22 +349,22 @@ watch(
         <div class="payments-list">
           <h4>
             <i class="fas fa-history"></i>
-            Payment History
+            {{ t('buy.paymentsDialog.paymentHistory') }}
           </h4>
 
           <div v-if="loading" class="loading-state">
             <i class="fas fa-spinner fa-spin"></i>
-            Loading payments...
+            {{ t('buy.paymentsDialog.loadingPayments') }}
           </div>
 
           <table v-else class="data-table">
             <thead>
               <tr>
-                <th><i class="fas fa-calendar"></i> Date</th>
-                <th><i class="fas fa-money-bill-wave"></i> Amount</th>
-                <th><i class="fas fa-file-alt"></i> Swift</th>
-                <th><i class="fas fa-user"></i> Created By</th>
-                <th><i class="fas fa-sticky-note"></i> Notes</th>
+                <th><i class="fas fa-calendar"></i> {{ t('buy.paymentsDialog.date') }}</th>
+                <th><i class="fas fa-money-bill-wave"></i> {{ t('buy.paymentsDialog.amount') }}</th>
+                <th><i class="fas fa-file-alt"></i> {{ t('buy.paymentsDialog.swift') }}</th>
+                <th><i class="fas fa-user"></i> {{ t('buy.paymentsDialog.createdBy') }}</th>
+                <th><i class="fas fa-sticky-note"></i> {{ t('buy.paymentsDialog.notes') }}</th>
               </tr>
             </thead>
             <tbody>
@@ -374,11 +379,11 @@ watch(
                     class="swift-link"
                   >
                     <i class="fas fa-file-pdf"></i>
-                    View Swift
+                    {{ t('buy.paymentsDialog.viewSwift') }}
                   </a>
                   <span v-else class="no-document">
                     <i class="fas fa-times-circle"></i>
-                    No document
+                    {{ t('buy.paymentsDialog.noDocument') }}
                   </span>
                 </td>
                 <td>{{ payment.created_by }}</td>
@@ -740,4 +745,4 @@ watch(
   color: #4b5563;
   font-size: 0.875rem;
 }
-</style> 
+</style>

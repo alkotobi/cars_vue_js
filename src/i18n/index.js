@@ -7,13 +7,23 @@ import zh from '@/locales/zh.json'
 // Get stored language or detect from browser
 const getStoredLanguage = () => {
   const stored = localStorage.getItem('app_language')
-  if (stored) return stored
+  console.log('Stored language:', stored)
+  
+  if (stored && ['en', 'ar', 'fr', 'zh'].includes(stored)) {
+    console.log('Using stored language:', stored)
+    return stored
+  }
 
-  // Detect browser language
+  // Only detect browser language if no stored preference
   const browserLang = navigator.language || navigator.userLanguage
+  console.log('Browser language:', browserLang)
+  
   if (browserLang.startsWith('ar')) return 'ar'
   if (browserLang.startsWith('fr')) return 'fr'
   if (browserLang.startsWith('zh')) return 'zh'
+  
+  // Default to English for all other cases
+  console.log('Defaulting to English')
   return 'en'
 }
 
@@ -171,8 +181,20 @@ const i18n = createI18n({
 
 // Function to change language
 export const changeLanguage = (locale) => {
+  console.log('Changing language to:', locale)
+  
+  // Validate locale
+  if (!['en', 'ar', 'fr', 'zh'].includes(locale)) {
+    console.warn('Invalid locale:', locale, 'defaulting to en')
+    locale = 'en'
+  }
+  
+  // Update i18n locale
   i18n.global.locale.value = locale
+  
+  // Store in localStorage
   localStorage.setItem('app_language', locale)
+  console.log('Language stored in localStorage:', locale)
 
   // Update document direction for RTL languages
   if (locale === 'ar') {
@@ -182,6 +204,16 @@ export const changeLanguage = (locale) => {
     document.documentElement.dir = 'ltr'
     document.documentElement.lang = locale
   }
+  
+  console.log('Document direction updated:', document.documentElement.dir)
+  console.log('Document language updated:', document.documentElement.lang)
+}
+
+// Function to force reset language to English
+export const resetToEnglish = () => {
+  console.log('Forcing reset to English')
+  localStorage.removeItem('app_language')
+  changeLanguage('en')
 }
 
 // Initialize document direction

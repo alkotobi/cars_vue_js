@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useApi } from '../composables/useApi'
 import { useEnhancedI18n } from '../composables/useI18n'
 import LanguageSwitcher from '../components/LanguageSwitcher.vue'
+import { resetToEnglish } from '../i18n'
 
 const router = useRouter()
 const { callApi, error: apiError, loading } = useApi()

@@ -45,6 +45,13 @@ const isSubmittingDetail = ref(false)
 const user = ref(JSON.parse(localStorage.getItem('user')))
 const isAdmin = computed(() => user.value?.role_id === 1)
 
+// Computed property to check if bill is pending (not stock updated)
+const isBillPending = computed(() => {
+  if (!selectedBill.value) return false
+  const stockUpdated = selectedBill.value.is_stock_updated
+  return stockUpdated == 0 || stockUpdated === null || stockUpdated === '0'
+})
+
 // Toolbar action methods
 const canUpdateStock = (bill) => {
   return bill.amount > 0 && !bill.is_stock_updated
@@ -755,8 +762,8 @@ const handleWarehouseChanged = (updatedCar) => {
 <template>
   <div class="buy-view">
     <div class="header">
-      <h2>{{ t('buy_management') }}</h2>
-      <button @click="openAddDialog" class="add-btn">{{ t('add_new_purchase') }}</button>
+      <h2>{{ t('buyView.buyManagement') }}</h2>
+      <button @click="openAddDialog" class="add-btn">{{ t('buyView.addNewPurchase') }}</button>
     </div>
 
     <div class="content">
@@ -771,14 +778,14 @@ const handleWarehouseChanged = (updatedCar) => {
           <!-- Toolbar actions -->
           <template #actions="{ bill }">
             <button @click.stop="openPayments(bill)" class="payment-btn">
-              {{ t('payments') }}
+              {{ t('buyView.payments') }}
             </button>
             <button
               @click.stop="openEditDialog(bill)"
               class="action-btn edit-btn"
               :disabled="bill.is_stock_updated"
             >
-              {{ t('edit') }}
+              {{ t('buyView.edit') }}
             </button>
             <button
               v-if="false"
@@ -786,7 +793,7 @@ const handleWarehouseChanged = (updatedCar) => {
               class="action-btn update-btn"
               :disabled="!canUpdateStock(bill)"
             >
-              {{ t('update_stock') }}
+              {{ t('buyView.updateStock') }}
             </button>
             <button
               v-if="isAdmin"
@@ -794,12 +801,12 @@ const handleWarehouseChanged = (updatedCar) => {
               class="action-btn delete-btn"
               :disabled="bill.is_stock_updated"
             >
-              {{ t('delete') }}
+              {{ t('buyView.delete') }}
             </button>
             <button
               @click.stop="openTaskForBill(bill)"
               class="action-btn task-btn"
-              :title="t('add_new_task')"
+              :title="t('buyView.addNewTask')"
             >
               <i class="fas fa-tasks"></i>
             </button>
@@ -810,7 +817,7 @@ const handleWarehouseChanged = (updatedCar) => {
         <BuyDetailsTable
           ref="buyDetailsTableRef"
           id="buy-details-table"
-          v-if="selectedBill && selectedBill.is_stock_updated == 0"
+          v-if="selectedBill && isBillPending"
           :buyDetails="buyDetails"
           :isAdmin="isAdmin"
           @add-detail="showAddDetailDialog = true"
@@ -828,10 +835,10 @@ const handleWarehouseChanged = (updatedCar) => {
           <div class="section-header">
             <h3>
               <i class="fas fa-car"></i>
-              {{ t('cars_in_purchase_bill') }} #{{ selectedBill.id }}
+              {{ t('buyView.carsInPurchaseBill') }} #{{ selectedBill.id }}
             </h3>
             <p class="section-description">
-              {{ t('showing_all_cars_associated_with_purchase_bill') }}
+              {{ t('buyView.showingAllCarsAssociatedWithPurchaseBill') }}
             </p>
           </div>
           <CarStockTable
@@ -847,12 +854,12 @@ const handleWarehouseChanged = (updatedCar) => {
     <!-- Dialogs -->
     <div v-if="showAddDialog" class="dialog-overlay">
       <div class="dialog">
-        <h3>{{ t('add_new_purchase') }}</h3>
+        <h3>{{ t('buyView.addNewPurchase') }}</h3>
         <form @submit.prevent="addPurchase">
           <div class="form-group">
-            <label>{{ t('supplier') }}</label>
+            <label>{{ t('buyView.supplier') }}</label>
             <select v-model="newPurchase.id_supplier" required>
-              <option value="">{{ t('select_supplier') }}</option>
+              <option value="">{{ t('buyView.selectSupplier') }}</option>
               <option v-for="supplier in suppliers" :key="supplier.id" :value="supplier.id">
                 {{ supplier.name }}
               </option>
@@ -860,23 +867,23 @@ const handleWarehouseChanged = (updatedCar) => {
           </div>
 
           <div class="form-group">
-            <label>{{ t('date') }}</label>
+            <label>{{ t('buyView.date') }}</label>
             <input type="datetime-local" v-model="newPurchase.date_buy" required />
           </div>
 
           <div class="form-group">
-            <label>{{ t('bill_reference') }} <span class="required">*</span></label>
+            <label>{{ t('buyView.billReference') }} <span class="required">*</span></label>
             <input
               type="text"
               v-model="newPurchase.bill_ref"
-              :placeholder="t('enter_bill_reference_number')"
+              :placeholder="t('buyView.enterBillReferenceNumber')"
               required
             />
           </div>
 
           <div class="form-group">
             <label
-              >{{ t('pi_document') }} ({{ t('pdf_or_image') }})
+              >{{ t('buyView.piDocument') }} ({{ t('buyView.pdfOrImage') }})
               <span class="required">*</span></label
             >
             <input
@@ -891,7 +898,7 @@ const handleWarehouseChanged = (updatedCar) => {
               target="_blank"
               class="current-file-link"
             >
-              {{ t('view_current_pi_document') }}
+              {{ t('buyView.viewCurrentPiDocument') }}
             </a>
           </div>
 
@@ -903,18 +910,18 @@ const handleWarehouseChanged = (updatedCar) => {
                 :true-value="1"
                 :false-value="0"
               />
-              {{ t('order_confirmed') }}
+              {{ t('buyView.orderConfirmed') }}
             </label>
-            <small class="help-text">{{ t('mark_this_purchase_as_confirmed_order') }}</small>
+            <small class="help-text">{{ t('buyView.markThisPurchaseAsConfirmedOrder') }}</small>
           </div>
 
           <div class="dialog-buttons">
             <button type="button" @click="showAddDialog = false" class="cancel-btn">
-              {{ t('cancel') }}
+              {{ t('buyView.cancel') }}
             </button>
             <button type="submit" class="submit-btn" :disabled="isSubmittingPurchase">
               <span v-if="isSubmittingPurchase" class="spinner"></span>
-              {{ isSubmittingPurchase ? t('adding') : t('add_purchase') }}
+              {{ isSubmittingPurchase ? t('buyView.adding') : t('buyView.addPurchase') }}
             </button>
           </div>
         </form>
@@ -924,12 +931,12 @@ const handleWarehouseChanged = (updatedCar) => {
     <!-- Edit Purchase Dialog -->
     <div v-if="showEditDialog" class="dialog-overlay">
       <div class="dialog">
-        <h3>{{ t('edit_purchase') }}</h3>
+        <h3>{{ t('buyView.editPurchase') }}</h3>
         <form @submit.prevent="updatePurchase">
           <div class="form-group">
-            <label>{{ t('supplier') }}</label>
+            <label>{{ t('buyView.supplier') }}</label>
             <select v-model="newPurchase.id_supplier" required>
-              <option value="">{{ t('select_supplier') }}</option>
+              <option value="">{{ t('buyView.selectSupplier') }}</option>
               <option v-for="supplier in suppliers" :key="supplier.id" :value="supplier.id">
                 {{ supplier.name }}
               </option>
@@ -937,23 +944,23 @@ const handleWarehouseChanged = (updatedCar) => {
           </div>
 
           <div class="form-group">
-            <label>{{ t('date') }}</label>
+            <label>{{ t('buyView.date') }}</label>
             <input type="datetime-local" v-model="newPurchase.date_buy" required />
           </div>
 
           <div class="form-group">
-            <label>{{ t('bill_reference') }} <span class="required">*</span></label>
+            <label>{{ t('buyView.billReference') }} <span class="required">*</span></label>
             <input
               type="text"
               v-model="newPurchase.bill_ref"
-              :placeholder="t('enter_bill_reference_number')"
+              :placeholder="t('buyView.enterBillReferenceNumber')"
               required
             />
           </div>
 
           <div class="form-group">
             <label
-              >{{ t('pi_document') }} ({{ t('pdf_or_image') }})
+              >{{ t('buyView.piDocument') }} ({{ t('buyView.pdfOrImage') }})
               <span class="required">*</span></label
             >
             <input
@@ -967,10 +974,10 @@ const handleWarehouseChanged = (updatedCar) => {
               target="_blank"
               class="current-file-link"
             >
-              {{ t('view_current_pi_document') }}
+              {{ t('buyView.viewCurrentPiDocument') }}
             </a>
             <div v-if="!newPurchase.pi_path && !newPurchase.pi_file" class="validation-message">
-              {{ t('pi_document_required') }}
+              {{ t('buyView.piDocumentRequired') }}
             </div>
           </div>
 
@@ -982,18 +989,18 @@ const handleWarehouseChanged = (updatedCar) => {
                 :true-value="1"
                 :false-value="0"
               />
-              {{ t('order_confirmed') }}
+              {{ t('buyView.orderConfirmed') }}
             </label>
-            <small class="help-text">{{ t('mark_this_purchase_as_confirmed_order') }}</small>
+            <small class="help-text">{{ t('buyView.markThisPurchaseAsConfirmedOrder') }}</small>
           </div>
 
           <div class="dialog-buttons">
             <button type="button" @click="showEditDialog = false" class="cancel-btn">
-              {{ t('cancel') }}
+              {{ t('buyView.cancel') }}
             </button>
             <button type="submit" class="submit-btn" :disabled="isSubmittingPurchase">
               <span v-if="isSubmittingPurchase" class="spinner"></span>
-              {{ isSubmittingPurchase ? t('updating') : t('update_purchase') }}
+              {{ isSubmittingPurchase ? t('buyView.updating') : t('buyView.updatePurchase') }}
             </button>
           </div>
         </form>
@@ -1002,12 +1009,12 @@ const handleWarehouseChanged = (updatedCar) => {
 
     <div v-if="showAddDetailDialog" class="dialog-overlay">
       <div class="dialog">
-        <h3>{{ t('add_purchase_detail') }}</h3>
+        <h3>{{ t('buyView.addPurchaseDetail') }}</h3>
         <form @submit.prevent="addDetail">
           <div class="form-group">
-            <label>{{ t('car') }}</label>
+            <label>{{ t('buyView.car') }}</label>
             <select v-model="newDetail.id_car_name" required>
-              <option value="">{{ t('select_car') }}</option>
+              <option value="">{{ t('buyView.selectCar') }}</option>
               <option v-for="car in cars" :key="car.id" :value="car.id">
                 {{ car.car_name }}
               </option>
@@ -1015,9 +1022,9 @@ const handleWarehouseChanged = (updatedCar) => {
           </div>
 
           <div class="form-group">
-            <label>{{ t('color') }}</label>
+            <label>{{ t('buyView.color') }}</label>
             <select v-model="newDetail.id_color" required>
-              <option value="">{{ t('select_color') }}</option>
+              <option value="">{{ t('buyView.selectColor') }}</option>
               <option v-for="color in colors" :key="color.id" :value="color.id">
                 {{ color.color }}
               </option>
@@ -1025,58 +1032,58 @@ const handleWarehouseChanged = (updatedCar) => {
           </div>
 
           <div class="form-group">
-            <label>{{ t('quantity') }}</label>
+            <label>{{ t('buyView.quantity') }}</label>
             <input type="number" v-model="newDetail.QTY" min="1" required />
           </div>
 
           <div class="form-group">
-            <label>{{ t('amount') }}</label>
+            <label>{{ t('buyView.amount') }}</label>
             <input type="number" v-model="newDetail.amount" step="0.01" required />
           </div>
 
           <div class="form-row">
             <div class="form-group half">
-              <label>{{ t('year') }}</label>
+              <label>{{ t('buyView.year') }}</label>
               <input type="number" v-model="newDetail.year" required />
             </div>
 
             <div class="form-group half">
-              <label>{{ t('month') }}</label>
+              <label>{{ t('buyView.month') }}</label>
               <input type="number" v-model="newDetail.month" min="1" max="12" required />
             </div>
           </div>
 
           <div class="form-group">
-            <label>{{ t('price_sell') }}</label>
+            <label>{{ t('buyView.priceSell') }}</label>
             <input type="number" v-model="newDetail.price_sell" step="0.01" required />
           </div>
 
           <div class="form-group">
-            <label>{{ t('notes') }}</label>
+            <label>{{ t('buyView.notes') }}</label>
             <textarea v-model="newDetail.notes" rows="3"></textarea>
           </div>
 
           <div class="form-group checkbox">
             <label>
               <input type="checkbox" v-model="newDetail.is_used_car" />
-              {{ t('used_car') }}
+              {{ t('buyView.usedCar') }}
             </label>
           </div>
 
           <div class="form-group checkbox">
             <label>
               <input type="checkbox" v-model="newDetail.is_big_car" />
-              {{ t('big_car') }}
+              {{ t('buyView.bigCar') }}
             </label>
           </div>
 
           <div class="dialog-buttons">
             <button type="button" @click="showAddDetailDialog = false" class="cancel-btn">
-              {{ t('cancel') }}
+              {{ t('buyView.cancel') }}
             </button>
             <button type="submit" class="submit-btn" :disabled="isSubmittingDetail">
               <span v-if="isSubmittingDetail" class="spinner"></span>
-              {{ isSubmittingDetail ? t('adding') : t('add_detail') }}
+              {{ isSubmittingDetail ? t('buyView.adding') : t('buyView.addDetail') }}
             </button>
           </div>
         </form>

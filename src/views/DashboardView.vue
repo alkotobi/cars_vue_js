@@ -18,6 +18,7 @@ const isProcessing = ref({
   rates: false,
   params: false,
   tasks: false,
+  invitations: false,
 })
 const canManageUsers = computed(() => {
   console.log(user.value)
@@ -105,6 +106,15 @@ const handleTasksClick = async () => {
     await router.push('/tasks')
   } finally {
     isProcessing.value.tasks = false
+  }
+}
+const handleInvitationsClick = async () => {
+  if (isProcessing.value.invitations) return
+  isProcessing.value.invitations = true
+  try {
+    await router.push('/invitations')
+  } finally {
+    isProcessing.value.invitations = false
   }
 }
 const fetchLatestRate = async () => {
@@ -300,6 +310,16 @@ const formatDate = (dateString) => {
         <i class="fas fa-tasks"></i>
         <span>{{ t('dashboard.tasks') }}</span>
         <i v-if="isProcessing.tasks" class="fas fa-spinner fa-spin loading-indicator"></i>
+      </button>
+      <button
+        @click="handleInvitationsClick"
+        class="action-btn invitations-btn"
+        :disabled="isProcessing.invitations"
+        :class="{ processing: isProcessing.invitations }"
+      >
+        <i class="fas fa-envelope"></i>
+        <span>{{ t('dashboard.invitations') }}</span>
+        <i v-if="isProcessing.invitations" class="fas fa-spinner fa-spin loading-indicator"></i>
       </button>
     </div>
 

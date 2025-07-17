@@ -1,6 +1,9 @@
 <script setup>
 import { defineProps, defineEmits, ref, computed } from 'vue'
 import { useApi } from '../../composables/useApi'
+import { useEnhancedI18n } from '../../composables/useI18n'
+
+const { t } = useEnhancedI18n()
 
 const { callApi, error, loading } = useApi()
 
@@ -30,10 +33,10 @@ const isProcessing = ref(false)
 
 const confirmDelete = (detailId, isStockUpdated) => {
   if (isStockUpdated) {
-    alert('Cannot delete details - Stock has already been updated')
+    alert(t('buy.detailsTable.cannotDeleteDetailsStockUpdated'))
     return
   }
-  if (confirm('Are you sure you want to delete this detail?')) {
+  if (confirm(t('buy.detailsTable.confirmDeleteDetail'))) {
     emit('delete-detail', detailId)
   }
 }
@@ -51,13 +54,13 @@ const handleEditSubmit = () => {
 
 const showStockAlert = async () => {
   if (!props.buyDetails.length) {
-    alert('No details to process')
+    alert(t('buy.detailsTable.noDetailsToProcess'))
     return
   }
 
   if (isProcessing.value) return // Prevent double-click
 
-  if (confirm('Are you sure you want to update the stock? This action cannot be undone.')) {
+  if (confirm(t('buy.detailsTable.confirmUpdateStock'))) {
     isProcessing.value = true
 
     try {
@@ -82,7 +85,7 @@ const showStockAlert = async () => {
           })
 
           if (!result.success) {
-            alert('Error creating stock entry')
+            alert(t('buy.detailsTable.errorCreatingStockEntry'))
             console.error('Error creating stock entry:', result.error)
             return
           }
@@ -96,15 +99,15 @@ const showStockAlert = async () => {
       })
 
       if (result.success) {
-        alert('Stock has been successfully updated')
+        alert(t('buy.detailsTable.stockSuccessfullyUpdated'))
         emit('stock-updated', props.buyDetails[0].id_buy_bill) // Emit the bill ID for parent refresh
       } else {
         console.error('Error updating is_stock_updated flag:', result.error)
-        alert('Error updating stock')
+        alert(t('buy.detailsTable.errorUpdatingStock'))
       }
     } catch (err) {
       console.error('Error updating stock:', err)
-      alert('Error updating stock: ' + err.message)
+      alert(t('buy.detailsTable.errorUpdatingStock') + ': ' + err.message)
     } finally {
       isProcessing.value = false
     }
@@ -117,13 +120,13 @@ const showStockAlert = async () => {
     <!-- Loading Overlay -->
     <div v-if="isProcessing" class="loading-overlay">
       <i class="fas fa-spinner fa-spin fa-2x"></i>
-      <span>Processing stock update...</span>
+      <span>{{ t('buy.detailsTable.processing') }}</span>
     </div>
 
     <div class="detail-header">
       <h3>
         <i class="fas fa-list-alt"></i>
-        Purchase Details
+        {{ t('buy.detailsTable.purchaseDetails') }}
       </h3>
       <div class="button-group">
         <button
@@ -134,7 +137,7 @@ const showStockAlert = async () => {
           :title="isStockUpdated ? 'Stock has already been updated' : 'Update stock'"
         >
           <i class="fas" :class="isProcessing ? 'fa-spinner fa-spin' : 'fa-boxes'"></i>
-          {{ isProcessing ? 'Processing...' : 'Update Stock' }}
+          {{ isProcessing ? t('buy.detailsTable.processing') : t('buy.detailsTable.updateStock') }}
         </button>
         <button
           @click="$emit('add-detail')"
@@ -144,24 +147,24 @@ const showStockAlert = async () => {
           :title="isStockUpdated ? 'Cannot add details - Stock has been updated' : 'Add new detail'"
         >
           <i class="fas fa-plus"></i>
-          Add Detail
+          {{ t('buy.detailsTable.addDetail') }}
         </button>
       </div>
     </div>
     <table class="data-table">
       <thead>
         <tr>
-          <th><i class="fas fa-car"></i> Car</th>
-          <th><i class="fas fa-palette"></i> Color</th>
-          <th><i class="fas fa-hashtag"></i> Quantity</th>
-          <th><i class="fas fa-money-bill-wave"></i> Amount</th>
-          <th><i class="fas fa-calendar-alt"></i> Year</th>
-          <th><i class="fas fa-calendar-day"></i> Month</th>
-          <th><i class="fas fa-tag"></i> Price Sell</th>
-          <th><i class="fas fa-sticky-note"></i> Notes</th>
-          <th><i class="fas fa-car-alt"></i> Used Car</th>
-          <th><i class="fas fa-truck"></i> Big Car</th>
-          <th><i class="fas fa-cog"></i> Actions</th>
+          <th><i class="fas fa-car"></i> {{ t('buy.detailsTable.car') }}</th>
+          <th><i class="fas fa-palette"></i> {{ t('buy.detailsTable.color') }}</th>
+          <th><i class="fas fa-hashtag"></i> {{ t('buy.detailsTable.quantity') }}</th>
+          <th><i class="fas fa-money-bill-wave"></i> {{ t('buy.detailsTable.amount') }}</th>
+          <th><i class="fas fa-calendar-alt"></i> {{ t('buy.detailsTable.year') }}</th>
+          <th><i class="fas fa-calendar-day"></i> {{ t('buy.detailsTable.month') }}</th>
+          <th><i class="fas fa-tag"></i> {{ t('buy.detailsTable.priceSell') }}</th>
+          <th><i class="fas fa-sticky-note"></i> {{ t('buy.detailsTable.notes') }}</th>
+          <th><i class="fas fa-car-alt"></i> {{ t('buy.detailsTable.usedCar') }}</th>
+          <th><i class="fas fa-truck"></i> {{ t('buy.detailsTable.bigCar') }}</th>
+          <th><i class="fas fa-cog"></i> {{ t('buy.detailsTable.actions') }}</th>
         </tr>
       </thead>
       <tbody>
@@ -177,13 +180,21 @@ const showStockAlert = async () => {
           <td>
             <i
               :class="detail.is_used_car ? 'fas fa-check text-success' : 'fas fa-times text-danger'"
-              :title="detail.is_used_car ? 'Used Car' : 'New Car'"
+              :title="
+                detail.is_used_car
+                  ? t('buy.detailsTable.usedCarTitle')
+                  : t('buy.detailsTable.newCarTitle')
+              "
             ></i>
           </td>
           <td>
             <i
               :class="detail.is_big_car ? 'fas fa-check text-success' : 'fas fa-times text-danger'"
-              :title="detail.is_big_car ? 'Big Car' : 'Small Car'"
+              :title="
+                detail.is_big_car
+                  ? t('buy.detailsTable.bigCarTitle')
+                  : t('buy.detailsTable.smallCarTitle')
+              "
             ></i>
           </td>
           <td class="actions">
@@ -199,7 +210,7 @@ const showStockAlert = async () => {
               "
             >
               <i class="fas fa-edit"></i>
-              Edit
+              {{ t('buy.detailsTable.edit') }}
             </button>
             <button
               @click="confirmDelete(detail.id, detail.is_stock_updated)"
@@ -213,7 +224,7 @@ const showStockAlert = async () => {
               "
             >
               <i class="fas fa-trash-alt"></i>
-              Delete
+              {{ t('buy.detailsTable.delete') }}
             </button>
           </td>
         </tr>
@@ -226,7 +237,7 @@ const showStockAlert = async () => {
       <div class="dialog-header">
         <h3>
           <i class="fas fa-edit"></i>
-          Edit Purchase Detail
+          {{ t('buy.detailsTable.editPurchaseDetail') }}
         </h3>
         <button class="close-btn" @click="showEditDialog = false">
           <i class="fas fa-times"></i>
@@ -236,7 +247,7 @@ const showStockAlert = async () => {
         <div class="form-group">
           <label for="edit-qty">
             <i class="fas fa-hashtag"></i>
-            Quantity
+            {{ t('buy.detailsTable.quantity') }}
           </label>
           <input type="number" id="edit-qty" v-model="editingDetail.QTY" min="1" required />
         </div>
@@ -244,7 +255,7 @@ const showStockAlert = async () => {
         <div class="form-group">
           <label for="edit-amount">
             <i class="fas fa-money-bill-wave"></i>
-            Amount
+            {{ t('buy.detailsTable.amount') }}
           </label>
           <input
             type="number"
@@ -259,7 +270,7 @@ const showStockAlert = async () => {
           <div class="form-group half">
             <label for="edit-year">
               <i class="fas fa-calendar-alt"></i>
-              Year
+              {{ t('buy.detailsTable.year') }}
             </label>
             <input type="number" id="edit-year" v-model="editingDetail.year" required />
           </div>
@@ -267,7 +278,7 @@ const showStockAlert = async () => {
           <div class="form-group half">
             <label for="edit-month">
               <i class="fas fa-calendar-day"></i>
-              Month
+              {{ t('buy.detailsTable.month') }}
             </label>
             <input
               type="number"
@@ -282,7 +293,7 @@ const showStockAlert = async () => {
 
         <!-- Add price_sell field -->
         <div class="form-group">
-          <label for="edit-price-sell">Price Sell</label>
+          <label for="edit-price-sell">{{ t('buy.detailsTable.priceSell') }}</label>
           <input
             type="number"
             id="edit-price-sell"
@@ -293,14 +304,14 @@ const showStockAlert = async () => {
         </div>
 
         <div class="form-group">
-          <label for="edit-notes">Notes</label>
+          <label for="edit-notes">{{ t('buy.detailsTable.notes') }}</label>
           <textarea id="edit-notes" v-model="editingDetail.notes" rows="3"></textarea>
         </div>
 
         <div class="form-group">
           <label for="edit-is-used-car">
             <i class="fas fa-car"></i>
-            Used Car
+            {{ t('buy.detailsTable.usedCar') }}
           </label>
           <input type="checkbox" id="edit-is-used-car" v-model="editingDetail.is_used_car" />
         </div>
@@ -308,14 +319,16 @@ const showStockAlert = async () => {
         <div class="form-group">
           <label for="edit-is-big-car">
             <i class="fas fa-truck"></i>
-            Big Car
+            {{ t('buy.detailsTable.bigCar') }}
           </label>
           <input type="checkbox" id="edit-is-big-car" v-model="editingDetail.is_big_car" />
         </div>
 
         <div class="dialog-buttons">
-          <button type="button" @click="showEditDialog = false" class="cancel-btn">Cancel</button>
-          <button type="submit" class="submit-btn">Save Changes</button>
+          <button type="button" @click="showEditDialog = false" class="cancel-btn">
+            {{ t('buy.detailsTable.cancel') }}
+          </button>
+          <button type="submit" class="submit-btn">{{ t('buy.detailsTable.saveChanges') }}</button>
         </div>
       </form>
     </div>

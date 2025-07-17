@@ -133,10 +133,10 @@ const handleEditBill = (bill) => {
 
 const handleDeleteBill = async (id) => {
   if (!isAdmin.value) {
-    alert(t('sellBills.only_admins_can_delete_sell_bills'))
+    alert(t('sellBillsView.onlyAdminsCanDeleteSellBills'))
     return
   }
-  if (!confirm(t('sellBills.confirm_delete_sell_bill_message'))) {
+  if (!confirm(t('sellBillsView.confirmDeleteSellBill'))) {
     return
   }
 
@@ -160,9 +160,7 @@ const handleDeleteBill = async (id) => {
 
     if (!unassignResult.success) {
       console.error('Failed to unassign cars:', unassignResult.error)
-      alert(
-        t('sellBills.failed_to_unassign_cars_from_bill_message', { error: unassignResult.error }),
-      )
+      alert(t('sellBillsView.failedToUnassignCarsFromBill', { error: unassignResult.error }))
       return
     }
 
@@ -187,11 +185,11 @@ const handleDeleteBill = async (id) => {
       handleCarsTableRefresh()
     } else {
       console.error('Failed to delete sell bill:', result.error)
-      alert(t('sellBills.failed_to_delete_sell_bill_message', { error: result.error }))
+      alert(t('sellBillsView.failedToDeleteSellBill', { error: result.error }))
     }
   } catch (err) {
     console.error('Error deleting sell bill:', err)
-    alert(t('sellBills.error_deleting_sell_bill_message', { error: err.message }))
+    alert(t('sellBillsView.errorDeletingSellBill', { error: err.message }))
   } finally {
     isProcessing.value = false
   }
@@ -253,7 +251,7 @@ const handleTaskCreated = () => {
 <template>
   <div class="sell-bills-view">
     <div class="header">
-      <h2>{{ t('sellBills.sell_bills_management') }}</h2>
+      <h2>{{ t('sellBillsView.sellBillsManagement') }}</h2>
       <div class="header-actions">
         <button
           v-if="can_create_sell_bill"
@@ -261,7 +259,7 @@ const handleTaskCreated = () => {
           class="add-btn"
           :disabled="isProcessing"
         >
-          <i class="fas fa-plus"></i> {{ t('sellBills.add_sell_bill') }}
+          <i class="fas fa-plus"></i> {{ t('sellBillsView.addSellBill') }}
         </button>
       </div>
     </div>

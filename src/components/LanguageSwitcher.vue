@@ -24,16 +24,20 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useI18n } from 'vue-i18n'
-import { changeLanguage } from '@/i18n'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { useEnhancedI18n } from '../composables/useI18n'
+import { changeLanguage } from '../i18n'
 
-const { locale } = useI18n()
+const { locale } = useEnhancedI18n()
 
 const isOpen = ref(false)
 const dropdown = ref(null)
 
-const currentLocale = computed(() => locale.value)
+const currentLocale = computed(() => {
+  const current = locale.value
+  console.log('Current locale:', current)
+  return current
+})
 
 const availableLocales = [
   { code: 'en', name: 'English', flag: '🇺🇸' },
@@ -57,9 +61,15 @@ const toggleDropdown = () => {
 }
 
 const selectLanguage = (code) => {
+  console.log('Changing language to:', code)
   changeLanguage(code)
   isOpen.value = false
 }
+
+// Watch for locale changes
+watch(currentLocale, (newLocale) => {
+  console.log('Locale changed to:', newLocale)
+})
 
 // Close dropdown when clicking outside
 const handleClickOutside = (event) => {
@@ -70,6 +80,7 @@ const handleClickOutside = (event) => {
 
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)
+  console.log('LanguageSwitcher mounted, current locale:', currentLocale.value)
 })
 
 onUnmounted(() => {
