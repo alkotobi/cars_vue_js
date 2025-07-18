@@ -780,7 +780,7 @@ const fetchCarsStock = async () => {
         cs.vin,
         cs.price_cell,
         cs.date_loding,
-        cs.date_sell,
+        sb.date_sell,
         cs.notes,
         cs.freight,
         cs.path_documents,
@@ -1942,13 +1942,13 @@ defineExpose({
                   <div v-if="car.buy_bill_ref" class="car-detail-item">
                     <div class="info-badge badge-buy-bill">
                       <i class="fas fa-shopping-cart"></i>
-                      Buy: {{ car.buy_bill_ref }}
+                      {{ t('carStock.buy') }}: {{ car.buy_bill_ref }}
                     </div>
                   </div>
                   <div v-if="car.sell_bill_ref" class="car-detail-item">
                     <div class="info-badge badge-sell-bill">
                       <i class="fas fa-file-invoice-dollar"></i>
-                      Sell: {{ car.sell_bill_ref }}
+                      {{ t('carStock.sell') }}: {{ car.sell_bill_ref }}
                     </div>
                   </div>
                 </div>
@@ -1962,7 +1962,7 @@ defineExpose({
                   </div>
                   <div v-if="car.is_batch" class="info-badge badge-wholesale">
                     <i class="fas fa-layer-group"></i>
-                    Whole Sale
+                    {{ t('carStock.whole_sale') }}
                   </div>
                 </div>
               </td>
@@ -1988,7 +1988,7 @@ defineExpose({
                   </div>
                   <div v-if="car.date_pay_freight" class="info-badge badge-freight-paid">
                     <i class="fas fa-check-circle"></i>
-                    Freight Paid
+                    {{ t('carStock.freight_paid') }}
                   </div>
                 </div>
               </td>
@@ -2026,20 +2026,20 @@ defineExpose({
                           car.is_used_car ? 'fas fa-history' : '',
                         ]"
                       ></i>
-                      {{ car.id_sell ? 'Sold' : 'Available' }}
-                      {{ car.is_used_car ? '(Used)' : '' }}
+                      {{ car.id_sell ? t('carStock.sold') : t('carStock.available') }}
+                      {{ car.is_used_car ? `(${t('carStock.used')})` : '' }}
                     </span>
                   </div>
                   <div v-if="car.in_wharhouse_date" class="status-item">
                     <div class="info-badge badge-in-warehouse">
                       <i class="fas fa-warehouse"></i>
-                      In Warehouse
+                      {{ t('carStock.in_warehouse') }}
                     </div>
                   </div>
                   <div v-if="car.date_get_bl" class="status-item">
                     <div class="info-badge badge-bl-received">
                       <i class="fas fa-file-contract"></i>
-                      BL Received
+                      {{ t('carStock.bl_received') }}
                     </div>
                   </div>
                 </div>
@@ -2069,7 +2069,7 @@ defineExpose({
                     class="document-link"
                   >
                     <i class="fas fa-file-invoice-dollar"></i>
-                    INVOICE
+                    {{ t('carStock.invoice') }}
                   </a>
                   <a
                     v-if="car.buy_pi_path"
@@ -2078,7 +2078,7 @@ defineExpose({
                     class="document-link"
                   >
                     <i class="fas fa-file-contract"></i>
-                    PACKING LIST
+                    {{ t('carStock.packing_list') }}
                   </a>
                 </div>
               </td>
@@ -2298,11 +2298,11 @@ defineExpose({
               </div>
               <div v-if="car.buy_bill_ref" class="info-badge badge-buy-bill">
                 <i class="fas fa-shopping-cart"></i>
-                Buy: {{ car.buy_bill_ref }}
+                {{ t('carStock.buy') }}: {{ car.buy_bill_ref }}
               </div>
               <div v-if="car.sell_bill_ref" class="info-badge badge-sell-bill">
                 <i class="fas fa-file-invoice-dollar"></i>
-                Sell: {{ car.sell_bill_ref }}
+                {{ t('carStock.sell') }}: {{ car.sell_bill_ref }}
               </div>
             </div>
           </div>
@@ -2320,7 +2320,7 @@ defineExpose({
               </div>
               <div v-if="car.is_batch" class="info-badge badge-wholesale">
                 <i class="fas fa-layer-group"></i>
-                Whole Sale
+                {{ t('carStock.whole_sale') }}
               </div>
             </div>
           </div>
@@ -2352,7 +2352,7 @@ defineExpose({
             </div>
             <div v-if="car.date_pay_freight" class="info-badge badge-freight-paid">
               <i class="fas fa-check-circle"></i>
-              Freight Paid
+              {{ t('carStock.freight_paid') }}
             </div>
           </div>
         </div>
@@ -2402,17 +2402,17 @@ defineExpose({
                     car.is_used_car ? 'fas fa-history' : '',
                   ]"
                 ></i>
-                {{ car.id_sell ? 'Sold' : 'Available' }}
-                {{ car.is_used_car ? '(Used)' : '' }}
+                {{ car.id_sell ? t('carStock.sold') : t('carStock.available') }}
+                {{ car.is_used_car ? `(${t('carStock.used')})` : '' }}
               </span>
             </div>
             <div v-if="car.in_wharhouse_date" class="info-badge badge-in-warehouse">
               <i class="fas fa-warehouse"></i>
-              In Warehouse
+              {{ t('carStock.in_warehouse') }}
             </div>
             <div v-if="car.date_get_bl" class="info-badge badge-bl-received">
               <i class="fas fa-file-contract"></i>
-              BL Received
+              {{ t('carStock.bl_received') }}
             </div>
           </div>
         </div>
@@ -2447,7 +2447,7 @@ defineExpose({
               class="card-document-link"
             >
               <i class="fas fa-file-invoice-dollar"></i>
-              INVOICE
+              {{ t('carStock.invoice') }}
             </a>
             <a
               v-if="car.buy_pi_path"
@@ -2456,7 +2456,7 @@ defineExpose({
               class="card-document-link"
             >
               <i class="fas fa-file-contract"></i>
-              PACKING LIST
+              {{ t('carStock.packing_list') }}
             </a>
           </div>
         </div>

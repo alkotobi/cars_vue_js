@@ -7,6 +7,7 @@ import BuyDetailsTable from '../components/buy/BuyDetailsTable.vue'
 import CarStockTable from '../components/car-stock/CarStockTable.vue'
 import TaskForm from '../components/car-stock/TaskForm.vue'
 import { useRouter } from 'vue-router'
+import EditNotesDialog from '../components/buy/EditNotesDialog.vue'
 
 // API and base setup
 const { callApi, uploadFile, getFileUrl, error } = useApi()
@@ -40,6 +41,9 @@ const selectedBillForTask = ref(null)
 // Loading states
 const isSubmittingPurchase = ref(false)
 const isSubmittingDetail = ref(false)
+const isUpdatingStock = ref(false)
+const isDeletingBill = ref(false)
+const isProcessingTask = ref(false)
 
 // User info
 const user = ref(JSON.parse(localStorage.getItem('user')))
@@ -62,7 +66,10 @@ const handleUpdateStock = async (bill) => {
     return
   }
 
+  if (isUpdatingStock.value) return // Prevent double-click
+
   try {
+    isUpdatingStock.value = true
     const result = await callApi({
       query: `
         UPDATE buy_bill 
@@ -88,6 +95,8 @@ const handleUpdateStock = async (bill) => {
   } catch (err) {
     console.error('Error updating stock:', err)
     alert(t('failed_update_stock'))
+  } finally {
+    isUpdatingStock.value = false
   }
 }
 
@@ -185,7 +194,11 @@ const handleDeleteBill = async (bill) => {
     return
   }
 
+  if (isDeletingBill.value) return // Prevent double-click
+
   try {
+    isDeletingBill.value = true
+
     // First check if the bill can be deleted
     if (bill.is_stock_updated) {
       alert(t('cannot_delete_stock_updated_purchase'))
@@ -231,6 +244,8 @@ const handleDeleteBill = async (bill) => {
   } catch (err) {
     console.error('Error deleting purchase:', err)
     alert(err.message || t('failed_delete_purchase'))
+  } finally {
+    isDeletingBill.value = false
   }
 }
 
@@ -243,6 +258,7 @@ const openEditDialog = (bill) => {
     pi_path: bill.pi_path || '',
     pi_file: null,
     is_ordered: bill.is_ordered,
+    notes: bill.notes || '',
   }
   showEditDialog.value = true
 }
@@ -256,6 +272,7 @@ const openAddDialog = () => {
     pi_path: '',
     pi_file: null,
     is_ordered: 1,
+    notes: '',
   }
   showAddDialog.value = true
 }
@@ -269,13 +286,13 @@ const newPurchase = ref({
   pi_path: '',
   pi_file: null,
   is_ordered: 1,
+  notes: '',
 })
 
 const newDetail = ref({
   id_car_name: null,
   id_color: null,
   amount: 0,
-  notes: '',
   QTY: 1,
   year: new Date().getFullYear(),
   month: new Date().getMonth() + 1,
@@ -357,8 +374,8 @@ const addPurchase = async () => {
 
     const result = await callApi({
       query: `
-        INSERT INTO buy_bill (id_supplier, date_buy, bill_ref, pi_path, is_ordered)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO buy_bill (id_supplier, date_buy, bill_ref, pi_path, is_ordered, notes)
+        VALUES (?, ?, ?, ?, ?, ?)
       `,
       params: [
         newPurchase.value.id_supplier,
@@ -366,6 +383,7 @@ const addPurchase = async () => {
         newPurchase.value.bill_ref,
         newPurchase.value.pi_path,
         newPurchase.value.is_ordered,
+        newPurchase.value.notes || null,
       ],
     })
 
@@ -427,6 +445,7 @@ const addPurchase = async () => {
         pi_path: '',
         pi_file: null,
         is_ordered: 1,
+        notes: '',
       }
     } else {
       throw new Error(result.error || t('failed_add_purchase'))
@@ -486,7 +505,7 @@ const updatePurchase = async () => {
     const result = await callApi({
       query: `
         UPDATE buy_bill 
-        SET id_supplier = ?, date_buy = ?, bill_ref = ?, pi_path = ?, is_ordered = ?
+        SET id_supplier = ?, date_buy = ?, bill_ref = ?, pi_path = ?, is_ordered = ?, notes = ?
         WHERE id = ?
       `,
       params: [
@@ -495,6 +514,7 @@ const updatePurchase = async () => {
         newPurchase.value.bill_ref,
         newPurchase.value.pi_path,
         newPurchase.value.is_ordered,
+        newPurchase.value.notes || null,
         editingBill.value.id,
       ],
     })
@@ -511,6 +531,7 @@ const updatePurchase = async () => {
         pi_path: '',
         pi_file: null,
         is_ordered: 1,
+        notes: '',
       }
     } else {
       throw new Error(result.error || t('failed_update_purchase'))
@@ -632,14 +653,13 @@ const addDetail = async () => {
     const result = await callApi({
       query: `
       INSERT INTO buy_details 
-      (id_car_name, id_color, amount, notes, QTY, year, month, is_used_car, id_buy_bill, price_sell, is_big_car)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (id_car_name, id_color, amount, QTY, year, month, is_used_car, id_buy_bill, price_sell, is_big_car)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
       params: [
         newDetail.value.id_car_name,
         newDetail.value.id_color,
         newDetail.value.amount,
-        newDetail.value.notes,
         newDetail.value.QTY,
         newDetail.value.year,
         newDetail.value.month,
@@ -661,7 +681,6 @@ const addDetail = async () => {
         id_car_name: null,
         id_color: null,
         amount: 0,
-        notes: '',
         QTY: 1,
         year: new Date().getFullYear(),
         month: new Date().getMonth() + 1,
@@ -708,7 +727,7 @@ const handleUpdateDetail = async (updatedDetail) => {
   const result = await callApi({
     query: `
       UPDATE buy_details 
-      SET QTY = ?, amount = ?, year = ?, month = ?, notes = ?, price_sell = ?, is_big_car = ?
+      SET QTY = ?, amount = ?, year = ?, month = ?, price_sell = ?, is_big_car = ?
       WHERE id = ?
     `,
     params: [
@@ -716,7 +735,6 @@ const handleUpdateDetail = async (updatedDetail) => {
       updatedDetail.amount,
       updatedDetail.year,
       updatedDetail.month,
-      updatedDetail.notes,
       updatedDetail.price_sell,
       updatedDetail.is_big_car ? 1 : 0,
       updatedDetail.id,
@@ -735,16 +753,19 @@ const handleUpdateDetail = async (updatedDetail) => {
 
 // Replace handlePaymentClick with new method to open in new tab
 const openPayments = (bill) => {
+  // No double-click prevention needed for opening new tab
   window.open(`/buy-payments/${bill.id}`, '_blank')
 }
 
 // Add task handling methods
 const openTaskForBill = (bill) => {
+  if (isProcessingTask.value) return // Prevent double-click
   selectedBillForTask.value = bill
   showTaskForm.value = true
 }
 
 const handleTaskCreated = () => {
+  isProcessingTask.value = false
   showTaskForm.value = false
   // Don't set selectedBillForTask to null to avoid prop validation errors
   // Optionally refresh data if needed
@@ -755,6 +776,38 @@ const handleWarehouseChanged = (updatedCar) => {
   if (buyBillsTableRef.value) {
     // Call the fetchWarehouseCounts function to refresh the warehouse counts
     buyBillsTableRef.value.fetchWarehouseCounts()
+  }
+}
+
+const showEditNotesDialog = ref(false)
+const notesEditValue = ref('')
+const isSavingNotes = ref(false)
+
+const openEditNotesDialog = () => {
+  if (!selectedBill.value) return
+  notesEditValue.value = selectedBill.value.notes || ''
+  showEditNotesDialog.value = true
+}
+
+const saveNotes = async (newNotes) => {
+  if (!selectedBill.value) return
+  isSavingNotes.value = true
+  try {
+    const result = await callApi({
+      query: 'UPDATE buy_bill SET notes = ? WHERE id = ?',
+      params: [newNotes, selectedBill.value.id],
+    })
+    if (result.success) {
+      selectedBill.value.notes = newNotes
+      await fetchBuyBills()
+      showEditNotesDialog.value = false
+    } else {
+      alert(t('failed_update_notes'))
+    }
+  } catch (err) {
+    alert(t('failed_update_notes'))
+  } finally {
+    isSavingNotes.value = false
   }
 }
 </script>
@@ -785,6 +838,7 @@ const handleWarehouseChanged = (updatedCar) => {
               class="action-btn edit-btn"
               :disabled="bill.is_stock_updated"
             >
+              <i class="fas fa-edit"></i>
               {{ t('buyView.edit') }}
             </button>
             <button
@@ -799,16 +853,28 @@ const handleWarehouseChanged = (updatedCar) => {
               v-if="isAdmin"
               @click.stop="handleDeleteBill(bill)"
               class="action-btn delete-btn"
-              :disabled="bill.is_stock_updated"
+              :disabled="bill.is_stock_updated || isDeletingBill"
             >
-              {{ t('buyView.delete') }}
+              <i v-if="isDeletingBill" class="fas fa-spinner fa-spin"></i>
+              {{ isDeletingBill ? t('buyView.deleting') : t('buyView.delete') }}
             </button>
             <button
               @click.stop="openTaskForBill(bill)"
               class="action-btn task-btn"
+              :disabled="isProcessingTask"
               :title="t('buyView.addNewTask')"
             >
-              <i class="fas fa-tasks"></i>
+              <i v-if="isProcessingTask" class="fas fa-spinner fa-spin"></i>
+              <i v-else class="fas fa-tasks"></i>
+            </button>
+            <button
+              v-if="bill"
+              class="action-btn notes-btn"
+              @click.stop="openEditNotesDialog"
+              :title="t('buy.billsTable.editNotes')"
+            >
+              <i class="fas fa-sticky-note"></i>
+              {{ t('buy.billsTable.editNotes') }}
             </button>
           </template>
         </BuyBillsTable>
@@ -915,6 +981,15 @@ const handleWarehouseChanged = (updatedCar) => {
             <small class="help-text">{{ t('buyView.markThisPurchaseAsConfirmedOrder') }}</small>
           </div>
 
+          <div class="form-group">
+            <label>{{ t('buyView.notes') }}</label>
+            <textarea
+              v-model="newPurchase.notes"
+              rows="3"
+              :placeholder="t('buyView.enterNotes')"
+            ></textarea>
+          </div>
+
           <div class="dialog-buttons">
             <button type="button" @click="showAddDialog = false" class="cancel-btn">
               {{ t('buyView.cancel') }}
@@ -994,6 +1069,15 @@ const handleWarehouseChanged = (updatedCar) => {
             <small class="help-text">{{ t('buyView.markThisPurchaseAsConfirmedOrder') }}</small>
           </div>
 
+          <div class="form-group">
+            <label>{{ t('buyView.notes') }}</label>
+            <textarea
+              v-model="newPurchase.notes"
+              rows="3"
+              :placeholder="t('buyView.enterNotes')"
+            ></textarea>
+          </div>
+
           <div class="dialog-buttons">
             <button type="button" @click="showEditDialog = false" class="cancel-btn">
               {{ t('buyView.cancel') }}
@@ -1058,11 +1142,6 @@ const handleWarehouseChanged = (updatedCar) => {
             <input type="number" v-model="newDetail.price_sell" step="0.01" required />
           </div>
 
-          <div class="form-group">
-            <label>{{ t('buyView.notes') }}</label>
-            <textarea v-model="newDetail.notes" rows="3"></textarea>
-          </div>
-
           <div class="form-group checkbox">
             <label>
               <input type="checkbox" v-model="newDetail.is_used_car" />
@@ -1098,6 +1177,15 @@ const handleWarehouseChanged = (updatedCar) => {
       :isVisible="showTaskForm"
       @task-created="handleTaskCreated"
       @cancel="showTaskForm = false"
+    />
+
+    <EditNotesDialog
+      v-if="showEditNotesDialog"
+      v-model="notesEditValue"
+      :visible="showEditNotesDialog"
+      :title="t('buy.billsTable.editNotes')"
+      @save="saveNotes"
+      @cancel="showEditNotesDialog = false"
     />
   </div>
 </template>

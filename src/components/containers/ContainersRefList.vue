@@ -26,10 +26,61 @@
     </div>
 
     <div v-else class="table-container">
+      <!-- Filters -->
+      <div class="filters-section">
+        <div class="filters-header">
+          <h3>{{ t('containersRef.filters') }}</h3>
+          <button @click="resetFilters" class="btn btn-secondary">
+            <i class="fas fa-times"></i>
+            {{ t('containersRef.clearFilters') }}
+          </button>
+        </div>
+        <div class="filters-grid">
+          <div class="filter-item">
+            <label>{{ t('containersRef.containerRef') }}:</label>
+            <input
+              v-model="filters.containerRef"
+              type="text"
+              :placeholder="t('containersRef.searchContainerRef')"
+              class="filter-input"
+            />
+          </div>
+          <div class="filter-item">
+            <label>{{ t('containersRef.location') }}:</label>
+            <input
+              v-model="filters.location"
+              type="text"
+              :placeholder="t('containersRef.searchLocation')"
+              class="filter-input"
+            />
+          </div>
+          <div class="filter-item">
+            <label>{{ t('containersRef.user') }}:</label>
+            <input
+              v-model="filters.user"
+              type="text"
+              :placeholder="t('containersRef.searchUser')"
+              class="filter-input"
+            />
+          </div>
+          <div class="filter-item">
+            <label>{{ t('containersRef.hasLocation') }}:</label>
+            <select v-model="filters.hasLocation" class="filter-select">
+              <option value="">{{ t('containersRef.all') }}</option>
+              <option value="yes">{{ t('containersRef.yes') }}</option>
+              <option value="no">{{ t('containersRef.no') }}</option>
+            </select>
+          </div>
+        </div>
+      </div>
       <div class="stats">
         <div class="stat-item">
           <span class="stat-label">{{ t('containersRef.totalContainers') }}:</span>
           <span class="stat-value">{{ containersRef.length }}</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">{{ t('containersRef.filteredContainers') }}:</span>
+          <span class="stat-value">{{ filteredAndSortedContainers.length }}</span>
         </div>
       </div>
 
@@ -38,15 +89,43 @@
           <thead>
             <tr>
               <th>#</th>
-              <th>{{ t('containersRef.containerRef') }}</th>
-              <th>{{ t('containersRef.location') }}</th>
-              <th>{{ t('containersRef.timestamp') }}</th>
-              <th>{{ t('containersRef.user') }}</th>
+              <th @click="handleSort('container_ref')" class="sortable">
+                {{ t('containersRef.containerRef') }}
+                <i
+                  v-if="sortConfig.field === 'container_ref'"
+                  :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
+                ></i>
+              </th>
+              <th @click="handleSort('tracking')" class="sortable">
+                {{ t('containersRef.location') }}
+                <i
+                  v-if="sortConfig.field === 'tracking'"
+                  :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
+                ></i>
+              </th>
+              <th @click="handleSort('time')" class="sortable">
+                {{ t('containersRef.timestamp') }}
+                <i
+                  v-if="sortConfig.field === 'time'"
+                  :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
+                ></i>
+              </th>
+              <th @click="handleSort('username')" class="sortable">
+                {{ t('containersRef.user') }}
+                <i
+                  v-if="sortConfig.field === 'username'"
+                  :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
+                ></i>
+              </th>
               <th>{{ t('containersRef.actions') }}</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(container, index) in containersRef" :key="index" class="table-row">
+            <tr
+              v-for="(container, index) in filteredAndSortedContainers"
+              :key="container.container_ref"
+              class="table-row"
+            >
               <td class="id-cell">{{ index + 1 }}</td>
               <td class="ref-cell">
                 <div class="ref-content">
@@ -110,7 +189,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useApi } from '@/composables/useApi'
 import GoogleMapPopup from './GoogleMapPopup.vue'
@@ -123,6 +202,99 @@ const loading = ref(false)
 const error = ref(null)
 const showMapPopup = ref(false)
 const selectedContainerRef = ref('')
+
+// Filter and sort state
+const filters = ref({
+  containerRef: '',
+  location: '',
+  user: '',
+  hasLocation: '', // 'all', 'yes', 'no'
+})
+
+const sortConfig = ref({
+  field: 'container_ref',
+  direction: 'asc',
+})
+
+// Filtered and sorted containers
+const filteredAndSortedContainers = computed(() => {
+  let result = [...containersRef.value]
+
+  // Apply filters
+  if (filters.value.containerRef) {
+    result = result.filter((container) =>
+      container.container_ref?.toLowerCase().includes(filters.value.containerRef.toLowerCase()),
+    )
+  }
+
+  if (filters.value.location) {
+    result = result.filter((container) =>
+      container.tracking?.toLowerCase().includes(filters.value.location.toLowerCase()),
+    )
+  }
+
+  if (filters.value.user) {
+    result = result.filter(
+      (container) =>
+        container.username?.toLowerCase().includes(filters.value.user.toLowerCase()) ||
+        container.id_user?.toString().includes(filters.value.user),
+    )
+  }
+
+  if (filters.value.hasLocation) {
+    if (filters.value.hasLocation === 'yes') {
+      result = result.filter((container) => container.tracking)
+    } else if (filters.value.hasLocation === 'no') {
+      result = result.filter((container) => !container.tracking)
+    }
+  }
+
+  // Apply sorting
+  result.sort((a, b) => {
+    let aValue = a[sortConfig.value.field]
+    let bValue = b[sortConfig.value.field]
+
+    // Handle timestamp comparison
+    if (sortConfig.value.field === 'time') {
+      aValue = aValue ? new Date(aValue).getTime() : 0
+      bValue = bValue ? new Date(bValue).getTime() : 0
+    }
+
+    // Handle string comparison
+    if (typeof aValue === 'string') {
+      aValue = aValue.toLowerCase()
+      bValue = bValue.toLowerCase()
+    }
+
+    if (sortConfig.value.direction === 'asc') {
+      return aValue > bValue ? 1 : -1
+    } else {
+      return aValue < bValue ? 1 : -1
+    }
+  })
+
+  return result
+})
+
+const handleSort = (field) => {
+  if (sortConfig.value.field === field) {
+    // Toggle direction if clicking the same field
+    sortConfig.value.direction = sortConfig.value.direction === 'asc' ? 'desc' : 'asc'
+  } else {
+    // Set new field and default to ascending
+    sortConfig.value.field = field
+    sortConfig.value.direction = 'asc'
+  }
+}
+
+const resetFilters = () => {
+  filters.value = {
+    containerRef: '',
+    location: '',
+    user: '',
+    hasLocation: '',
+  }
+}
 
 const fetchContainersRef = async () => {
   loading.value = true
@@ -307,6 +479,87 @@ onMounted(() => {
   border-radius: 8px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
   overflow: hidden;
+}
+
+.filters-section {
+  background: #f8f9fa;
+  padding: 20px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.filters-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.filters-header h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #495057;
+}
+
+.btn-secondary {
+  background-color: #6c757d;
+  color: white;
+  font-size: 12px;
+  padding: 6px 12px;
+}
+
+.btn-secondary:hover {
+  background-color: #5a6268;
+}
+
+.filters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+}
+
+.filter-item {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.filter-item label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #495057;
+}
+
+.filter-input,
+.filter-select {
+  padding: 8px 12px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 14px;
+  background-color: white;
+  transition: border-color 0.2s ease;
+}
+
+.filter-input:focus,
+.filter-select:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.sortable {
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+}
+
+.sortable:hover {
+  background-color: #e9ecef;
+}
+
+.sortable i {
+  margin-left: 5px;
+  font-size: 12px;
+  color: #6c757d;
 }
 
 .stats {

@@ -105,6 +105,7 @@ try {
         `bill_ref` varchar(255) DEFAULT NULL,
         `is_stock_updated` tinyint(1) DEFAULT NULL,
         `is_ordered` tinyint(1) DEFAULT 1,
+        `notes` text DEFAULT NULL,
         PRIMARY KEY (`id`),
         KEY `id_supplier` (`id_supplier`)
     ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci");

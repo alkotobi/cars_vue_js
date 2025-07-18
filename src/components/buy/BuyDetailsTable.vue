@@ -30,23 +30,34 @@ const isStockUpdated = computed(() => {
 
 // Add loading state
 const isProcessing = ref(false)
+const isEditingDetail = ref(false)
+const isDeletingDetail = ref(false)
 
 const confirmDelete = (detailId, isStockUpdated) => {
   if (isStockUpdated) {
     alert(t('buy.detailsTable.cannotDeleteDetailsStockUpdated'))
     return
   }
+  if (isDeletingDetail.value) return // Prevent double-click
   if (confirm(t('buy.detailsTable.confirmDeleteDetail'))) {
+    isDeletingDetail.value = true
     emit('delete-detail', detailId)
+    // Reset after a short delay to allow the parent to handle the deletion
+    setTimeout(() => {
+      isDeletingDetail.value = false
+    }, 1000)
   }
 }
 
 const openEditDialog = (detail) => {
+  if (isEditingDetail.value) return // Prevent double-click
+  isEditingDetail.value = true
   editingDetail.value = { ...detail }
   showEditDialog.value = true
 }
 
 const handleEditSubmit = () => {
+  isEditingDetail.value = false
   emit('update-detail', editingDetail.value)
   showEditDialog.value = false
   editingDetail.value = null
@@ -201,30 +212,34 @@ const showStockAlert = async () => {
             <button
               @click="openEditDialog(detail)"
               class="edit-btn"
-              :class="{ disabled: detail.is_stock_updated }"
-              :disabled="detail.is_stock_updated"
+              :class="{ disabled: detail.is_stock_updated || isEditingDetail }"
+              :disabled="detail.is_stock_updated || isEditingDetail"
               :title="
                 detail.is_stock_updated
                   ? 'Cannot edit - Stock has been updated'
                   : 'Edit this detail'
               "
             >
-              <i class="fas fa-edit"></i>
-              {{ t('buy.detailsTable.edit') }}
+              <i v-if="isEditingDetail" class="fas fa-spinner fa-spin"></i>
+              <i v-else class="fas fa-edit"></i>
+              {{ isEditingDetail ? t('buy.detailsTable.processing') : t('buy.detailsTable.edit') }}
             </button>
             <button
               @click="confirmDelete(detail.id, detail.is_stock_updated)"
               class="delete-btn"
-              :class="{ disabled: detail.is_stock_updated }"
-              :disabled="detail.is_stock_updated"
+              :class="{ disabled: detail.is_stock_updated || isDeletingDetail }"
+              :disabled="detail.is_stock_updated || isDeletingDetail"
               :title="
                 detail.is_stock_updated
                   ? 'Cannot delete - Stock has been updated'
                   : 'Delete this detail'
               "
             >
-              <i class="fas fa-trash-alt"></i>
-              {{ t('buy.detailsTable.delete') }}
+              <i v-if="isDeletingDetail" class="fas fa-spinner fa-spin"></i>
+              <i v-else class="fas fa-trash-alt"></i>
+              {{
+                isDeletingDetail ? t('buy.detailsTable.processing') : t('buy.detailsTable.delete')
+              }}
             </button>
           </td>
         </tr>

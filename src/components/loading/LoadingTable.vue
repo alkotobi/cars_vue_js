@@ -25,11 +25,12 @@
         <button
           @click="printLoadingRecord"
           class="print-btn"
-          :disabled="!selectedLoadingId || loading"
+          :disabled="!selectedLoadingId || loading || isPrintingRecord"
           :title="t('loading.print_loading_record')"
         >
-          <i class="fas fa-print"></i>
-          <span>{{ t('loading.print') }}</span>
+          <i v-if="isPrintingRecord" class="fas fa-spinner fa-spin"></i>
+          <i v-else class="fas fa-print"></i>
+          <span>{{ isPrintingRecord ? t('loading.printing') : t('loading.print') }}</span>
         </button>
         <button
           @click="refreshData"
@@ -273,16 +274,20 @@
                   <button
                     @click="openTaskForLoading(record)"
                     class="action-btn task-btn"
+                    :disabled="isProcessingTask"
                     :title="t('loading.add_task')"
                   >
-                    <i class="fas fa-tasks"></i>
+                    <i v-if="isProcessingTask" class="fas fa-spinner fa-spin"></i>
+                    <i v-else class="fas fa-tasks"></i>
                   </button>
                   <button
                     @click="deleteRecord(record)"
                     class="action-btn delete-btn"
+                    :disabled="isDeletingRecord"
                     :title="t('loading.delete_record')"
                   >
-                    <i class="fas fa-trash"></i>
+                    <i v-if="isDeletingRecord" class="fas fa-spinner fa-spin"></i>
+                    <i v-else class="fas fa-trash"></i>
                   </button>
                 </div>
               </td>
@@ -736,6 +741,11 @@ const isEditing = ref(false)
 const isSubmitting = ref(false)
 const editingRecord = ref(null)
 
+// Add loading states for double-click prevention
+const isDeletingRecord = ref(false)
+const isProcessingTask = ref(false)
+const isPrintingRecord = ref(false)
+
 // Quick add dialog states
 const showShippingLineDialog = ref(false)
 const showLoadingPortDialog = ref(false)
@@ -1049,7 +1059,10 @@ const deleteRecord = async (record) => {
     return
   }
 
+  if (isDeletingRecord.value) return // Prevent double-click
+
   try {
+    isDeletingRecord.value = true
     // First check if the loading record has any containers
     const containersCheck = await callApi({
       query: 'SELECT COUNT(*) as container_count FROM loaded_containers WHERE id_loading = ?',
@@ -1083,6 +1096,8 @@ const deleteRecord = async (record) => {
     }
   } catch (err) {
     alert('Error deleting record: ' + err.message)
+  } finally {
+    isDeletingRecord.value = false
   }
 }
 
@@ -1716,7 +1731,10 @@ const printLoadingRecord = async () => {
     return
   }
 
+  if (isPrintingRecord.value) return // Prevent double-click
+
   try {
+    isPrintingRecord.value = true
     // Get the loading record details
     const loadingRecord = loadingRecords.value.find(
       (record) => record.id === selectedLoadingId.value,
@@ -1806,6 +1824,8 @@ const printLoadingRecord = async () => {
   } catch (err) {
     console.error('Error generating print content:', err)
     alert('Error generating print content')
+  } finally {
+    isPrintingRecord.value = false
   }
 }
 
@@ -2090,6 +2110,7 @@ const generatePrintContent = (loadingRecord, containersData) => {
 
 // Add task handling methods
 const openTaskForLoading = (record) => {
+  if (isProcessingTask.value) return // Prevent double-click
   console.log('openTaskForLoading called with record:', record)
   console.log('Current showTaskForm value:', showTaskForm.value)
   selectedLoadingForTask.value = record
@@ -2099,6 +2120,7 @@ const openTaskForLoading = (record) => {
 }
 
 const handleTaskCreated = () => {
+  isProcessingTask.value = false
   showTaskForm.value = false
   // Don't set selectedLoadingForTask to null to avoid prop validation errors
   // Optionally refresh data if needed

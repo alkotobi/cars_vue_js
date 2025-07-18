@@ -37,7 +37,7 @@ const filters = ref({
 
 // Add sorting state
 const sortConfig = ref({
-  field: 'date_buy',
+  field: 'id',
   direction: 'desc',
 })
 
@@ -86,6 +86,12 @@ const filteredAndSortedBills = computed(() => {
     if (sortConfig.value.field === 'date_buy') {
       aValue = new Date(aValue).getTime()
       bValue = new Date(bValue).getTime()
+    }
+
+    // Handle ID comparison (ensure numeric comparison)
+    if (sortConfig.value.field === 'id') {
+      aValue = parseInt(aValue) || 0
+      bValue = parseInt(bValue) || 0
     }
 
     if (sortConfig.value.direction === 'asc') {
@@ -442,7 +448,7 @@ defineExpose({
               </i>
             </th>
             <th @click="handleSort('date_buy')" class="sortable date-column">
-              <i class="fas fa-calendar"></i> {{ t('buy.billsTable.date') }}
+              {{ t('buy.billsTable.date') }}
               <i
                 v-if="sortConfig.field === 'date_buy'"
                 :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
@@ -450,7 +456,7 @@ defineExpose({
               </i>
             </th>
             <th @click="handleSort('supplier_name')" class="sortable">
-              <i class="fas fa-building"></i> {{ t('buy.billsTable.supplier') }}
+              {{ t('buy.billsTable.supplier') }}
               <i
                 v-if="sortConfig.field === 'supplier_name'"
                 :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
@@ -458,22 +464,23 @@ defineExpose({
               </i>
             </th>
             <th @click="handleSort('bill_ref')" class="sortable">
-              <i class="fas fa-file-alt"></i> {{ t('buy.billsTable.billRef') }}
+              {{ t('buy.billsTable.billRef') }}
               <i
                 v-if="sortConfig.field === 'bill_ref'"
                 :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
               >
               </i>
             </th>
-            <th><i class="fas fa-money-bill-wave"></i> {{ t('buy.billsTable.amount') }}</th>
-            <th><i class="fas fa-check-circle"></i> {{ t('buy.billsTable.paid') }}</th>
-            <th><i class="fas fa-balance-scale"></i> {{ t('buy.billsTable.balance') }}</th>
-            <th><i class="fas fa-money-bill-wave"></i> {{ t('buy.billsTable.paymentStatus') }}</th>
+            <th>{{ t('buy.billsTable.amount') }}</th>
+            <th>{{ t('buy.billsTable.paid') }}</th>
+            <th>{{ t('buy.billsTable.balance') }}</th>
+            <th>{{ t('buy.billsTable.paymentStatus') }}</th>
             <th class="status-column">
-              <i class="fas fa-info-circle"></i> {{ t('buy.billsTable.status') }}
+              {{ t('buy.billsTable.status') }}
             </th>
-            <th><i class="fas fa-shopping-cart"></i> {{ t('buy.billsTable.orderStatus') }}</th>
-            <th><i class="fas fa-file-pdf"></i> {{ t('buy.billsTable.piDocument') }}</th>
+            <th>{{ t('buy.billsTable.orderStatus') }}</th>
+            <th>{{ t('buy.billsTable.notes') }}</th>
+            <th>{{ t('buy.billsTable.piDocument') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -555,6 +562,15 @@ defineExpose({
               <span :class="bill.is_ordered ? 'status-ordered' : 'status-not_ordered'">
                 <i class="fas" :class="bill.is_ordered ? 'fa-check' : 'fa-times'"></i>
                 {{ bill.is_ordered ? t('buy.billsTable.ordered') : t('buy.billsTable.notOrdered') }}
+              </span>
+            </td>
+            <td class="notes-cell">
+              <span v-if="bill.notes" :title="bill.notes" class="notes-text">
+                {{ bill.notes.length > 30 ? bill.notes.substring(0, 30) + '...' : bill.notes }}
+              </span>
+              <span v-else class="no-notes">
+                <i class="fas fa-minus"></i>
+                {{ t('buy.billsTable.noNotes') }}
               </span>
             </td>
             <td>
