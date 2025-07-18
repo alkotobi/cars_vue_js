@@ -16,6 +16,14 @@ const isDev = ref(process.env.NODE_ENV === 'development')
 const user = ref(JSON.parse(localStorage.getItem('user')))
 const isAdmin = computed(() => user.value?.role_id === 1)
 
+// Create computed property for available locales with proper format
+const availableLanguages = computed(() => [
+  { code: 'en', name: 'English' },
+  { code: 'ar', name: 'العربية' },
+  { code: 'fr', name: 'Français' },
+  { code: 'zh', name: '中文' },
+])
+
 // Google Maps related
 const googleMapsLoaded = ref(false)
 const carLocations = ref({})
@@ -393,7 +401,7 @@ onMounted(() => {
         <div class="language-switcher">
           <label for="language-select">{{ t('common.language') }}:</label>
           <select id="language-select" v-model="locale" class="language-select">
-            <option v-for="lang in availableLocales" :key="lang.code" :value="lang.code">
+            <option v-for="lang in availableLanguages" :key="lang.code" :value="lang.code">
               {{ lang.name }}
             </option>
           </select>
