@@ -201,6 +201,12 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/containers-ref',
+      name: 'containers-ref',
+      component: () => import('../views/ContainersRefView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/:pathMatch(.*)*',
       redirect: '/',
     },

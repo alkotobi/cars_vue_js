@@ -59,6 +59,15 @@ try {
         KEY `id_brand` (`id_brand`)
     ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci");
 
+    $pdo->exec("CREATE TABLE `tracking` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `container_ref` varchar(255) DEFAULT NULL,
+  `tracking` varchar(255) DEFAULT NULL,
+  `time` timestamp NULL DEFAULT NULL,
+  `id_user` int(11) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `container_ref` (`container_ref`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;");
     // Create colors table
     $pdo->exec("CREATE TABLE IF NOT EXISTS `colors` (
         `id` int(11) NOT NULL AUTO_INCREMENT,

@@ -205,9 +205,26 @@ if (isset($postData['action'])) {
             $query = $postData['query'];
             $params = isset($postData['params']) ? $postData['params'] : [];
             
-            // Execute multi-statement query
+            // Execute the multi-statement query
             $result = executeMultiQuery($query, $params);
+            
+            if ($result['success']) {
             echo json_encode($result);
+            } else {
+                echo json_encode(['success' => false, 'message' => $result['error']]);
+            }
+            exit;
+
+        case 'get_unique_containers_ref':
+            // Get all unique, non-null containers_ref from cars_stock table
+            $query = "SELECT DISTINCT container_ref FROM cars_stock WHERE container_ref IS NOT NULL AND container_ref != '' ORDER BY container_ref ASC";
+            $result = executeQuery($query);
+            
+            if ($result['success']) {
+                echo json_encode(['success' => true, 'data' => $result['data']]);
+            } else {
+                echo json_encode(['success' => false, 'error' => $result['error']]);
+            }
             exit;
 
         case 'verify_password':

@@ -18,6 +18,7 @@ import StatisticsView from './StatisticsView.vue'
 import LoadingView from './LoadingView.vue'
 import { useApi } from '../composables/useApi'
 import FinishedOrdersTable from '../components/FinishedOrdersTable.vue'
+import ContainersRefList from '@/components/containers/ContainersRefList.vue'
 
 const router = useRouter()
 const { t } = useEnhancedI18n()
@@ -37,9 +38,11 @@ const isProcessing = ref({
   suppliers: false,
   warehouses: false,
   containers: false,
+  containersRef: false,
   statistics: false,
   load: false,
   loadingInquiry: false,
+  tracking: false,
 })
 
 const { callApi } = useApi()
@@ -215,6 +218,28 @@ const handleLoadingInquiryClick = async () => {
     isProcessing.value.loadingInquiry = false
   }
 }
+
+const handleTrackingClick = async () => {
+  if (isProcessing.value.tracking) return
+
+  try {
+    isProcessing.value.tracking = true
+
+    // First, ensure any current view is properly unmounted
+    if (activeView.value && activeView.value !== 'tracking') {
+      activeView.value = null
+      await nextTick()
+    }
+
+    // Then set the new view
+    activeView.value = 'tracking'
+    await nextTick()
+  } catch (error) {
+    console.error('Error in handleTrackingClick:', error)
+  } finally {
+    isProcessing.value.tracking = false
+  }
+}
 </script>
 
 <template>
@@ -303,24 +328,6 @@ const handleLoadingInquiryClick = async () => {
         </button>
 
         <button
-          v-if="canLoadCar"
-          @click="handleLoadingInquiryClick"
-          :class="{
-            active: activeView === 'loading-inquiry',
-            processing: isProcessing.loadingInquiry,
-          }"
-          class="sidebar-btn loading-inquiry-btn"
-          :disabled="isProcessing.loadingInquiry"
-        >
-          <i class="fas fa-list-alt" title="Loading Order"></i>
-          <span>{{ t('cars.loadingOrder') }}</span>
-          <i
-            v-if="isProcessing.loadingInquiry"
-            class="fas fa-spinner fa-spin loading-indicator"
-          ></i>
-        </button>
-
-        <button
           v-if="isAdmin"
           @click="handleStatisticsClick"
           :class="{ processing: isProcessing.statistics }"
@@ -338,6 +345,16 @@ const handleLoadingInquiryClick = async () => {
         >
           <i class="fas fa-check-circle"></i>
           <span>{{ t('cars.finishedOrders') }}</span>
+        </button>
+        <button
+          @click="handleTrackingClick"
+          :class="{ active: activeView === 'tracking', processing: isProcessing.tracking }"
+          class="sidebar-btn tracking-btn"
+          :disabled="isProcessing.tracking"
+        >
+          <i class="fas fa-map-marker-alt"></i>
+          <span>{{ t('cars.tracking') }}</span>
+          <i v-if="isProcessing.tracking" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
       </div>
 
@@ -477,6 +494,9 @@ const handleLoadingInquiryClick = async () => {
           <StatisticsView v-if="currentView === 'statistics'" />
           <LoadingView v-if="currentView === 'load'" :key="'loading-view'" />
           <LoadingView v-if="currentView === 'loading-inquiry'" :key="'loading-inquiry-view'" />
+          <div v-if="currentView === 'tracking'" class="tracking-view">
+            <ContainersRefList />
+          </div>
         </div>
       </div>
       <div class="copyright">{{ t('cars.copyright') }}</div>

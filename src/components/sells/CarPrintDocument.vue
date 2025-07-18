@@ -234,10 +234,10 @@ onMounted(() => {
             <div class="info-row">
               <span class="info-label bold-label">{{ t('sellBills.payment_terms') }}:</span>
               <span class="info-value">{{ options.paymentTerms.toUpperCase() }}</span>
-            </div>
-            <div class="info-row">
+        </div>
+          <div class="info-row">
               <span class="info-label bold-label">{{ t('sellBills.mode') }}:</span>
-              <span class="info-value">{{ options.paymentMode }}</span>
+            <span class="info-value">{{ options.paymentMode }}</span>
             </div>
           </div>
         </div>

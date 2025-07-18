@@ -1,11 +1,13 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, nextTick, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useApi } from '../composables/useApi'
+import { useEnhancedI18n } from '../composables/useI18n'
 import { ElMessage } from 'element-plus'
 
 const route = useRoute()
 const { callApi, error, getFileUrl } = useApi()
+const { t, locale, availableLocales } = useEnhancedI18n()
 const client = ref(null)
 const clientCars = ref([])
 const isLoading = ref(false)
@@ -13,6 +15,11 @@ const shareUrl = ref(window.location.href)
 const isDev = ref(process.env.NODE_ENV === 'development')
 const user = ref(JSON.parse(localStorage.getItem('user')))
 const isAdmin = computed(() => user.value?.role_id === 1)
+
+// Google Maps related
+const googleMapsLoaded = ref(false)
+const carLocations = ref({})
+
 const copyToClipboard = async () => {
   try {
     await navigator.clipboard.writeText(shareUrl.value)
@@ -27,6 +34,218 @@ const copyToClipboard = async () => {
     })
   }
 }
+
+const loadGoogleMapsAPI = async () => {
+  if (window.google && window.google.maps) {
+    googleMapsLoaded.value = true
+    return
+  }
+
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script')
+    script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyB41DRUbKWJHPxaFjMAwdrzWzbVKartNGg&libraries=places`
+    script.async = true
+    script.defer = true
+
+    script.onload = () => {
+      googleMapsLoaded.value = true
+      resolve()
+    }
+
+    script.onerror = () => {
+      reject(new Error('Failed to load Google Maps API'))
+    }
+
+    document.head.appendChild(script)
+  })
+}
+
+const initCarMap = (containerRef, mapElement) => {
+  console.log('initCarMap called:', {
+    containerRef,
+    mapElement,
+    googleMapsLoaded: googleMapsLoaded.value,
+    carLocations: carLocations.value,
+  })
+
+  if (!googleMapsLoaded.value) {
+    console.log('Google Maps not loaded yet')
+    return
+  }
+
+  if (!carLocations.value[containerRef]) {
+    console.log('No location data for container:', containerRef)
+    return
+  }
+
+  if (!mapElement) {
+    console.log('Map element not provided')
+    return
+  }
+
+  const location = carLocations.value[containerRef]
+  console.log('Creating map for location:', location)
+
+  // Remove loading state
+  const loadingElement = mapElement.querySelector('.map-loading')
+  if (loadingElement) {
+    loadingElement.remove()
+  }
+
+  const mapOptions = {
+    center: { lat: 20, lng: 0 }, // Center on world view
+    zoom: 2, // Zoom out to show continents
+    mapTypeId: google.maps.MapTypeId.ROADMAP,
+    disableDefaultUI: true,
+    zoomControl: true,
+    streetViewControl: false,
+    mapTypeControl: false,
+    fullscreenControl: false,
+  }
+
+  try {
+    const map = new google.maps.Map(mapElement, mapOptions)
+    console.log('Map created successfully')
+
+    // Create boat icon
+    const boatIcon = {
+      url:
+        'data:image/svg+xml;charset=UTF-8,' +
+        encodeURIComponent(`
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 1.5L15 6H18L19.5 9V12L18 15H15L12 19.5L9 15H6L4.5 12V9L6 6H9L12 1.5Z" fill="#3B82F6" stroke="#1E40AF" stroke-width="0.5"/>
+          <path d="M12 4.5L13.5 7.5H16.5L17.25 9V10.5L16.5 12H13.5L12 14.25L10.5 12H7.5L6.75 10.5V9L7.5 7.5H10.5L12 4.5Z" fill="#60A5FA" stroke="#3B82F6" stroke-width="0.25"/>
+          <circle cx="12" cy="9" r="1.5" fill="#FFFFFF"/>
+          <path d="M9 18L12 21L15 18" stroke="#1E40AF" stroke-width="0.5" fill="none"/>
+        </svg>
+      `),
+      scaledSize: new google.maps.Size(24, 24),
+      anchor: new google.maps.Point(12, 12),
+    }
+
+    // Add marker at the actual location
+    try {
+      // Try to use AdvancedMarkerElement if available
+      if (google.maps.marker && google.maps.marker.AdvancedMarkerElement) {
+        const marker = new google.maps.marker.AdvancedMarkerElement({
+          position: { lat: location.lat, lng: location.lng },
+          map: map,
+          title: `Container: ${containerRef}`,
+          content: new google.maps.marker.PinElement({
+            background: '#3B82F6',
+            borderColor: '#1E40AF',
+            glyph: '🚢',
+            glyphColor: '#FFFFFF',
+            scale: 1.2,
+          }).element,
+        })
+      } else {
+        // Fallback to traditional Marker
+        const marker = new google.maps.Marker({
+          position: { lat: location.lat, lng: location.lng },
+          map: map,
+          icon: boatIcon,
+          title: `Container: ${containerRef}`,
+        })
+      }
+    } catch (markerError) {
+      console.warn('AdvancedMarkerElement not available, using traditional Marker')
+      const marker = new google.maps.Marker({
+        position: { lat: location.lat, lng: location.lng },
+        map: map,
+        icon: boatIcon,
+        title: `Container: ${containerRef}`,
+      })
+    }
+
+    console.log('Marker added successfully')
+  } catch (error) {
+    console.error('Error creating map:', error)
+  }
+}
+
+const initializeMaps = async () => {
+  await nextTick()
+
+  // Wait a bit more for DOM to be fully ready
+  setTimeout(() => {
+    clientCars.value.forEach((car) => {
+      if (car.container_ref && carLocations.value[car.container_ref]) {
+        const mapElement = document.querySelector(`[data-map-id="map-${car.id}"]`)
+        if (mapElement) {
+          console.log(`Initializing map for car ${car.id}, container ${car.container_ref}`)
+
+          // Ensure the map container has proper dimensions
+          if (mapElement.offsetHeight === 0) {
+            console.log('Map container has no height, setting explicit height')
+            mapElement.style.height = '200px'
+          }
+
+          initCarMap(car.container_ref, mapElement)
+        } else {
+          console.log(`Map element not found for car ${car.id}`)
+        }
+      }
+    })
+  }, 200) // Increased timeout to ensure DOM is ready
+}
+
+const fetchCarLocations = async () => {
+  try {
+    // Get all container references from client cars
+    const containerRefs = clientCars.value
+      .filter((car) => car.container_ref)
+      .map((car) => car.container_ref)
+
+    if (containerRefs.length === 0) return
+
+    // Fetch tracking data for all container references
+    const trackingResult = await callApi({
+      action: 'execute_sql',
+      query: `
+        SELECT container_ref, tracking, time, id_user 
+        FROM tracking 
+        WHERE container_ref IN (${containerRefs.map(() => '?').join(',')})
+      `,
+      params: containerRefs,
+      requiresAuth: false,
+    })
+
+    if (trackingResult.success) {
+      const locations = {}
+      trackingResult.results.forEach((track) => {
+        if (track.tracking) {
+          const [lat, lng] = track.tracking.split(',').map((coord) => parseFloat(coord))
+          if (!isNaN(lat) && !isNaN(lng)) {
+            locations[track.container_ref] = { lat, lng, time: track.time, user: track.id_user }
+          }
+        }
+      })
+      carLocations.value = locations
+      console.log('Car locations loaded:', carLocations.value)
+    }
+  } catch (err) {
+    console.error('Error fetching car locations:', err)
+  }
+}
+
+// Watch for changes in carLocations and initialize maps
+watch(
+  carLocations,
+  async (newLocations) => {
+    if (Object.keys(newLocations).length > 0 && googleMapsLoaded.value) {
+      await initializeMaps()
+    }
+  },
+  { deep: true },
+)
+
+// Watch for Google Maps API loading
+watch(googleMapsLoaded, async (loaded) => {
+  if (loaded && Object.keys(carLocations.value).length > 0) {
+    await initializeMaps()
+  }
+})
 
 const fetchClientDetails = async () => {
   isLoading.value = true
@@ -103,6 +322,10 @@ const fetchClientDetails = async () => {
     if (carsResult.success) {
       clientCars.value = carsResult.data
       console.log('Processed Cars:', clientCars.value)
+
+      // Load Google Maps and fetch car locations
+      await loadGoogleMapsAPI()
+      await fetchCarLocations()
     }
   } catch (err) {
     console.error('Error fetching client details:', err)
@@ -127,6 +350,27 @@ const formatDate = (dateString) => {
   })
 }
 
+const formatTimestamp = (timestamp) => {
+  if (!timestamp) return '-'
+  try {
+    const date = new Date(timestamp)
+    return date.toLocaleString()
+  } catch (error) {
+    return timestamp
+  }
+}
+
+const formatContainerRef = (containerRef) => {
+  if (!containerRef || containerRef === 'Not provided') return 'Not provided'
+
+  // Show only first 4 characters, replace the rest with asterisks
+  if (containerRef.length <= 4) {
+    return containerRef
+  }
+
+  return containerRef.substring(0, 4) + '*'.repeat(containerRef.length - 4)
+}
+
 onMounted(() => {
   fetchClientDetails()
 })
@@ -138,33 +382,30 @@ onMounted(() => {
       <div class="header-left">
         <h2>
           <i class="fas fa-user"></i>
-          Client Details
+          {{ t('clientDetails.title') }}
         </h2>
         <router-link to="/clients" class="back-btn" v-if="$route.query.from === 'clients'">
           <i class="fas fa-arrow-left"></i>
-          Back to Clients
+          {{ t('clientDetails.backToClients') }}
         </router-link>
       </div>
-      <div class="share-section">
-        <div class="share-url">
-          <input type="text" :value="shareUrl" readonly />
-          <button @click="copyToClipboard" class="copy-btn">
-            <i class="fas fa-copy"></i>
-            Copy Link
-          </button>
+      <div class="header-right">
+        <div class="language-switcher">
+          <label for="language-select">{{ t('common.language') }}:</label>
+          <select id="language-select" v-model="locale" class="language-select">
+            <option v-for="lang in availableLocales" :key="lang.code" :value="lang.code">
+              {{ lang.name }}
+            </option>
+          </select>
         </div>
-      </div>
-    </div>
-
-    <!-- Debug Information -->
-    <div v-if="false" class="debug-section">
-      <div class="info-section">
-        <h3>Debug Information</h3>
-        <div class="debug-info">
-          <h4>Client ID: {{ $route.params.id }}</h4>
-          <pre>{{ client }}</pre>
-          <h4>Cars Data:</h4>
-          <pre>{{ clientCars }}</pre>
+        <div class="share-section">
+          <div class="share-url">
+            <input type="text" :value="shareUrl" readonly />
+            <button @click="copyToClipboard" class="copy-btn">
+              <i class="fas fa-copy"></i>
+              {{ t('clientDetails.copyLink') }}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -172,7 +413,7 @@ onMounted(() => {
     <!-- Loading State -->
     <div v-if="isLoading" class="loading-state">
       <i class="fas fa-spinner fa-spin"></i>
-      Loading client details...
+      {{ t('clientDetails.loadingClientDetails') }}
     </div>
 
     <!-- Error Message -->
@@ -183,52 +424,9 @@ onMounted(() => {
 
     <div v-if="client && !isLoading" class="client-info">
       <div class="info-section">
-        <h3>Basic Information</h3>
-        <div class="info-grid">
-          <div class="info-item">
-            <label>Client ID:</label>
-            <span>{{ client.id }}</span>
-          </div>
-          <div class="info-item">
-            <label>Name:</label>
-            <span>{{ client.name }}</span>
-          </div>
-          <div class="info-item">
-            <label>Email:</label>
-            <span>{{ client.email || 'Not provided' }}</span>
-          </div>
-          <div class="info-item">
-            <label>Mobile:</label>
-            <span>{{ client.mobiles }}</span>
-          </div>
-          <div class="info-item">
-            <label>ID Number:</label>
-            <span>{{ client.id_no }}</span>
-          </div>
-          <div class="info-item">
-            <label>Address:</label>
-            <span>{{ client.address || 'Not provided' }}</span>
-          </div>
-          <div class="info-item">
-            <label>Status:</label>
-            <div class="status-badges">
-              <span class="badge client">
-                <i class="fas fa-user"></i>
-                Client
-              </span>
-              <span v-if="client.is_broker" class="badge broker">
-                <i class="fas fa-user-tie"></i>
-                Broker
-              </span>
-            </div>
-          </div>
-          <div class="info-item">
-            <label>Cars Count:</label>
-            <span class="badge cars" :class="{ 'has-cars': client.cars_count > 0 }">
-              <i class="fas fa-car"></i>
-              {{ client.cars_count }}
-            </span>
-          </div>
+        <h3>{{ t('clientDetails.clientInformation') }}</h3>
+        <div class="client-name">
+          <h2>{{ client.name }}</h2>
         </div>
       </div>
 
@@ -236,34 +434,36 @@ onMounted(() => {
       <div v-if="clientCars.length > 0" class="info-section cars-section">
         <h3>
           <i class="fas fa-car"></i>
-          Cars
+          {{ t('clientDetails.cars') }}
         </h3>
         <div class="cars-grid">
           <div v-for="car in clientCars" :key="car.id" class="car-card">
             <div class="car-details">
-              <h4>{{ car.brand || 'Unknown Brand' }} {{ car.model || '' }}</h4>
+              <h4>{{ car.brand || t('clientDetails.unknownBrand') }} {{ car.model || '' }}</h4>
               <div class="car-info-grid">
                 <div class="car-info-item">
                   <label>VIN:</label>
-                  <span>{{ car.vin || 'Not available' }}</span>
+                  <span>{{ car.vin || t('clientDetails.notAvailable') }}</span>
                 </div>
                 <div class="car-info-item">
                   <label>Year:</label>
-                  <span>{{ car.year || 'Not specified' }}</span>
+                  <span>{{ car.year || t('clientDetails.notSpecified') }}</span>
                 </div>
                 <div class="car-info-item">
                   <label>Color:</label>
-                  <span>{{ car.color || 'Not specified' }}</span>
+                  <span>{{ car.color || t('clientDetails.notSpecified') }}</span>
                 </div>
                 <div class="car-info-item">
                   <label>Documents Path:</label>
-                  <span>{{ car.path_documents || 'Not available' }}</span>
+                  <span>{{ car.path_documents || t('clientDetails.notAvailable') }}</span>
                 </div>
                 <div class="car-info-item">
-                  <label>Loading Date:</label>
+                  <label>{{ t('clientDetails.loadingDate') }}:</label>
                   <div class="status-field">
                     <span>{{
-                      car.date_loding ? formatDate(car.date_loding) : 'Not available'
+                      car.date_loding
+                        ? formatDate(car.date_loding)
+                        : t('clientDetails.notAvailable')
                     }}</span>
                     <i
                       :class="[
@@ -274,12 +474,12 @@ onMounted(() => {
                   </div>
                 </div>
                 <div class="car-info-item">
-                  <label>Documents Sent:</label>
+                  <label>{{ t('clientDetails.documentsSent') }}:</label>
                   <div class="status-field">
                     <span>{{
                       car.date_send_documents
                         ? formatDate(car.date_send_documents)
-                        : 'Not available'
+                        : t('clientDetails.notAvailable')
                     }}</span>
                     <i
                       :class="[
@@ -290,12 +490,12 @@ onMounted(() => {
                   </div>
                 </div>
                 <div class="car-info-item">
-                  <label>Documents Received:</label>
+                  <label>{{ t('clientDetails.documentsReceived') }}:</label>
                   <div class="status-field">
                     <span>{{
                       car.date_get_documents_from_supp
                         ? formatDate(car.date_get_documents_from_supp)
-                        : 'Not available'
+                        : t('clientDetails.notAvailable')
                     }}</span>
                     <i
                       :class="[
@@ -308,10 +508,12 @@ onMounted(() => {
                   </div>
                 </div>
                 <div class="car-info-item">
-                  <label>BL Date:</label>
+                  <label>{{ t('clientDetails.blDate') }}:</label>
                   <div class="status-field">
                     <span>{{
-                      car.date_get_bl ? formatDate(car.date_get_bl) : 'Not available'
+                      car.date_get_bl
+                        ? formatDate(car.date_get_bl)
+                        : t('clientDetails.notAvailable')
                     }}</span>
                     <i
                       :class="[
@@ -322,10 +524,12 @@ onMounted(() => {
                   </div>
                 </div>
                 <div class="car-info-item">
-                  <label>Freight Payment:</label>
+                  <label>{{ t('clientDetails.freightPayment') }}:</label>
                   <div class="status-field">
                     <span>{{
-                      car.date_pay_freight ? formatDate(car.date_pay_freight) : 'Not available'
+                      car.date_pay_freight
+                        ? formatDate(car.date_pay_freight)
+                        : t('clientDetails.notAvailable')
                     }}</span>
                     <i
                       :class="[
@@ -336,8 +540,8 @@ onMounted(() => {
                   </div>
                 </div>
                 <div class="car-info-item">
-                  <label>Discharge Port:</label>
-                  <span>{{ car.discharge_port || 'Not available' }}</span>
+                  <label>{{ t('clientDetails.dischargePort') }}:</label>
+                  <span>{{ car.discharge_port || t('clientDetails.notAvailable') }}</span>
                 </div>
                 <div class="car-info-item">
                   <label>Price:</label>
@@ -357,26 +561,70 @@ onMounted(() => {
                 </div>
                 <div v-if="car.is_used_car" class="car-info-item">
                   <label>Type:</label>
-                  <span class="badge used">Used Car</span>
+                  <span class="badge used">{{ t('clientDetails.usedCar') }}</span>
                 </div>
                 <div v-if="car.is_big_car" class="car-info-item">
                   <label>Size:</label>
-                  <span class="badge big">Big Car</span>
+                  <span class="badge big">{{ t('clientDetails.bigCar') }}</span>
                 </div>
                 <div class="car-info-item">
-                  <label>Container Ref:</label>
-                  <span>{{ car.container_ref || 'Not provided' }}</span>
+                  <label>{{ t('clientDetails.containerRef') }}:</label>
+                  <span>{{ formatContainerRef(car.container_ref) }}</span>
                 </div>
               </div>
               <div class="car-status" :class="car.status.toLowerCase()">
                 <i class="fas fa-circle"></i>
                 {{ car.status }}
               </div>
+
+              <!-- Car Location Map -->
+              <div v-if="car.container_ref && carLocations[car.container_ref]" class="car-location">
+                <h5>
+                  <i class="fas fa-map-marker-alt"></i>
+                  {{ t('clientDetails.containerLocation') }}
+                </h5>
+                <div class="location-info">
+                  <div class="location-details">
+                    <div class="location-item">
+                      <label>{{ t('clientDetails.coordinates') }}:</label>
+                      <span class="coordinates"
+                        >{{ carLocations[car.container_ref].lat.toFixed(6) }},
+                        {{ carLocations[car.container_ref].lng.toFixed(6) }}</span
+                      >
+                    </div>
+                    <div class="location-item">
+                      <label>{{ t('clientDetails.lastUpdated') }}:</label>
+                      <span>{{ formatTimestamp(carLocations[car.container_ref].time) }}</span>
+                    </div>
+                  </div>
+                  <div class="map-container">
+                    <div :data-map-id="`map-${car.id}`" class="car-map">
+                      <div class="map-loading">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        {{ t('clientDetails.loadingMap') }}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- No Map Available -->
+              <div v-else-if="!car.container_ref || car.container_ref === ''" class="no-map">
+                <h5>
+                  <i class="fas fa-map-marker-alt"></i>
+                  {{ t('clientDetails.containerLocation') }}
+                </h5>
+                <div class="no-map-message">
+                  <i class="fas fa-exclamation-circle"></i>
+                  <span>{{ t('clientDetails.noLocationData') }}</span>
+                </div>
+              </div>
+
               <div
                 v-if="car.path_documents || car.sell_pi_path || car.buy_pi_path"
                 class="car-documents"
               >
-                <h5>Documents</h5>
+                <h5>{{ t('clientDetails.documents') }}</h5>
                 <div class="document-links">
                   <a
                     v-if="car.path_documents"
@@ -385,7 +633,7 @@ onMounted(() => {
                     class="document-link"
                   >
                     <i class="fas fa-file-alt"></i>
-                    Car Documents
+                    {{ t('clientDetails.carDocuments') }}
                   </a>
                   <a
                     v-if="car.sell_pi_path"
@@ -394,7 +642,7 @@ onMounted(() => {
                     class="document-link"
                   >
                     <i class="fas fa-file-invoice-dollar"></i>
-                    Sell PI
+                    {{ t('clientDetails.sellPI') }}
                   </a>
                   <a
                     v-if="car.buy_pi_path && isAdmin"
@@ -403,7 +651,7 @@ onMounted(() => {
                     class="document-link"
                   >
                     <i class="fas fa-file-invoice"></i>
-                    Buy PI
+                    {{ t('clientDetails.buyPI') }}
                   </a>
                 </div>
               </div>
@@ -414,7 +662,7 @@ onMounted(() => {
       <div v-else-if="!isLoading" class="info-section no-cars">
         <div class="empty-state">
           <i class="fas fa-car fa-2x"></i>
-          <p>No cars found for this client</p>
+          <p>{{ t('clientDetails.noCarsFound') }}</p>
         </div>
       </div>
     </div>
@@ -441,6 +689,39 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 16px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.language-switcher {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.language-switcher label {
+  font-weight: 500;
+  color: #666;
+  font-size: 0.9em;
+}
+
+.language-select {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.9em;
+  color: #333;
+  background-color: #f5f5f5;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.language-select:hover {
+  border-color: #bbb;
 }
 
 .share-section {
@@ -537,6 +818,19 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.client-name {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.client-name h2 {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 600;
+  color: #333;
+  text-align: center;
 }
 
 .info-grid {
@@ -716,6 +1010,18 @@ onMounted(() => {
     align-items: flex-start;
   }
 
+  .header-right {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .language-switcher {
+    width: 100%;
+    justify-content: center;
+  }
+
   .share-section {
     width: 100%;
     max-width: none;
@@ -851,5 +1157,150 @@ onMounted(() => {
 
 .status-field i.undone {
   color: #f44336;
+}
+
+/* Car Location Map Styles */
+.car-location {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #eee;
+}
+
+.car-location h5 {
+  margin: 0 0 12px 0;
+  font-size: 0.95em;
+  color: #666;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.car-location h5 i {
+  color: #3b82f6;
+}
+
+.location-info {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.location-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.location-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85em;
+}
+
+.location-item label {
+  font-weight: 500;
+  color: #666;
+  min-width: 100px;
+}
+
+.location-item span {
+  color: #333;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9em;
+}
+
+.coordinates {
+  color: #059669 !important;
+  font-weight: 500;
+}
+
+.map-container {
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid #e0e0e0;
+}
+
+.car-map {
+  width: 100%;
+  height: 200px;
+  background: #f5f5f5;
+  position: relative;
+}
+
+.map-loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: #666;
+  font-size: 0.9em;
+}
+
+.map-loading i {
+  font-size: 1.2em;
+  color: #3b82f6;
+}
+
+/* Mobile responsive for maps */
+@media (max-width: 768px) {
+  .location-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .location-item label {
+    min-width: auto;
+  }
+
+  .car-map {
+    height: 180px;
+  }
+}
+
+@media (max-width: 480px) {
+  .car-map {
+    height: 160px;
+  }
+}
+
+.no-map {
+  margin-top: 20px;
+  padding: 20px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.no-map h5 {
+  margin: 0 0 15px 0;
+  color: #495057;
+  font-size: 16px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.no-map h5 i {
+  color: #6c757d;
+}
+
+.no-map-message {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #6c757d;
+  font-style: italic;
+}
+
+.no-map-message i {
+  color: #ffc107;
+  font-size: 16px;
 }
 </style>
