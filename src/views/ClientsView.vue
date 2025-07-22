@@ -1,10 +1,11 @@
 <script setup>
-import { ref, onMounted, computed, onUnmounted } from 'vue'
+import { ref, onMounted, computed, onUnmounted, watch } from 'vue'
 import { useApi } from '../composables/useApi'
 import TaskForm from '../components/car-stock/TaskForm.vue'
 import CarStockTable from '../components/car-stock/CarStockTable.vue'
 
 const clients = ref([])
+const allClients = ref([]) // Backup for in-memory filtering
 const { callApi, uploadFile, getFileUrl, error } = useApi()
 const showAddDialog = ref(false)
 const showEditDialog = ref(false)
@@ -249,59 +250,6 @@ const sortConfig = ref({
   direction: 'asc',
 })
 
-// Add computed property for filtered and sorted clients
-const filteredAndSortedClients = computed(() => {
-  let result = [...clients.value]
-
-  // Apply filters
-  result = result.filter((client) => {
-    if (
-      filters.value.name &&
-      !client.name?.toLowerCase().includes(filters.value.name.toLowerCase())
-    ) {
-      return false
-    }
-    if (
-      filters.value.email &&
-      !client.email?.toLowerCase().includes(filters.value.email.toLowerCase())
-    ) {
-      return false
-    }
-    if (filters.value.mobile && !client.mobiles?.includes(filters.value.mobile)) {
-      return false
-    }
-    if (filters.value.idNo && !client.id_no?.includes(filters.value.idNo)) {
-      return false
-    }
-    if (filters.value.isBroker !== null && client.is_broker !== filters.value.isBroker) {
-      return false
-    }
-    return true
-  })
-
-  // Apply sorting
-  result.sort((a, b) => {
-    let aVal = a[sortConfig.value.key]
-    let bVal = b[sortConfig.value.key]
-
-    // Handle null values
-    if (aVal === null) aVal = ''
-    if (bVal === null) bVal = ''
-
-    // Convert to strings for comparison
-    aVal = String(aVal).toLowerCase()
-    bVal = String(bVal).toLowerCase()
-
-    if (sortConfig.value.direction === 'asc') {
-      return aVal > bVal ? 1 : aVal < bVal ? -1 : 0
-    } else {
-      return aVal < bVal ? 1 : aVal > bVal ? -1 : 0
-    }
-  })
-
-  return result
-})
-
 // Add function to handle sorting
 const handleSort = (key) => {
   if (sortConfig.value.key === key) {
@@ -312,6 +260,8 @@ const handleSort = (key) => {
     sortConfig.value.key = key
     sortConfig.value.direction = 'asc'
   }
+  // Apply filtering and sorting
+  fetchClients()
 }
 
 // Add function to clear filters
@@ -323,6 +273,8 @@ const clearFilters = () => {
     idNo: '',
     isBroker: null,
   }
+  // Apply filtering after clearing
+  fetchClients()
 }
 
 const getCurrentUser = () => {
@@ -336,7 +288,7 @@ const getCurrentUser = () => {
   }
 }
 
-const fetchClients = async () => {
+const loadInitialClientsData = async () => {
   isLoading.value = true
   try {
     const result = await callApi({
@@ -353,6 +305,7 @@ const fetchClients = async () => {
       params: [],
     })
     if (result.success) {
+      allClients.value = result.data
       clients.value = result.data
     }
   } catch (err) {
@@ -362,6 +315,109 @@ const fetchClients = async () => {
     isLoading.value = false
   }
 }
+
+const fetchClients = async () => {
+  if (allClients.value.length === 0) {
+    isLoading.value = false
+    return
+  }
+
+  isLoading.value = true
+  error.value = null
+
+  try {
+    // Apply filters in-memory to allClients.value
+    let filteredClients = [...allClients.value]
+
+    // Apply filters
+    filteredClients = filteredClients.filter((client) => {
+      if (
+        filters.value.name &&
+        !client.name?.toLowerCase().includes(filters.value.name.toLowerCase())
+      ) {
+        return false
+      }
+      if (
+        filters.value.email &&
+        !client.email?.toLowerCase().includes(filters.value.email.toLowerCase())
+      ) {
+        return false
+      }
+      if (filters.value.mobile && !client.mobiles?.includes(filters.value.mobile)) {
+        return false
+      }
+      if (filters.value.idNo && !client.id_no?.includes(filters.value.idNo)) {
+        return false
+      }
+      if (filters.value.isBroker !== null && client.is_broker !== filters.value.isBroker) {
+        return false
+      }
+      return true
+    })
+
+    // Apply sorting
+    filteredClients.sort((a, b) => {
+      let aVal = a[sortConfig.value.key]
+      let bVal = b[sortConfig.value.key]
+
+      // Handle null values
+      if (aVal === null) aVal = ''
+      if (bVal === null) bVal = ''
+
+      // Convert to strings for comparison
+      aVal = String(aVal).toLowerCase()
+      bVal = String(bVal).toLowerCase()
+
+      if (sortConfig.value.direction === 'asc') {
+        return aVal > bVal ? 1 : aVal < bVal ? -1 : 0
+      } else {
+        return aVal < bVal ? 1 : aVal > bVal ? -1 : 0
+      }
+    })
+
+    clients.value = filteredClients
+  } catch (err) {
+    error.value = err.message || 'An error occurred'
+  } finally {
+    isLoading.value = false
+  }
+}
+
+// Add watchers for filters to apply filtering automatically
+watch(
+  () => filters.value.name,
+  () => {
+    fetchClients()
+  },
+)
+
+watch(
+  () => filters.value.email,
+  () => {
+    fetchClients()
+  },
+)
+
+watch(
+  () => filters.value.mobile,
+  () => {
+    fetchClients()
+  },
+)
+
+watch(
+  () => filters.value.idNo,
+  () => {
+    fetchClients()
+  },
+)
+
+watch(
+  () => filters.value.isBroker,
+  () => {
+    fetchClients()
+  },
+)
 
 const handleFileChange = (event, isEdit = false) => {
   const file = event.target.files[0]
@@ -447,6 +503,7 @@ const testFileUpload = async () => {
       if (dbResult.success) {
         alert('Test successful! File uploaded and database updated. Check console for details.')
         // Refresh the client data to show the new file
+        await loadInitialClientsData()
         await fetchClients()
       } else {
         alert('Test failed: Database update failed. Check console for details.')
@@ -548,6 +605,7 @@ const addClient = async () => {
         is_broker: false,
         notes: '',
       }
+      await loadInitialClientsData()
       await fetchClients()
     } else {
       error.value = result.error
@@ -664,6 +722,7 @@ const updateClient = async () => {
       validationError.value = ''
 
       // Refresh the clients list to show updated data
+      await loadInitialClientsData()
       await fetchClients()
     } else {
       error.value = result.error
@@ -684,6 +743,7 @@ const deleteClient = async (client) => {
       params: [client.id],
     })
     if (result.success) {
+      await loadInitialClientsData()
       await fetchClients()
     }
   }
@@ -697,6 +757,7 @@ const handleImageClick = (path) => {
 
 onMounted(async () => {
   await getCurrentUser()
+  await loadInitialClientsData()
   await fetchClients()
 
   // Add event listeners for teleport dropdown
@@ -722,6 +783,12 @@ const handleTaskCancel = () => {
   showTaskForm.value = false
   selectedClientForTask.value = null
 }
+
+// Add refresh handler
+const handleRefresh = async () => {
+  await loadInitialClientsData()
+  await fetchClients()
+}
 </script>
 
 <template>
@@ -737,6 +804,10 @@ const handleTaskCancel = () => {
         </div>
       </div>
       <div class="header-actions">
+        <button @click="handleRefresh" class="btn-secondary" :disabled="isLoading">
+          <i class="fas fa-sync-alt"></i>
+          Refresh
+        </button>
         <button @click="showAddDialog = true" class="btn-primary">
           <i class="fas fa-plus"></i>
           Add New Client
@@ -847,7 +918,7 @@ const handleTaskCancel = () => {
 
       <!-- Results Section -->
       <div class="results-section">
-        <div v-if="filteredAndSortedClients.length === 0" class="empty-state">
+        <div v-if="clients.length === 0" class="empty-state">
           <div class="empty-icon">
             <i class="fas fa-search"></i>
           </div>
@@ -861,7 +932,7 @@ const handleTaskCancel = () => {
 
         <div v-else class="clients-container">
           <div class="table-header">
-            <h3>Client List ({{ filteredAndSortedClients.length }} results)</h3>
+            <h3>Client List ({{ clients.length }} results)</h3>
           </div>
 
           <div class="table-wrapper">
@@ -956,7 +1027,7 @@ const handleTaskCancel = () => {
               </thead>
               <tbody>
                 <tr
-                  v-for="client in filteredAndSortedClients"
+                  v-for="client in clients"
                   :key="client.id"
                   class="client-row"
                   :class="{ selected: selectedRowId === client.id }"
@@ -1081,7 +1152,7 @@ const handleTaskCancel = () => {
 
     <!-- Mobile Cards Container -->
     <div class="mobile-cards-container">
-      <div v-if="filteredAndSortedClients.length === 0" class="mobile-empty-state">
+      <div v-if="clients.length === 0" class="mobile-empty-state">
         <div class="mobile-empty-icon">
           <i class="fas fa-search"></i>
         </div>
@@ -1095,7 +1166,7 @@ const handleTaskCancel = () => {
 
       <div v-else class="mobile-cards-grid">
         <div
-          v-for="client in filteredAndSortedClients"
+          v-for="client in clients"
           :key="client.id"
           class="client-card"
           :class="{ selected: selectedRowId === client.id }"
