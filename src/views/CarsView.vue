@@ -23,6 +23,9 @@ import ContainersRefList from '@/components/containers/ContainersRefList.vue'
 const router = useRouter()
 const { t } = useEnhancedI18n()
 const activeView = ref(null)
+
+// Set default title for Cars view
+document.title = 'Cars Management - Cars System'
 const isLoading = ref(false)
 const isProcessing = ref({
   dashboard: false,
@@ -81,6 +84,30 @@ const navigateTo = async (view) => {
     activeView.value = view
     // Close mobile nav when navigating
     closeMobileNav()
+
+    // Set appropriate page title based on the view
+    const titles = {
+      buy: 'Purchase Management - Cars System',
+      sell: 'Sell Cars - Cars System',
+      'sell-bills': 'Sell Bills - Cars System',
+      stock: 'Car Stock - Cars System',
+      models: 'Car Models - Cars System',
+      colors: 'Car Colors - Cars System',
+      'discharge-ports': 'Discharge Ports - Cars System',
+      'loading-ports': 'Loading Ports - Cars System',
+      clients: 'Clients Management - Cars System',
+      brokers: 'Brokers Management - Cars System',
+      suppliers: 'Suppliers Management - Cars System',
+      warehouses: 'Warehouses Management - Cars System',
+      containers: 'Containers Management - Cars System',
+      'containers-ref': 'Containers Reference - Cars System',
+      statistics: 'Statistics - Cars System',
+      load: 'Loading Management - Cars System',
+      'loading-inquiry': 'Loading Inquiry - Cars System',
+      tracking: 'Car Tracking - Cars System',
+    }
+
+    document.title = titles[view] || 'Cars Management - Cars System'
   } finally {
     isProcessing.value[view] = false
   }
@@ -90,6 +117,7 @@ const returnToDashboard = async () => {
   if (isProcessing.value.dashboard) return
   isProcessing.value.dashboard = true
   try {
+    document.title = 'Dashboard - Cars System'
     await router.push('/')
   } finally {
     isProcessing.value.dashboard = false
@@ -142,6 +170,7 @@ const handleStatisticsClick = async () => {
   isProcessing.value.statistics = true
   try {
     activeView.value = 'statistics'
+    document.title = 'Statistics - Cars System'
   } finally {
     isProcessing.value.statistics = false
   }
@@ -189,6 +218,7 @@ const handleLoadClick = async () => {
 
     // Then set the new view
     activeView.value = 'load'
+    document.title = 'Loading Management - Cars System'
     await nextTick()
   } catch (error) {
     console.error('Error in handleLoadClick:', error)
@@ -211,6 +241,7 @@ const handleLoadingInquiryClick = async () => {
 
     // Then set the new view
     activeView.value = 'loading-inquiry'
+    document.title = 'Loading Inquiry - Cars System'
     await nextTick()
   } catch (error) {
     console.error('Error in handleLoadingInquiryClick:', error)
@@ -233,6 +264,7 @@ const handleTrackingClick = async () => {
 
     // Then set the new view
     activeView.value = 'tracking'
+    document.title = 'Car Tracking - Cars System'
     await nextTick()
   } catch (error) {
     console.error('Error in handleTrackingClick:', error)
