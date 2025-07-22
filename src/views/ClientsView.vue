@@ -571,6 +571,8 @@ const addClient = async () => {
     if (result.success) {
       const clientId = result.lastInsertId
       console.log('Client ID ***************:', clientId)
+
+      let filePath = null
       // If there's a file selected, upload it
       if (selectedFile.value) {
         try {
@@ -584,12 +586,34 @@ const addClient = async () => {
               params: [uploadResult.relativePath, clientId],
             })
             console.log('Update result:', updateResult)
+            filePath = uploadResult.relativePath
           }
         } catch (err) {
           console.error('Error uploading file:', err)
           error.value = 'Client created but failed to upload ID document'
         }
       }
+
+      // Create the new client object to add to memory
+      const newClientObject = {
+        id: clientId,
+        name: newClient.value.name,
+        address: newClient.value.address,
+        email: newClient.value.email,
+        mobiles: newClient.value.mobiles,
+        id_no: newClient.value.id_no,
+        is_broker: newClient.value.is_broker ? 1 : 0,
+        is_client: 1,
+        notes: newClient.value.notes,
+        cars_count: 0, // New client has no cars initially
+        id_copy_path: filePath,
+      }
+
+      // Add the new client to in-memory data
+      allClients.value.push(newClientObject)
+
+      // Apply current filters to update the display
+      await fetchClients()
 
       // Reset form and close dialog
       showAddDialog.value = false
@@ -605,8 +629,6 @@ const addClient = async () => {
         is_broker: false,
         notes: '',
       }
-      await loadInitialClientsData()
-      await fetchClients()
     } else {
       error.value = result.error
       console.error('Error adding client:', result.error)
@@ -688,6 +710,7 @@ const updateClient = async () => {
     })
 
     if (result.success) {
+      let newFilePath = null
       // If there's a new file selected, upload it and update the path
       if (editSelectedFile.value) {
         try {
@@ -704,6 +727,8 @@ const updateClient = async () => {
             if (!updateFileResult.success) {
               console.error('Failed to update client with new file path:', updateFileResult.error)
               error.value = 'Client updated but failed to save new ID document path'
+            } else {
+              newFilePath = uploadResult.relativePath
             }
           } else {
             console.error('File upload failed:', uploadResult.error)
@@ -715,15 +740,32 @@ const updateClient = async () => {
         }
       }
 
+      // Update the client in in-memory data
+      const clientIndex = allClients.value.findIndex((c) => c.id === editingClient.value.id)
+      if (clientIndex !== -1) {
+        // Update the existing client object
+        allClients.value[clientIndex] = {
+          ...allClients.value[clientIndex],
+          name: editingClient.value.name,
+          address: editingClient.value.address,
+          email: editingClient.value.email,
+          mobiles: editingClient.value.mobiles,
+          id_no: editingClient.value.id_no,
+          is_broker: editingClient.value.is_broker ? 1 : 0,
+          notes: editingClient.value.notes,
+          // Update file path if new file was uploaded
+          ...(newFilePath && { id_copy_path: newFilePath }),
+        }
+      }
+
+      // Apply current filters to update the display
+      await fetchClients()
+
       // Reset form and close dialog
       showEditDialog.value = false
       editingClient.value = null
       editSelectedFile.value = null
       validationError.value = ''
-
-      // Refresh the clients list to show updated data
-      await loadInitialClientsData()
-      await fetchClients()
     } else {
       error.value = result.error
       console.error('Error updating client:', result.error)
@@ -743,7 +785,13 @@ const deleteClient = async (client) => {
       params: [client.id],
     })
     if (result.success) {
-      await loadInitialClientsData()
+      // Remove the client from in-memory data
+      const clientIndex = allClients.value.findIndex((c) => c.id === client.id)
+      if (clientIndex !== -1) {
+        allClients.value.splice(clientIndex, 1)
+      }
+
+      // Apply current filters to update the display
       await fetchClients()
     }
   }
