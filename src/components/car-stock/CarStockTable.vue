@@ -108,14 +108,9 @@ watch(
 watch(
   () => props.buyBillId,
   (newBuyBillId) => {
-    fetchCarsStock()
-  },
-)
-
-// Add watcher for clientId
-watch(
-  () => props.clientId,
-  (newClientId) => {
+    // Reset filtered data
+    cars.value = null
+    // Apply filters to in-memory backup
     fetchCarsStock()
   },
 )
@@ -780,7 +775,7 @@ const fetchCarsStock = async () => {
 
     // Apply buy bill filter if provided
     if (props.buyBillId) {
-      filteredCars = filteredCars.filter((car) => car.buy_bill_ref == props.buyBillId)
+      filteredCars = filteredCars.filter((car) => car.buy_bill_id == props.buyBillId)
     }
 
     // Apply client filter if provided
@@ -1001,6 +996,13 @@ const fetchCarsStock = async () => {
         // Alert-specific filtering (if needed, can be added here)
       }
     }
+
+    // Debug logs
+    console.log('[CarStockTable] allCars.value:', allCars.value)
+    console.log('[CarStockTable] allCars.value.length:', allCars.value.length)
+    console.log('[CarStockTable] filteredCars:', filteredCars)
+    console.log('[CarStockTable] filteredCars.length:', filteredCars.length)
+
     cars.value = filteredCars
   } catch (err) {
     error.value = err.message || 'An error occurred'
@@ -1008,6 +1010,17 @@ const fetchCarsStock = async () => {
     loading.value = false
   }
 }
+
+// Add watcher for clientId after fetchCarsStock is defined
+watch(
+  () => props.clientId,
+  (newClientId) => {
+    // Only apply filtering if we have data loaded
+    if (allCars.value && allCars.value.length > 0) {
+      fetchCarsStock()
+    }
+  },
+)
 
 const handleEdit = async (car) => {
   if (isProcessing.value.edit) return
@@ -1516,6 +1529,7 @@ const loadInitialCarsData = async () => {
           lp.loading_port,
           dp.discharge_port,
           bd.price_sell as buy_price,
+          bb.id as buy_bill_id,
           bb.date_buy,
           w.warhouse_name as warehouse_name,
           bb.bill_ref as buy_bill_ref,
@@ -1557,13 +1571,15 @@ const loadInitialCarsData = async () => {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   const userStr = localStorage.getItem('user')
   if (userStr) {
     user.value = JSON.parse(userStr)
   }
   fetchDefaults()
-  loadInitialCarsData()
+  await loadInitialCarsData()
+  // Apply initial filtering after data is loaded
+  fetchCarsStock()
   // Add event listeners for teleport dropdown
   document.addEventListener('click', handleClickOutside)
   document.addEventListener('scroll', handleScroll, true)
@@ -1579,6 +1595,12 @@ onUnmounted(() => {
 defineExpose({
   fetchCarsStock,
 })
+
+// In the handler for the refresh event (called by the toolbar):
+const handleRefresh = async () => {
+  await loadInitialCarsData()
+  fetchCarsStock()
+}
 </script>
 
 <template>
@@ -1714,7 +1736,7 @@ defineExpose({
         @task="handleTaskFromToolbar"
         @color="handleColorFromToolbar"
         @export-license="handleExportLicenseFromToolbar"
-        @refresh="loadInitialCarsData"
+        @refresh="handleRefresh"
       />
 
       <div class="table-container">
