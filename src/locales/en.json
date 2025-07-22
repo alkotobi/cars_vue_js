@@ -1326,6 +1326,8 @@
     "errorRemovingCarColors": "Error removing car colors. Please try again."
   },
   "carsStockManagementTitle": "Cars Stock Management",
+  "manageWarehousesButtonText": "Manage Warehouses",
+  "editCarDetailsTitle": "Edit Car Details",
   "loading": {
     "unassigned_cars": "Unassigned Cars",
     "assigned_cars": "Assigned Cars",

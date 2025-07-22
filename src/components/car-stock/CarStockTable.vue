@@ -763,406 +763,245 @@ const getTextColor = (backgroundColor) => {
   return luminance > 0.5 ? '#000000' : '#ffffff'
 }
 
+const allCars = ref([])
+
 const fetchCarsStock = async () => {
+  if (allCars.value === null) {
+    loading.value = false
+    return
+  }
+
   loading.value = true
   error.value = null
 
   try {
-    // Fetch defaults first if not already loaded
-    if (!defaults.value) {
-      await fetchDefaults()
-    }
-
-    // Build the base query
-    let query = `
-      SELECT 
-        cs.id,
-        cs.vin,
-        cs.price_cell,
-        cs.date_loding,
-        sb.date_sell,
-        cs.notes,
-        cs.freight,
-        cs.path_documents,
-        cs.sell_pi_path,
-        cs.buy_pi_path,
-        cs.id_client,
-        cs.id_port_loading,
-        cs.id_port_discharge,
-        cs.id_buy_details,
-        cs.date_send_documents,
-        cs.id_sell_pi,
-        cs.id_sell,
-        cs.export_lisence_ref,
-        cs.id_warehouse,
-        cs.in_wharhouse_date,
-        cs.date_get_documents_from_supp,
-        cs.date_get_keys_from_supp,
-        cs.rate,
-        cs.date_get_bl,
-        cs.date_pay_freight,
-        cs.is_batch,
-        c.name as client_name,
-        cn.car_name,
-        clr.color,
-        clr.hexa,
-        lp.loading_port,
-        dp.discharge_port,
-        bd.price_sell as buy_price,
-        bb.date_buy,
-        w.warhouse_name as warehouse_name,
-        bb.bill_ref as buy_bill_ref,
-        sb.bill_ref as sell_bill_ref,
-        cs.is_used_car,
-        cs.is_big_car,
-        c.id_no as client_id_no,
-        c.id_copy_path as client_id_picture,
-        cs.container_ref,
-        cs.id_color as car_id_color,
-        CASE 
-          WHEN cs.id_sell IS NOT NULL THEN 'Sold'
-          ELSE 'Available'
-        END as status
-      FROM cars_stock cs
-      LEFT JOIN clients c ON cs.id_client = c.id
-      LEFT JOIN buy_details bd ON cs.id_buy_details = bd.id
-      LEFT JOIN buy_bill bb ON bd.id_buy_bill = bb.id
-      LEFT JOIN sell_bill sb ON cs.id_sell = sb.id
-      LEFT JOIN cars_names cn ON bd.id_car_name = cn.id
-      LEFT JOIN colors clr ON cs.id_color = clr.id
-      LEFT JOIN loading_ports lp ON cs.id_port_loading = lp.id
-      LEFT JOIN discharge_ports dp ON cs.id_port_discharge = dp.id
-      LEFT JOIN warehouses w ON cs.id_warehouse = w.id
-      WHERE cs.hidden = 0   
-      AND cs.date_send_documents IS NULL
-    `
-
-    const params = []
+    // Apply filters in-memory to allCars.value
+    let filteredCars = [...allCars.value]
 
     // Apply buy bill filter if provided
     if (props.buyBillId) {
-      query += ` AND bb.id = ${props.buyBillId}`
+      filteredCars = filteredCars.filter((car) => car.buy_bill_ref == props.buyBillId)
     }
 
     // Apply client filter if provided
     if (props.clientId) {
-      query += ` AND cs.id_client = ${props.clientId}`
+      filteredCars = filteredCars.filter((car) => car.id_client == props.clientId)
     }
 
     // Apply filters if they exist
     if (props.filters) {
       // Basic filter (search across multiple fields)
       if (props.filters.basic && props.filters.basic.length > 0) {
-        // Handle both string (backward compatibility) and array of words
         const searchTerms = Array.isArray(props.filters.basic)
           ? props.filters.basic
           : [props.filters.basic]
-
-        // Determine the operator to use (default to AND if not specified)
         const operator = props.filters.basicOperator || 'AND'
-
         if (searchTerms.length === 1) {
-          // Single word search - use OR across all fields
-          const term = `%${searchTerms[0].trim()}%`
-          query += `
-            AND (
-              cs.id LIKE ? OR
-              cn.car_name LIKE ? OR
-              clr.color LIKE ? OR
-              cs.vin LIKE ? OR
-              lp.loading_port LIKE ? OR
-              dp.discharge_port LIKE ? OR
-              c.name LIKE ? OR
-              c.id_no LIKE ? OR
-              w.warhouse_name LIKE ? OR
-              bb.bill_ref LIKE ? OR
-              sb.bill_ref LIKE ? OR
-              cs.export_lisence_ref LIKE ?
-            )
-          `
-          // Add the search parameter 12 times (once for each field)
-          for (let i = 0; i < 12; i++) {
-            params.push(term)
-          }
+          const term = searchTerms[0].trim().toLowerCase()
+          filteredCars = filteredCars.filter((car) =>
+            [
+              car.id,
+              car.car_name,
+              car.color,
+              car.vin,
+              car.loading_port,
+              car.discharge_port,
+              car.client_name,
+              car.client_id_no,
+              car.warehouse_name,
+              car.buy_bill_ref,
+              car.sell_bill_ref,
+              car.export_lisence_ref,
+            ]
+              .map((v) => (v ? v.toString().toLowerCase() : ''))
+              .some((v) => v.includes(term)),
+          )
         } else {
-          // Multiple words - use the specified operator
-          const conditions = searchTerms.map((searchTerm) => {
-            const term = `%${searchTerm.trim()}%`
-            return `(
-              cs.id LIKE ? OR
-              cn.car_name LIKE ? OR
-              clr.color LIKE ? OR
-              cs.vin LIKE ? OR
-              lp.loading_port LIKE ? OR
-              dp.discharge_port LIKE ? OR
-              c.name LIKE ? OR
-              c.id_no LIKE ? OR
-              w.warhouse_name LIKE ? OR
-              bb.bill_ref LIKE ? OR
-              sb.bill_ref LIKE ? OR
-              cs.export_lisence_ref LIKE ?
-            )`
-          })
-
-          query += ` AND (${conditions.join(` ${operator} `)})`
-
-          // Add parameters for each search term (12 parameters per term)
-          searchTerms.forEach((searchTerm) => {
-            const term = `%${searchTerm.trim()}%`
-            for (let i = 0; i < 12; i++) {
-              params.push(term)
+          filteredCars = filteredCars.filter((car) => {
+            const values = [
+              car.id,
+              car.car_name,
+              car.color,
+              car.vin,
+              car.loading_port,
+              car.discharge_port,
+              car.client_name,
+              car.client_id_no,
+              car.warehouse_name,
+              car.buy_bill_ref,
+              car.sell_bill_ref,
+              car.export_lisence_ref,
+            ].map((v) => (v ? v.toString().toLowerCase() : ''))
+            if (operator === 'AND') {
+              return searchTerms.every((term) =>
+                values.some((v) => v.includes(term.trim().toLowerCase())),
+              )
+            } else {
+              return searchTerms.some((term) =>
+                values.some((v) => v.includes(term.trim().toLowerCase())),
+              )
             }
           })
         }
       }
-
       // Advanced filters
       if (props.filters.advanced) {
         const adv = props.filters.advanced
-
-        // ID filter
         if (adv.id && adv.id.trim() !== '') {
-          query += ` AND cs.id = ?`
-          params.push(adv.id.trim())
+          filteredCars = filteredCars.filter((car) => car.id == adv.id.trim())
         }
-
-        // Car name filter
         if (adv.car_name && adv.car_name.trim() !== '') {
-          query += ` AND cn.car_name = ?`
-          params.push(adv.car_name.trim())
+          filteredCars = filteredCars.filter((car) => car.car_name == adv.car_name.trim())
         }
-
-        // Color filter
         if (adv.color && adv.color.trim() !== '') {
-          query += ` AND clr.color = ?`
-          params.push(adv.color.trim())
+          filteredCars = filteredCars.filter((car) => car.color == adv.color.trim())
         }
-
-        // VIN filter
         if (adv.vin && adv.vin.trim() !== '') {
-          query += ` AND cs.vin LIKE ?`
-          params.push(`%${adv.vin.trim()}%`)
+          filteredCars = filteredCars.filter((car) => car.vin && car.vin.includes(adv.vin.trim()))
         }
-
-        // Loading port filter
         if (adv.loading_port && adv.loading_port.trim() !== '') {
-          query += ` AND lp.loading_port = ?`
-          params.push(adv.loading_port.trim())
+          filteredCars = filteredCars.filter((car) => car.loading_port == adv.loading_port.trim())
         }
-
-        // Discharge port filter
         if (adv.discharge_port && adv.discharge_port.trim() !== '') {
-          query += ` AND dp.discharge_port = ?`
-          params.push(adv.discharge_port.trim())
+          filteredCars = filteredCars.filter(
+            (car) => car.discharge_port == adv.discharge_port.trim(),
+          )
         }
-
-        // Freight range filter
         if (adv.freight_min && adv.freight_min.toString().trim() !== '') {
-          query += ` AND cs.freight >= ?`
-          params.push(parseFloat(adv.freight_min))
+          filteredCars = filteredCars.filter(
+            (car) => parseFloat(car.freight) >= parseFloat(adv.freight_min),
+          )
         }
         if (adv.freight_max && adv.freight_max.toString().trim() !== '') {
-          query += ` AND cs.freight <= ?`
-          params.push(parseFloat(adv.freight_max))
+          filteredCars = filteredCars.filter(
+            (car) => parseFloat(car.freight) <= parseFloat(adv.freight_max),
+          )
         }
-
-        // Price range filter
         if (adv.price_min && adv.price_min.toString().trim() !== '') {
-          query += ` AND cs.price_cell >= ?`
-          params.push(parseFloat(adv.price_min))
+          filteredCars = filteredCars.filter(
+            (car) => parseFloat(car.price_cell) >= parseFloat(adv.price_min),
+          )
         }
         if (adv.price_max && adv.price_max.toString().trim() !== '') {
-          query += ` AND cs.price_cell <= ?`
-          params.push(parseFloat(adv.price_max))
+          filteredCars = filteredCars.filter(
+            (car) => parseFloat(car.price_cell) <= parseFloat(adv.price_max),
+          )
         }
-
-        // Loading date range filter
         if (adv.loading_date_from && adv.loading_date_from.trim() !== '') {
-          query += ` AND cs.date_loding >= ?`
-          params.push(adv.loading_date_from.trim())
+          filteredCars = filteredCars.filter(
+            (car) => car.date_loding && car.date_loding >= adv.loading_date_from.trim(),
+          )
         }
         if (adv.loading_date_to && adv.loading_date_to.trim() !== '') {
-          query += ` AND cs.date_loding <= ?`
-          params.push(adv.loading_date_to.trim())
+          filteredCars = filteredCars.filter(
+            (car) => car.date_loding && car.date_loding <= adv.loading_date_to.trim(),
+          )
         }
-
-        // Status filter (Available/Sold)
         if (adv.status && adv.status.trim() !== '') {
           if (adv.status === 'available') {
-            query += ` AND cs.id_sell IS NULL`
+            filteredCars = filteredCars.filter((car) => !car.id_sell)
           } else if (adv.status === 'sold') {
-            query += ` AND cs.id_sell IS NOT NULL`
+            filteredCars = filteredCars.filter((car) => car.id_sell)
           }
         }
-
-        // Client filter
         if (adv.client && adv.client.trim() !== '') {
-          query += ` AND c.name = ?`
-          params.push(adv.client.trim())
+          filteredCars = filteredCars.filter((car) => car.client_name == adv.client.trim())
         }
-
-        // Client ID Number filter
         if (adv.client_id_no && adv.client_id_no.trim() !== '') {
-          query += ` AND c.id_no LIKE ?`
-          params.push(`%${adv.client_id_no.trim()}%`)
+          filteredCars = filteredCars.filter(
+            (car) => car.client_id_no && car.client_id_no.includes(adv.client_id_no.trim()),
+          )
         }
-
-        // Warehouse filter
         if (adv.warehouse && adv.warehouse.trim() !== '') {
-          query += ` AND w.warhouse_name = ?`
-          params.push(adv.warehouse.trim())
+          filteredCars = filteredCars.filter((car) => car.warehouse_name == adv.warehouse.trim())
         }
-
-        // Container Reference filter
         if (adv.container_ref && adv.container_ref.trim() !== '') {
-          query += ` AND cs.container_ref LIKE ?`
-          params.push(`%${adv.container_ref.trim()}%`)
+          filteredCars = filteredCars.filter(
+            (car) => car.container_ref && car.container_ref.includes(adv.container_ref.trim()),
+          )
         }
-
-        // Export License filter
         if (adv.export_lisence_ref && adv.export_lisence_ref.trim() !== '') {
-          query += ` AND cs.export_lisence_ref LIKE ?`
-          params.push(`%${adv.export_lisence_ref.trim()}%`)
+          filteredCars = filteredCars.filter(
+            (car) =>
+              car.export_lisence_ref &&
+              car.export_lisence_ref.includes(adv.export_lisence_ref.trim()),
+          )
         }
-
-        // Loading Status filter
         if (adv.loading_status && adv.loading_status.trim() !== '') {
           if (adv.loading_status === 'loaded') {
-            query += ` AND cs.date_loding IS NOT NULL`
+            filteredCars = filteredCars.filter((car) => car.date_loding)
           } else if (adv.loading_status === 'not_loaded') {
-            query += ` AND cs.date_loding IS NULL AND cs.is_batch = 0`
+            filteredCars = filteredCars.filter((car) => !car.date_loding && car.is_batch == 0)
           }
         }
-
-        // Documents Status filter
         if (adv.documents_status && adv.documents_status.trim() !== '') {
           if (adv.documents_status === 'received') {
-            query += ` AND cs.date_get_documents_from_supp IS NOT NULL`
+            filteredCars = filteredCars.filter((car) => car.date_get_documents_from_supp)
           } else if (adv.documents_status === 'not_received') {
-            query += ` AND cs.date_get_documents_from_supp IS NULL`
+            filteredCars = filteredCars.filter((car) => !car.date_get_documents_from_supp)
           }
         }
-
-        // BL Status filter
         if (adv.bl_status && adv.bl_status.trim() !== '') {
           if (adv.bl_status === 'received') {
-            query += ` AND cs.date_get_bl IS NOT NULL`
+            filteredCars = filteredCars.filter((car) => car.date_get_bl)
           } else if (adv.bl_status === 'not_received') {
-            query += ` AND cs.date_get_bl IS NULL`
+            filteredCars = filteredCars.filter((car) => !car.date_get_bl)
           }
         }
-
-        // Warehouse Status filter
         if (adv.warehouse_status && adv.warehouse_status.trim() !== '') {
           if (adv.warehouse_status === 'in_warehouse') {
-            query += ` AND cs.in_wharhouse_date IS NOT NULL`
+            filteredCars = filteredCars.filter((car) => car.in_wharhouse_date)
           } else if (adv.warehouse_status === 'not_in_warehouse') {
-            query += ` AND cs.in_wharhouse_date IS NULL`
+            filteredCars = filteredCars.filter((car) => !car.in_wharhouse_date)
           }
         }
-
-        // Bill Reference filter
         if (adv.bill_ref && adv.bill_ref.trim() !== '') {
-          query += ` AND bb.bill_ref LIKE ?`
-          params.push(`%${adv.bill_ref.trim()}%`)
+          filteredCars = filteredCars.filter(
+            (car) => car.buy_bill_ref && car.buy_bill_ref.includes(adv.bill_ref.trim()),
+          )
         }
-
-        // Sell Bill Reference filter
         if (adv.sell_bill_ref && adv.sell_bill_ref.trim() !== '') {
-          query += ` AND sb.bill_ref LIKE ?`
-          params.push(`%${adv.sell_bill_ref.trim()}%`)
+          filteredCars = filteredCars.filter(
+            (car) => car.sell_bill_ref && car.sell_bill_ref.includes(adv.sell_bill_ref.trim()),
+          )
         }
-
-        // Temporary Client Status filter
         if (adv.tmp_client_status && adv.tmp_client_status.trim() !== '') {
           if (adv.tmp_client_status === 'tmp') {
-            query += ` AND cs.is_tmp_client = 1`
+            filteredCars = filteredCars.filter((car) => car.is_tmp_client == 1)
           } else if (adv.tmp_client_status === 'permanent') {
-            query += ` AND cs.is_tmp_client = 0`
+            filteredCars = filteredCars.filter((car) => car.is_tmp_client == 0)
           }
         }
-
-        // Exclude Whole Sale filter
         if (adv.exclude_whole_sale) {
-          query += ` AND cs.is_batch = 0`
+          filteredCars = filteredCars.filter((car) => car.is_batch == 0)
         }
-
         if (adv.has_bl) {
-          query += ` AND cs.date_get_bl IS NOT NULL`
+          filteredCars = filteredCars.filter((car) => car.date_get_bl)
         }
-
         if (adv.freight_paid) {
-          query += ` AND cs.date_pay_freight IS NOT NULL`
+          filteredCars = filteredCars.filter((car) => car.date_pay_freight)
         }
-
         if (adv.has_supplier_docs) {
-          query += ` AND cs.date_get_documents_from_supp IS NOT NULL`
+          filteredCars = filteredCars.filter((car) => car.date_get_documents_from_supp)
         }
-
         if (adv.in_warehouse) {
-          query += ` AND cs.in_wharhouse_date IS NOT NULL`
+          filteredCars = filteredCars.filter((car) => car.in_wharhouse_date)
         }
-
         if (adv.has_export_license) {
-          query += ` AND cs.export_lisence_ref IS NOT NULL AND cs.export_lisence_ref != ''`
+          filteredCars = filteredCars.filter(
+            (car) => car.export_lisence_ref && car.export_lisence_ref !== '',
+          )
         }
-
         if (adv.is_loaded) {
-          query += ` AND cs.date_loding IS NOT NULL`
+          filteredCars = filteredCars.filter((car) => car.date_loding)
         }
-
         if (adv.has_vin) {
-          query += ` AND cs.vin IS NOT NULL AND cs.vin != ''`
+          filteredCars = filteredCars.filter((car) => car.vin && car.vin !== '')
         }
-
-        // Alert-specific filtering
-        if (props.alertType && props.alertDays) {
-          switch (props.alertType) {
-            case 'unloaded':
-              query += ` AND cs.date_loding IS NULL AND cs.date_send_documents IS NULL AND cs.hidden = 0`
-              query += ` AND cs.is_batch = 0 AND sb.is_batch_sell = 0`
-              query += ` AND (cs.container_ref IS NULL OR cs.container_ref = '')`
-              query += ` AND sb.date_sell < DATE_SUB(NOW(), INTERVAL ? DAY)`
-              params.push(props.alertDays)
-              break
-            case 'not_arrived':
-              query += ` AND cs.in_wharhouse_date IS NULL AND cs.hidden = 0`
-              query += ` AND cs.is_batch = 0`
-              query += ` AND (cs.container_ref IS NULL OR cs.container_ref = '')`
-              query += ` AND bb.date_buy < DATE_SUB(NOW(), INTERVAL ? DAY)`
-              params.push(props.alertDays)
-              break
-            case 'no_licence':
-            case 'no_license':
-              query += ` AND (cs.export_lisence_ref IS NULL OR cs.export_lisence_ref = '')`
-              query += ` AND cs.date_send_documents IS NULL AND cs.hidden = 0`
-              query += ` AND cs.is_batch = 0`
-              query += ` AND (cs.container_ref IS NULL OR cs.container_ref = '')`
-              query += ` AND bb.date_buy < DATE_SUB(NOW(), INTERVAL ? DAY)`
-              params.push(props.alertDays)
-              break
-            case 'no_docs_sent':
-            case 'no_docs':
-              query += ` AND cs.date_send_documents IS NULL AND cs.hidden = 0`
-              query += ` AND cs.is_batch = 0 AND sb.is_batch_sell = 0`
-              query += ` AND sb.date_sell < DATE_SUB(NOW(), INTERVAL ? DAY)`
-              params.push(props.alertDays)
-              break
-          }
-        }
+        // Alert-specific filtering (if needed, can be added here)
       }
     }
-
-    const result = await callApi({
-      query,
-      params,
-    })
-
-    if (result.success) {
-      cars.value = result.data
-    } else {
-      error.value = result.error || 'Failed to fetch cars stock'
-    }
+    cars.value = filteredCars
   } catch (err) {
     error.value = err.message || 'An error occurred'
   } finally {
@@ -1637,14 +1476,94 @@ const handleExportLicenseBulkSave = (updatedCars) => {
   showExportLicenseBulkEditForm.value = false
 }
 
+const loadInitialCarsData = async () => {
+  loading.value = true
+  error.value = null
+  try {
+    const result = await callApi({
+      query: `
+        SELECT 
+          cs.id,
+          cs.vin,
+          cs.price_cell,
+          cs.date_loding,
+          sb.date_sell,
+          cs.notes,
+          cs.freight,
+          cs.path_documents,
+          cs.sell_pi_path,
+          cs.buy_pi_path,
+          cs.id_client,
+          cs.id_port_loading,
+          cs.id_port_discharge,
+          cs.id_buy_details,
+          cs.date_send_documents,
+          cs.id_sell_pi,
+          cs.id_sell,
+          cs.export_lisence_ref,
+          cs.id_warehouse,
+          cs.in_wharhouse_date,
+          cs.date_get_documents_from_supp,
+          cs.date_get_keys_from_supp,
+          cs.rate,
+          cs.date_get_bl,
+          cs.date_pay_freight,
+          cs.is_batch,
+          c.name as client_name,
+          cn.car_name,
+          clr.color,
+          clr.hexa,
+          lp.loading_port,
+          dp.discharge_port,
+          bd.price_sell as buy_price,
+          bb.date_buy,
+          w.warhouse_name as warehouse_name,
+          bb.bill_ref as buy_bill_ref,
+          sb.bill_ref as sell_bill_ref,
+          cs.is_used_car,
+          cs.is_big_car,
+          c.id_no as client_id_no,
+          c.id_copy_path as client_id_picture,
+          cs.container_ref,
+          cs.id_color as car_id_color,
+          CASE 
+            WHEN cs.id_sell IS NOT NULL THEN 'Sold'
+            ELSE 'Available'
+          END as status
+        FROM cars_stock cs
+        LEFT JOIN clients c ON cs.id_client = c.id
+        LEFT JOIN buy_details bd ON cs.id_buy_details = bd.id
+        LEFT JOIN buy_bill bb ON bd.id_buy_bill = bb.id
+        LEFT JOIN sell_bill sb ON cs.id_sell = sb.id
+        LEFT JOIN cars_names cn ON bd.id_car_name = cn.id
+        LEFT JOIN colors clr ON cs.id_color = clr.id
+        LEFT JOIN loading_ports lp ON cs.id_port_loading = lp.id
+        LEFT JOIN discharge_ports dp ON cs.id_port_discharge = dp.id
+        LEFT JOIN warehouses w ON cs.id_warehouse = w.id
+        WHERE cs.hidden = 0   
+        AND cs.date_send_documents IS NULL
+      `,
+    })
+    if (result.success) {
+      allCars.value = result.data
+      cars.value = result.data
+    } else {
+      error.value = result.error || 'Failed to fetch cars stock'
+    }
+  } catch (err) {
+    error.value = err.message || 'An error occurred'
+  } finally {
+    loading.value = false
+  }
+}
+
 onMounted(() => {
   const userStr = localStorage.getItem('user')
   if (userStr) {
     user.value = JSON.parse(userStr)
   }
   fetchDefaults()
-  fetchCarsStock()
-
+  loadInitialCarsData()
   // Add event listeners for teleport dropdown
   document.addEventListener('click', handleClickOutside)
   document.addEventListener('scroll', handleScroll, true)
@@ -1795,6 +1714,7 @@ defineExpose({
         @task="handleTaskFromToolbar"
         @color="handleColorFromToolbar"
         @export-license="handleExportLicenseFromToolbar"
+        @refresh="loadInitialCarsData"
       />
 
       <div class="table-container">

@@ -52,11 +52,12 @@ try {
         `id_brand` int(11) DEFAULT NULL,
         `notes` text DEFAULT NULL,
         `is_big_car` tinyint(1) DEFAULT 0,
-        `cbm` decimal(10,2) DEFAULT NULL,
-        `gw` decimal(10,2) DEFAULT NULL,
+        `cbm` decimal(10,0) DEFAULT NULL,
+        `gw` decimal(10,0) DEFAULT NULL,
         PRIMARY KEY (`id`),
         UNIQUE KEY `car_name` (`car_name`),
-        KEY `id_brand` (`id_brand`)
+        KEY `id_brand` (`id_brand`),
+        CONSTRAINT `cars_names_ibfk_1` FOREIGN KEY (`id_brand`) REFERENCES `brands` (`id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci");
 
     $pdo->exec("CREATE TABLE `tracking` (
@@ -107,7 +108,9 @@ try {
         `is_ordered` tinyint(1) DEFAULT 1,
         `notes` text DEFAULT NULL,
         PRIMARY KEY (`id`),
-        KEY `id_supplier` (`id_supplier`)
+        UNIQUE KEY `bill_ref` (`bill_ref`),
+        KEY `id_supplier` (`id_supplier`),
+        CONSTRAINT `buy_bill_ibfk_1` FOREIGN KEY (`id_supplier`) REFERENCES `suppliers` (`id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci");
 
     $pdo->exec("CREATE TABLE `shipping_lines` (
@@ -176,7 +179,10 @@ try {
         PRIMARY KEY (`id`),
         KEY `id_car_name` (`id_car_name`),
         KEY `id_color` (`id_color`),
-        KEY `id_buy_bill` (`id_buy_bill`)
+        KEY `id_buy_bill` (`id_buy_bill`),
+        CONSTRAINT `buy_details_ibfk_1` FOREIGN KEY (`id_car_name`) REFERENCES `cars_names` (`id`),
+        CONSTRAINT `buy_details_ibfk_2` FOREIGN KEY (`id_color`) REFERENCES `colors` (`id`),
+        CONSTRAINT `buy_details_ibfk_3` FOREIGN KEY (`id_buy_bill`) REFERENCES `buy_bill` (`id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci");
 
     // Create buy_payments table
@@ -257,7 +263,11 @@ try {
         KEY `id_client` (`id_client`),
         KEY `id_port_loading` (`id_port_loading`),
         KEY `id_port_discharge` (`id_port_discharge`),
-        KEY `id_buy_details` (`id_buy_details`)
+        KEY `id_buy_details` (`id_buy_details`),
+        CONSTRAINT `cars_stock_ibfk_1` FOREIGN KEY (`id_client`) REFERENCES `clients` (`id`),
+        CONSTRAINT `cars_stock_ibfk_2` FOREIGN KEY (`id_port_loading`) REFERENCES `loading_ports` (`id`),
+        CONSTRAINT `cars_stock_ibfk_3` FOREIGN KEY (`id_port_discharge`) REFERENCES `discharge_ports` (`id`),
+        CONSTRAINT `cars_stock_ibfk_4` FOREIGN KEY (`id_buy_details`) REFERENCES `buy_details` (`id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci");
 
     // Create roles table
@@ -272,13 +282,15 @@ try {
     // Create users table
     $pdo->exec("CREATE TABLE IF NOT EXISTS `users` (
         `id` int(11) NOT NULL AUTO_INCREMENT,
-        `username` varchar(255) NOT NULL,
-        `email` varchar(255) DEFAULT NULL,
+        `username` varchar(50) NOT NULL,
+        `email` varchar(100) NOT NULL,
         `password` varchar(255) NOT NULL,
         `role_id` int(11) DEFAULT NULL,
         PRIMARY KEY (`id`),
         UNIQUE KEY `username` (`username`),
-        KEY `role_id` (`role_id`)
+        UNIQUE KEY `email` (`email`),
+        KEY `role_id` (`role_id`),
+        CONSTRAINT `users_ibfk_1` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci");
 
     // Create permissions table
@@ -326,10 +338,9 @@ try {
 
     // Create warehouses table
     $pdo->exec("CREATE TABLE IF NOT EXISTS `warehouses` (
-        `id` int(11) NOT NULL AUTO_INCREMENT,
-        `name` varchar(255) NOT NULL,
-        `address` text DEFAULT NULL,
-        `notes` text DEFAULT NULL,
+        `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+        `warhouse_name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
+        `notes` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
         PRIMARY KEY (`id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci");
 
@@ -540,8 +551,7 @@ try {
         ('can_c_car_stock', 'Can view and manage car stock inventory'),
         ('can_assign_to_tmp_clients', 'Can assign cars to temporary clients'),
         ('can_change_car_color', 'Can change car color'),
-        ('can_c_other_users_sells', 'Can create sales invoices for other users'),
-
+        ('can_c_other_users_sells', 'Can create sales invoices for other users')
     ");
     $stmt->execute();
 

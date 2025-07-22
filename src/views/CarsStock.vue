@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useEnhancedI18n } from '../composables/useI18n'
 import CarStockTable from '../components/car-stock/CarStockTable.vue'
@@ -27,6 +27,14 @@ const alertType = ref(null)
 const alertDays = ref(null)
 const alertTitle = ref('')
 
+// Computed property for page title
+const pageTitle = computed(() => {
+  if (alertTitle.value) {
+    return alertTitle.value
+  }
+  return t('carsStockManagementTitle')
+})
+
 onMounted(() => {
   // Check for alert parameters in URL
   const urlParams = new URLSearchParams(window.location.search)
@@ -34,10 +42,13 @@ onMounted(() => {
   alertDays.value = urlParams.get('alertDays') ? parseInt(urlParams.get('alertDays')) : null
   alertTitle.value = urlParams.get('title') || ''
 
-  // Update page title if alert title is provided
-  if (alertTitle.value) {
-    document.title = alertTitle.value
-  }
+  // Update page title
+  document.title = pageTitle.value
+})
+
+// Watch for changes in page title and update document title
+watch(pageTitle, (newTitle) => {
+  document.title = newTitle
 })
 
 const handleEditCar = async (car) => {

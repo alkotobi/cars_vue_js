@@ -33,6 +33,7 @@ const emit = defineEmits([
   'task',
   'color',
   'export-license',
+  'refresh',
 ])
 </script>
 
@@ -56,6 +57,10 @@ const emit = defineEmits([
     </div>
 
     <div class="toolbar-right">
+      <button @click="$emit('refresh')" class="refresh-btn" :title="t('carStockToolbar.refresh')">
+        <i class="fas fa-sync-alt"></i>
+        <span>{{ t('carStockToolbar.refresh') }}</span>
+      </button>
       <button
         v-if="isAdmin"
         @click="$emit('ports')"
@@ -403,6 +408,32 @@ const emit = defineEmits([
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 .export-license-btn:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.refresh-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background-color: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+.refresh-btn:hover:not(:disabled) {
+  background-color: #1d4ed8;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+.refresh-btn:disabled {
   background-color: #9ca3af;
   cursor: not-allowed;
   transform: none;
