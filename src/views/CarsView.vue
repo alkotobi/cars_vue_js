@@ -511,22 +511,22 @@ const handleTrackingClick = async () => {
             <i class="fas fa-hand-point-left fa-2x"></i>
             <p>{{ t('cars.pleaseSelectOption') }}</p>
           </div>
-          <BuyView v-if="currentView === 'buy'" />
-          <SellBillsView v-if="currentView === 'sell-bills'" />
-          <CarsStock v-if="currentView === 'stock'" />
-          <CarModelsView v-if="currentView === 'models'" />
-          <ColorsView v-if="currentView === 'colors'" />
-          <DischargePortsView v-if="currentView === 'discharge-ports'" />
-          <LoadingPortsView v-if="currentView === 'loading-ports'" />
-          <ClientsView v-if="currentView === 'clients'" />
-          <BrokersView v-if="currentView === 'brokers'" />
-          <SuppliersView v-if="currentView === 'suppliers'" />
-          <WarehousesView v-if="currentView === 'warehouses'" />
-          <ContainersView v-if="currentView === 'containers'" />
-          <StatisticsView v-if="currentView === 'statistics'" />
+          <BuyView v-if="currentView === 'buy'" :key="'buy'" />
+          <SellBillsView v-if="currentView === 'sell-bills'" :key="'sell-bills'" />
+          <CarsStock v-if="currentView === 'stock'" :key="'stock'" />
+          <CarModelsView v-if="currentView === 'models'" :key="'models'" />
+          <ColorsView v-if="currentView === 'colors'" :key="'colors'" />
+          <DischargePortsView v-if="currentView === 'discharge-ports'" :key="'discharge-ports'" />
+          <LoadingPortsView v-if="currentView === 'loading-ports'" :key="'loading-ports'" />
+          <ClientsView v-if="currentView === 'clients'" :key="'clients'" />
+          <BrokersView v-if="currentView === 'brokers'" :key="'brokers'" />
+          <SuppliersView v-if="currentView === 'suppliers'" :key="'suppliers'" />
+          <WarehousesView v-if="currentView === 'warehouses'" :key="'warehouses'" />
+          <ContainersView v-if="currentView === 'containers'" :key="'containers'" />
+          <StatisticsView v-if="currentView === 'statistics'" :key="'statistics'" />
           <LoadingView v-if="currentView === 'load'" :key="'loading-view'" />
           <LoadingView v-if="currentView === 'loading-inquiry'" :key="'loading-inquiry-view'" />
-          <div v-if="currentView === 'tracking'" class="tracking-view">
+          <div v-if="currentView === 'tracking'" class="tracking-view" :key="'tracking'">
             <ContainersRefList />
           </div>
         </div>

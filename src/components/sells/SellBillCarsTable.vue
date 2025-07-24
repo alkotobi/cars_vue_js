@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, defineProps, defineEmits, onMounted, computed } from 'vue'
+import { ref, watch, defineProps, defineEmits, onMounted, computed, useAttrs } from 'vue'
 import { useEnhancedI18n } from '../../composables/useI18n'
 import { useApi } from '../../composables/useApi'
 import { useRouter } from 'vue-router'
@@ -8,6 +8,7 @@ import 'element-plus/dist/index.css'
 import SellBillPrintOption from './SellBillPrintOption.vue'
 
 const { t } = useEnhancedI18n()
+const attrs = useAttrs()
 const props = defineProps({
   sellBillId: {
     type: Number,
@@ -554,7 +555,7 @@ const formatDate = (dateString) => {
 </script>
 
 <template>
-  <div class="cars-table-component">
+  <div class="cars-table-component" v-bind="attrs" :id="attrs.id">
     <!-- Loading Overlay -->
     <div v-if="loading" class="loading-overlay">
       <i class="fas fa-spinner fa-spin fa-2x"></i>

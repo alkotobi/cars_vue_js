@@ -1,10 +1,11 @@
 <script setup>
-import { ref, onMounted, defineEmits, computed } from 'vue'
+import { ref, onMounted, defineEmits, computed, useAttrs } from 'vue'
 import { useEnhancedI18n } from '../../composables/useI18n'
 import { useApi } from '../../composables/useApi'
 import CarAssignmentForm from './CarAssignmentForm.vue'
 
 const { t } = useEnhancedI18n()
+const attrs = useAttrs()
 const emit = defineEmits(['refresh', 'assign-car'])
 
 const { callApi } = useApi()
@@ -417,7 +418,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="unassigned-cars-table">
+  <div class="unassigned-cars-table" v-bind="attrs" :id="attrs.id">
     <div class="table-header">
       <h3>
         <i class="fas fa-car"></i>
