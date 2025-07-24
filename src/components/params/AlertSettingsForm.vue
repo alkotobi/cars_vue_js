@@ -8,15 +8,16 @@ const error = ref(null)
 const isProcessing = ref(false)
 const hasChanges = ref(false)
 
-// Form data - only alert settings
+// Form data - alert settings
 const formData = ref({
   alert_unloaded_after_days: '',
   alert_not_arrived_after_days: '',
   alert_no_licence_after_days: '',
   alert_no_docs_sent_after_days: '',
+  max_unpayed_sell_bills: '',
 })
 
-const fetchDefaults = async () => {
+const fetchAlertSettings = async () => {
   loading.value = true
   error.value = null
   try {
@@ -26,24 +27,26 @@ const fetchDefaults = async () => {
     if (result.success && result.data.length > 0) {
       const defaults = result.data[0]
       formData.value = {
-        alert_unloaded_after_days: defaults.alert_unloaded_after_days?.toString() || '',
-        alert_not_arrived_after_days: defaults.alert_not_arrived_after_days?.toString() || '',
-        alert_no_licence_after_days: defaults.alert_no_licence_after_days?.toString() || '',
-        alert_no_docs_sent_after_days: defaults.alert_no_docs_sent_after_days?.toString() || '',
+        alert_unloaded_after_days: defaults.alert_unloaded_after_days?.toString() || '30',
+        alert_not_arrived_after_days: defaults.alert_not_arrived_after_days?.toString() || '60',
+        alert_no_licence_after_days: defaults.alert_no_licence_after_days?.toString() || '90',
+        alert_no_docs_sent_after_days: defaults.alert_no_docs_sent_after_days?.toString() || '45',
+        max_unpayed_sell_bills: defaults.max_unpayed_sell_bills?.toString() || '3',
       }
     } else {
       // If no record exists, create one with default values
       await callApi({
         query: `
-          INSERT INTO defaults (alert_unloaded_after_days, alert_not_arrived_after_days, alert_no_licence_after_days, alert_no_docs_sent_after_days)
-          VALUES (30, 30, 30, 30)
+          INSERT INTO defaults (rate, freight_small, freight_big, alert_unloaded_after_days, alert_not_arrived_after_days, alert_no_licence_after_days, alert_no_docs_sent_after_days, max_unpayed_sell_bills)
+          VALUES (0, 0, 0, 30, 60, 90, 45, 3)
         `,
       })
       formData.value = {
         alert_unloaded_after_days: '30',
-        alert_not_arrived_after_days: '30',
-        alert_no_licence_after_days: '30',
-        alert_no_docs_sent_after_days: '30',
+        alert_not_arrived_after_days: '60',
+        alert_no_licence_after_days: '90',
+        alert_no_docs_sent_after_days: '45',
+        max_unpayed_sell_bills: '3',
       }
     }
   } catch (err) {
@@ -67,14 +70,16 @@ const handleSubmit = async () => {
       query: `
         UPDATE defaults 
         SET alert_unloaded_after_days = ?, alert_not_arrived_after_days = ?, 
-            alert_no_licence_after_days = ?, alert_no_docs_sent_after_days = ?
+            alert_no_licence_after_days = ?, alert_no_docs_sent_after_days = ?, 
+            max_unpayed_sell_bills = ?
         WHERE id = 1
       `,
       params: [
         parseInt(formData.value.alert_unloaded_after_days) || 30,
-        parseInt(formData.value.alert_not_arrived_after_days) || 30,
-        parseInt(formData.value.alert_no_licence_after_days) || 30,
-        parseInt(formData.value.alert_no_docs_sent_after_days) || 30,
+        parseInt(formData.value.alert_not_arrived_after_days) || 60,
+        parseInt(formData.value.alert_no_licence_after_days) || 90,
+        parseInt(formData.value.alert_no_docs_sent_after_days) || 45,
+        parseInt(formData.value.max_unpayed_sell_bills) || 3,
       ],
     })
 
@@ -91,7 +96,7 @@ const handleSubmit = async () => {
 }
 
 onMounted(() => {
-  fetchDefaults()
+  fetchAlertSettings()
 })
 </script>
 
@@ -99,7 +104,7 @@ onMounted(() => {
   <div class="alert-settings-form">
     <div class="header">
       <h2>Alert Settings</h2>
-      <p class="description">Configure when alerts should be triggered for overdue cars</p>
+      <p class="description">Configure alert thresholds and limits for the system</p>
     </div>
 
     <div v-if="error" class="error-message">
@@ -116,80 +121,95 @@ onMounted(() => {
     <div v-else class="form-container">
       <form @submit.prevent="handleSubmit">
         <div class="form-group">
-          <label for="alert_unloaded_after_days">Not Loaded Cars Alert (Days)</label>
+          <label for="alert_unloaded_after_days">Alert Unloaded After (Days)</label>
           <div class="input-group">
             <input
               id="alert_unloaded_after_days"
               v-model="formData.alert_unloaded_after_days"
               type="number"
               min="1"
-              max="365"
               required
               placeholder="Enter days"
               @input="handleInput"
             />
-            <span class="unit">days after sell date</span>
+            <span class="unit">days</span>
           </div>
-          <small class="help-text">Alert for cars sold but not loaded after this many days</small>
+          <small class="help-text">Number of days after which to alert about unloaded cars</small>
         </div>
 
         <div class="form-group">
-          <label for="alert_not_arrived_after_days">Not Arrived Cars Alert (Days)</label>
+          <label for="alert_not_arrived_after_days">Alert Not Arrived After (Days)</label>
           <div class="input-group">
             <input
               id="alert_not_arrived_after_days"
               v-model="formData.alert_not_arrived_after_days"
               type="number"
               min="1"
-              max="365"
               required
               placeholder="Enter days"
               @input="handleInput"
             />
-            <span class="unit">days after buy date</span>
+            <span class="unit">days</span>
           </div>
           <small class="help-text"
-            >Alert for cars purchased but not arrived at warehouse after this many days</small
+            >Number of days after which to alert about cars that haven't arrived</small
           >
         </div>
 
         <div class="form-group">
-          <label for="alert_no_licence_after_days">No License Cars Alert (Days)</label>
+          <label for="alert_no_licence_after_days">Alert No License After (Days)</label>
           <div class="input-group">
             <input
               id="alert_no_licence_after_days"
               v-model="formData.alert_no_licence_after_days"
               type="number"
               min="1"
-              max="365"
               required
               placeholder="Enter days"
               @input="handleInput"
             />
-            <span class="unit">days after buy date</span>
+            <span class="unit">days</span>
           </div>
           <small class="help-text"
-            >Alert for cars purchased but without export license after this many days</small
+            >Number of days after which to alert about cars without license</small
           >
         </div>
 
         <div class="form-group">
-          <label for="alert_no_docs_sent_after_days">No Docs Sent Alert (Days)</label>
+          <label for="alert_no_docs_sent_after_days">Alert No Docs Sent After (Days)</label>
           <div class="input-group">
             <input
               id="alert_no_docs_sent_after_days"
               v-model="formData.alert_no_docs_sent_after_days"
               type="number"
               min="1"
-              max="365"
               required
               placeholder="Enter days"
               @input="handleInput"
             />
-            <span class="unit">days after sell date</span>
+            <span class="unit">days</span>
           </div>
           <small class="help-text"
-            >Alert for cars sold but documents not sent after this many days</small
+            >Number of days after which to alert about cars with no documents sent</small
+          >
+        </div>
+
+        <div class="form-group">
+          <label for="max_unpayed_sell_bills">Max Unpaid Sell Bills</label>
+          <div class="input-group">
+            <input
+              id="max_unpayed_sell_bills"
+              v-model="formData.max_unpayed_sell_bills"
+              type="number"
+              min="1"
+              required
+              placeholder="Enter max unpaid bills"
+              @input="handleInput"
+            />
+            <span class="unit">bills</span>
+          </div>
+          <small class="help-text"
+            >Maximum number of unpaid sell bills allowed before preventing new bill creation</small
           >
         </div>
 
@@ -198,7 +218,7 @@ onMounted(() => {
             type="button"
             class="cancel-btn"
             :disabled="isProcessing || !hasChanges"
-            @click="fetchDefaults"
+            @click="fetchAlertSettings"
           >
             Cancel
           </button>
@@ -243,7 +263,7 @@ onMounted(() => {
 }
 
 .form-group {
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 
 .form-group label {
@@ -276,16 +296,16 @@ onMounted(() => {
 
 .unit {
   color: #6b7280;
-  font-size: 0.875rem;
-  min-width: 120px;
+  font-weight: 500;
+  min-width: 40px;
 }
 
 .help-text {
   display: block;
   margin-top: 4px;
   color: #6b7280;
-  font-size: 0.75rem;
-  font-style: italic;
+  font-size: 0.8rem;
+  line-height: 1.4;
 }
 
 .form-actions {
@@ -363,16 +383,6 @@ onMounted(() => {
 
   .form-container {
     padding: 16px;
-  }
-
-  .input-group {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .unit {
-    min-width: auto;
-    text-align: center;
   }
 }
 </style>

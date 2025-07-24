@@ -7,6 +7,7 @@ import SellBillForm from '../components/sells/SellBillForm.vue'
 import SellBillCarsTable from '../components/sells/SellBillCarsTable.vue'
 import UnassignedCarsTable from '../components/sells/UnassignedCarsTable.vue'
 import TaskForm from '../components/car-stock/TaskForm.vue'
+import MessageBox from '../components/MessageBox.vue'
 
 const { t } = useEnhancedI18n()
 const { callApi } = useApi()
@@ -23,6 +24,12 @@ const isProcessing = ref(false)
 const showTaskForm = ref(false)
 const selectedBillForTask = ref(null)
 
+// Add unpaid bills warning modal state
+const showUnpaidBillsWarning = ref(false)
+const showMaxUnpaidBillsError = ref(false)
+const unpaidBillsCount = ref(0)
+const maxUnpaidBills = ref(3) // Default value
+
 // Add user and isAdmin
 const user = ref(null)
 const isAdmin = computed(() => user.value?.role_id === 1)
@@ -36,7 +43,22 @@ onMounted(() => {
   if (userStr) {
     user.value = JSON.parse(userStr)
   }
+  fetchMaxUnpaidBills()
 })
+
+const fetchMaxUnpaidBills = async () => {
+  try {
+    const result = await callApi({
+      query: 'SELECT max_unpayed_sell_bills FROM defaults LIMIT 1',
+    })
+    if (result.success && result.data.length > 0) {
+      maxUnpaidBills.value = result.data[0].max_unpayed_sell_bills || 3
+    }
+  } catch (error) {
+    console.error('Error fetching max unpaid bills:', error)
+    // Keep default value of 3
+  }
+}
 
 const handleSelectBill = (billId) => {
   console.log('handleSelectBill called with billId:', billId)
@@ -113,6 +135,24 @@ const handleSelectBill = (billId) => {
 }
 
 const openAddDialog = () => {
+  // Check for unpaid bills before proceeding
+  if (sellBillsTableRef.value && sellBillsTableRef.value.unpaidBillsCount > 0) {
+    unpaidBillsCount.value = sellBillsTableRef.value.unpaidBillsCount
+
+    // Check if unpaid bills exceed the maximum limit
+    if (unpaidBillsCount.value >= maxUnpaidBills.value) {
+      showMaxUnpaidBillsError.value = true
+      return
+    }
+
+    showUnpaidBillsWarning.value = true
+    return
+  }
+
+  proceedToAddDialog()
+}
+
+const proceedToAddDialog = () => {
   isProcessing.value = true
   editingBill.value = {
     id_broker: null,
@@ -122,6 +162,19 @@ const openAddDialog = () => {
   }
   showAddDialog.value = true
   isProcessing.value = false
+}
+
+const handleUnpaidBillsWarningConfirm = () => {
+  showUnpaidBillsWarning.value = false
+  proceedToAddDialog()
+}
+
+const handleUnpaidBillsWarningCancel = () => {
+  showUnpaidBillsWarning.value = false
+}
+
+const handleMaxUnpaidBillsErrorClose = () => {
+  showMaxUnpaidBillsError.value = false
 }
 
 const handleEditBill = (bill) => {
@@ -255,7 +308,7 @@ const handleTaskCreated = () => {
       <div class="header-actions">
         <button
           v-if="can_create_sell_bill"
-          @click="showAddDialog = true"
+          @click="openAddDialog"
           class="add-btn"
           :disabled="isProcessing"
         >
@@ -322,6 +375,38 @@ const handleTaskCreated = () => {
       :isVisible="showTaskForm"
       @task-created="handleTaskCreated"
       @cancel="showTaskForm = false"
+    />
+
+    <!-- Unpaid Bills Warning Modal -->
+    <MessageBox
+      :show="showUnpaidBillsWarning"
+      type="warning"
+      :title="t('sellBillsView.unpaidBillsWarningTitle')"
+      :message="t('sellBillsView.unpaidBillsWarningMessage', { count: unpaidBillsCount })"
+      :details="t('sellBillsView.unpaidBillsWarningDetails')"
+      :confirm-text="t('sellBillsView.proceedAnyway')"
+      :cancel-text="t('sellBillsView.cancel')"
+      @confirm="handleUnpaidBillsWarningConfirm"
+      @cancel="handleUnpaidBillsWarningCancel"
+      @close="handleUnpaidBillsWarningCancel"
+    />
+
+    <!-- Max Unpaid Bills Error Modal -->
+    <MessageBox
+      :show="showMaxUnpaidBillsError"
+      type="error"
+      :title="t('sellBillsView.maxUnpaidBillsErrorTitle')"
+      :message="
+        t('sellBillsView.maxUnpaidBillsErrorMessage', {
+          count: unpaidBillsCount,
+          max: maxUnpaidBills,
+        })
+      "
+      :details="t('sellBillsView.maxUnpaidBillsErrorDetails')"
+      :confirm-text="t('sellBillsView.ok')"
+      :show-cancel="false"
+      @confirm="handleMaxUnpaidBillsErrorClose"
+      @close="handleMaxUnpaidBillsErrorClose"
     />
   </div>
 </template>

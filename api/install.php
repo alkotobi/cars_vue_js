@@ -333,6 +333,7 @@ try {
   `alert_not_arrived_after_days` int(11) DEFAULT NULL,
   `alert_no_licence_after_days` int(11) DEFAULT NULL,
   `alert_no_docs_sent_after_days` int(11) DEFAULT NULL,
+  `max_unpayed_sell_bills` int(11) DEFAULT 3,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=latin1 COLLATE=latin1_general_ci;");
 

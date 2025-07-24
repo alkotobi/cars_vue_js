@@ -141,6 +141,26 @@ const sortedAndLimitedBills = computed(() => {
   return sorted
 })
 
+// Add computed property for unpaid bills count for current user
+const unpaidBillsCount = computed(() => {
+  if (!sellBills.value.length) return 0
+
+  return sellBills.value.filter((bill) => {
+    // Check if bill belongs to current user (if not admin)
+    if (!can_c_all_bills.value && bill.id_user !== user.value?.id) {
+      return false
+    }
+
+    // Exclude batch sell bills
+    if (bill.is_batch_sell) {
+      return false
+    }
+
+    // Check if bill is unpaid (total_paid < total_cfr)
+    return bill.total_paid < bill.total_cfr
+  }).length
+})
+
 onMounted(() => {
   const userStr = localStorage.getItem('user')
   if (userStr) {
@@ -378,8 +398,8 @@ watch(
   { immediate: true },
 )
 
-// Expose the fetchSellBills method to parent component
-defineExpose({ fetchSellBills })
+// Expose the fetchSellBills method and unpaidBillsCount to parent component
+defineExpose({ fetchSellBills, unpaidBillsCount })
 
 // Add computed properties for payment status
 const getPaymentStatus = (bill) => {
@@ -428,10 +448,18 @@ const getLoadingStatus = (bill) => {
     <!-- Filters Section -->
     <div class="filters-section">
       <div class="filters-header">
-        <h3>
-          <i class="fas fa-filter"></i>
-          {{ t('sellBills.filters') }}
-        </h3>
+        <div class="filters-title-section">
+          <h3>
+            <i class="fas fa-filter"></i>
+            {{ t('sellBills.filters') }}
+          </h3>
+          <div class="unpaid-bills-info">
+            <span class="unpaid-badge">
+              <i class="fas fa-exclamation-triangle"></i>
+              {{ t('sellBills.unpaid_bills_count', { count: unpaidBillsCount }) }}
+            </span>
+          </div>
+        </div>
         <button @click="resetFilters" class="reset-btn">
           <i class="fas fa-undo"></i>
           {{ t('sellBills.reset') }}
@@ -860,6 +888,12 @@ const getLoadingStatus = (bill) => {
   margin-bottom: 16px;
 }
 
+.filters-title-section {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
 .filters-header h3 {
   display: flex;
   align-items: center;
@@ -867,6 +901,28 @@ const getLoadingStatus = (bill) => {
   margin: 0;
   color: #1f2937;
   font-size: 1.1rem;
+}
+
+.unpaid-bills-info {
+  display: flex;
+  align-items: center;
+}
+
+.unpaid-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background-color: #fef3c7;
+  border: 1px solid #f59e0b;
+  border-radius: 6px;
+  color: #92400e;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.unpaid-badge i {
+  color: #f59e0b;
 }
 
 .reset-btn {

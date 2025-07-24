@@ -8,7 +8,7 @@ const error = ref(null)
 const isProcessing = ref(false)
 const hasChanges = ref(false)
 
-// Form data - only billing settings
+// Form data - billing settings only
 const formData = ref({
   rate: '',
   freight_small: '',
@@ -33,8 +33,8 @@ const fetchDefaults = async () => {
       // If no record exists, create one with default values
       await callApi({
         query: `
-          INSERT INTO defaults (rate, freight_small, freight_big)
-          VALUES (0, 0, 0)
+          INSERT INTO defaults (rate, freight_small, freight_big, alert_unloaded_after_days, alert_not_arrived_after_days, alert_no_licence_after_days, alert_no_docs_sent_after_days, max_unpayed_sell_bills)
+          VALUES (0, 0, 0, 30, 60, 90, 45, 3)
         `,
       })
       formData.value = {
