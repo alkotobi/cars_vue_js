@@ -1,7 +1,10 @@
 <script setup>
-import { defineProps, defineEmits, ref, computed } from 'vue'
+import { defineProps, defineEmits, ref, computed, useAttrs } from 'vue'
 import { useApi } from '../../composables/useApi'
 import { useEnhancedI18n } from '../../composables/useI18n'
+
+// Get all attributes passed to the component
+const attrs = useAttrs()
 
 const { t } = useEnhancedI18n()
 
@@ -18,7 +21,13 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['add-detail', 'delete-detail', 'update-detail', 'stock-updated'])
+const emit = defineEmits([
+  'add-detail',
+  'delete-detail',
+  'update-detail',
+  'stock-updated',
+  'cars-created',
+])
 
 const showEditDialog = ref(false)
 const editingDetail = ref(null)
@@ -112,6 +121,23 @@ const showStockAlert = async () => {
       if (result.success) {
         alert(t('buy.detailsTable.stockSuccessfullyUpdated'))
         emit('stock-updated', props.buyDetails[0].id_buy_bill) // Emit the bill ID for parent refresh
+
+        // Emit the new cars data to add to memory
+        const newCars = []
+        for (const detail of props.buyDetails) {
+          for (let i = 0; i < detail.QTY; i++) {
+            newCars.push({
+              id_buy_details: detail.id,
+              price_cell: detail.price_sell,
+              notes: detail.notes,
+              is_used_car: detail.is_used_car,
+              is_big_car: detail.is_big_car,
+              id_color: detail.id_color,
+              buy_bill_id: detail.id_buy_bill,
+            })
+          }
+        }
+        emit('cars-created', newCars)
       } else {
         console.error('Error updating is_stock_updated flag:', result.error)
         alert(t('buy.detailsTable.errorUpdatingStock'))
@@ -127,7 +153,7 @@ const showStockAlert = async () => {
 </script>
 
 <template>
-  <div class="detail-section">
+  <div class="detail-section" :id="attrs.id" v-bind="attrs">
     <!-- Loading Overlay -->
     <div v-if="isProcessing" class="loading-overlay">
       <i class="fas fa-spinner fa-spin fa-2x"></i>

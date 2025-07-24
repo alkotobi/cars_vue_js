@@ -1594,6 +1594,65 @@ onUnmounted(() => {
 // Expose the fetchCarsStock method to parent components
 defineExpose({
   fetchCarsStock,
+  addCarsToMemory: async (newCarsData) => {
+    // Generate IDs for new cars (since they don't have IDs yet)
+    const maxId = allCars.value.length > 0 ? Math.max(...allCars.value.map((car) => car.id)) : 0
+
+    const newCars = newCarsData.map((carData, index) => ({
+      id: maxId + index + 1, // Generate unique ID
+      vin: null,
+      price_cell: carData.price_cell,
+      date_loding: null,
+      date_sell: null,
+      notes: carData.notes,
+      freight: null,
+      path_documents: null,
+      sell_pi_path: null,
+      buy_pi_path: null,
+      id_client: null,
+      id_port_loading: null,
+      id_port_discharge: null,
+      id_buy_details: carData.id_buy_details,
+      date_send_documents: null,
+      id_sell_pi: null,
+      id_sell: null,
+      export_lisence_ref: null,
+      id_warehouse: null,
+      in_wharhouse_date: null,
+      date_get_documents_from_supp: null,
+      date_get_keys_from_supp: null,
+      rate: null,
+      date_get_bl: null,
+      date_pay_freight: null,
+      is_batch: 0,
+      client_name: null,
+      car_name: null,
+      color: null,
+      hexa: null,
+      loading_port: null,
+      discharge_port: null,
+      buy_price: carData.price_cell,
+      date_buy: null,
+      warehouse_name: null,
+      buy_bill_ref: null,
+      sell_bill_ref: null,
+      is_used_car: carData.is_used_car,
+      is_big_car: carData.is_big_car,
+      client_id_no: null,
+      client_id_picture: null,
+      container_ref: null,
+      car_id_color: carData.id_color,
+      buy_bill_id: carData.buy_bill_id,
+      status: 'Available',
+    }))
+
+    // Add new cars to allCars
+    allCars.value.push(...newCars)
+    console.log(`[CarStockTable] Added ${newCars.length} new cars to memory`)
+
+    // Apply current filters to update the display
+    fetchCarsStock()
+  },
 })
 
 // In the handler for the refresh event (called by the toolbar):

@@ -89,6 +89,9 @@ const handleUpdateStock = async (bill) => {
           selectedBill.value = updatedBill
         }
       }
+
+      // Note: New cars will be added to memory via the cars-created event
+      // No need to refresh from database
     } else {
       alert(t('failed_update_stock'))
     }
@@ -110,6 +113,13 @@ const handleStockUpdated = async (billId) => {
     if (updatedBill) {
       selectedBill.value = updatedBill
     }
+  }
+}
+
+const handleCarsCreated = async (newCars) => {
+  // Add new cars to CarStockTable memory
+  if (carStockTableRef.value) {
+    await carStockTableRef.value.addCarsToMemory(newCars)
   }
 }
 
@@ -890,6 +900,7 @@ const saveNotes = async (newNotes) => {
           @delete-detail="handleDeleteDetail"
           @update-detail="handleUpdateDetail"
           @stock-updated="handleStockUpdated"
+          @cars-created="handleCarsCreated"
         />
 
         <!-- Cars in Purchase Bill: Only show if bill is updated -->

@@ -3,7 +3,7 @@ import { useApi } from './useApi'
 
 export const useVersionCheck = () => {
   const { callApi } = useApi()
-  const currentAppVersion = ref(4) // Update this when you make breaking changes
+  const currentAppVersion = ref(5) // Update this when you make breaking changes
   const dbVersion = ref(null)
   const isLoading = ref(true)
   const hasVersionMismatch = ref(false)
