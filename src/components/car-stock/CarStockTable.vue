@@ -1726,6 +1726,56 @@ const handleDeleteCars = async () => {
     alert(t('carStock.failed_to_delete_cars') + ': ' + error.message)
   }
 }
+
+const handleToggleHidden = async () => {
+  if (selectedCars.value.size === 0) {
+    alert(t('carStock.no_cars_selected_for_toggle'))
+    return
+  }
+
+  // Get selected cars
+  const selectedCarsList = sortedCars.value.filter((car) => selectedCars.value.has(car.id))
+
+  // Check if selected cars have mixed hidden status
+  const hiddenCars = selectedCarsList.filter((car) => car.hidden === 1)
+  const visibleCars = selectedCarsList.filter((car) => car.hidden === 0)
+
+  if (hiddenCars.length > 0 && visibleCars.length > 0) {
+    alert(t('carStock.mixed_hidden_status_error'))
+    return
+  }
+
+  // Determine new hidden status (toggle based on current status)
+  const newHiddenStatus = hiddenCars.length > 0 ? 0 : 1
+  const actionText = newHiddenStatus === 1 ? t('carStock.hide_cars') : t('carStock.show_cars')
+
+  // Confirm action
+  if (!confirm(t('carStock.confirm_toggle_hidden', { action: actionText }))) return
+
+  const carIds = selectedCarsList.map((car) => car.id)
+
+  try {
+    const result = await callApi({
+      query: `UPDATE cars_stock SET hidden = ? WHERE id IN (${carIds.map(() => '?').join(',')})`,
+      params: [newHiddenStatus, ...carIds],
+    })
+
+    if (result.success) {
+      // Update in-memory data
+      allCars.value = allCars.value.map((car) =>
+        carIds.includes(car.id) ? { ...car, hidden: newHiddenStatus } : car,
+      )
+      selectedCars.value.clear()
+      fetchCarsStock()
+      alert(t('carStock.toggle_hidden_success', { action: actionText }))
+    } else {
+      alert(t('carStock.failed_to_toggle_hidden') + ': ' + (result.error || 'Unknown error'))
+    }
+  } catch (error) {
+    console.error('Error toggling hidden status:', error)
+    alert(t('carStock.failed_to_toggle_hidden') + ': ' + error.message)
+  }
+}
 </script>
 
 <template>
@@ -1863,6 +1913,7 @@ const handleDeleteCars = async () => {
         @export-license="handleExportLicenseFromToolbar"
         @refresh="handleRefresh"
         @delete-cars="handleDeleteCars"
+        @toggle-hidden="handleToggleHidden"
       />
 
       <div class="table-container">

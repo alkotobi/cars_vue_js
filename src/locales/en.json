@@ -318,7 +318,14 @@
     "deleted_selected_cars": "Selected cars have been deleted.",
     "failed_to_delete_cars": "Failed to delete cars",
     "hidden_cars": "Hidden Cars",
-    "hidden_car": "Hidden Car"
+    "hidden_car": "Hidden Car",
+    "no_cars_selected_for_toggle": "No cars selected for toggle.",
+    "mixed_hidden_status_error": "Cannot toggle hidden status: selected cars have mixed hidden/visible status. Please select only hidden cars or only visible cars.",
+    "hide_cars": "hide cars",
+    "show_cars": "show cars",
+    "confirm_toggle_hidden": "Are you sure you want to {action}?",
+    "toggle_hidden_success": "Successfully {action}.",
+    "failed_to_toggle_hidden": "Failed to toggle hidden status"
   },
   "containersRef": {
     "title": "Container References",
@@ -374,7 +381,9 @@
     "vin": "VIN",
     "export_license": "Export License",
     "delete": "Delete",
-    "delete_selected_cars": "Delete selected cars"
+    "delete_selected_cars": "Delete selected cars",
+    "toggle_hidden": "Toggle Hidden",
+    "toggle_hidden_status": "Toggle hidden status of selected cars"
   },
   "vinEditForm": {
     "edit_vin_number": "Edit VIN Number",

@@ -35,6 +35,7 @@ const emit = defineEmits([
   'export-license',
   'refresh',
   'delete-cars',
+  'toggle-hidden',
 ])
 </script>
 
@@ -172,6 +173,20 @@ const emit = defineEmits([
       >
         <i class="fas fa-trash"></i>
         <span>{{ t('carStockToolbar.delete') }}</span>
+      </button>
+      <button
+        v-if="isAdmin"
+        @click="$emit('toggle-hidden')"
+        class="toggle-hidden-btn"
+        :disabled="selectedCars.size === 0"
+        :title="
+          selectedCars.size === 0
+            ? t('carStockToolbar.no_cars_selected')
+            : t('carStockToolbar.toggle_hidden_status')
+        "
+      >
+        <i class="fas fa-eye-slash"></i>
+        <span>{{ t('carStockToolbar.toggle_hidden') }}</span>
       </button>
       <CarStockPrintDropdown
         :selected-count="selectedCars.size"
@@ -449,6 +464,34 @@ const emit = defineEmits([
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 .delete-btn:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.toggle-hidden-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background-color: #8b5cf6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.toggle-hidden-btn:hover:not(:disabled) {
+  background-color: #7c3aed;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.toggle-hidden-btn:disabled {
   background-color: #9ca3af;
   cursor: not-allowed;
   transform: none;
