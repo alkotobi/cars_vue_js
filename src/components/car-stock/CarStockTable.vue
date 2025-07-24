@@ -967,6 +967,13 @@ const fetchCarsStock = async () => {
             filteredCars = filteredCars.filter((car) => car.is_tmp_client == 0)
           }
         }
+        if (adv.hidden && adv.hidden.trim() !== '') {
+          if (adv.hidden === '1') {
+            filteredCars = filteredCars.filter((car) => car.hidden == 1)
+          } else if (adv.hidden === '0') {
+            filteredCars = filteredCars.filter((car) => car.hidden == 0)
+          }
+        }
         if (adv.exclude_whole_sale) {
           filteredCars = filteredCars.filter((car) => car.is_batch == 0)
         }
@@ -1493,6 +1500,12 @@ const loadInitialCarsData = async () => {
   loading.value = true
   error.value = null
   try {
+    // Build the WHERE clause conditionally based on admin status
+    let whereClause = 'cs.date_send_documents IS NULL'
+    if (!isAdmin.value) {
+      whereClause += ' AND cs.hidden = 0'
+    }
+
     const result = await callApi({
       query: `
         SELECT 
@@ -1522,6 +1535,7 @@ const loadInitialCarsData = async () => {
           cs.date_get_bl,
           cs.date_pay_freight,
           cs.is_batch,
+          cs.hidden,
           c.name as client_name,
           cn.car_name,
           clr.color,
@@ -1554,8 +1568,7 @@ const loadInitialCarsData = async () => {
         LEFT JOIN loading_ports lp ON cs.id_port_loading = lp.id
         LEFT JOIN discharge_ports dp ON cs.id_port_discharge = dp.id
         LEFT JOIN warehouses w ON cs.id_warehouse = w.id
-        WHERE cs.hidden = 0   
-        AND cs.date_send_documents IS NULL
+        WHERE ${whereClause}
       `,
     })
     if (result.success) {
@@ -1659,6 +1672,59 @@ defineExpose({
 const handleRefresh = async () => {
   await loadInitialCarsData()
   fetchCarsStock()
+}
+
+// Add after other toolbar handlers
+const handleDeleteCars = async () => {
+  if (selectedCars.value.size === 0) {
+    alert(t('carStock.no_cars_selected_for_deletion'))
+    return
+  }
+  // Find cars that do not meet the deletion criteria
+  const notDeletable = sortedCars.value.filter(
+    (car) =>
+      selectedCars.value.has(car.id) &&
+      (car.vin || car.id_client || car.container_ref || car.id_sell_bill),
+  )
+  if (notDeletable.length > 0) {
+    alert(
+      t('carStock.cannot_delete_selected_cars') +
+        '\n' +
+        notDeletable.map((car) => `${car.id}: ${car.car_name || ''}`).join('\n'),
+    )
+    return
+  }
+  // Confirm deletion
+  if (!confirm(t('carStock.confirm_delete_selected_cars'))) return
+  // Get cars to delete
+  const carsToDelete = sortedCars.value.filter(
+    (car) =>
+      selectedCars.value.has(car.id) &&
+      !car.vin &&
+      !car.id_client &&
+      !car.container_ref &&
+      !car.id_sell_bill,
+  )
+  const idsToDelete = carsToDelete.map((car) => car.id)
+  // Delete from database
+  try {
+    const result = await callApi({
+      query: `DELETE FROM cars_stock WHERE id IN (${idsToDelete.map(() => '?').join(',')})`,
+      params: idsToDelete,
+    })
+    if (result.success) {
+      // Delete cars from in-memory data
+      allCars.value = allCars.value.filter((car) => !idsToDelete.includes(car.id))
+      selectedCars.value.clear()
+      fetchCarsStock()
+      alert(t('carStock.deleted_selected_cars'))
+    } else {
+      alert(t('carStock.failed_to_delete_cars') + ': ' + (result.error || 'Unknown error'))
+    }
+  } catch (error) {
+    console.error('Error deleting cars:', error)
+    alert(t('carStock.failed_to_delete_cars') + ': ' + error.message)
+  }
 }
 </script>
 
@@ -1796,6 +1862,7 @@ const handleRefresh = async () => {
         @color="handleColorFromToolbar"
         @export-license="handleExportLicenseFromToolbar"
         @refresh="handleRefresh"
+        @delete-cars="handleDeleteCars"
       />
 
       <div class="table-container">
@@ -1818,6 +1885,7 @@ const handleRefresh = async () => {
                   {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
                 </span>
               </th>
+
               <th @click="toggleSort('date_buy')" class="sortable">
                 {{ t('carStock.date_buy') }}
                 <span v-if="sortConfig.key === 'date_buy'" class="sort-indicator">
@@ -1912,11 +1980,19 @@ const handleRefresh = async () => {
                 </button>
               </td>
               <td>{{ car.id }}</td>
+
               <td>{{ car.date_buy ? new Date(car.date_buy).toLocaleDateString() : '-' }}</td>
               <td>{{ car.date_sell ? new Date(car.date_sell).toLocaleDateString() : '-' }}</td>
               <td class="car-details-cell">
                 <div class="car-details-container">
-                  <div class="car-name">{{ car.car_name }}</div>
+                  <div class="car-name">
+                    <i
+                      v-if="isAdmin && car.hidden"
+                      class="fas fa-eye-slash hidden-icon"
+                      :title="t('carStock.hidden_car')"
+                    ></i>
+                    {{ car.car_name }}
+                  </div>
                   <div v-if="car.vin" class="car-detail-item">
                     <div class="info-badge badge-vin">
                       <i class="fas fa-barcode"></i>
@@ -3877,5 +3953,18 @@ const handleRefresh = async () => {
 
 .cars-table tbody tr.selected:hover {
   background-color: #dbeafe;
+}
+
+/* Hidden car indicator styles */
+.hidden-icon {
+  color: #ef4444;
+  font-size: 14px;
+  cursor: help;
+  margin-right: 6px;
+}
+
+.hidden-icon:hover {
+  color: #dc2626;
+  transform: scale(1.1);
 }
 </style>

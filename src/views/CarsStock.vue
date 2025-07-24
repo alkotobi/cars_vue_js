@@ -9,6 +9,13 @@ import CarStockFilter from '../components/car-stock/CarStockFilter.vue'
 const router = useRouter()
 const route = useRoute()
 const { t } = useEnhancedI18n()
+
+// Add admin logic
+const user = ref(null)
+const isAdmin = computed(() => {
+  if (!user.value) return false
+  return user.value.role_id === 1
+})
 const showEditDialog = ref(false)
 const editingCar = ref(null)
 const carStockTableRef = ref(null)
@@ -36,6 +43,12 @@ const pageTitle = computed(() => {
 })
 
 onMounted(() => {
+  // Get user from localStorage
+  const userStr = localStorage.getItem('user')
+  if (userStr) {
+    user.value = JSON.parse(userStr)
+  }
+
   // Check for alert parameters in URL
   const urlParams = new URLSearchParams(window.location.search)
   alertType.value = urlParams.get('alertType')
@@ -100,7 +113,7 @@ const navigateToWarehouses = async () => {
 
     <div class="content">
       <!-- Add the filter component -->
-      <CarStockFilter @filter="handleFilter" ref="filterRef" />
+      <CarStockFilter @filter="handleFilter" ref="filterRef" :is-admin="isAdmin" />
 
       <CarStockTable
         ref="carStockTableRef"

@@ -5,6 +5,13 @@ import { useEnhancedI18n } from '@/composables/useI18n'
 
 const { t } = useEnhancedI18n()
 
+const props = defineProps({
+  isAdmin: {
+    type: Boolean,
+    default: false,
+  },
+})
+
 const emit = defineEmits(['filter'])
 
 const { callApi } = useApi()
@@ -73,6 +80,7 @@ const advancedFilters = ref({
   sell_bill_ref: '',
   tmp_client_status: '',
   exclude_whole_sale: false,
+  hidden: '',
 })
 
 // Fetch reference data for filter dropdowns
@@ -675,6 +683,23 @@ fetchReferenceData()
               {{ t('carStockFilter.excludeWholeSaleCars') }}
             </span>
           </label>
+        </div>
+
+        <!-- Hidden Cars Filter (Admin Only) -->
+        <div v-if="props.isAdmin" class="filter-field">
+          <label for="hidden-filter">
+            <i class="fas fa-eye-slash"></i>
+            {{ t('carStockFilter.hiddenCars') }}
+          </label>
+          <select
+            id="hidden-filter"
+            v-model="advancedFilters.hidden"
+            :disabled="isProcessing.advanced"
+          >
+            <option value="">{{ t('carStockFilter.allCars') }}</option>
+            <option value="1">{{ t('carStockFilter.hiddenCarsOnly') }}</option>
+            <option value="0">{{ t('carStockFilter.visibleCarsOnly') }}</option>
+          </select>
         </div>
 
         <!-- Add the Apply and Reset buttons at the bottom -->

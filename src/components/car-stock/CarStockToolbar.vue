@@ -34,6 +34,7 @@ const emit = defineEmits([
   'color',
   'export-license',
   'refresh',
+  'delete-cars',
 ])
 </script>
 
@@ -157,6 +158,20 @@ const emit = defineEmits([
       >
         <i class="fas fa-file-signature"></i>
         <span>{{ t('carStockToolbar.export_license') }}</span>
+      </button>
+      <button
+        v-if="isAdmin"
+        @click="$emit('delete-cars')"
+        class="delete-btn"
+        :disabled="selectedCars.size === 0"
+        :title="
+          selectedCars.size === 0
+            ? t('carStockToolbar.no_cars_selected')
+            : t('carStockToolbar.delete_selected_cars')
+        "
+      >
+        <i class="fas fa-trash"></i>
+        <span>{{ t('carStockToolbar.delete') }}</span>
       </button>
       <CarStockPrintDropdown
         :selected-count="selectedCars.size"
@@ -408,6 +423,32 @@ const emit = defineEmits([
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 .export-license-btn:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.delete-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background-color: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+.delete-btn:hover:not(:disabled) {
+  background-color: #dc2626;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+.delete-btn:disabled {
   background-color: #9ca3af;
   cursor: not-allowed;
   transform: none;

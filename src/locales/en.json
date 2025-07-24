@@ -311,7 +311,14 @@
     "sold": "Sold",
     "used": "Used",
     "invoice": "INVOICE",
-    "packing_list": "PACKING LIST"
+    "packing_list": "PACKING LIST",
+    "no_cars_selected_for_deletion": "No cars selected for deletion.",
+    "cannot_delete_selected_cars": "Some selected cars cannot be deleted. Only cars with no VIN, no client, no container ref, and no sell bill can be deleted.",
+    "confirm_delete_selected_cars": "Are you sure you want to delete the selected cars? This action cannot be undone.",
+    "deleted_selected_cars": "Selected cars have been deleted.",
+    "failed_to_delete_cars": "Failed to delete cars",
+    "hidden_cars": "Hidden Cars",
+    "hidden_car": "Hidden Car"
   },
   "containersRef": {
     "title": "Container References",
@@ -365,7 +372,9 @@
     "task": "Task",
     "color": "Color",
     "vin": "VIN",
-    "export_license": "Export License"
+    "export_license": "Export License",
+    "delete": "Delete",
+    "delete_selected_cars": "Delete selected cars"
   },
   "vinEditForm": {
     "edit_vin_number": "Edit VIN Number",
@@ -1109,6 +1118,9 @@
     "temporaryClientOption": "Temporary Client",
     "permanentClientOption": "Permanent Client",
     "excludeWholeSaleCars": "Exclude Whole Sale Cars",
+    "hiddenCars": "Hidden Cars",
+    "hiddenCarsOnly": "Hidden Cars Only",
+    "visibleCarsOnly": "Visible Cars Only",
     "failedToLoadPortsData": "Failed to load ports data"
   },
   "carPortsEditForm": {
