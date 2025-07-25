@@ -280,7 +280,7 @@ const fetchAssignedCars = async () => {
         SELECT 
           cs.id,
           cn.car_name,
-          c.color,
+          c.color as color_name,
           cs.vin,
           cont.name as container_name,
           lc.ref_container as container_ref,
