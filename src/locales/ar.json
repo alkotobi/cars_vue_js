@@ -1681,5 +1681,10 @@
     "clearFilters": "مسح المرشحات",
     "showingResults": "عرض {shown} من {total} دعوة",
     "valueMinusPayment": "القيمة - الدفع"
-  }
+  },
+  "maxUnpaidBillsErrorTitle": "❌ تم تجاوز الحد الأقصى للفواتير غير المدفوعة",
+  "maxUnpaidBillsErrorMessage": "لديك {count} فاتورة غير مدفوعة، وهو ما يتجاوز الحد الأقصى المسموح به وهو {max} فاتورة.",
+  "maxUnpaidBillsErrorDetails": "يرجى تسوية الفواتير غير المدفوعة قبل إنشاء فواتير جديدة. إذا كنت بحاجة إلى زيادة هذا الحد، يرجى التواصل مع المسؤول.",
+  "proceedAnyway": "المتابعة على أي حال",
+  "ok": "موافق"
 }

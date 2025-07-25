@@ -1799,5 +1799,10 @@
     "user": "Utilisateur",
     "actions": "Actions",
     "noLocation": "Aucun emplacement défini"
-  }
+  },
+  "maxUnpaidBillsErrorTitle": "❌ Limite maximale de factures impayées atteinte",
+  "maxUnpaidBillsErrorMessage": "Vous avez {count} facture(s) impayée(s), ce qui dépasse la limite maximale autorisée de {max} facture(s).",
+  "maxUnpaidBillsErrorDetails": "Veuillez régler vos factures impayées avant d'en créer de nouvelles. Contactez votre administrateur si vous souhaitez augmenter cette limite.",
+  "proceedAnyway": "Continuer quand même",
+  "ok": "OK"
 }

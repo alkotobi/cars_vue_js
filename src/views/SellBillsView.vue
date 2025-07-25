@@ -177,6 +177,16 @@ const handleMaxUnpaidBillsErrorClose = () => {
   showMaxUnpaidBillsError.value = false
 }
 
+const handleMaxUnpaidBillsErrorConfirm = () => {
+  if (isAdminUser()) {
+    console.log('Admin clicked Proceed Anyway')
+    showMaxUnpaidBillsError.value = false
+    proceedToAddDialog()
+  } else {
+    showMaxUnpaidBillsError.value = false
+  }
+}
+
 const handleEditBill = (bill) => {
   isProcessing.value = true
   editingBill.value = { ...bill }
@@ -299,6 +309,10 @@ const handleTaskCreated = () => {
   // Don't set selectedBillForTask to null to avoid prop validation errors
   // Optionally refresh data if needed
 }
+
+function isAdminUser() {
+  return user.value?.role_id === 1
+}
 </script>
 
 <template>
@@ -403,9 +417,10 @@ const handleTaskCreated = () => {
         })
       "
       :details="t('sellBillsView.maxUnpaidBillsErrorDetails')"
-      :confirm-text="t('sellBillsView.ok')"
-      :show-cancel="false"
-      @confirm="handleMaxUnpaidBillsErrorClose"
+      :confirm-text="isAdminUser() ? t('sellBillsView.proceedAnyway') : t('sellBillsView.ok')"
+      :show-cancel="isAdminUser()"
+      @confirm="handleMaxUnpaidBillsErrorConfirm"
+      @cancel="handleMaxUnpaidBillsErrorClose"
       @close="handleMaxUnpaidBillsErrorClose"
     />
   </div>

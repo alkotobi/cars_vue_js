@@ -1444,5 +1444,10 @@
     "clearFilters": "清除筛选",
     "showingResults": "显示 {shown} 个，共 {total} 个邀请",
     "valueMinusPayment": "价值 - 付款"
-  }
+  },
+  "maxUnpaidBillsErrorTitle": "❌ 超过未付款账单的最大限制",
+  "maxUnpaidBillsErrorMessage": "您有{count}个未付款账单，已超过允许的最大数量{max}。",
+  "maxUnpaidBillsErrorDetails": "请在创建新账单前结清现有未付款账单。如需提高此限制，请联系管理员。",
+  "proceedAnyway": "仍然继续",
+  "ok": "确定"
 }
