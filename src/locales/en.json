@@ -232,6 +232,7 @@
   },
   "cars": {
     "returnToDashboard": "Return to Dashboard",
+    "returnToCarsView": "Return to Cars View",
     "purchases": "Purchases",
     "sell": "Sell",
     "sells": "Sells",

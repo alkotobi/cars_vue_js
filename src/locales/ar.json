@@ -232,6 +232,7 @@
   },
   "cars": {
     "returnToDashboard": "العودة إلى لوحة التحكم",
+    "returnToCarsView": "العودة إلى عرض السيارات",
     "purchases": "المشتريات",
     "sell": "البيع",
     "sells": "المبيعات",

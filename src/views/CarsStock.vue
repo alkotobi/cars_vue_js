@@ -100,15 +100,28 @@ const navigateToWarehouses = async () => {
     isProcessing.value.warehouses = false
   }
 }
+
+const returnToCarsView = () => {
+  router.push('/cars')
+}
 </script>
 
 <template>
   <div class="cars-stock" :class="{ 'is-loading': isLoading }">
     <div class="header">
+      <div class="header-left">
+        <button @click="returnToCarsView" class="return-btn">
+          <i class="fas fa-arrow-left"></i>
+          {{ t('returnToCarsView') }}
+        </button>
+      </div>
       <h2>
         <i class="fas fa-warehouse"></i>
         {{ alertTitle || t('carsStockManagementTitle') }}
       </h2>
+      <div class="header-right">
+        <!-- Space for future buttons if needed -->
+      </div>
     </div>
 
     <div class="content">
@@ -172,6 +185,38 @@ const navigateToWarehouses = async () => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+}
+
+.return-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.2s;
+}
+
+.return-btn:hover {
+  background-color: #5a6268;
+}
+
+.return-btn i {
+  font-size: 0.8rem;
 }
 
 .header h2 {
