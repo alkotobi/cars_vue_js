@@ -1000,7 +1000,159 @@ const fetchCarsStock = async () => {
         if (adv.has_vin) {
           filteredCars = filteredCars.filter((car) => car.vin && car.vin !== '')
         }
-        // Alert-specific filtering (if needed, can be added here)
+        // Alert-specific filtering
+        if (props.alertType && props.alertDays) {
+          const alertDays = props.alertDays
+          const alertType = props.alertType
+          const currentDate = new Date()
+
+          console.log(`[Alert Filter] Type: ${alertType}, Days: ${alertDays}`)
+          console.log(`[Alert Filter] Before filtering: ${filteredCars.length} cars`)
+
+          if (alertType === 'unloaded') {
+            // Cars sold more than X days ago that haven't been loaded
+            let debugCount = 0
+            filteredCars = filteredCars.filter((car) => {
+              debugCount++
+              // Must have a sell date (is sold)
+              if (!car.date_sell) {
+                console.log(`[Debug] Car ${car.id} filtered out: no date_sell`)
+                return false
+              }
+              // Must not be loaded
+              if (car.date_loding) {
+                console.log(`[Debug] Car ${car.id} filtered out: has date_loding`)
+                return false
+              }
+              // Must not have documents sent
+              if (car.date_send_documents) {
+                console.log(`[Debug] Car ${car.id} filtered out: has date_send_documents`)
+                return false
+              }
+              // Must not be hidden
+              if (car.hidden == 1) {
+                console.log(`[Debug] Car ${car.id} filtered out: is hidden`)
+                return false
+              }
+              // Must not be batch
+              if (car.is_batch == 1) {
+                console.log(`[Debug] Car ${car.id} filtered out: is batch`)
+                return false
+              }
+              // Must not be batch sell
+              if (car.is_batch_sell == 1) {
+                console.log(`[Debug] Car ${car.id} filtered out: is batch sell`)
+                return false
+              }
+              // Must not have container ref
+              if (car.container_ref && car.container_ref !== '') {
+                console.log(`[Debug] Car ${car.id} filtered out: has container_ref`)
+                return false
+              }
+
+              const sellDate = new Date(car.date_sell)
+              const daysDiff = (currentDate - sellDate) / (1000 * 60 * 60 * 24)
+              if (daysDiff <= alertDays) {
+                console.log(
+                  `[Debug] Car ${car.id} filtered out: days diff ${daysDiff} <= ${alertDays}`,
+                )
+                return false
+              }
+
+              console.log(
+                `[Debug] Car ${car.id} passed all filters: days diff ${daysDiff} > ${alertDays}`,
+              )
+              return true
+            })
+
+            console.log(`[Alert Filter] After unloaded filtering: ${filteredCars.length} cars`)
+          } else if (alertType === 'not_arrived') {
+            // Cars purchased more than X days ago that haven't arrived at port
+            filteredCars = filteredCars.filter((car) => {
+              // Must not be in warehouse
+              if (car.in_wharhouse_date) return false
+              // Must not have documents sent
+              if (car.date_send_documents) return false
+              // Must not be hidden
+              if (car.hidden == 1) return false
+              // Must not be batch
+              if (car.is_batch == 1) return false
+              // Must not have container ref
+              if (car.container_ref && car.container_ref !== '') return false
+
+              const buyDate = new Date(car.date_buy)
+              const daysDiff = (currentDate - buyDate) / (1000 * 60 * 60 * 24)
+              return daysDiff > alertDays
+            })
+
+            console.log(`[Alert Filter] After not_arrived filtering: ${filteredCars.length} cars`)
+          } else if (alertType === 'no_licence') {
+            // Cars purchased more than X days ago without export license
+            filteredCars = filteredCars.filter((car) => {
+              // Must not have export license
+              if (car.export_lisence_ref && car.export_lisence_ref !== '') return false
+              // Must not have documents sent
+              if (car.date_send_documents) return false
+              // Must not be hidden
+              if (car.hidden == 1) return false
+              // Must not be batch
+              if (car.is_batch == 1) return false
+              // Must not have container ref
+              if (car.container_ref && car.container_ref !== '') return false
+
+              const buyDate = new Date(car.date_buy)
+              const daysDiff = (currentDate - buyDate) / (1000 * 60 * 60 * 24)
+              return daysDiff > alertDays
+            })
+
+            console.log(`[Alert Filter] After no_licence filtering: ${filteredCars.length} cars`)
+          } else if (alertType === 'no_docs_sent') {
+            // Cars sold more than X days ago without documents sent
+            filteredCars = filteredCars.filter((car) => {
+              // Must have a sell bill (INNER JOIN equivalent)
+              if (!car.date_sell) {
+                console.log(`[Debug] Car ${car.id} filtered out: no sell bill (no date_sell)`)
+                return false
+              }
+              // Must not have documents sent
+              if (car.date_send_documents) {
+                console.log(`[Debug] Car ${car.id} filtered out: has date_send_documents`)
+                return false
+              }
+              // Must not be hidden
+              if (car.hidden == 1) {
+                console.log(`[Debug] Car ${car.id} filtered out: is hidden`)
+                return false
+              }
+              // Must not be batch
+              if (car.is_batch == 1) {
+                console.log(`[Debug] Car ${car.id} filtered out: is batch`)
+                return false
+              }
+              // Must not be batch sell
+              if (car.is_batch_sell == 1) {
+                console.log(`[Debug] Car ${car.id} filtered out: is batch sell`)
+                return false
+              }
+
+              const sellDate = new Date(car.date_sell)
+              const daysDiff = (currentDate - sellDate) / (1000 * 60 * 60 * 24)
+              if (daysDiff <= alertDays) {
+                console.log(
+                  `[Debug] Car ${car.id} filtered out: days diff ${daysDiff} <= ${alertDays}`,
+                )
+                return false
+              }
+
+              console.log(
+                `[Debug] Car ${car.id} passed all filters: days diff ${daysDiff} > ${alertDays}`,
+              )
+              return true
+            })
+
+            console.log(`[Alert Filter] After no_docs_sent filtering: ${filteredCars.length} cars`)
+          }
+        }
       }
     }
 
@@ -1022,6 +1174,17 @@ const fetchCarsStock = async () => {
 watch(
   () => props.clientId,
   (newClientId) => {
+    // Only apply filtering if we have data loaded
+    if (allCars.value && allCars.value.length > 0) {
+      fetchCarsStock()
+    }
+  },
+)
+
+// Add watchers for alertType and alertDays
+watch(
+  () => [props.alertType, props.alertDays],
+  () => {
     // Only apply filtering if we have data loaded
     if (allCars.value && allCars.value.length > 0) {
       fetchCarsStock()
@@ -1548,6 +1711,7 @@ const loadInitialCarsData = async () => {
           w.warhouse_name as warehouse_name,
           bb.bill_ref as buy_bill_ref,
           sb.bill_ref as sell_bill_ref,
+          sb.is_batch_sell,
           cs.is_used_car,
           cs.is_big_car,
           c.id_no as client_id_no,
