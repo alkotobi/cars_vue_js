@@ -873,21 +873,21 @@ const applyFiltersAndSorting = () => {
   // Apply shipping line filter
   if (filters.value.shippingLine) {
     filteredRecords = filteredRecords.filter(
-      (record) => record.id_shipping_line == filters.value.shippingLine,
+      (record) => record.shipping_line_name === filters.value.shippingLine,
     )
   }
 
   // Apply loading port filter
   if (filters.value.loadingPort) {
     filteredRecords = filteredRecords.filter(
-      (record) => record.id_loading_port == filters.value.loadingPort,
+      (record) => record.loading_port_name === filters.value.loadingPort,
     )
   }
 
   // Apply discharge port filter
   if (filters.value.dischargePort) {
     filteredRecords = filteredRecords.filter(
-      (record) => record.id_discharge_port == filters.value.dischargePort,
+      (record) => record.discharge_port_name === filters.value.dischargePort,
     )
   }
 
@@ -937,6 +937,10 @@ const applyFiltersAndSorting = () => {
   // Show all filtered records (removed the 5-record limit)
   loadingRecords.value = filteredRecords
   totalRecords.value = allLoadingRecords.value.length
+}
+
+const handleFilterChange = () => {
+  applyFiltersAndSorting()
 }
 
 const applyFilters = () => {
