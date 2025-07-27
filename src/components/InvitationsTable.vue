@@ -410,8 +410,10 @@ const fetchInvitations = async () => {
   error.value = null
 
   try {
-    const response = await fetch('/api/invitations.php')
-    const result = await response.json()
+    const result = await callApi({
+      query: 'SELECT * FROM merhab_invitations.invitations ORDER BY dateInv DESC',
+      params: [],
+    })
 
     if (result.success) {
       invitations.value = result.data
@@ -430,25 +432,58 @@ const saveInvitation = async () => {
   saving.value = true
 
   try {
-    const url = '/api/invitations.php'
-    const method = showEditDialog.value ? 'PUT' : 'POST'
-    const body = showEditDialog.value ? { ...form.value, id: editingId.value } : form.value
+    if (showEditDialog.value) {
+      // Update existing invitation
+      const result = await callApi({
+        query: `
+          UPDATE merhab_invitations.invitations 
+          SET name = ?, pass = ?, dateInv = ?, value = ?, payment = ?, rate = ?, rem = ?, balance = ?
+          WHERE id = ?
+        `,
+        params: [
+          form.value.name,
+          form.value.pass,
+          form.value.dateInv,
+          form.value.value,
+          form.value.payment,
+          form.value.rate,
+          form.value.rem,
+          form.value.balance,
+          editingId.value,
+        ],
+      })
 
-    const response = await fetch(url, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    })
-
-    const result = await response.json()
-
-    if (result.success) {
-      await fetchInvitations()
-      closeDialog()
+      if (result.success) {
+        await fetchInvitations()
+        closeDialog()
+      } else {
+        alert(result.error || t('invitations.saveError'))
+      }
     } else {
-      alert(result.error || t('invitations.saveError'))
+      // Insert new invitation
+      const result = await callApi({
+        query: `
+          INSERT INTO merhab_invitations.invitations (name, pass, dateInv, value, payment, rate, rem, balance)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+        params: [
+          form.value.name,
+          form.value.pass,
+          form.value.dateInv,
+          form.value.value,
+          form.value.payment,
+          form.value.rate,
+          form.value.rem,
+          form.value.balance,
+        ],
+      })
+
+      if (result.success) {
+        await fetchInvitations()
+        closeDialog()
+      } else {
+        alert(result.error || t('invitations.saveError'))
+      }
     }
   } catch (err) {
     alert(t('invitations.saveError'))
@@ -471,11 +506,10 @@ const deleteInvitation = async (id) => {
   }
 
   try {
-    const response = await fetch(`/api/invitations.php?id=${id}`, {
-      method: 'DELETE',
+    const result = await callApi({
+      query: 'DELETE FROM merhab_invitations.invitations WHERE id = ?',
+      params: [id],
     })
-
-    const result = await response.json()
 
     if (result.success) {
       await fetchInvitations()
@@ -881,4 +915,3 @@ tr:hover {
   }
 }
 </style>
- 
