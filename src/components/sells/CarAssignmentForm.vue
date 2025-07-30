@@ -325,6 +325,27 @@ const assignCar = async () => {
     const billRef = billResult.data[0].bill_ref
     const currentDate = new Date().toISOString().split('T')[0]
 
+    // Check if car is still available for assignment
+    const checkResult = await callApi({
+      query: `
+        SELECT id, id_client
+        FROM cars_stock
+        WHERE id = ?
+      `,
+      params: [props.carId],
+    })
+
+    if (!checkResult.success || !checkResult.data.length) {
+      error.value = 'Car not found'
+      return
+    }
+
+    if (checkResult.data[0].id_client !== null) {
+      error.value =
+        'This car has already been assigned to another client. Please refresh and try again.'
+      return
+    }
+
     const result = await callApi({
       query: `
         UPDATE cars_stock 
@@ -339,7 +360,7 @@ const assignCar = async () => {
             notes = ?,
             is_tmp_client = ?,
             date_assigned = NOW()
-        WHERE id = ?
+        WHERE id = ? AND id_client IS NULL
       `,
       params: [
         props.sellBillId,
@@ -357,8 +378,13 @@ const assignCar = async () => {
     })
 
     if (result.success) {
-      emit('assign-success')
-      resetForm()
+      if (result.affectedRows === 0) {
+        error.value =
+          'This car has already been assigned to another client. Please refresh and try again.'
+      } else {
+        emit('assign-success')
+        resetForm()
+      }
     } else {
       error.value = result.error || 'Failed to assign car'
     }

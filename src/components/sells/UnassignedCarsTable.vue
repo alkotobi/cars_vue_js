@@ -283,6 +283,28 @@ const assignCarToBatchSell = async (carId) => {
     const brokerId = billResult.data[0].id_broker
     const currentDate = new Date().toISOString().split('T')[0]
 
+    // Check if car is still available for assignment
+    const checkResult = await callApi({
+      query: `
+        SELECT id, id_client
+        FROM cars_stock
+        WHERE id = ?
+      `,
+      params: [carId],
+    })
+
+    if (!checkResult.success || !checkResult.data.length) {
+      error.value = 'Car not found'
+      return
+    }
+
+    if (checkResult.data[0].id_client !== null) {
+      error.value =
+        'This car has already been assigned to another client. Please refresh and try again.'
+      await fetchUnassignedCars()
+      return
+    }
+
     const result = await callApi({
       query: `
         UPDATE cars_stock
@@ -295,7 +317,7 @@ const assignCarToBatchSell = async (carId) => {
             date_sell = ?,
             id_sell_pi = ?,
             date_assigned = NOW()
-        WHERE id = ?
+        WHERE id = ? AND id_client IS NULL
       `,
       params: [
         selectedSellBillId.value,
@@ -311,8 +333,14 @@ const assignCarToBatchSell = async (carId) => {
     })
 
     if (result.success) {
-      await fetchUnassignedCars()
-      emit('refresh')
+      if (result.affectedRows === 0) {
+        error.value =
+          'This car has already been assigned to another client. Please refresh and try again.'
+        await fetchUnassignedCars()
+      } else {
+        await fetchUnassignedCars()
+        emit('refresh')
+      }
     } else {
       error.value = result.error || t('sellBills.failed_to_assign_car')
     }
