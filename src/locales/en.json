@@ -1422,6 +1422,8 @@
     "all_discharge_ports": "All Discharge Ports",
     "date_from": "Date From",
     "date_to": "Date To",
+    "sold_date_from": "Sold Date From",
+    "sold_date_to": "Sold Date To",
     "no_loading_records_found": "No loading records found",
     "add_first_record": "Add First Record",
     "operation_date": "Operation Date",

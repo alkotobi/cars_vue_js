@@ -126,6 +126,22 @@
           </label>
           <input type="date" v-model="filters.dateTo" @change="handleFilterChange" />
         </div>
+
+        <div class="filter-group">
+          <label>
+            <i class="fas fa-dollar-sign"></i>
+            {{ t('loading.sold_date_from') }}:
+          </label>
+          <input type="date" v-model="filters.soldDateFrom" @change="handleFilterChange" />
+        </div>
+
+        <div class="filter-group">
+          <label>
+            <i class="fas fa-dollar-sign"></i>
+            {{ t('loading.sold_date_to') }}:
+          </label>
+          <input type="date" v-model="filters.soldDateTo" @change="handleFilterChange" />
+        </div>
       </div>
     </div>
 
@@ -306,6 +322,8 @@
     <ContainersTable
       :selectedLoadingId="selectedLoadingId"
       :selectedContainerId="selectedLoadedContainerId"
+      :soldDateFrom="filters.soldDateFrom"
+      :soldDateTo="filters.soldDateTo"
       @container-click="handleContainerClick"
       @refresh-unassigned-cars="handleRefreshUnassignedCars"
       @container-created="handleContainerCreated"
@@ -314,6 +332,8 @@
     <LoadingAssignedCars
       ref="assignedCarsRef"
       :selectedLoadedContainerId="selectedLoadedContainerId"
+      :soldDateFrom="filters.soldDateFrom"
+      :soldDateTo="filters.soldDateTo"
       @car-unassigned="handleCarUnassigned"
     />
     <UnassignedCars
@@ -790,6 +810,8 @@ const filters = ref({
   dischargePort: '',
   dateFrom: '',
   dateTo: '',
+  soldDateFrom: '',
+  soldDateTo: '',
 })
 
 const sortBy = ref('id')
@@ -815,33 +837,78 @@ const fetchLoadingRecords = async () => {
   error.value = null
 
   try {
-    const result = await callApi({
-      query: `
-        SELECT 
-          l.id,
-          l.date_loading,
-          l.id_shipping_line,
-          l.freight,
-          l.id_loading_port,
-          l.id_discharge_port,
-          l.EDD,
-          l.date_loaded,
-          l.note,
-          sl.name as shipping_line_name,
-          lp.loading_port as loading_port_name,
-          dp.discharge_port as discharge_port_name
-        FROM loading l
-        LEFT JOIN shipping_lines sl ON l.id_shipping_line = sl.id
-        LEFT JOIN loading_ports lp ON l.id_loading_port = lp.id
-        LEFT JOIN discharge_ports dp ON l.id_discharge_port = dp.id
-        ORDER BY l.id DESC, l.date_loading DESC
-      `,
-      params: [],
+    let query = `
+      SELECT 
+        l.id,
+        l.date_loading,
+        l.id_shipping_line,
+        l.freight,
+        l.id_loading_port,
+        l.id_discharge_port,
+        l.EDD,
+        l.date_loaded,
+        l.note,
+        sl.name as shipping_line_name,
+        lp.loading_port as loading_port_name,
+        dp.discharge_port as discharge_port_name
+      FROM loading l
+      LEFT JOIN shipping_lines sl ON l.id_shipping_line = sl.id
+      LEFT JOIN loading_ports lp ON l.id_loading_port = lp.id
+      LEFT JOIN discharge_ports dp ON l.id_discharge_port = dp.id
+    `
+
+    let params = []
+
+    // Add sold date filter if specified
+    if (filters.value.soldDateFrom || filters.value.soldDateTo) {
+      query += `
+        INNER JOIN loaded_containers lc ON l.id = lc.id_loading
+        INNER JOIN cars_stock cs ON lc.id = cs.id_loaded_container
+        INNER JOIN sell_bill sb ON cs.id_sell = sb.id
+        WHERE sb.date_sell IS NOT NULL
+      `
+
+      if (filters.value.soldDateFrom) {
+        query += ` AND DATE(sb.date_sell) >= ?`
+        params.push(filters.value.soldDateFrom)
+      }
+
+      if (filters.value.soldDateTo) {
+        query += ` AND DATE(sb.date_sell) <= ?`
+        params.push(filters.value.soldDateTo)
+      }
+
+      query += ` GROUP BY l.id`
+    }
+
+    query += ` ORDER BY l.id DESC, l.date_loading DESC`
+
+    console.log('Loading Records Query:', query)
+    console.log('Loading Records Params:', params)
+    console.log('Sold Date Filters:', {
+      from: filters.value.soldDateFrom,
+      to: filters.value.soldDateTo,
     })
+    console.log('All Filters Object:', filters.value)
+
+    const result = await callApi({
+      query,
+      params,
+    })
+
+    console.log('Loading Records Result:', result)
 
     if (result.success) {
       allLoadingRecords.value = result.data || []
-      applyFiltersAndSorting()
+      console.log('All Loading Records:', allLoadingRecords.value.length)
+
+      // Only apply client-side filtering if no sold date filters are active
+      if (!filters.value.soldDateFrom && !filters.value.soldDateTo) {
+        applyFiltersAndSorting()
+      } else {
+        // For sold date filters, just apply sorting without additional filtering
+        applySortingOnly()
+      }
     } else {
       error.value = result.error || 'Failed to fetch loading records'
     }
@@ -931,7 +998,9 @@ const applyFiltersAndSorting = () => {
     filters.value.loadingPort ||
     filters.value.dischargePort ||
     filters.value.dateFrom ||
-    filters.value.dateTo
+    filters.value.dateTo ||
+    filters.value.soldDateFrom ||
+    filters.value.soldDateTo
   )
 
   // Show all filtered records (removed the 5-record limit)
@@ -940,7 +1009,13 @@ const applyFiltersAndSorting = () => {
 }
 
 const handleFilterChange = () => {
-  applyFiltersAndSorting()
+  // If sold date filters changed, refetch data from database
+  if (filters.value.soldDateFrom || filters.value.soldDateTo) {
+    fetchLoadingRecords()
+  } else {
+    // For other filters, apply client-side filtering
+    applyFiltersAndSorting()
+  }
 }
 
 const applyFilters = () => {
@@ -949,6 +1024,42 @@ const applyFilters = () => {
 
 const applySorting = () => {
   applyFiltersAndSorting()
+}
+
+const applySortingOnly = () => {
+  // Apply only sorting without filtering
+  let sortedRecords = [...allLoadingRecords.value]
+
+  // Apply sorting
+  sortedRecords.sort((a, b) => {
+    let aValue = a[sortBy.value]
+    let bValue = b[sortBy.value]
+
+    // Handle date comparison
+    if (sortBy.value === 'date_loading') {
+      aValue = aValue ? new Date(aValue).getTime() : 0
+      bValue = bValue ? new Date(bValue).getTime() : 0
+    }
+
+    // Handle numeric fields
+    if (['id', 'freight'].includes(sortBy.value)) {
+      aValue = Number(aValue) || 0
+      bValue = Number(bValue) || 0
+    }
+
+    // Handle null values
+    if (aValue === null || aValue === undefined) aValue = ''
+    if (bValue === null || bValue === undefined) bValue = ''
+
+    // Compare values based on direction
+    if (sortOrder.value === 'asc') {
+      return aValue > bValue ? 1 : -1
+    } else {
+      return aValue < bValue ? 1 : -1
+    }
+  })
+
+  loadingRecords.value = sortedRecords
 }
 
 const sortByColumn = (column) => {
@@ -960,7 +1071,13 @@ const sortByColumn = (column) => {
     sortBy.value = column
     sortOrder.value = 'asc'
   }
-  applyFiltersAndSorting()
+
+  // Apply appropriate sorting based on whether sold date filters are active
+  if (filters.value.soldDateFrom || filters.value.soldDateTo) {
+    applySortingOnly()
+  } else {
+    applyFiltersAndSorting()
+  }
 }
 
 const clearFilters = () => {
@@ -971,10 +1088,15 @@ const clearFilters = () => {
     dischargePort: '',
     dateFrom: '',
     dateTo: '',
+    soldDateFrom: '',
+    soldDateTo: '',
   }
   sortBy.value = 'id'
   sortOrder.value = 'desc'
   applyFiltersAndSorting()
+
+  // Refresh data to reset child tables
+  fetchLoadingRecords()
 }
 
 const toggleFilters = () => {
@@ -1528,6 +1650,19 @@ watch(
         return
       }
     }
+  },
+  { deep: true },
+)
+
+// Watch for changes in filters object
+watch(
+  () => filters.value,
+  (newFilters) => {
+    console.log('Filters changed:', newFilters)
+    console.log('Sold date filters changed:', {
+      from: newFilters.soldDateFrom,
+      to: newFilters.soldDateTo,
+    })
   },
   { deep: true },
 )

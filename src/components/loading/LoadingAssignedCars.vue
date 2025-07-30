@@ -212,6 +212,14 @@ const props = defineProps({
     type: Number,
     default: null,
   },
+  soldDateFrom: {
+    type: String,
+    default: '',
+  },
+  soldDateTo: {
+    type: String,
+    default: '',
+  },
 })
 
 const emit = defineEmits(['car-unassigned'])
@@ -275,43 +283,87 @@ const fetchAssignedCars = async () => {
   error.value = null
 
   try {
-    const result = await callApi({
-      query: `
-        SELECT 
-          cs.id,
-          cn.car_name,
-          c.color as color_name,
-          cs.vin,
-          cont.name as container_name,
-          lc.ref_container as container_ref,
-          cs.price_cell,
-          cs.id_sell,
-          cs.date_sell,
-          cs.id_loaded_container,
-          cs.id_client,
-          cl.name as client_name,
-          cl.id_copy_path,
-          lc.date_on_board,
-          sb.id as sell_bill_id,
-          sb.date_sell as sell_bill_date,
-          sb.bill_ref as sell_bill_ref,
-          cs.date_assigned
-        FROM cars_stock cs
-        LEFT JOIN buy_details bd ON cs.id_buy_details = bd.id
-        LEFT JOIN cars_names cn ON bd.id_car_name = cn.id
-        LEFT JOIN colors c ON cs.id_color = c.id
-        LEFT JOIN loaded_containers lc ON cs.id_loaded_container = lc.id
-        LEFT JOIN containers cont ON lc.id_container = cont.id
-        LEFT JOIN clients cl ON cs.id_client = cl.id
-        LEFT JOIN sell_bill sb ON cs.id_sell = sb.id
-        WHERE cs.id_loaded_container = ?
-        ORDER BY cs.id DESC
-      `,
-      params: [props.selectedLoadedContainerId],
+    let query = `
+      SELECT 
+        cs.id,
+        cn.car_name,
+        c.color as color_name,
+        cs.vin,
+        cont.name as container_name,
+        lc.ref_container as container_ref,
+        cs.price_cell,
+        cs.id_sell,
+        cs.date_sell,
+        cs.id_loaded_container,
+        cs.id_client,
+        cl.name as client_name,
+        cl.id_copy_path,
+        lc.date_on_board,
+        sb.id as sell_bill_id,
+        sb.date_sell as sell_bill_date,
+        sb.bill_ref as sell_bill_ref,
+        cs.date_assigned
+      FROM cars_stock cs
+      LEFT JOIN buy_details bd ON cs.id_buy_details = bd.id
+      LEFT JOIN cars_names cn ON bd.id_car_name = cn.id
+      LEFT JOIN colors c ON cs.id_color = c.id
+      LEFT JOIN loaded_containers lc ON cs.id_loaded_container = lc.id
+      LEFT JOIN containers cont ON lc.id_container = cont.id
+      LEFT JOIN clients cl ON cs.id_client = cl.id
+      LEFT JOIN sell_bill sb ON cs.id_sell = sb.id
+      WHERE cs.id_loaded_container = ?
+    `
+
+    let params = [props.selectedLoadedContainerId]
+
+    // Add sold date filter if specified
+    if (props.soldDateFrom || props.soldDateTo) {
+      // Show only cars that were sold within the date range
+      query += ` AND cs.id_sell IS NOT NULL`
+      query += ` AND sb.date_sell IS NOT NULL`
+
+      if (props.soldDateFrom) {
+        query += ` AND DATE(sb.date_sell) >= ?`
+        params.push(props.soldDateFrom)
+      }
+
+      if (props.soldDateTo) {
+        query += ` AND DATE(sb.date_sell) <= ?`
+        params.push(props.soldDateTo)
+      }
+    }
+
+    query += ` ORDER BY cs.id DESC`
+
+    console.log('Assigned Cars Query:', query)
+    console.log('Assigned Cars Params:', params)
+    console.log('Sold Date Filters for Assigned Cars:', {
+      from: props.soldDateFrom,
+      to: props.soldDateTo,
     })
+
+    const result = await callApi({
+      query,
+      params,
+    })
+
+    console.log('Assigned cars query result:', result)
 
     if (result.success) {
       assignedCars.value = result.data || []
+      console.log('Assigned cars data:', assignedCars.value)
+      // Debug: Show actual dates in database
+      if (assignedCars.value.length > 0) {
+        console.log('=== CAR DATES DEBUG ===')
+        assignedCars.value.forEach((car, index) => {
+          console.log(`Car ${index + 1} (ID: ${car.id}):`)
+          console.log(`  - date_sell: "${car.date_sell}"`)
+          console.log(`  - sell_bill_date: "${car.sell_bill_date}"`)
+          console.log(`  - formatted: "${formatDate(car.date_sell)}"`)
+          console.log('---')
+        })
+        console.log('=== END DEBUG ===')
+      }
     } else {
       error.value = result.error || t('loading.failed_to_load_assigned_cars')
     }
@@ -410,6 +462,16 @@ watch(
     }
   },
   { immediate: true },
+)
+
+// Watch for changes in sold date filters
+watch(
+  () => [props.soldDateFrom, props.soldDateTo],
+  () => {
+    if (props.selectedLoadedContainerId) {
+      fetchAssignedCars()
+    }
+  },
 )
 
 // Load user data on component mount

@@ -581,6 +581,14 @@ const props = defineProps({
     type: [Number, String],
     default: null,
   },
+  soldDateFrom: {
+    type: String,
+    default: '',
+  },
+  soldDateTo: {
+    type: String,
+    default: '',
+  },
 })
 
 const emit = defineEmits(['container-click', 'refresh-unassigned-cars', 'container-created'])
@@ -667,30 +675,62 @@ const fetchContainers = async () => {
       orderByClause = `ORDER BY ${sortField} ${sortOrder.value.toUpperCase()}`
     }
 
+    let query = `
+      SELECT 
+        lc.id,
+        lc.id_container,
+        c.name as container_name,
+        lc.ref_container,
+        lc.so,
+        lc.date_departed,
+        lc.date_loaded,
+        lc.date_on_board,
+        lc.is_released,
+        lc.note,
+        COUNT(cs.id) as assigned_cars_count
+      FROM loaded_containers lc
+      LEFT JOIN containers c ON lc.id_container = c.id
+      LEFT JOIN cars_stock cs ON lc.id = cs.id_loaded_container
+      WHERE lc.id_loading = ?
+    `
+
+    let params = [props.selectedLoadingId]
+
+    // Add sold date filter if specified
+    if (props.soldDateFrom || props.soldDateTo) {
+      query += ` AND cs.id_sell IS NOT NULL`
+      query += ` AND EXISTS (
+        SELECT 1 FROM sell_bill sb 
+        WHERE sb.id = cs.id_sell 
+        AND sb.date_sell IS NOT NULL
+      `
+
+      if (props.soldDateFrom) {
+        query += ` AND DATE(sb.date_sell) >= ?`
+        params.push(props.soldDateFrom)
+      }
+
+      if (props.soldDateTo) {
+        query += ` AND DATE(sb.date_sell) <= ?`
+        params.push(props.soldDateTo)
+      }
+
+      query += ` )`
+    }
+
+    query += ` GROUP BY lc.id ${orderByClause}`
+
     const result = await callApi({
-      query: `
-        SELECT 
-          lc.id,
-          lc.id_container,
-          c.name as container_name,
-          lc.ref_container,
-          lc.so,
-          lc.date_departed,
-          lc.date_loaded,
-          lc.date_on_board,
-          lc.is_released,
-          lc.note,
-          COUNT(cs.id) as assigned_cars_count
-        FROM loaded_containers lc
-        LEFT JOIN containers c ON lc.id_container = c.id
-        LEFT JOIN cars_stock cs ON lc.id = cs.id_loaded_container
-        WHERE lc.id_loading = ?
-        GROUP BY lc.id
-        ${orderByClause}
-      `,
-      params: [props.selectedLoadingId],
+      query,
+      params,
     })
 
+    console.log('Containers Query:', query)
+    console.log('Containers Params:', params)
+    console.log('Sold Date Filters for Containers:', {
+      from: props.soldDateFrom,
+      to: props.soldDateTo,
+    })
     console.log('Containers query result:', result)
 
     if (result.success) {
@@ -1181,6 +1221,16 @@ watch(
     }
   },
   { immediate: true },
+)
+
+// Watch for changes in sold date filters
+watch(
+  () => [props.soldDateFrom, props.soldDateTo],
+  () => {
+    if (props.selectedLoadingId) {
+      fetchContainers()
+    }
+  },
 )
 
 // Fetch available containers when component mounts
