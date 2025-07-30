@@ -69,6 +69,8 @@ const props = defineProps({
         price_max: '',
         loading_date_from: '',
         loading_date_to: '',
+        sold_date_from: '',
+        sold_date_to: '',
         status: '',
         client: '',
         client_id_no: '',
@@ -892,6 +894,16 @@ const fetchCarsStock = async () => {
             (car) => car.date_loding && car.date_loding <= adv.loading_date_to.trim(),
           )
         }
+        if (adv.sold_date_from && adv.sold_date_from.trim() !== '') {
+          filteredCars = filteredCars.filter(
+            (car) => car.sell_bill_date && car.sell_bill_date >= adv.sold_date_from.trim(),
+          )
+        }
+        if (adv.sold_date_to && adv.sold_date_to.trim() !== '') {
+          filteredCars = filteredCars.filter(
+            (car) => car.sell_bill_date && car.sell_bill_date <= adv.sold_date_to.trim(),
+          )
+        }
         if (adv.status && adv.status.trim() !== '') {
           if (adv.status === 'available') {
             filteredCars = filteredCars.filter((car) => !car.id_sell)
@@ -905,6 +917,11 @@ const fetchCarsStock = async () => {
         if (adv.client_id_no && adv.client_id_no.trim() !== '') {
           filteredCars = filteredCars.filter(
             (car) => car.client_id_no && car.client_id_no.includes(adv.client_id_no.trim()),
+          )
+        }
+        if (adv.has_container_ref) {
+          filteredCars = filteredCars.filter(
+            (car) => car.container_ref && car.container_ref.trim() !== '',
           )
         }
         if (adv.warehouse && adv.warehouse.trim() !== '') {
@@ -1677,6 +1694,7 @@ const loadInitialCarsData = async () => {
           cs.price_cell,
           cs.date_loding,
           sb.date_sell,
+          sb.date_sell as sell_bill_date,
           cs.notes,
           cs.freight,
           cs.path_documents,

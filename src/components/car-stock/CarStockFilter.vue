@@ -41,6 +41,9 @@ const useAndOperator = ref(true) // Default to AND operator
 // Advanced filter state
 const showAdvancedFilter = ref(false)
 
+// More filters state
+const showMoreFilters = ref(false)
+
 // Watch for changes in showAdvancedFilter and handle express filter accordingly
 watch(showAdvancedFilter, (newValue) => {
   if (newValue) {
@@ -66,9 +69,12 @@ const advancedFilters = ref({
   price_max: '',
   loading_date_from: '',
   loading_date_to: '',
+  sold_date_from: '',
+  sold_date_to: '',
   status: '',
   client: '',
   client_id_no: '',
+  has_container_ref: false,
   warehouse: '',
   container_ref: '',
   export_lisence_ref: '',
@@ -210,6 +216,11 @@ const resetFilters = async () => {
 // Toggle advanced filter visibility
 const toggleAdvancedFilter = () => {
   showAdvancedFilter.value = !showAdvancedFilter.value
+}
+
+// Toggle more filters visibility
+const toggleMoreFilters = () => {
+  showMoreFilters.value = !showMoreFilters.value
 }
 
 // Fetch reference data on component mount
@@ -355,108 +366,30 @@ fetchReferenceData()
           />
         </div>
 
-        <!-- Loading Port Filter -->
-        <div class="filter-field">
-          <label for="loading-port-filter">
-            <i class="fas fa-ship"></i>
-            {{ t('carStockFilter.loadingPort') }}
-          </label>
-          <select
-            id="loading-port-filter"
-            v-model="advancedFilters.loading_port"
-            :disabled="isProcessing.advanced"
-          >
-            <option value="">{{ t('carStockFilter.allLoadingPorts') }}</option>
-            <option v-for="port in loadingPorts" :key="port.id" :value="port.loading_port">
-              {{ port.loading_port }}
-            </option>
-          </select>
-        </div>
-
-        <!-- Discharge Port Filter -->
-        <div class="filter-field">
-          <label for="discharge-port-filter">
-            <i class="fas fa-anchor"></i>
-            {{ t('carStockFilter.dischargePort') }}
-          </label>
-          <select
-            id="discharge-port-filter"
-            v-model="advancedFilters.discharge_port"
-            :disabled="isProcessing.advanced"
-          >
-            <option value="">{{ t('carStockFilter.allDischargePorts') }}</option>
-            <option v-for="port in dischargePorts" :key="port.id" :value="port.discharge_port">
-              {{ port.discharge_port }}
-            </option>
-          </select>
-        </div>
-
-        <!-- Freight Range Filter -->
-        <div class="filter-field range-field">
+        <!-- Sold Date Range Filter -->
+        <div class="filter-field range-field sold-date-group">
           <label>
             <i class="fas fa-dollar-sign"></i>
-            {{ t('carStockFilter.freightRange') }}
-          </label>
-          <div class="range-inputs">
-            <input
-              type="number"
-              v-model="advancedFilters.freight_min"
-              :placeholder="t('carStockFilter.min')"
-              :disabled="isProcessing.advanced"
-            />
-            <input
-              type="number"
-              v-model="advancedFilters.freight_max"
-              :placeholder="t('carStockFilter.max')"
-              :disabled="isProcessing.advanced"
-            />
-          </div>
-        </div>
-
-        <!-- Price Range Filter -->
-        <div class="filter-field range-field">
-          <label>
-            <i class="fas fa-tags"></i>
-            {{ t('carStockFilter.priceRange') }}
-          </label>
-          <div class="range-inputs">
-            <input
-              type="number"
-              v-model="advancedFilters.price_min"
-              :placeholder="t('carStockFilter.min')"
-              :disabled="isProcessing.advanced"
-            />
-            <input
-              type="number"
-              v-model="advancedFilters.price_max"
-              :placeholder="t('carStockFilter.max')"
-              :disabled="isProcessing.advanced"
-            />
-          </div>
-        </div>
-
-        <!-- Loading Date Range Filter -->
-        <div class="filter-field range-field">
-          <label>
-            <i class="fas fa-calendar-alt"></i>
-            {{ t('carStockFilter.loadingDateRange') }}
+            {{ t('carStockFilter.soldDateRange') }}
           </label>
           <div class="range-inputs">
             <input
               type="date"
-              v-model="advancedFilters.loading_date_from"
+              v-model="advancedFilters.sold_date_from"
               :disabled="isProcessing.advanced"
+              placeholder="From"
             />
             <input
               type="date"
-              v-model="advancedFilters.loading_date_to"
+              v-model="advancedFilters.sold_date_to"
               :disabled="isProcessing.advanced"
+              placeholder="To"
             />
           </div>
         </div>
 
         <!-- Status Filter -->
-        <div class="filter-field">
+        <div class="filter-field status-group">
           <label for="status-filter">
             <i class="fas fa-info-circle"></i>
             {{ t('carStockFilter.status') }}
@@ -502,41 +435,34 @@ fetchReferenceData()
           />
         </div>
 
-        <!-- Warehouse Filter -->
-        <div class="filter-field">
-          <label for="warehouse-filter">
-            <i class="fas fa-warehouse"></i>
-            {{ t('carStockFilter.warehouse') }}
-          </label>
-          <select
-            id="warehouse-filter"
-            v-model="advancedFilters.warehouse"
-            :disabled="isProcessing.advanced"
-          >
-            <option value="">{{ t('carStockFilter.allWarehouses') }}</option>
-            <option
-              v-for="warehouse in warehouses"
-              :key="warehouse.id"
-              :value="warehouse.warhouse_name"
-            >
-              {{ warehouse.warhouse_name }}
-            </option>
-          </select>
-        </div>
-
         <!-- Container Reference Filter -->
-        <div class="filter-field">
+        <div class="filter-field combined-container-filter">
           <label for="container-ref-filter">
             <i class="fas fa-box"></i>
             {{ t('carStockFilter.containerRef') }}
           </label>
-          <input
-            id="container-ref-filter"
-            type="text"
-            v-model="advancedFilters.container_ref"
-            :placeholder="t('carStockFilter.containerReference')"
-            :disabled="isProcessing.advanced"
-          />
+          <div class="container-filter-inputs">
+            <input
+              id="container-ref-filter"
+              type="text"
+              v-model="advancedFilters.container_ref"
+              :placeholder="t('carStockFilter.containerReference')"
+              :disabled="isProcessing.advanced"
+              class="container-text-input"
+            />
+            <div class="container-checkbox-wrapper">
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  v-model="advancedFilters.has_container_ref"
+                  :disabled="isProcessing.advanced"
+                  class="checkbox-input"
+                />
+                <span class="checkbox-custom"></span>
+                <span class="checkbox-text">{{ t('carStockFilter.hasContainerRef') }}</span>
+              </label>
+            </div>
+          </div>
         </div>
 
         <!-- Export License Filter -->
@@ -700,6 +626,225 @@ fetchReferenceData()
             <option value="1">{{ t('carStockFilter.hiddenCarsOnly') }}</option>
             <option value="0">{{ t('carStockFilter.visibleCarsOnly') }}</option>
           </select>
+        </div>
+
+        <!-- More Filters Section -->
+        <div class="more-filters-section">
+          <div class="more-filters-toggle">
+            <button
+              @click="toggleMoreFilters"
+              class="more-filters-btn"
+              :class="{ expanded: showMoreFilters }"
+            >
+              <i class="fas fa-ellipsis-h"></i>
+              <span>{{
+                showMoreFilters ? t('carStockFilter.showLess') : t('carStockFilter.showMore')
+              }}</span>
+              <i class="fas fa-chevron-down" :class="{ rotated: showMoreFilters }"></i>
+            </button>
+          </div>
+
+          <div v-if="showMoreFilters" class="more-filters-content">
+            <div class="filter-grid">
+              <!-- Loading Port Filter -->
+              <div class="filter-field">
+                <label for="loading-port-filter">
+                  <i class="fas fa-ship"></i>
+                  {{ t('carStockFilter.loadingPort') }}
+                </label>
+                <select
+                  id="loading-port-filter"
+                  v-model="advancedFilters.loading_port"
+                  :disabled="isProcessing.advanced"
+                >
+                  <option value="">{{ t('carStockFilter.allLoadingPorts') }}</option>
+                  <option v-for="port in loadingPorts" :key="port.id" :value="port.loading_port">
+                    {{ port.loading_port }}
+                  </option>
+                </select>
+              </div>
+
+              <!-- Discharge Port Filter -->
+              <div class="filter-field">
+                <label for="discharge-port-filter">
+                  <i class="fas fa-anchor"></i>
+                  {{ t('carStockFilter.dischargePort') }}
+                </label>
+                <select
+                  id="discharge-port-filter"
+                  v-model="advancedFilters.discharge_port"
+                  :disabled="isProcessing.advanced"
+                >
+                  <option value="">{{ t('carStockFilter.allDischargePorts') }}</option>
+                  <option
+                    v-for="port in dischargePorts"
+                    :key="port.id"
+                    :value="port.discharge_port"
+                  >
+                    {{ port.discharge_port }}
+                  </option>
+                </select>
+              </div>
+
+              <!-- Freight Range Filter -->
+              <div class="filter-field range-field">
+                <label>
+                  <i class="fas fa-dollar-sign"></i>
+                  {{ t('carStockFilter.freightRange') }}
+                </label>
+                <div class="range-inputs">
+                  <input
+                    type="number"
+                    v-model="advancedFilters.freight_min"
+                    :placeholder="t('carStockFilter.min')"
+                    :disabled="isProcessing.advanced"
+                  />
+                  <input
+                    type="number"
+                    v-model="advancedFilters.freight_max"
+                    :placeholder="t('carStockFilter.max')"
+                    :disabled="isProcessing.advanced"
+                  />
+                </div>
+              </div>
+
+              <!-- Price Range Filter -->
+              <div class="filter-field range-field">
+                <label>
+                  <i class="fas fa-tags"></i>
+                  {{ t('carStockFilter.priceRange') }}
+                </label>
+                <div class="range-inputs">
+                  <input
+                    type="number"
+                    v-model="advancedFilters.price_min"
+                    :placeholder="t('carStockFilter.min')"
+                    :disabled="isProcessing.advanced"
+                  />
+                  <input
+                    type="number"
+                    v-model="advancedFilters.price_max"
+                    :placeholder="t('carStockFilter.max')"
+                    :disabled="isProcessing.advanced"
+                  />
+                </div>
+              </div>
+
+              <!-- Loading Date Range Filter -->
+              <div class="filter-field range-field loading-date-group">
+                <label>
+                  <i class="fas fa-calendar-alt"></i>
+                  {{ t('carStockFilter.loadingDateRange') }}
+                </label>
+                <div class="range-inputs">
+                  <input
+                    type="date"
+                    v-model="advancedFilters.loading_date_from"
+                    :disabled="isProcessing.advanced"
+                    placeholder="From"
+                  />
+                  <input
+                    type="date"
+                    v-model="advancedFilters.loading_date_to"
+                    :disabled="isProcessing.advanced"
+                    placeholder="To"
+                  />
+                </div>
+              </div>
+
+              <!-- Warehouse Filter -->
+              <div class="filter-field">
+                <label for="warehouse-filter">
+                  <i class="fas fa-warehouse"></i>
+                  {{ t('carStockFilter.warehouse') }}
+                </label>
+                <select
+                  id="warehouse-filter"
+                  v-model="advancedFilters.warehouse"
+                  :disabled="isProcessing.advanced"
+                >
+                  <option value="">{{ t('carStockFilter.allWarehouses') }}</option>
+                  <option
+                    v-for="warehouse in warehouses"
+                    :key="warehouse.id"
+                    :value="warehouse.warhouse_name"
+                  >
+                    {{ warehouse.warhouse_name }}
+                  </option>
+                </select>
+              </div>
+
+              <!-- Documents Status Filter -->
+              <div class="filter-field">
+                <label for="documents-status-filter">
+                  <i class="fas fa-file-alt"></i>
+                  {{ t('carStockFilter.documentsStatus') }}
+                </label>
+                <select
+                  id="documents-status-filter"
+                  v-model="advancedFilters.documents_status"
+                  :disabled="isProcessing.advanced"
+                >
+                  <option value="">{{ t('carStockFilter.all') }}</option>
+                  <option value="received">{{ t('carStockFilter.documentsReceived') }}</option>
+                  <option value="not_received">
+                    {{ t('carStockFilter.documentsNotReceived') }}
+                  </option>
+                </select>
+              </div>
+
+              <!-- BL Status Filter -->
+              <div class="filter-field">
+                <label for="bl-status-filter">
+                  <i class="fas fa-ship"></i>
+                  {{ t('carStockFilter.blStatus') }}
+                </label>
+                <select
+                  id="bl-status-filter"
+                  v-model="advancedFilters.bl_status"
+                  :disabled="isProcessing.advanced"
+                >
+                  <option value="">{{ t('carStockFilter.all') }}</option>
+                  <option value="received">{{ t('carStockFilter.blReceived') }}</option>
+                  <option value="not_received">{{ t('carStockFilter.blNotReceived') }}</option>
+                </select>
+              </div>
+
+              <!-- Warehouse Status Filter -->
+              <div class="filter-field">
+                <label for="warehouse-status-filter">
+                  <i class="fas fa-warehouse"></i>
+                  {{ t('carStockFilter.warehouseStatus') }}
+                </label>
+                <select
+                  id="warehouse-status-filter"
+                  v-model="advancedFilters.warehouse_status"
+                  :disabled="isProcessing.advanced"
+                >
+                  <option value="">{{ t('carStockFilter.all') }}</option>
+                  <option value="in_warehouse">{{ t('carStockFilter.inWarehouse') }}</option>
+                  <option value="not_in_warehouse">{{ t('carStockFilter.notInWarehouse') }}</option>
+                </select>
+              </div>
+
+              <!-- Temporary Client Status Filter -->
+              <div class="filter-field">
+                <label for="tmp-client-status-filter">
+                  <i class="fas fa-user-clock"></i>
+                  {{ t('carStockFilter.temporaryClient') }}
+                </label>
+                <select
+                  id="tmp-client-status-filter"
+                  v-model="advancedFilters.tmp_client_status"
+                  :disabled="isProcessing.advanced"
+                >
+                  <option value="">{{ t('carStockFilter.all') }}</option>
+                  <option value="tmp">{{ t('carStockFilter.temporaryClientOption') }}</option>
+                  <option value="permanent">{{ t('carStockFilter.permanentClientOption') }}</option>
+                </select>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Add the Apply and Reset buttons at the bottom -->
@@ -923,52 +1068,107 @@ button:disabled {
   border-top: 1px solid #e5e7eb;
 }
 
+.filter-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.filter-section {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #f3f4f6;
+  font-weight: 600;
+  color: #374151;
+  font-size: 14px;
+}
+
+.section-header i {
+  color: #6b7280;
+  width: 16px;
+  text-align: center;
+}
+
 .filter-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
   gap: 16px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .filter-field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+  padding: 12px;
+  background: #fafafa;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  transition: all 0.2s ease;
+}
+
+.filter-field:hover {
+  background: #f8f9fa;
+  border-color: #d1d5db;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .filter-field label {
   font-size: 14px;
-  font-weight: 500;
-  color: #4b5563;
+  font-weight: 600;
+  color: #374151;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  margin-bottom: 4px;
 }
 
 .filter-field label i {
   color: #6b7280;
   width: 16px;
   text-align: center;
+  font-size: 14px;
 }
 
 .filter-field input,
 .filter-field select {
-  padding: 8px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  padding: 10px 12px;
+  border: 2px solid #e5e7eb;
+  border-radius: 6px;
   font-size: 14px;
-  transition: border-color 0.2s ease;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  background-color: white;
 }
 
 .filter-field input:focus,
 .filter-field select:focus {
-  border-color: #6366f1;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
   outline: none;
 }
 
 .filter-field input:disabled,
 .filter-field select:disabled {
-  background-color: #f3f4f6;
+  background-color: #f9fafb;
+  border-color: #d1d5db;
   cursor: not-allowed;
+  opacity: 0.7;
 }
 
 /* Checkbox field styles */
@@ -1017,11 +1217,393 @@ button:disabled {
   grid-template-columns: 1fr auto 1fr;
   gap: 8px;
   align-items: center;
+  width: 100%;
 }
 
 .range-inputs span {
   color: #6b7280;
   font-size: 12px;
+}
+
+/* Ensure range inputs fit within their containers */
+.range-field .range-inputs {
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  width: 100%;
+}
+
+.range-field input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Sold Date Group Styles */
+.sold-date-group {
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border: 2px solid #0ea5e9;
+  border-radius: 12px;
+  padding: 16px;
+  position: relative;
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.15);
+  margin: 8px 0;
+  overflow: hidden;
+}
+
+.sold-date-group::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: linear-gradient(45deg, #0ea5e9, #3b82f6);
+  border-radius: 12px;
+  z-index: -1;
+  opacity: 0.8;
+}
+
+.sold-date-group label {
+  color: #0c4a6e;
+  font-weight: 700;
+  font-size: 15px;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.sold-date-group label i {
+  color: #0ea5e9;
+  font-size: 16px;
+}
+
+.sold-date-group .range-inputs {
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  width: 100%;
+}
+
+.sold-date-group input {
+  border: 2px solid #0ea5e9;
+  background-color: white;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-weight: 500;
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 13px;
+}
+
+.sold-date-group input:focus {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.2);
+  outline: none;
+}
+
+.sold-date-group input::placeholder {
+  color: #6b7280;
+  font-weight: 400;
+}
+
+/* Loading Date Group Styles */
+.loading-date-group {
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  border: 2px solid #22c55e;
+  border-radius: 12px;
+  padding: 16px;
+  position: relative;
+  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.15);
+  margin: 8px 0;
+  overflow: hidden;
+}
+
+.loading-date-group::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: linear-gradient(45deg, #22c55e, #16a34a);
+  border-radius: 12px;
+  z-index: -1;
+  opacity: 0.8;
+}
+
+.loading-date-group label {
+  color: #14532d;
+  font-weight: 700;
+  font-size: 15px;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.loading-date-group label i {
+  color: #22c55e;
+  font-size: 16px;
+}
+
+.loading-date-group .range-inputs {
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  width: 100%;
+}
+
+.loading-date-group input {
+  border: 2px solid #22c55e;
+  background-color: white;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-weight: 500;
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 13px;
+}
+
+.loading-date-group input:focus {
+  border-color: #16a34a;
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
+  outline: none;
+}
+
+.loading-date-group input::placeholder {
+  color: #6b7280;
+  font-weight: 400;
+}
+
+/* Status Group Styles */
+.status-group {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border: 2px solid #f59e0b;
+  border-radius: 12px;
+  padding: 16px;
+  position: relative;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.15);
+  margin: 8px 0;
+  overflow: hidden;
+}
+
+.status-group::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: linear-gradient(45deg, #f59e0b, #d97706);
+  border-radius: 12px;
+  z-index: -1;
+  opacity: 0.8;
+}
+
+.status-group label {
+  color: #92400e;
+  font-weight: 700;
+  font-size: 15px;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.status-group label i {
+  color: #f59e0b;
+  font-size: 16px;
+}
+
+.status-group select {
+  border: 2px solid #f59e0b;
+  background-color: white;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-weight: 500;
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 13px;
+}
+
+.status-group select:focus {
+  border-color: #d97706;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+  outline: none;
+}
+
+/* More Filters Section Styles */
+.more-filters-section {
+  margin-top: 16px;
+}
+
+.more-filters-toggle {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.more-filters-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.2);
+}
+
+.more-filters-btn:hover {
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.more-filters-btn.expanded {
+  background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
+}
+
+.more-filters-btn i {
+  font-size: 14px;
+  transition: transform 0.3s ease;
+}
+
+.more-filters-btn .fa-chevron-down {
+  transition: transform 0.3s ease;
+}
+
+.more-filters-btn .fa-chevron-down.rotated {
+  transform: rotate(180deg);
+}
+
+.more-filters-content {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-top: 8px;
+}
+
+.more-filters-content .filter-grid {
+  background: transparent;
+  border: none;
+  padding: 0;
+  box-shadow: none;
+}
+
+/* Checkbox Field Styles */
+.checkbox-field {
+  display: flex;
+  align-items: center;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  color: #374151;
+  user-select: none;
+}
+
+.checkbox-input {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+  height: 0;
+  width: 0;
+}
+
+.checkbox-custom {
+  position: relative;
+  height: 18px;
+  width: 18px;
+  background-color: #fff;
+  border: 2px solid #d1d5db;
+  border-radius: 3px;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.checkbox-label:hover .checkbox-custom {
+  border-color: #3b82f6;
+  background-color: #f0f9ff;
+}
+
+.checkbox-input:checked ~ .checkbox-custom {
+  background-color: #3b82f6;
+  border-color: #3b82f6;
+}
+
+.checkbox-input:checked ~ .checkbox-custom::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 2px;
+  width: 6px;
+  height: 10px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.checkbox-input:disabled ~ .checkbox-custom {
+  background-color: #f3f4f6;
+  border-color: #d1d5db;
+  opacity: 0.6;
+}
+
+.checkbox-label i {
+  color: #6b7280;
+  font-size: 14px;
+}
+
+/* Combined Container Filter Styles */
+.combined-container-filter {
+  margin-bottom: 16px;
+}
+
+.container-filter-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.container-text-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: border-color 0.2s ease;
+}
+
+.container-text-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.container-checkbox-wrapper {
+  display: flex;
+  align-items: center;
+  padding: 8px 0;
+}
+
+.container-checkbox-wrapper .checkbox-label {
+  margin: 0;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.container-checkbox-wrapper .checkbox-text {
+  font-weight: 500;
+  color: #374151;
+}
+
+.container-checkbox-wrapper .checkbox-custom {
+  height: 16px;
+  width: 16px;
 }
 
 .advanced-filter-actions {
