@@ -88,6 +88,7 @@ const fetchBillData = async () => {
             cs.notes,
             cs.date_sell,
             cs.price_cell,
+            cs.cfr_da,
             cs.freight,
             cs.date_loding,
             cs.date_send_documents,
@@ -147,6 +148,10 @@ const calculateTotal = () => {
 
       // Convert to selected currency
       if (props.options.currency.toUpperCase() === 'DA') {
+        // Use cfr_da field if available, otherwise calculate from price_cell
+        if (car.cfr_da) {
+          return total + parseFloat(car.cfr_da)
+        }
         const rate = parseFloat(car.rate)
         if (!rate) {
           console.warn(`No rate found for car ID ${car.id}`)
@@ -169,6 +174,10 @@ const calculateCarPrice = (car) => {
 
   // Convert to selected currency
   if (props.options.currency.toUpperCase() === 'DA') {
+    // Use cfr_da field if available, otherwise calculate from price_cell
+    if (car.cfr_da) {
+      return parseFloat(car.cfr_da).toFixed(2)
+    }
     const rate = parseFloat(car.rate)
     if (!rate) {
       console.warn(`No rate found for car ID ${car.id}`)

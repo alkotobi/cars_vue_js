@@ -110,6 +110,10 @@ const calculateCarPrice = () => {
 
   // Convert to selected currency
   if (props.options.currency.toUpperCase() === 'DA') {
+    // Use cfr_da field if available, otherwise calculate from price_cell
+    if (carData.value.cfr_da) {
+      return parseFloat(carData.value.cfr_da).toFixed(2)
+    }
     const rate = parseFloat(carData.value.rate)
     if (!rate) {
       console.warn(`No rate found for car ID ${carData.value.id}`)

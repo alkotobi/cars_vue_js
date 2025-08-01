@@ -352,6 +352,7 @@ const fetchCarsByBillId = async (billId) => {
           cs.vin,
           cs.notes,
           cs.price_cell,
+          cs.cfr_da,
           cs.freight,
           cs.rate,
           cs.date_loding,
@@ -417,6 +418,11 @@ const calculateProfit = (sellPrice, buyPrice, freight) => {
 const totalValue = computed(() => {
   if (!cars.value || cars.value.length === 0) return 0
   return cars.value.reduce((total, car) => {
+    // Use cfr_da field if available, otherwise calculate from price_cell
+    if (car.cfr_da) {
+      return total + parseFloat(car.cfr_da)
+    }
+
     const price = parseFloat(car.price_cell) || 0
     const freight = parseFloat(car.freight) || 0
     const rate = parseFloat(car.rate) || 0
@@ -431,6 +437,10 @@ const totalValue = computed(() => {
 
 // Add computed function for CFR DA calculation
 const calculateCFRDA = (car) => {
+  // Use cfr_da field if available, otherwise calculate from price_cell
+  if (car.cfr_da) {
+    return parseFloat(car.cfr_da).toFixed(2)
+  }
   if (!car.price_cell || !car.rate) return 'N/A'
   const sellPrice = parseFloat(car.price_cell) || 0
   const freight = parseFloat(car.freight) || 0
