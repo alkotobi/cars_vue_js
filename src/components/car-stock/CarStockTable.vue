@@ -919,10 +919,16 @@ const fetchCarsStock = async () => {
             (car) => car.client_id_no && car.client_id_no.includes(adv.client_id_no.trim()),
           )
         }
-        if (adv.has_container_ref) {
-          filteredCars = filteredCars.filter(
-            (car) => car.container_ref && car.container_ref.trim() !== '',
-          )
+        if (adv.container_status && adv.container_status.trim() !== '') {
+          if (adv.container_status === 'has_container') {
+            filteredCars = filteredCars.filter(
+              (car) => car.container_ref && car.container_ref.trim() !== '',
+            )
+          } else if (adv.container_status === 'has_not_container') {
+            filteredCars = filteredCars.filter(
+              (car) => !car.container_ref || car.container_ref.trim() === '',
+            )
+          }
         }
         if (adv.warehouse && adv.warehouse.trim() !== '') {
           filteredCars = filteredCars.filter((car) => car.warehouse_name == adv.warehouse.trim())

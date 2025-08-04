@@ -92,6 +92,7 @@ const fetchUnassignedCars = async () => {
           cs.price_cell,
           cs.freight,
           cs.path_documents,
+          cs.container_ref,
           bd.amount as buy_price,
           cn.car_name,
           clr.color,
@@ -735,7 +736,8 @@ onMounted(() => {
             ></i>
           </th>
           <th @click="handleSort('vin')" class="sortable">
-            <i class="fas fa-fingerprint"></i> {{ t('sellBills.vin') }}
+            <i class="fas fa-fingerprint"></i> {{ t('sellBills.vin') }} /
+            {{ t('sellBills.container_ref') }}
             <i
               v-if="sortConfig.field === 'vin'"
               :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
@@ -777,19 +779,29 @@ onMounted(() => {
           <td>{{ car.id }}</td>
           <td>{{ car.car_name }}</td>
           <td>
-            <span
-              v-if="car.color"
-              class="badge color-badge"
-              :style="{
-                backgroundColor: car.hexa || '#000000',
-                color: getTextColor(car.hexa || '#000000'),
-              }"
-            >
-              {{ car.color }}
-            </span>
-            <span v-else>N/A</span>
+            <div class="color-cell">
+              <span
+                v-if="car.color"
+                class="badge color-badge"
+                :style="{
+                  backgroundColor: car.hexa || '#000000',
+                  color: getTextColor(car.hexa || '#000000'),
+                }"
+              >
+                {{ car.color }}
+              </span>
+            </div>
           </td>
-          <td>{{ car.vin || 'N/A' }}</td>
+          <td>
+            <div class="vin-container-cell">
+              <span v-if="car.vin" class="badge vin-badge">
+                {{ car.vin }}
+              </span>
+              <span v-if="car.container_ref" class="badge container-badge">
+                {{ car.container_ref }}
+              </span>
+            </div>
+          </td>
           <td>{{ car.price_cell ? '$' + car.price_cell.toLocaleString() : 'N/A' }}</td>
           <td v-if="isAdmin">{{ car.buy_price ? '$' + car.buy_price.toLocaleString() : 'N/A' }}</td>
           <td>{{ car.buy_bill_ref || 'N/A' }}</td>
@@ -984,6 +996,84 @@ onMounted(() => {
 .color-badge {
   background-color: #fef2f2;
   color: #dc2626;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  display: inline-block;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 2px 4px rgba(220, 38, 38, 0.2);
+  transition: all 0.2s ease;
+}
+
+.color-badge:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(220, 38, 38, 0.3);
+}
+
+.vin-container-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  padding: 8px;
+}
+
+.color-cell {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  padding: 8px;
+}
+
+.vin-badge {
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  display: inline-block;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 2px 4px rgba(139, 92, 246, 0.3);
+  transition: all 0.2s ease;
+}
+
+.vin-badge:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(139, 92, 246, 0.4);
+}
+
+.vin-badge.no-data {
+  background: linear-gradient(135deg, #6b7280, #4b5563);
+  box-shadow: 0 2px 4px rgba(107, 114, 128, 0.3);
+}
+
+.container-badge {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  display: inline-block;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 2px 4px rgba(245, 158, 11, 0.3);
+  transition: all 0.2s ease;
+}
+
+.container-badge:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(245, 158, 11, 0.4);
+}
+
+.container-badge.no-data {
+  background: linear-gradient(135deg, #6b7280, #4b5563);
+  box-shadow: 0 2px 4px rgba(107, 114, 128, 0.3);
 }
 
 .assign-btn {

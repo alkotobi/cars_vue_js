@@ -74,7 +74,7 @@ const advancedFilters = ref({
   status: '',
   client: '',
   client_id_no: '',
-  has_container_ref: false,
+  container_status: '',
   warehouse: '',
   container_ref: '',
   export_lisence_ref: '',
@@ -300,70 +300,62 @@ fetchReferenceData()
     <!-- Advanced Filters -->
     <div v-if="showAdvancedFilter" class="advanced-filters">
       <div class="filter-grid">
-        <!-- ID Filter -->
-        <div class="filter-field">
-          <label for="id-filter">
-            <i class="fas fa-hashtag"></i>
-            {{ t('carStockFilter.id') }}
-          </label>
-          <input
-            id="id-filter"
-            type="text"
-            v-model="advancedFilters.id"
-            :placeholder="t('carStockFilter.carId')"
-            :disabled="isProcessing.advanced"
-          />
-        </div>
-
-        <!-- Car Name Filter -->
-        <div class="filter-field">
+        <!-- Car and ID Filter Group -->
+        <div class="filter-field combined-car-id-filter">
           <label for="car-name-filter">
             <i class="fas fa-car"></i>
-            {{ t('carStockFilter.car') }}
+            {{ t('carStockFilter.carAndId') }}
           </label>
-          <select
-            id="car-name-filter"
-            v-model="advancedFilters.car_name"
-            :disabled="isProcessing.advanced"
-          >
-            <option value="">{{ t('carStockFilter.allCars') }}</option>
-            <option v-for="car in carNames" :key="car.id" :value="car.car_name">
-              {{ car.car_name }}
-            </option>
-          </select>
+          <div class="car-id-filter-inputs">
+            <select
+              id="car-name-filter"
+              v-model="advancedFilters.car_name"
+              :disabled="isProcessing.advanced"
+              class="car-name-select"
+            >
+              <option value="">{{ t('carStockFilter.allCars') }}</option>
+              <option v-for="car in carNames" :key="car.id" :value="car.car_name">
+                {{ car.car_name }}
+              </option>
+            </select>
+            <input
+              id="id-filter"
+              type="text"
+              v-model="advancedFilters.id"
+              :placeholder="t('carStockFilter.carId')"
+              :disabled="isProcessing.advanced"
+              class="car-id-input"
+            />
+          </div>
         </div>
 
-        <!-- Color Filter -->
-        <div class="filter-field">
+        <!-- Color and VIN Filter Group -->
+        <div class="filter-field combined-color-vin-filter">
           <label for="color-filter">
             <i class="fas fa-palette"></i>
-            {{ t('carStockFilter.color') }}
+            {{ t('carStockFilter.colorAndVin') }}
           </label>
-          <select
-            id="color-filter"
-            v-model="advancedFilters.color"
-            :disabled="isProcessing.advanced"
-          >
-            <option value="">{{ t('carStockFilter.allColors') }}</option>
-            <option v-for="color in colors" :key="color.id" :value="color.color">
-              {{ color.color }}
-            </option>
-          </select>
-        </div>
-
-        <!-- VIN Filter -->
-        <div class="filter-field">
-          <label for="vin-filter">
-            <i class="fas fa-barcode"></i>
-            {{ t('carStockFilter.vin') }}
-          </label>
-          <input
-            id="vin-filter"
-            type="text"
-            v-model="advancedFilters.vin"
-            :placeholder="t('carStockFilter.vinNumber')"
-            :disabled="isProcessing.advanced"
-          />
+          <div class="color-vin-filter-inputs">
+            <select
+              id="color-filter"
+              v-model="advancedFilters.color"
+              :disabled="isProcessing.advanced"
+              class="color-select"
+            >
+              <option value="">{{ t('carStockFilter.allColors') }}</option>
+              <option v-for="color in colors" :key="color.id" :value="color.color">
+                {{ color.color }}
+              </option>
+            </select>
+            <input
+              id="vin-filter"
+              type="text"
+              v-model="advancedFilters.vin"
+              :placeholder="t('carStockFilter.vinNumber')"
+              :disabled="isProcessing.advanced"
+              class="vin-input"
+            />
+          </div>
         </div>
 
         <!-- Sold Date Range Filter -->
@@ -388,51 +380,47 @@ fetchReferenceData()
           </div>
         </div>
 
-        <!-- Status Filter -->
+        <!-- Car Availability Filter -->
         <div class="filter-field status-group">
           <label for="status-filter">
-            <i class="fas fa-info-circle"></i>
-            {{ t('carStockFilter.status') }}
+            <i class="fas fa-car"></i>
+            {{ t('carStockFilter.carAvailability') }}
           </label>
           <select
             id="status-filter"
             v-model="advancedFilters.status"
             :disabled="isProcessing.advanced"
           >
-            <option value="">{{ t('carStockFilter.allStatus') }}</option>
+            <option value="">{{ t('carStockFilter.allCars') }}</option>
             <option value="available">{{ t('carStockFilter.available') }}</option>
             <option value="sold">{{ t('carStockFilter.sold') }}</option>
           </select>
         </div>
 
-        <!-- Client Filter -->
-        <div class="filter-field">
+        <!-- Client Filter Group -->
+        <div class="filter-field combined-client-filter">
           <label for="client-filter">
             <i class="fas fa-user"></i>
             {{ t('carStockFilter.client') }}
           </label>
-          <input
-            id="client-filter"
-            type="text"
-            v-model="advancedFilters.client"
-            :placeholder="t('carStockFilter.clientName')"
-            :disabled="isProcessing.advanced"
-          />
-        </div>
-
-        <!-- Client ID Number Filter -->
-        <div class="filter-field">
-          <label for="client-id-no-filter">
-            <i class="fas fa-id-card"></i>
-            {{ t('carStockFilter.clientIdNumber') }}
-          </label>
-          <input
-            id="client-id-no-filter"
-            type="text"
-            v-model="advancedFilters.client_id_no"
-            :placeholder="t('carStockFilter.clientIdNumber')"
-            :disabled="isProcessing.advanced"
-          />
+          <div class="client-filter-inputs">
+            <input
+              id="client-filter"
+              type="text"
+              v-model="advancedFilters.client"
+              :placeholder="t('carStockFilter.clientName')"
+              :disabled="isProcessing.advanced"
+              class="client-text-input"
+            />
+            <input
+              id="client-id-no-filter"
+              type="text"
+              v-model="advancedFilters.client_id_no"
+              :placeholder="t('carStockFilter.clientIdNumber')"
+              :disabled="isProcessing.advanced"
+              class="client-id-input"
+            />
+          </div>
         </div>
 
         <!-- Container Reference Filter -->
@@ -450,34 +438,25 @@ fetchReferenceData()
               :disabled="isProcessing.advanced"
               class="container-text-input"
             />
-            <div class="container-checkbox-wrapper">
-              <label class="checkbox-label">
-                <input
-                  type="checkbox"
-                  v-model="advancedFilters.has_container_ref"
-                  :disabled="isProcessing.advanced"
-                  class="checkbox-input"
-                />
-                <span class="checkbox-custom"></span>
-                <span class="checkbox-text">{{ t('carStockFilter.hasContainerRef') }}</span>
+            <div class="container-status-wrapper">
+              <label for="container-status-filter" class="container-status-label">
+                <i class="fas fa-filter"></i>
+                {{ t('carStockFilter.containerStatus') }}
               </label>
+              <select
+                id="container-status-filter"
+                v-model="advancedFilters.container_status"
+                :disabled="isProcessing.advanced"
+                class="container-status-select"
+              >
+                <option value="">{{ t('carStockFilter.all') }}</option>
+                <option value="has_container">{{ t('carStockFilter.hasContainerRef') }}</option>
+                <option value="has_not_container">
+                  {{ t('carStockFilter.hasNotContainerRef') }}
+                </option>
+              </select>
             </div>
           </div>
-        </div>
-
-        <!-- Export License Filter -->
-        <div class="filter-field">
-          <label for="export-license-filter">
-            <i class="fas fa-file-signature"></i>
-            {{ t('carStockFilter.exportLicense') }}
-          </label>
-          <input
-            id="export-license-filter"
-            type="text"
-            v-model="advancedFilters.export_lisence_ref"
-            :placeholder="t('carStockFilter.exportLicenseReference')"
-            :disabled="isProcessing.advanced"
-          />
         </div>
 
         <!-- Loading Status Filter -->
@@ -497,102 +476,30 @@ fetchReferenceData()
           </select>
         </div>
 
-        <!-- Documents Status Filter -->
-        <div class="filter-field">
-          <label for="documents-status-filter">
-            <i class="fas fa-file-alt"></i>
-            {{ t('carStockFilter.documentsStatus') }}
-          </label>
-          <select
-            id="documents-status-filter"
-            v-model="advancedFilters.documents_status"
-            :disabled="isProcessing.advanced"
-          >
-            <option value="">{{ t('carStockFilter.all') }}</option>
-            <option value="received">{{ t('carStockFilter.documentsReceived') }}</option>
-            <option value="not_received">{{ t('carStockFilter.documentsNotReceived') }}</option>
-          </select>
-        </div>
-
-        <!-- BL Status Filter -->
-        <div class="filter-field">
-          <label for="bl-status-filter">
-            <i class="fas fa-ship"></i>
-            {{ t('carStockFilter.blStatus') }}
-          </label>
-          <select
-            id="bl-status-filter"
-            v-model="advancedFilters.bl_status"
-            :disabled="isProcessing.advanced"
-          >
-            <option value="">{{ t('carStockFilter.all') }}</option>
-            <option value="received">{{ t('carStockFilter.blReceived') }}</option>
-            <option value="not_received">{{ t('carStockFilter.blNotReceived') }}</option>
-          </select>
-        </div>
-
-        <!-- Warehouse Status Filter -->
-        <div class="filter-field">
-          <label for="warehouse-status-filter">
-            <i class="fas fa-warehouse"></i>
-            {{ t('carStockFilter.warehouseStatus') }}
-          </label>
-          <select
-            id="warehouse-status-filter"
-            v-model="advancedFilters.warehouse_status"
-            :disabled="isProcessing.advanced"
-          >
-            <option value="">{{ t('carStockFilter.all') }}</option>
-            <option value="in_warehouse">{{ t('carStockFilter.inWarehouse') }}</option>
-            <option value="not_in_warehouse">{{ t('carStockFilter.notInWarehouse') }}</option>
-          </select>
-        </div>
-
-        <!-- Buy Bill Filter -->
-        <div class="filter-field">
+        <!-- Bill Filter Group -->
+        <div class="filter-field combined-bill-filter">
           <label for="bill-ref-filter">
             <i class="fas fa-file-invoice"></i>
-            {{ t('carStockFilter.buyBill') }}
+            {{ t('carStockFilter.bills') }}
           </label>
-          <input
-            id="bill-ref-filter"
-            type="text"
-            v-model="advancedFilters.bill_ref"
-            :placeholder="t('carStockFilter.buyBillReference')"
-            :disabled="isProcessing.advanced"
-          />
-        </div>
-
-        <!-- Sell Bill Filter -->
-        <div class="filter-field">
-          <label for="sell-bill-ref-filter">
-            <i class="fas fa-file-invoice-dollar"></i>
-            {{ t('carStockFilter.sellBill') }}
-          </label>
-          <input
-            id="sell-bill-ref-filter"
-            type="text"
-            v-model="advancedFilters.sell_bill_ref"
-            :placeholder="t('carStockFilter.sellBillReference')"
-            :disabled="isProcessing.advanced"
-          />
-        </div>
-
-        <!-- Temporary Client Status Filter -->
-        <div class="filter-field">
-          <label for="tmp-client-status-filter">
-            <i class="fas fa-user-clock"></i>
-            {{ t('carStockFilter.temporaryClient') }}
-          </label>
-          <select
-            id="tmp-client-status-filter"
-            v-model="advancedFilters.tmp_client_status"
-            :disabled="isProcessing.advanced"
-          >
-            <option value="">{{ t('carStockFilter.all') }}</option>
-            <option value="tmp">{{ t('carStockFilter.temporaryClientOption') }}</option>
-            <option value="permanent">{{ t('carStockFilter.permanentClientOption') }}</option>
-          </select>
+          <div class="bill-filter-inputs">
+            <input
+              id="bill-ref-filter"
+              type="text"
+              v-model="advancedFilters.bill_ref"
+              :placeholder="t('carStockFilter.buyBillReference')"
+              :disabled="isProcessing.advanced"
+              class="buy-bill-input"
+            />
+            <input
+              id="sell-bill-ref-filter"
+              type="text"
+              v-model="advancedFilters.sell_bill_ref"
+              :placeholder="t('carStockFilter.sellBillReference')"
+              :disabled="isProcessing.advanced"
+              class="sell-bill-input"
+            />
+          </div>
         </div>
 
         <!-- Exclude Whole Sale Filter -->
@@ -772,6 +679,21 @@ fetchReferenceData()
                     {{ warehouse.warhouse_name }}
                   </option>
                 </select>
+              </div>
+
+              <!-- Export License Filter -->
+              <div class="filter-field">
+                <label for="export-license-filter">
+                  <i class="fas fa-file-signature"></i>
+                  {{ t('carStockFilter.exportLicense') }}
+                </label>
+                <input
+                  id="export-license-filter"
+                  type="text"
+                  v-model="advancedFilters.export_lisence_ref"
+                  :placeholder="t('carStockFilter.exportLicenseReference')"
+                  :disabled="isProcessing.advanced"
+                />
               </div>
 
               <!-- Documents Status Filter -->
@@ -1276,7 +1198,8 @@ button:disabled {
 }
 
 .sold-date-group .range-inputs {
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr 1fr;
   gap: 12px;
   width: 100%;
 }
@@ -1604,6 +1527,536 @@ button:disabled {
 .container-checkbox-wrapper .checkbox-custom {
   height: 16px;
   width: 16px;
+}
+
+.container-status-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 0;
+}
+
+.container-status-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.container-status-label i {
+  color: #9ca3af;
+  font-size: 11px;
+}
+
+.container-status-select {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 13px;
+  background-color: white;
+  color: #374151;
+}
+
+.container-status-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+/* Client Filter Group Styles */
+.combined-client-filter {
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border: 2px solid #0ea5e9;
+  border-radius: 12px;
+  padding: 16px;
+  position: relative;
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.15);
+  margin: 8px 0;
+  overflow: hidden;
+}
+
+.combined-client-filter::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: linear-gradient(45deg, #0ea5e9, #3b82f6);
+  border-radius: 12px;
+  z-index: -1;
+  opacity: 0.8;
+}
+
+.combined-client-filter label {
+  color: #0c4a6e;
+  font-weight: 700;
+  font-size: 15px;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.combined-client-filter label i {
+  color: #0ea5e9;
+  font-size: 16px;
+}
+
+.client-filter-inputs {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 12px;
+  width: 100%;
+}
+
+.client-text-input,
+.client-id-input {
+  border: 2px solid #0ea5e9;
+  background-color: white;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-weight: 500;
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 13px;
+}
+
+.client-text-input:focus,
+.client-id-input:focus {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.2);
+  outline: none;
+}
+
+.client-text-input::placeholder,
+.client-id-input::placeholder {
+  color: #6b7280;
+  font-weight: 400;
+}
+
+/* Bill Filter Group Styles */
+.combined-bill-filter {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border: 2px solid #f59e0b;
+  border-radius: 12px;
+  padding: 16px;
+  position: relative;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.15);
+  margin: 8px 0;
+  overflow: hidden;
+}
+
+.combined-bill-filter::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: linear-gradient(45deg, #f59e0b, #d97706);
+  border-radius: 12px;
+  z-index: -1;
+  opacity: 0.8;
+}
+
+.combined-bill-filter label {
+  color: #92400e;
+  font-weight: 700;
+  font-size: 15px;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.combined-bill-filter label i {
+  color: #f59e0b;
+  font-size: 16px;
+}
+
+.bill-filter-inputs {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 12px;
+  width: 100%;
+}
+
+.buy-bill-input,
+.sell-bill-input {
+  border: 2px solid #f59e0b;
+  background-color: white;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-weight: 500;
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 13px;
+}
+
+.buy-bill-input:focus,
+.sell-bill-input:focus {
+  border-color: #d97706;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+  outline: none;
+}
+
+.buy-bill-input::placeholder,
+.sell-bill-input::placeholder {
+  color: #6b7280;
+  font-weight: 400;
+}
+
+/* Car and ID Filter Group Styles */
+.combined-car-id-filter {
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+  border: 2px solid #10b981;
+  border-radius: 12px;
+  padding: 16px;
+  position: relative;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
+  margin: 8px 0;
+  overflow: hidden;
+}
+
+.combined-car-id-filter::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: linear-gradient(45deg, #10b981, #059669);
+  border-radius: 12px;
+  z-index: -1;
+  opacity: 0.8;
+}
+
+.combined-car-id-filter label {
+  color: #064e3b;
+  font-weight: 700;
+  font-size: 15px;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.combined-car-id-filter label i {
+  color: #10b981;
+  font-size: 16px;
+}
+
+.car-id-filter-inputs {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 12px;
+  width: 100%;
+}
+
+.car-name-select,
+.car-id-input {
+  border: 2px solid #10b981;
+  background-color: white;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-weight: 500;
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 13px;
+}
+
+.car-name-select:focus,
+.car-id-input:focus {
+  border-color: #059669;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+  outline: none;
+}
+
+.car-name-select::placeholder,
+.car-id-input::placeholder {
+  color: #6b7280;
+  font-weight: 400;
+}
+
+/* Color and VIN Filter Group Styles */
+.combined-color-vin-filter {
+  background: linear-gradient(135deg, #fdf2f8 0%, #fce7f3 100%);
+  border: 2px solid #ec4899;
+  border-radius: 12px;
+  padding: 16px;
+  position: relative;
+  box-shadow: 0 4px 12px rgba(236, 72, 153, 0.15);
+  margin: 8px 0;
+  overflow: hidden;
+}
+
+.combined-color-vin-filter::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: linear-gradient(45deg, #ec4899, #db2777);
+  border-radius: 12px;
+  z-index: -1;
+  opacity: 0.8;
+}
+
+.combined-color-vin-filter label {
+  color: #831843;
+  font-weight: 700;
+  font-size: 15px;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.combined-color-vin-filter label i {
+  color: #ec4899;
+  font-size: 16px;
+}
+
+.color-vin-filter-inputs {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 12px;
+  width: 100%;
+}
+
+.color-select,
+.vin-input {
+  border: 2px solid #ec4899;
+  background-color: white;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-weight: 500;
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 13px;
+}
+
+.color-select:focus,
+.vin-input:focus {
+  border-color: #db2777;
+  box-shadow: 0 0 0 2px rgba(236, 72, 153, 0.2);
+  outline: none;
+}
+
+.color-select::placeholder,
+.vin-input::placeholder {
+  color: #6b7280;
+  font-weight: 400;
+}
+
+/* Car Availability Filter Styles */
+.status-group {
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border: 2px solid #0ea5e9;
+  border-radius: 12px;
+  padding: 16px;
+  position: relative;
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.15);
+  margin: 8px 0;
+  overflow: hidden;
+}
+
+.status-group::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: linear-gradient(45deg, #0ea5e9, #3b82f6);
+  border-radius: 12px;
+  z-index: -1;
+  opacity: 0.8;
+}
+
+.status-group label {
+  color: #0c4a6e;
+  font-weight: 700;
+  font-size: 15px;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.status-group label i {
+  color: #0ea5e9;
+  font-size: 16px;
+}
+
+.status-group select {
+  border: 2px solid #0ea5e9;
+  background-color: white;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-weight: 500;
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 13px;
+}
+
+.status-group select:focus {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.2);
+  outline: none;
+}
+
+/* Loading Status Filter Styles */
+.filter-field:has(#loading-status-filter) {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border: 2px solid #f59e0b;
+  border-radius: 12px;
+  padding: 16px;
+  position: relative;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.15);
+  margin: 8px 0;
+  overflow: hidden;
+}
+
+.filter-field:has(#loading-status-filter)::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: linear-gradient(45deg, #f59e0b, #d97706);
+  border-radius: 12px;
+  z-index: -1;
+  opacity: 0.8;
+}
+
+.filter-field:has(#loading-status-filter) label {
+  color: #92400e;
+  font-weight: 700;
+  font-size: 15px;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.filter-field:has(#loading-status-filter) label i {
+  color: #f59e0b;
+  font-size: 16px;
+}
+
+.filter-field:has(#loading-status-filter) select {
+  border: 2px solid #f59e0b;
+  background-color: white;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-weight: 500;
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 13px;
+}
+
+.filter-field:has(#loading-status-filter) select:focus {
+  border-color: #d97706;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+  outline: none;
+}
+
+/* Exclude Whole Sale Filter Styles */
+.checkbox-field {
+  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+  border: 2px solid #ef4444;
+  border-radius: 12px;
+  padding: 16px;
+  position: relative;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.15);
+  margin: 8px 0;
+  overflow: hidden;
+}
+
+.checkbox-field::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: linear-gradient(45deg, #ef4444, #dc2626);
+  border-radius: 12px;
+  z-index: -1;
+  opacity: 0.8;
+}
+
+.checkbox-field .checkbox-label {
+  color: #7f1d1d;
+  font-weight: 700;
+  font-size: 15px;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.checkbox-field .checkbox-text {
+  color: #7f1d1d;
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.checkbox-field .checkbox-text i {
+  color: #ef4444;
+  font-size: 14px;
+}
+
+/* Hidden Cars Filter Styles */
+.filter-field:has(#hidden-filter) {
+  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+  border: 2px solid #6b7280;
+  border-radius: 12px;
+  padding: 16px;
+  position: relative;
+  box-shadow: 0 4px 12px rgba(107, 114, 128, 0.15);
+  margin: 8px 0;
+  overflow: hidden;
+}
+
+.filter-field:has(#hidden-filter)::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: linear-gradient(45deg, #6b7280, #4b5563);
+  border-radius: 12px;
+  z-index: -1;
+  opacity: 0.8;
+}
+
+.filter-field:has(#hidden-filter) label {
+  color: #374151;
+  font-weight: 700;
+  font-size: 15px;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.filter-field:has(#hidden-filter) label i {
+  color: #6b7280;
+  font-size: 16px;
+}
+
+.filter-field:has(#hidden-filter) select {
+  border: 2px solid #6b7280;
+  background-color: white;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-weight: 500;
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 13px;
+}
+
+.filter-field:has(#hidden-filter) select:focus {
+  border-color: #4b5563;
+  box-shadow: 0 0 0 2px rgba(107, 114, 128, 0.2);
+  outline: none;
 }
 
 .advanced-filter-actions {
