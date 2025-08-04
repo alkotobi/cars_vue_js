@@ -33,6 +33,7 @@ const emit = defineEmits([
   'task',
   'color',
   'export-license',
+  'cfr-da',
   'refresh',
   'delete-cars',
   'toggle-hidden',
@@ -159,6 +160,20 @@ const emit = defineEmits([
       >
         <i class="fas fa-file-signature"></i>
         <span>{{ t('carStockToolbar.export_license') }}</span>
+      </button>
+      <button
+        v-if="isAdmin"
+        @click="$emit('cfr-da')"
+        class="cfr-da-btn"
+        :disabled="selectedCars.size === 0"
+        :title="
+          selectedCars.size === 0
+            ? t('carStockToolbar.no_cars_selected')
+            : t('carStockToolbar.edit_cfr_da_for_selected_cars')
+        "
+      >
+        <i class="fas fa-coins"></i>
+        <span>CFR DA</span>
       </button>
       <button
         v-if="isAdmin"
@@ -438,6 +453,34 @@ const emit = defineEmits([
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 .export-license-btn:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.cfr-da-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background-color: #f59e0b;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.cfr-da-btn:hover:not(:disabled) {
+  background-color: #d97706;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.cfr-da-btn:disabled {
   background-color: #9ca3af;
   cursor: not-allowed;
   transform: none;

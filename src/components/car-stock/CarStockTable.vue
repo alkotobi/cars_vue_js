@@ -708,6 +708,12 @@ const getFreightValue = (car) => {
 
 // Add CFR DZA value calculation function
 const getCfrDzaValue = (car) => {
+  // Use cfr_da field if available, otherwise calculate from price_cell
+  if (car.cfr_da) {
+    return parseFloat(car.cfr_da).toFixed(2)
+  }
+
+  // Fallback calculation for older records
   const fob = parseFloat(car.price_cell) || 0
   const freight = getFreightValue(car)
   const rate = getRateValue(car)
@@ -1225,6 +1231,39 @@ const handleEdit = async (car) => {
   }
 }
 
+const editCfrDa = async (carId, currentValue) => {
+  const newValue = prompt(`Enter new CFR DA value for car #${carId}:`, currentValue || '')
+
+  if (newValue === null) return // User cancelled
+
+  const numericValue = parseFloat(newValue)
+  if (isNaN(numericValue) || numericValue < 0) {
+    alert('Please enter a valid positive number')
+    return
+  }
+
+  try {
+    const result = await callApi({
+      query: 'UPDATE cars_stock SET cfr_da = ? WHERE id = ?',
+      params: [numericValue, carId],
+    })
+
+    if (result.success) {
+      // Update the car data in memory
+      const car = allCars.value.find((c) => c.id === carId)
+      if (car) {
+        car.cfr_da = numericValue
+      }
+      // Refresh the display
+      fetchCarsStock()
+    } else {
+      alert('Failed to update CFR DA value')
+    }
+  } catch (error) {
+    alert('Error updating CFR DA value: ' + error.message)
+  }
+}
+
 const toggleDropdown = (carId, event) => {
   // Keep existing dropdown logic
   if (isDropdownOpen.value[carId]) {
@@ -1671,6 +1710,62 @@ const handleExportLicenseFromToolbar = () => {
   showExportLicenseBulkEditForm.value = true
 }
 
+const handleCfrDaFromToolbar = () => {
+  if (selectedCars.value.size === 0) {
+    alert(t('carStock.no_cars_selected_for_cfr_da_editing'))
+    return
+  }
+
+  const newValue = prompt(`Enter new CFR DA value for ${selectedCars.value.size} selected cars:`)
+
+  if (newValue === null) return // User cancelled
+
+  const numericValue = parseFloat(newValue)
+  if (isNaN(numericValue) || numericValue < 0) {
+    alert('Please enter a valid positive number')
+    return
+  }
+
+  // Update all selected cars
+  const selectedCarIds = Array.from(selectedCars.value)
+  updateCarsCfrDa(selectedCarIds, numericValue)
+}
+
+const updateCarsCfrDa = async (selectedCarIds, numericValue) => {
+  try {
+    // Update all selected cars in database
+    const result = await callApi({
+      query:
+        'UPDATE cars_stock SET cfr_da = ? WHERE id IN (' +
+        selectedCarIds.map(() => '?').join(',') +
+        ')',
+      params: [numericValue, ...selectedCarIds],
+    })
+
+    if (result.success) {
+      // Update the cars data in memory
+      selectedCarIds.forEach((carId) => {
+        const car = allCars.value.find((c) => c.id === carId)
+        if (car) {
+          car.cfr_da = numericValue
+        }
+      })
+
+      // Refresh the display
+      fetchCarsStock()
+
+      // Clear selection
+      selectedCars.value.clear()
+
+      alert(`Successfully updated CFR DA value for ${selectedCarIds.length} cars`)
+    } else {
+      alert('Failed to update CFR DA values')
+    }
+  } catch (error) {
+    alert('Error updating CFR DA values: ' + error.message)
+  }
+}
+
 const handleExportLicenseBulkSave = (updatedCars) => {
   // Update the cars in the local array
   updatedCars.forEach((updatedCar) => {
@@ -1698,6 +1793,7 @@ const loadInitialCarsData = async () => {
           cs.id,
           cs.vin,
           cs.price_cell,
+          cs.cfr_da,
           cs.date_loding,
           sb.date_sell,
           sb.date_sell as sell_bill_date,
@@ -2099,6 +2195,7 @@ const handleToggleHidden = async () => {
         @task="handleTaskFromToolbar"
         @color="handleColorFromToolbar"
         @export-license="handleExportLicenseFromToolbar"
+        @cfr-da="handleCfrDaFromToolbar"
         @refresh="handleRefresh"
         @delete-cars="handleDeleteCars"
         @toggle-hidden="handleToggleHidden"
@@ -2173,6 +2270,7 @@ const handleToggleHidden = async () => {
                   {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
                 </span>
               </th>
+
               <th @click="toggleSort('status')" class="sortable">
                 {{ t('carStock.status') }}
                 <span v-if="sortConfig.key === 'status'" class="sort-indicator">
@@ -2326,6 +2424,7 @@ const handleToggleHidden = async () => {
                   </div>
                 </div>
               </td>
+
               <td>
                 <div class="status-container">
                   <div class="status-item">
@@ -3809,6 +3908,8 @@ const handleToggleHidden = async () => {
   width: fit-content;
   display: inline-block;
 }
+
+
 
 /* Mobile Responsive Styles */
 @media (max-width: 768px) {

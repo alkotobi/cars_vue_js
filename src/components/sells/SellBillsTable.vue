@@ -42,6 +42,9 @@ const filters = ref({
   broker: '',
   reference: '',
   isBatchSell: null,
+  createdBy: '',
+  paymentStatus: '',
+  loadingStatus: '',
 })
 
 // Add allSellBills to store unfiltered data
@@ -296,6 +299,37 @@ const applyFilters = () => {
       if (!filters.value.isBatchSell && bill.is_batch_sell) return false
     }
 
+    // Created by filter
+    if (
+      filters.value.createdBy &&
+      (!bill.created_by ||
+        !bill.created_by.toLowerCase().includes(filters.value.createdBy.toLowerCase()))
+    ) {
+      return false
+    }
+
+    // Payment status filter
+    if (filters.value.paymentStatus) {
+      const isPaid = bill.total_paid >= bill.total_cfr
+      const isPartiallyPaid = bill.total_paid > 0 && bill.total_paid < bill.total_cfr
+      const isUnpaid = bill.total_paid === 0
+
+      if (filters.value.paymentStatus === 'paid' && !isPaid) return false
+      if (filters.value.paymentStatus === 'partially_paid' && !isPartiallyPaid) return false
+      if (filters.value.paymentStatus === 'unpaid' && !isUnpaid) return false
+    }
+
+    // Loading status filter
+    if (filters.value.loadingStatus) {
+      const isFullyLoaded = bill.loaded_cars === bill.total_cars && bill.total_cars > 0
+      const isPartiallyLoaded = bill.loaded_cars > 0 && bill.loaded_cars < bill.total_cars
+      const isNotLoaded = bill.loaded_cars === 0
+
+      if (filters.value.loadingStatus === 'fully_loaded' && !isFullyLoaded) return false
+      if (filters.value.loadingStatus === 'partially_loaded' && !isPartiallyLoaded) return false
+      if (filters.value.loadingStatus === 'not_loaded' && !isNotLoaded) return false
+    }
+
     return true
   })
 }
@@ -316,6 +350,9 @@ const resetFilters = () => {
     broker: '',
     reference: '',
     isBatchSell: null,
+    createdBy: '',
+    paymentStatus: '',
+    loadingStatus: '',
   }
 }
 
@@ -512,6 +549,44 @@ const getLoadingStatus = (bill) => {
             <option :value="null">{{ t('sellBills.all') }}</option>
             <option :value="true">{{ t('sellBills.yes') }}</option>
             <option :value="false">{{ t('sellBills.no') }}</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label>
+            <i class="fas fa-user"></i>
+            {{ t('sellBills.created_by') }}
+          </label>
+          <input
+            type="text"
+            v-model="filters.createdBy"
+            :placeholder="t('sellBills.search_created_by')"
+          />
+        </div>
+
+        <div class="filter-group">
+          <label>
+            <i class="fas fa-credit-card"></i>
+            {{ t('sellBills.payment_status') }}
+          </label>
+          <select v-model="filters.paymentStatus">
+            <option value="">{{ t('sellBills.all') }}</option>
+            <option value="paid">{{ t('sellBills.paid') }}</option>
+            <option value="partially_paid">{{ t('sellBills.partially_paid') }}</option>
+            <option value="unpaid">{{ t('sellBills.unpaid') }}</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label>
+            <i class="fas fa-shipping-fast"></i>
+            {{ t('sellBills.loading_status') }}
+          </label>
+          <select v-model="filters.loadingStatus">
+            <option value="">{{ t('sellBills.all') }}</option>
+            <option value="fully_loaded">{{ t('sellBills.fully_loaded') }}</option>
+            <option value="partially_loaded">{{ t('sellBills.partially_loaded') }}</option>
+            <option value="not_loaded">{{ t('sellBills.not_loaded') }}</option>
           </select>
         </div>
       </div>
