@@ -237,8 +237,11 @@ const handleEdit = async (car) => {
         is_tmp_client: carData.is_tmp_client,
       }
 
-      // Calculate initial CFR DA
-      if (carData.price_cell && carData.rate) {
+      // Use CFR DA from database if available, otherwise calculate it
+      if (carData.cfr_da) {
+        cfrDaInput.value = carData.cfr_da
+      } else if (carData.price_cell && carData.rate) {
+        // Fallback calculation for cars without cfr_da field
         cfrDaInput.value = calculateCFRDAFromPrice(
           carData.price_cell,
           carData.rate,
@@ -274,6 +277,7 @@ const handleSaveEdit = async () => {
             price_cell = ?,
             freight = ?,
             rate = ?,
+            cfr_da = ?,
             notes = ?,
             is_tmp_client = ?
         WHERE id = ?
@@ -284,6 +288,7 @@ const handleSaveEdit = async () => {
         editFormData.value.price_cell,
         editFormData.value.freight,
         editFormData.value.rate,
+        cfrDaInput.value || null,
         editFormData.value.notes || null,
         editFormData.value.is_tmp_client,
         editingCar.value.id,

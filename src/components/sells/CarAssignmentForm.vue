@@ -94,11 +94,12 @@ const handlePriceChange = (event) => {
   if (newPrice && formData.value.rate) {
     // Only calculate CFR DA if it's not manually set by user
     if (!cfrDaInput.value || cfrDaInput.value === '') {
-      cfrDaInput.value = calculateCFRDAFromPrice(
+      const calculatedCfrDa = calculateCFRDAFromPrice(
         newPrice,
         formData.value.rate,
         formData.value.freight,
       )
+      cfrDaInput.value = calculatedCfrDa
     }
   }
 }
@@ -107,11 +108,13 @@ const handleCFRDAChange = (event) => {
   const newCFRDA = event.target.value
   if (newCFRDA && formData.value.rate) {
     // Always calculate price from CFR DA when user changes it
-    formData.value.price_cell = calculatePriceFromCFRDA(
+    const calculatedPrice = calculatePriceFromCFRDA(
       newCFRDA,
       formData.value.rate,
       formData.value.freight,
     )
+
+    formData.value.price_cell = calculatedPrice
   }
 }
 
@@ -241,18 +244,20 @@ const fetchCarDetails = async () => {
 
     if (result.success && result.data.length > 0) {
       carDetails.value = result.data[0]
-      // Set the CFR DA value if available (from cfr_da field)
-      if (carDetails.value.cfr_da) {
-        cfrDaInput.value = carDetails.value.cfr_da
-      } else if (carDetails.value.price_cell) {
-        // Fallback for old records that don't have cfr_da
-        cfrDaInput.value = carDetails.value.price_cell
-      }
-      // Fetch and set default freight based on car size
+
+      // Fetch defaults first to have rate and freight available
       await fetchDefaultFreight(!carDetails.value.is_big_car)
-      // After fetching default rate, don't calculate initial CFR DA automatically
       await fetchDefaultRate()
-      // CFR DA will be calculated only when user enters it manually
+
+      // Set the CFR DA value properly
+      if (carDetails.value.cfr_da) {
+        // If car already has CFR DA, use it
+        cfrDaInput.value = carDetails.value.cfr_da
+      } else {
+        // For new assignments or cars without CFR DA, leave it empty
+        // The calculated value will be shown in the display but not in the input
+        cfrDaInput.value = null
+      }
     } else {
       error.value = result.error || 'Failed to fetch car details'
     }
@@ -294,6 +299,22 @@ const calculateSellPriceFromCFRDA = computed(() => {
   const rate = parseFloat(formData.value.rate) || 0
   const freight = parseFloat(formData.value.freight) || 0
   return (cfrDa / rate - freight).toFixed(2)
+})
+
+// Add computed property to show calculated CFR DA for display purposes
+const calculatedCfrDaForDisplay = computed(() => {
+  if (carDetails.value?.cfr_da) {
+    // If car has existing CFR DA, show it
+    return carDetails.value.cfr_da
+  } else if (carDetails.value?.price_cell && formData.value.rate && formData.value.freight) {
+    // Calculate CFR DA from existing price_cell for display only
+    const priceCell = parseFloat(carDetails.value.price_cell) || 0
+    const rate = parseFloat(formData.value.rate) || 0
+    const freight = parseFloat(formData.value.freight) || 0
+    const calculatedCfrDa = ((priceCell + freight) * rate).toFixed(2)
+    return calculatedCfrDa
+  }
+  return null
 })
 
 // Assign car with collected data
@@ -352,6 +373,13 @@ const assignCar = async () => {
     // Store the exact CFR DA value that user entered
     const cfrDaValue = cfrDaInput.value
 
+    // Calculate what price_cell would be for debugging
+    const calculatedPriceCell = calculatePriceFromCFRDA(
+      cfrDaValue,
+      formData.value.rate,
+      formData.value.freight,
+    )
+
     const result = await callApi({
       query: `
         UPDATE cars_stock 
@@ -359,6 +387,7 @@ const assignCar = async () => {
             id_client = ?,
             id_port_discharge = ?,
             cfr_da = ?,
+            price_cell = ?,
             freight = ?,
             date_sell = ?,
             id_sell_pi = ?,
@@ -372,7 +401,8 @@ const assignCar = async () => {
         props.sellBillId,
         formData.value.id_client,
         formData.value.id_port_discharge,
-        cfrDaValue, // Store exact CFR DA value only
+        cfrDaValue, // Store exact CFR DA value
+        calculatedPriceCell, // Store calculated price_cell value
         formData.value.freight || null,
         currentDate,
         billRef,
@@ -681,6 +711,11 @@ onMounted(() => {
               :class="{ 'base-value': true }"
               placeholder="Enter CFR DA amount"
             />
+            <!-- Show calculated CFR DA for display purposes -->
+            <div v-if="calculatedCfrDaForDisplay && !cfrDaInput" class="calculated-display">
+              <i class="fas fa-info-circle"></i>
+              <span>Calculated from existing data: {{ calculatedCfrDaForDisplay }} DA</span>
+            </div>
           </div>
           <span class="info-text">This value will be used to calculate the sell price</span>
         </div>
@@ -1312,5 +1347,23 @@ button:hover:not(:disabled) i {
   font-size: 0.875rem;
   margin-top: 0.25rem;
   margin-left: 24px;
+}
+
+.calculated-display {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background-color: #fef3c7;
+  color: #92400e;
+  border: 1px solid #f59e0b;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  margin-top: 4px;
+}
+
+.calculated-display i {
+  color: #f59e0b;
+  font-size: 0.75rem;
 }
 </style>
