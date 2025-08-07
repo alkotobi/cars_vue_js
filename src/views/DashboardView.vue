@@ -19,7 +19,6 @@ const isProcessing = ref({
   params: false,
   tasks: false,
   invitations: false,
-  backup: false,
 })
 const canManageUsers = computed(() => {
   console.log(user.value)
@@ -119,50 +118,6 @@ const handleInvitationsClick = async () => {
   }
 }
 
-const handleBackupClick = async () => {
-  if (isProcessing.value.backup) return
-  isProcessing.value.backup = true
-  
-  try {
-    // Create backup filename with timestamp
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
-    const filename = `merhab_cars_backup_${timestamp}.sql`
-    
-    // First, test the backup endpoint
-    const testResponse = await fetch('/api/backup_test.php')
-    if (!testResponse.ok) {
-      throw new Error(`Backup test failed: ${testResponse.status}`)
-    }
-    
-    // Trigger direct download
-    const link = document.createElement('a')
-    link.href = `/api/backup.php?filename=${filename}`
-    link.download = filename
-    link.target = '_blank' // Open in new tab to see any errors
-    
-    // Add event listener to check if download started
-    link.addEventListener('click', () => {
-      setTimeout(() => {
-        // Check if file was downloaded by checking if the link is still in DOM
-        if (!document.body.contains(link)) {
-          alert('Database backup started! Check your downloads folder.')
-        } else {
-          alert('Backup download may have failed. Please check the browser console for errors.')
-        }
-      }, 2000)
-    })
-    
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    
-  } catch (error) {
-    console.error('Backup error:', error)
-    alert(`Error creating backup: ${error.message}\n\nPlease check the server logs or contact your administrator.`)
-  } finally {
-    isProcessing.value.backup = false
-  }
-}
 const fetchLatestRate = async () => {
   loading.value = true
   try {
@@ -367,17 +322,16 @@ const formatDate = (dateString) => {
         <span>{{ t('dashboard.invitations') }}</span>
         <i v-if="isProcessing.invitations" class="fas fa-spinner fa-spin loading-indicator"></i>
       </button>
-      <button
+      <a
         v-if="isAdmin"
-        @click="handleBackupClick"
-        class="action-btn backup-btn"
-        :disabled="isProcessing.backup"
-        :class="{ processing: isProcessing.backup }"
+        href="https://www.merhab.com/api/backup_simple_web.php"
+        target="_blank"
+        class="action-btn backup-web-btn"
+        style="text-decoration: none"
       >
-        <i class="fas fa-database"></i>
-        <span>{{ t('dashboard.backup') }}</span>
-        <i v-if="isProcessing.backup" class="fas fa-spinner fa-spin loading-indicator"></i>
-      </button>
+        <i class="fas fa-globe"></i>
+        <span>Backup Web Interface</span>
+      </a>
     </div>
 
     <!-- Pending Tasks Section -->
@@ -561,6 +515,10 @@ const formatDate = (dateString) => {
 }
 .backup-btn {
   background-color: #06b6d4;
+  color: white;
+}
+.backup-web-btn {
+  background-color: #4f46e5;
   color: white;
 }
 button:disabled {

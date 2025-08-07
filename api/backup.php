@@ -1,9 +1,17 @@
 <?php
-// Prevent any HTML output by setting proper headers first
+// Force output buffering to prevent any HTML leakage
+ob_start();
+
+// Set headers immediately to prevent any HTML output
 header('Content-Type: application/sql');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
+
+// Disable all error reporting and output
+ini_set('display_errors', 0);
+ini_set('display_startup_errors', 0);
+error_reporting(0);
 
 // Handle preflight requests
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -11,54 +19,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit();
 }
 
-// Disable error display to prevent HTML output
-ini_set('display_errors', 0);
-error_reporting(E_ALL);
-
-// Include database configuration
-require_once 'config.php';
-
-// Get filename from request
-$filename = $_GET['filename'] ?? 'merhab_cars_backup_' . date('Y-m-d_H-i-s') . '.sql';
-
-// Set headers for file download
-header('Content-Disposition: attachment; filename="' . $filename . '"');
-header('Cache-Control: no-cache, must-revalidate');
-header('Expires: Sat, 26 Jul 1997 05:00:00 GMT');
+// Clear any existing output
+ob_clean();
 
 try {
+    // Include database configuration
+    require_once 'config.php';
+    
+    // Get filename from request
+    $filename = $_GET['filename'] ?? 'merhab_cars_backup_' . date('Y-m-d_H-i-s') . '.sql';
+    
+    // Set headers for file download
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Cache-Control: no-cache, must-revalidate');
+    header('Expires: Sat, 26 Jul 1997 05:00:00 GMT');
+    
     // Database connection details
     $host = $db_config['host'];
     $dbname = $db_config['dbname'];
     $username = $db_config['user'];
     $password = $db_config['pass'];
     
-    // Create backup using mysqldump
-    $command = "mysqldump --host=$host --user=$username --password=$password $dbname";
+    // Create database connection first
+    $pdo = new PDO(
+        "mysql:host={$host};dbname={$dbname}", 
+        $username, 
+        $password
+    );
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     
-    // Execute the command
-    $output = [];
+    // Try mysqldump first
+    $mysqldump_available = false;
+    $mysqldump_output = [];
     $return_var = 0;
-    exec($command . " 2>&1", $output, $return_var);
     
-    if ($return_var !== 0) {
-        throw new Exception('mysqldump failed: ' . implode("\n", $output));
+    // Test if mysqldump is available
+    exec("which mysqldump 2>&1", $mysqldump_output, $return_var);
+    if ($return_var === 0) {
+        $mysqldump_path = trim($mysqldump_output[0]);
+        $command = "$mysqldump_path --host=$host --user=$username --password=$password $dbname";
+        
+        // Execute mysqldump
+        $output = [];
+        $return_var = 0;
+        exec($command . " 2>&1", $output, $return_var);
+        
+        if ($return_var === 0 && !empty($output)) {
+            $mysqldump_available = true;
+            echo implode("\n", $output);
+        }
     }
     
-    // Output the backup content
-    echo implode("\n", $output);
-    
-} catch (Exception $e) {
-    // If mysqldump fails, try alternative method using PHP
-    try {
-        // Create database connection
-        $pdo = new PDO(
-            "mysql:host={$db_config['host']};dbname={$db_config['dbname']}", 
-            $db_config['user'], 
-            $db_config['pass']
-        );
-        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        
+    // If mysqldump failed or not available, use PHP method
+    if (!$mysqldump_available) {
         // Get all tables
         $tables = [];
         $stmt = $pdo->query("SHOW TABLES");
@@ -70,7 +83,7 @@ try {
         $backup = "-- Merhab Cars Database Backup\n";
         $backup .= "-- Generated on: " . date('Y-m-d H:i:s') . "\n";
         $backup .= "-- Database: $dbname\n";
-        $backup .= "-- Backup method: PHP fallback (mysqldump failed)\n\n";
+        $backup .= "-- Backup method: PHP (mysqldump not available)\n\n";
         
         foreach ($tables as $table) {
             // Get table structure
@@ -101,17 +114,25 @@ try {
         }
         
         echo $backup;
-        
-    } catch (Exception $e2) {
-        // If everything fails, output a minimal SQL file with error info
-        echo "-- Merhab Cars Database Backup\n";
-        echo "-- Generated on: " . date('Y-m-d H:i:s') . "\n";
-        echo "-- ERROR: Backup failed\n";
-        echo "-- Error details: " . $e2->getMessage() . "\n";
-        echo "-- Please check database configuration and permissions\n";
-        echo "-- Database host: $host\n";
-        echo "-- Database name: $dbname\n";
-        echo "-- Username: $username\n";
     }
+    
+} catch (Exception $e) {
+    // Clear any output and create error SQL file
+    ob_clean();
+    
+    echo "-- Merhab Cars Database Backup\n";
+    echo "-- Generated on: " . date('Y-m-d H:i:s') . "\n";
+    echo "-- ERROR: Backup failed\n";
+    echo "-- Error details: " . $e->getMessage() . "\n";
+    echo "-- Please check database configuration and permissions\n";
+    echo "-- Database host: " . ($host ?? 'unknown') . "\n";
+    echo "-- Database name: " . ($dbname ?? 'unknown') . "\n";
+    echo "-- Username: " . ($username ?? 'unknown') . "\n";
+    echo "-- PHP Version: " . phpversion() . "\n";
+    echo "-- Server: " . ($_SERVER['SERVER_SOFTWARE'] ?? 'unknown') . "\n";
 }
+
+// Flush and end output
+ob_end_flush();
+exit();
 ?> 
