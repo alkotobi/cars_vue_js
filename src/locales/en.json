@@ -192,6 +192,7 @@
     "params": "Params",
     "tasks": "Tasks",
     "invitations": "Invitations",
+    "backup": "Database Backup",
     "yourPendingTasks": "Your Pending Tasks",
     "refreshTasks": "Refresh tasks",
     "viewAllTasks": "View All Tasks",

@@ -181,7 +181,7 @@
     "chinese": "中文"
   },
   "dashboard": {
-    "welcome": "欢迎使用仪表板",
+    "welcome": "欢迎来到仪表板",
     "currentRate": "当前汇率",
     "updatedOn": "更新于",
     "users": "用户",
@@ -192,11 +192,12 @@
     "params": "参数",
     "tasks": "任务",
     "invitations": "邀请",
+    "backup": "数据库备份",
     "yourPendingTasks": "您的待处理任务",
     "refreshTasks": "刷新任务",
     "viewAllTasks": "查看所有任务",
     "loadingYourTasks": "正在加载您的任务...",
-    "noPendingTasks": "没有待处理任务！您已经全部完成。",
+    "noPendingTasks": "没有待处理的任务！您已经完成了。",
     "createdBy": "创建者",
     "copyright": "© Merhab Noureddine 2025"
   },

@@ -183,22 +183,23 @@
   "dashboard": {
     "welcome": "مرحباً بك في لوحة التحكم",
     "currentRate": "المعدل الحالي",
-    "updatedOn": "تم التحديث",
+    "updatedOn": "تم التحديث في",
     "users": "المستخدمين",
     "transfers": "التحويلات",
     "cars": "السيارات",
     "cashier": "الصندوق",
-    "rates": "الأسعار",
+    "rates": "المعدلات",
     "params": "المعاملات",
     "tasks": "المهام",
     "invitations": "الدعوات",
+    "backup": "نسخ احتياطي لقاعدة البيانات",
     "yourPendingTasks": "مهامك المعلقة",
     "refreshTasks": "تحديث المهام",
     "viewAllTasks": "عرض جميع المهام",
     "loadingYourTasks": "جاري تحميل مهامك...",
-    "noPendingTasks": "لا توجد مهام معلقة! أنت محدث بالكامل.",
+    "noPendingTasks": "لا توجد مهام معلقة! أنت محدث.",
     "createdBy": "أنشئ بواسطة",
-    "copyright": "© مروح نور الدين 2025"
+    "copyright": "© ميرحاب نور الدين 2025"
   },
   "clientDetails": {
     "title": "تفاصيل العميل",

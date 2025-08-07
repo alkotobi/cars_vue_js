@@ -183,7 +183,7 @@
   "dashboard": {
     "welcome": "Bienvenue au Tableau de Bord",
     "currentRate": "Taux Actuel",
-    "updatedOn": "Mis à jour",
+    "updatedOn": "Mis à jour le",
     "users": "Utilisateurs",
     "transfers": "Transferts",
     "cars": "Voitures",
@@ -192,6 +192,7 @@
     "params": "Paramètres",
     "tasks": "Tâches",
     "invitations": "Invitations",
+    "backup": "Sauvegarde Base de Données",
     "yourPendingTasks": "Vos Tâches en Attente",
     "refreshTasks": "Actualiser les tâches",
     "viewAllTasks": "Voir Toutes les Tâches",

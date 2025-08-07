@@ -19,6 +19,7 @@ const isProcessing = ref({
   params: false,
   tasks: false,
   invitations: false,
+  backup: false,
 })
 const canManageUsers = computed(() => {
   console.log(user.value)
@@ -115,6 +116,33 @@ const handleInvitationsClick = async () => {
     await router.push('/invitations')
   } finally {
     isProcessing.value.invitations = false
+  }
+}
+
+const handleBackupClick = async () => {
+  if (isProcessing.value.backup) return
+  isProcessing.value.backup = true
+
+  try {
+    // Create backup filename with timestamp
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+    const filename = `merhab_cars_backup_${timestamp}.sql`
+
+    // Trigger direct download
+    const link = document.createElement('a')
+    link.href = `/api/backup.php?filename=${filename}`
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+
+    // Show success message
+    alert('Database backup started! Check your downloads folder.')
+  } catch (error) {
+    console.error('Backup error:', error)
+    alert('Error creating backup. Please try again.')
+  } finally {
+    isProcessing.value.backup = false
   }
 }
 const fetchLatestRate = async () => {
@@ -321,6 +349,17 @@ const formatDate = (dateString) => {
         <span>{{ t('dashboard.invitations') }}</span>
         <i v-if="isProcessing.invitations" class="fas fa-spinner fa-spin loading-indicator"></i>
       </button>
+      <button
+        v-if="isAdmin"
+        @click="handleBackupClick"
+        class="action-btn backup-btn"
+        :disabled="isProcessing.backup"
+        :class="{ processing: isProcessing.backup }"
+      >
+        <i class="fas fa-database"></i>
+        <span>{{ t('dashboard.backup') }}</span>
+        <i v-if="isProcessing.backup" class="fas fa-spinner fa-spin loading-indicator"></i>
+      </button>
     </div>
 
     <!-- Pending Tasks Section -->
@@ -496,6 +535,14 @@ const formatDate = (dateString) => {
 }
 .tasks-btn {
   background-color: #3b82f6;
+  color: white;
+}
+.invitations-btn {
+  background-color: #4f46e5;
+  color: white;
+}
+.backup-btn {
+  background-color: #06b6d4;
   color: white;
 }
 button:disabled {
