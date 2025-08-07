@@ -1,6 +1,6 @@
 -- Backup Website Monitor
 -- This script monitors Safari and ensures the backup website stays open
--- Run this as a background service
+-- Run this as a background service with minimal visibility
 
 -- Function to check if backup website is open
 on checkBackupWebsite()
@@ -29,6 +29,7 @@ on checkBackupWebsite()
 end checkBackupWebsite
 
 -- Start monitoring loop (check every 5 minutes)
+-- Note: This will show a small icon in the dock when running
 repeat
 	checkBackupWebsite()
 	delay 300 -- Wait 5 minutes before next check
