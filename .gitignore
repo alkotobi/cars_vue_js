@@ -32,3 +32,6 @@ coverage
 # Migration folders
 mig_files/
 mig/
+
+# Backup files
+backups/
