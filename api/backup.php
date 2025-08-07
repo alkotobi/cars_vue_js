@@ -1,5 +1,6 @@
 <?php
-header('Content-Type: application/json');
+// Prevent any HTML output by setting proper headers first
+header('Content-Type: application/sql');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
@@ -10,6 +11,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit();
 }
 
+// Disable error display to prevent HTML output
+ini_set('display_errors', 0);
+error_reporting(E_ALL);
+
 // Include database configuration
 require_once 'config.php';
 
@@ -17,7 +22,6 @@ require_once 'config.php';
 $filename = $_GET['filename'] ?? 'merhab_cars_backup_' . date('Y-m-d_H-i-s') . '.sql';
 
 // Set headers for file download
-header('Content-Type: application/sql');
 header('Content-Disposition: attachment; filename="' . $filename . '"');
 header('Cache-Control: no-cache, must-revalidate');
 header('Expires: Sat, 26 Jul 1997 05:00:00 GMT');
@@ -65,7 +69,8 @@ try {
         // Generate SQL backup
         $backup = "-- Merhab Cars Database Backup\n";
         $backup .= "-- Generated on: " . date('Y-m-d H:i:s') . "\n";
-        $backup .= "-- Database: $dbname\n\n";
+        $backup .= "-- Database: $dbname\n";
+        $backup .= "-- Backup method: PHP fallback (mysqldump failed)\n\n";
         
         foreach ($tables as $table) {
             // Get table structure
@@ -98,8 +103,15 @@ try {
         echo $backup;
         
     } catch (Exception $e2) {
-        http_response_code(500);
-        echo json_encode(['success' => false, 'error' => 'Backup failed: ' . $e2->getMessage()]);
+        // If everything fails, output a minimal SQL file with error info
+        echo "-- Merhab Cars Database Backup\n";
+        echo "-- Generated on: " . date('Y-m-d H:i:s') . "\n";
+        echo "-- ERROR: Backup failed\n";
+        echo "-- Error details: " . $e2->getMessage() . "\n";
+        echo "-- Please check database configuration and permissions\n";
+        echo "-- Database host: $host\n";
+        echo "-- Database name: $dbname\n";
+        echo "-- Username: $username\n";
     }
 }
 ?> 

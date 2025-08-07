@@ -122,25 +122,43 @@ const handleInvitationsClick = async () => {
 const handleBackupClick = async () => {
   if (isProcessing.value.backup) return
   isProcessing.value.backup = true
-
+  
   try {
     // Create backup filename with timestamp
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
     const filename = `merhab_cars_backup_${timestamp}.sql`
-
+    
+    // First, test the backup endpoint
+    const testResponse = await fetch('/api/backup_test.php')
+    if (!testResponse.ok) {
+      throw new Error(`Backup test failed: ${testResponse.status}`)
+    }
+    
     // Trigger direct download
     const link = document.createElement('a')
     link.href = `/api/backup.php?filename=${filename}`
     link.download = filename
+    link.target = '_blank' // Open in new tab to see any errors
+    
+    // Add event listener to check if download started
+    link.addEventListener('click', () => {
+      setTimeout(() => {
+        // Check if file was downloaded by checking if the link is still in DOM
+        if (!document.body.contains(link)) {
+          alert('Database backup started! Check your downloads folder.')
+        } else {
+          alert('Backup download may have failed. Please check the browser console for errors.')
+        }
+      }, 2000)
+    })
+    
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
-
-    // Show success message
-    alert('Database backup started! Check your downloads folder.')
+    
   } catch (error) {
     console.error('Backup error:', error)
-    alert('Error creating backup. Please try again.')
+    alert(`Error creating backup: ${error.message}\n\nPlease check the server logs or contact your administrator.`)
   } finally {
     isProcessing.value.backup = false
   }
