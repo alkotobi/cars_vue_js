@@ -143,6 +143,61 @@
           <input type="date" v-model="filters.soldDateTo" @change="handleFilterChange" />
         </div>
       </div>
+
+      <!-- Additional Car and Client Filters -->
+      <div class="filters-grid">
+        <div class="filter-group">
+          <label>
+            <i class="fas fa-car"></i>
+            {{ t('loading.car_name') }}:
+          </label>
+          <input
+            type="text"
+            v-model="filters.carName"
+            @input="handleFilterChange"
+            :placeholder="t('loading.filter_by_car_name')"
+          />
+        </div>
+
+        <div class="filter-group">
+          <label>
+            <i class="fas fa-barcode"></i>
+            {{ t('loading.vin') }}:
+          </label>
+          <input
+            type="text"
+            v-model="filters.vin"
+            @input="handleFilterChange"
+            :placeholder="t('loading.filter_by_vin')"
+          />
+        </div>
+
+        <div class="filter-group">
+          <label>
+            <i class="fas fa-user"></i>
+            {{ t('loading.client_name') }}:
+          </label>
+          <input
+            type="text"
+            v-model="filters.clientName"
+            @input="handleFilterChange"
+            :placeholder="t('loading.filter_by_client_name')"
+          />
+        </div>
+
+        <div class="filter-group">
+          <label>
+            <i class="fas fa-id-card"></i>
+            {{ t('loading.client_id_no') }}:
+          </label>
+          <input
+            type="text"
+            v-model="filters.clientId"
+            @input="handleFilterChange"
+            :placeholder="t('loading.filter_by_client_id')"
+          />
+        </div>
+      </div>
     </div>
 
     <div class="table-wrapper">
@@ -241,6 +296,7 @@
                 ></i>
                 <i v-else class="fas fa-sort sort-inactive"></i>
               </th>
+
               <th>{{ t('loading.actions') }}</th>
             </tr>
           </thead>
@@ -278,6 +334,7 @@
               <td class="notes-cell" :title="record.note">
                 {{ record.note ? truncateText(record.note, 30) : '-' }}
               </td>
+
               <td class="actions-cell">
                 <div class="action-buttons">
                   <button
@@ -812,6 +869,10 @@ const filters = ref({
   dateTo: '',
   soldDateFrom: '',
   soldDateTo: '',
+  carName: '',
+  vin: '',
+  clientName: '',
+  clientId: '',
 })
 
 const sortBy = ref('id')
@@ -850,11 +911,20 @@ const fetchLoadingRecords = async () => {
         l.note,
         sl.name as shipping_line_name,
         lp.loading_port as loading_port_name,
-        dp.discharge_port as discharge_port_name
+        dp.discharge_port as discharge_port_name,
+        GROUP_CONCAT(DISTINCT cn.car_name) as car_names,
+        GROUP_CONCAT(DISTINCT cs.vin) as vins,
+        GROUP_CONCAT(DISTINCT cl.name) as client_names,
+        GROUP_CONCAT(DISTINCT cl.id_no) as client_ids
       FROM loading l
       LEFT JOIN shipping_lines sl ON l.id_shipping_line = sl.id
       LEFT JOIN loading_ports lp ON l.id_loading_port = lp.id
       LEFT JOIN discharge_ports dp ON l.id_discharge_port = dp.id
+      LEFT JOIN loaded_containers lc ON l.id = lc.id_loading
+      LEFT JOIN cars_stock cs ON lc.id = cs.id_loaded_container
+      LEFT JOIN buy_details bd ON cs.id_buy_details = bd.id
+      LEFT JOIN cars_names cn ON bd.id_car_name = cn.id
+      LEFT JOIN clients cl ON cs.id_client = cl.id
     `
 
     let params = []
@@ -878,6 +948,9 @@ const fetchLoadingRecords = async () => {
         params.push(filters.value.soldDateTo)
       }
 
+      query += ` GROUP BY l.id`
+    } else {
+      // Add GROUP BY for car and client data when not using sold date filters
       query += ` GROUP BY l.id`
     }
 
@@ -934,6 +1007,38 @@ const applyFiltersAndSorting = () => {
         (record.discharge_port_name &&
           record.discharge_port_name.toLowerCase().includes(searchTerm)) ||
         (record.note && record.note.toLowerCase().includes(searchTerm)),
+    )
+  }
+
+  // Apply car name filter
+  if (filters.value.carName) {
+    const carNameTerm = filters.value.carName.toLowerCase()
+    filteredRecords = filteredRecords.filter(
+      (record) => record.car_names && record.car_names.toLowerCase().includes(carNameTerm),
+    )
+  }
+
+  // Apply VIN filter
+  if (filters.value.vin) {
+    const vinTerm = filters.value.vin.toLowerCase()
+    filteredRecords = filteredRecords.filter(
+      (record) => record.vins && record.vins.toLowerCase().includes(vinTerm),
+    )
+  }
+
+  // Apply client name filter
+  if (filters.value.clientName) {
+    const clientNameTerm = filters.value.clientName.toLowerCase()
+    filteredRecords = filteredRecords.filter(
+      (record) => record.client_names && record.client_names.toLowerCase().includes(clientNameTerm),
+    )
+  }
+
+  // Apply client ID filter
+  if (filters.value.clientId) {
+    const clientIdTerm = filters.value.clientId.toLowerCase()
+    filteredRecords = filteredRecords.filter(
+      (record) => record.client_ids && record.client_ids.toLowerCase().includes(clientIdTerm),
     )
   }
 
@@ -1000,7 +1105,11 @@ const applyFiltersAndSorting = () => {
     filters.value.dateFrom ||
     filters.value.dateTo ||
     filters.value.soldDateFrom ||
-    filters.value.soldDateTo
+    filters.value.soldDateTo ||
+    filters.value.carName ||
+    filters.value.vin ||
+    filters.value.clientName ||
+    filters.value.clientId
   )
 
   // Show all filtered records (removed the 5-record limit)
@@ -1009,8 +1118,15 @@ const applyFiltersAndSorting = () => {
 }
 
 const handleFilterChange = () => {
-  // If sold date filters changed, refetch data from database
-  if (filters.value.soldDateFrom || filters.value.soldDateTo) {
+  // If sold date filters or car/client filters changed, refetch data from database
+  if (
+    filters.value.soldDateFrom ||
+    filters.value.soldDateTo ||
+    filters.value.carName ||
+    filters.value.vin ||
+    filters.value.clientName ||
+    filters.value.clientId
+  ) {
     fetchLoadingRecords()
   } else {
     // For other filters, apply client-side filtering
@@ -1090,6 +1206,10 @@ const clearFilters = () => {
     dateTo: '',
     soldDateFrom: '',
     soldDateTo: '',
+    carName: '',
+    vin: '',
+    clientName: '',
+    clientId: '',
   }
   sortBy.value = 'id'
   sortOrder.value = 'desc'
@@ -3144,6 +3264,17 @@ onMounted(() => {
     gap: 12px;
     align-items: flex-start;
   }
+}
+
+/* Additional filters section styling */
+.filters-grid:last-of-type {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.filters-grid:last-of-type .filter-group {
+  margin-bottom: 8px;
 }
 
 /* Highlight effect for newly added records */
