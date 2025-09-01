@@ -101,6 +101,19 @@
             @input="applyFilters"
           />
         </div>
+        <div class="filter-group">
+          <label for="containerRefFilter">
+            <i class="fas fa-link"></i>
+            {{ t('loading.container_ref') }}
+          </label>
+          <input
+            type="text"
+            id="containerRefFilter"
+            v-model="filters.containerRef"
+            :placeholder="t('loading.filter_by_container_ref')"
+            @input="applyFilters"
+          />
+        </div>
         <div class="filter-actions">
           <button @click="clearFilters" class="clear-filters-btn">
             <i class="fas fa-times"></i>
@@ -389,6 +402,11 @@ const props = defineProps({
     type: String,
     default: '',
   },
+  // Container reference filter
+  containerRefFilter: {
+    type: String,
+    default: '',
+  },
 })
 
 const emit = defineEmits(['car-assigned'])
@@ -408,6 +426,7 @@ const filters = ref({
   vin: '',
   clientName: '',
   clientId: '',
+  containerRef: '',
 })
 
 // VIN dialog state
@@ -432,10 +451,12 @@ const hasActiveFilters = computed(() => {
     filters.value.vin ||
     filters.value.clientName ||
     filters.value.clientId ||
+    filters.value.containerRef ||
     props.carNameFilter ||
     props.vinFilter ||
     props.clientNameFilter ||
-    props.clientIdFilter
+    props.clientIdFilter ||
+    props.containerRefFilter
   )
 })
 
@@ -469,6 +490,11 @@ const sortedAndFilteredCars = computed(() => {
       car.client_id_no?.toLowerCase().includes(filters.value.clientId.toLowerCase()),
     )
   }
+  if (filters.value.containerRef) {
+    filtered = filtered.filter((car) =>
+      car.container_ref?.toLowerCase().includes(filters.value.containerRef.toLowerCase()),
+    )
+  }
 
   // Apply global filters from parent (LoadingTable)
   if (props.carNameFilter) {
@@ -489,6 +515,11 @@ const sortedAndFilteredCars = computed(() => {
   if (props.clientIdFilter) {
     filtered = filtered.filter((car) =>
       car.client_id_no?.toLowerCase().includes(props.clientIdFilter.toLowerCase()),
+    )
+  }
+  if (props.containerRefFilter) {
+    filtered = filtered.filter((car) =>
+      car.container_ref?.toLowerCase().includes(props.containerRefFilter.toLowerCase()),
     )
   }
 
@@ -538,7 +569,8 @@ const fetchUnassignedCars = async () => {
           sb.id as sell_bill_id,
           sb.date_sell as sell_bill_date,
           sb.bill_ref as sell_bill_ref,
-          dp.discharge_port
+          dp.discharge_port,
+          cs.container_ref
         FROM cars_stock cs
         LEFT JOIN buy_details bd ON cs.id_buy_details = bd.id
         LEFT JOIN cars_names cn ON bd.id_car_name = cn.id
@@ -811,6 +843,15 @@ const applyFilters = () => {
     )
   }
 
+  // Filter by container reference
+  if (filters.value.containerRef) {
+    filteredCars = filteredCars.filter(
+      (car) =>
+        car.container_ref &&
+        car.container_ref.toLowerCase().includes(filters.value.containerRef.toLowerCase()),
+    )
+  }
+
   unassignedCars.value = filteredCars
 }
 
@@ -821,6 +862,7 @@ const clearFilters = () => {
     vin: '',
     clientName: '',
     clientId: '',
+    containerRef: '',
   }
   unassignedCars.value = [...allUnassignedCars.value]
 }
@@ -841,7 +883,13 @@ watch(
 
 // Watch for changes in global filters from parent
 watch(
-  () => [props.carNameFilter, props.vinFilter, props.clientNameFilter, props.clientIdFilter],
+  () => [
+    props.carNameFilter,
+    props.vinFilter,
+    props.clientNameFilter,
+    props.clientIdFilter,
+    props.containerRefFilter,
+  ],
   () => {
     // No need to refetch data, just let the computed property handle filtering
     // The sortedAndFilteredCars computed property will automatically update

@@ -620,6 +620,11 @@ const props = defineProps({
     type: String,
     default: '',
   },
+  // Container reference filter
+  containerRefFilter: {
+    type: String,
+    default: '',
+  },
 })
 
 const emit = defineEmits(['container-click', 'refresh-unassigned-cars', 'container-created'])
@@ -634,7 +639,8 @@ const hasActiveFilters = computed(() => {
     props.clientNameFilter ||
     props.clientIdFilter ||
     props.soldDateFrom ||
-    props.soldDateTo
+    props.soldDateTo ||
+    props.containerRefFilter
   )
 })
 
@@ -809,6 +815,11 @@ const fetchContainers = async () => {
       params.push(`%${props.clientIdFilter}%`)
     }
 
+    if (props.containerRefFilter) {
+      query += ` AND lc.ref_container LIKE ?`
+      params.push(`%${props.containerRefFilter}%`)
+    }
+
     query += ` GROUP BY lc.id ${orderByClause}`
 
     const result = await callApi({
@@ -827,6 +838,7 @@ const fetchContainers = async () => {
       vin: props.vinFilter,
       clientName: props.clientNameFilter,
       clientId: props.clientIdFilter,
+      containerRef: props.containerRefFilter,
     })
     console.log('Containers query result:', result)
 
@@ -1332,7 +1344,13 @@ watch(
 
 // Watch for changes in car and client filters
 watch(
-  () => [props.carNameFilter, props.vinFilter, props.clientNameFilter, props.clientIdFilter],
+  () => [
+    props.carNameFilter,
+    props.vinFilter,
+    props.clientNameFilter,
+    props.clientIdFilter,
+    props.containerRefFilter,
+  ],
   () => {
     if (props.selectedLoadingId) {
       fetchContainers()

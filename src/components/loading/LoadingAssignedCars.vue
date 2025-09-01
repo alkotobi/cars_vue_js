@@ -249,6 +249,11 @@ const props = defineProps({
     type: String,
     default: '',
   },
+  // Container reference filter
+  containerRefFilter: {
+    type: String,
+    default: '',
+  },
 })
 
 const emit = defineEmits(['car-unassigned'])
@@ -282,6 +287,7 @@ const hasActiveFilters = computed(() => {
     props.vinFilter ||
     props.clientNameFilter ||
     props.clientIdFilter ||
+    props.containerRefFilter ||
     props.soldDateFrom ||
     props.soldDateTo
   )
@@ -396,6 +402,12 @@ const fetchAssignedCars = async () => {
       params.push(`%${props.clientIdFilter}%`)
     }
 
+    // Add container reference filter
+    if (props.containerRefFilter) {
+      query += ` AND lc.ref_container LIKE ?`
+      params.push(`%${props.containerRefFilter}%`)
+    }
+
     query += ` ORDER BY cs.id DESC`
 
     console.log('Assigned Cars Query:', query)
@@ -409,6 +421,7 @@ const fetchAssignedCars = async () => {
       vin: props.vinFilter,
       clientName: props.clientNameFilter,
       clientId: props.clientIdFilter,
+      containerRef: props.containerRefFilter,
     })
 
     const result = await callApi({

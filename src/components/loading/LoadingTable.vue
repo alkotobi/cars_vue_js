@@ -67,8 +67,47 @@
           <input
             type="text"
             v-model="filters.search"
-            @input="handleFilterChange"
             :placeholder="t('loading.search_placeholder')"
+          />
+        </div>
+        <div class="filter-group">
+          <label>
+            <i class="fas fa-car"></i>
+            {{ t('loading.car_name') }}:
+          </label>
+          <input
+            type="text"
+            v-model="filters.carName"
+            :placeholder="t('loading.filter_by_car_name')"
+          />
+        </div>
+        <div class="filter-group">
+          <label>
+            <i class="fas fa-barcode"></i>
+            {{ t('loading.vin') }}:
+          </label>
+          <input type="text" v-model="filters.vin" :placeholder="t('loading.filter_by_vin')" />
+        </div>
+        <div class="filter-group">
+          <label>
+            <i class="fas fa-user"></i>
+            {{ t('loading.client_name') }}:
+          </label>
+          <input
+            type="text"
+            v-model="filters.clientName"
+            :placeholder="t('loading.filter_by_client_name')"
+          />
+        </div>
+        <div class="filter-group">
+          <label>
+            <i class="fas fa-id-card"></i>
+            {{ t('loading.client_id') }}:
+          </label>
+          <input
+            type="text"
+            v-model="filters.clientId"
+            :placeholder="t('loading.filter_by_client_id')"
           />
         </div>
 
@@ -129,6 +168,18 @@
 
         <div class="filter-group">
           <label>
+            <i class="fas fa-box"></i>
+            {{ t('loading.container_ref') }}:
+          </label>
+          <input
+            type="text"
+            v-model="filters.containerRef"
+            :placeholder="t('loading.filter_by_container_ref')"
+          />
+        </div>
+
+        <div class="filter-group">
+          <label>
             <i class="fas fa-dollar-sign"></i>
             {{ t('loading.sold_date_from') }}:
           </label>
@@ -144,59 +195,16 @@
         </div>
       </div>
 
-      <!-- Additional Car and Client Filters -->
-      <div class="filters-grid">
-        <div class="filter-group">
-          <label>
-            <i class="fas fa-car"></i>
-            {{ t('loading.car_name') }}:
-          </label>
-          <input
-            type="text"
-            v-model="filters.carName"
-            @input="handleFilterChange"
-            :placeholder="t('loading.filter_by_car_name')"
-          />
-        </div>
-
-        <div class="filter-group">
-          <label>
-            <i class="fas fa-barcode"></i>
-            {{ t('loading.vin') }}:
-          </label>
-          <input
-            type="text"
-            v-model="filters.vin"
-            @input="handleFilterChange"
-            :placeholder="t('loading.filter_by_vin')"
-          />
-        </div>
-
-        <div class="filter-group">
-          <label>
-            <i class="fas fa-user"></i>
-            {{ t('loading.client_name') }}:
-          </label>
-          <input
-            type="text"
-            v-model="filters.clientName"
-            @input="handleFilterChange"
-            :placeholder="t('loading.filter_by_client_name')"
-          />
-        </div>
-
-        <div class="filter-group">
-          <label>
-            <i class="fas fa-id-card"></i>
-            {{ t('loading.client_id_no') }}:
-          </label>
-          <input
-            type="text"
-            v-model="filters.clientId"
-            @input="handleFilterChange"
-            :placeholder="t('loading.filter_by_client_id')"
-          />
-        </div>
+      <!-- Apply Filter Button -->
+      <div class="filter-actions">
+        <button type="button" @click="applyFilters" class="apply-filter-btn" :disabled="isLoading">
+          <i class="fas fa-filter"></i>
+          {{ t('loading.apply_filters') }}
+        </button>
+        <button type="button" @click="clearFilters" class="clear-filters-btn" :disabled="isLoading">
+          <i class="fas fa-times"></i>
+          {{ t('loading.clear_filters') }}
+        </button>
       </div>
     </div>
 
@@ -385,6 +393,7 @@
       :vinFilter="filters.vin"
       :clientNameFilter="filters.clientName"
       :clientIdFilter="filters.clientId"
+      :containerRefFilter="filters.containerRef"
       @container-click="handleContainerClick"
       @refresh-unassigned-cars="handleRefreshUnassignedCars"
       @container-created="handleContainerCreated"
@@ -399,6 +408,7 @@
       :vinFilter="filters.vin"
       :clientNameFilter="filters.clientName"
       :clientIdFilter="filters.clientId"
+      :containerRefFilter="filters.containerRef"
       @car-unassigned="handleCarUnassigned"
     />
     <UnassignedCars
@@ -410,6 +420,7 @@
       :vinFilter="filters.vin"
       :clientNameFilter="filters.clientName"
       :clientIdFilter="filters.clientId"
+      :containerRefFilter="filters.containerRef"
       @car-assigned="handleCarAssigned"
     />
 
@@ -885,6 +896,7 @@ const filters = ref({
   vin: '',
   clientName: '',
   clientId: '',
+  containerRef: '',
 })
 
 const sortBy = ref('id')
@@ -927,7 +939,8 @@ const fetchLoadingRecords = async () => {
         GROUP_CONCAT(DISTINCT cn.car_name) as car_names,
         GROUP_CONCAT(DISTINCT cs.vin) as vins,
         GROUP_CONCAT(DISTINCT cl.name) as client_names,
-        GROUP_CONCAT(DISTINCT cl.id_no) as client_ids
+        GROUP_CONCAT(DISTINCT cl.id_no) as client_ids,
+        GROUP_CONCAT(DISTINCT lc.ref_container) as container_refs
       FROM loading l
       LEFT JOIN shipping_lines sl ON l.id_shipping_line = sl.id
       LEFT JOIN loading_ports lp ON l.id_loading_port = lp.id
@@ -1018,6 +1031,7 @@ const applyFiltersAndSorting = () => {
         (record.loading_port_name && record.loading_port_name.toLowerCase().includes(searchTerm)) ||
         (record.discharge_port_name &&
           record.discharge_port_name.toLowerCase().includes(searchTerm)) ||
+        (record.container_refs && record.container_refs.toLowerCase().includes(searchTerm)) ||
         (record.note && record.note.toLowerCase().includes(searchTerm)),
     )
   }
@@ -1051,6 +1065,15 @@ const applyFiltersAndSorting = () => {
     const clientIdTerm = filters.value.clientId.toLowerCase()
     filteredRecords = filteredRecords.filter(
       (record) => record.client_ids && record.client_ids.toLowerCase().includes(clientIdTerm),
+    )
+  }
+
+  // Apply container reference filter
+  if (filters.value.containerRef) {
+    const containerRefTerm = filters.value.containerRef.toLowerCase()
+    filteredRecords = filteredRecords.filter(
+      (record) =>
+        record.container_refs && record.container_refs.toLowerCase().includes(containerRefTerm),
     )
   }
 
@@ -1121,7 +1144,8 @@ const applyFiltersAndSorting = () => {
     filters.value.carName ||
     filters.value.vin ||
     filters.value.clientName ||
-    filters.value.clientId
+    filters.value.clientId ||
+    filters.value.containerRef
   )
 
   // Show all filtered records (removed the 5-record limit)
@@ -1130,24 +1154,39 @@ const applyFiltersAndSorting = () => {
 }
 
 const handleFilterChange = () => {
-  // If sold date filters or car/client filters changed, refetch data from database
+  // Only dropdown and date filters trigger automatic updates
+  // Text filters (search, carName, vin, clientName, clientId, containerRef) require manual application
+  if (
+    filters.value.soldDateFrom ||
+    filters.value.soldDateTo ||
+    filters.value.shippingLine ||
+    filters.value.loadingPort ||
+    filters.value.dischargePort ||
+    filters.value.dateFrom ||
+    filters.value.dateTo
+  ) {
+    fetchLoadingRecords()
+  }
+  // Text filters are now handled manually via the Apply Filter button
+}
+
+const applyFilters = () => {
+  // Apply all filters including text filters
   if (
     filters.value.soldDateFrom ||
     filters.value.soldDateTo ||
     filters.value.carName ||
     filters.value.vin ||
     filters.value.clientName ||
-    filters.value.clientId
+    filters.value.clientId ||
+    filters.value.containerRef
   ) {
+    // If any business filters are active, fetch from database
     fetchLoadingRecords()
   } else {
-    // For other filters, apply client-side filtering
+    // Otherwise apply client-side filtering
     applyFiltersAndSorting()
   }
-}
-
-const applyFilters = () => {
-  applyFiltersAndSorting()
 }
 
 const applySorting = () => {
@@ -1222,6 +1261,7 @@ const clearFilters = () => {
     vin: '',
     clientName: '',
     clientId: '',
+    containerRef: '',
   }
   sortBy.value = 'id'
   sortOrder.value = 'desc'
@@ -3332,5 +3372,68 @@ onMounted(() => {
   max-width: 500px;
   max-height: 90vh;
   overflow-y: auto;
+}
+
+.filter-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+  justify-content: center;
+}
+
+.apply-filter-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: #10b981;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.apply-filter-btn:hover:not(:disabled) {
+  background: #059669;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
+}
+
+.apply-filter-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.clear-filters-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.clear-filters-btn:hover:not(:disabled) {
+  background: #dc2626;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3);
+}
+
+.clear-filters-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 </style>
