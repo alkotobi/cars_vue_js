@@ -104,6 +104,7 @@
                 ></i>
                 <i v-else class="fas fa-sort sort-inactive"></i>
               </th>
+
               <th @click="sortByColumn('sell_bill_id')" class="sortable-header">
                 {{ t('loading.sell_bill_id') }}
                 <i
@@ -154,10 +155,14 @@
                     class="client-id-image"
                     @click.stop="openClientId(car.id_copy_path)"
                   />
-                  <span class="client-name">{{ car.client_name }}</span>
+                  <div class="client-details">
+                    <span class="client-name">{{ car.client_name }}</span>
+                    <span class="client-id-no">{{ car.client_id_no || '-' }}</span>
+                  </div>
                 </div>
                 <span v-else class="no-client">-</span>
               </td>
+
               <td class="sell-bill-id-cell">{{ car.sell_bill_id || '-' }}</td>
               <td class="sell-bill-date-cell">
                 <div class="date-badges">
@@ -333,6 +338,7 @@ const fetchAssignedCars = async () => {
         cs.id_loaded_container,
         cs.id_client,
         cl.name as client_name,
+        cl.id_no as client_id_no,
         cl.id_copy_path,
         lc.date_on_board,
         sb.id as sell_bill_id,
@@ -877,6 +883,18 @@ loadUserData()
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.client-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.client-id-no {
+  font-size: 0.8rem;
+  color: #6b7280;
+  font-family: monospace;
 }
 
 .client-id-image {
