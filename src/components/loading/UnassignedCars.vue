@@ -372,6 +372,23 @@ const props = defineProps({
     type: Number,
     default: 0,
   },
+  // New car and client filters from parent
+  carNameFilter: {
+    type: String,
+    default: '',
+  },
+  vinFilter: {
+    type: String,
+    default: '',
+  },
+  clientNameFilter: {
+    type: String,
+    default: '',
+  },
+  clientIdFilter: {
+    type: String,
+    default: '',
+  },
 })
 
 const emit = defineEmits(['car-assigned'])
@@ -414,7 +431,11 @@ const hasActiveFilters = computed(() => {
     filters.value.color ||
     filters.value.vin ||
     filters.value.clientName ||
-    filters.value.clientId
+    filters.value.clientId ||
+    props.carNameFilter ||
+    props.vinFilter ||
+    props.clientNameFilter ||
+    props.clientIdFilter
   )
 })
 
@@ -446,6 +467,28 @@ const sortedAndFilteredCars = computed(() => {
   if (filters.value.clientId) {
     filtered = filtered.filter((car) =>
       car.client_id_no?.toLowerCase().includes(filters.value.clientId.toLowerCase()),
+    )
+  }
+
+  // Apply global filters from parent (LoadingTable)
+  if (props.carNameFilter) {
+    filtered = filtered.filter((car) =>
+      car.car_name?.toLowerCase().includes(props.carNameFilter.toLowerCase()),
+    )
+  }
+  if (props.vinFilter) {
+    filtered = filtered.filter((car) =>
+      car.vin?.toLowerCase().includes(props.vinFilter.toLowerCase()),
+    )
+  }
+  if (props.clientNameFilter) {
+    filtered = filtered.filter((car) =>
+      car.client_name?.toLowerCase().includes(props.clientNameFilter.toLowerCase()),
+    )
+  }
+  if (props.clientIdFilter) {
+    filtered = filtered.filter((car) =>
+      car.client_id_no?.toLowerCase().includes(props.clientIdFilter.toLowerCase()),
     )
   }
 
@@ -793,6 +836,15 @@ watch(
     if (newCount < 4) {
       isAssigning.value = false
     }
+  },
+)
+
+// Watch for changes in global filters from parent
+watch(
+  () => [props.carNameFilter, props.vinFilter, props.clientNameFilter, props.clientIdFilter],
+  () => {
+    // No need to refetch data, just let the computed property handle filtering
+    // The sortedAndFilteredCars computed property will automatically update
   },
 )
 

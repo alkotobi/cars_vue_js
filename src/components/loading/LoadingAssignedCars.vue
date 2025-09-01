@@ -4,6 +4,10 @@
       <h3>
         <i class="fas fa-car"></i>
         {{ t('loading.assigned_cars') }}
+        <span v-if="hasActiveFilters" class="filter-indicator">
+          <i class="fas fa-filter"></i>
+          {{ t('loading.filtered') }}
+        </span>
       </h3>
       <div class="header-actions" v-if="selectedLoadedContainerId">
         <button
@@ -195,6 +199,9 @@
     <div class="table-footer">
       <span class="record-count">
         {{ t('loading.showing_assigned_cars', { count: sortedAssignedCars.length }) }}
+        <span v-if="hasActiveFilters" class="filtered-note">
+          {{ t('loading.filtered_by_criteria') }}
+        </span>
       </span>
     </div>
   </div>
@@ -217,6 +224,23 @@ const props = defineProps({
     default: '',
   },
   soldDateTo: {
+    type: String,
+    default: '',
+  },
+  // New car and client filters
+  carNameFilter: {
+    type: String,
+    default: '',
+  },
+  vinFilter: {
+    type: String,
+    default: '',
+  },
+  clientNameFilter: {
+    type: String,
+    default: '',
+  },
+  clientIdFilter: {
     type: String,
     default: '',
   },
@@ -244,6 +268,18 @@ const isAdmin = computed(() => {
     isAdmin: adminStatus,
   })
   return adminStatus
+})
+
+// Computed property to check if any filters are active
+const hasActiveFilters = computed(() => {
+  return !!(
+    props.carNameFilter ||
+    props.vinFilter ||
+    props.clientNameFilter ||
+    props.clientIdFilter ||
+    props.soldDateFrom ||
+    props.soldDateTo
+  )
 })
 
 // Computed property for sorted cars
@@ -333,6 +369,27 @@ const fetchAssignedCars = async () => {
       }
     }
 
+    // Add car and client filters
+    if (props.carNameFilter) {
+      query += ` AND cn.car_name LIKE ?`
+      params.push(`%${props.carNameFilter}%`)
+    }
+
+    if (props.vinFilter) {
+      query += ` AND cs.vin LIKE ?`
+      params.push(`%${props.vinFilter}%`)
+    }
+
+    if (props.clientNameFilter) {
+      query += ` AND cl.name LIKE ?`
+      params.push(`%${props.clientNameFilter}%`)
+    }
+
+    if (props.clientIdFilter) {
+      query += ` AND cl.id_no LIKE ?`
+      params.push(`%${props.clientIdFilter}%`)
+    }
+
     query += ` ORDER BY cs.id DESC`
 
     console.log('Assigned Cars Query:', query)
@@ -340,6 +397,12 @@ const fetchAssignedCars = async () => {
     console.log('Sold Date Filters for Assigned Cars:', {
       from: props.soldDateFrom,
       to: props.soldDateTo,
+    })
+    console.log('Car and Client Filters for Assigned Cars:', {
+      carName: props.carNameFilter,
+      vin: props.vinFilter,
+      clientName: props.clientNameFilter,
+      clientId: props.clientIdFilter,
     })
 
     const result = await callApi({
@@ -474,6 +537,16 @@ watch(
   },
 )
 
+// Watch for changes in car and client filters
+watch(
+  () => [props.carNameFilter, props.vinFilter, props.clientNameFilter, props.clientIdFilter],
+  () => {
+    if (props.selectedLoadedContainerId) {
+      fetchAssignedCars()
+    }
+  },
+)
+
 // Load user data on component mount
 const loadUserData = () => {
   const userStr = localStorage.getItem('user')
@@ -526,6 +599,23 @@ loadUserData()
 
 .table-header h3 i {
   color: #10b981;
+}
+
+.filter-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  padding: 2px 8px;
+  background-color: #e3f2fd;
+  color: #1976d2;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.filter-indicator i {
+  font-size: 0.7rem;
 }
 
 .header-actions {
@@ -775,6 +865,12 @@ loadUserData()
 .record-count {
   color: #6b7280;
   font-size: 0.9rem;
+}
+
+.filtered-note {
+  color: #1976d2;
+  font-style: italic;
+  margin-left: 8px;
 }
 
 .client-info {

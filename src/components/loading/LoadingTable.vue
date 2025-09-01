@@ -395,6 +395,10 @@
       :selectedLoadedContainerId="selectedLoadedContainerId"
       :soldDateFrom="filters.soldDateFrom"
       :soldDateTo="filters.soldDateTo"
+      :carNameFilter="filters.carName"
+      :vinFilter="filters.vin"
+      :clientNameFilter="filters.clientName"
+      :clientIdFilter="filters.clientId"
       @car-unassigned="handleCarUnassigned"
     />
     <UnassignedCars
@@ -402,6 +406,10 @@
       :selectedLoadedContainerId="selectedLoadedContainerId"
       :selectedContainerOnBoard="selectedContainerOnBoard"
       :assignedCarsCount="assignedCarsCount"
+      :carNameFilter="filters.carName"
+      :vinFilter="filters.vin"
+      :clientNameFilter="filters.clientName"
+      :clientIdFilter="filters.clientId"
       @car-assigned="handleCarAssigned"
     />
 
