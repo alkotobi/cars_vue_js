@@ -853,6 +853,8 @@
     "discharge_port": "Discharge Port",
     "showing_unassigned_cars": "Showing {count} of {total} unassigned cars",
     "filtered": "(filtered)",
+    "showing_containers": "Showing {count} containers",
+    "filtered_by_criteria": "filtered by criteria",
     "enter_vin_for_car": "Enter VIN for Car #{carId}",
     "car": "Car",
     "na": "N/A",

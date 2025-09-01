@@ -4,6 +4,10 @@
       <h3>
         <i class="fas fa-box"></i>
         {{ t('loading.containers') }}
+        <span v-if="hasActiveFilters" class="filter-indicator">
+          <i class="fas fa-filter"></i>
+          {{ t('loading.filtered') }}
+        </span>
       </h3>
       <div class="header-actions" v-if="selectedLoadingId">
         <button
@@ -204,6 +208,16 @@
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <!-- Table Footer with Container Count -->
+      <div class="table-footer" v-if="containers.length > 0">
+        <span class="container-count">
+          {{ t('loading.showing_containers', { count: containers.length }) }}
+          <span v-if="hasActiveFilters" class="filtered-note">
+            {{ t('loading.filtered_by_criteria') }}
+          </span>
+        </span>
       </div>
     </div>
 
@@ -567,7 +581,7 @@
 </template>
 
 <script setup>
-import { ref, watch, defineExpose, onMounted } from 'vue'
+import { ref, watch, defineExpose, onMounted, computed } from 'vue'
 import { useEnhancedI18n } from '@/composables/useI18n'
 import { useApi } from '@/composables/useApi'
 
@@ -589,11 +603,40 @@ const props = defineProps({
     type: String,
     default: '',
   },
+  // New car and client filters
+  carNameFilter: {
+    type: String,
+    default: '',
+  },
+  vinFilter: {
+    type: String,
+    default: '',
+  },
+  clientNameFilter: {
+    type: String,
+    default: '',
+  },
+  clientIdFilter: {
+    type: String,
+    default: '',
+  },
 })
 
 const emit = defineEmits(['container-click', 'refresh-unassigned-cars', 'container-created'])
 
 const { callApi } = useApi()
+
+// Computed property to check if any filters are active
+const hasActiveFilters = computed(() => {
+  return !!(
+    props.carNameFilter ||
+    props.vinFilter ||
+    props.clientNameFilter ||
+    props.clientIdFilter ||
+    props.soldDateFrom ||
+    props.soldDateTo
+  )
+})
 
 const containers = ref([])
 const availableContainers = ref([])
@@ -687,10 +730,17 @@ const fetchContainers = async () => {
         lc.date_on_board,
         lc.is_released,
         lc.note,
-        COUNT(cs.id) as assigned_cars_count
+        COUNT(cs.id) as assigned_cars_count,
+        GROUP_CONCAT(DISTINCT cn.car_name) as car_names,
+        GROUP_CONCAT(DISTINCT cs.vin) as vins,
+        GROUP_CONCAT(DISTINCT cl.name) as client_names,
+        GROUP_CONCAT(DISTINCT cl.id_no) as client_ids
       FROM loaded_containers lc
       LEFT JOIN containers c ON lc.id_container = c.id
       LEFT JOIN cars_stock cs ON lc.id = cs.id_loaded_container
+      LEFT JOIN buy_details bd ON cs.id_buy_details = bd.id
+      LEFT JOIN cars_names cn ON bd.id_car_name = cn.id
+      LEFT JOIN clients cl ON cs.id_client = cl.id
       WHERE lc.id_loading = ?
     `
 
@@ -718,6 +768,47 @@ const fetchContainers = async () => {
       query += ` )`
     }
 
+    // Add car and client filters
+    if (props.carNameFilter) {
+      query += ` AND EXISTS (
+        SELECT 1 FROM cars_stock cs2 
+        LEFT JOIN buy_details bd2 ON cs2.id_buy_details = bd2.id
+        LEFT JOIN cars_names cn2 ON bd2.id_car_name = cn2.id
+        WHERE cs2.id_loaded_container = lc.id 
+        AND cn2.car_name LIKE ?
+      )`
+      params.push(`%${props.carNameFilter}%`)
+    }
+
+    if (props.vinFilter) {
+      query += ` AND EXISTS (
+        SELECT 1 FROM cars_stock cs2 
+        WHERE cs2.id_loaded_container = lc.id 
+        AND cs2.vin LIKE ?
+      )`
+      params.push(`%${props.vinFilter}%`)
+    }
+
+    if (props.clientNameFilter) {
+      query += ` AND EXISTS (
+        SELECT 1 FROM cars_stock cs2 
+        LEFT JOIN clients cl2 ON cs2.id_client = cl2.id
+        WHERE cs2.id_loaded_container = lc.id 
+        AND cl2.name LIKE ?
+      )`
+      params.push(`%${props.clientNameFilter}%`)
+    }
+
+    if (props.clientIdFilter) {
+      query += ` AND EXISTS (
+        SELECT 1 FROM cars_stock cs2 
+        LEFT JOIN clients cl2 ON cs2.id_client = cl2.id
+        WHERE cs2.id_loaded_container = lc.id 
+        AND cl2.id_no LIKE ?
+      )`
+      params.push(`%${props.clientIdFilter}%`)
+    }
+
     query += ` GROUP BY lc.id ${orderByClause}`
 
     const result = await callApi({
@@ -730,6 +821,12 @@ const fetchContainers = async () => {
     console.log('Sold Date Filters for Containers:', {
       from: props.soldDateFrom,
       to: props.soldDateTo,
+    })
+    console.log('Car and Client Filters for Containers:', {
+      carName: props.carNameFilter,
+      vin: props.vinFilter,
+      clientName: props.clientNameFilter,
+      clientId: props.clientIdFilter,
     })
     console.log('Containers query result:', result)
 
@@ -1233,6 +1330,16 @@ watch(
   },
 )
 
+// Watch for changes in car and client filters
+watch(
+  () => [props.carNameFilter, props.vinFilter, props.clientNameFilter, props.clientIdFilter],
+  () => {
+    if (props.selectedLoadingId) {
+      fetchContainers()
+    }
+  },
+)
+
 // Fetch available containers when component mounts
 onMounted(() => {
   fetchAvailableContainers()
@@ -1274,6 +1381,43 @@ defineExpose({
 
 .table-header h3 i {
   color: #3498db;
+}
+
+.filter-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  padding: 2px 8px;
+  background-color: #e3f2fd;
+  color: #1976d2;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.filter-indicator i {
+  font-size: 0.7rem;
+}
+
+.table-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px;
+  border-top: 1px solid #e5e7eb;
+  background-color: #f8fafc;
+  font-size: 0.85rem;
+}
+
+.container-count {
+  color: #6b7280;
+}
+
+.filtered-note {
+  color: #1976d2;
+  font-style: italic;
+  margin-left: 8px;
 }
 
 .header-actions {

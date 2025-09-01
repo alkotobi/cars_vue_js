@@ -658,6 +658,8 @@
     "discharge_port": "ميناء التفريغ",
     "showing_unassigned_cars": "عرض {count} من {total} سيارة غير معينة",
     "filtered": "(مصفى)",
+    "showing_containers": "عرض {count} حاوية",
+    "filtered_by_criteria": "مفلترة حسب المعايير",
     "enter_vin_for_car": "أدخل رقم الشاصي للسيارة #{carId}",
     "car": "السيارة",
     "na": "غير متاح",
