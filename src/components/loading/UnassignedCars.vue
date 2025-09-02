@@ -406,8 +406,8 @@ const props = defineProps({
     type: String,
     default: '',
   },
-  // Container reference filter
-  containerRefFilter: {
+  // Container ID filter
+  containerIdFilter: {
     type: String,
     default: '',
   },
@@ -458,7 +458,7 @@ const hasActiveFilters = computed(() => {
     props.clientNameFilter ||
     props.clientIdFilter ||
     props.carIdFilter ||
-    props.containerRefFilter
+    props.containerIdFilter
   )
 })
 
@@ -522,9 +522,9 @@ const sortedAndFilteredCars = computed(() => {
   if (props.carIdFilter) {
     filtered = filtered.filter((car) => car.id?.toString() === props.carIdFilter.trim())
   }
-  if (props.containerRefFilter) {
+  if (props.containerIdFilter) {
     filtered = filtered.filter((car) =>
-      car.container_ref?.toLowerCase().includes(props.containerRefFilter.toLowerCase()),
+      car.container_ref?.toLowerCase().includes(props.containerIdFilter.toLowerCase()),
     )
   }
 
@@ -894,7 +894,7 @@ watch(
     props.clientNameFilter,
     props.clientIdFilter,
     props.carIdFilter,
-    props.containerRefFilter,
+    props.containerIdFilter,
   ],
   () => {
     // No need to refetch data, just let the computed property handle filtering

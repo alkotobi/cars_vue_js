@@ -59,160 +59,215 @@
       </div>
 
       <div class="filters-grid">
-        <div class="filter-group">
-          <label>
+        <!-- Search & General Filters Group -->
+        <div class="filter-group-category search-filters">
+          <div class="category-header">
             <i class="fas fa-search"></i>
-            {{ t('loading.search') }}:
-          </label>
-          <input
-            type="text"
-            v-model="filters.search"
-            :placeholder="t('loading.search_placeholder')"
-          />
+            <span>Search & General</span>
+          </div>
+          <div class="category-filters">
+            <div class="filter-group">
+              <label>
+                <i class="fas fa-search"></i>
+                {{ t('loading.search') }}:
+              </label>
+              <input
+                type="text"
+                v-model="filters.search"
+                :placeholder="t('loading.search_placeholder')"
+              />
+            </div>
+          </div>
         </div>
-        <div class="filter-group">
-          <label>
+
+        <!-- Vehicle Information Filters Group -->
+        <div class="filter-group-category vehicle-filters">
+          <div class="category-header">
             <i class="fas fa-car"></i>
-            {{ t('loading.car_name') }}:
-          </label>
-          <input
-            type="text"
-            v-model="filters.carName"
-            :placeholder="t('loading.filter_by_car_name')"
-          />
+            <span>Vehicle Information</span>
+          </div>
+          <div class="category-filters">
+            <div class="filter-group">
+              <label>
+                <i class="fas fa-car"></i>
+                {{ t('loading.car_name') }}:
+              </label>
+              <input
+                type="text"
+                v-model="filters.carName"
+                :placeholder="t('loading.filter_by_car_name')"
+              />
+            </div>
+            <div class="filter-group">
+              <label>
+                <i class="fas fa-barcode"></i>
+                {{ t('loading.vin') }}:
+              </label>
+              <input type="text" v-model="filters.vin" :placeholder="t('loading.filter_by_vin')" />
+            </div>
+            <div class="filter-group">
+              <label>
+                <i class="fas fa-hashtag"></i>
+                Car ID:
+              </label>
+              <input type="text" v-model="filters.carId" placeholder="Filter by car ID..." />
+            </div>
+          </div>
         </div>
-        <div class="filter-group">
-          <label>
-            <i class="fas fa-barcode"></i>
-            {{ t('loading.vin') }}:
-          </label>
-          <input type="text" v-model="filters.vin" :placeholder="t('loading.filter_by_vin')" />
+
+        <!-- Client & Business Filters Group -->
+        <div class="filter-group-category client-filters">
+          <div class="category-header">
+            <i class="fas fa-users"></i>
+            <span>Client & Business</span>
+          </div>
+          <div class="category-filters">
+            <div class="filter-group">
+              <label>
+                <i class="fas fa-user"></i>
+                {{ t('loading.client_name') }}:
+              </label>
+              <input
+                type="text"
+                v-model="filters.clientName"
+                :placeholder="t('loading.filter_by_client_name')"
+              />
+            </div>
+            <div class="filter-group">
+              <label>
+                <i class="fas fa-id-card"></i>
+                {{ t('loading.client_id_no') }}:
+              </label>
+              <input type="text" v-model="filters.clientId" placeholder="Filter by client ID..." />
+            </div>
+          </div>
         </div>
-        <div class="filter-group">
-          <label>
-            <i class="fas fa-user"></i>
-            {{ t('loading.client_name') }}:
-          </label>
-          <input
-            type="text"
-            v-model="filters.clientName"
-            :placeholder="t('loading.filter_by_client_name')"
-          />
+
+        <!-- Container & Storage Filters Group -->
+        <div class="filter-group-category container-filters">
+          <div class="category-header">
+            <i class="fas fa-boxes"></i>
+            <span>Container & Storage</span>
+          </div>
+          <div class="category-filters">
+            <div class="filter-group">
+              <label>
+                <i class="fas fa-ship"></i>
+                Container ID:
+              </label>
+              <input
+                type="text"
+                v-model="filters.container"
+                placeholder="Filter by container ID..."
+              />
+            </div>
+            <div class="filter-group">
+              <label>
+                <i class="fas fa-box"></i>
+                {{ t('loading.container_ref') }}:
+              </label>
+              <input
+                type="text"
+                v-model="filters.containerRef"
+                :placeholder="t('loading.filter_by_container_ref')"
+              />
+            </div>
+          </div>
         </div>
-        <div class="filter-group">
-          <label>
-            <i class="fas fa-id-card"></i>
-            {{ t('loading.client_id_no') }}:
-          </label>
-          <input type="text" v-model="filters.clientId" placeholder="Filter by client ID..." />
-        </div>
-        <div class="filter-group">
-          <label>
-            <i class="fas fa-car"></i>
-            Car ID:
-          </label>
-          <input type="text" v-model="filters.carId" placeholder="Filter by car ID..." />
-        </div>
-        <div class="filter-group">
-          <label>
+
+        <!-- Shipping & Logistics Filters Group -->
+        <div class="filter-group-category shipping-filters">
+          <div class="category-header">
             <i class="fas fa-ship"></i>
-            Container:
-          </label>
-          <input type="text" v-model="filters.container" placeholder="Filter by container..." />
+            <span>Shipping & Logistics</span>
+          </div>
+          <div class="category-filters">
+            <div class="filter-group">
+              <label>
+                <i class="fas fa-ship"></i>
+                {{ t('loading.shipping_line') }}:
+              </label>
+              <select v-model="filters.shippingLine" @change="handleFilterChange">
+                <option value="">{{ t('loading.all_shipping_lines') }}</option>
+                <option v-for="line in shippingLines" :key="line.id" :value="line.name">
+                  {{ line.name }}
+                </option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label>
+                <i class="fas fa-anchor"></i>
+                {{ t('loading.loading_port') }}:
+              </label>
+              <select v-model="filters.loadingPort" @change="handleFilterChange">
+                <option value="">{{ t('loading.all_loading_ports') }}</option>
+                <option v-for="port in loadingPorts" :key="port.id" :value="port.loading_port">
+                  {{ port.loading_port }}
+                </option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label>
+                <i class="fas fa-map-marker-alt"></i>
+                {{ t('loading.discharge_port') }}:
+              </label>
+              <select v-model="filters.dischargePort" @change="handleFilterChange">
+                <option value="">{{ t('loading.all_discharge_ports') }}</option>
+                <option v-for="port in dischargePorts" :key="port.id" :value="port.discharge_port">
+                  {{ port.discharge_port }}
+                </option>
+              </select>
+            </div>
+          </div>
         </div>
 
-        <div class="filter-group">
-          <label>
-            <i class="fas fa-ship"></i>
-            {{ t('loading.shipping_line') }}:
-          </label>
-          <select v-model="filters.shippingLine" @change="handleFilterChange">
-            <option value="">{{ t('loading.all_shipping_lines') }}</option>
-            <option v-for="line in shippingLines" :key="line.id" :value="line.name">
-              {{ line.name }}
-            </option>
-          </select>
-        </div>
-
-        <div class="filter-group">
-          <label>
-            <i class="fas fa-anchor"></i>
-            {{ t('loading.loading_port') }}:
-          </label>
-          <select v-model="filters.loadingPort" @change="handleFilterChange">
-            <option value="">{{ t('loading.all_loading_ports') }}</option>
-            <option v-for="port in loadingPorts" :key="port.id" :value="port.loading_port">
-              {{ port.loading_port }}
-            </option>
-          </select>
-        </div>
-
-        <div class="filter-group">
-          <label>
-            <i class="fas fa-anchor"></i>
-            {{ t('loading.discharge_port') }}:
-          </label>
-          <select v-model="filters.dischargePort" @change="handleFilterChange">
-            <option value="">{{ t('loading.all_discharge_ports') }}</option>
-            <option v-for="port in dischargePorts" :key="port.id" :value="port.discharge_port">
-              {{ port.discharge_port }}
-            </option>
-          </select>
-        </div>
-
-        <div class="filter-group">
-          <label>
-            <i class="fas fa-calendar"></i>
-            {{ t('loading.date_from') }}:
-          </label>
-          <input type="date" v-model="filters.dateFrom" @change="handleFilterChange" />
-        </div>
-
-        <div class="filter-group">
-          <label>
-            <i class="fas fa-calendar"></i>
-            {{ t('loading.date_to') }}:
-          </label>
-          <input type="date" v-model="filters.dateTo" @change="handleFilterChange" />
-        </div>
-
-        <div class="filter-group">
-          <label>
-            <i class="fas fa-box"></i>
-            {{ t('loading.container_ref') }}:
-          </label>
-          <input
-            type="text"
-            v-model="filters.containerRef"
-            :placeholder="t('loading.filter_by_container_ref')"
-          />
-        </div>
-
-        <div class="filter-group">
-          <label>
-            <i class="fas fa-dollar-sign"></i>
-            {{ t('loading.sold_date_from') }}:
-          </label>
-          <input type="date" v-model="filters.soldDateFrom" @change="handleFilterChange" />
-        </div>
-
-        <div class="filter-group">
-          <label>
-            <i class="fas fa-dollar-sign"></i>
-            {{ t('loading.sold_date_to') }}:
-          </label>
-          <input type="date" v-model="filters.soldDateTo" @change="handleFilterChange" />
+        <!-- Date & Time Filters Group -->
+        <div class="filter-group-category date-filters">
+          <div class="category-header">
+            <i class="fas fa-calendar-alt"></i>
+            <span>Date & Time</span>
+          </div>
+          <div class="category-filters">
+            <div class="filter-group">
+              <label>
+                <i class="fas fa-calendar"></i>
+                {{ t('loading.date_from') }}:
+              </label>
+              <input type="date" v-model="filters.dateFrom" @change="handleFilterChange" />
+            </div>
+            <div class="filter-group">
+              <label>
+                <i class="fas fa-calendar"></i>
+                {{ t('loading.date_to') }}:
+              </label>
+              <input type="date" v-model="filters.dateTo" @change="handleFilterChange" />
+            </div>
+            <div class="filter-group">
+              <label>
+                <i class="fas fa-dollar-sign"></i>
+                {{ t('loading.sold_date_from') }}:
+              </label>
+              <input type="date" v-model="filters.soldDateFrom" @change="handleFilterChange" />
+            </div>
+            <div class="filter-group">
+              <label>
+                <i class="fas fa-dollar-sign"></i>
+                {{ t('loading.sold_date_to') }}:
+              </label>
+              <input type="date" v-model="filters.soldDateTo" @change="handleFilterChange" />
+            </div>
+          </div>
         </div>
       </div>
 
       <!-- Apply Filter Button -->
       <div class="filter-actions">
         <button type="button" @click="applyFilters" class="apply-filter-btn" :disabled="isLoading">
-          <i class="fas fa-filter"></i>
+          <i class="fas fa-search"></i>
           {{ t('loading.apply_filters') }}
         </button>
         <button type="button" @click="clearFilters" class="clear-filters-btn" :disabled="isLoading">
-          <i class="fas fa-times"></i>
+          <i class="fas fa-broom"></i>
           {{ t('loading.clear_filters') }}
         </button>
       </div>
@@ -404,13 +459,13 @@
       :clientNameFilter="filters.clientName"
       :clientIdFilter="filters.clientId"
       :carIdFilter="filters.carId"
-      :containerRefFilter="filters.containerRef"
+      :containerIdFilter="filters.containerRef"
       @container-click="handleContainerClick"
       @refresh-unassigned-cars="handleRefreshUnassignedCars"
       @container-created="handleContainerCreated"
       ref="containersTableRef"
     />
-    <!-- Debug: Car ID Filter Value: {{ filters.carId }} -->
+
     <LoadingAssignedCars
       ref="assignedCarsRef"
       :selectedLoadedContainerId="selectedLoadedContainerId"
@@ -421,7 +476,7 @@
       :clientNameFilter="filters.clientName"
       :clientIdFilter="filters.clientId"
       :carIdFilter="filters.carId"
-      :containerRefFilter="filters.containerRef"
+      :containerIdFilter="filters.containerRef"
       @car-unassigned="handleCarUnassigned"
     />
     <UnassignedCars
@@ -434,7 +489,7 @@
       :clientNameFilter="filters.clientName"
       :clientIdFilter="filters.clientId"
       :carIdFilter="filters.carId"
-      :containerRefFilter="filters.containerRef"
+      :containerIdFilter="filters.containerRef"
       @car-assigned="handleCarAssigned"
     />
 
@@ -957,7 +1012,8 @@ const fetchLoadingRecords = async () => {
         GROUP_CONCAT(DISTINCT cs.id) as car_ids,
         GROUP_CONCAT(DISTINCT cl.name) as client_names,
         GROUP_CONCAT(DISTINCT cl.id_no) as client_ids,
-        GROUP_CONCAT(DISTINCT lc.ref_container) as container_refs
+        GROUP_CONCAT(DISTINCT lc.ref_container) as container_refs,
+        GROUP_CONCAT(DISTINCT lc.id_container) as container_ids
       FROM loading l
       LEFT JOIN shipping_lines sl ON l.id_shipping_line = sl.id
       LEFT JOIN loading_ports lp ON l.id_loading_port = lp.id
@@ -1095,10 +1151,11 @@ const applyFiltersAndSorting = () => {
 
   // Apply container filter
   if (filters.value.container) {
-    const containerTerm = filters.value.container.toLowerCase()
+    const containerTerm = filters.value.container.trim()
     filteredRecords = filteredRecords.filter(
       (record) =>
-        record.container_refs && record.container_refs.toLowerCase().includes(containerTerm),
+        record.container_ids &&
+        record.container_ids.split(',').some((id) => id.trim() === containerTerm),
     )
   }
 
@@ -3309,20 +3366,30 @@ onMounted(() => {
 .clear-filters-btn {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  background-color: #f3f4f6;
-  color: #6b7280;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
+  gap: 8px;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: white;
+  border: none;
+  border-radius: 8px;
   cursor: pointer;
-  font-size: 0.8rem;
-  transition: all 0.2s ease;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .clear-filters-btn:hover {
-  background-color: #e5e7eb;
-  color: #374151;
+  background: linear-gradient(135deg, #d97706, #b45309);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.clear-filters-btn:disabled {
+  background: linear-gradient(135deg, #9ca3af, #6b7280);
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 .filters-grid {
@@ -3370,6 +3437,170 @@ onMounted(() => {
     flex-direction: column;
     gap: 12px;
     align-items: flex-start;
+  }
+}
+
+/* Beautiful Filter Category Groups */
+.filter-group-category {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 2px solid transparent;
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.filter-group-category:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+.category-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 20px;
+  font-weight: 600;
+  font-size: 1rem;
+  color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.category-header i {
+  font-size: 1.1rem;
+}
+
+.category-filters {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Search & General Filters - Blue */
+.search-filters {
+  border-color: #3b82f6;
+}
+
+.search-filters .category-header {
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+}
+
+/* Vehicle Information Filters - Green */
+.vehicle-filters {
+  border-color: #10b981;
+}
+
+.vehicle-filters .category-header {
+  background: linear-gradient(135deg, #10b981, #059669);
+}
+
+/* Client & Business Filters - Purple */
+.client-filters {
+  border-color: #8b5cf6;
+}
+
+.client-filters .category-header {
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+}
+
+/* Container & Storage Filters - Orange */
+.container-filters {
+  border-color: #f59e0b;
+}
+
+.container-filters .category-header {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+/* Shipping & Logistics Filters - Teal */
+.shipping-filters {
+  border-color: #14b8a6;
+}
+
+.shipping-filters .category-header {
+  background: linear-gradient(135deg, #14b8a6, #0d9488);
+}
+
+/* Date & Time Filters - Red */
+.date-filters {
+  border-color: #ef4444;
+}
+
+.date-filters .category-header {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+}
+
+/* Enhanced Filter Grid Layout */
+.filters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+/* Enhanced Filter Group Styling */
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filter-group label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #374151;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.filter-group label i {
+  color: #6b7280;
+  font-size: 0.8rem;
+}
+
+.filter-group input,
+.filter-group select {
+  padding: 10px 14px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  background-color: white;
+}
+
+.filter-group input:focus,
+.filter-group select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  transform: translateY(-1px);
+}
+
+/* Responsive adjustments for filter categories */
+@media (max-width: 1200px) {
+  .filters-grid {
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .filters-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .filter-group-category {
+    margin-bottom: 16px;
+  }
+
+  .category-header {
+    padding: 14px 16px;
+    font-size: 0.95rem;
+  }
+
+  .category-filters {
+    padding: 16px;
   }
 }
 
@@ -3431,34 +3662,39 @@ onMounted(() => {
 
 .filter-actions {
   display: flex;
-  gap: 12px;
-  margin-top: 16px;
+  gap: 16px;
+  margin-top: 24px;
   justify-content: center;
+  padding: 20px;
+  background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
 }
 
 .apply-filter-btn {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 20px;
-  background: #10b981;
+  gap: 10px;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #10b981, #059669);
   color: white;
   border: none;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  font-weight: 500;
+  border-radius: 8px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .apply-filter-btn:hover:not(:disabled) {
-  background: #059669;
-  transform: translateY(-1px);
+  background: linear-gradient(135deg, #059669, #047857);
+  transform: translateY(-2px);
   box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
 }
 
 .apply-filter-btn:disabled {
-  opacity: 0.6;
+  background: linear-gradient(135deg, #9ca3af, #6b7280);
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
@@ -3468,25 +3704,26 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 20px;
-  background: #ef4444;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
   color: white;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 0.9rem;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .clear-filters-btn:hover:not(:disabled) {
-  background: #dc2626;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3);
+  background: linear-gradient(135deg, #d97706, #b45309);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(245, 158, 11, 0.3);
 }
 
 .clear-filters-btn:disabled {
-  opacity: 0.6;
+  background: linear-gradient(135deg, #9ca3af, #6b7280);
   cursor: not-allowed;
   transform: none;
   box-shadow: none;

@@ -253,8 +253,8 @@ const props = defineProps({
     type: String,
     default: '',
   },
-  // Container reference filter
-  containerRefFilter: {
+  // Container ID filter
+  containerIdFilter: {
     type: String,
     default: '',
   },
@@ -292,7 +292,7 @@ const hasActiveFilters = computed(() => {
     props.clientNameFilter ||
     props.clientIdFilter ||
     props.carIdFilter ||
-    props.containerRefFilter ||
+    props.containerIdFilter ||
     props.soldDateFrom ||
     props.soldDateTo
   )
@@ -412,10 +412,10 @@ const fetchAssignedCars = async () => {
       params.push(props.carIdFilter.trim())
     }
 
-    // Add container reference filter
-    if (props.containerRefFilter) {
-      query += ` AND lc.ref_container LIKE ?`
-      params.push(`%${props.containerRefFilter}%`)
+    // Add container ID filter
+    if (props.containerIdFilter) {
+      query += ` AND lc.id_container = ?`
+      params.push(props.containerIdFilter.trim())
     }
 
     query += ` ORDER BY cs.id DESC`
@@ -432,7 +432,7 @@ const fetchAssignedCars = async () => {
       clientName: props.clientNameFilter,
       clientId: props.clientIdFilter,
       carId: props.carIdFilter,
-      containerRef: props.containerRefFilter,
+      containerId: props.containerIdFilter,
     })
 
     const result = await callApi({

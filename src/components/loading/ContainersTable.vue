@@ -624,8 +624,8 @@ const props = defineProps({
     type: String,
     default: '',
   },
-  // Container reference filter
-  containerRefFilter: {
+  // Container ID filter
+  containerIdFilter: {
     type: String,
     default: '',
   },
@@ -645,7 +645,7 @@ const hasActiveFilters = computed(() => {
     props.carIdFilter ||
     props.soldDateFrom ||
     props.soldDateTo ||
-    props.containerRefFilter
+    props.containerIdFilter
   )
 })
 
@@ -830,9 +830,9 @@ const fetchContainers = async () => {
       params.push(props.carIdFilter.trim())
     }
 
-    if (props.containerRefFilter) {
-      query += ` AND lc.ref_container LIKE ?`
-      params.push(`%${props.containerRefFilter}%`)
+    if (props.containerIdFilter) {
+      query += ` AND lc.id_container = ?`
+      params.push(props.containerIdFilter.trim())
     }
 
     query += ` GROUP BY lc.id ${orderByClause}`
@@ -854,7 +854,7 @@ const fetchContainers = async () => {
       clientName: props.clientNameFilter,
       clientId: props.clientIdFilter,
       carId: props.carIdFilter,
-      containerRef: props.containerRefFilter,
+      containerId: props.containerIdFilter,
     })
     console.log('Car ID Filter Debug:', {
       carIdFilter: props.carIdFilter,
