@@ -1,5 +1,5 @@
 <script setup>
-import { defineProps, computed } from 'vue'
+import {  computed } from 'vue'
 import { useApi } from '../../composables/useApi'
 import { useI18n } from 'vue-i18n'
 

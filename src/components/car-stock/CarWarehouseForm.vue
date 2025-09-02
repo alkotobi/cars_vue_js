@@ -1,5 +1,5 @@
 <script setup>
-import { ref, defineProps, defineEmits, onMounted, computed, watch } from 'vue'
+import { ref,   onMounted, computed, watch } from 'vue'
 import { useApi } from '../../composables/useApi'
 import { useI18n } from 'vue-i18n'
 

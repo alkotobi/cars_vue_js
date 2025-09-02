@@ -8,7 +8,7 @@ import zh from '@/locales/zh.json'
 const getStoredLanguage = () => {
   const stored = localStorage.getItem('app_language')
   console.log('Stored language:', stored)
-  
+
   if (stored && ['en', 'ar', 'fr', 'zh'].includes(stored)) {
     console.log('Using stored language:', stored)
     return stored
@@ -17,11 +17,11 @@ const getStoredLanguage = () => {
   // Only detect browser language if no stored preference
   const browserLang = navigator.language || navigator.userLanguage
   console.log('Browser language:', browserLang)
-  
+
   if (browserLang.startsWith('ar')) return 'ar'
   if (browserLang.startsWith('fr')) return 'fr'
   if (browserLang.startsWith('zh')) return 'zh'
-  
+
   // Default to English for all other cases
   console.log('Defaulting to English')
   return 'en'
@@ -117,8 +117,8 @@ const i18n = createI18n({
   // Silent mode to prevent console warnings for missing keys
   silentTranslationWarn: true,
   silentFallbackWarn: true,
-  // Custom missing handler
-  missing: missingHandler,
+  // Custom missing handler - temporarily disabled
+  // missing: missingHandler,
   // RTL support
   numberFormats: {
     en: {
@@ -182,16 +182,16 @@ const i18n = createI18n({
 // Function to change language
 export const changeLanguage = (locale) => {
   console.log('Changing language to:', locale)
-  
+
   // Validate locale
   if (!['en', 'ar', 'fr', 'zh'].includes(locale)) {
     console.warn('Invalid locale:', locale, 'defaulting to en')
     locale = 'en'
   }
-  
+
   // Update i18n locale
   i18n.global.locale.value = locale
-  
+
   // Store in localStorage
   localStorage.setItem('app_language', locale)
   console.log('Language stored in localStorage:', locale)
@@ -204,7 +204,7 @@ export const changeLanguage = (locale) => {
     document.documentElement.dir = 'ltr'
     document.documentElement.lang = locale
   }
-  
+
   console.log('Document direction updated:', document.documentElement.dir)
   console.log('Document language updated:', document.documentElement.lang)
 }

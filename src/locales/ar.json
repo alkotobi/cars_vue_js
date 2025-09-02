@@ -544,6 +544,7 @@
     "add_record": "إضافة سجل",
     "print_loading_record": "طباعة سجل التحميل",
     "print": "طباعة",
+    "printing": "جاري الطباعة...",
     "refresh": "تحديث",
     "clear_filters": "مسح المرشحات",
     "search": "بحث",

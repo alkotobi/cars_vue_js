@@ -581,7 +581,7 @@
 </template>
 
 <script setup>
-import { ref, watch, defineExpose, onMounted, computed } from 'vue'
+import { ref, watch, onMounted, computed } from 'vue'
 import { useEnhancedI18n } from '@/composables/useI18n'
 import { useApi } from '@/composables/useApi'
 
@@ -620,6 +620,10 @@ const props = defineProps({
     type: String,
     default: '',
   },
+  carIdFilter: {
+    type: String,
+    default: '',
+  },
   // Container reference filter
   containerRefFilter: {
     type: String,
@@ -638,6 +642,7 @@ const hasActiveFilters = computed(() => {
     props.vinFilter ||
     props.clientNameFilter ||
     props.clientIdFilter ||
+    props.carIdFilter ||
     props.soldDateFrom ||
     props.soldDateTo ||
     props.containerRefFilter
@@ -815,6 +820,16 @@ const fetchContainers = async () => {
       params.push(`%${props.clientIdFilter}%`)
     }
 
+    if (props.carIdFilter) {
+      console.log('Applying car ID filter to containers:', props.carIdFilter)
+      query += ` AND EXISTS (
+        SELECT 1 FROM cars_stock cs2 
+        WHERE cs2.id_loaded_container = lc.id 
+        AND cs2.id = ?
+      )`
+      params.push(props.carIdFilter.trim())
+    }
+
     if (props.containerRefFilter) {
       query += ` AND lc.ref_container LIKE ?`
       params.push(`%${props.containerRefFilter}%`)
@@ -838,7 +853,13 @@ const fetchContainers = async () => {
       vin: props.vinFilter,
       clientName: props.clientNameFilter,
       clientId: props.clientIdFilter,
+      carId: props.carIdFilter,
       containerRef: props.containerRefFilter,
+    })
+    console.log('Car ID Filter Debug:', {
+      carIdFilter: props.carIdFilter,
+      carIdFilterType: typeof props.carIdFilter,
+      carIdFilterTrimmed: props.carIdFilter ? props.carIdFilter.trim() : null,
     })
     console.log('Containers query result:', result)
 

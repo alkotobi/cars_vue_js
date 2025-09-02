@@ -1,5 +1,5 @@
 <script setup>
-import { ref, defineProps, defineEmits, onMounted, watch } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useEnhancedI18n } from '../../composables/useI18n'
 import { useApi } from '../../composables/useApi'
@@ -205,7 +205,7 @@ const handleCancel = () => {
             <label>{{ t('sellBills.select_bank') }}:</label>
             <select v-model="formData.bankId" :disabled="isLoadingBanks" class="form-select">
               <option v-if="isLoadingBanks" value="">
-                <i class="fas fa-spinner fa-spin"></i> {{ t('sellBills.loading_banks') }}
+                {{ t('sellBills.loading_banks') }}
               </option>
               <option v-else value="">{{ t('sellBills.select_bank') }}</option>
               <option v-for="bank in banks" :key="bank.id" :value="bank.id">

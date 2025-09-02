@@ -1,5 +1,5 @@
 <script setup>
-import { defineProps, defineEmits } from 'vue'
+import {   } from 'vue'
 import { useEnhancedI18n } from '@/composables/useI18n'
 import CarStockPrintDropdown from './CarStockPrintDropdown.vue'
 

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, defineProps, defineEmits } from 'vue'
+import { ref,   } from 'vue'
 import { useEnhancedI18n } from '@/composables/useI18n'
 
 const { t } = useEnhancedI18n()

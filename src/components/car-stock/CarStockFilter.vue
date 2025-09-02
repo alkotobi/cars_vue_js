@@ -1,5 +1,5 @@
 <script setup>
-import { ref, defineEmits, watch } from 'vue'
+import { ref,  watch } from 'vue'
 import { useApi } from '../../composables/useApi'
 import { useEnhancedI18n } from '@/composables/useI18n'
 

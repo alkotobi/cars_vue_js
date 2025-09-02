@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, defineProps, defineEmits, computed, watch, onUnmounted } from 'vue'
+import { ref, onMounted,   computed, watch, onUnmounted } from 'vue'
 import { useEnhancedI18n } from '@/composables/useI18n'
 import { useApi } from '../../composables/useApi'
 import letterHeadImage from '../../assets/letter_head.png'

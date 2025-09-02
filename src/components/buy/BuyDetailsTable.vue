@@ -1,5 +1,5 @@
 <script setup>
-import { defineProps, defineEmits, ref, computed, useAttrs } from 'vue'
+import { ref, computed, useAttrs } from 'vue'
 import { useApi } from '../../composables/useApi'
 import { useEnhancedI18n } from '../../composables/useI18n'
 

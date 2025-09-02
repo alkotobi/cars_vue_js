@@ -1,5 +1,5 @@
 <script setup>
-import { ref, defineProps, defineEmits, onMounted, watch } from 'vue'
+import { ref,   onMounted, watch } from 'vue'
 import { useApi } from '../../composables/useApi'
 
 const props = defineProps({

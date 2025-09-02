@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, defineProps, defineEmits, onMounted, computed, useAttrs } from 'vue'
+import { ref, watch,   onMounted, computed, useAttrs } from 'vue'
 import { useEnhancedI18n } from '../../composables/useI18n'
 import { useApi } from '../../composables/useApi'
 import { useRouter } from 'vue-router'

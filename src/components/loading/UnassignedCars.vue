@@ -402,6 +402,10 @@ const props = defineProps({
     type: String,
     default: '',
   },
+  carIdFilter: {
+    type: String,
+    default: '',
+  },
   // Container reference filter
   containerRefFilter: {
     type: String,
@@ -449,13 +453,11 @@ const hasActiveFilters = computed(() => {
     filters.value.carName ||
     filters.value.color ||
     filters.value.vin ||
-    filters.value.clientName ||
-    filters.value.clientId ||
-    filters.value.containerRef ||
     props.carNameFilter ||
     props.vinFilter ||
     props.clientNameFilter ||
     props.clientIdFilter ||
+    props.carIdFilter ||
     props.containerRefFilter
   )
 })
@@ -516,6 +518,9 @@ const sortedAndFilteredCars = computed(() => {
     filtered = filtered.filter((car) =>
       car.client_id_no?.toLowerCase().includes(props.clientIdFilter.toLowerCase()),
     )
+  }
+  if (props.carIdFilter) {
+    filtered = filtered.filter((car) => car.id?.toString() === props.carIdFilter.trim())
   }
   if (props.containerRefFilter) {
     filtered = filtered.filter((car) =>
@@ -888,6 +893,7 @@ watch(
     props.vinFilter,
     props.clientNameFilter,
     props.clientIdFilter,
+    props.carIdFilter,
     props.containerRefFilter,
   ],
   () => {

@@ -213,7 +213,7 @@
 </template>
 
 <script setup>
-import { ref, watch, defineExpose, computed } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { useEnhancedI18n } from '@/composables/useI18n'
 import { useApi } from '@/composables/useApi'
 
@@ -246,6 +246,10 @@ const props = defineProps({
     default: '',
   },
   clientIdFilter: {
+    type: String,
+    default: '',
+  },
+  carIdFilter: {
     type: String,
     default: '',
   },
@@ -287,6 +291,7 @@ const hasActiveFilters = computed(() => {
     props.vinFilter ||
     props.clientNameFilter ||
     props.clientIdFilter ||
+    props.carIdFilter ||
     props.containerRefFilter ||
     props.soldDateFrom ||
     props.soldDateTo
@@ -402,6 +407,11 @@ const fetchAssignedCars = async () => {
       params.push(`%${props.clientIdFilter}%`)
     }
 
+    if (props.carIdFilter) {
+      query += ` AND cs.id = ?`
+      params.push(props.carIdFilter.trim())
+    }
+
     // Add container reference filter
     if (props.containerRefFilter) {
       query += ` AND lc.ref_container LIKE ?`
@@ -421,6 +431,7 @@ const fetchAssignedCars = async () => {
       vin: props.vinFilter,
       clientName: props.clientNameFilter,
       clientId: props.clientIdFilter,
+      carId: props.carIdFilter,
       containerRef: props.containerRefFilter,
     })
 

@@ -102,13 +102,23 @@
         <div class="filter-group">
           <label>
             <i class="fas fa-id-card"></i>
-            {{ t('loading.client_id') }}:
+            {{ t('loading.client_id_no') }}:
           </label>
-          <input
-            type="text"
-            v-model="filters.clientId"
-            :placeholder="t('loading.filter_by_client_id')"
-          />
+          <input type="text" v-model="filters.clientId" placeholder="Filter by client ID..." />
+        </div>
+        <div class="filter-group">
+          <label>
+            <i class="fas fa-car"></i>
+            Car ID:
+          </label>
+          <input type="text" v-model="filters.carId" placeholder="Filter by car ID..." />
+        </div>
+        <div class="filter-group">
+          <label>
+            <i class="fas fa-ship"></i>
+            Container:
+          </label>
+          <input type="text" v-model="filters.container" placeholder="Filter by container..." />
         </div>
 
         <div class="filter-group">
@@ -393,12 +403,14 @@
       :vinFilter="filters.vin"
       :clientNameFilter="filters.clientName"
       :clientIdFilter="filters.clientId"
+      :carIdFilter="filters.carId"
       :containerRefFilter="filters.containerRef"
       @container-click="handleContainerClick"
       @refresh-unassigned-cars="handleRefreshUnassignedCars"
       @container-created="handleContainerCreated"
       ref="containersTableRef"
     />
+    <!-- Debug: Car ID Filter Value: {{ filters.carId }} -->
     <LoadingAssignedCars
       ref="assignedCarsRef"
       :selectedLoadedContainerId="selectedLoadedContainerId"
@@ -408,6 +420,7 @@
       :vinFilter="filters.vin"
       :clientNameFilter="filters.clientName"
       :clientIdFilter="filters.clientId"
+      :carIdFilter="filters.carId"
       :containerRefFilter="filters.containerRef"
       @car-unassigned="handleCarUnassigned"
     />
@@ -420,6 +433,7 @@
       :vinFilter="filters.vin"
       :clientNameFilter="filters.clientName"
       :clientIdFilter="filters.clientId"
+      :carIdFilter="filters.carId"
       :containerRefFilter="filters.containerRef"
       @car-assigned="handleCarAssigned"
     />
@@ -820,14 +834,14 @@
 
 <script setup>
 import { ref, onMounted, watch, nextTick, computed } from 'vue'
-import { useEnhancedI18n } from '@/composables/useI18n'
+import { useI18n } from 'vue-i18n'
 import { useApi } from '@/composables/useApi'
 import ContainersTable from './ContainersTable.vue'
 import LoadingAssignedCars from './LoadingAssignedCars.vue'
 import UnassignedCars from './UnassignedCars.vue'
 import TaskForm from '../car-stock/TaskForm.vue'
 
-const { t } = useEnhancedI18n()
+const { t } = useI18n()
 const { callApi, getFileUrl } = useApi()
 
 const loadingRecords = ref([])
@@ -896,6 +910,8 @@ const filters = ref({
   vin: '',
   clientName: '',
   clientId: '',
+  carId: '',
+  container: '',
   containerRef: '',
 })
 
@@ -938,6 +954,7 @@ const fetchLoadingRecords = async () => {
         dp.discharge_port as discharge_port_name,
         GROUP_CONCAT(DISTINCT cn.car_name) as car_names,
         GROUP_CONCAT(DISTINCT cs.vin) as vins,
+        GROUP_CONCAT(DISTINCT cs.id) as car_ids,
         GROUP_CONCAT(DISTINCT cl.name) as client_names,
         GROUP_CONCAT(DISTINCT cl.id_no) as client_ids,
         GROUP_CONCAT(DISTINCT lc.ref_container) as container_refs
@@ -1068,6 +1085,23 @@ const applyFiltersAndSorting = () => {
     )
   }
 
+  // Apply car ID filter
+  if (filters.value.carId) {
+    const carIdTerm = filters.value.carId.trim()
+    filteredRecords = filteredRecords.filter(
+      (record) => record.car_ids && record.car_ids.split(',').some((id) => id.trim() === carIdTerm),
+    )
+  }
+
+  // Apply container filter
+  if (filters.value.container) {
+    const containerTerm = filters.value.container.toLowerCase()
+    filteredRecords = filteredRecords.filter(
+      (record) =>
+        record.container_refs && record.container_refs.toLowerCase().includes(containerTerm),
+    )
+  }
+
   // Apply container reference filter
   if (filters.value.containerRef) {
     const containerRefTerm = filters.value.containerRef.toLowerCase()
@@ -1145,6 +1179,8 @@ const applyFiltersAndSorting = () => {
     filters.value.vin ||
     filters.value.clientName ||
     filters.value.clientId ||
+    filters.value.carId ||
+    filters.value.container ||
     filters.value.containerRef
   )
 
@@ -1179,6 +1215,8 @@ const applyFilters = () => {
     filters.value.vin ||
     filters.value.clientName ||
     filters.value.clientId ||
+    filters.value.carId ||
+    filters.value.container ||
     filters.value.containerRef
   ) {
     // If any business filters are active, fetch from database
@@ -1261,6 +1299,8 @@ const clearFilters = () => {
     vin: '',
     clientName: '',
     clientId: '',
+    carId: '',
+    container: '',
     containerRef: '',
   }
   sortBy.value = 'id'
@@ -1835,6 +1875,21 @@ watch(
       from: newFilters.soldDateFrom,
       to: newFilters.soldDateTo,
     })
+
+    // Refresh child components when filters change to apply the same filtering
+    if (selectedLoadingId.value) {
+      nextTick(() => {
+        if (containersTableRef.value) {
+          containersTableRef.value.fetchContainers()
+        }
+        if (assignedCarsRef.value && selectedLoadedContainerId.value) {
+          assignedCarsRef.value.refreshData()
+        }
+        if (unassignedCarsRef.value) {
+          unassignedCarsRef.value.refreshData()
+        }
+      })
+    }
   },
   { deep: true },
 )

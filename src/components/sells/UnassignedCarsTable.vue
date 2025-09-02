@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, defineEmits, computed, useAttrs } from 'vue'
+import { ref, onMounted,  computed, useAttrs } from 'vue'
 import { useEnhancedI18n } from '../../composables/useI18n'
 import { useApi } from '../../composables/useApi'
 import CarAssignmentForm from './CarAssignmentForm.vue'
