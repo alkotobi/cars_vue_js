@@ -645,7 +645,8 @@ const hasActiveFilters = computed(() => {
     props.carIdFilter ||
     props.soldDateFrom ||
     props.soldDateTo ||
-    props.containerIdFilter
+    props.containerIdFilter ||
+    props.containerRefFilter
   )
 })
 
@@ -835,6 +836,11 @@ const fetchContainers = async () => {
       params.push(props.containerIdFilter.trim())
     }
 
+    if (props.containerRefFilter) {
+      query += ` AND lc.ref_container LIKE ?`
+      params.push(`%${props.containerRefFilter}%`)
+    }
+
     query += ` GROUP BY lc.id ${orderByClause}`
 
     const result = await callApi({
@@ -855,6 +861,7 @@ const fetchContainers = async () => {
       clientId: props.clientIdFilter,
       carId: props.carIdFilter,
       containerId: props.containerIdFilter,
+      containerRef: props.containerRefFilter,
     })
     console.log('Car ID Filter Debug:', {
       carIdFilter: props.carIdFilter,
@@ -1370,6 +1377,8 @@ watch(
     props.vinFilter,
     props.clientNameFilter,
     props.clientIdFilter,
+    props.carIdFilter,
+    props.containerIdFilter,
     props.containerRefFilter,
   ],
   () => {

@@ -248,6 +248,7 @@
     "colors": "Colors",
     "dischargePorts": "Discharge Ports",
     "loadingPorts": "Loading Ports",
+    "clients": "Clients",
     "brokers": "Brokers",
     "suppliers": "Suppliers",
     "warehouses": "Warehouses",
@@ -752,7 +753,6 @@
     "all_discharge_ports": "All Discharge Ports",
     "date_from": "Date From",
     "date_to": "Date To",
-    "loading": "Loading...",
     "no_loading_records_found": "No loading records found",
     "add_first_record": "Add First Record",
     "id": "ID",
@@ -1476,6 +1476,7 @@
     "not_set": "Not Set",
     "unassign_from_container": "Unassign from Container",
     "container_on_board_since": "Container on board since {date}",
+    "showing_containers": "Showing {count} containers",
     "click_loading_record_to_view_containers": "Click on a loading record to view containers",
     "please_select_loading_record": "Please select a loading record",
     "no_containers_found_for_loading_record": "No containers found for this loading record",
@@ -1504,7 +1505,8 @@
     "error_unassigning_car": "Error unassigning car: {message}",
     "container_reference": "Container reference",
     "so_number": "SO number",
-    "additional_notes": "Additional notes..."
+    "additional_notes": "Additional notes...",
+    "set_on_board": "Set On Board"
   },
   "buy": {
     "billsTable": {

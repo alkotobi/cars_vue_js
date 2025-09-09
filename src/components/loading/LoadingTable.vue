@@ -262,11 +262,11 @@
 
       <!-- Apply Filter Button -->
       <div class="filter-actions">
-        <button type="button" @click="applyFilters" class="apply-filter-btn" :disabled="isLoading">
+        <button type="button" @click="applyFilters" class="apply-filter-btn" :disabled="loading">
           <i class="fas fa-search"></i>
           {{ t('loading.apply_filters') }}
         </button>
-        <button type="button" @click="clearFilters" class="clear-filters-btn" :disabled="isLoading">
+        <button type="button" @click="clearFilters" class="clear-filters-btn" :disabled="loading">
           <i class="fas fa-broom"></i>
           {{ t('loading.clear_filters') }}
         </button>
@@ -1073,6 +1073,16 @@ const fetchLoadingRecords = async () => {
       allLoadingRecords.value = result.data || []
       console.log('All Loading Records:', allLoadingRecords.value.length)
 
+      // Debug: Check the structure of the first record
+      if (allLoadingRecords.value.length > 0) {
+        console.log('Sample Loading Record Structure:', {
+          id: allLoadingRecords.value[0].id,
+          container_refs: allLoadingRecords.value[0].container_refs,
+          container_ids: allLoadingRecords.value[0].container_ids,
+          car_ids: allLoadingRecords.value[0].car_ids,
+        })
+      }
+
       // Only apply client-side filtering if no sold date filters are active
       if (!filters.value.soldDateFrom && !filters.value.soldDateTo) {
         applyFiltersAndSorting()
@@ -1162,9 +1172,17 @@ const applyFiltersAndSorting = () => {
   // Apply container reference filter
   if (filters.value.containerRef) {
     const containerRefTerm = filters.value.containerRef.toLowerCase()
+    console.log('Container Ref Filter Debug:', {
+      filterTerm: containerRefTerm,
+      sampleRecord: filteredRecords[0],
+      containerRefsField: filteredRecords[0]?.container_refs,
+    })
     filteredRecords = filteredRecords.filter(
       (record) =>
-        record.container_refs && record.container_refs.toLowerCase().includes(containerRefTerm),
+        record.container_refs &&
+        record.container_refs
+          .split(',')
+          .some((ref) => ref.trim().toLowerCase().includes(containerRefTerm)),
     )
   }
 
@@ -2446,6 +2464,7 @@ const generatePrintContent = (loadingRecord, containersData) => {
               ${container.ref_container ? `(${container.ref_container})` : ''}
               ${container.so ? ` - SO: ${container.so}` : ''}
               ${container.is_released ? ' - RELEASED' : ''}
+              - Loading #${loadingRecord.id} - Container #${container.id}
             </div>
           </div>
           

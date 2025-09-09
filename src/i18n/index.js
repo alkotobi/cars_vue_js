@@ -4,6 +4,14 @@ import ar from '@/locales/ar.json'
 import fr from '@/locales/fr.json'
 import zh from '@/locales/zh.json'
 
+// Debug: Check if locale files are loaded
+console.log('Locale files imported:')
+console.log('English:', !!en, 'Keys:', Object.keys(en || {}))
+console.log('Arabic:', !!ar, 'Keys:', Object.keys(ar || {}))
+console.log('French:', !!fr, 'Keys:', Object.keys(fr || {}))
+console.log('Chinese:', !!zh, 'Keys:', Object.keys(zh || {}))
+console.log('English loading key:', en?.loading?.loading_management)
+
 // Get stored language or detect from browser
 const getStoredLanguage = () => {
   const stored = localStorage.getItem('app_language')
@@ -102,9 +110,13 @@ const getAllKeys = (obj, prefix = '') => {
 }
 
 // Create i18n instance
+console.log('Creating i18n instance with messages:')
+console.log('Messages object:', { en, ar, fr, zh })
+console.log('English messages structure:', en?.loading)
+
 const i18n = createI18n({
   legacy: false, // Use Composition API
-  locale: getStoredLanguage(),
+  locale: getStoredLanguage() || 'en', // Ensure we always have a valid locale
   fallbackLocale: 'en',
   messages: {
     en,
@@ -191,6 +203,7 @@ export const changeLanguage = (locale) => {
 
   // Update i18n locale
   i18n.global.locale.value = locale
+  console.log('i18n locale updated to:', i18n.global.locale.value)
 
   // Store in localStorage
   localStorage.setItem('app_language', locale)
@@ -223,6 +236,23 @@ if (i18n.global.locale.value === 'ar') {
 } else {
   document.documentElement.dir = 'ltr'
   document.documentElement.lang = i18n.global.locale.value
+}
+
+// Debug: Log locale messages to ensure they're loaded
+console.log('i18n instance created with locale:', i18n.global.locale.value)
+console.log('Available locales:', Object.keys(i18n.global.messages.value))
+console.log('English messages loaded:', !!i18n.global.messages.value.en)
+console.log('Sample English key:', i18n.global.messages.value.en?.loading?.loading_management)
+console.log('All English keys:', Object.keys(i18n.global.messages.value.en || {}))
+console.log('Loading section keys:', Object.keys(i18n.global.messages.value.en?.loading || {}))
+
+// Temporary fix: Manually add the missing key if it doesn't exist
+if (
+  i18n.global.messages.value.en?.loading &&
+  !i18n.global.messages.value.en.loading.loading_management
+) {
+  console.log('Manually adding missing loading_management key')
+  i18n.global.messages.value.en.loading.loading_management = 'Loading Management'
 }
 
 export default i18n

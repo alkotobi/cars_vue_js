@@ -14,10 +14,20 @@
 </template>
 
 <script setup>
-import { useEnhancedI18n } from '../composables/useI18n'
+import { useI18n } from 'vue-i18n'
 import LoadingTable from '../components/loading/LoadingTable.vue'
 
-const { t } = useEnhancedI18n()
+const { t, locale, messages } = useI18n()
+
+// Debug: Log locale and translation attempt
+console.log('LoadingView - Current locale:', locale.value)
+console.log('LoadingView - Available messages:', Object.keys(messages.value || {}))
+console.log('LoadingView - English messages:', Object.keys(messages.value?.en || {}))
+console.log('LoadingView - Loading section:', Object.keys(messages.value?.en?.loading || {}))
+console.log(
+  'LoadingView - Translation attempt for loading.loading_management:',
+  t('loading.loading_management'),
+)
 </script>
 
 <style scoped>

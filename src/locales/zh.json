@@ -1153,6 +1153,8 @@
     "filter_by_car_name": "按汽车名称筛选",
     "filter_by_color": "按颜色筛选",
     "filter_by_vin": "按车架号筛选",
+    "container_ref": "集装箱参考",
+    "filter_by_container_ref": "按集装箱参考筛选...",
     "filter_by_client_name": "按客户姓名筛选",
     "filter_by_client_id": "按客户身份证号筛选",
     "clear_filters": "清除筛选器",
@@ -1170,6 +1172,7 @@
     "maximum_4_cars_allowed_per_container": "每个集装箱最多允许4辆汽车",
     "showing_unassigned_cars": "显示 {count} 辆未分配汽车，共 {total} 辆",
     "filtered": "(已筛选)",
+    "filtered_by_criteria": "按标准筛选",
     "enter_vin_for_car": "为汽车 #{carId} 输入车架号",
     "car": "汽车",
     "vin_number": "车架号",
@@ -1255,7 +1258,9 @@
     "error_unassigning_car": "取消分配汽车时出错：{message}",
     "container_reference": "集装箱参考",
     "so_number": "订单号",
-    "additional_notes": "附加说明..."
+    "additional_notes": "附加说明...",
+    "set_on_board": "设置上船",
+    "showing_containers": "显示 {count} 个集装箱"
   },
   "buy": {
     "billsTable": {
