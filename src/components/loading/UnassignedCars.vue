@@ -220,6 +220,14 @@
                 ></i>
                 <i v-else class="fas fa-sort sort-inactive"></i>
               </th>
+              <th @click="sortByColumn('payment_status')" class="sortable-header">
+                Payment Status
+                <i
+                  v-if="sortBy === 'payment_status'"
+                  :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"
+                ></i>
+                <i v-else class="fas fa-sort sort-inactive"></i>
+              </th>
               <th>{{ t('loading.actions') }}</th>
             </tr>
           </thead>
@@ -255,6 +263,15 @@
               <td class="sell-bill-date-cell">{{ formatDate(car.sell_bill_date) }}</td>
               <td class="sell-bill-ref-cell">{{ car.sell_bill_ref || '-' }}</td>
               <td class="discharge-port-cell">{{ car.discharge_port || '-' }}</td>
+              <td class="payment-status-cell">
+                <span 
+                  :class="getPaymentStatusClass(car)" 
+                  :data-car-id="car.id" 
+                  :data-status="getPaymentStatus(car)"
+                >
+                  {{ getPaymentStatusText(car) }}
+                </span>
+              </td>
               <td class="actions-cell">
                 <div class="action-buttons">
                   <button
@@ -565,6 +582,7 @@ const fetchUnassignedCars = async () => {
           c.color,
           cs.vin,
           cs.price_cell,
+          cs.freight,
           cs.id_sell,
           cs.date_sell,
           cs.id_client,
@@ -575,7 +593,14 @@ const fetchUnassignedCars = async () => {
           sb.date_sell as sell_bill_date,
           sb.bill_ref as sell_bill_ref,
           dp.discharge_port,
-          cs.container_ref
+          cs.container_ref,
+          -- Add payment calculations
+          (cs.price_cell + COALESCE(cs.freight, 0)) as total_cfr,
+          COALESCE((
+            SELECT SUM(sp.amount_usd)
+            FROM sell_payments sp
+            WHERE sp.id_sell_bill = sb.id
+          ), 0) as total_paid
         FROM cars_stock cs
         LEFT JOIN buy_details bd ON cs.id_buy_details = bd.id
         LEFT JOIN cars_names cn ON bd.id_car_name = cn.id
@@ -627,6 +652,48 @@ const formatDate = (dateString) => {
     month: '2-digit',
     year: 'numeric',
   })
+}
+
+// Payment status functions
+const getPaymentStatus = (car) => {
+  // If car is not sold (no sell bill), show as not sold
+  if (!car.id_sell || !car.sell_bill_id) {
+    return 'not_sold'
+  }
+
+  const totalCfr = parseFloat(car.total_cfr) || 0
+  const totalPaid = parseFloat(car.total_paid) || 0
+
+  if (totalPaid === 0) return 'not_paid'
+  if (totalPaid >= totalCfr) return 'fully_paid'
+  return 'partially_paid'
+}
+
+const getPaymentStatusText = (car) => {
+  const status = getPaymentStatus(car)
+  const statusTexts = {
+    not_sold: 'Not Sold',
+    not_paid: 'Not Paid',
+    partially_paid: 'Partially Paid',
+    fully_paid: 'Fully Paid',
+  }
+
+  // Debug logging
+  console.log(`Car ${car.id} payment status: ${status}`)
+
+  return statusTexts[status] || 'Unknown'
+}
+
+const getPaymentStatusClass = (car) => {
+  const status = getPaymentStatus(car)
+  // Convert underscores to hyphens for CSS class names
+  const cssStatus = status.replace(/_/g, '-')
+  const className = `payment-status payment-status-${cssStatus}`
+  
+  // Debug logging
+  console.log(`Car ${car.id} CSS class: ${className}`)
+  
+  return className
 }
 
 const sortByColumn = (column) => {
@@ -1507,5 +1574,90 @@ defineExpose({
 
 .confirm-btn.processing {
   opacity: 0.7;
+}
+
+/* Payment Status Styles */
+.payment-status {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-align: center;
+  display: inline-block;
+  min-width: 90px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.payment-status::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.payment-status:hover::before {
+  left: 100%;
+}
+
+.payment-status-not-sold {
+  background: #f3f4f6 !important;
+  color: #6b7280 !important;
+  border: 1px solid #d1d5db !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+}
+
+.payment-status-not-sold:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15) !important;
+}
+
+.payment-status-not-paid {
+  background: #fee2e2 !important;
+  color: #dc2626 !important;
+  border: 1px solid #fecaca !important;
+  box-shadow: 0 2px 4px rgba(220, 38, 38, 0.2) !important;
+}
+
+.payment-status-not-paid:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 8px rgba(220, 38, 38, 0.3) !important;
+}
+
+.payment-status-partially-paid {
+  background: #fef3c7 !important;
+  color: #d97706 !important;
+  border: 1px solid #fde68a !important;
+  box-shadow: 0 2px 4px rgba(217, 119, 6, 0.2) !important;
+}
+
+.payment-status-partially-paid:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 8px rgba(217, 119, 6, 0.3) !important;
+}
+
+.payment-status-fully-paid {
+  background: #d1fae5 !important;
+  color: #059669 !important;
+  border: 1px solid #a7f3d0 !important;
+  box-shadow: 0 2px 4px rgba(5, 150, 105, 0.2) !important;
+}
+
+.payment-status-fully-paid:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 8px rgba(5, 150, 105, 0.3) !important;
+}
+
+.payment-status-cell {
+  text-align: center;
+  vertical-align: middle;
 }
 </style>
