@@ -419,6 +419,7 @@
     "save_changes": "حفظ التغييرات",
     "confirm_unassign_car_message": "هل أنت متأكد من إلغاء تعيين هذه السيارة من فاتورة البيع؟",
     "failed_to_unassign_car": "فشل في إلغاء تعيين السيارة",
+    "no_permission_to_unassign_car": "ليس لديك إذن لإلغاء تعيين السيارات",
     "error_occurred": "حدث خطأ",
     "back": "رجوع",
     "sell_bill_details": "تفاصيل فاتورة البيع",

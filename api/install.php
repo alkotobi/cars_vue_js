@@ -553,7 +553,9 @@ try {
         ('can_c_car_stock', 'Can view and manage car stock inventory'),
         ('can_assign_to_tmp_clients', 'Can assign cars to temporary clients'),
         ('can_change_car_color', 'Can change car color'),
-        ('can_c_other_users_sells', 'Can create sales invoices for other users')
+        ('can_c_other_users_sells', 'Can create sales invoices for other users'),
+        ('can_unassign_cars', 'Can unassign cars from sell bills'),
+        ('can_unassign_from_containers', 'Can unassign cars from containers')
     ");
     $stmt->execute();
 

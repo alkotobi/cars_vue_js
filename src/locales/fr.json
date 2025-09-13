@@ -529,6 +529,7 @@
     "save_changes": "Enregistrer les Modifications",
     "confirm_unassign_car_message": "Êtes-vous sûr de vouloir annuler l'attribution de cette voiture de la facture de vente ?",
     "failed_to_unassign_car": "Échec de l'annulation de l'attribution de la voiture",
+    "no_permission_to_unassign_car": "Vous n'avez pas la permission d'annuler l'attribution des voitures",
     "error_occurred": "Une erreur s'est produite",
     "back": "Retour",
     "sell_bill_details": "Détails de la Facture de Vente",

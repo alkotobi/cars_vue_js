@@ -594,6 +594,7 @@
     "unassign_car": "取消分配汽车",
     "confirm_unassign_car_message": "您确定要取消分配这辆汽车吗？",
     "failed_to_unassign_car": "取消分配汽车失败",
+    "no_permission_to_unassign_car": "您没有取消分配汽车的权限",
     "error_occurred": "发生错误",
     "edit_car_details": "编辑汽车详情",
     "search_client": "搜索客户",

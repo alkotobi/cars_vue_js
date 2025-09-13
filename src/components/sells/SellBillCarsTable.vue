@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch,   onMounted, computed, useAttrs } from 'vue'
+import { ref, watch, onMounted, computed, useAttrs } from 'vue'
 import { useEnhancedI18n } from '../../composables/useI18n'
 import { useApi } from '../../composables/useApi'
 import { useRouter } from 'vue-router'
@@ -25,6 +25,13 @@ const can_assign_to_tmp_clients = computed(
     user.value?.permissions?.some((p) => p.permission_name === 'can_assign_to_tmp_clients') ||
     isAdmin.value,
 )
+
+// Add permission check for unassigning cars
+const can_unassign_cars = computed(() => {
+  if (!user.value) return false
+  if (user.value.role_id === 1) return true
+  return user.value.permissions?.some((p) => p.permission_name === 'can_unassign_cars')
+})
 const { callApi } = useApi()
 const cars = ref([])
 const loading = ref(false)
@@ -96,6 +103,12 @@ const handleCFRDAChange = (event) => {
 
 // Function to unassign a car from the sell bill
 const unassignCar = async (carId) => {
+  // Check permission first
+  if (!can_unassign_cars.value) {
+    error.value = t('sellBills.no_permission_to_unassign_car')
+    return
+  }
+
   if (!confirm(t('sellBills.confirm_unassign_car_message'))) {
     return
   }
@@ -778,6 +791,7 @@ const formatDate = (dateString) => {
               <i class="fas fa-print"></i>
             </button>
             <button
+              v-if="can_unassign_cars"
               @click="handleUnassign(car.id)"
               :disabled="isProcessing"
               class="btn unassign-btn"

@@ -591,6 +591,7 @@
     "unassign_car": "Unassign Car",
     "confirm_unassign_car_message": "Are you sure you want to unassign this car?",
     "failed_to_unassign_car": "Failed to unassign car",
+    "no_permission_to_unassign_car": "You do not have permission to unassign cars",
     "error_occurred": "An error occurred",
     "edit_car_details": "Edit Car Details",
     "search_client": "Search client",
