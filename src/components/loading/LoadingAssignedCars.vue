@@ -181,7 +181,6 @@
               <td class="actions-cell">
                 <div class="action-buttons">
                   <button
-                    v-if="can_unassign_from_containers"
                     @click.stop="unassignCar(car)"
                     class="action-btn unassign-btn"
                     :class="{ disabled: car.date_on_board }"
@@ -283,13 +282,6 @@ const isAdmin = computed(() => {
     isAdmin: adminStatus,
   })
   return adminStatus
-})
-
-// Check if user can unassign cars from containers
-const can_unassign_from_containers = computed(() => {
-  if (!user.value) return false
-  if (user.value.role_id === 1) return true // Admin
-  return user.value.permissions?.some((p) => p.permission_name === 'can_unassign_from_containers')
 })
 
 // Computed property to check if any filters are active
