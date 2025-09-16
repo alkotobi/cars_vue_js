@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted,   computed, watch } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useEnhancedI18n } from '../../composables/useI18n'
 import { useApi } from '../../composables/useApi'
 import { useRouter } from 'vue-router'
@@ -146,9 +146,9 @@ const sortedAndLimitedBills = computed(() => {
 
 // Add computed property for unpaid bills count for current user
 const unpaidBillsCount = computed(() => {
-  if (!sellBills.value.length) return 0
+  if (!allSellBills.value.length) return 0
 
-  return sellBills.value.filter((bill) => {
+  return allSellBills.value.filter((bill) => {
     // Check if bill belongs to current user (if not admin)
     if (!can_c_all_bills.value && bill.id_user !== user.value?.id) {
       return false
