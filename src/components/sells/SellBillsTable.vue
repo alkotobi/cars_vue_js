@@ -149,8 +149,8 @@ const unpaidBillsCount = computed(() => {
   if (!allSellBills.value.length) return 0
 
   return allSellBills.value.filter((bill) => {
-    // Check if bill belongs to current user (if not admin)
-    if (!can_c_all_bills.value && bill.id_user !== user.value?.id) {
+    // Admin counts all unpaid bills, regular users count only their own
+    if (!isAdmin.value && bill.id_user !== user.value?.id) {
       return false
     }
 
