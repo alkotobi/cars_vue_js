@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted,   computed, watch, onUnmounted } from 'vue'
+import { ref, onMounted, computed, watch, onUnmounted } from 'vue'
 import { useEnhancedI18n } from '@/composables/useI18n'
 import { useApi } from '../../composables/useApi'
 import letterHeadImage from '../../assets/letter_head.png'
@@ -1826,6 +1826,9 @@ const loadInitialCarsData = async () => {
           cs.date_pay_freight,
           cs.is_batch,
           cs.hidden,
+          cs.hidden_by_user_id,
+          cs.hidden_time_stamp,
+          hu.username as hidden_by_username,
           c.name as client_name,
           cn.car_name,
           clr.color,
@@ -1859,6 +1862,7 @@ const loadInitialCarsData = async () => {
         LEFT JOIN loading_ports lp ON cs.id_port_loading = lp.id
         LEFT JOIN discharge_ports dp ON cs.id_port_discharge = dp.id
         LEFT JOIN warehouses w ON cs.id_warehouse = w.id
+        LEFT JOIN users hu ON cs.hidden_by_user_id = hu.id
         WHERE ${whereClause}
       `,
     })
@@ -2046,15 +2050,31 @@ const handleToggleHidden = async () => {
   const carIds = selectedCarsList.map((car) => car.id)
 
   try {
+    const currentUserId = user.value?.id
+    const currentTimestamp = new Date().toISOString().slice(0, 19).replace('T', ' ')
+
     const result = await callApi({
-      query: `UPDATE cars_stock SET hidden = ? WHERE id IN (${carIds.map(() => '?').join(',')})`,
-      params: [newHiddenStatus, ...carIds],
+      query: `UPDATE cars_stock SET hidden = ?, hidden_by_user_id = ?, hidden_time_stamp = ? WHERE id IN (${carIds.map(() => '?').join(',')})`,
+      params: [
+        newHiddenStatus,
+        newHiddenStatus === 1 ? currentUserId : null,
+        newHiddenStatus === 1 ? currentTimestamp : null,
+        ...carIds,
+      ],
     })
 
     if (result.success) {
       // Update in-memory data
       allCars.value = allCars.value.map((car) =>
-        carIds.includes(car.id) ? { ...car, hidden: newHiddenStatus } : car,
+        carIds.includes(car.id)
+          ? {
+              ...car,
+              hidden: newHiddenStatus,
+              hidden_by_user_id: newHiddenStatus === 1 ? currentUserId : null,
+              hidden_time_stamp: newHiddenStatus === 1 ? currentTimestamp : null,
+              hidden_by_username: newHiddenStatus === 1 ? user.value?.username : null,
+            }
+          : car,
       )
       selectedCars.value.clear()
       fetchCarsStock()
@@ -2304,7 +2324,11 @@ const handleToggleHidden = async () => {
             <tr
               v-for="car in sortedCars"
               :key="car.id"
-              :class="{ 'used-car': car.is_used_car, selected: selectedCars.has(car.id) }"
+              :class="{
+                'used-car': car.is_used_car,
+                selected: selectedCars.has(car.id),
+                'hidden-car': car.hidden,
+              }"
             >
               <td class="select-cell">
                 <input
@@ -2332,9 +2356,16 @@ const handleToggleHidden = async () => {
                 <div class="car-details-container">
                   <div class="car-name">
                     <i
-                      v-if="isAdmin && car.hidden"
+                      v-if="car.hidden"
                       class="fas fa-eye-slash hidden-icon"
-                      :title="t('carStock.hidden_car')"
+                      :title="
+                        car.hidden_by_username
+                          ? t('carStock.hidden_by_user', {
+                              user: car.hidden_by_username,
+                              date: car.hidden_time_stamp,
+                            })
+                          : t('carStock.hidden_car')
+                      "
                     ></i>
                     {{ car.car_name }}
                   </div>
@@ -3917,8 +3948,6 @@ const handleToggleHidden = async () => {
   display: inline-block;
 }
 
-
-
 /* Mobile Responsive Styles */
 @media (max-width: 768px) {
   .table-container {
@@ -4314,5 +4343,26 @@ const handleToggleHidden = async () => {
 .hidden-icon:hover {
   color: #dc2626;
   transform: scale(1.1);
+}
+
+/* Hidden car row styles */
+.cars-table tbody tr.hidden-car {
+  background-color: #fef2f2;
+  border-left: 3px solid #ef4444;
+  opacity: 0.7;
+}
+
+.cars-table tbody tr.hidden-car:hover {
+  background-color: #fee2e2;
+  opacity: 0.8;
+}
+
+.cars-table tbody tr.hidden-car.selected {
+  background-color: #fecaca;
+  border-left: 3px solid #dc2626;
+}
+
+.cars-table tbody tr.hidden-car.selected:hover {
+  background-color: #fca5a5;
 }
 </style>
