@@ -1791,7 +1791,11 @@ const loadInitialCarsData = async () => {
     // Build the WHERE clause conditionally based on admin status
     let whereClause = 'cs.date_send_documents IS NULL'
     if (!isAdmin.value) {
-      whereClause += ' AND cs.hidden = 0'
+      // Non-admin users can only see:
+      // 1. Non-hidden cars (hidden = 0)
+      // 2. Cars they hid themselves (hidden = 1 AND hidden_by_user_id = current_user_id)
+      const currentUserId = user.value?.id
+      whereClause += ` AND (cs.hidden = 0 OR (cs.hidden = 1 AND cs.hidden_by_user_id = ${currentUserId}))`
     }
 
     const result = await callApi({
