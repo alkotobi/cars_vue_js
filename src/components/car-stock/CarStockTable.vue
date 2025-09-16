@@ -1697,6 +1697,13 @@ const can_change_car_color = computed(() => {
   return user.value.permissions?.some((p) => p.permission_name === 'can_change_car_color')
 })
 
+// Add computed property for hide car permission
+const can_hide_car = computed(() => {
+  if (!user.value) return false
+  if (user.value.role_id === 1) return true
+  return user.value.permissions?.some((p) => p.permission_name === 'can_hide_car')
+})
+
 const showExportLicenseBulkEditForm = ref(false)
 
 const handleExportLicenseFromToolbar = () => {
@@ -2185,6 +2192,7 @@ const handleToggleHidden = async () => {
         :selected-cars="selectedCars"
         :total-cars="sortedCars.length"
         :can-change-color="can_change_car_color"
+        :can-hide-car="can_hide_car"
         :is-admin="user?.role_id === 1"
         @print-selected="handlePrintSelected"
         @loading-order="handleLoadingOrderFromToolbar"

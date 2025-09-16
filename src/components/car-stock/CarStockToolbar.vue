@@ -18,6 +18,10 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  canHideCar: {
+    type: Boolean,
+    default: false,
+  },
   isAdmin: {
     type: Boolean,
     default: false,
@@ -190,7 +194,7 @@ const emit = defineEmits([
         <span>{{ t('carStockToolbar.delete') }}</span>
       </button>
       <button
-        v-if="isAdmin"
+        v-if="isAdmin || canHideCar"
         @click="$emit('toggle-hidden')"
         class="toggle-hidden-btn"
         :disabled="selectedCars.size === 0"
