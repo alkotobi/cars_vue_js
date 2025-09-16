@@ -749,6 +749,32 @@ const getRateValue = (car) => {
   return 0
 }
 
+// Add hidden time formatting function
+const formatHiddenTime = (timestamp) => {
+  if (!timestamp) return ''
+  
+  try {
+    const date = new Date(timestamp)
+    const now = new Date()
+    const diffMs = now - date
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+    const diffMinutes = Math.floor(diffMs / (1000 * 60))
+    
+    if (diffDays > 0) {
+      return `${diffDays}d ago`
+    } else if (diffHours > 0) {
+      return `${diffHours}h ago`
+    } else if (diffMinutes > 0) {
+      return `${diffMinutes}m ago`
+    } else {
+      return 'Just now'
+    }
+  } catch (error) {
+    return timestamp
+  }
+}
+
 // Function to calculate text color based on background color
 const getTextColor = (backgroundColor) => {
   if (!backgroundColor) return '#374151'
@@ -2456,7 +2482,7 @@ const handleToggleHidden = async () => {
                 </div>
               </td>
 
-              <td>
+              <td class="status-column">
                 <div class="status-container">
                   <div class="status-item">
                     <span
@@ -2487,6 +2513,16 @@ const handleToggleHidden = async () => {
                           : t('carStock.hidden_car')
                       "
                     ></i>
+                  </div>
+                  <div v-if="car.hidden && car.hidden_by_username" class="status-item hidden-info">
+                    <div class="info-badge badge-hidden">
+                      <i class="fas fa-user-slash"></i>
+                      {{ t('carStock.hidden_by') }}: {{ car.hidden_by_username }}
+                    </div>
+                    <div class="info-badge badge-hidden-time">
+                      <i class="fas fa-clock"></i>
+                      {{ formatHiddenTime(car.hidden_time_stamp) }}
+                    </div>
                   </div>
                   <div v-if="car.in_wharhouse_date" class="status-item">
                     <div class="info-badge badge-in-warehouse">
@@ -4368,5 +4404,60 @@ const handleToggleHidden = async () => {
 
 .cars-table tbody tr.hidden-car.selected:hover {
   background-color: #fca5a5;
+}
+
+/* Hidden info badges */
+.badge-hidden {
+  background: #fef2f2 !important;
+  color: #dc2626 !important;
+  border: 1px solid #fecaca !important;
+  font-size: 10px !important;
+  padding: 2px 4px !important;
+  margin: 1px 0 !important;
+  border-radius: 3px !important;
+  white-space: nowrap !important;
+}
+
+.badge-hidden-time {
+  background: #f3f4f6 !important;
+  color: #6b7280 !important;
+  border: 1px solid #d1d5db !important;
+  font-size: 10px !important;
+  padding: 2px 4px !important;
+  margin: 1px 0 !important;
+  border-radius: 3px !important;
+  white-space: nowrap !important;
+}
+
+.hidden-info {
+  margin-top: 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Status column multiline support */
+.status-column {
+  white-space: normal !important;
+  vertical-align: top !important;
+  min-width: 200px;
+  max-width: 250px;
+}
+
+.status-container {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.status-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.status-item span {
+  white-space: nowrap;
 }
 </style>

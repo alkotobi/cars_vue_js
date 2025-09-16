@@ -323,6 +323,7 @@
     "hidden_cars": "Hidden Cars",
     "hidden_car": "Hidden Car",
     "hidden_by_user": "Hidden by {user} on {date}",
+    "hidden_by": "Hidden by",
     "no_cars_selected_for_toggle": "No cars selected for toggle.",
     "mixed_hidden_status_error": "Cannot toggle hidden status: selected cars have mixed hidden/visible status. Please select only hidden cars or only visible cars.",
     "hide_cars": "hide cars",
