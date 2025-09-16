@@ -2359,18 +2359,6 @@ const handleToggleHidden = async () => {
               <td class="car-details-cell">
                 <div class="car-details-container">
                   <div class="car-name">
-                    <i
-                      v-if="car.hidden"
-                      class="fas fa-eye-slash hidden-icon"
-                      :title="
-                        car.hidden_by_username
-                          ? t('carStock.hidden_by_user', {
-                              user: car.hidden_by_username,
-                              date: car.hidden_time_stamp,
-                            })
-                          : t('carStock.hidden_car')
-                      "
-                    ></i>
                     {{ car.car_name }}
                   </div>
                   <div v-if="car.vin" class="car-detail-item">
@@ -2487,6 +2475,18 @@ const handleToggleHidden = async () => {
                       {{ car.id_sell ? t('carStock.sold') : t('carStock.available') }}
                       {{ car.is_used_car ? `(${t('carStock.used')})` : '' }}
                     </span>
+                    <i
+                      v-if="car.hidden"
+                      class="fas fa-eye-slash hidden-icon"
+                      :title="
+                        car.hidden_by_username
+                          ? t('carStock.hidden_by_user', {
+                              user: car.hidden_by_username,
+                              date: car.hidden_time_stamp,
+                            })
+                          : t('carStock.hidden_car')
+                      "
+                    ></i>
                   </div>
                   <div v-if="car.in_wharhouse_date" class="status-item">
                     <div class="info-badge badge-in-warehouse">
@@ -4341,7 +4341,7 @@ const handleToggleHidden = async () => {
   color: #ef4444;
   font-size: 14px;
   cursor: help;
-  margin-right: 6px;
+  margin-left: 8px;
 }
 
 .hidden-icon:hover {
