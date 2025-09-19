@@ -752,7 +752,7 @@ const getRateValue = (car) => {
 // Add hidden time formatting function
 const formatHiddenTime = (timestamp) => {
   if (!timestamp) return ''
-  
+
   try {
     const date = new Date(timestamp)
     const now = new Date()
@@ -760,7 +760,7 @@ const formatHiddenTime = (timestamp) => {
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
     const diffMinutes = Math.floor(diffMs / (1000 * 60))
-    
+
     if (diffDays > 0) {
       return `${diffDays}d ago`
     } else if (diffHours > 0) {
@@ -1839,6 +1839,8 @@ const loadInitialCarsData = async () => {
           cs.path_documents,
           cs.sell_pi_path,
           cs.buy_pi_path,
+          cs.path_coo,
+          cs.path_coc,
           cs.id_client,
           cs.id_port_loading,
           cs.id_port_discharge,
@@ -2574,6 +2576,24 @@ const handleToggleHidden = async () => {
                     <i class="fas fa-file-contract"></i>
                     {{ t('carStock.packing_list') }}
                   </a>
+                  <a
+                    v-if="car.path_coo"
+                    :href="getFileUrl(car.path_coo)"
+                    target="_blank"
+                    class="document-link"
+                  >
+                    <i class="fas fa-certificate"></i>
+                    COO
+                  </a>
+                  <a
+                    v-if="car.path_coc"
+                    :href="getFileUrl(car.path_coc)"
+                    target="_blank"
+                    class="document-link"
+                  >
+                    <i class="fas fa-award"></i>
+                    COC
+                  </a>
                 </div>
               </td>
               <td class="notes-cell" :title="car.notes">{{ car.notes || '-' }}</td>
@@ -2951,6 +2971,24 @@ const handleToggleHidden = async () => {
             >
               <i class="fas fa-file-contract"></i>
               {{ t('carStock.packing_list') }}
+            </a>
+            <a
+              v-if="car.path_coo"
+              :href="getFileUrl(car.path_coo)"
+              target="_blank"
+              class="card-document-link"
+            >
+              <i class="fas fa-certificate"></i>
+              COO
+            </a>
+            <a
+              v-if="car.path_coc"
+              :href="getFileUrl(car.path_coc)"
+              target="_blank"
+              class="card-document-link"
+            >
+              <i class="fas fa-award"></i>
+              COC
             </a>
           </div>
         </div>

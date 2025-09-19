@@ -1,5 +1,5 @@
 <script setup>
-import { ref,   computed } from 'vue'
+import { ref, computed } from 'vue'
 import { useApi } from '../../composables/useApi'
 import { useEnhancedI18n } from '@/composables/useI18n'
 
@@ -38,22 +38,30 @@ const uploadProgress = ref({
   documents: 0,
   sell_pi: 0,
   buy_pi: 0,
+  coo: 0,
+  coc: 0,
 })
 
 // File refs
 const documentsFile = ref(null)
 const sellPiFile = ref(null)
 const buyPiFile = ref(null)
+const cooFile = ref(null)
+const cocFile = ref(null)
 
 // Drag states
 const isDraggingDocuments = ref(false)
 const isDraggingSellPi = ref(false)
 const isDraggingBuyPi = ref(false)
+const isDraggingCoo = ref(false)
+const isDraggingCoc = ref(false)
 
 const isUploading = ref({
   documents: false,
   sell_pi: false,
   buy_pi: false,
+  coo: false,
+  coc: false,
 })
 
 const resetUploadStates = () => {
@@ -61,6 +69,8 @@ const resetUploadStates = () => {
     documents: false,
     sell_pi: false,
     buy_pi: false,
+    coo: false,
+    coc: false,
   }
 }
 
@@ -180,6 +190,16 @@ const handleRevertFile = async (fileType) => {
       dbField = 'buy_pi_path'
       displayName = t('carFilesUploadForm.packingList')
       break
+    case 'coo':
+      filePath = props.car.path_coo
+      dbField = 'path_coo'
+      displayName = t('carFilesUploadForm.coo')
+      break
+    case 'coc':
+      filePath = props.car.path_coc
+      dbField = 'path_coc'
+      displayName = t('carFilesUploadForm.coc')
+      break
     default:
       error.value = 'Invalid file type'
       return
@@ -278,6 +298,30 @@ const handleSubmit = async () => {
       )
     }
 
+    if (cooFile.value) {
+      uploadPromises.push(
+        handleFileUpload(cooFile.value, 'coo')
+          .then((path) => {
+            if (path) updates.path_coo = path
+          })
+          .catch((err) => {
+            throw new Error(t('carFilesUploadForm.cooUploadFailed') + `: ${err.message}`)
+          }),
+      )
+    }
+
+    if (cocFile.value) {
+      uploadPromises.push(
+        handleFileUpload(cocFile.value, 'coc')
+          .then((path) => {
+            if (path) updates.path_coc = path
+          })
+          .catch((err) => {
+            throw new Error(t('carFilesUploadForm.cocUploadFailed') + `: ${err.message}`)
+          }),
+      )
+    }
+
     // Wait for all uploads to complete
     await Promise.all(uploadPromises)
 
@@ -299,6 +343,8 @@ const handleSubmit = async () => {
         documentsFile.value = null
         sellPiFile.value = null
         buyPiFile.value = null
+        cooFile.value = null
+        cocFile.value = null
         // Close the modal after a short delay to show success message
         setTimeout(() => {
           closeModal()
@@ -332,11 +378,15 @@ const closeModal = () => {
   documentsFile.value = null
   sellPiFile.value = null
   buyPiFile.value = null
+  cooFile.value = null
+  cocFile.value = null
   // Reset upload progress
   uploadProgress.value = {
     documents: 0,
     sell_pi: 0,
     buy_pi: 0,
+    coo: 0,
+    coc: 0,
   }
   // Emit close event
   emit('close')
@@ -386,6 +436,12 @@ const handleFileChange = (event, type) => {
     case 'buy_pi':
       buyPiFile.value = file
       break
+    case 'coo':
+      cooFile.value = file
+      break
+    case 'coc':
+      cocFile.value = file
+      break
   }
 }
 
@@ -421,6 +477,12 @@ const handleDrop = (event, type, dragRef) => {
       break
     case 'buy_pi':
       buyPiFile.value = file
+      break
+    case 'coo':
+      cooFile.value = file
+      break
+    case 'coc':
+      cocFile.value = file
       break
   }
 }
@@ -605,6 +667,116 @@ const handleDrop = (event, type, dragRef) => {
           </div>
         </div>
 
+        <div class="form-group">
+          <label for="coo">
+            <i class="fas fa-certificate"></i>
+            {{ t('carFilesUploadForm.coo') }}:
+          </label>
+          <div
+            class="file-input-container"
+            :class="{
+              'is-dragging': isDraggingCoo,
+              'is-uploading': uploadProgress.coo > 0 || isUploading.coo,
+            }"
+            @dragover="(e) => handleDragOver(e, isDraggingCoo)"
+            @dragleave="(e) => handleDragLeave(e, isDraggingCoo)"
+            @drop="(e) => handleDrop(e, 'coo', isDraggingCoo)"
+          >
+            <input
+              type="file"
+              id="coo"
+              accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.heic,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.pages,.numbers,.key,application/pdf,image/*,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/x-iwork-pages-sffpages,application/x-iwork-numbers-sffnumbers,application/x-iwork-keynote-sffkey"
+              @change="(e) => handleFileChange(e, 'coo')"
+              class="file-input"
+              :disabled="isProcessing || isUploading.coo"
+            />
+            <div class="file-input-overlay">
+              <i class="fas fa-cloud-upload-alt fa-2x"></i>
+              <span>{{ t('carFilesUploadForm.chooseOrDropFile') }}</span>
+              <i v-if="isUploading.coo" class="fas fa-spinner fa-spin"></i>
+            </div>
+            <div v-if="cooFile" class="selected-file">
+              <i class="fas fa-file-alt"></i>
+              {{ cooFile.name }}
+            </div>
+            <div v-if="uploadProgress.coo > 0" class="upload-progress">
+              <div class="progress-bar" :style="{ width: uploadProgress.coo + '%' }"></div>
+              <span>{{ uploadProgress.coo }}%</span>
+            </div>
+            <div v-if="props.car.path_coo" class="current-file">
+              <i class="fas fa-check-circle text-success"></i>
+              {{ t('carFilesUploadForm.current') }}: {{ props.car.path_coo.split('/').pop() }}
+            </div>
+          </div>
+          <!-- Revert button for admin only - outside file input container -->
+          <div v-if="isAdmin && props.car.path_coo" class="revert-container">
+            <button
+              class="revert-btn"
+              @click="handleRevertFile('coo')"
+              :disabled="loading"
+              title="Remove COO file"
+            >
+              <i class="fas fa-trash"></i>
+              {{ t('carFilesUploadForm.removeCooFile') }}
+            </button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="coc">
+            <i class="fas fa-award"></i>
+            {{ t('carFilesUploadForm.coc') }}:
+          </label>
+          <div
+            class="file-input-container"
+            :class="{
+              'is-dragging': isDraggingCoc,
+              'is-uploading': uploadProgress.coc > 0 || isUploading.coc,
+            }"
+            @dragover="(e) => handleDragOver(e, isDraggingCoc)"
+            @dragleave="(e) => handleDragLeave(e, isDraggingCoc)"
+            @drop="(e) => handleDrop(e, 'coc', isDraggingCoc)"
+          >
+            <input
+              type="file"
+              id="coc"
+              accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.heic,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.pages,.numbers,.key,application/pdf,image/*,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/x-iwork-pages-sffpages,application/x-iwork-numbers-sffnumbers,application/x-iwork-keynote-sffkey"
+              @change="(e) => handleFileChange(e, 'coc')"
+              class="file-input"
+              :disabled="isProcessing || isUploading.coc"
+            />
+            <div class="file-input-overlay">
+              <i class="fas fa-cloud-upload-alt fa-2x"></i>
+              <span>{{ t('carFilesUploadForm.chooseOrDropFile') }}</span>
+              <i v-if="isUploading.coc" class="fas fa-spinner fa-spin"></i>
+            </div>
+            <div v-if="cocFile" class="selected-file">
+              <i class="fas fa-file-alt"></i>
+              {{ cocFile.name }}
+            </div>
+            <div v-if="uploadProgress.coc > 0" class="upload-progress">
+              <div class="progress-bar" :style="{ width: uploadProgress.coc + '%' }"></div>
+              <span>{{ uploadProgress.coc }}%</span>
+            </div>
+            <div v-if="props.car.path_coc" class="current-file">
+              <i class="fas fa-check-circle text-success"></i>
+              {{ t('carFilesUploadForm.current') }}: {{ props.car.path_coc.split('/').pop() }}
+            </div>
+          </div>
+          <!-- Revert button for admin only - outside file input container -->
+          <div v-if="isAdmin && props.car.path_coc" class="revert-container">
+            <button
+              class="revert-btn"
+              @click="handleRevertFile('coc')"
+              :disabled="loading"
+              title="Remove COC file"
+            >
+              <i class="fas fa-trash"></i>
+              {{ t('carFilesUploadForm.removeCocFile') }}
+            </button>
+          </div>
+        </div>
+
         <div v-if="error" class="error-message">
           <i class="fas fa-exclamation-circle"></i>
           {{ error }}
@@ -623,7 +795,9 @@ const handleDrop = (event, type, dragRef) => {
         <button
           class="save-btn"
           @click="handleSubmit"
-          :disabled="isProcessing || (!documentsFile && !sellPiFile && !buyPiFile)"
+          :disabled="
+            isProcessing || (!documentsFile && !sellPiFile && !buyPiFile && !cooFile && !cocFile)
+          "
           :class="{ 'is-processing': isProcessing }"
         >
           <i class="fas fa-upload"></i>
@@ -657,7 +831,10 @@ const handleDrop = (event, type, dragRef) => {
   padding: 20px;
   width: 90%;
   max-width: 500px;
+  max-height: 90vh;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
 }
 
 .modal-header {
@@ -665,6 +842,7 @@ const handleDrop = (event, type, dragRef) => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+  flex-shrink: 0;
 }
 
 .modal-header h3 {
@@ -679,6 +857,32 @@ const handleDrop = (event, type, dragRef) => {
   font-size: 1.5rem;
   cursor: pointer;
   color: #6b7280;
+}
+
+.modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 10px;
+  margin-right: -10px;
+}
+
+/* Custom scrollbar styling */
+.modal-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.modal-body::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.modal-body::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.modal-body::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
 }
 
 .form-group {
@@ -855,6 +1059,9 @@ const handleDrop = (event, type, dragRef) => {
   justify-content: flex-end;
   gap: 12px;
   margin-top: 24px;
+  flex-shrink: 0;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 16px;
 }
 
 .cancel-btn,

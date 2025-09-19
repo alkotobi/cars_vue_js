@@ -101,8 +101,8 @@ const navigateToWarehouses = async () => {
   }
 }
 
-const returnToCarsView = () => {
-  router.push('/cars')
+const returnToDashboard = () => {
+  router.push('/')
 }
 </script>
 
@@ -110,9 +110,9 @@ const returnToCarsView = () => {
   <div class="cars-stock" :class="{ 'is-loading': isLoading }">
     <div class="header">
       <div class="header-left">
-        <button @click="returnToCarsView" class="return-btn">
+        <button @click="returnToDashboard" class="return-btn">
           <i class="fas fa-arrow-left"></i>
-          {{ t('returnToCarsView') }}
+          {{ t('cars.returnToDashboard') }}
         </button>
       </div>
       <h2>
