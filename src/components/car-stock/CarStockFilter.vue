@@ -1,5 +1,5 @@
 <script setup>
-import { ref,  watch } from 'vue'
+import { ref, watch } from 'vue'
 import { useApi } from '../../composables/useApi'
 import { useEnhancedI18n } from '@/composables/useI18n'
 
@@ -87,6 +87,12 @@ const advancedFilters = ref({
   tmp_client_status: '',
   exclude_whole_sale: false,
   hidden: '',
+  // File upload status filters
+  bl_file_status: '',
+  sell_pi_file_status: '',
+  buy_pi_file_status: '',
+  coo_file_status: '',
+  coc_file_status: '',
 })
 
 // Fetch reference data for filter dropdowns
@@ -474,6 +480,99 @@ fetchReferenceData()
             <option value="loaded">{{ t('carStockFilter.loaded') }}</option>
             <option value="not_loaded">{{ t('carStockFilter.notLoaded') }}</option>
           </select>
+        </div>
+
+        <!-- File Upload Status Filters Group -->
+        <div class="filter-field-group">
+          <div class="group-title">
+            <i class="fas fa-file-upload"></i>
+            {{ t('carStockFilter.fileUploadStatus') }}
+          </div>
+
+          <!-- BL File Status Filter -->
+          <div class="filter-field">
+            <label for="bl-file-status-filter">
+              <i class="fas fa-file-pdf"></i>
+              {{ t('carStockFilter.blFileStatus') }}
+            </label>
+            <select
+              id="bl-file-status-filter"
+              v-model="advancedFilters.bl_file_status"
+              :disabled="isProcessing.advanced"
+            >
+              <option value="">{{ t('carStockFilter.all') }}</option>
+              <option value="uploaded">{{ t('carStockFilter.uploaded') }}</option>
+              <option value="not_uploaded">{{ t('carStockFilter.notUploaded') }}</option>
+            </select>
+          </div>
+
+          <!-- Sell PI File Status Filter -->
+          <div class="filter-field">
+            <label for="sell-pi-file-status-filter">
+              <i class="fas fa-file-invoice-dollar"></i>
+              {{ t('carStockFilter.sellPiFileStatus') }}
+            </label>
+            <select
+              id="sell-pi-file-status-filter"
+              v-model="advancedFilters.sell_pi_file_status"
+              :disabled="isProcessing.advanced"
+            >
+              <option value="">{{ t('carStockFilter.all') }}</option>
+              <option value="uploaded">{{ t('carStockFilter.uploaded') }}</option>
+              <option value="not_uploaded">{{ t('carStockFilter.notUploaded') }}</option>
+            </select>
+          </div>
+
+          <!-- Buy PI File Status Filter -->
+          <div class="filter-field">
+            <label for="buy-pi-file-status-filter">
+              <i class="fas fa-file-contract"></i>
+              {{ t('carStockFilter.buyPiFileStatus') }}
+            </label>
+            <select
+              id="buy-pi-file-status-filter"
+              v-model="advancedFilters.buy_pi_file_status"
+              :disabled="isProcessing.advanced"
+            >
+              <option value="">{{ t('carStockFilter.all') }}</option>
+              <option value="uploaded">{{ t('carStockFilter.uploaded') }}</option>
+              <option value="not_uploaded">{{ t('carStockFilter.notUploaded') }}</option>
+            </select>
+          </div>
+
+          <!-- COO File Status Filter -->
+          <div class="filter-field">
+            <label for="coo-file-status-filter">
+              <i class="fas fa-certificate"></i>
+              {{ t('carStockFilter.cooFileStatus') }}
+            </label>
+            <select
+              id="coo-file-status-filter"
+              v-model="advancedFilters.coo_file_status"
+              :disabled="isProcessing.advanced"
+            >
+              <option value="">{{ t('carStockFilter.all') }}</option>
+              <option value="uploaded">{{ t('carStockFilter.uploaded') }}</option>
+              <option value="not_uploaded">{{ t('carStockFilter.notUploaded') }}</option>
+            </select>
+          </div>
+
+          <!-- COC File Status Filter -->
+          <div class="filter-field">
+            <label for="coc-file-status-filter">
+              <i class="fas fa-award"></i>
+              {{ t('carStockFilter.cocFileStatus') }}
+            </label>
+            <select
+              id="coc-file-status-filter"
+              v-model="advancedFilters.coc_file_status"
+              :disabled="isProcessing.advanced"
+            >
+              <option value="">{{ t('carStockFilter.all') }}</option>
+              <option value="uploaded">{{ t('carStockFilter.uploaded') }}</option>
+              <option value="not_uploaded">{{ t('carStockFilter.notUploaded') }}</option>
+            </select>
+          </div>
         </div>
 
         <!-- Bill Filter Group -->
@@ -2197,4 +2296,29 @@ button:disabled {
 }
 
 /* Search help styles */
+
+/* File upload status filter group styles */
+.filter-field-group {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.group-title {
+  font-weight: 600;
+  color: #2d3748;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 8px;
+}
+
+.group-title i {
+  color: #4299e1;
+}
 </style>

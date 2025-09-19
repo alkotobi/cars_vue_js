@@ -1260,7 +1260,15 @@
     "temporaryClientOption": "Client Temporaire",
     "permanentClientOption": "Client Permanent",
     "excludeWholeSaleCars": "Exclure les Voitures de Vente en Gros",
-    "failedToLoadPortsData": "Échec du chargement des données des ports"
+    "failedToLoadPortsData": "Échec du chargement des données des ports",
+    "fileUploadStatus": "Statut de Téléchargement des Fichiers",
+    "blFileStatus": "Statut du Fichier BL",
+    "sellPiFileStatus": "Statut du Fichier Facture de Vente",
+    "buyPiFileStatus": "Statut du Fichier Facture d'Achat",
+    "cooFileStatus": "Statut du Fichier COO",
+    "cocFileStatus": "Statut du Fichier COC",
+    "uploaded": "Téléchargé",
+    "notUploaded": "Non Téléchargé"
   },
   "carPortsEditForm": {
     "editPorts": "Modifier les Ports",

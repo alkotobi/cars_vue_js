@@ -1167,7 +1167,15 @@
     "hiddenCars": "Hidden Cars",
     "hiddenCarsOnly": "Hidden Cars Only",
     "visibleCarsOnly": "Visible Cars Only",
-    "failedToLoadPortsData": "Failed to load ports data"
+    "failedToLoadPortsData": "Failed to load ports data",
+    "fileUploadStatus": "File Upload Status",
+    "blFileStatus": "BL File Status",
+    "sellPiFileStatus": "Sell PI File Status",
+    "buyPiFileStatus": "Buy PI File Status",
+    "cooFileStatus": "COO File Status",
+    "cocFileStatus": "COC File Status",
+    "uploaded": "Uploaded",
+    "notUploaded": "Not Uploaded"
   },
   "carPortsEditForm": {
     "editPorts": "Edit Ports",

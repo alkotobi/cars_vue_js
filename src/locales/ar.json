@@ -1152,7 +1152,15 @@
     "temporaryClientOption": "العميل المؤقت",
     "permanentClientOption": "العميل الدائم",
     "excludeWholeSaleCars": "استبعاد سيارات البيع بالجملة",
-    "failedToLoadPortsData": "فشل في تحميل بيانات الموانئ"
+    "failedToLoadPortsData": "فشل في تحميل بيانات الموانئ",
+    "fileUploadStatus": "حالة رفع الملفات",
+    "blFileStatus": "حالة ملف BL",
+    "sellPiFileStatus": "حالة ملف فاتورة البيع",
+    "buyPiFileStatus": "حالة ملف فاتورة الشراء",
+    "cooFileStatus": "حالة ملف COO",
+    "cocFileStatus": "حالة ملف COC",
+    "uploaded": "مرفوع",
+    "notUploaded": "غير مرفوع"
   },
   "carPortsEditForm": {
     "editPorts": "تعديل الموانئ",

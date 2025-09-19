@@ -1055,6 +1055,54 @@ const fetchCarsStock = async () => {
         if (adv.has_vin) {
           filteredCars = filteredCars.filter((car) => car.vin && car.vin !== '')
         }
+
+        // File upload status filtering
+        if (adv.bl_file_status && adv.bl_file_status.trim() !== '') {
+          if (adv.bl_file_status === 'uploaded') {
+            filteredCars = filteredCars.filter(
+              (car) => car.path_documents && car.path_documents !== '',
+            )
+          } else if (adv.bl_file_status === 'not_uploaded') {
+            filteredCars = filteredCars.filter(
+              (car) => !car.path_documents || car.path_documents === '',
+            )
+          }
+        }
+
+        if (adv.sell_pi_file_status && adv.sell_pi_file_status.trim() !== '') {
+          if (adv.sell_pi_file_status === 'uploaded') {
+            filteredCars = filteredCars.filter((car) => car.sell_pi_path && car.sell_pi_path !== '')
+          } else if (adv.sell_pi_file_status === 'not_uploaded') {
+            filteredCars = filteredCars.filter(
+              (car) => !car.sell_pi_path || car.sell_pi_path === '',
+            )
+          }
+        }
+
+        if (adv.buy_pi_file_status && adv.buy_pi_file_status.trim() !== '') {
+          if (adv.buy_pi_file_status === 'uploaded') {
+            filteredCars = filteredCars.filter((car) => car.buy_pi_path && car.buy_pi_path !== '')
+          } else if (adv.buy_pi_file_status === 'not_uploaded') {
+            filteredCars = filteredCars.filter((car) => !car.buy_pi_path || car.buy_pi_path === '')
+          }
+        }
+
+        if (adv.coo_file_status && adv.coo_file_status.trim() !== '') {
+          if (adv.coo_file_status === 'uploaded') {
+            filteredCars = filteredCars.filter((car) => car.path_coo && car.path_coo !== '')
+          } else if (adv.coo_file_status === 'not_uploaded') {
+            filteredCars = filteredCars.filter((car) => !car.path_coo || car.path_coo === '')
+          }
+        }
+
+        if (adv.coc_file_status && adv.coc_file_status.trim() !== '') {
+          if (adv.coc_file_status === 'uploaded') {
+            filteredCars = filteredCars.filter((car) => car.path_coc && car.path_coc !== '')
+          } else if (adv.coc_file_status === 'not_uploaded') {
+            filteredCars = filteredCars.filter((car) => !car.path_coc || car.path_coc === '')
+          }
+        }
+
         // Alert-specific filtering
         if (props.alertType && props.alertDays) {
           const alertDays = props.alertDays
