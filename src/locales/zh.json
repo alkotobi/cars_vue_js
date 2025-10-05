@@ -1466,5 +1466,27 @@
   "maxUnpaidBillsErrorMessage": "您有{count}个未付款账单，已超过允许的最大数量{max}。",
   "maxUnpaidBillsErrorDetails": "请在创建新账单前结清现有未付款账单。如需提高此限制，请联系管理员。",
   "proceedAnyway": "仍然继续",
-  "ok": "确定"
+  "ok": "确定",
+  "mobileValidation": {
+    "critical": "关键",
+    "mobileRequired": "手机号码是必需的 - 没有它无法加载汽车！",
+    "invalidAlgerianMobile": "请输入有效的阿尔及利亚手机号码（格式：0552663908，第二位数字应为5、6或7）。无效的手机号码无法加载汽车！",
+    "mobileLabel": "手机号码 *",
+    "mobilePlaceholder": "输入阿尔及利亚手机号码（0552663908）",
+    "helpText": "没有有效的手机号码无法加载汽车！"
+  },
+  "idValidation": {
+    "idRequired": "身份证号码是必需的 - 没有它无法加载汽车！",
+    "invalidFormat": "请输入有效的身份证号码 - 必须是恰好9位数字（仅数字）。无效的身份证号码无法加载汽车！",
+    "idLabel": "身份证号码 *",
+    "idPlaceholder": "输入9位身份证号码（123456789）",
+    "helpText": "没有有效的身份证号码无法加载汽车！"
+  },
+  "ninValidation": {
+    "ninRequired": "国民识别号码是必需的 - 没有它无法加载汽车！",
+    "invalidFormat": "请输入有效的国民识别号码 - 必须是恰好18位数字（仅数字）。无效的国民识别号码无法加载汽车！",
+    "ninLabel": "国民识别号码 *",
+    "ninPlaceholder": "输入18位国民识别号码（123456789012345678）",
+    "helpText": "没有有效的国民识别号码无法加载汽车！"
+  }
 }

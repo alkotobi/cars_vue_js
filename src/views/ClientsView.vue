@@ -1,12 +1,14 @@
 <script setup>
 import { ref, onMounted, computed, onUnmounted, watch } from 'vue'
 import { useApi } from '../composables/useApi'
+import { useI18n } from 'vue-i18n'
 import TaskForm from '../components/car-stock/TaskForm.vue'
 import CarStockTable from '../components/car-stock/CarStockTable.vue'
 
 const clients = ref([])
 const allClients = ref([]) // Backup for in-memory filtering
 const { callApi, uploadFile, getFileUrl, error } = useApi()
+const { t } = useI18n()
 const showAddDialog = ref(false)
 const showEditDialog = ref(false)
 const editingClient = ref(null)
@@ -225,12 +227,31 @@ const validateEmail = (email) => {
   return emailRegex.test(email)
 }
 
+const validateAlgerianMobile = (mobile) => {
+  // Algerian mobile format: 0552663908 (10 digits, starting with 0, second digit is 5, 6, or 7)
+  const algerianMobileRegex = /^0[567]\d{8}$/
+  return algerianMobileRegex.test(mobile)
+}
+
+const validateIDNumber = (idNumber) => {
+  // ID Number format: exactly 9 digits, numeric only
+  const idNumberRegex = /^\d{9}$/
+  return idNumberRegex.test(idNumber)
+}
+
+const validateNIN = (nin) => {
+  // National Identifier Number format: exactly 18 digits, numeric only
+  const ninRegex = /^\d{18}$/
+  return ninRegex.test(nin)
+}
+
 const newClient = ref({
   name: '',
   address: '',
   email: '',
   mobiles: '',
   id_no: '',
+  nin: '',
   is_client: true,
   is_broker: false,
   notes: '',
@@ -246,8 +267,8 @@ const filters = ref({
 })
 
 const sortConfig = ref({
-  key: 'name',
-  direction: 'asc',
+  key: 'id',
+  direction: 'desc',
 })
 
 // Add function to handle sorting
@@ -291,10 +312,17 @@ const getCurrentUser = () => {
 const loadInitialClientsData = async () => {
   isLoading.value = true
   try {
+    // First, let's check the table structure to see if NIN column exists
+    const structureResult = await callApi({
+      query: 'PRAGMA table_info(clients)',
+      params: [],
+    })
+    console.log('Clients table structure:', structureResult)
+
     const result = await callApi({
       query: `
         SELECT 
-          c.*,
+          c.id, c.name, c.address, c.email, c.mobiles, c.id_no, c.nin, c.is_broker, c.is_client, c.notes, c.id_copy_path,
           COUNT(cs.id) as cars_count
         FROM clients c
         LEFT JOIN cars_stock cs ON c.id = cs.id_client
@@ -305,6 +333,8 @@ const loadInitialClientsData = async () => {
       params: [],
     })
     if (result.success) {
+      console.log('Fetched clients data:', result.data)
+      console.log('First client data:', result.data[0])
       allClients.value = result.data
       clients.value = result.data
     }
@@ -364,14 +394,27 @@ const fetchClients = async () => {
       if (aVal === null) aVal = ''
       if (bVal === null) bVal = ''
 
-      // Convert to strings for comparison
-      aVal = String(aVal).toLowerCase()
-      bVal = String(bVal).toLowerCase()
+      // Special handling for numeric fields
+      if (sortConfig.value.key === 'id' || sortConfig.value.key === 'cars_count') {
+        // Convert to numbers for numeric sorting
+        aVal = Number(aVal) || 0
+        bVal = Number(bVal) || 0
 
-      if (sortConfig.value.direction === 'asc') {
-        return aVal > bVal ? 1 : aVal < bVal ? -1 : 0
+        if (sortConfig.value.direction === 'asc') {
+          return aVal - bVal
+        } else {
+          return bVal - aVal
+        }
       } else {
-        return aVal < bVal ? 1 : aVal > bVal ? -1 : 0
+        // Convert to strings for text comparison
+        aVal = String(aVal).toLowerCase()
+        bVal = String(bVal).toLowerCase()
+
+        if (sortConfig.value.direction === 'asc') {
+          return aVal > bVal ? 1 : aVal < bVal ? -1 : 0
+        } else {
+          return aVal < bVal ? 1 : aVal > bVal ? -1 : 0
+        }
       }
     })
 
@@ -525,12 +568,35 @@ const addClient = async () => {
 
   // Required field validation
   if (!newClient.value.mobiles) {
-    validationError.value = 'Mobile number is required'
+    validationError.value = `⚠️ ${t('mobileValidation.critical')}: ${t('mobileValidation.mobileRequired')}`
+    return
+  }
+
+  // Mobile number format validation
+  if (!validateAlgerianMobile(newClient.value.mobiles)) {
+    validationError.value = `⚠️ ${t('mobileValidation.critical')}: ${t('mobileValidation.invalidAlgerianMobile')}`
     return
   }
 
   if (!newClient.value.id_no) {
-    validationError.value = 'ID number is required'
+    validationError.value = `⚠️ ${t('mobileValidation.critical')}: ${t('idValidation.idRequired')}`
+    return
+  }
+
+  // ID number format validation
+  if (!validateIDNumber(newClient.value.id_no)) {
+    validationError.value = `⚠️ ${t('mobileValidation.critical')}: ${t('idValidation.invalidFormat')}`
+    return
+  }
+
+  if (!newClient.value.nin) {
+    validationError.value = `⚠️ ${t('mobileValidation.critical')}: ${t('ninValidation.ninRequired')}`
+    return
+  }
+
+  // NIN format validation
+  if (!validateNIN(newClient.value.nin)) {
+    validationError.value = `⚠️ ${t('mobileValidation.critical')}: ${t('ninValidation.invalidFormat')}`
     return
   }
 
@@ -550,8 +616,8 @@ const addClient = async () => {
     // First insert the client to get the ID
     const result = await callApi({
       query: `
-        INSERT INTO clients (name, address, email, mobiles, id_no, is_broker, is_client, notes)
-        VALUES (?, ?, ?, ?, ?, ?, 1, ?)
+        INSERT INTO clients (name, address, email, mobiles, id_no, nin, is_broker, is_client, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)
     `,
       params: [
         newClient.value.name,
@@ -559,6 +625,7 @@ const addClient = async () => {
         newClient.value.email,
         newClient.value.mobiles,
         newClient.value.id_no,
+        newClient.value.nin,
         newClient.value.is_broker ? 1 : 0,
         newClient.value.notes,
       ],
@@ -567,6 +634,7 @@ const addClient = async () => {
     console.log('Insert result:', result)
     console.log('Insert result type:', typeof result)
     console.log('Full result object:', JSON.stringify(result, null, 2))
+    console.log('NIN being saved:', newClient.value.nin)
 
     if (result.success) {
       const clientId = result.lastInsertId
@@ -602,6 +670,7 @@ const addClient = async () => {
         email: newClient.value.email,
         mobiles: newClient.value.mobiles,
         id_no: newClient.value.id_no,
+        nin: newClient.value.nin,
         is_broker: newClient.value.is_broker ? 1 : 0,
         is_client: 1,
         notes: newClient.value.notes,
@@ -643,7 +712,9 @@ const addClient = async () => {
 
 const editClient = (client) => {
   console.log('Editing client:', client)
+  console.log('Client NIN field:', client.nin)
   editingClient.value = { ...client }
+  console.log('Editing client NIN:', editingClient.value.nin)
   editSelectedFile.value = null
 
   // Reset the file input element
@@ -663,12 +734,35 @@ const updateClient = async () => {
 
   // Required field validation
   if (!editingClient.value.mobiles) {
-    validationError.value = 'Mobile number is required'
+    validationError.value = `⚠️ ${t('mobileValidation.critical')}: ${t('mobileValidation.mobileRequired')}`
+    return
+  }
+
+  // Mobile number format validation
+  if (!validateAlgerianMobile(editingClient.value.mobiles)) {
+    validationError.value = `⚠️ ${t('mobileValidation.critical')}: ${t('mobileValidation.invalidAlgerianMobile')}`
     return
   }
 
   if (!editingClient.value.id_no) {
-    validationError.value = 'ID number is required'
+    validationError.value = `⚠️ ${t('mobileValidation.critical')}: ${t('idValidation.idRequired')}`
+    return
+  }
+
+  // ID number format validation
+  if (!validateIDNumber(editingClient.value.id_no)) {
+    validationError.value = `⚠️ ${t('mobileValidation.critical')}: ${t('idValidation.invalidFormat')}`
+    return
+  }
+
+  if (!editingClient.value.nin) {
+    validationError.value = `⚠️ ${t('mobileValidation.critical')}: ${t('ninValidation.ninRequired')}`
+    return
+  }
+
+  // NIN format validation
+  if (!validateNIN(editingClient.value.nin)) {
+    validationError.value = `⚠️ ${t('mobileValidation.critical')}: ${t('ninValidation.invalidFormat')}`
     return
   }
 
@@ -694,7 +788,7 @@ const updateClient = async () => {
     const result = await callApi({
       query: `
       UPDATE clients 
-      SET name = ?, address = ?, email = ?, mobiles = ?, id_no = ?, is_broker = ?, is_client = 1, notes = ?
+      SET name = ?, address = ?, email = ?, mobiles = ?, id_no = ?, nin = ?, is_broker = ?, is_client = 1, notes = ?
       WHERE id = ?
     `,
       params: [
@@ -703,6 +797,7 @@ const updateClient = async () => {
         editingClient.value.email,
         editingClient.value.mobiles,
         editingClient.value.id_no,
+        editingClient.value.nin,
         editingClient.value.is_broker ? 1 : 0,
         editingClient.value.notes,
         editingClient.value.id,
@@ -751,6 +846,7 @@ const updateClient = async () => {
           email: editingClient.value.email,
           mobiles: editingClient.value.mobiles,
           id_no: editingClient.value.id_no,
+          nin: editingClient.value.nin,
           is_broker: editingClient.value.is_broker ? 1 : 0,
           notes: editingClient.value.notes,
           // Update file path if new file was uploaded
@@ -987,23 +1083,23 @@ const handleRefresh = async () => {
             <table class="clients-table">
               <thead>
                 <tr>
+                  <th @click="handleSort('id')" class="sortable">
+                    <div class="th-content">
+                      <i class="fas fa-hashtag"></i>
+                      <span>ID</span>
+                      <i
+                        v-if="sortConfig.key === 'id'"
+                        :class="['sort-icon', sortConfig.direction === 'asc' ? 'asc' : 'desc']"
+                      >
+                      </i>
+                    </div>
+                  </th>
                   <th @click="handleSort('name')" class="sortable">
                     <div class="th-content">
                       <i class="fas fa-user"></i>
                       <span>Name</span>
                       <i
                         v-if="sortConfig.key === 'name'"
-                        :class="['sort-icon', sortConfig.direction === 'asc' ? 'asc' : 'desc']"
-                      >
-                      </i>
-                    </div>
-                  </th>
-                  <th @click="handleSort('email')" class="sortable">
-                    <div class="th-content">
-                      <i class="fas fa-envelope"></i>
-                      <span>Email</span>
-                      <i
-                        v-if="sortConfig.key === 'email'"
                         :class="['sort-icon', sortConfig.direction === 'asc' ? 'asc' : 'desc']"
                       >
                       </i>
@@ -1048,17 +1144,6 @@ const handleRefresh = async () => {
                       <span>ID Document</span>
                     </div>
                   </th>
-                  <th @click="handleSort('is_broker')" class="sortable">
-                    <div class="th-content">
-                      <i class="fas fa-user-tag"></i>
-                      <span>Status</span>
-                      <i
-                        v-if="sortConfig.key === 'is_broker'"
-                        :class="['sort-icon', sortConfig.direction === 'asc' ? 'asc' : 'desc']"
-                      >
-                      </i>
-                    </div>
-                  </th>
                   <th>
                     <div class="th-content">
                       <i class="fas fa-sticky-note"></i>
@@ -1081,18 +1166,14 @@ const handleRefresh = async () => {
                   :class="{ selected: selectedRowId === client.id }"
                   @click="handleRowClick(client)"
                 >
+                  <td class="client-id-number">
+                    <span class="id-value">{{ client.id }}</span>
+                  </td>
                   <td class="client-name">
                     <div class="name-content">
                       <div class="name-text">{{ client.name || 'Unnamed Client' }}</div>
                       <div class="address-text" v-if="client.address">{{ client.address }}</div>
                     </div>
-                  </td>
-                  <td class="client-email">
-                    <span v-if="client.email" class="email-link">
-                      <i class="fas fa-envelope"></i>
-                      {{ client.email }}
-                    </span>
-                    <span v-else class="no-email">No email</span>
                   </td>
                   <td class="client-mobile">
                     <span class="mobile-number">
@@ -1101,7 +1182,10 @@ const handleRefresh = async () => {
                     </span>
                   </td>
                   <td class="client-id">
-                    <span class="id-number">{{ client.id_no }}</span>
+                    <div class="id-info">
+                      <div class="id-number">{{ client.id_no }}</div>
+                      <div class="nin-number">{{ client.nin }}</div>
+                    </div>
                   </td>
                   <td class="cars-count">
                     <div
@@ -1142,18 +1226,6 @@ const handleRefresh = async () => {
                       <i class="fas fa-times-circle"></i>
                       <span>No ID</span>
                     </span>
-                  </td>
-                  <td class="client-status">
-                    <div class="status-badges">
-                      <span class="status-badge client">
-                        <i class="fas fa-user"></i>
-                        Client
-                      </span>
-                      <span v-if="client.is_broker" class="status-badge broker">
-                        <i class="fas fa-user-tie"></i>
-                        Broker
-                      </span>
-                    </div>
                   </td>
                   <td class="client-notes">
                     <div v-if="client.notes" class="notes-content" :title="client.notes">
@@ -1271,7 +1343,10 @@ const handleRefresh = async () => {
                 ID Number:
               </div>
               <div class="detail-value">
-                <span class="id-number">{{ client.id_no }}</span>
+                <div class="id-info">
+                  <div class="id-number">{{ client.id_no }}</div>
+                  <div class="nin-number">{{ client.nin }}</div>
+                </div>
               </div>
             </div>
 
@@ -1438,35 +1513,67 @@ const handleRefresh = async () => {
             <div class="form-group">
               <label for="mobile">
                 <i class="fas fa-phone"></i>
-                Mobile Number *
+                {{ t('mobileValidation.mobileLabel') }}
+                <span class="critical-field">⚠️ {{ t('mobileValidation.critical') }}</span>
               </label>
               <input
                 id="mobile"
                 v-model="newClient.mobiles"
                 type="tel"
-                placeholder="Enter mobile number"
-                class="form-input"
+                :placeholder="t('mobileValidation.mobilePlaceholder')"
+                class="form-input critical-input"
                 :class="{ error: validationError && !newClient.mobiles }"
                 :disabled="isSubmitting"
                 required
               />
+              <div class="field-help">
+                <i class="fas fa-exclamation-triangle"></i>
+                {{ t('mobileValidation.helpText') }}
+              </div>
             </div>
 
             <div class="form-group">
               <label for="id_no">
                 <i class="fas fa-id-card"></i>
-                ID Number *
+                {{ t('idValidation.idLabel') }}
+                <span class="critical-field">⚠️ {{ t('mobileValidation.critical') }}</span>
               </label>
               <input
                 id="id_no"
                 v-model="newClient.id_no"
                 type="text"
-                placeholder="Enter ID number"
-                class="form-input"
+                :placeholder="t('idValidation.idPlaceholder')"
+                class="form-input critical-input"
                 :class="{ error: validationError && !newClient.id_no }"
                 :disabled="isSubmitting"
                 required
               />
+              <div class="field-help">
+                <i class="fas fa-exclamation-triangle"></i>
+                {{ t('idValidation.helpText') }}
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="nin">
+                <i class="fas fa-passport"></i>
+                {{ t('ninValidation.ninLabel') }}
+                <span class="critical-field">⚠️ {{ t('mobileValidation.critical') }}</span>
+              </label>
+              <input
+                id="nin"
+                v-model="newClient.nin"
+                type="text"
+                :placeholder="t('ninValidation.ninPlaceholder')"
+                class="form-input critical-input"
+                :class="{ error: validationError && !newClient.nin }"
+                :disabled="isSubmitting"
+                required
+              />
+              <div class="field-help">
+                <i class="fas fa-exclamation-triangle"></i>
+                {{ t('ninValidation.helpText') }}
+              </div>
             </div>
 
             <div class="form-group">
@@ -1624,35 +1731,67 @@ const handleRefresh = async () => {
             <div class="form-group">
               <label for="edit-mobile">
                 <i class="fas fa-phone"></i>
-                Mobile Number *
+                {{ t('mobileValidation.mobileLabel') }}
+                <span class="critical-field">⚠️ {{ t('mobileValidation.critical') }}</span>
               </label>
               <input
                 id="edit-mobile"
                 v-model="editingClient.mobiles"
                 type="tel"
-                placeholder="Enter mobile number"
-                class="form-input"
+                :placeholder="t('mobileValidation.mobilePlaceholder')"
+                class="form-input critical-input"
                 :class="{ error: validationError && !editingClient.mobiles }"
                 :disabled="isSubmitting"
                 required
               />
+              <div class="field-help">
+                <i class="fas fa-exclamation-triangle"></i>
+                {{ t('mobileValidation.helpText') }}
+              </div>
             </div>
 
             <div class="form-group">
               <label for="edit-id_no">
                 <i class="fas fa-id-card"></i>
-                ID Number *
+                {{ t('idValidation.idLabel') }}
+                <span class="critical-field">⚠️ {{ t('mobileValidation.critical') }}</span>
               </label>
               <input
                 id="edit-id_no"
                 v-model="editingClient.id_no"
                 type="text"
-                placeholder="Enter ID number"
-                class="form-input"
+                :placeholder="t('idValidation.idPlaceholder')"
+                class="form-input critical-input"
                 :class="{ error: validationError && !editingClient.id_no }"
                 :disabled="isSubmitting"
                 required
               />
+              <div class="field-help">
+                <i class="fas fa-exclamation-triangle"></i>
+                {{ t('idValidation.helpText') }}
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="edit-nin">
+                <i class="fas fa-passport"></i>
+                {{ t('ninValidation.ninLabel') }}
+                <span class="critical-field">⚠️ {{ t('mobileValidation.critical') }}</span>
+              </label>
+              <input
+                id="edit-nin"
+                v-model="editingClient.nin"
+                type="text"
+                :placeholder="t('ninValidation.ninPlaceholder')"
+                class="form-input critical-input"
+                :class="{ error: validationError && !editingClient.nin }"
+                :disabled="isSubmitting"
+                required
+              />
+              <div class="field-help">
+                <i class="fas fa-exclamation-triangle"></i>
+                {{ t('ninValidation.helpText') }}
+              </div>
             </div>
 
             <div class="form-group">
@@ -2173,16 +2312,12 @@ const handleRefresh = async () => {
   width: 20%;
 }
 
-.client-email {
-  width: 20%;
-}
-
 .client-mobile {
   width: 15%;
 }
 
 .client-id {
-  width: 10%;
+  width: 15%;
 }
 
 .cars-count {
@@ -2191,10 +2326,6 @@ const handleRefresh = async () => {
 
 .id-document-cell {
   width: 15%;
-}
-
-.client-status {
-  width: 10%;
 }
 
 .client-notes {
@@ -3880,6 +4011,55 @@ const handleRefresh = async () => {
     text-decoration: underline;
   }
 
+  /* Client ID Column */
+  .client-id-number {
+    text-align: center;
+    font-weight: 600;
+    color: #1f2937;
+    width: 80px;
+  }
+
+  .id-value {
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    color: #374151;
+    background: #f3f4f6;
+    padding: 4px 8px;
+    border-radius: 6px;
+    display: inline-block;
+  }
+
+  /* ID Info Container */
+  .id-info {
+    display: block;
+    width: 100%;
+  }
+
+  .id-number {
+    font-weight: 600;
+    color: #1f2937;
+    font-size: 0.9rem;
+    line-height: 1.2;
+    margin-bottom: 4px;
+  }
+
+  .nin-number {
+    font-size: 0.7rem;
+    color: #1e40af;
+    font-weight: 600;
+    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+    border: 1px solid #93c5fd;
+    border-radius: 10px;
+    padding: 3px 6px;
+    font-family: 'Courier New', monospace;
+    text-align: center;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    line-height: 1;
+    white-space: nowrap;
+    display: inline-block;
+    width: auto;
+  }
+
   /* Mobile ID Number */
   .mobile-cards-container .id-number {
     font-weight: 600;
@@ -3889,6 +4069,20 @@ const handleRefresh = async () => {
     padding: 2px 6px;
     border-radius: 4px;
     font-size: 0.8rem;
+  }
+
+  .mobile-cards-container .nin-number {
+    font-size: 0.7rem;
+    color: #1e40af;
+    font-weight: 600;
+    font-family: 'Courier New', monospace;
+    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+    border: 1px solid #93c5fd;
+    padding: 3px 6px;
+    border-radius: 10px;
+    margin-top: 3px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    display: inline-block;
   }
 
   /* Mobile Mobile Number */
@@ -4016,5 +4210,71 @@ const handleRefresh = async () => {
   color: #6b7280;
   max-width: 400px;
   line-height: 1.5;
+}
+
+/* Critical Field Styles */
+.critical-field {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin-left: 8px;
+  box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);
+  animation: pulse-critical 2s infinite;
+}
+
+@keyframes pulse-critical {
+  0%,
+  100% {
+    box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);
+  }
+  50% {
+    box-shadow: 0 4px 8px rgba(239, 68, 68, 0.5);
+  }
+}
+
+.critical-input {
+  border: 2px solid #fca5a5 !important;
+  background: linear-gradient(135deg, #fef2f2 0%, #fef7f7 100%) !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1) !important;
+}
+
+.critical-input:focus {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2) !important;
+}
+
+.field-help {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: linear-gradient(135deg, #fef3c7 0%, #fef7cd 100%);
+  border: 1px solid #f59e0b;
+  border-radius: 6px;
+  color: #92400e;
+  font-size: 0.85rem;
+  font-weight: 500;
+  animation: slideInHelp 0.3s ease-out;
+}
+
+@keyframes slideInHelp {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.field-help i {
+  color: #f59e0b;
+  font-size: 0.9rem;
 }
 </style>

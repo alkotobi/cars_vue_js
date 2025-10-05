@@ -1838,5 +1838,27 @@
   "maxUnpaidBillsErrorMessage": "Vous avez {count} facture(s) impayée(s), ce qui dépasse la limite maximale autorisée de {max} facture(s).",
   "maxUnpaidBillsErrorDetails": "Veuillez régler vos factures impayées avant d'en créer de nouvelles. Contactez votre administrateur si vous souhaitez augmenter cette limite.",
   "proceedAnyway": "Continuer quand même",
-  "ok": "OK"
+  "ok": "OK",
+  "mobileValidation": {
+    "critical": "CRITIQUE",
+    "mobileRequired": "Le numéro de téléphone mobile est requis - Les voitures ne peuvent pas être chargées sans cela !",
+    "invalidAlgerianMobile": "Veuillez saisir un numéro de téléphone algérien valide (format : 0552663908, le deuxième chiffre doit être 5, 6 ou 7). Les voitures ne peuvent pas être chargées avec un numéro de téléphone invalide !",
+    "mobileLabel": "Numéro de Téléphone Mobile *",
+    "mobilePlaceholder": "Entrez le numéro de téléphone algérien (0552663908)",
+    "helpText": "Les voitures ne peuvent pas être chargées sans un numéro de téléphone valide !"
+  },
+  "idValidation": {
+    "idRequired": "Le numéro d'identité est requis - Les voitures ne peuvent pas être chargées sans cela !",
+    "invalidFormat": "Veuillez saisir un numéro d'identité valide - doit être exactement 9 chiffres (numériques uniquement). Les voitures ne peuvent pas être chargées avec un numéro d'identité invalide !",
+    "idLabel": "Numéro d'Identité *",
+    "idPlaceholder": "Entrez le numéro d'identité à 9 chiffres (123456789)",
+    "helpText": "Les voitures ne peuvent pas être chargées sans un numéro d'identité valide !"
+  },
+  "ninValidation": {
+    "ninRequired": "Le Numéro d'Identification National est requis - Les voitures ne peuvent pas être chargées sans cela !",
+    "invalidFormat": "Veuillez saisir un Numéro d'Identification National valide - doit être exactement 18 chiffres (numériques uniquement). Les voitures ne peuvent pas être chargées avec un NIN invalide !",
+    "ninLabel": "Numéro d'Identification National *",
+    "ninPlaceholder": "Entrez le NIN à 18 chiffres (123456789012345678)",
+    "helpText": "Les voitures ne peuvent pas être chargées sans un Numéro d'Identification National valide !"
+  }
 }

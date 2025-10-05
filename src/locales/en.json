@@ -1752,5 +1752,27 @@
     "clearFilters": "Clear Filters",
     "showingResults": "Showing {shown} of {total} invitations",
     "valueMinusPayment": "Value - Payment"
+  },
+  "mobileValidation": {
+    "critical": "CRITICAL",
+    "mobileRequired": "Mobile number is required - Cars cannot be loaded without it!",
+    "invalidAlgerianMobile": "Please enter a valid Algerian mobile number (format: 0552663908, second digit should be 5, 6, or 7). Cars cannot be loaded with an invalid mobile number!",
+    "mobileLabel": "Mobile Number *",
+    "mobilePlaceholder": "Enter Algerian mobile number (0552663908)",
+    "helpText": "Cars cannot be loaded without a valid mobile number!"
+  },
+  "idValidation": {
+    "idRequired": "ID number is required - Cars cannot be loaded without it!",
+    "invalidFormat": "Please enter a valid ID number - must be exactly 9 digits (numeric only). Cars cannot be loaded with an invalid ID number!",
+    "idLabel": "ID Number *",
+    "idPlaceholder": "Enter 9-digit ID number (123456789)",
+    "helpText": "Cars cannot be loaded without a valid ID number!"
+  },
+  "ninValidation": {
+    "ninRequired": "National Identifier Number is required - Cars cannot be loaded without it!",
+    "invalidFormat": "Please enter a valid National Identifier Number - must be exactly 18 digits (numeric only). Cars cannot be loaded with an invalid NIN!",
+    "ninLabel": "National Identifier Number *",
+    "ninPlaceholder": "Enter 18-digit NIN (123456789012345678)",
+    "helpText": "Cars cannot be loaded without a valid National Identifier Number!"
   }
 }
