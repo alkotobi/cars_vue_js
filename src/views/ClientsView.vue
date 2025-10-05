@@ -215,6 +215,33 @@ const closeTaskDropdown = () => {
 // Check if user is admin by getting role from localStorage
 const isAdmin = computed(() => user.value?.role_id === 1)
 
+// Computed properties for mobile validation status
+const isNewClientMobileValid = computed(() => {
+  return newClient.value.mobiles && validateAlgerianMobile(newClient.value.mobiles)
+})
+
+const isEditClientMobileValid = computed(() => {
+  return editingClient.value?.mobiles && validateAlgerianMobile(editingClient.value.mobiles)
+})
+
+// Computed properties for NIN validation status
+const isNewClientNINValid = computed(() => {
+  return newClient.value.nin && validateNIN(newClient.value.nin)
+})
+
+const isEditClientNINValid = computed(() => {
+  return editingClient.value?.nin && validateNIN(editingClient.value.nin)
+})
+
+// Computed properties for ID Number validation status
+const isNewClientIDValid = computed(() => {
+  return newClient.value.id_no && validateIDNumber(newClient.value.id_no)
+})
+
+const isEditClientIDValid = computed(() => {
+  return editingClient.value?.id_no && validateIDNumber(editingClient.value.id_no)
+})
+
 // Add helper function to check if file is an image
 const isImageFile = (path) => {
   if (!path) return false
@@ -243,6 +270,91 @@ const validateNIN = (nin) => {
   // National Identifier Number format: exactly 18 digits, numeric only
   const ninRegex = /^\d{18}$/
   return ninRegex.test(nin)
+}
+
+// Mobile input masking function
+const handleMobileInput = (event, isEdit = false) => {
+  let value = event.target.value
+
+  // Remove all non-numeric characters
+  value = value.replace(/\D/g, '')
+
+  // Limit to 10 digits maximum
+  if (value.length > 10) {
+    value = value.substring(0, 10)
+  }
+
+  // Apply formatting based on length
+  if (value.length === 0) {
+    // Empty - allow user to start typing
+  } else if (value.length === 1) {
+    // First digit must be 0
+    if (value !== '0') {
+      value = '0'
+    }
+  } else if (value.length === 2) {
+    // Second digit must be 5, 6, or 7
+    const secondDigit = value[1]
+    if (!['5', '6', '7'].includes(secondDigit)) {
+      value = value[0] // Keep only the first digit (0)
+    }
+  }
+
+  // Update the appropriate reactive object
+  if (isEdit) {
+    editingClient.value.mobiles = value
+  } else {
+    newClient.value.mobiles = value
+  }
+
+  // Update the input value
+  event.target.value = value
+}
+
+// NIN input masking function
+const handleNINInput = (event, isEdit = false) => {
+  let value = event.target.value
+
+  // Remove all non-numeric characters
+  value = value.replace(/\D/g, '')
+
+  // Limit to 18 digits maximum
+  if (value.length > 18) {
+    value = value.substring(0, 18)
+  }
+
+  // Update the appropriate reactive object
+  if (isEdit) {
+    editingClient.value.nin = value
+  } else {
+    newClient.value.nin = value
+  }
+
+  // Update the input value
+  event.target.value = value
+}
+
+// ID Number input masking function
+const handleIDNumberInput = (event, isEdit = false) => {
+  let value = event.target.value
+
+  // Remove all non-numeric characters
+  value = value.replace(/\D/g, '')
+
+  // Limit to 9 digits maximum
+  if (value.length > 9) {
+    value = value.substring(0, 9)
+  }
+
+  // Update the appropriate reactive object
+  if (isEdit) {
+    editingClient.value.id_no = value
+  } else {
+    newClient.value.id_no = value
+  }
+
+  // Update the input value
+  event.target.value = value
 }
 
 const newClient = ref({
@@ -1514,21 +1626,34 @@ const handleRefresh = async () => {
               <label for="mobile">
                 <i class="fas fa-phone"></i>
                 {{ t('mobileValidation.mobileLabel') }}
-                <span class="critical-field">⚠️ {{ t('mobileValidation.critical') }}</span>
+                <span v-if="!isNewClientMobileValid" class="critical-field"
+                  >⚠️ {{ t('mobileValidation.critical') }}</span
+                >
+                <span v-else class="success-field">✅ {{ t('mobileValidation.valid') }}</span>
               </label>
               <input
                 id="mobile"
                 v-model="newClient.mobiles"
                 type="tel"
                 :placeholder="t('mobileValidation.mobilePlaceholder')"
-                class="form-input critical-input"
-                :class="{ error: validationError && !newClient.mobiles }"
+                class="form-input"
+                :class="{
+                  'critical-input': !isNewClientMobileValid,
+                  'success-input': isNewClientMobileValid,
+                  error: validationError && !newClient.mobiles,
+                }"
                 :disabled="isSubmitting"
+                @input="handleMobileInput($event, false)"
+                maxlength="10"
                 required
               />
-              <div class="field-help">
+              <div v-if="!isNewClientMobileValid" class="field-help">
                 <i class="fas fa-exclamation-triangle"></i>
                 {{ t('mobileValidation.helpText') }}
+              </div>
+              <div v-else class="field-success">
+                <i class="fas fa-check-circle"></i>
+                {{ t('mobileValidation.validFormat') }}
               </div>
             </div>
 
@@ -1536,21 +1661,34 @@ const handleRefresh = async () => {
               <label for="id_no">
                 <i class="fas fa-id-card"></i>
                 {{ t('idValidation.idLabel') }}
-                <span class="critical-field">⚠️ {{ t('mobileValidation.critical') }}</span>
+                <span v-if="!isNewClientIDValid" class="critical-field"
+                  >⚠️ {{ t('mobileValidation.critical') }}</span
+                >
+                <span v-else class="success-field">✅ {{ t('idValidation.valid') }}</span>
               </label>
               <input
                 id="id_no"
                 v-model="newClient.id_no"
                 type="text"
                 :placeholder="t('idValidation.idPlaceholder')"
-                class="form-input critical-input"
-                :class="{ error: validationError && !newClient.id_no }"
+                class="form-input"
+                :class="{
+                  'critical-input': !isNewClientIDValid,
+                  'success-input': isNewClientIDValid,
+                  error: validationError && !newClient.id_no,
+                }"
                 :disabled="isSubmitting"
+                @input="handleIDNumberInput($event, false)"
+                maxlength="9"
                 required
               />
-              <div class="field-help">
+              <div v-if="!isNewClientIDValid" class="field-help">
                 <i class="fas fa-exclamation-triangle"></i>
                 {{ t('idValidation.helpText') }}
+              </div>
+              <div v-else class="field-success">
+                <i class="fas fa-check-circle"></i>
+                {{ t('idValidation.validFormat') }}
               </div>
             </div>
 
@@ -1558,21 +1696,34 @@ const handleRefresh = async () => {
               <label for="nin">
                 <i class="fas fa-passport"></i>
                 {{ t('ninValidation.ninLabel') }}
-                <span class="critical-field">⚠️ {{ t('mobileValidation.critical') }}</span>
+                <span v-if="!isNewClientNINValid" class="critical-field"
+                  >⚠️ {{ t('mobileValidation.critical') }}</span
+                >
+                <span v-else class="success-field">✅ {{ t('ninValidation.valid') }}</span>
               </label>
               <input
                 id="nin"
                 v-model="newClient.nin"
                 type="text"
                 :placeholder="t('ninValidation.ninPlaceholder')"
-                class="form-input critical-input"
-                :class="{ error: validationError && !newClient.nin }"
+                class="form-input"
+                :class="{
+                  'critical-input': !isNewClientNINValid,
+                  'success-input': isNewClientNINValid,
+                  error: validationError && !newClient.nin,
+                }"
                 :disabled="isSubmitting"
+                @input="handleNINInput($event, false)"
+                maxlength="18"
                 required
               />
-              <div class="field-help">
+              <div v-if="!isNewClientNINValid" class="field-help">
                 <i class="fas fa-exclamation-triangle"></i>
                 {{ t('ninValidation.helpText') }}
+              </div>
+              <div v-else class="field-success">
+                <i class="fas fa-check-circle"></i>
+                {{ t('ninValidation.validFormat') }}
               </div>
             </div>
 
@@ -1732,21 +1883,34 @@ const handleRefresh = async () => {
               <label for="edit-mobile">
                 <i class="fas fa-phone"></i>
                 {{ t('mobileValidation.mobileLabel') }}
-                <span class="critical-field">⚠️ {{ t('mobileValidation.critical') }}</span>
+                <span v-if="!isEditClientMobileValid" class="critical-field"
+                  >⚠️ {{ t('mobileValidation.critical') }}</span
+                >
+                <span v-else class="success-field">✅ {{ t('mobileValidation.valid') }}</span>
               </label>
               <input
                 id="edit-mobile"
                 v-model="editingClient.mobiles"
                 type="tel"
                 :placeholder="t('mobileValidation.mobilePlaceholder')"
-                class="form-input critical-input"
-                :class="{ error: validationError && !editingClient.mobiles }"
+                class="form-input"
+                :class="{
+                  'critical-input': !isEditClientMobileValid,
+                  'success-input': isEditClientMobileValid,
+                  error: validationError && !editingClient.mobiles,
+                }"
                 :disabled="isSubmitting"
+                @input="handleMobileInput($event, true)"
+                maxlength="10"
                 required
               />
-              <div class="field-help">
+              <div v-if="!isEditClientMobileValid" class="field-help">
                 <i class="fas fa-exclamation-triangle"></i>
                 {{ t('mobileValidation.helpText') }}
+              </div>
+              <div v-else class="field-success">
+                <i class="fas fa-check-circle"></i>
+                {{ t('mobileValidation.validFormat') }}
               </div>
             </div>
 
@@ -1754,21 +1918,34 @@ const handleRefresh = async () => {
               <label for="edit-id_no">
                 <i class="fas fa-id-card"></i>
                 {{ t('idValidation.idLabel') }}
-                <span class="critical-field">⚠️ {{ t('mobileValidation.critical') }}</span>
+                <span v-if="!isEditClientIDValid" class="critical-field"
+                  >⚠️ {{ t('mobileValidation.critical') }}</span
+                >
+                <span v-else class="success-field">✅ {{ t('idValidation.valid') }}</span>
               </label>
               <input
                 id="edit-id_no"
                 v-model="editingClient.id_no"
                 type="text"
                 :placeholder="t('idValidation.idPlaceholder')"
-                class="form-input critical-input"
-                :class="{ error: validationError && !editingClient.id_no }"
+                class="form-input"
+                :class="{
+                  'critical-input': !isEditClientIDValid,
+                  'success-input': isEditClientIDValid,
+                  error: validationError && !editingClient.id_no,
+                }"
                 :disabled="isSubmitting"
+                @input="handleIDNumberInput($event, true)"
+                maxlength="9"
                 required
               />
-              <div class="field-help">
+              <div v-if="!isEditClientIDValid" class="field-help">
                 <i class="fas fa-exclamation-triangle"></i>
                 {{ t('idValidation.helpText') }}
+              </div>
+              <div v-else class="field-success">
+                <i class="fas fa-check-circle"></i>
+                {{ t('idValidation.validFormat') }}
               </div>
             </div>
 
@@ -1776,21 +1953,34 @@ const handleRefresh = async () => {
               <label for="edit-nin">
                 <i class="fas fa-passport"></i>
                 {{ t('ninValidation.ninLabel') }}
-                <span class="critical-field">⚠️ {{ t('mobileValidation.critical') }}</span>
+                <span v-if="!isEditClientNINValid" class="critical-field"
+                  >⚠️ {{ t('mobileValidation.critical') }}</span
+                >
+                <span v-else class="success-field">✅ {{ t('ninValidation.valid') }}</span>
               </label>
               <input
                 id="edit-nin"
                 v-model="editingClient.nin"
                 type="text"
                 :placeholder="t('ninValidation.ninPlaceholder')"
-                class="form-input critical-input"
-                :class="{ error: validationError && !editingClient.nin }"
+                class="form-input"
+                :class="{
+                  'critical-input': !isEditClientNINValid,
+                  'success-input': isEditClientNINValid,
+                  error: validationError && !editingClient.nin,
+                }"
                 :disabled="isSubmitting"
+                @input="handleNINInput($event, true)"
+                maxlength="18"
                 required
               />
-              <div class="field-help">
+              <div v-if="!isEditClientNINValid" class="field-help">
                 <i class="fas fa-exclamation-triangle"></i>
                 {{ t('ninValidation.helpText') }}
+              </div>
+              <div v-else class="field-success">
+                <i class="fas fa-check-circle"></i>
+                {{ t('ninValidation.validFormat') }}
               </div>
             </div>
 
@@ -4245,6 +4435,67 @@ const handleRefresh = async () => {
 .critical-input:focus {
   border-color: #ef4444 !important;
   box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2) !important;
+}
+
+/* Success Field Styles */
+.success-field {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin-left: 8px;
+  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
+  animation: pulse-success 2s infinite;
+}
+
+@keyframes pulse-success {
+  0%,
+  100% {
+    box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
+  }
+  50% {
+    box-shadow: 0 4px 8px rgba(16, 185, 129, 0.5);
+  }
+}
+
+.success-input {
+  border: 2px solid #6ee7b7 !important;
+  background: linear-gradient(135deg, #f0fdf4 0%, #f7fef8 100%) !important;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1) !important;
+}
+
+.success-input:focus {
+  border-color: #10b981 !important;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2) !important;
+}
+
+.field-success {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: linear-gradient(135deg, #d1fae5 0%, #ecfdf5 100%);
+  border: 1px solid #10b981;
+  border-radius: 6px;
+  color: #065f46;
+  font-size: 0.85rem;
+  font-weight: 500;
+  animation: slideInSuccess 0.3s ease-out;
+}
+
+@keyframes slideInSuccess {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .field-help {
