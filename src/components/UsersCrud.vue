@@ -5,9 +5,21 @@ import { useApi } from '../composables/useApi'
 const { callApi, error, loading } = useApi()
 const users = ref([])
 const roles = ref([])
-const newUser = ref({ username: '', email: '', password: '', role_id: '' })
+const newUser = ref({
+  username: '',
+  email: '',
+  password: '',
+  role_id: '',
+  max_unpayed_created_bills: 0,
+})
 const editingUser = ref(null)
-const editUserData = ref({ username: '', email: '', password: '', role_id: '' })
+const editUserData = ref({
+  username: '',
+  email: '',
+  password: '',
+  role_id: '',
+  max_unpayed_created_bills: 0,
+})
 
 const fetchUsers = async () => {
   const result = await callApi({
@@ -35,18 +47,26 @@ const addUser = async () => {
   if (!newUser.value.username || !newUser.value.password || !newUser.value.email) return
 
   const result = await callApi({
-    query: 'INSERT INTO users (username, email, password, role_id) VALUES (?, ?, ?, ?)',
+    query:
+      'INSERT INTO users (username, email, password, role_id, max_unpayed_created_bills) VALUES (?, ?, ?, ?, ?)',
     params: [
       newUser.value.username,
       newUser.value.email,
       newUser.value.password,
       newUser.value.role_id,
+      newUser.value.max_unpayed_created_bills,
     ],
     action: 'insert_user', // Tell API to hash the password before inserting
   })
   if (result.success) {
     fetchUsers()
-    newUser.value = { username: '', email: '', password: '', role_id: '' }
+    newUser.value = {
+      username: '',
+      email: '',
+      password: '',
+      role_id: '',
+      max_unpayed_created_bills: 0,
+    }
   } else {
     error.value = result.error
     console.error(result.error)
@@ -60,6 +80,7 @@ const startEditUser = (user) => {
     email: user.email,
     password: '', // Don't populate password for security
     role_id: user.role_id,
+    max_unpayed_created_bills: user.max_unpayed_created_bills || 0,
   }
 }
 
@@ -73,11 +94,13 @@ const updateUser = async (user) => {
   try {
     // First update user info without password
     let result = await callApi({
-      query: 'UPDATE users SET username = ?, email = ?, role_id = ? WHERE id = ?',
+      query:
+        'UPDATE users SET username = ?, email = ?, role_id = ?, max_unpayed_created_bills = ? WHERE id = ?',
       params: [
         editUserData.value.username,
         editUserData.value.email,
         editUserData.value.role_id,
+        editUserData.value.max_unpayed_created_bills,
         user.id,
       ],
     })
@@ -105,7 +128,13 @@ const updateUser = async (user) => {
 
 const cancelEdit = () => {
   editingUser.value = null
-  editUserData.value = { username: '', email: '', password: '', role_id: '' }
+  editUserData.value = {
+    username: '',
+    email: '',
+    password: '',
+    role_id: '',
+    max_unpayed_created_bills: 0,
+  }
 }
 
 const deleteUser = async (user) => {
@@ -148,6 +177,7 @@ onMounted(() => {
             <th><i class="fas fa-user"></i> Username</th>
             <th><i class="fas fa-envelope"></i> Email</th>
             <th><i class="fas fa-shield-alt"></i> Role</th>
+            <th><i class="fas fa-receipt"></i> Max Unpaid Bills</th>
             <th><i class="fas fa-cogs"></i> Actions</th>
           </tr>
         </thead>
@@ -191,6 +221,19 @@ onMounted(() => {
                   </select>
                 </div>
               </td>
+              <td>
+                <div class="input-wrapper">
+                  <i class="fas fa-receipt input-icon"></i>
+                  <input
+                    v-model.number="editUserData.max_unpayed_created_bills"
+                    type="number"
+                    min="0"
+                    placeholder="Max Unpaid Bills"
+                    class="input-field with-icon"
+                    :disabled="loading"
+                  />
+                </div>
+              </td>
               <td class="actions-cell">
                 <div class="input-wrapper">
                   <i class="fas fa-key input-icon"></i>
@@ -226,6 +269,10 @@ onMounted(() => {
               <td>
                 <i class="fas fa-shield-alt text-gray"></i>
                 {{ user.role_name || 'No Role' }}
+              </td>
+              <td>
+                <i class="fas fa-receipt text-gray"></i>
+                {{ user.max_unpayed_created_bills || 0 }}
               </td>
               <td class="actions-cell">
                 <div class="button-group">
@@ -294,6 +341,17 @@ onMounted(() => {
               {{ role.role_name }}
             </option>
           </select>
+        </div>
+        <div class="input-wrapper">
+          <i class="fas fa-receipt input-icon"></i>
+          <input
+            v-model.number="newUser.max_unpayed_created_bills"
+            type="number"
+            min="0"
+            placeholder="Max Unpaid Bills"
+            class="input-field with-icon"
+            :disabled="loading"
+          />
         </div>
         <button @click="addUser" :disabled="loading" class="btn add-btn">
           <i class="fas" :class="loading ? 'fa-spinner fa-spin' : 'fa-plus'"></i>

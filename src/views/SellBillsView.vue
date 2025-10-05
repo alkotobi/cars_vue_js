@@ -28,7 +28,7 @@ const selectedBillForTask = ref(null)
 const showUnpaidBillsWarning = ref(false)
 const showMaxUnpaidBillsError = ref(false)
 const unpaidBillsCount = ref(0)
-const maxUnpaidBills = ref(3) // Default value
+const maxUnpaidBills = ref(3) // Default value - will be fetched from user's max_unpayed_created_bills (admins see warnings but aren't blocked)
 
 // Add user and isAdmin
 const user = ref(null)
@@ -38,21 +38,26 @@ const can_create_sell_bill = computed(
     user.value?.permissions?.some((p) => p.permission_name === 'can_sell_cars') || isAdmin.value,
 )
 
-onMounted(() => {
+onMounted(async () => {
   const userStr = localStorage.getItem('user')
   if (userStr) {
     user.value = JSON.parse(userStr)
+    // Fetch max unpaid bills after user is loaded
+    await fetchMaxUnpaidBills()
   }
-  fetchMaxUnpaidBills()
 })
 
 const fetchMaxUnpaidBills = async () => {
   try {
-    const result = await callApi({
-      query: 'SELECT max_unpayed_sell_bills FROM defaults LIMIT 1',
-    })
-    if (result.success && result.data.length > 0) {
-      maxUnpaidBills.value = result.data[0].max_unpayed_sell_bills || 3
+    if (user.value?.id) {
+      // Fetch user-specific max unpaid bills limit from users table
+      const result = await callApi({
+        query: 'SELECT max_unpayed_created_bills FROM users WHERE id = ?',
+        params: [user.value.id],
+      })
+      if (result.success && result.data.length > 0) {
+        maxUnpaidBills.value = result.data[0].max_unpayed_created_bills || 3
+      }
     }
   } catch (error) {
     console.error('Error fetching max unpaid bills:', error)
@@ -139,12 +144,13 @@ const openAddDialog = () => {
   if (sellBillsTableRef.value && sellBillsTableRef.value.unpaidBillsCount > 0) {
     unpaidBillsCount.value = sellBillsTableRef.value.unpaidBillsCount
 
-    // Check if unpaid bills exceed the maximum limit
-    if (unpaidBillsCount.value >= maxUnpaidBills.value) {
+    // For non-admin users, check if unpaid bills exceed the maximum limit
+    if (!isAdmin.value && unpaidBillsCount.value >= maxUnpaidBills.value) {
       showMaxUnpaidBillsError.value = true
       return
     }
 
+    // Show warning for both admins and regular users when they have unpaid bills
     showUnpaidBillsWarning.value = true
     return
   }
