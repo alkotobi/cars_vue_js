@@ -158,6 +158,7 @@
                   <div class="client-details">
                     <span class="client-name">{{ car.client_name }}</span>
                     <span class="client-id-no">{{ car.client_id_no || '-' }}</span>
+                    <span v-if="car.client_nin" class="client-nin">{{ car.client_nin }}</span>
                   </div>
                 </div>
                 <span v-else class="no-client">-</span>
@@ -350,6 +351,7 @@ const fetchAssignedCars = async () => {
         cs.id_client,
         cl.name as client_name,
         cl.id_no as client_id_no,
+        cl.nin as client_nin,
         cl.id_copy_path,
         lc.date_on_board,
         sb.id as sell_bill_id,
@@ -919,6 +921,23 @@ loadUserData()
   font-size: 0.8rem;
   color: #6b7280;
   font-family: monospace;
+}
+
+.client-nin {
+  font-size: 0.7rem;
+  color: #1e40af;
+  font-weight: 600;
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  border: 1px solid #93c5fd;
+  border-radius: 8px;
+  padding: 2px 6px;
+  font-family: 'Courier New', monospace;
+  text-align: center;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  line-height: 1;
+  white-space: nowrap;
+  display: inline-block;
+  width: fit-content;
 }
 
 .client-id-image {

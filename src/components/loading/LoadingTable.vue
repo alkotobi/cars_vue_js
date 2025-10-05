@@ -2205,6 +2205,7 @@ const printLoadingRecord = async () => {
           clr.color,
           cl.name as client_name,
           cl.id_no as client_id_no,
+          cl.nin as client_nin,
           cl.id_copy_path
         FROM loaded_containers lc
         LEFT JOIN containers c ON lc.id_container = c.id
@@ -2250,6 +2251,7 @@ const printLoadingRecord = async () => {
           price_cell: row.price_cell,
           client_name: row.client_name,
           client_id_no: row.client_id_no,
+          client_nin: row.client_nin,
           id_copy_path: row.id_copy_path,
         })
       }
@@ -2377,6 +2379,20 @@ const generatePrintContent = (loadingRecord, containersData) => {
         .client-id-no {
           font-size: 0.85rem;
           color: #666;
+        }
+        .client-nin {
+          font-size: 0.75rem;
+          color: #1e40af;
+          font-weight: 600;
+          background: #dbeafe;
+          border: 1px solid #93c5fd;
+          border-radius: 4px;
+          padding: 2px 4px;
+          font-family: 'Courier New', monospace;
+          text-align: center;
+          margin-top: 2px;
+          display: inline-block;
+          width: fit-content;
         }
         .summary {
           margin-top: 30px;
@@ -2507,6 +2523,7 @@ const generatePrintContent = (loadingRecord, containersData) => {
                         <div class="client-details">
                           <div class="client-name">${car.client_name || 'N/A'}</div>
                           <div class="client-id-no">${car.client_id_no || 'No ID'}</div>
+                          ${car.client_nin ? `<div class="client-nin">${car.client_nin}</div>` : ''}
                         </div>
                       </div>
                     </td>
