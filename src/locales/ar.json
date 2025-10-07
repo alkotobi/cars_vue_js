@@ -538,7 +538,22 @@
     "proforma": "فاتورة مؤقتة",
     "fob": "FOB",
     "lc": "LC",
-    "tt": "TT"
+    "tt": "TT",
+    "select_all_visible": "تحديد جميع الفواتير المرئية",
+    "selected_bills_count": "{count} محدد",
+    "clear_all_selections": "مسح جميع التحديدات",
+    "delete_selected": "حذف المحدد",
+    "deleting": "جاري الحذف...",
+    "clear_selection": "مسح التحديد",
+    "confirm_batch_delete": "تأكيد الحذف الجماعي",
+    "batch_delete_message": "هل أنت متأكد من حذف {count} فاتورة محددة؟",
+    "batch_delete_warning": "سيتم إلغاء تعيين جميع السيارات في هذه الفواتير. لا يمكن التراجع عن هذا الإجراء.",
+    "confirm_delete": "حذف",
+    "batch_delete_success": "تم حذف {count} فاتورة بنجاح",
+    "batch_delete_partial": "تم حذف {success} فاتورة، لكن {failed} فشلت",
+    "batch_delete_failed": "فشل حذف الفواتير",
+    "batch_delete_error": "خطأ في حذف الفواتير: {error}",
+    "only_admins_can_delete": "المسؤولون فقط يمكنهم حذف الفواتير"
   },
   "loading": {
     "loading_management": "إدارة التحميل",

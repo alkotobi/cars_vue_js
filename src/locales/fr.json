@@ -648,7 +648,22 @@
     "proforma": "Proforma",
     "fob": "FOB",
     "lc": "LC",
-    "tt": "TT"
+    "tt": "TT",
+    "select_all_visible": "Sélectionner toutes les factures visibles",
+    "selected_bills_count": "{count} sélectionnés",
+    "clear_all_selections": "Effacer toutes les sélections",
+    "delete_selected": "Supprimer la Sélection",
+    "deleting": "Suppression...",
+    "clear_selection": "Effacer la Sélection",
+    "confirm_batch_delete": "Confirmer la Suppression en Lot",
+    "batch_delete_message": "Êtes-vous sûr de vouloir supprimer {count} facture(s) sélectionnée(s) ?",
+    "batch_delete_warning": "Toutes les voitures de ces factures seront désaffectées. Cette action ne peut pas être annulée.",
+    "confirm_delete": "Supprimer",
+    "batch_delete_success": "{count} facture(s) supprimée(s) avec succès",
+    "batch_delete_partial": "{success} facture(s) supprimée(s), mais {failed} ont échoué",
+    "batch_delete_failed": "Échec de la suppression des factures",
+    "batch_delete_error": "Erreur lors de la suppression des factures : {error}",
+    "only_admins_can_delete": "Seuls les administrateurs peuvent supprimer des factures"
   },
   "loading": {
     "loading_management": "Gestion du Chargement",

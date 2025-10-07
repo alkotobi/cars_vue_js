@@ -23,7 +23,10 @@ const can_c_all_bills = computed(() => {
   if (user.value.role_id === 1) return true
   return user.value.permissions?.some((p) => p.permission_name === 'can_c_other_users_sells')
 })
-const emit = defineEmits(['refresh', 'select-bill'])
+const emit = defineEmits(['refresh', 'select-bill', 'update-selected-bills'])
+
+// Multiple selection state
+const selectedBills = ref([])
 
 const router = useRouter()
 const { callApi } = useApi()
@@ -454,8 +457,162 @@ watch(
   { immediate: true },
 )
 
+// Multiple selection methods
+const toggleBillSelection = (billId, event) => {
+  event.stopPropagation() // Prevent row click
+  const index = selectedBills.value.indexOf(billId)
+  if (index > -1) {
+    selectedBills.value.splice(index, 1)
+  } else {
+    selectedBills.value.push(billId)
+  }
+  emitSelectedBills()
+}
+
+const isBillSelected = (billId) => {
+  return selectedBills.value.includes(billId)
+}
+
+// Check if all visible bills are selected
+const allVisibleSelected = computed(() => {
+  if (sortedAndLimitedBills.value.length === 0) return false
+  return sortedAndLimitedBills.value.every((bill) => selectedBills.value.includes(bill.id))
+})
+
+// Select all visible bills (filtered)
+const toggleSelectAllVisible = () => {
+  if (allVisibleSelected.value) {
+    // Deselect all visible bills
+    sortedAndLimitedBills.value.forEach((bill) => {
+      const index = selectedBills.value.indexOf(bill.id)
+      if (index > -1) {
+        selectedBills.value.splice(index, 1)
+      }
+    })
+  } else {
+    // Select all visible bills (don't clear existing selections)
+    sortedAndLimitedBills.value.forEach((bill) => {
+      if (!selectedBills.value.includes(bill.id)) {
+        selectedBills.value.push(bill.id)
+      }
+    })
+  }
+  emitSelectedBills()
+}
+
+// Clear all selections
+const clearAllSelections = () => {
+  selectedBills.value = []
+  emitSelectedBills()
+}
+
+// Emit selected bills to parent
+const emitSelectedBills = () => {
+  emit('update-selected-bills', [...selectedBills.value])
+}
+
+// Batch delete functionality
+const isDeletingBatch = ref(false)
+const showBatchDeleteConfirm = ref(false)
+
+const handleBatchDelete = () => {
+  if (!isAdmin.value) {
+    alert(t('sellBills.only_admins_can_delete'))
+    return
+  }
+
+  if (selectedBills.value.length === 0) {
+    return
+  }
+
+  showBatchDeleteConfirm.value = true
+}
+
+const confirmBatchDelete = async () => {
+  showBatchDeleteConfirm.value = false
+  isDeletingBatch.value = true
+
+  const billsToDelete = [...selectedBills.value]
+  const errors = []
+  let successCount = 0
+
+  try {
+    for (const billId of billsToDelete) {
+      try {
+        // First, unassign all cars from this bill
+        const unassignResult = await callApi({
+          query: `
+            UPDATE cars_stock 
+            SET id_sell = NULL,
+                id_client = NULL,
+                id_port_discharge = NULL,
+                freight = NULL,
+                id_sell_pi = NULL,
+                is_tmp_client = 0,
+                is_batch = 0
+            WHERE id_sell = ?
+          `,
+          params: [billId],
+        })
+
+        if (!unassignResult.success) {
+          errors.push({ billId, error: `Failed to unassign cars: ${unassignResult.error}` })
+          continue
+        }
+
+        // Then delete the bill
+        const deleteResult = await callApi({
+          query: 'DELETE FROM sell_bill WHERE id = ?',
+          params: [billId],
+        })
+
+        if (deleteResult.success) {
+          successCount++
+        } else {
+          errors.push({ billId, error: deleteResult.error })
+        }
+      } catch (err) {
+        errors.push({ billId, error: err.message })
+      }
+    }
+
+    // Show results
+    if (errors.length === 0) {
+      alert(t('sellBills.batch_delete_success', { count: successCount }))
+      clearAllSelections()
+    } else if (successCount > 0) {
+      alert(
+        t('sellBills.batch_delete_partial', {
+          success: successCount,
+          failed: errors.length,
+        }),
+      )
+    } else {
+      alert(t('sellBills.batch_delete_failed'))
+    }
+
+    // Refresh the table
+    await fetchSellBills()
+
+    // Clear selection if all succeeded
+    if (errors.length === 0) {
+      selectedBills.value = []
+      emitSelectedBills()
+    }
+  } catch (err) {
+    console.error('Batch delete error:', err)
+    alert(t('sellBills.batch_delete_error', { error: err.message }))
+  } finally {
+    isDeletingBatch.value = false
+  }
+}
+
+const cancelBatchDelete = () => {
+  showBatchDeleteConfirm.value = false
+}
+
 // Expose the fetchSellBills method and unpaidBillsCount to parent component
-defineExpose({ fetchSellBills, unpaidBillsCount })
+defineExpose({ fetchSellBills, unpaidBillsCount, clearAllSelections })
 
 // Add computed properties for payment status
 const getPaymentStatus = (bill) => {
@@ -514,6 +671,19 @@ const getLoadingStatus = (bill) => {
               <i class="fas fa-exclamation-triangle"></i>
               {{ t('sellBills.unpaid_bills_count', { count: unpaidBillsCount }) }}
             </span>
+          </div>
+          <div v-if="selectedBills.length > 0" class="selected-bills-info">
+            <span class="selected-badge">
+              <i class="fas fa-check-square"></i>
+              {{ t('sellBills.selected_bills_count', { count: selectedBills.length }) }}
+            </span>
+            <button
+              @click="clearAllSelections"
+              class="clear-selection-btn"
+              :title="t('sellBills.clear_all_selections')"
+            >
+              <i class="fas fa-times"></i>
+            </button>
           </div>
         </div>
         <button @click="resetFilters" class="reset-btn">
@@ -611,6 +781,31 @@ const getLoadingStatus = (bill) => {
       </div>
     </div>
 
+    <!-- Batch Actions Toolbar -->
+    <div v-if="selectedBills.length > 0" class="batch-actions-toolbar">
+      <div class="toolbar-left">
+        <span class="toolbar-selected-count">
+          <i class="fas fa-check-circle"></i>
+          {{ t('sellBills.selected_bills_count', { count: selectedBills.length }) }}
+        </span>
+      </div>
+      <div class="toolbar-actions">
+        <button
+          v-if="isAdmin"
+          @click="handleBatchDelete"
+          :disabled="isDeletingBatch"
+          class="batch-delete-btn"
+        >
+          <i class="fas fa-trash-alt"></i>
+          {{ isDeletingBatch ? t('sellBills.deleting') : t('sellBills.delete_selected') }}
+        </button>
+        <button @click="clearAllSelections" class="batch-clear-btn">
+          <i class="fas fa-times"></i>
+          {{ t('sellBills.clear_selection') }}
+        </button>
+      </div>
+    </div>
+
     <!-- Loading Overlay -->
     <div v-if="loading" class="loading-overlay">
       <i class="fas fa-spinner fa-spin fa-2x"></i>
@@ -631,6 +826,15 @@ const getLoadingStatus = (bill) => {
       <table class="sell-bills-table">
         <thead>
           <tr>
+            <th class="checkbox-column">
+              <input
+                type="checkbox"
+                :checked="allVisibleSelected"
+                @change="toggleSelectAllVisible"
+                :title="t('sellBills.select_all_visible')"
+                class="select-all-checkbox"
+              />
+            </th>
             <th @click="handleSort('id')" class="sortable">
               <i class="fas fa-hashtag"></i> {{ t('sellBills.id') }}
               <i
@@ -683,8 +887,19 @@ const getLoadingStatus = (bill) => {
             v-for="bill in sortedAndLimitedBills"
             :key="bill.id"
             @click="selectBill(bill)"
-            :class="{ selected: selectedBillId === bill.id }"
+            :class="{
+              selected: selectedBillId === bill.id,
+              'multi-selected': isBillSelected(bill.id),
+            }"
           >
+            <td class="checkbox-column" @click.stop>
+              <input
+                type="checkbox"
+                :checked="isBillSelected(bill.id)"
+                @change="(e) => toggleBillSelection(bill.id, e)"
+                class="row-checkbox"
+              />
+            </td>
             <td>{{ bill.id }}</td>
             <td>{{ bill.bill_ref || 'N/A' }}</td>
             <td>
@@ -775,6 +990,30 @@ const getLoadingStatus = (bill) => {
       @close="handlePrintClose"
       @proceed="handlePrintProceed"
     />
+
+    <!-- Batch Delete Confirmation Dialog -->
+    <div v-if="showBatchDeleteConfirm" class="dialog-overlay" @click.self="cancelBatchDelete">
+      <div class="dialog batch-delete-dialog">
+        <div class="dialog-header">
+          <i class="fas fa-exclamation-triangle warning-icon"></i>
+          <h3>{{ t('sellBills.confirm_batch_delete') }}</h3>
+        </div>
+        <div class="dialog-body">
+          <p>{{ t('sellBills.batch_delete_message', { count: selectedBills.length }) }}</p>
+          <p class="warning-text">{{ t('sellBills.batch_delete_warning') }}</p>
+        </div>
+        <div class="dialog-actions">
+          <button @click="cancelBatchDelete" class="dialog-btn cancel-btn">
+            <i class="fas fa-times"></i>
+            {{ t('sellBills.cancel') }}
+          </button>
+          <button @click="confirmBatchDelete" class="dialog-btn confirm-delete-btn">
+            <i class="fas fa-trash-alt"></i>
+            {{ t('sellBills.confirm_delete') }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -865,6 +1104,11 @@ const getLoadingStatus = (bill) => {
 
 .sell-bills-table tr.selected {
   background-color: #e5edff;
+}
+
+.sell-bills-table tr.multi-selected {
+  background-color: #f0fdf4;
+  border-left: 3px solid #22c55e;
 }
 
 .loading,
@@ -1220,5 +1464,290 @@ const getLoadingStatus = (bill) => {
   background-color: #f3e8ff;
   color: #6b21a8;
   border: 1px solid #d9b8ff;
+}
+
+/* Checkbox column styles */
+.checkbox-column {
+  width: 40px;
+  text-align: center;
+  padding: 8px !important;
+}
+
+.select-all-checkbox,
+.row-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #22c55e;
+}
+
+.select-all-checkbox:hover,
+.row-checkbox:hover {
+  transform: scale(1.1);
+}
+
+/* Selected bills info styles */
+.selected-bills-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.selected-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background-color: #d1fae5;
+  border: 1px solid #22c55e;
+  border-radius: 6px;
+  color: #065f46;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.selected-badge i {
+  color: #22c55e;
+}
+
+.clear-selection-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background-color: #fee2e2;
+  border: 1px solid #ef4444;
+  border-radius: 4px;
+  color: #dc2626;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.clear-selection-btn:hover {
+  background-color: #fecaca;
+  transform: scale(1.05);
+}
+
+.clear-selection-btn i {
+  font-size: 0.9rem;
+}
+
+/* Batch Actions Toolbar */
+.batch-actions-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 12px 20px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.toolbar-selected-count {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: white;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.toolbar-selected-count i {
+  font-size: 1.2rem;
+}
+
+.toolbar-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.batch-delete-btn,
+.batch-clear-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.95rem;
+}
+
+.batch-delete-btn {
+  background-color: #ef4444;
+  color: white;
+}
+
+.batch-delete-btn:hover:not(:disabled) {
+  background-color: #dc2626;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3);
+}
+
+.batch-delete-btn:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.batch-clear-btn {
+  background-color: white;
+  color: #4b5563;
+  border: 1px solid #e5e7eb;
+}
+
+.batch-clear-btn:hover {
+  background-color: #f3f4f6;
+  transform: translateY(-1px);
+}
+
+/* Batch Delete Dialog */
+.dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.batch-delete-dialog {
+  background: white;
+  border-radius: 12px;
+  box-shadow:
+    0 20px 25px -5px rgba(0, 0, 0, 0.1),
+    0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  max-width: 500px;
+  width: 90%;
+  animation: scaleIn 0.2s ease-out;
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.dialog-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.dialog-header h3 {
+  margin: 0;
+  color: #1f2937;
+  font-size: 1.25rem;
+}
+
+.warning-icon {
+  color: #f59e0b;
+  font-size: 1.5rem;
+}
+
+.dialog-body {
+  padding: 24px;
+}
+
+.dialog-body p {
+  margin: 0 0 12px 0;
+  color: #4b5563;
+  line-height: 1.6;
+}
+
+.warning-text {
+  color: #dc2626;
+  font-weight: 500;
+  background-color: #fee2e2;
+  padding: 12px;
+  border-radius: 6px;
+  border-left: 4px solid #dc2626;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid #e5e7eb;
+  background-color: #f9fafb;
+  border-radius: 0 0 12px 12px;
+}
+
+.dialog-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.95rem;
+}
+
+.cancel-btn {
+  background-color: #e5e7eb;
+  color: #4b5563;
+}
+
+.cancel-btn:hover {
+  background-color: #d1d5db;
+}
+
+.confirm-delete-btn {
+  background-color: #ef4444;
+  color: white;
+}
+
+.confirm-delete-btn:hover {
+  background-color: #dc2626;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3);
 }
 </style>

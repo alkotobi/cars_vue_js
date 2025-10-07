@@ -20,6 +20,9 @@ const unassignedCarsTableRef = ref(null)
 const sellBillCarsTableRef = ref(null)
 const isProcessing = ref(false)
 
+// Multiple selection state for batch operations
+const selectedBills = ref([])
+
 // Add task form state
 const showTaskForm = ref(false)
 const selectedBillForTask = ref(null)
@@ -319,6 +322,12 @@ const handleTaskCreated = () => {
 function isAdminUser() {
   return user.value?.role_id === 1
 }
+
+// Handle multiple bill selection updates from child component
+const handleSelectedBillsUpdate = (bills) => {
+  selectedBills.value = bills
+  console.log('Selected bills for batch operations:', selectedBills.value)
+}
 </script>
 
 <template>
@@ -345,6 +354,7 @@ function isAdminUser() {
         :onSelect="handleSelectBill"
         :onTask="openTaskForBill"
         @select-bill="handleSelectBill"
+        @update-selected-bills="handleSelectedBillsUpdate"
         :isAdmin="isAdmin"
         :selectedBillId="selectedBillId"
       />

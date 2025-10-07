@@ -737,7 +737,22 @@
     "all": "All",
     "yes": "Yes",
     "no": "No",
-    "processing": "Processing..."
+    "processing": "Processing...",
+    "select_all_visible": "Select all visible bills",
+    "selected_bills_count": "{count} selected",
+    "clear_all_selections": "Clear all selections",
+    "delete_selected": "Delete Selected",
+    "deleting": "Deleting...",
+    "clear_selection": "Clear Selection",
+    "confirm_batch_delete": "Confirm Batch Delete",
+    "batch_delete_message": "Are you sure you want to delete {count} selected bill(s)?",
+    "batch_delete_warning": "All cars in these bills will be unassigned. This action cannot be undone.",
+    "confirm_delete": "Delete",
+    "batch_delete_success": "Successfully deleted {count} bill(s)",
+    "batch_delete_partial": "Deleted {success} bill(s), but {failed} failed",
+    "batch_delete_failed": "Failed to delete bills",
+    "batch_delete_error": "Error deleting bills: {error}",
+    "only_admins_can_delete": "Only administrators can delete bills"
   },
   "loading": {
     "loading_management": "Loading Management",

@@ -733,7 +733,22 @@
     "search_reference": "搜索参考",
     "all": "全部",
     "yes": "是",
-    "no": "否"
+    "no": "否",
+    "select_all_visible": "选择所有可见账单",
+    "selected_bills_count": "已选择 {count} 项",
+    "clear_all_selections": "清除所有选择",
+    "delete_selected": "删除所选",
+    "deleting": "删除中...",
+    "clear_selection": "清除选择",
+    "confirm_batch_delete": "确认批量删除",
+    "batch_delete_message": "您确定要删除 {count} 个选定的账单吗？",
+    "batch_delete_warning": "这些账单中的所有汽车将被取消分配。此操作无法撤消。",
+    "confirm_delete": "删除",
+    "batch_delete_success": "成功删除 {count} 个账单",
+    "batch_delete_partial": "已删除 {success} 个账单，但 {failed} 个失败",
+    "batch_delete_failed": "删除账单失败",
+    "batch_delete_error": "删除账单时出错：{error}",
+    "only_admins_can_delete": "只有管理员可以删除账单"
   },
   "statistics": {
     "availableCars": "可用汽车",
