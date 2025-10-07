@@ -641,6 +641,8 @@
     "no_bills_found": "未找到账单",
     "reference": "参考",
     "broker": "经纪人",
+    "name": "名称",
+    "search_name": "按经纪人或客户名称搜索...",
     "created_by": "创建者",
     "payment_status": "付款状态",
     "loading_status": "装载状态",

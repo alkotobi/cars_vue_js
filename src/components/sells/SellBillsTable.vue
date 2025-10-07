@@ -185,6 +185,12 @@ const fetchSellBills = async () => {
         c.name as broker_name,
         u.username as created_by,
         (
+          SELECT GROUP_CONCAT(DISTINCT cl.name SEPARATOR ', ')
+          FROM cars_stock cs
+          LEFT JOIN clients cl ON cs.id_client = cl.id
+          WHERE cs.id_sell = sb.id AND cl.name IS NOT NULL
+        ) as client_names,
+        (
           SELECT SUM(cs.price_cell + COALESCE(cs.freight, 0))
           FROM cars_stock cs
           WHERE cs.id_sell = sb.id
@@ -214,6 +220,12 @@ const fetchSellBills = async () => {
         sb.*,
         c.name as broker_name,
         u.username as created_by,
+        (
+          SELECT GROUP_CONCAT(DISTINCT cl.name SEPARATOR ', ')
+          FROM cars_stock cs
+          LEFT JOIN clients cl ON cs.id_client = cl.id
+          WHERE cs.id_sell = sb.id AND cl.name IS NOT NULL
+        ) as client_names,
         (
           SELECT SUM(cs.price_cell + COALESCE(cs.freight, 0))
           FROM cars_stock cs
@@ -275,13 +287,20 @@ const applyFilters = () => {
       return false
     }
 
-    // Broker filter
-    if (
-      filters.value.broker &&
-      (!bill.broker_name ||
-        !bill.broker_name.toLowerCase().includes(filters.value.broker.toLowerCase()))
-    ) {
-      return false
+    // NAME filter - searches both broker and client names
+    if (filters.value.broker) {
+      const searchTerm = filters.value.broker.toLowerCase()
+
+      // Check if broker name matches
+      const brokerMatch = bill.broker_name && bill.broker_name.toLowerCase().includes(searchTerm)
+
+      // Check if any client name matches
+      const clientMatch = bill.client_names && bill.client_names.toLowerCase().includes(searchTerm)
+
+      // Bill must match either broker OR at least one client
+      if (!brokerMatch && !clientMatch) {
+        return false
+      }
     }
 
     // Reference filter
@@ -523,9 +542,9 @@ const getLoadingStatus = (bill) => {
         <div class="filter-group">
           <label>
             <i class="fas fa-user-tie"></i>
-            {{ t('sellBills.broker') }}
+            {{ t('sellBills.name') }}
           </label>
-          <input type="text" v-model="filters.broker" :placeholder="t('sellBills.search_broker')" />
+          <input type="text" v-model="filters.broker" :placeholder="t('sellBills.search_name')" />
         </div>
 
         <div class="filter-group">
@@ -634,7 +653,7 @@ const getLoadingStatus = (bill) => {
               ></i>
             </th>
             <th @click="handleSort('broker_name')" class="sortable">
-              <i class="fas fa-user-tie"></i> {{ t('sellBills.broker') }}
+              <i class="fas fa-user-tie"></i> {{ t('sellBills.name') }}
               <i
                 v-if="sortConfig.field === 'broker_name'"
                 :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"

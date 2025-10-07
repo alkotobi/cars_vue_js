@@ -443,6 +443,8 @@
     "date_from": "Date du :",
     "date_to": "Date au :",
     "broker": "Courtier :",
+    "name": "Nom :",
+    "search_name": "Rechercher par courtier ou client...",
     "search_broker": "Rechercher un courtier...",
     "reference": "Référence :",
     "search_reference": "Rechercher une référence...",
