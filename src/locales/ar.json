@@ -1111,6 +1111,8 @@
     "freightRange": "نطاق الشحن",
     "priceRange": "نطاق السعر",
     "loadingDateRange": "نطاق تاريخ التحميل",
+    "purchaseDateRange": "نطاق تاريخ الشراء",
+    "soldDateRange": "نطاق تاريخ البيع",
     "min": "الحد الأدنى",
     "max": "الحد الأقصى",
     "status": "الحالة",

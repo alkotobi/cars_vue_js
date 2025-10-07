@@ -69,6 +69,8 @@ const props = defineProps({
         price_max: '',
         loading_date_from: '',
         loading_date_to: '',
+        buy_date_from: '',
+        buy_date_to: '',
         sold_date_from: '',
         sold_date_to: '',
         status: '',
@@ -924,6 +926,16 @@ const fetchCarsStock = async () => {
         if (adv.loading_date_to && adv.loading_date_to.trim() !== '') {
           filteredCars = filteredCars.filter(
             (car) => car.date_loding && car.date_loding <= adv.loading_date_to.trim(),
+          )
+        }
+        if (adv.buy_date_from && adv.buy_date_from.trim() !== '') {
+          filteredCars = filteredCars.filter(
+            (car) => car.date_buy && car.date_buy >= adv.buy_date_from.trim(),
+          )
+        }
+        if (adv.buy_date_to && adv.buy_date_to.trim() !== '') {
+          filteredCars = filteredCars.filter(
+            (car) => car.date_buy && car.date_buy <= adv.buy_date_to.trim(),
           )
         }
         if (adv.sold_date_from && adv.sold_date_from.trim() !== '') {

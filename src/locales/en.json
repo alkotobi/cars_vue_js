@@ -1120,6 +1120,7 @@
     "freightRange": "Freight Range",
     "priceRange": "Price Range",
     "loadingDateRange": "Loading Date Range",
+    "purchaseDateRange": "Purchase Date Range",
     "soldDateRange": "Sold Date Range",
     "showMore": "Show More Filters",
     "showLess": "Show Less Filters",

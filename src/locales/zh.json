@@ -878,6 +878,8 @@
     "freightRange": "运费范围",
     "priceRange": "价格范围",
     "loadingDateRange": "装货日期范围",
+    "purchaseDateRange": "采购日期范围",
+    "soldDateRange": "销售日期范围",
     "min": "最小",
     "max": "最大",
     "status": "状态",

@@ -69,6 +69,8 @@ const advancedFilters = ref({
   price_max: '',
   loading_date_from: '',
   loading_date_to: '',
+  buy_date_from: '',
+  buy_date_to: '',
   sold_date_from: '',
   sold_date_to: '',
   status: '',
@@ -380,6 +382,28 @@ fetchReferenceData()
             <input
               type="date"
               v-model="advancedFilters.sold_date_to"
+              :disabled="isProcessing.advanced"
+              placeholder="To"
+            />
+          </div>
+        </div>
+
+        <!-- Purchase Date Range Filter -->
+        <div class="filter-field range-field buy-date-group">
+          <label>
+            <i class="fas fa-shopping-cart"></i>
+            {{ t('carStockFilter.purchaseDateRange') }}
+          </label>
+          <div class="range-inputs">
+            <input
+              type="date"
+              v-model="advancedFilters.buy_date_from"
+              :disabled="isProcessing.advanced"
+              placeholder="From"
+            />
+            <input
+              type="date"
+              v-model="advancedFilters.buy_date_to"
               :disabled="isProcessing.advanced"
               placeholder="To"
             />
@@ -1321,6 +1345,72 @@ button:disabled {
 }
 
 .sold-date-group input::placeholder {
+  color: #6b7280;
+  font-weight: 400;
+}
+
+/* Buy Date Group Styles */
+.buy-date-group {
+  background: linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%);
+  border: 2px solid #a855f7;
+  border-radius: 12px;
+  padding: 16px;
+  position: relative;
+  box-shadow: 0 4px 12px rgba(168, 85, 247, 0.15);
+  margin: 8px 0;
+  overflow: hidden;
+}
+
+.buy-date-group::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: linear-gradient(45deg, #a855f7, #9333ea);
+  border-radius: 12px;
+  z-index: -1;
+  opacity: 0.8;
+}
+
+.buy-date-group label {
+  color: #581c87;
+  font-weight: 700;
+  font-size: 15px;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.buy-date-group label i {
+  color: #a855f7;
+  font-size: 16px;
+}
+
+.buy-date-group .range-inputs {
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  width: 100%;
+}
+
+.buy-date-group input {
+  border: 2px solid #a855f7;
+  background-color: white;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-weight: 500;
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 13px;
+}
+
+.buy-date-group input:focus {
+  border-color: #9333ea;
+  box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.2);
+  outline: none;
+}
+
+.buy-date-group input::placeholder {
   color: #6b7280;
   font-weight: 400;
 }

@@ -1219,6 +1219,8 @@
     "freightRange": "Plage de Fret",
     "priceRange": "Plage de Prix",
     "loadingDateRange": "Plage de Date de Chargement",
+    "purchaseDateRange": "Plage de Date d'Achat",
+    "soldDateRange": "Plage de Date de Vente",
     "min": "Min",
     "max": "Max",
     "status": "Statut",
