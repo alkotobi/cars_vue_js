@@ -515,6 +515,9 @@ const emitSelectedBills = () => {
 const isDeletingBatch = ref(false)
 const showBatchDeleteConfirm = ref(false)
 
+// Batch print functionality
+const isPrintingBatch = ref(false)
+
 const handleBatchDelete = () => {
   if (!isAdmin.value) {
     alert(t('sellBills.only_admins_can_delete'))
@@ -609,6 +612,559 @@ const confirmBatchDelete = async () => {
 
 const cancelBatchDelete = () => {
   showBatchDeleteConfirm.value = false
+}
+
+// Batch print functionality
+const handleBatchPrint = async () => {
+  if (selectedBills.value.length === 0) {
+    return
+  }
+
+  console.log('Starting batch print for bills:', selectedBills.value)
+
+  isPrintingBatch.value = true
+
+  try {
+    // Fetch full details for all selected bills
+    const billsData = []
+
+    for (const billId of selectedBills.value) {
+      console.log('Fetching bill ID:', billId)
+
+      // Fetch bill details
+      const billResult = await callApi({
+        query: `
+          SELECT 
+            sb.*,
+            c.name as broker_name,
+            c.address as broker_address,
+            c.mobiles as broker_mobile,
+            u.username as created_by
+          FROM sell_bill sb
+          LEFT JOIN clients c ON sb.id_broker = c.id
+          LEFT JOIN users u ON sb.id_user = u.id
+          WHERE sb.id = ?
+        `,
+        params: [billId],
+      })
+
+      console.log('Bill result for ID', billId, ':', billResult)
+
+      if (!billResult.success || billResult.data.length === 0) {
+        console.warn('Skipping bill', billId, '- not found or error')
+        continue
+      }
+
+      const bill = billResult.data[0]
+      console.log('Fetched bill:', bill)
+
+      // Fetch cars for this bill
+      const carsResult = await callApi({
+        query: `
+          SELECT 
+            cs.*,
+            cn.car_name,
+            col.color as color_name,
+            cl.name as client_name,
+            dp.discharge_port as port_name
+          FROM cars_stock cs
+          LEFT JOIN buy_details bd ON cs.id_buy_details = bd.id
+          LEFT JOIN cars_names cn ON bd.id_car_name = cn.id
+          LEFT JOIN colors col ON cs.id_color = col.id
+          LEFT JOIN clients cl ON cs.id_client = cl.id
+          LEFT JOIN discharge_ports dp ON cs.id_port_discharge = dp.id
+          WHERE cs.id_sell = ?
+          ORDER BY cs.id
+        `,
+        params: [billId],
+      })
+
+      console.log('Cars result for bill', billId, ':', carsResult)
+
+      billsData.push({
+        bill,
+        cars: carsResult.success ? carsResult.data : [],
+      })
+    }
+
+    console.log('Bills data for printing:', billsData)
+
+    if (billsData.length === 0) {
+      console.error('No bills data collected!')
+      alert(t('sellBills.no_bills_to_print'))
+      return
+    }
+
+    // Generate and print the report
+    generateBatchPrintReport(billsData)
+  } catch (err) {
+    console.error('Batch print error:', err)
+    alert(t('sellBills.batch_print_error', { error: err.message }))
+  } finally {
+    isPrintingBatch.value = false
+  }
+}
+
+const generateBatchPrintReport = (billsData) => {
+  console.log('generateBatchPrintReport called with:', billsData.length, 'bills')
+
+  // Pre-translate all strings
+  const translations = {
+    batchPrintTitle: t('sellBills.batch_print_title'),
+    sellBill: t('sellBills.sell_bill'),
+    reference: t('sellBills.reference'),
+    date: t('sellBills.date'),
+    broker: t('sellBills.broker'),
+    address: t('sellBills.address'),
+    mobile: t('sellBills.mobile'),
+    createdBy: t('sellBills.created_by'),
+    carsCount: t('sellBills.cars_count'),
+    car: t('sellBills.car'),
+    color: t('sellBills.color'),
+    vin: t('sellBills.vin'),
+    client: t('sellBills.client'),
+    port: t('sellBills.port'),
+    fobDa: t('sellBills.fob_da'),
+    freight: t('sellBills.freight'),
+    cfrDa: t('sellBills.cfr_da'),
+    subtotal: t('sellBills.subtotal'),
+    summary: t('sellBills.summary'),
+    description: t('sellBills.description'),
+    amountDa: t('sellBills.amount_da'),
+    amountUsd: t('sellBills.amount_usd'),
+    totalFob: t('sellBills.total_fob'),
+    totalFreight: t('sellBills.total_freight'),
+    totalCfr: t('sellBills.total_cfr'),
+    totalBills: t('sellBills.total_bills'),
+    totalCars: t('sellBills.total_cars'),
+  }
+
+  // Calculate totals
+  let totalFobDa = 0
+  let totalFobUsd = 0
+  let totalFreightUsd = 0
+  let totalFreightDa = 0
+  let totalCfrDa = 0
+  let totalCfrUsd = 0
+  let totalCarsCount = 0
+
+  billsData.forEach(({ cars }) => {
+    cars.forEach((car) => {
+      const priceUsd = Number(car.price_cell) || 0 // price_cell is in USD
+      const freightUsd = Number(car.freight) || 0 // freight is in USD
+      const rate = Number(car.rate) || 1
+      const cfrDa = Number(car.cfr_da) || 0 // Use database cfr_da value
+
+      totalFobUsd += priceUsd
+      totalFobDa += priceUsd * rate
+      totalFreightUsd += freightUsd
+      totalFreightDa += freightUsd * rate
+      totalCfrUsd += priceUsd + freightUsd
+      totalCfrDa += cfrDa // Use the database value
+      totalCarsCount++
+    })
+  })
+
+  // Create print window
+  const printWindow = window.open('', '_blank')
+  if (!printWindow) {
+    alert(t('sellBills.popup_blocked'))
+    return
+  }
+
+  // Import letter head image using Vite's way
+  const letterHeadUrl = new URL('../../assets/letter_head.png', import.meta.url).href
+
+  // Generate HTML
+  let html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>${translations.batchPrintTitle}</title>
+      <style>
+        @page {
+          size: A4;
+          margin: 15mm;
+        }
+        
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+        
+        body {
+          font-family: 'Arial', sans-serif;
+          font-size: 10pt;
+          line-height: 1.4;
+          color: #000;
+        }
+        
+        .letter-head {
+          width: 100%;
+          max-height: 100px;
+          object-fit: contain;
+          margin-bottom: 20px;
+        }
+        
+        .page-break {
+          page-break-after: always;
+        }
+        
+        .bill-section {
+          margin-bottom: 25px;
+          padding-bottom: 15px;
+          border-bottom: 2px dashed #ccc;
+        }
+        
+        .bill-section:last-of-type {
+          border-bottom: none;
+        }
+        
+        .bill-header {
+          background: #f0f0f0;
+          padding: 8px;
+          margin-bottom: 8px;
+          border: 1px solid #ccc;
+        }
+        
+        .bill-header h2 {
+          font-size: 12pt;
+          margin-bottom: 4px;
+        }
+        
+        .bill-info {
+          display: flex;
+          justify-content: space-between;
+          margin-bottom: 8px;
+          font-size: 9pt;
+        }
+        
+        .info-group {
+          flex: 1;
+        }
+        
+        .info-row {
+          margin-bottom: 2px;
+        }
+        
+        .info-label {
+          font-weight: bold;
+          display: inline-block;
+          min-width: 70px;
+          font-size: 9pt;
+        }
+        
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-bottom: 15px;
+          table-layout: fixed;
+        }
+        
+        th, td {
+          border: 1px solid #000;
+          padding: 4px;
+          text-align: left;
+          font-size: 8pt;
+          word-wrap: break-word;
+          overflow: hidden;
+        }
+        
+        th {
+          background-color: #e0e0e0;
+          font-weight: bold;
+          font-size: 8pt;
+        }
+        
+        .text-right {
+          text-align: right;
+        }
+        
+        .text-center {
+          text-align: center;
+        }
+        
+        /* Column widths */
+        .col-num {
+          width: 4%;
+        }
+        
+        .col-car {
+          width: 18%;
+        }
+        
+        .col-color {
+          width: 10%;
+        }
+        
+        .col-vin {
+          width: 15%;
+        }
+        
+        .col-client {
+          width: 12%;
+        }
+        
+        .col-port {
+          width: 12%;
+        }
+        
+        .col-price {
+          width: 9%;
+        }
+        
+        .col-freight {
+          width: 9%;
+        }
+        
+        .col-cfr {
+          width: 9%;
+        }
+        
+        .summary-section {
+          margin-top: 30px;
+          padding: 15px;
+          border: 2px solid #000;
+          background: #f9f9f9;
+        }
+        
+        .summary-title {
+          font-size: 14pt;
+          font-weight: bold;
+          text-align: center;
+          margin-bottom: 15px;
+          text-transform: uppercase;
+        }
+        
+        .summary-table {
+          margin-top: 10px;
+        }
+        
+        .summary-table th {
+          background-color: #d0d0d0;
+          font-size: 9pt;
+          padding: 6px;
+        }
+        
+        .summary-table td {
+          font-size: 9pt;
+          font-weight: bold;
+          padding: 6px;
+        }
+        
+        .total-row {
+          background-color: #f0f0f0;
+          font-weight: bold;
+        }
+        
+        @media print {
+          body {
+            print-color-adjust: exact;
+            -webkit-print-color-adjust: exact;
+          }
+        }
+      </style>
+    </head>
+    <body>
+      <img src="${letterHeadUrl}" class="letter-head" alt="Letter Head" />
+  `
+
+  // Add each bill
+  billsData.forEach(({ bill, cars }, index) => {
+    console.log(
+      `Processing bill ${index + 1}/${billsData.length}:`,
+      bill.id,
+      'with',
+      cars.length,
+      'cars',
+    )
+
+    html += `
+      <div class="bill-section">
+        
+        <div class="bill-header">
+          <h2>${translations.sellBill} #${bill.id}</h2>
+          <div style="display: flex; justify-content: space-between;">
+            <span><strong>${translations.reference}:</strong> ${bill.bill_ref || 'N/A'}</span>
+            <span><strong>${translations.date}:</strong> ${new Date(bill.date_sell).toLocaleDateString()}</span>
+          </div>
+        </div>
+        
+        <div class="bill-info">
+          <div class="info-group">
+            <div class="info-row">
+              <span class="info-label">${translations.broker}:</span>
+              <span>${bill.broker_name || 'N/A'}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">${translations.address}:</span>
+              <span>${bill.broker_address || 'N/A'}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">${translations.mobile}:</span>
+              <span>${bill.broker_mobile || 'N/A'}</span>
+            </div>
+          </div>
+          <div class="info-group">
+            <div class="info-row">
+              <span class="info-label">${translations.createdBy}:</span>
+              <span>${bill.created_by || 'N/A'}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">${translations.carsCount}:</span>
+              <span>${cars.length}</span>
+            </div>
+          </div>
+        </div>
+        
+        <table>
+          <thead>
+            <tr>
+              <th class="text-center col-num">#</th>
+              <th class="col-car">${translations.car}</th>
+              <th class="col-color">${translations.color}</th>
+              <th class="col-vin">${translations.vin}</th>
+              <th class="col-client">${translations.client}</th>
+              <th class="col-port">${translations.port}</th>
+              <th class="text-right col-price">FOB USD</th>
+              <th class="text-right col-freight">Freight</th>
+              <th class="text-right col-cfr">CFR DA</th>
+            </tr>
+          </thead>
+          <tbody>
+    `
+
+    let billFobUsd = 0
+    let billFreightUsd = 0
+    let billCfrDa = 0
+
+    console.log('Rendering', cars.length, 'cars for bill', bill.id)
+
+    if (cars.length === 0) {
+      html += `
+        <tr>
+          <td colspan="9" class="text-center" style="padding: 20px; color: #999;">No cars in this bill</td>
+        </tr>
+      `
+    } else {
+      cars.forEach((car, carIndex) => {
+        const priceUsd = Number(car.price_cell) || 0 // USD
+        const freightUsd = Number(car.freight) || 0 // USD
+        const cfrDa = Number(car.cfr_da) || 0 // Use database cfr_da value
+
+        billFobUsd += priceUsd
+        billFreightUsd += freightUsd
+        billCfrDa += cfrDa
+
+        console.log(
+          'Car',
+          carIndex + 1,
+          ':',
+          car.car_name,
+          'VIN:',
+          car.vin,
+          'Price USD:',
+          priceUsd,
+          'CFR DA:',
+          cfrDa,
+        )
+
+        html += `
+          <tr>
+            <td class="text-center col-num">${carIndex + 1}</td>
+            <td class="col-car">${car.car_name || 'N/A'}</td>
+            <td class="col-color">${car.color_name || 'N/A'}</td>
+            <td class="col-vin">${car.vin || 'N/A'}</td>
+            <td class="col-client">${car.client_name || 'N/A'}</td>
+            <td class="col-port">${car.port_name || 'N/A'}</td>
+            <td class="text-right col-price">$${priceUsd.toFixed(2)}</td>
+            <td class="text-right col-freight">$${freightUsd.toFixed(2)}</td>
+            <td class="text-right col-cfr">${cfrDa.toFixed(2)}</td>
+          </tr>
+        `
+      })
+    }
+
+    html += `
+            <tr class="total-row">
+              <td colspan="6" class="text-right"><strong>${translations.subtotal}:</strong></td>
+              <td class="text-right"><strong>$${billFobUsd.toFixed(2)}</strong></td>
+              <td class="text-right"><strong>$${billFreightUsd.toFixed(2)}</strong></td>
+              <td class="text-right"><strong>${billCfrDa.toFixed(2)}</strong></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    `
+  })
+
+  // Add summary section
+  html += `
+    <div class="summary-section page-break">
+      <div class="summary-title">${translations.summary}</div>
+      
+      <table class="summary-table">
+        <thead>
+          <tr>
+            <th>${translations.description}</th>
+            <th class="text-right">${translations.amountDa}</th>
+            <th class="text-right">${translations.amountUsd}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>${translations.totalFob}</td>
+            <td class="text-right">${totalFobDa.toFixed(2)}</td>
+            <td class="text-right">$${totalFobUsd.toFixed(2)}</td>
+          </tr>
+          <tr>
+            <td>${translations.totalFreight}</td>
+            <td class="text-right">${totalFreightDa.toFixed(2)}</td>
+            <td class="text-right">$${totalFreightUsd.toFixed(2)}</td>
+          </tr>
+          <tr class="total-row">
+            <td><strong>${translations.totalCfr}</strong></td>
+            <td class="text-right"><strong>${totalCfrDa.toFixed(2)}</strong></td>
+            <td class="text-right"><strong>$${totalCfrUsd.toFixed(2)}</strong></td>
+          </tr>
+          <tr>
+            <td colspan="3">&nbsp;</td>
+          </tr>
+          <tr>
+            <td><strong>${translations.totalBills}:</strong></td>
+            <td colspan="2" class="text-center"><strong>${billsData.length}</strong></td>
+          </tr>
+          <tr>
+            <td><strong>${translations.totalCars}:</strong></td>
+            <td colspan="2" class="text-center"><strong>${totalCarsCount}</strong></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  `
+
+  html += `
+    </body>
+    </html>
+  `
+
+  console.log('Generated HTML length:', html.length, 'characters')
+  console.log('HTML preview (first 500 chars):', html.substring(0, 500))
+
+  printWindow.document.write(html)
+  printWindow.document.close()
+
+  console.log('Document written to print window')
+
+  // Wait for images to load before printing
+  printWindow.onload = () => {
+    setTimeout(() => {
+      printWindow.focus()
+      printWindow.print()
+    }, 500)
+  }
 }
 
 // Expose the fetchSellBills method and unpaidBillsCount to parent component
@@ -790,6 +1346,10 @@ const getLoadingStatus = (bill) => {
         </span>
       </div>
       <div class="toolbar-actions">
+        <button @click="handleBatchPrint" :disabled="isPrintingBatch" class="batch-print-btn">
+          <i class="fas fa-print"></i>
+          {{ isPrintingBatch ? t('sellBills.printing') : t('sellBills.print_selected') }}
+        </button>
         <button
           v-if="isAdmin"
           @click="handleBatchDelete"
@@ -1582,6 +2142,7 @@ const getLoadingStatus = (bill) => {
   gap: 10px;
 }
 
+.batch-print-btn,
 .batch-delete-btn,
 .batch-clear-btn {
   display: flex;
@@ -1594,6 +2155,23 @@ const getLoadingStatus = (bill) => {
   cursor: pointer;
   transition: all 0.2s;
   font-size: 0.95rem;
+}
+
+.batch-print-btn {
+  background-color: #10b981;
+  color: white;
+}
+
+.batch-print-btn:hover:not(:disabled) {
+  background-color: #059669;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
+}
+
+.batch-print-btn:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .batch-delete-btn {
