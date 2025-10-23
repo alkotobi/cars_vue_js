@@ -8,6 +8,10 @@ const users = ref([])
 const loading = ref(false)
 const error = ref(null)
 const selectedUser = ref(null)
+const showFilters = ref(false)
+const searchTerm = ref('')
+const sortField = ref('username')
+const sortDirection = ref('asc')
 
 // Get current user from localStorage
 const currentUser = computed(() => {
@@ -136,10 +140,295 @@ const totalBalance = computed(() => {
   }, 0)
 })
 
+// Filtered and sorted users
+const filteredUsers = computed(() => {
+  let filtered = [...users.value]
+
+  // Search filter
+  if (searchTerm.value) {
+    const term = searchTerm.value.toLowerCase()
+    filtered = filtered.filter((user) => user.username.toLowerCase().includes(term))
+  }
+
+  // Sort users
+  filtered.sort((a, b) => {
+    let aValue, bValue
+
+    switch (sortField.value) {
+      case 'username':
+        aValue = a.username.toLowerCase()
+        bValue = b.username.toLowerCase()
+        break
+      case 'total_money_in':
+        aValue = parseFloat(a.total_money_in) || 0
+        bValue = parseFloat(b.total_money_in) || 0
+        break
+      case 'total_money_out':
+        aValue = parseFloat(a.total_money_out) || 0
+        bValue = parseFloat(b.total_money_out) || 0
+        break
+      case 'balance':
+        aValue = parseFloat(a.balance) || 0
+        bValue = parseFloat(b.balance) || 0
+        break
+      default:
+        aValue = a.username.toLowerCase()
+        bValue = b.username.toLowerCase()
+    }
+
+    if (sortDirection.value === 'asc') {
+      return aValue > bValue ? 1 : -1
+    } else {
+      return aValue < bValue ? 1 : -1
+    }
+  })
+
+  return filtered
+})
+
 const handleUserSelect = (user) => {
   // Only allow selection if admin or if it's the current user
   if (isAdmin.value || user.id === currentUser.value?.id) {
     selectedUser.value = selectedUser.value?.id === user.id ? null : user
+  }
+}
+
+const handleSort = (field) => {
+  if (sortField.value === field) {
+    sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    sortField.value = field
+    sortDirection.value = 'asc'
+  }
+}
+
+const getSortIcon = (field) => {
+  if (sortField.value !== field) return 'fas fa-sort'
+  return sortDirection.value === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'
+}
+
+const printUsersList = () => {
+  const printWindow = window.open('', '_blank')
+  if (!printWindow) {
+    alert('Popup blocked. Please allow popups for this site.')
+    return
+  }
+
+  const letterHeadUrl = new URL('../../assets/letter_head.png', import.meta.url).href
+
+  const usersListHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Users List</title>
+      <style>
+        @page {
+          size: A4;
+          margin: 15mm;
+        }
+        
+        body {
+          font-family: Arial, sans-serif;
+          font-size: 11px;
+          line-height: 1.3;
+          color: #333;
+          margin: 0;
+          padding: 0;
+        }
+        
+        .letterhead {
+          text-align: center;
+          margin-bottom: 20px;
+        }
+        
+        .letterhead img {
+          width: 100%;
+          height: auto;
+          max-height: 50px;
+          object-fit: contain;
+        }
+        
+        .report-header {
+          text-align: center;
+          margin-bottom: 20px;
+          border-bottom: 2px solid #333;
+          padding-bottom: 10px;
+        }
+        
+        .report-title {
+          font-size: 18px;
+          font-weight: bold;
+          margin-bottom: 5px;
+        }
+        
+        .report-date {
+          font-size: 12px;
+          color: #666;
+        }
+        
+        .summary-info {
+          display: flex;
+          justify-content: space-between;
+          margin-bottom: 20px;
+          padding: 10px;
+          background-color: #f8f9fa;
+          border-radius: 6px;
+        }
+        
+        .summary-item {
+          text-align: center;
+        }
+        
+        .summary-label {
+          font-size: 10px;
+          color: #666;
+          display: block;
+          margin-bottom: 2px;
+        }
+        
+        .summary-value {
+          font-size: 14px;
+          font-weight: bold;
+          color: #333;
+        }
+        
+        .users-table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-bottom: 20px;
+        }
+        
+        .users-table th {
+          background-color: #f8f9fa;
+          padding: 8px 6px;
+          border: 1px solid #ddd;
+          font-weight: bold;
+          font-size: 10px;
+          text-align: left;
+        }
+        
+        .users-table td {
+          padding: 6px;
+          border: 1px solid #ddd;
+          font-size: 10px;
+        }
+        
+        .users-table tr:nth-child(even) {
+          background-color: #f9f9f9;
+        }
+        
+        .amount-cell {
+          text-align: right;
+          font-weight: bold;
+        }
+        
+        .money-in {
+          color: #16a34a;
+        }
+        
+        .money-out {
+          color: #dc2626;
+        }
+        
+        .positive {
+          color: #16a34a;
+        }
+        
+        .negative {
+          color: #dc2626;
+        }
+        
+        .footer {
+          margin-top: 20px;
+          text-align: center;
+          font-size: 9px;
+          color: #666;
+          border-top: 1px solid #eee;
+          padding-top: 10px;
+        }
+        
+        @media print {
+          body {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="letterhead">
+        <img src="${letterHeadUrl}" alt="Company Letterhead">
+      </div>
+      
+      <div class="report-header">
+        <div class="report-title">USERS LIST</div>
+        <div class="report-date">Generated on ${new Date().toLocaleDateString()}</div>
+      </div>
+      
+      <div class="summary-info">
+        <div class="summary-item">
+          <span class="summary-label">Total Users</span>
+          <span class="summary-value">${filteredUsers.value.length}</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">System Balance</span>
+          <span class="summary-value ${totalBalance.value >= 0 ? 'positive' : 'negative'}">${formatCurrency(totalBalance.value)}</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Total Money In</span>
+          <span class="summary-value positive">${formatCurrency(filteredUsers.value.reduce((sum, user) => sum + (parseFloat(user.total_money_in) || 0), 0))}</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Total Money Out</span>
+          <span class="summary-value negative">${formatCurrency(filteredUsers.value.reduce((sum, user) => sum + (parseFloat(user.total_money_out) || 0), 0))}</span>
+        </div>
+      </div>
+      
+      <table class="users-table">
+        <thead>
+          <tr>
+            <th style="width: 8%;">#</th>
+            <th style="width: 25%;">User</th>
+            <th style="width: 20%;">Money In</th>
+            <th style="width: 20%;">Money Out</th>
+            <th style="width: 27%;">Balance</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${filteredUsers.value
+            .map(
+              (user, index) => `
+            <tr>
+              <td>${index + 1}</td>
+              <td>${user.username}</td>
+              <td class="amount-cell money-in">${formatCurrency(user.total_money_in)}</td>
+              <td class="amount-cell money-out">${formatCurrency(user.total_money_out)}</td>
+              <td class="amount-cell ${user.balance >= 0 ? 'positive' : 'negative'}">${formatCurrency(user.balance)}</td>
+            </tr>
+          `,
+            )
+            .join('')}
+        </tbody>
+      </table>
+      
+      <div class="footer">
+        <p>This is a computer-generated users list.</p>
+        <p>Generated on ${new Date().toLocaleString()}</p>
+        ${searchTerm.value ? `<p><strong>Note:</strong> This list shows filtered results for "${searchTerm.value}".</p>` : ''}
+      </div>
+    </body>
+    </html>
+  `
+
+  printWindow.document.write(usersListHtml)
+  printWindow.document.close()
+
+  // Wait for images to load, then print
+  printWindow.onload = () => {
+    setTimeout(() => {
+      printWindow.print()
+      printWindow.close()
+    }, 500)
   }
 }
 
@@ -229,19 +518,50 @@ onMounted(() => {
         </div>
       </div>
 
+      <!-- Search and Controls -->
+      <div class="controls-section" v-if="!loading && users.length > 0">
+        <div class="search-controls">
+          <div class="search-box">
+            <i class="fas fa-search"></i>
+            <input
+              v-model="searchTerm"
+              type="text"
+              placeholder="Search by username..."
+              class="search-input"
+            />
+          </div>
+          <button @click="printUsersList" class="print-btn" :disabled="filteredUsers.length === 0">
+            <i class="fas fa-print"></i>
+            Print List
+          </button>
+        </div>
+      </div>
+
       <div class="table-wrapper" v-if="!loading && users.length > 0">
         <table>
           <thead>
             <tr>
-              <th><i class="fas fa-user-tag"></i> User</th>
-              <th><i class="fas fa-arrow-circle-down"></i> Money In</th>
-              <th><i class="fas fa-arrow-circle-up"></i> Money Out</th>
-              <th><i class="fas fa-wallet"></i> Balance</th>
+              <th @click="handleSort('username')" class="sortable">
+                <i class="fas fa-user-tag"></i> User
+                <i :class="getSortIcon('username')" class="sort-icon"></i>
+              </th>
+              <th @click="handleSort('total_money_in')" class="sortable">
+                <i class="fas fa-arrow-circle-down"></i> Money In
+                <i :class="getSortIcon('total_money_in')" class="sort-icon"></i>
+              </th>
+              <th @click="handleSort('total_money_out')" class="sortable">
+                <i class="fas fa-arrow-circle-up"></i> Money Out
+                <i :class="getSortIcon('total_money_out')" class="sort-icon"></i>
+              </th>
+              <th @click="handleSort('balance')" class="sortable">
+                <i class="fas fa-wallet"></i> Balance
+                <i :class="getSortIcon('balance')" class="sort-icon"></i>
+              </th>
             </tr>
           </thead>
           <tbody>
             <tr
-              v-for="user in users"
+              v-for="user in filteredUsers"
               :key="user.id"
               @click="handleUserSelect(user)"
               :class="{
@@ -757,6 +1077,112 @@ td {
   .amount-cell {
     gap: 6px;
   }
+
+  .search-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .search-box {
+    min-width: auto;
+  }
+}
+
+/* Search and Controls */
+.controls-section {
+  margin-bottom: 20px;
+}
+
+.search-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.search-box {
+  position: relative;
+  flex: 1;
+  min-width: 200px;
+}
+
+.search-box i {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.search-input {
+  width: 100%;
+  padding: 10px 12px 10px 35px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  background-color: #f9fafb;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  background-color: white;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.print-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
+}
+
+.print-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #1d4ed8, #1e40af);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+}
+
+.print-btn:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Sortable Headers */
+.sortable {
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  transition: background-color 0.2s ease;
+}
+
+.sortable:hover {
+  background-color: #f3f4f6;
+}
+
+.sort-icon {
+  margin-left: 8px;
+  font-size: 12px;
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+}
+
+.sortable:hover .sort-icon {
+  opacity: 1;
 }
 
 /* Print Styles - Keep existing print styles */

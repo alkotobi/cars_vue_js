@@ -16,6 +16,18 @@ const sentTransfers = ref([])
 const externalTransfers = ref([])
 const loading = ref(false)
 const error = ref(null)
+const showFilters = ref(false)
+
+// Filters
+const filters = ref({
+  dateFrom: '',
+  dateTo: '',
+  amountFrom: '',
+  amountTo: '',
+  transactionType: '',
+  source: '',
+  notesSearch: '',
+})
 
 const fetchAllData = async () => {
   if (!props.selectedUser?.id) return
@@ -173,9 +185,9 @@ const formatCurrency = (value) => {
 }
 
 // Combine all transactions and calculate running balance
-const transactionsWithBalance = computed(() => {
+const allTransactions = computed(() => {
   // Combine all transactions
-  const allTransactions = [
+  const transactions = [
     ...sellPayments.value,
     ...receivedTransfers.value,
     ...sentTransfers.value,
@@ -183,7 +195,7 @@ const transactionsWithBalance = computed(() => {
   ]
 
   // Sort by date (oldest first)
-  allTransactions.sort((a, b) => {
+  transactions.sort((a, b) => {
     return new Date(a.transaction_date) - new Date(b.transaction_date)
   })
 
@@ -191,7 +203,7 @@ const transactionsWithBalance = computed(() => {
   let previousBalance = 0
 
   // Process transactions and calculate balances
-  return allTransactions.map((t, index) => {
+  return transactions.map((t, index) => {
     // Store the previous balance before updating
     previousBalance = runningBalance
 
@@ -211,7 +223,58 @@ const transactionsWithBalance = computed(() => {
       previousBalance,
       balance: runningBalance || 0,
     }
-  }) // Remove reverse() to show oldest first
+  })
+})
+
+// Apply filters to transactions
+const transactionsWithBalance = computed(() => {
+  let filtered = [...allTransactions.value]
+
+  // Date range filter
+  if (filters.value.dateFrom) {
+    filtered = filtered.filter(
+      (transaction) => new Date(transaction.transaction_date) >= new Date(filters.value.dateFrom),
+    )
+  }
+
+  if (filters.value.dateTo) {
+    filtered = filtered.filter(
+      (transaction) => new Date(transaction.transaction_date) <= new Date(filters.value.dateTo),
+    )
+  }
+
+  // Amount range filter
+  if (filters.value.amountFrom) {
+    filtered = filtered.filter(
+      (transaction) => parseFloat(transaction.amount) >= parseFloat(filters.value.amountFrom),
+    )
+  }
+
+  if (filters.value.amountTo) {
+    filtered = filtered.filter(
+      (transaction) => parseFloat(transaction.amount) <= parseFloat(filters.value.amountTo),
+    )
+  }
+
+  // Transaction type filter
+  if (filters.value.transactionType) {
+    filtered = filtered.filter((transaction) => transaction.type === filters.value.transactionType)
+  }
+
+  // Source filter
+  if (filters.value.source) {
+    filtered = filtered.filter((transaction) => transaction.source === filters.value.source)
+  }
+
+  // Notes search filter
+  if (filters.value.notesSearch) {
+    const searchTerm = filters.value.notesSearch.toLowerCase()
+    filtered = filtered.filter(
+      (transaction) => transaction.notes && transaction.notes.toLowerCase().includes(searchTerm),
+    )
+  }
+
+  return filtered
 })
 
 const getSourceLabel = (source) => {
@@ -228,6 +291,500 @@ const getSourceLabel = (source) => {
       return source
   }
 }
+
+const clearFilters = () => {
+  filters.value = {
+    dateFrom: '',
+    dateTo: '',
+    amountFrom: '',
+    amountTo: '',
+    transactionType: '',
+    source: '',
+    notesSearch: '',
+  }
+}
+
+const hasActiveFilters = computed(() => {
+  return (
+    filters.value.dateFrom ||
+    filters.value.dateTo ||
+    filters.value.amountFrom ||
+    filters.value.amountTo ||
+    filters.value.transactionType ||
+    filters.value.source ||
+    filters.value.notesSearch
+  )
+})
+
+const printTransactionsList = () => {
+  const printWindow = window.open('', '_blank')
+  if (!printWindow) {
+    alert('Popup blocked. Please allow popups for this site.')
+    return
+  }
+
+  const letterHeadUrl = new URL('../../assets/letter_head.png', import.meta.url).href
+
+  // Calculate totals for print
+  const printTotalIn = transactionsWithBalance.value.reduce(
+    (sum, t) => (t.type === 'in' ? sum + t.amount : sum),
+    0,
+  )
+  const printTotalOut = transactionsWithBalance.value.reduce(
+    (sum, t) => (t.type === 'out' ? sum + t.amount : sum),
+    0,
+  )
+
+  const transactionsListHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Transactions List</title>
+      <style>
+        @page {
+          size: A4;
+          margin: 15mm;
+        }
+        
+        body {
+          font-family: Arial, sans-serif;
+          font-size: 11px;
+          line-height: 1.3;
+          color: #333;
+          margin: 0;
+          padding: 0;
+        }
+        
+        .letterhead {
+          text-align: center;
+          margin-bottom: 20px;
+        }
+        
+        .letterhead img {
+          width: 100%;
+          height: auto;
+          max-height: 50px;
+          object-fit: contain;
+        }
+        
+        .report-header {
+          text-align: center;
+          margin-bottom: 20px;
+          border-bottom: 2px solid #333;
+          padding-bottom: 10px;
+        }
+        
+        .report-title {
+          font-size: 18px;
+          font-weight: bold;
+          margin-bottom: 5px;
+        }
+        
+        .report-date {
+          font-size: 12px;
+          color: #666;
+        }
+        
+        .summary-info {
+          display: flex;
+          justify-content: space-between;
+          margin-bottom: 20px;
+          padding: 10px;
+          background-color: #f8f9fa;
+          border-radius: 6px;
+        }
+        
+        .summary-item {
+          text-align: center;
+        }
+        
+        .summary-label {
+          font-size: 10px;
+          color: #666;
+          display: block;
+          margin-bottom: 2px;
+        }
+        
+        .summary-value {
+          font-size: 14px;
+          font-weight: bold;
+          color: #333;
+        }
+        
+        .transactions-table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-bottom: 20px;
+        }
+        
+        .transactions-table th {
+          background-color: #f8f9fa;
+          padding: 8px 6px;
+          border: 1px solid #ddd;
+          font-weight: bold;
+          font-size: 10px;
+          text-align: left;
+        }
+        
+        .transactions-table td {
+          padding: 6px;
+          border: 1px solid #ddd;
+          font-size: 10px;
+        }
+        
+        .transactions-table tr:nth-child(even) {
+          background-color: #f9f9f9;
+        }
+        
+        .amount-cell {
+          text-align: right;
+          font-weight: bold;
+        }
+        
+        .money-in {
+          color: #16a34a;
+        }
+        
+        .money-out {
+          color: #dc2626;
+        }
+        
+        .positive {
+          color: #16a34a;
+        }
+        
+        .negative {
+          color: #dc2626;
+        }
+        
+        .notes-cell {
+          max-width: 150px;
+          word-wrap: break-word;
+        }
+        
+        .footer {
+          margin-top: 20px;
+          text-align: center;
+          font-size: 9px;
+          color: #666;
+          border-top: 1px solid #eee;
+          padding-top: 10px;
+        }
+        
+        @media print {
+          body {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="letterhead">
+        <img src="${letterHeadUrl}" alt="Company Letterhead">
+      </div>
+      
+      <div class="report-header">
+        <div class="report-title">TRANSACTIONS LIST</div>
+        <div class="report-date">Generated on ${new Date().toLocaleDateString()}</div>
+      </div>
+      
+      <div class="summary-info">
+        <div class="summary-item">
+          <span class="summary-label">User</span>
+          <span class="summary-value">${props.selectedUser.username}</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Total Transactions</span>
+          <span class="summary-value">${transactionsWithBalance.value.length}</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Money In</span>
+          <span class="summary-value positive">${formatCurrency(printTotalIn)}</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Money Out</span>
+          <span class="summary-value negative">${formatCurrency(printTotalOut)}</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Current Balance</span>
+          <span class="summary-value ${transactionsWithBalance.value.length > 0 ? (transactionsWithBalance.value[transactionsWithBalance.value.length - 1].balance >= 0 ? 'positive' : 'negative') : ''}">
+            ${transactionsWithBalance.value.length > 0 ? formatCurrency(transactionsWithBalance.value[transactionsWithBalance.value.length - 1].balance) : 'DZD 0.00'}
+          </span>
+        </div>
+      </div>
+      
+      <table class="transactions-table">
+        <thead>
+          <tr>
+            <th style="width: 8%;">#</th>
+            <th style="width: 15%;">Date</th>
+            <th style="width: 15%;">Previous Balance</th>
+            <th style="width: 15%;">Money In</th>
+            <th style="width: 15%;">Money Out</th>
+            <th style="width: 15%;">Current Balance</th>
+            <th style="width: 17%;">Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${transactionsWithBalance.value
+            .map(
+              (transaction, index) => `
+            <tr>
+              <td>${index + 1}</td>
+              <td>${formatDate(transaction.transaction_date)}</td>
+              <td class="amount-cell ${transaction.previousBalance >= 0 ? 'positive' : 'negative'}">${formatCurrency(transaction.previousBalance)}</td>
+              <td class="money-in">
+                ${transaction.type === 'in' ? formatCurrency(transaction.amount) : '-'}
+              </td>
+              <td class="money-out">
+                ${transaction.type === 'out' ? formatCurrency(transaction.amount) : '-'}
+              </td>
+              <td class="amount-cell ${transaction.balance >= 0 ? 'positive' : 'negative'}">${formatCurrency(transaction.balance)}</td>
+              <td class="notes-cell">${transaction.notes || 'No notes'}</td>
+            </tr>
+          `,
+            )
+            .join('')}
+          <tr style="border-top: 2px solid #333; font-weight: bold; background-color: #f8f9fa;">
+            <td colspan="3"><strong>TOTAL</strong></td>
+            <td class="money-in"><strong>${formatCurrency(printTotalIn)}</strong></td>
+            <td class="money-out"><strong>${formatCurrency(printTotalOut)}</strong></td>
+            <td class="amount-cell ${transactionsWithBalance.value.length > 0 ? (transactionsWithBalance.value[transactionsWithBalance.value.length - 1].balance >= 0 ? 'positive' : 'negative') : ''}">
+              <strong>${transactionsWithBalance.value.length > 0 ? formatCurrency(transactionsWithBalance.value[transactionsWithBalance.value.length - 1].balance) : 'DZD 0.00'}</strong>
+            </td>
+            <td></td>
+          </tr>
+        </tbody>
+      </table>
+      
+      <div class="footer">
+        <p>This is a computer-generated transactions list.</p>
+        <p>Generated on ${new Date().toLocaleString()}</p>
+        ${hasActiveFilters.value ? '<p><strong>Note:</strong> This list shows filtered results only.</p>' : ''}
+      </div>
+    </body>
+    </html>
+  `
+
+  printWindow.document.write(transactionsListHtml)
+  printWindow.document.close()
+
+  // Wait for images to load, then print
+  printWindow.onload = () => {
+    setTimeout(() => {
+      printWindow.print()
+      printWindow.close()
+    }, 500)
+  }
+}
+
+const printTransactionReceipt = (transaction) => {
+  const printWindow = window.open('', '_blank')
+  if (!printWindow) {
+    alert('Popup blocked. Please allow popups for this site.')
+    return
+  }
+
+  const letterHeadUrl = new URL('../../assets/letter_head.png', import.meta.url).href
+
+  const receiptHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Transaction Receipt</title>
+      <style>
+        @page {
+          size: A4;
+          margin: 10mm;
+        }
+        
+        body {
+          font-family: Arial, sans-serif;
+          font-size: 10px;
+          line-height: 1.2;
+          color: #333;
+          margin: 0;
+          padding: 0;
+          max-height: 140mm;
+        }
+        
+        .letterhead {
+          text-align: center;
+          margin-bottom: 15px;
+        }
+        
+        .letterhead img {
+          width: 100%;
+          height: auto;
+          max-height: 40px;
+          object-fit: contain;
+        }
+        
+        .receipt-title {
+          text-align: center;
+          font-size: 16px;
+          font-weight: bold;
+          margin-bottom: 15px;
+          color: #1e293b;
+        }
+        
+        .receipt-details {
+          background: #f8f9fa;
+          padding: 12px;
+          border-radius: 8px;
+          margin-bottom: 15px;
+        }
+        
+        .detail-row {
+          display: flex;
+          justify-content: space-between;
+          margin-bottom: 6px;
+          font-size: 11px;
+        }
+        
+        .detail-label {
+          font-weight: bold;
+          color: #374151;
+        }
+        
+        .detail-value {
+          color: #1e293b;
+        }
+        
+        .amount-section {
+          text-align: center;
+          margin: 20px 0;
+          padding: 15px;
+          background: ${transaction.type === 'in' ? '#dcfce7' : '#fee2e2'};
+          border-radius: 8px;
+          border: 2px solid ${transaction.type === 'in' ? '#16a34a' : '#dc2626'};
+        }
+        
+        .amount-label {
+          font-size: 12px;
+          color: #374151;
+          margin-bottom: 5px;
+        }
+        
+        .amount-value {
+          font-size: 14px;
+          font-weight: bold;
+          color: ${transaction.type === 'in' ? '#16a34a' : '#dc2626'};
+        }
+        
+        .notes-section {
+          margin-top: 15px;
+          padding: 10px;
+          background: #f1f5f9;
+          border-radius: 6px;
+        }
+        
+        .notes-label {
+          font-size: 10px;
+          font-weight: bold;
+          color: #374151;
+          margin-bottom: 5px;
+        }
+        
+        .notes-content {
+          font-size: 10px;
+          color: #1e293b;
+          line-height: 1.3;
+        }
+        
+        .footer {
+          margin-top: 20px;
+          text-align: center;
+          font-size: 8px;
+          color: #6b7280;
+          border-top: 1px solid #e5e7eb;
+          padding-top: 10px;
+        }
+        
+        @media print {
+          body {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="letterhead">
+        <img src="${letterHeadUrl}" alt="Company Letterhead">
+      </div>
+      
+      <div class="receipt-title">TRANSACTION RECEIPT</div>
+      
+      <div class="receipt-details">
+        <div class="detail-row">
+          <span class="detail-label">Receipt ID:</span>
+          <span class="detail-value">#${transaction.id}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Date:</span>
+          <span class="detail-value">${formatDate(transaction.transaction_date)}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">User:</span>
+          <span class="detail-value">${props.selectedUser.username}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Type:</span>
+          <span class="detail-value">${transaction.type === 'in' ? 'Money In' : 'Money Out'}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Source:</span>
+          <span class="detail-value">${getSourceLabel(transaction.source)}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Previous Balance:</span>
+          <span class="detail-value">${formatCurrency(transaction.previousBalance)}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Current Balance:</span>
+          <span class="detail-value">${formatCurrency(transaction.balance)}</span>
+        </div>
+      </div>
+      
+      <div class="amount-section">
+        <div class="amount-label">Transaction Amount</div>
+        <div class="amount-value">
+          ${transaction.type === 'in' ? '+' : '-'}${formatCurrency(transaction.amount)}
+        </div>
+      </div>
+      
+      ${
+        transaction.notes
+          ? `
+        <div class="notes-section">
+          <div class="notes-label">Notes:</div>
+          <div class="notes-content">${transaction.notes}</div>
+        </div>
+      `
+          : ''
+      }
+      
+      <div class="footer">
+        <p>This is a computer-generated transaction receipt.</p>
+        <p>Generated on ${new Date().toLocaleString()}</p>
+      </div>
+    </body>
+    </html>
+  `
+
+  printWindow.document.write(receiptHtml)
+  printWindow.document.close()
+
+  // Wait for images to load, then print
+  printWindow.onload = () => {
+    setTimeout(() => {
+      printWindow.print()
+      printWindow.close()
+    }, 500)
+  }
+}
 </script>
 
 <template>
@@ -237,35 +794,114 @@ const getSourceLabel = (source) => {
         <i class="fas fa-history"></i>
         Transactions for {{ selectedUser.username }}
       </h3>
-      <div class="header-stats">
-        <div class="stat-item">
-          <i class="fas fa-exchange-alt"></i>
-          <span class="stat-label">Total Transactions:</span>
-          <span class="stat-value">{{ transactionsWithBalance.length }}</span>
+      <div class="header-actions">
+        <button
+          @click="printTransactionsList"
+          class="print-list-btn"
+          :disabled="transactionsWithBalance.length === 0"
+        >
+          <i class="fas fa-print"></i>
+          Print List
+        </button>
+        <button
+          @click="showFilters = !showFilters"
+          class="filter-btn"
+          :class="{ active: showFilters }"
+        >
+          <i class="fas fa-filter"></i>
+          Filters
+          <span v-if="hasActiveFilters" class="filter-badge"
+            >{{ transactionsWithBalance.length }}/{{ allTransactions.length }}</span
+          >
+        </button>
+      </div>
+    </div>
+
+    <div class="header-stats">
+      <div class="stat-item">
+        <i class="fas fa-exchange-alt"></i>
+        <span class="stat-label">Total Transactions:</span>
+        <span class="stat-value">{{ transactionsWithBalance.length }}</span>
+      </div>
+      <div class="stat-item">
+        <i class="fas fa-arrow-down"></i>
+        <span class="stat-label">Money In:</span>
+        <span class="stat-value positive">{{
+          formatCurrency(
+            transactionsWithBalance.reduce((sum, t) => (t.type === 'in' ? sum + t.amount : sum), 0),
+          )
+        }}</span>
+      </div>
+      <div class="stat-item">
+        <i class="fas fa-arrow-up"></i>
+        <span class="stat-label">Money Out:</span>
+        <span class="stat-value negative">{{
+          formatCurrency(
+            transactionsWithBalance.reduce(
+              (sum, t) => (t.type === 'out' ? sum + t.amount : sum),
+              0,
+            ),
+          )
+        }}</span>
+      </div>
+    </div>
+
+    <!-- Filters Panel -->
+    <div v-if="showFilters" class="filters-panel">
+      <div class="filters-header">
+        <h4>
+          <i class="fas fa-filter"></i>
+          Filter Transactions
+        </h4>
+        <button @click="clearFilters" class="clear-filters-btn" :disabled="!hasActiveFilters">
+          <i class="fas fa-times"></i>
+          Clear All
+        </button>
+      </div>
+
+      <div class="filters-grid">
+        <div class="filter-group">
+          <label>Date From</label>
+          <input v-model="filters.dateFrom" type="date" class="filter-input" />
         </div>
-        <div class="stat-item">
-          <i class="fas fa-arrow-down"></i>
-          <span class="stat-label">Money In:</span>
-          <span class="stat-value positive">{{
-            formatCurrency(
-              transactionsWithBalance.reduce(
-                (sum, t) => (t.type === 'in' ? sum + t.amount : sum),
-                0,
-              ),
-            )
-          }}</span>
+
+        <div class="filter-group">
+          <label>Date To</label>
+          <input v-model="filters.dateTo" type="date" class="filter-input" />
         </div>
-        <div class="stat-item">
-          <i class="fas fa-arrow-up"></i>
-          <span class="stat-label">Money Out:</span>
-          <span class="stat-value negative">{{
-            formatCurrency(
-              transactionsWithBalance.reduce(
-                (sum, t) => (t.type === 'out' ? sum + t.amount : sum),
-                0,
-              ),
-            )
-          }}</span>
+
+        <div class="filter-group">
+          <label>Amount From (DA)</label>
+          <input
+            v-model.number="filters.amountFrom"
+            type="number"
+            step="0.01"
+            min="0"
+            placeholder="Min amount"
+            class="filter-input"
+          />
+        </div>
+
+        <div class="filter-group">
+          <label>Amount To (DA)</label>
+          <input
+            v-model.number="filters.amountTo"
+            type="number"
+            step="0.01"
+            min="0"
+            placeholder="Max amount"
+            class="filter-input"
+          />
+        </div>
+
+        <div class="filter-group full-width">
+          <label>Search in Notes</label>
+          <input
+            v-model="filters.notesSearch"
+            type="text"
+            placeholder="Search notes..."
+            class="filter-input"
+          />
         </div>
       </div>
     </div>
@@ -285,13 +921,12 @@ const getSourceLabel = (source) => {
         <thead>
           <tr>
             <th><i class="fas fa-calendar-alt"></i> Date</th>
-            <th><i class="fas fa-exchange-alt"></i> Type</th>
             <th><i class="fas fa-history"></i> Previous Balance</th>
             <th><i class="fas fa-arrow-down"></i> Money In</th>
             <th><i class="fas fa-arrow-up"></i> Money Out</th>
             <th><i class="fas fa-wallet"></i> Current Balance</th>
-            <th><i class="fas fa-tag"></i> Source</th>
             <th><i class="fas fa-sticky-note"></i> Notes</th>
+            <th><i class="fas fa-cogs"></i> Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -304,11 +939,6 @@ const getSourceLabel = (source) => {
             }"
           >
             <td>{{ formatDate(transaction.transaction_date) }}</td>
-            <td>
-              <span class="transaction-type" :class="transaction.type">
-                <i :class="transaction.type === 'in' ? 'fas fa-arrow-down' : 'fas fa-arrow-up'"></i>
-              </span>
-            </td>
             <td
               :class="{
                 positive: transaction.previousBalance >= 0,
@@ -334,19 +964,6 @@ const getSourceLabel = (source) => {
             <td :class="{ positive: transaction.balance >= 0, negative: transaction.balance < 0 }">
               {{ formatCurrency(transaction.balance) }}
             </td>
-            <td>
-              <span class="source-badge" :class="transaction.source">
-                <i
-                  :class="{
-                    'fas fa-shopping-cart': transaction.source === 'sell_payment',
-                    'fas fa-arrow-right': transaction.source === 'transfer_received',
-                    'fas fa-arrow-left': transaction.source === 'transfer_sent',
-                    'fas fa-globe': transaction.source === 'external_transfer',
-                  }"
-                ></i>
-                {{ getSourceLabel(transaction.source) }}
-              </span>
-            </td>
             <td class="notes">
               <span v-if="transaction.notes" class="notes-content" :title="transaction.notes">
                 <i class="fas fa-comment-alt"></i>
@@ -355,6 +972,15 @@ const getSourceLabel = (source) => {
               <span v-else class="no-notes">
                 <i class="fas fa-minus"></i>
               </span>
+            </td>
+            <td class="actions">
+              <button
+                @click="printTransactionReceipt(transaction)"
+                class="btn btn-print"
+                title="Print receipt"
+              >
+                <i class="fas fa-print"></i>
+              </button>
             </td>
           </tr>
         </tbody>
@@ -379,6 +1005,75 @@ const getSourceLabel = (source) => {
 
 .header {
   margin-bottom: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.filter-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: 1px solid #7c3aed;
+  border-radius: 8px;
+  background: white;
+  color: #7c3aed;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.filter-btn:hover {
+  background: #7c3aed;
+  color: white;
+}
+
+.filter-btn.active {
+  background: #7c3aed;
+  color: white;
+}
+
+.filter-badge {
+  background: #dc2626;
+  color: white;
+  font-size: 0.75rem;
+  padding: 2px 6px;
+  border-radius: 10px;
+  margin-left: 4px;
+}
+
+.print-list-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: 1px solid #059669;
+  border-radius: 8px;
+  background: white;
+  color: #059669;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.print-list-btn:hover:not(:disabled) {
+  background: #059669;
+  color: white;
+}
+
+.print-list-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .header h3 {
@@ -645,5 +1340,141 @@ tr:hover {
   .notes {
     max-width: 150px;
   }
+}
+
+/* Filters Panel */
+.filters-panel {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 24px;
+  animation: slideDown 0.3s ease;
+}
+
+.filters-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.filters-header h4 {
+  margin: 0;
+  color: #1e293b;
+  font-size: 1.125rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filters-header h4 i {
+  color: #7c3aed;
+}
+
+.clear-filters-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid #dc2626;
+  border-radius: 6px;
+  background: white;
+  color: #dc2626;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.clear-filters-btn:hover:not(:disabled) {
+  background: #dc2626;
+  color: white;
+}
+
+.clear-filters-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.filters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.filter-group.full-width {
+  grid-column: 1 / -1;
+}
+
+.filter-group label {
+  color: #374151;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.filter-input {
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+}
+
+.filter-input:focus {
+  outline: none;
+  border-color: #7c3aed;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Actions Column */
+.actions {
+  text-align: center;
+  width: 80px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  gap: 4px;
+}
+
+.btn-print {
+  background-color: #3b82f6;
+  color: white;
+}
+
+.btn-print:hover {
+  background-color: #2563eb;
+  transform: translateY(-1px);
+}
+
+.btn-print i {
+  font-size: 0.75rem;
 }
 </style>
