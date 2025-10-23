@@ -31,29 +31,25 @@ const fetchUserBalances = async () => {
         u.id,
         u.username,
         COALESCE(
-          (SELECT SUM(CAST(total_in AS DECIMAL(20,2))) 
-           FROM (
-             SELECT CAST(amount_da AS DECIMAL(20,2)) as total_in
-             FROM sell_payments
-             WHERE id_user = u.id
-             UNION ALL
-             SELECT CAST(amount AS DECIMAL(20,2)) as total_in
-             FROM transfers_inter
-             WHERE to_user_id = u.id AND id_admin_confirm IS NOT NULL
-           ) as money_in
+          (SELECT SUM(CAST(amount_da AS DECIMAL(20,2))) 
+           FROM sell_payments
+           WHERE id_user = u.id
+          ), 0
+        ) + COALESCE(
+          (SELECT SUM(CAST(amount AS DECIMAL(20,2))) 
+           FROM transfers_inter
+           WHERE to_user_id = u.id AND id_admin_confirm IS NOT NULL
           ), 0
         ) as total_money_in,
         COALESCE(
-          (SELECT SUM(CAST(total_out AS DECIMAL(20,2)))
-           FROM (
-             SELECT CAST(amount AS DECIMAL(20,2)) as total_out
-             FROM transfers_inter
-             WHERE from_user_id = u.id
-             UNION ALL
-             SELECT CAST(amount_sending_da AS DECIMAL(20,2)) as total_out
-             FROM transfers
-             WHERE id_user_do_transfer = u.id AND id_user_receive_transfer IS NOT NULL
-           ) as money_out
+          (SELECT SUM(CAST(amount AS DECIMAL(20,2)))
+           FROM transfers_inter
+           WHERE from_user_id = u.id
+          ), 0
+        ) + COALESCE(
+          (SELECT SUM(CAST(amount_sending_da AS DECIMAL(20,2)))
+           FROM transfers
+           WHERE id_user_do_transfer = u.id AND id_user_receive_transfer IS NOT NULL
           ), 0
         ) as total_money_out
       FROM users u
@@ -64,29 +60,25 @@ const fetchUserBalances = async () => {
         u.id,
         u.username,
         COALESCE(
-          (SELECT SUM(CAST(total_in AS DECIMAL(20,2))) 
-           FROM (
-             SELECT CAST(amount_da AS DECIMAL(20,2)) as total_in
-             FROM sell_payments
-             WHERE id_user = u.id
-             UNION ALL
-             SELECT CAST(amount AS DECIMAL(20,2)) as total_in
-             FROM transfers_inter
-             WHERE to_user_id = u.id AND id_admin_confirm IS NOT NULL
-           ) as money_in
+          (SELECT SUM(CAST(amount_da AS DECIMAL(20,2))) 
+           FROM sell_payments
+           WHERE id_user = u.id
+          ), 0
+        ) + COALESCE(
+          (SELECT SUM(CAST(amount AS DECIMAL(20,2))) 
+           FROM transfers_inter
+           WHERE to_user_id = u.id AND id_admin_confirm IS NOT NULL
           ), 0
         ) as total_money_in,
         COALESCE(
-          (SELECT SUM(CAST(total_out AS DECIMAL(20,2)))
-           FROM (
-             SELECT CAST(amount AS DECIMAL(20,2)) as total_out
-             FROM transfers_inter
-             WHERE from_user_id = u.id
-             UNION ALL
-             SELECT CAST(amount_sending_da AS DECIMAL(20,2)) as total_out
-             FROM transfers
-             WHERE id_user_do_transfer = u.id AND id_user_receive_transfer IS NOT NULL
-           ) as money_out
+          (SELECT SUM(CAST(amount AS DECIMAL(20,2)))
+           FROM transfers_inter
+           WHERE from_user_id = u.id
+          ), 0
+        ) + COALESCE(
+          (SELECT SUM(CAST(amount_sending_da AS DECIMAL(20,2)))
+           FROM transfers
+           WHERE id_user_do_transfer = u.id AND id_user_receive_transfer IS NOT NULL
           ), 0
         ) as total_money_out
       FROM users u

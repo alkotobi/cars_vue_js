@@ -257,19 +257,19 @@ if (isset($postData['action'])) {
             exit;
 
             case 'insert_user':
-                if (!isset($postData['query']) ||!isset($postData['params']) || count($postData['params'])!== 4) {
+                if (!isset($postData['query']) ||!isset($postData['params']) || count($postData['params'])!== 5) {
                     http_response_code(400);
-                    echo json_encode(['success' => false, 'error' => 'Invalid parameters for password update']);
+                    echo json_encode(['success' => false, 'error' => 'Invalid parameters for user creation']);
                     exit;
                 }
 
-                // Hash the password (first parameter)
+                // Hash the password (third parameter - index 2)
                 $hashedPassword = password_hash($postData['params'][2], PASSWORD_DEFAULT);
                 
                 // Replace the plain password with hashed password in params
                 $postData['params'][2] = $hashedPassword;
                 
-                // Execute the update query with hashed password
+                // Execute the insert query with hashed password
                 $result = executeQuery($postData['query'], $postData['params']);
                 echo json_encode($result);
                 exit;
