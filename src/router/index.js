@@ -168,6 +168,12 @@ const router = createRouter({
           component: ChinaCash,
           meta: { requiresAuth: true },
         },
+        {
+          path: 'expenses',
+          name: 'cashier-expenses',
+          component: () => import('../components/cashier/Expenses.vue'),
+          meta: { requiresAuth: true },
+        },
       ],
     },
     {

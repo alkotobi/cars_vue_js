@@ -11,6 +11,7 @@ const isProcessing = ref({
   transfers: false,
   moneyMovements: false,
   chinaCash: false,
+  expenses: false,
 })
 
 const goToDashboard = async () => {
@@ -50,6 +51,16 @@ const goToChinaCash = async () => {
     await router.push('/cashier/china-cash')
   } finally {
     isProcessing.value.chinaCash = false
+  }
+}
+
+const goToExpenses = async () => {
+  if (isProcessing.value.expenses) return
+  isProcessing.value.expenses = true
+  try {
+    await router.push('/cashier/expenses')
+  } finally {
+    isProcessing.value.expenses = false
   }
 }
 
@@ -114,6 +125,17 @@ const isAdmin = computed(() => {
         <i class="fas fa-yen-sign"></i>
         <span>China Cash</span>
         <i v-if="isProcessing.chinaCash" class="fas fa-spinner fa-spin loading-indicator"></i>
+      </button>
+
+      <button
+        @click="goToExpenses"
+        class="sidebar-btn expenses-btn"
+        :disabled="isProcessing.expenses"
+        :class="{ processing: isProcessing.expenses }"
+      >
+        <i class="fas fa-receipt"></i>
+        <span>Expenses</span>
+        <i v-if="isProcessing.expenses" class="fas fa-spinner fa-spin loading-indicator"></i>
       </button>
     </div>
 
@@ -230,6 +252,10 @@ const isAdmin = computed(() => {
 
 .china-btn:not(:disabled):hover {
   background-color: #b91c1c;
+}
+
+.expenses-btn:not(:disabled):hover {
+  background-color: #7c3aed;
 }
 
 @keyframes spin {
