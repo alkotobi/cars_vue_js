@@ -18,8 +18,28 @@ const fetchTransfers = async () => {
   error.value = null
 
   try {
-    const result = await callApi({
-      query: `
+    // Build query based on user role
+    const isAdmin = currentUser.value?.role_id === 1
+    let query, params
+
+    if (isAdmin) {
+      // Admin can see all transfers
+      query = `
+        SELECT 
+          t.*,
+          from_user.username as from_username,
+          to_user.username as to_username,
+          admin.username as admin_username
+        FROM transfers_inter t
+        LEFT JOIN users from_user ON t.from_user_id = from_user.id
+        LEFT JOIN users to_user ON t.to_user_id = to_user.id
+        LEFT JOIN users admin ON t.id_admin_confirm = admin.id
+        ORDER BY t.date_transfer DESC
+      `
+      params = []
+    } else {
+      // Regular users only see their own transfers
+      query = `
         SELECT 
           t.*,
           from_user.username as from_username,
@@ -31,8 +51,13 @@ const fetchTransfers = async () => {
         LEFT JOIN users admin ON t.id_admin_confirm = admin.id
         WHERE t.from_user_id = ? OR t.to_user_id = ?
         ORDER BY t.date_transfer DESC
-      `,
-      params: [currentUser.value.id, currentUser.value.id],
+      `
+      params = [currentUser.value.id, currentUser.value.id]
+    }
+
+    const result = await callApi({
+      query,
+      params,
     })
 
     if (result.success) {
@@ -201,6 +226,7 @@ onMounted(() => {
   if (userStr) {
     currentUser.value = JSON.parse(userStr)
     fetchTransfers()
+    fetchUsers()
   } else {
     error.value = 'User not logged in'
   }
@@ -298,7 +324,9 @@ onMounted(() => {
           <tr
             v-for="transfer in transfers"
             :key="transfer.id"
+            @click="selectedTransfer = transfer"
             :class="{ selected: selectedTransfer?.id === transfer.id }"
+            style="cursor: pointer"
           >
             <td>#{{ transfer.id }}</td>
             <td>{{ formatDate(transfer.date_transfer) }}</td>
@@ -330,6 +358,16 @@ onMounted(() => {
                 <i class="fas fa-user-shield"></i>
                 {{ transfer.admin_username }}
               </span>
+              <button
+                v-else-if="isAdmin"
+                @click.stop="handleAdminConfirm(transfer)"
+                class="action-btn admin-btn"
+                :disabled="loading"
+                title="Confirm this transfer as admin"
+              >
+                <i class="fas fa-user-shield"></i>
+                Confirm
+              </button>
               <span v-else class="status-badge pending">
                 <i class="fas fa-clock"></i>
                 Pending
@@ -682,6 +720,18 @@ tr.selected {
 
 .confirm-btn:hover:not(:disabled) {
   background-color: #059669;
+}
+
+.admin-btn {
+  background-color: #8b5cf6;
+  padding: 6px 12px;
+  width: auto;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.admin-btn:hover:not(:disabled) {
+  background-color: #7c3aed;
 }
 
 .empty-state {
