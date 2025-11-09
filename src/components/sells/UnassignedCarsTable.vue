@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted,  computed, useAttrs } from 'vue'
+import { ref, onMounted, computed, useAttrs } from 'vue'
 import { useEnhancedI18n } from '../../composables/useI18n'
 import { useApi } from '../../composables/useApi'
 import CarAssignmentForm from './CarAssignmentForm.vue'
@@ -93,6 +93,10 @@ const fetchUnassignedCars = async () => {
           cs.freight,
           cs.path_documents,
           cs.container_ref,
+          cs.hidden,
+          cs.hidden_time_stamp,
+          cs.hidden_by_user_id,
+          hu.username as hidden_by_username,
           bd.amount as buy_price,
           cn.car_name,
           clr.color,
@@ -103,6 +107,7 @@ const fetchUnassignedCars = async () => {
         LEFT JOIN cars_names cn ON bd.id_car_name = cn.id
         LEFT JOIN colors clr ON cs.id_color = clr.id
         LEFT JOIN buy_bill bb ON bd.id_buy_bill = bb.id
+        LEFT JOIN users hu ON cs.hidden_by_user_id = hu.id
         WHERE cs.id_sell IS NULL
         `
     if (!isAdmin.value) {
@@ -213,6 +218,26 @@ const getTextColor = (backgroundColor) => {
 
   // Return white text for dark backgrounds, black text for light backgrounds
   return luminance > 0.5 ? '#000000' : '#ffffff'
+}
+
+const getHiddenBadgeText = (car) => {
+  if (!car.hidden) return ''
+  const user = car.hidden_by_username || t('sellBills.hidden_unknown_user')
+  const timestamp = car.hidden_time_stamp ? new Date(car.hidden_time_stamp) : null
+
+  let daysString = t('sellBills.hidden_unknown_days')
+
+  if (timestamp && !Number.isNaN(timestamp.getTime())) {
+    const diffMs = Date.now() - timestamp.getTime()
+    const diffDays = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)))
+
+    daysString =
+      diffDays >= 1
+        ? t('sellBills.hidden_days_count', { count: diffDays })
+        : t('sellBills.hidden_less_than_day')
+  }
+
+  return t('sellBills.hidden_by_compact', { user, days: daysString })
 }
 
 // Function to fetch discharge ports
@@ -777,7 +802,15 @@ onMounted(() => {
       <tbody>
         <tr v-for="car in sortedCars" :key="car.id">
           <td>{{ car.id }}</td>
-          <td>{{ car.car_name }}</td>
+          <td>
+            <div class="car-name-cell">
+              <span>{{ car.car_name }}</span>
+              <span v-if="car.hidden" class="badge hidden-badge">
+                <i class="fas fa-eye-slash"></i>
+                <span class="hidden-info-text">{{ getHiddenBadgeText(car) }}</span>
+              </span>
+            </div>
+          </td>
           <td>
             <div class="color-cell">
               <span
@@ -1083,6 +1116,31 @@ onMounted(() => {
 
 .assign-btn:hover:not(:disabled) {
   background-color: #059669;
+}
+
+.car-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hidden-badge {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 8px;
+  width: auto;
+}
+
+.hidden-info-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: normal;
+  font-size: 0.85rem;
 }
 
 /* Add smooth transitions */

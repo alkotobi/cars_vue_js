@@ -221,6 +221,247 @@ const formatDate = (dateStr) => {
   return new Date(dateStr).toLocaleDateString()
 }
 
+// Format date with time
+const formatDateTime = (dateStr) => {
+  if (!dateStr) return 'N/A'
+  return new Date(dateStr).toLocaleString()
+}
+
+const printTransferReceipt = (transfer) => {
+  const printWindow = window.open('', '_blank')
+  if (!printWindow) {
+    alert('Popup blocked. Please allow popups for this site.')
+    return
+  }
+
+  const letterHeadUrl = new URL('../../assets/letter_head.png', import.meta.url).href
+
+  const receiptHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Transfer Receipt #${transfer.id}</title>
+      <style>
+        @page {
+          size: A4;
+          margin: 10mm;
+        }
+        
+        body {
+          font-family: Arial, sans-serif;
+          font-size: 11px;
+          line-height: 1.4;
+          color: #333;
+          margin: 0;
+          padding: 0;
+        }
+        
+        .letterhead {
+          margin-bottom: 15px;
+        }
+        
+        .letterhead img {
+          width: 100%;
+          height: auto;
+          max-height: 40px;
+          object-fit: contain;
+        }
+        
+        .receipt-title {
+          text-align: center;
+          font-size: 18px;
+          font-weight: bold;
+          margin-bottom: 15px;
+          color: #1e293b;
+        }
+        
+        .receipt-info {
+          background-color: #f8f9fa;
+          padding: 12px;
+          border-radius: 6px;
+          margin-bottom: 15px;
+        }
+        
+        .info-row {
+          display: flex;
+          justify-content: space-between;
+          padding: 6px 0;
+          border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .info-row:last-child {
+          border-bottom: none;
+        }
+        
+        .info-label {
+          font-weight: bold;
+          color: #64748b;
+        }
+        
+        .info-value {
+          color: #1e293b;
+          font-weight: 500;
+        }
+        
+        .amount-section {
+          background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+          color: white;
+          padding: 20px;
+          border-radius: 8px;
+          text-align: center;
+          margin: 20px 0;
+        }
+        
+        .amount-label {
+          font-size: 12px;
+          opacity: 0.9;
+          margin-bottom: 5px;
+        }
+        
+        .amount-value {
+          font-size: 28px;
+          font-weight: bold;
+        }
+        
+        .status-section {
+          padding: 12px;
+          margin-bottom: 15px;
+          border-radius: 6px;
+        }
+        
+        .status-received {
+          background-color: #ecfdf5;
+          color: #059669;
+          border: 1px solid #bbf7d0;
+        }
+        
+        .status-pending {
+          background-color: #fef3c7;
+          color: #d97706;
+          border: 1px solid #fde68a;
+        }
+        
+        .status-admin {
+          background-color: #f5f3ff;
+          color: #7c3aed;
+          border: 1px solid #e9d5ff;
+        }
+        
+        .status-label {
+          font-weight: bold;
+          margin-bottom: 5px;
+        }
+        
+        .footer {
+          margin-top: 20px;
+          text-align: center;
+          font-size: 9px;
+          color: #64748b;
+          border-top: 1px solid #e5e7eb;
+          padding-top: 10px;
+        }
+        
+        @media print {
+          body {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="letterhead">
+        <img src="${letterHeadUrl}" alt="Company Letterhead">
+      </div>
+      
+      <div class="receipt-title">INTERNAL TRANSFER RECEIPT</div>
+      
+      <div class="receipt-info">
+        <div class="info-row">
+          <span class="info-label">Transfer ID:</span>
+          <span class="info-value">Transfer #${transfer.id}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Date:</span>
+          <span class="info-value">${formatDateTime(transfer.date_transfer)}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">From User:</span>
+          <span class="info-value">${transfer.from_username}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">To User:</span>
+          <span class="info-value">${transfer.to_username}</span>
+        </div>
+        ${
+          transfer.notes
+            ? `
+        <div class="info-row">
+          <span class="info-label">Notes:</span>
+          <span class="info-value">${transfer.notes}</span>
+        </div>
+        `
+            : ''
+        }
+      </div>
+      
+      <div class="amount-section">
+        <div class="amount-label">Transfer Amount</div>
+        <div class="amount-value">$${parseFloat(transfer.amount).toFixed(2)}</div>
+      </div>
+      
+      ${
+        transfer.date_received
+          ? `
+      <div class="status-section status-received">
+        <div class="status-label">✓ Received Confirmation</div>
+        <div>Confirmed on: ${formatDateTime(transfer.date_received)}</div>
+      </div>
+      `
+          : `
+      <div class="status-section status-pending">
+        <div class="status-label">⏱ Pending Receipt</div>
+        <div>Waiting for receiver confirmation</div>
+      </div>
+      `
+      }
+      
+      ${
+        transfer.id_admin_confirm
+          ? `
+      <div class="status-section status-admin">
+        <div class="status-label">🛡 Admin Confirmed</div>
+        <div>Confirmed by: ${transfer.admin_username || 'Admin'}</div>
+      </div>
+      `
+          : `
+      <div class="status-section status-pending">
+        <div class="status-label">⏱ Pending Admin Approval</div>
+        <div>Waiting for admin confirmation</div>
+      </div>
+      `
+      }
+      
+      <div class="footer">
+        <p>This is a computer-generated receipt for internal transfer.</p>
+        <p>Generated on ${new Date().toLocaleString()}</p>
+      </div>
+    </body>
+    </html>
+  `
+
+  printWindow.document.write(receiptHtml)
+  printWindow.document.close()
+
+  // Wait for images to load, then print
+  printWindow.onload = () => {
+    setTimeout(() => {
+      printWindow.print()
+      printWindow.close()
+    }, 500)
+  }
+}
+
 onMounted(() => {
   const userStr = localStorage.getItem('user')
   if (userStr) {
@@ -374,6 +615,14 @@ onMounted(() => {
               </span>
             </td>
             <td class="actions">
+              <button
+                @click="printTransferReceipt(transfer)"
+                class="action-btn print-btn"
+                :disabled="loading"
+                title="Print receipt"
+              >
+                <i class="fas fa-print"></i>
+              </button>
               <button
                 v-if="canEditTransfer(transfer)"
                 @click="handleEdit(transfer)"
@@ -732,6 +981,14 @@ tr.selected {
 
 .admin-btn:hover:not(:disabled) {
   background-color: #7c3aed;
+}
+
+.print-btn {
+  background-color: #64748b;
+}
+
+.print-btn:hover:not(:disabled) {
+  background-color: #475569;
 }
 
 .empty-state {
