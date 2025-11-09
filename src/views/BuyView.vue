@@ -125,6 +125,7 @@ const handleCarsCreated = async (newCars) => {
 
 const handleSelectBill = (bill) => {
   selectedBill.value = bill
+  fetchBuyDetails(bill.id)
 
   // Scroll to the appropriate section based on bill status
   setTimeout(() => {
