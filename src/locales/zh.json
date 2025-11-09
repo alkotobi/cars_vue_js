@@ -316,7 +316,12 @@
     "sold": "已售",
     "used": "二手",
     "invoice": "发票",
-    "packing_list": "装箱单"
+    "packing_list": "装箱单",
+    "failed_to_toggle_hidden": "切换隐藏状态失败",
+    "no_cars_selected_for_delivery": "未选择任何车辆进行交付更新",
+    "confirm_mark_delivered": "将 {count} 辆已选择的车辆标记为已交付（把发送日期设为现在）？",
+    "marked_delivered_success": "已将 {count} 辆车辆标记为已交付",
+    "failed_to_mark_delivered": "标记车辆为已交付失败"
   },
   "containersRef": {
     "title": "集装箱参考",
@@ -370,7 +375,9 @@
     "task": "任务",
     "color": "颜色",
     "vin": "车架号",
-    "export_license": "出口许可证"
+    "export_license": "出口许可证",
+    "delivered": "已交付",
+    "mark_delivered_for_selected_cars": "将选定车辆标记为已交付"
   },
   "vinEditForm": {
     "edit_vin_number": "编辑车架号",

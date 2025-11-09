@@ -41,6 +41,7 @@ const emit = defineEmits([
   'refresh',
   'delete-cars',
   'toggle-hidden',
+  'mark-delivered',
 ])
 </script>
 
@@ -178,6 +179,20 @@ const emit = defineEmits([
       >
         <i class="fas fa-coins"></i>
         <span>CFR DA</span>
+      </button>
+      <button
+        v-if="isAdmin"
+        @click="$emit('mark-delivered')"
+        class="delivered-btn"
+        :disabled="selectedCars.size === 0"
+        :title="
+          selectedCars.size === 0
+            ? t('carStockToolbar.no_cars_selected')
+            : t('carStockToolbar.mark_delivered_for_selected_cars')
+        "
+      >
+        <i class="fas fa-check-double"></i>
+        <span>{{ t('carStockToolbar.delivered') }}</span>
       </button>
       <button
         v-if="isAdmin"
@@ -485,6 +500,34 @@ const emit = defineEmits([
 }
 
 .cfr-da-btn:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.delivered-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background-color: #0ea5e9;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.delivered-btn:hover:not(:disabled) {
+  background-color: #0284c7;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.delivered-btn:disabled {
   background-color: #9ca3af;
   cursor: not-allowed;
   transform: none;

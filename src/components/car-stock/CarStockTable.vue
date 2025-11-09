@@ -2179,6 +2179,48 @@ const handleToggleHidden = async () => {
     alert(t('carStock.failed_to_toggle_hidden') + ': ' + error.message)
   }
 }
+
+const handleMarkDelivered = async () => {
+  if (selectedCars.value.size === 0) {
+    alert(t('carStock.no_cars_selected_for_delivery'))
+    return
+  }
+
+  const selectedCarsList = sortedCars.value.filter((car) => selectedCars.value.has(car.id))
+  const carIds = selectedCarsList.map((car) => car.id)
+
+  if (carIds.length === 0) {
+    alert(t('carStock.no_cars_selected_for_delivery'))
+    return
+  }
+
+  if (!confirm(t('carStock.confirm_mark_delivered', { count: carIds.length }))) {
+    return
+  }
+
+  try {
+    const result = await callApi({
+      query: `UPDATE cars_stock SET date_send_documents = NOW() WHERE id IN (${carIds
+        .map(() => '?')
+        .join(',')})`,
+      params: [...carIds],
+    })
+
+    if (result.success) {
+      // Update local data to reflect the delivery without refetching
+      allCars.value = allCars.value.filter((car) => !carIds.includes(car.id))
+      cars.value = cars.value.filter((car) => !carIds.includes(car.id))
+
+      selectedCars.value.clear()
+      alert(t('carStock.marked_delivered_success', { count: carIds.length }))
+    } else {
+      alert(t('carStock.failed_to_mark_delivered') + (result.error ? `: ${result.error}` : ''))
+    }
+  } catch (error) {
+    console.error('Error marking cars as delivered:', error)
+    alert(t('carStock.failed_to_mark_delivered') + (error.message ? `: ${error.message}` : ''))
+  }
+}
 </script>
 
 <template>
@@ -2316,6 +2358,7 @@ const handleToggleHidden = async () => {
         @color="handleColorFromToolbar"
         @export-license="handleExportLicenseFromToolbar"
         @cfr-da="handleCfrDaFromToolbar"
+        @mark-delivered="handleMarkDelivered"
         @refresh="handleRefresh"
         @delete-cars="handleDeleteCars"
         @toggle-hidden="handleToggleHidden"

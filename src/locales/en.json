@@ -330,7 +330,11 @@
     "show_cars": "show cars",
     "confirm_toggle_hidden": "Are you sure you want to {action}?",
     "toggle_hidden_success": "Successfully {action}.",
-    "failed_to_toggle_hidden": "Failed to toggle hidden status"
+    "failed_to_toggle_hidden": "Failed to toggle hidden status",
+    "no_cars_selected_for_delivery": "No cars selected for delivery update",
+    "confirm_mark_delivered": "Mark {count} selected car(s) as delivered (set date sent to now)?",
+    "marked_delivered_success": "{count} car(s) marked as delivered",
+    "failed_to_mark_delivered": "Failed to mark cars as delivered"
   },
   "containersRef": {
     "title": "Container References",
@@ -389,7 +393,9 @@
     "delete": "Delete",
     "delete_selected_cars": "Delete selected cars",
     "toggle_hidden": "Toggle Hidden",
-    "toggle_hidden_status": "Toggle hidden status of selected cars"
+    "toggle_hidden_status": "Toggle hidden status of selected cars",
+    "delivered": "Delivered",
+    "mark_delivered_for_selected_cars": "Mark selected cars as delivered"
   },
   "vinEditForm": {
     "edit_vin_number": "Edit VIN Number",

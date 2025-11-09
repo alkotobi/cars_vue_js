@@ -900,7 +900,12 @@
     "sold": "Vendu",
     "used": "Occasion",
     "invoice": "FACTURE",
-    "packing_list": "LISTE D'EMBALLAGE"
+    "packing_list": "LISTE D'EMBALLAGE",
+    "failed_to_toggle_hidden": "Impossible de basculer le statut de visibilité",
+    "no_cars_selected_for_delivery": "Aucune voiture sélectionnée pour la mise à jour de livraison",
+    "confirm_mark_delivered": "Marquer {count} voiture(s) sélectionnée(s) comme livrées (définir la date d'envoi à maintenant) ?",
+    "marked_delivered_success": "{count} voiture(s) marquée(s) comme livrées",
+    "failed_to_mark_delivered": "Impossible de marquer les voitures comme livrées"
   },
   "containersRef": {
     "title": "Références de Conteneurs",
@@ -955,7 +960,9 @@
     "task": "Tâche",
     "color": "Couleur",
     "vin": "VIN",
-    "export_license": "Licence d'exportation"
+    "export_license": "Licence d'exportation",
+    "delivered": "Livré",
+    "mark_delivered_for_selected_cars": "Marquer les voitures sélectionnées comme livrées"
   },
   "vinEditForm": {
     "edit_vin_number": "Modifier le numéro VIN",

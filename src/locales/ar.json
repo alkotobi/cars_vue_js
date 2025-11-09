@@ -783,7 +783,12 @@
     "sold": "مباع",
     "used": "مستعمل",
     "invoice": "فاتورة",
-    "packing_list": "قائمة التعبئة"
+    "packing_list": "قائمة التعبئة",
+    "failed_to_toggle_hidden": "فشل تبديل حالة الإخفاء",
+    "no_cars_selected_for_delivery": "لم يتم اختيار أي سيارات لتحديث التسليم",
+    "confirm_mark_delivered": "هل تريد تعيين {count} سيارة كمُسلَّمة (تعيين تاريخ الإرسال إلى الآن)؟",
+    "marked_delivered_success": "تم تعيين {count} سيارة كمُسلَّمة",
+    "failed_to_mark_delivered": "فشل تعيين السيارات كمُسلَّمة"
   },
   "containersRef": {
     "title": "مراجع الحاويات",
@@ -838,7 +843,9 @@
     "task": "مهمة",
     "color": "اللون",
     "vin": "رقم الشاصي",
-    "export_license": "رخصة التصدير"
+    "export_license": "رخصة التصدير",
+    "delivered": "تم التسليم",
+    "mark_delivered_for_selected_cars": "تعيين السيارات المحددة كمُسلَّمة"
   },
   "vinEditForm": {
     "edit_vin_number": "تعديل رقم الشاصي",
