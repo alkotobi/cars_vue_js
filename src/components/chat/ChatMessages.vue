@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, watch, nextTick } from 'vue'
+import { ref, onMounted, watch, nextTick, computed } from 'vue'
 import { useApi } from '../../composables/useApi'
 
 const props = defineProps({
@@ -65,6 +65,17 @@ const currentNewMessagesCount = ref(0) // Track current newMessagesCount value
 
 // Emoji picker state
 const showEmojiPicker = ref(false)
+
+// Message date editing state
+const editingMessageId = ref(null)
+const editingMessageDate = ref(null)
+const showDatePicker = ref(false)
+
+// Bulk date editing state
+const selectionMode = ref(false)
+const selectedMessages = ref(new Set())
+const showBulkDatePicker = ref(false)
+const bulkEditDate = ref(null)
 
 // Common emojis for the picker
 const emojis = [
@@ -876,6 +887,197 @@ const isOwnMessage = (message) => {
   return message.message_from_user_id === currentUser.value?.id
 }
 
+// Check if user can edit message date (admin or message owner)
+const canEditMessageDate = (message) => {
+  if (!currentUser.value) return false
+  // Admin can edit any message
+  if (currentUser.value.role_id === 1) return true
+  // Message owner can edit their own messages
+  return message.message_from_user_id === currentUser.value.id
+}
+
+// Check if user is admin
+const isAdmin = computed(() => {
+  return currentUser.value?.role_id === 1
+})
+
+// Toggle selection mode (admin only)
+const toggleSelectionMode = () => {
+  if (!isAdmin.value) return
+  selectionMode.value = !selectionMode.value
+  if (!selectionMode.value) {
+    selectedMessages.value.clear()
+  }
+}
+
+// Toggle message selection
+const toggleMessageSelection = (messageId) => {
+  if (!selectionMode.value) return
+  if (selectedMessages.value.has(messageId)) {
+    selectedMessages.value.delete(messageId)
+  } else {
+    selectedMessages.value.add(messageId)
+  }
+}
+
+// Select all messages
+const selectAllMessages = () => {
+  if (!selectionMode.value) return
+  messages.value.forEach((message) => {
+    selectedMessages.value.add(message.id)
+  })
+}
+
+// Deselect all messages
+const deselectAllMessages = () => {
+  selectedMessages.value.clear()
+}
+
+// Open bulk date editor
+const openBulkDateEditor = () => {
+  if (selectedMessages.value.size === 0) {
+    alert('Please select at least one message')
+    return
+  }
+  // Set current date/time as default
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  const hours = String(now.getHours()).padStart(2, '0')
+  const minutes = String(now.getMinutes()).padStart(2, '0')
+  bulkEditDate.value = `${year}-${month}-${day}T${hours}:${minutes}`
+  showBulkDatePicker.value = true
+}
+
+// Close bulk date editor
+const closeBulkDateEditor = () => {
+  showBulkDatePicker.value = false
+  bulkEditDate.value = null
+}
+
+// Update bulk message dates
+const updateBulkMessageDates = async () => {
+  if (!bulkEditDate.value || selectedMessages.value.size === 0) return
+
+  try {
+    // Convert local datetime to UTC for database
+    const localDate = new Date(bulkEditDate.value)
+    const utcDate = localDate.toISOString().slice(0, 19).replace('T', ' ')
+    const messageIds = Array.from(selectedMessages.value)
+
+    // Update all selected messages in a single query
+    const placeholders = messageIds.map(() => '?').join(',')
+    const result = await callApi({
+      query: `
+        UPDATE chat_messages 
+        SET time = ?
+        WHERE id IN (${placeholders})
+      `,
+      params: [utcDate, ...messageIds],
+      requiresAuth: true,
+    })
+
+    if (result.success) {
+      // Update messages in local state
+      const updatedTime = new Date(bulkEditDate.value).toISOString()
+      messages.value.forEach((message) => {
+        if (selectedMessages.value.has(message.id)) {
+          message.time = updatedTime
+        }
+      })
+      // Update in group cache as well
+      if (messagesByGroup.value[props.groupId]) {
+        messagesByGroup.value[props.groupId].forEach((message) => {
+          if (selectedMessages.value.has(message.id)) {
+            message.time = updatedTime
+          }
+        })
+      }
+      // Clear selection and close modal
+      selectedMessages.value.clear()
+      selectionMode.value = false
+      closeBulkDateEditor()
+      alert(`Successfully updated ${messageIds.length} message(s)`)
+    } else {
+      alert('Failed to update messages: ' + (result.error || 'Unknown error'))
+    }
+  } catch (err) {
+    console.error('Error updating bulk message dates:', err)
+    alert('Error updating messages: ' + err.message)
+  }
+}
+
+// Open date picker for editing message date
+const openDateEditor = (message) => {
+  if (!canEditMessageDate(message)) return
+  editingMessageId.value = message.id
+  // Convert UTC time from database to local time for datetime-local input
+  const messageDate = new Date(message.time)
+  // Format as YYYY-MM-DDTHH:mm for datetime-local input (in local timezone)
+  const year = messageDate.getFullYear()
+  const month = String(messageDate.getMonth() + 1).padStart(2, '0')
+  const day = String(messageDate.getDate()).padStart(2, '0')
+  const hours = String(messageDate.getHours()).padStart(2, '0')
+  const minutes = String(messageDate.getMinutes()).padStart(2, '0')
+  editingMessageDate.value = `${year}-${month}-${day}T${hours}:${minutes}`
+  showDatePicker.value = true
+}
+
+// Close date picker
+const closeDateEditor = () => {
+  editingMessageId.value = null
+  editingMessageDate.value = null
+  showDatePicker.value = false
+}
+
+// Update message date in database
+const updateMessageDate = async () => {
+  if (!editingMessageId.value || !editingMessageDate.value) return
+
+  try {
+    // Convert local datetime to UTC for database
+    const localDate = new Date(editingMessageDate.value)
+    const utcDate = localDate.toISOString().slice(0, 19).replace('T', ' ')
+
+    const result = await callApi({
+      query: `
+        UPDATE chat_messages 
+        SET time = ?
+        WHERE id = ?
+      `,
+      params: [utcDate, editingMessageId.value],
+      requiresAuth: true,
+    })
+
+    if (result.success) {
+      // Update the message in local state
+      const messageIndex = messages.value.findIndex((m) => m.id === editingMessageId.value)
+      if (messageIndex !== -1) {
+        // Update the message time
+        messages.value[messageIndex].time = new Date(editingMessageDate.value).toISOString()
+        // Update in group cache as well
+        if (messagesByGroup.value[props.groupId]) {
+          const groupMessageIndex = messagesByGroup.value[props.groupId].findIndex(
+            (m) => m.id === editingMessageId.value,
+          )
+          if (groupMessageIndex !== -1) {
+            messagesByGroup.value[props.groupId][groupMessageIndex].time = new Date(
+              editingMessageDate.value,
+            ).toISOString()
+          }
+        }
+      }
+      closeDateEditor()
+    } else {
+      alert('Failed to update message date: ' + (result.error || 'Unknown error'))
+    }
+  } catch (err) {
+    console.error('Error updating message date:', err)
+    alert('Error updating message date: ' + err.message)
+  }
+}
+
 const handleKeyPress = (event) => {
   if (event.key === 'Enter' && !event.shiftKey) {
     event.preventDefault()
@@ -1394,8 +1596,8 @@ const uploadFileToChat = async () => {
       // Send the file message to the database
       const result = await callApi({
         query: `
-          INSERT INTO chat_messages (id_chat_group, message_from_user_id, message) 
-          VALUES (?, ?, ?)
+          INSERT INTO chat_messages (id_chat_group, message_from_user_id, message, time) 
+          VALUES (?, ?, ?, UTC_TIMESTAMP())
         `,
         params: [fileMessage.id_chat_group, fileMessage.message_from_user_id, fileMessage.message],
         requiresAuth: true,
@@ -1666,8 +1868,8 @@ const sendVoiceMessage = async () => {
       // Send the voice message to the database
       const result = await callApi({
         query: `
-          INSERT INTO chat_messages (id_chat_group, message_from_user_id, message) 
-          VALUES (?, ?, ?)
+          INSERT INTO chat_messages (id_chat_group, message_from_user_id, message, time) 
+          VALUES (?, ?, ?, UTC_TIMESTAMP())
         `,
         params: [
           voiceMessage.id_chat_group,
@@ -1850,6 +2052,32 @@ watch(
         <span class="member-count">
           <i class="fas fa-users"></i> {{ messages.length }} messages
         </span>
+        <button
+          v-if="isAdmin"
+          @click="toggleSelectionMode"
+          :class="['selection-mode-btn', { active: selectionMode }]"
+          :title="selectionMode ? 'Exit selection mode' : 'Enter selection mode'"
+        >
+          <i :class="selectionMode ? 'fas fa-check-square' : 'fas fa-square'"></i>
+          {{ selectionMode ? 'Selection Mode' : 'Select Messages' }}
+        </button>
+        <button
+          v-if="selectionMode && selectedMessages.size > 0"
+          @click="openBulkDateEditor"
+          class="bulk-edit-btn"
+          :title="`Edit date for ${selectedMessages.size} selected message(s)`"
+        >
+          <i class="fas fa-calendar-alt"></i>
+          Edit Date ({{ selectedMessages.size }})
+        </button>
+        <button
+          v-if="selectionMode && selectedMessages.size > 0"
+          @click="deselectAllMessages"
+          class="deselect-all-btn"
+          title="Deselect all"
+        >
+          <i class="fas fa-times"></i>
+        </button>
       </div>
     </div>
 
@@ -1877,11 +2105,21 @@ watch(
       </div>
 
       <div v-else class="messages-list">
+        <!-- Select All button (shown in selection mode) -->
+        <div v-if="selectionMode" class="select-all-container">
+          <button @click="selectAllMessages" class="select-all-btn">
+            <i class="fas fa-check-double"></i>
+            Select All Messages
+          </button>
+          <span v-if="selectedMessages.size > 0" class="selected-count">
+            {{ selectedMessages.size }} selected
+          </span>
+        </div>
         <div
           v-for="(message, index) in messages"
           :key="message.id"
           class="message-wrapper"
-          :class="{ 'own-message': isOwnMessage(message) }"
+          :class="{ 'own-message': isOwnMessage(message), 'selected': selectedMessages.has(message.id) }"
         >
           <!-- Date separator -->
           <div
@@ -1892,11 +2130,28 @@ watch(
           </div>
 
           <div class="message">
+            <!-- Selection checkbox (shown in selection mode) -->
+            <div v-if="selectionMode" class="message-checkbox">
+              <input
+                type="checkbox"
+                :checked="selectedMessages.has(message.id)"
+                @change="toggleMessageSelection(message.id)"
+                class="message-select-checkbox"
+              />
+            </div>
             <div class="message-header">
               <span class="sender-name">{{ message.sender_username }}</span>
               <div class="time-info">
                 <span class="relative-time">{{ getRelativeTime(message.time) }}</span>
                 <span class="absolute-time">{{ formatTime(message.time) }}</span>
+                <button
+                  v-if="canEditMessageDate(message)"
+                  @click="openDateEditor(message)"
+                  class="edit-date-btn"
+                  title="Edit message date"
+                >
+                  <i class="fas fa-edit"></i>
+                </button>
               </div>
             </div>
 
@@ -2197,6 +2452,59 @@ watch(
         </div>
       </div>
     </div>
+
+    <!-- Date Picker Modal -->
+    <div v-if="showDatePicker" class="date-picker-modal" @click.self="closeDateEditor">
+      <div class="date-picker-content">
+        <div class="date-picker-header">
+          <h3>Edit Message Date</h3>
+          <button @click="closeDateEditor" class="close-btn">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="date-picker-body">
+          <label for="message-date-input">Select Date & Time:</label>
+          <input
+            id="message-date-input"
+            type="datetime-local"
+            v-model="editingMessageDate"
+            class="date-input"
+          />
+        </div>
+        <div class="date-picker-footer">
+          <button @click="closeDateEditor" class="cancel-btn">Cancel</button>
+          <button @click="updateMessageDate" class="save-btn">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bulk Date Picker Modal -->
+    <div v-if="showBulkDatePicker" class="date-picker-modal" @click.self="closeBulkDateEditor">
+      <div class="date-picker-content">
+        <div class="date-picker-header">
+          <h3>Edit Date for {{ selectedMessages.size }} Message(s)</h3>
+          <button @click="closeBulkDateEditor" class="close-btn">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="date-picker-body">
+          <label for="bulk-date-input">Select Date & Time:</label>
+          <input
+            id="bulk-date-input"
+            type="datetime-local"
+            v-model="bulkEditDate"
+            class="date-input"
+          />
+          <p class="bulk-edit-info">
+            This will update the date/time for all {{ selectedMessages.size }} selected message(s).
+          </p>
+        </div>
+        <div class="date-picker-footer">
+          <button @click="closeBulkDateEditor" class="cancel-btn">Cancel</button>
+          <button @click="updateBulkMessageDates" class="save-btn">Update All</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -2293,10 +2601,128 @@ watch(
 .message-wrapper {
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
 .message-wrapper.own-message {
   align-items: flex-end;
+}
+
+.message-wrapper.selected .message {
+  border: 2px solid #06b6d4;
+  box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.2);
+}
+
+.select-all-container {
+  padding: 12px 16px;
+  background-color: #f0f9ff;
+  border: 1px solid #06b6d4;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.select-all-btn {
+  background-color: #06b6d4;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: background-color 0.2s;
+}
+
+.select-all-btn:hover {
+  background-color: #0891b2;
+}
+
+.selected-count {
+  color: #0369a1;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.message-checkbox {
+  position: absolute;
+  left: -30px;
+  top: 12px;
+  z-index: 10;
+}
+
+@media (max-width: 768px) {
+  .message-checkbox {
+    left: -25px;
+  }
+}
+
+.message-select-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #06b6d4;
+}
+
+.selection-mode-btn {
+  background-color: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+
+.selection-mode-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.selection-mode-btn.active {
+  background-color: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.bulk-edit-btn {
+  background-color: #10b981;
+  border: none;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: background-color 0.2s;
+}
+
+.bulk-edit-btn:hover {
+  background-color: #059669;
+}
+
+.deselect-all-btn {
+  background-color: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+}
+
+.deselect-all-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
 .date-separator {
@@ -2378,6 +2804,157 @@ watch(
 .absolute-time {
   font-size: 0.7rem;
   opacity: 0.8;
+}
+
+.edit-date-btn {
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 4px 6px;
+  margin-left: 6px;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+  font-size: 0.7rem;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 4px;
+}
+
+.edit-date-btn:hover {
+  opacity: 1;
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.own-message .edit-date-btn {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.own-message .edit-date-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Date Picker Modal */
+.date-picker-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.date-picker-content {
+  background-color: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  width: 90%;
+  max-width: 400px;
+  overflow: hidden;
+}
+
+.date-picker-header {
+  padding: 16px 20px;
+  background-color: #06b6d4;
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.date-picker-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.close-btn {
+  background: transparent;
+  border: none;
+  color: white;
+  cursor: pointer;
+  font-size: 1.2rem;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.close-btn:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.date-picker-body {
+  padding: 20px;
+}
+
+.date-picker-body label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.date-input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.date-input:focus {
+  border-color: #06b6d4;
+}
+
+.bulk-edit-info {
+  margin-top: 12px;
+  padding: 8px;
+  background-color: #f0f9ff;
+  border-left: 3px solid #06b6d4;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  color: #0369a1;
+}
+
+.date-picker-footer {
+  padding: 16px 20px;
+  background-color: #f8fafc;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.cancel-btn,
+.save-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.2s;
+}
+
+.cancel-btn {
+  background-color: #e2e8f0;
+  color: #374151;
+}
+
+.cancel-btn:hover {
+  background-color: #cbd5e1;
+}
+
+.save-btn {
+  background-color: #06b6d4;
+  color: white;
+}
+
+.save-btn:hover {
+  background-color: #0891b2;
 }
 
 .message-content {
@@ -2712,6 +3289,136 @@ watch(
   background-color: #dc2626 !important;
 }
 
+/* File attachment styles */
+.file-attachment {
+  margin-top: 8px;
+}
+
+.image-attachment {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+
+.chat-image {
+  max-width: 400px;
+  max-height: 400px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  display: block;
+}
+
+.chat-image:hover {
+  opacity: 0.9;
+}
+
+.video-attachment {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+
+.chat-video {
+  max-width: 400px;
+  max-height: 400px;
+  width: auto;
+  height: auto;
+  border-radius: 8px;
+  display: block;
+}
+
+.audio-attachment {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.audio-player {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.audio-icon {
+  font-size: 1.5rem;
+  color: #06b6d4;
+}
+
+.chat-audio {
+  flex: 1;
+  max-width: 300px;
+}
+
+.file-info-overlay {
+  margin-top: 8px;
+  padding: 8px;
+  background-color: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.85rem;
+}
+
+.file-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.file-size {
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.file-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background-color: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.file-icon {
+  font-size: 1.5rem;
+}
+
+.file-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.download-btn {
+  background-color: transparent;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.download-btn:hover {
+  background-color: #06b6d4;
+  border-color: #06b6d4;
+  color: white;
+}
+
 /* Responsive design */
 @media (max-width: 768px) {
   .message {
@@ -2734,6 +3441,16 @@ watch(
     flex-direction: column;
     gap: 4px;
     align-items: flex-start;
+  }
+
+  .chat-image {
+    max-width: 100%;
+    max-height: 300px;
+  }
+
+  .chat-video {
+    max-width: 100%;
+    max-height: 300px;
   }
 }
 </style>
