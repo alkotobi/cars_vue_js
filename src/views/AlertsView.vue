@@ -157,7 +157,8 @@ const fetchNotArrivedCount = async () => {
         FROM cars_stock cs
         INNER JOIN buy_details bd ON cs.id_buy_details = bd.id
         INNER JOIN buy_bill bb ON bd.id_buy_bill = bb.id
-        WHERE cs.in_wharhouse_date IS NULL
+        WHERE cs.date_loding IS NULL
+        AND cs.in_wharhouse_date IS NULL
         AND cs.date_send_documents IS NULL
         AND cs.hidden = 0
         AND cs.is_batch = 0
@@ -185,7 +186,8 @@ const fetchNoLicenseCount = async () => {
         FROM cars_stock cs
         INNER JOIN buy_details bd ON cs.id_buy_details = bd.id
         INNER JOIN buy_bill bb ON bd.id_buy_bill = bb.id
-        WHERE (cs.export_lisence_ref IS NULL OR cs.export_lisence_ref = '')
+        WHERE cs.date_loding IS NULL
+        AND (cs.export_lisence_ref IS NULL OR cs.export_lisence_ref = '')
         AND cs.date_send_documents IS NULL
         AND cs.hidden = 0
         AND cs.is_batch = 0

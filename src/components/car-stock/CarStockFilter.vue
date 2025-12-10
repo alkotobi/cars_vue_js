@@ -87,7 +87,7 @@ const advancedFilters = ref({
   bill_ref: '',
   sell_bill_ref: '',
   tmp_client_status: '',
-  exclude_whole_sale: false,
+  whole_sale_status: '',
   hidden: '',
   // File upload status filters
   bl_file_status: '',
@@ -625,20 +625,21 @@ fetchReferenceData()
           </div>
         </div>
 
-        <!-- Exclude Whole Sale Filter -->
-        <div class="filter-field checkbox-field">
-          <label for="exclude-whole-sale-filter" class="checkbox-label">
-            <input
-              id="exclude-whole-sale-filter"
-              type="checkbox"
-              v-model="advancedFilters.exclude_whole_sale"
-              :disabled="isProcessing.advanced"
-            />
-            <span class="checkbox-text">
-              <i class="fas fa-ban"></i>
-              {{ t('carStockFilter.excludeWholeSaleCars') }}
-            </span>
+        <!-- Whole Sale Status Filter -->
+        <div class="filter-field">
+          <label for="whole-sale-status-filter">
+            <i class="fas fa-layer-group"></i>
+            {{ t('carStockFilter.wholeSaleStatus') }}
           </label>
+          <select
+            id="whole-sale-status-filter"
+            v-model="advancedFilters.whole_sale_status"
+            :disabled="isProcessing.advanced"
+          >
+            <option value="">{{ t('carStockFilter.all') }}</option>
+            <option value="whole_sale">{{ t('carStockFilter.wholeSale') }}</option>
+            <option value="not_whole_sale">{{ t('carStockFilter.notWholeSale') }}</option>
+          </select>
         </div>
 
         <!-- Hidden Cars Filter (Admin Only) -->

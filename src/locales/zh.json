@@ -974,6 +974,9 @@
     "temporaryClientOption": "临时客户",
     "permanentClientOption": "永久客户",
     "excludeWholeSaleCars": "排除批发汽车",
+    "wholeSaleStatus": "批发状态",
+    "wholeSale": "批发",
+    "notWholeSale": "非批发",
     "failedToLoadPortsData": "加载港口数据失败"
   },
   "carPortsEditForm": {

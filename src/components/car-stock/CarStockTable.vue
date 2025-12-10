@@ -94,6 +94,7 @@ const props = defineProps({
         bill_ref: '',
         sell_bill_ref: '',
         tmp_client_status: '',
+        whole_sale_status: '',
       },
     }),
   },
@@ -1041,8 +1042,12 @@ const fetchCarsStock = async () => {
             filteredCars = filteredCars.filter((car) => car.hidden == 0)
           }
         }
-        if (adv.exclude_whole_sale) {
-          filteredCars = filteredCars.filter((car) => car.is_batch == 0)
+        if (adv.whole_sale_status && adv.whole_sale_status.trim() !== '') {
+          if (adv.whole_sale_status === 'whole_sale') {
+            filteredCars = filteredCars.filter((car) => car.is_batch == 1)
+          } else if (adv.whole_sale_status === 'not_whole_sale') {
+            filteredCars = filteredCars.filter((car) => car.is_batch == 0)
+          }
         }
         if (adv.has_bl) {
           filteredCars = filteredCars.filter((car) => car.date_get_bl)
@@ -1184,6 +1189,8 @@ const fetchCarsStock = async () => {
           } else if (alertType === 'not_arrived') {
             // Cars purchased more than X days ago that haven't arrived at port
             filteredCars = filteredCars.filter((car) => {
+              // Must not be loaded (if loaded, it means arrived and has license)
+              if (car.date_loding) return false
               // Must not be in warehouse
               if (car.in_wharhouse_date) return false
               // Must not have documents sent
@@ -1204,6 +1211,8 @@ const fetchCarsStock = async () => {
           } else if (alertType === 'no_licence') {
             // Cars purchased more than X days ago without export license
             filteredCars = filteredCars.filter((car) => {
+              // Must not be loaded (if loaded, it means arrived and has license)
+              if (car.date_loding) return false
               // Must not have export license
               if (car.export_lisence_ref && car.export_lisence_ref !== '') return false
               // Must not have documents sent
@@ -2200,9 +2209,15 @@ const handleMarkDelivered = async () => {
 
   try {
     const result = await callApi({
-      query: `UPDATE cars_stock SET date_send_documents = NOW() WHERE id IN (${carIds
-        .map(() => '?')
-        .join(',')})`,
+      query: `UPDATE cars_stock 
+        SET 
+          date_send_documents = NOW(),
+          date_loding = COALESCE(date_loding, NOW()),
+          export_lisence_ref = COALESCE(NULLIF(export_lisence_ref, ''), 'ref'),
+          in_wharhouse_date = COALESCE(in_wharhouse_date, NOW()),
+          date_get_documents_from_supp = COALESCE(date_get_documents_from_supp, NOW()),
+          date_get_bl = COALESCE(date_get_bl, NOW())
+        WHERE id IN (${carIds.map(() => '?').join(',')})`,
       params: [...carIds],
     })
 
