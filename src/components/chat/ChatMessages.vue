@@ -939,14 +939,12 @@ const openBulkDateEditor = () => {
     alert('Please select at least one message')
     return
   }
-  // Set current date/time as default
+  // Set current date as default (date only, no time)
   const now = new Date()
   const year = now.getFullYear()
   const month = String(now.getMonth() + 1).padStart(2, '0')
   const day = String(now.getDate()).padStart(2, '0')
-  const hours = String(now.getHours()).padStart(2, '0')
-  const minutes = String(now.getMinutes()).padStart(2, '0')
-  bulkEditDate.value = `${year}-${month}-${day}T${hours}:${minutes}`
+  bulkEditDate.value = `${year}-${month}-${day}`
   showBulkDatePicker.value = true
 }
 
@@ -956,51 +954,87 @@ const closeBulkDateEditor = () => {
   bulkEditDate.value = null
 }
 
-// Update bulk message dates
+// Update bulk message dates (preserving original time, only changing date)
 const updateBulkMessageDates = async () => {
   if (!bulkEditDate.value || selectedMessages.value.size === 0) return
 
   try {
-    // Convert local datetime to UTC for database
-    const localDate = new Date(bulkEditDate.value)
-    const utcDate = localDate.toISOString().slice(0, 19).replace('T', ' ')
-    const messageIds = Array.from(selectedMessages.value)
+    // Get the new date (month and day) from the picker
+    const newDate = new Date(bulkEditDate.value)
+    const newYear = newDate.getFullYear()
+    const newMonth = newDate.getMonth()
+    const newDay = newDate.getDate()
 
-    // Update all selected messages in a single query
-    const placeholders = messageIds.map(() => '?').join(',')
-    const result = await callApi({
-      query: `
-        UPDATE chat_messages 
-        SET time = ?
-        WHERE id IN (${placeholders})
-      `,
-      params: [utcDate, ...messageIds],
-      requiresAuth: true,
-    })
+    // Get selected messages with their original times
+    const selectedMessagesList = messages.value.filter((message) =>
+      selectedMessages.value.has(message.id),
+    )
 
-    if (result.success) {
-      // Update messages in local state
-      const updatedTime = new Date(bulkEditDate.value).toISOString()
-      messages.value.forEach((message) => {
-        if (selectedMessages.value.has(message.id)) {
-          message.time = updatedTime
-        }
-      })
-      // Update in group cache as well
-      if (messagesByGroup.value[props.groupId]) {
-        messagesByGroup.value[props.groupId].forEach((message) => {
-          if (selectedMessages.value.has(message.id)) {
-            message.time = updatedTime
-          }
+    // Update each message individually to preserve its original time
+    let successCount = 0
+    let failCount = 0
+
+    for (const message of selectedMessagesList) {
+      try {
+        // Get original message time
+        const originalDate = new Date(message.time)
+        const originalHours = originalDate.getHours()
+        const originalMinutes = originalDate.getMinutes()
+        const originalSeconds = originalDate.getSeconds()
+
+        // Create new date with new year/month/day but original time
+        const combinedDate = new Date(
+          newYear,
+          newMonth,
+          newDay,
+          originalHours,
+          originalMinutes,
+          originalSeconds,
+        )
+
+        // Convert to UTC for database
+        const utcDate = combinedDate.toISOString().slice(0, 19).replace('T', ' ')
+
+        // Update this message
+        const result = await callApi({
+          query: `UPDATE chat_messages SET time = ? WHERE id = ?`,
+          params: [utcDate, message.id],
+          requiresAuth: true,
         })
+
+        if (result.success) {
+          // Update in local state
+          message.time = combinedDate.toISOString()
+          // Update in group cache as well
+          if (messagesByGroup.value[props.groupId]) {
+            const groupMessage = messagesByGroup.value[props.groupId].find(
+              (m) => m.id === message.id,
+            )
+            if (groupMessage) {
+              groupMessage.time = combinedDate.toISOString()
+            }
+          }
+          successCount++
+        } else {
+          failCount++
+        }
+      } catch (err) {
+        console.error(`Error updating message ${message.id}:`, err)
+        failCount++
       }
-      // Clear selection and close modal
-      selectedMessages.value.clear()
-      selectionMode.value = false
-      closeBulkDateEditor()
-      alert(`Successfully updated ${messageIds.length} message(s)`)
+    }
+
+    // Clear selection and close modal
+    selectedMessages.value.clear()
+    selectionMode.value = false
+    closeBulkDateEditor()
+
+    if (failCount === 0) {
+      alert(`Successfully updated ${successCount} message(s)`)
     } else {
-      alert('Failed to update messages: ' + (result.error || 'Unknown error'))
+      alert(
+        `Updated ${successCount} message(s), ${failCount} failed. Original times were preserved.`,
+      )
     }
   } catch (err) {
     console.error('Error updating bulk message dates:', err)
@@ -2488,15 +2522,16 @@ watch(
           </button>
         </div>
         <div class="date-picker-body">
-          <label for="bulk-date-input">Select Date & Time:</label>
+          <label for="bulk-date-input">Select Date (Time will be preserved):</label>
           <input
             id="bulk-date-input"
-            type="datetime-local"
+            type="date"
             v-model="bulkEditDate"
             class="date-input"
           />
           <p class="bulk-edit-info">
-            This will update the date/time for all {{ selectedMessages.size }} selected message(s).
+            This will update the date (month and day) for all {{ selectedMessages.size }} selected
+            message(s). The original time of each message will be preserved.
           </p>
         </div>
         <div class="date-picker-footer">
