@@ -27,17 +27,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         // Sanitize base directory (remove any parent directory references)
         $baseDirectory = str_replace('..', '', $baseDirectory);
         $baseDirectory = str_replace('//', '/', $baseDirectory);
-        $baseDirectory = trim($baseDirectory, '/');
-
+        
+        // Remove leading slash if present (Unix path format, but we use it relative to project root)
+        // This handles paths like "/mig_files" -> "mig_files"
+        $baseDirectory = ltrim($baseDirectory, '/');
+        // Remove trailing slash for consistency
+        $baseDirectory = rtrim($baseDirectory, '/');
+        
         // Get and sanitize the file path
         $requestedPath = $_GET['path'];
         
         // Remove any parent directory references for security
         $requestedPath = str_replace('..', '', $requestedPath);
         $requestedPath = str_replace('//', '/', $requestedPath);
+        $requestedPath = ltrim($requestedPath, '/'); // Remove leading slash
         
-        // Construct the full file path
-        //$filePath = __DIR__ . '/../files/' . $requestedPath;
+        // Construct the full file path (always relative to project root for security)
         $filePath = __DIR__ . '/../' . $baseDirectory . '/' . $requestedPath;
 
         // Check if file exists
@@ -156,7 +161,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Sanitize base directory (remove any parent directory references)
         $baseDirectory = str_replace('..', '', $baseDirectory);
         $baseDirectory = str_replace('//', '/', $baseDirectory);
-        $baseDirectory = trim($baseDirectory, '/');
+        
+        // Remove leading slash if present (Unix path format, but we use it relative to project root)
+        // This handles paths like "/mig_files" -> "mig_files"
+        $baseDirectory = ltrim($baseDirectory, '/');
+        // Remove trailing slash for consistency
+        $baseDirectory = rtrim($baseDirectory, '/');
 
         // Get destination folder and filename from POST data
         $destinationFolder = isset($_POST['destination_folder']) ? trim($_POST['destination_folder']) : 'uploads';
@@ -188,6 +198,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // Create base upload directory if it doesn't exist
+        // Always use relative to project root for security (Unix path format is handled by removing leading slash)
         $baseUploadDir = __DIR__ . '/../' . $baseDirectory . '/';
         error_log('Base upload directory: ' . $baseUploadDir);
         

@@ -194,6 +194,28 @@ try {
             $response['data'] = $databases;
             break;
             
+        case 'get_database_by_code':
+            // Get database by db_code
+            $db_code = trim($inputData['db_code'] ?? '');
+            
+            if (empty($db_code)) {
+                $response['message'] = 'DB Code is required';
+                break;
+            }
+            
+            $stmt = $conn->prepare("SELECT db_name, files_dir FROM dbs WHERE db_code = ?");
+            $stmt->execute([$db_code]);
+            $database = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$database) {
+                $response['message'] = 'Database not found';
+                break;
+            }
+            
+            $response['success'] = true;
+            $response['data'] = $database;
+            break;
+            
         case 'create_database':
             // Create new database
             $db_name = trim($inputData['db_name'] ?? '');

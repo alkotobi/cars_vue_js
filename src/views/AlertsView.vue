@@ -333,6 +333,11 @@ const handleNoDocsClick = () => {
   background-color: #fef2f2;
   border-bottom: 1px solid #fecaca;
   transition: all 0.3s ease;
+  position: fixed;
+  top: 70px;
+  left: 0;
+  right: 0;
+  z-index: 999;
 }
 
 .alerts-view.refreshing {
@@ -499,6 +504,10 @@ const handleNoDocsClick = () => {
 }
 
 @media (max-width: 768px) {
+  .alerts-view {
+    top: 60px; /* Smaller header on mobile */
+  }
+
   .alerts-container {
     flex-direction: column;
     align-items: center;

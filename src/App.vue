@@ -57,7 +57,7 @@ onMounted(async () => {
     <DatabaseVersionCheck />
     <AlertsView v-if="showAlerts" />
     <AppHeader />
-    <main class="app-main">
+    <main class="app-main" :class="{ 'with-alerts': showAlerts }">
       <RouterView />
     </main>
     <I18nDebugPanel />
@@ -77,9 +77,17 @@ onMounted(async () => {
   padding-top: 70px; /* Account for fixed header height */
 }
 
+.app-main.with-alerts {
+  padding-top: 130px; /* Account for fixed header (70px) + alerts view (~60px) */
+}
+
 @media (max-width: 768px) {
   .app-main {
     padding-top: 60px; /* Smaller header on mobile */
+  }
+
+  .app-main.with-alerts {
+    padding-top: 120px; /* Account for fixed header (60px) + alerts view (~60px) */
   }
 }
 

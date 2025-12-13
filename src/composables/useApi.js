@@ -11,6 +11,7 @@ const API_BASE_URL = isLocalhost ? 'http://localhost:8000/api' : 'https://www.me
 
 const API_URL = `${API_BASE_URL}/api.php`
 const UPLOAD_URL = `${API_BASE_URL}/upload.php`
+const DB_MANAGER_API_URL = `${API_BASE_URL}/db_manager_api.php`
 
 // Configuration cache (loaded from db_code.json)
 let config_cache = null
@@ -37,19 +38,58 @@ async function loadConfig() {
         throw new Error(`Failed to load db_code.json: ${response.status}`)
       }
       const data = await response.json()
-      config_cache = {
-        db_name: data.db_name || 'merhab_cars',
-        upload_path: data.uplod_path || 'mig_files', // Note: typo in JSON key "uplod_path"
+
+      // Check if db_code exists
+      if (data.db_code) {
+        // Fetch database info from dbs table using db_code
+        try {
+          const dbResponse = await fetch(
+            `${DB_MANAGER_API_URL}?action=get_database_by_code&db_code=${encodeURIComponent(data.db_code)}`,
+          )
+          if (!dbResponse.ok) {
+            throw new Error(`Failed to fetch database info: ${dbResponse.status}`)
+          }
+          const dbResult = await dbResponse.json()
+
+          if (dbResult.success && dbResult.data) {
+            // Use db_name and files_dir from dbs table
+            if (!dbResult.data.db_name) {
+              throw new Error(
+                `Database record found but db_name is missing for db_code: ${data.db_code}`,
+              )
+            }
+            config_cache = {
+              db_name: dbResult.data.db_name,
+              upload_path: dbResult.data.files_dir || '', // Use files_dir from dbs table (can be null/empty)
+            }
+            return config_cache
+          } else {
+            throw new Error(`Database not found for db_code: ${data.db_code}`)
+          }
+        } catch (dbErr) {
+          console.error('Error fetching database from dbs table:', dbErr)
+          throw dbErr
+        }
+      } else {
+        // No db_code, use db_name and uplod_path from JSON
+        if (!data.db_name || !data.uplod_path) {
+          throw new Error(
+            'Missing required configuration: db_name and uplod_path are required when db_code is not provided',
+          )
+        }
+
+        config_cache = {
+          db_name: data.db_name,
+          upload_path: data.uplod_path,
+        }
+        return config_cache
       }
-      return config_cache
     } catch (err) {
-      console.error('Error loading db_code.json, using defaults:', err)
-      // Fallback to default values
-      config_cache = {
-        db_name: 'merhab_cars',
-        upload_path: 'mig_files',
-      }
-      return config_cache
+      console.error('Fatal error loading configuration:', err)
+      // Fatal error - stop the website
+      throw new Error(
+        `FATAL ERROR: Cannot load database configuration. ${err.message}. Please check db_code.json file.`,
+      )
     } finally {
       config_promise = null
     }
