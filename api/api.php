@@ -10,8 +10,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
+// Only accept POST requests
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    echo json_encode(['success' => false, 'error' => 'Only POST method is allowed']);
+    exit;
+}
+
 // Include database configuration
 require_once 'config.php';
+
+// Get POST data early to check for database name
+$postData = json_decode(file_get_contents('php://input'), true);
+
+// Function to get database configuration (uses POST dbname if provided, otherwise uses config.php)
+function getDbConfig() {
+    global $db_config, $postData;
+    
+    // If POST data contains dbname, use it; otherwise use default from config
+    if ($postData && isset($postData['dbname']) && !empty($postData['dbname'])) {
+        return [
+            'host' => $db_config['host'],
+            'user' => $db_config['user'],
+            'pass' => $db_config['pass'],
+            'dbname' => $postData['dbname']
+        ];
+    }
+    
+    return $db_config;
+}
 
 // Function to establish database connection
 function getConnection($config) {
@@ -30,10 +56,8 @@ function getConnection($config) {
 
 // Function to execute SQL query and return appropriate result
 function executeQuery($sql, $params = []) {
-    global $db_config;
-    
     try {
-        $conn = getConnection($db_config);
+        $conn = getConnection(getDbConfig());
         
         if (is_array($conn) && isset($conn['error'])) {
             throw new Exception($conn['error']);
@@ -63,10 +87,8 @@ function executeQuery($sql, $params = []) {
 
 // Function to execute multi-statement SQL query
 function executeMultiQuery($sql, $params = []) {
-    global $db_config;
-    
     try {
-        $conn = getConnection($db_config);
+        $conn = getConnection(getDbConfig());
         
         if (is_array($conn) && isset($conn['error'])) {
             throw new Exception($conn['error']);
@@ -139,15 +161,6 @@ function executeMultiQuery($sql, $params = []) {
         return ['success' => false, 'error' => $e->getMessage()];
     }
 }
-
-// Only accept POST requests
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    echo json_encode(['success' => false, 'error' => 'Only POST method is allowed']);
-    exit;
-}
-
-// Get POST data
-$postData = json_decode(file_get_contents('php://input'), true);
 
 // Check if this is a special action request
 if (isset($postData['action'])) {
@@ -286,7 +299,7 @@ if (isset($postData['action'])) {
             $errors = [];
             
             try {
-                $conn = getConnection($db_config);
+                $conn = getConnection(getDbConfig());
                 
                 if (is_array($conn) && isset($conn['error'])) {
                     throw new Exception($conn['error']);

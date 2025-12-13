@@ -21,6 +21,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             throw new Exception('No file path provided');
         }
 
+        // Get base directory from query parameter or use default
+        $baseDirectory = isset($_GET['base_directory']) ? trim($_GET['base_directory']) : 'mig_files';
+        
+        // Sanitize base directory (remove any parent directory references)
+        $baseDirectory = str_replace('..', '', $baseDirectory);
+        $baseDirectory = str_replace('//', '/', $baseDirectory);
+        $baseDirectory = trim($baseDirectory, '/');
+
         // Get and sanitize the file path
         $requestedPath = $_GET['path'];
         
@@ -30,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         
         // Construct the full file path
         //$filePath = __DIR__ . '/../files/' . $requestedPath;
-        $filePath = __DIR__ . '/../mig_files/' . $requestedPath;
+        $filePath = __DIR__ . '/../' . $baseDirectory . '/' . $requestedPath;
 
         // Check if file exists
         if (!file_exists($filePath)) {
@@ -142,6 +150,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $fileError = $file['error'];
         $fileSize = $file['size'];
 
+        // Get base directory from POST data or use default
+        $baseDirectory = isset($_POST['base_directory']) ? trim($_POST['base_directory']) : 'mig_files';
+        
+        // Sanitize base directory (remove any parent directory references)
+        $baseDirectory = str_replace('..', '', $baseDirectory);
+        $baseDirectory = str_replace('//', '/', $baseDirectory);
+        $baseDirectory = trim($baseDirectory, '/');
+
         // Get destination folder and filename from POST data
         $destinationFolder = isset($_POST['destination_folder']) ? trim($_POST['destination_folder']) : 'uploads';
         $customFileName = isset($_POST['custom_filename']) ? trim($_POST['custom_filename']) : '';
@@ -158,7 +174,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // Create base upload directory if it doesn't exist
-        $baseUploadDir = __DIR__ . '/../mig_files/';
+        $baseUploadDir = __DIR__ . '/../' . $baseDirectory . '/';
         error_log('Base upload directory: ' . $baseUploadDir);
         
         if (!file_exists($baseUploadDir)) {
@@ -218,7 +234,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Success response with path that points back to this same file
         $response['success'] = true;
         $response['message'] = 'File uploaded successfully';
-        $response['file_path'] = '/api/upload.php?path=' . $destinationFolder . '/' . $finalFileName;
+        // Include base_directory in URL if it's not the default, or always include it for consistency
+        $response['file_path'] = '/api/upload.php?path=' . urlencode($destinationFolder . '/' . $finalFileName) . 
+                                  '&base_directory=' . urlencode($baseDirectory);
 
     } catch (Exception $e) {
         error_log('Upload error: ' . $e->getMessage());

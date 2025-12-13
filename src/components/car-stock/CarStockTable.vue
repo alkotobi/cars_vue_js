@@ -1046,7 +1046,7 @@ const fetchCarsStock = async () => {
           if (adv.whole_sale_status === 'whole_sale') {
             filteredCars = filteredCars.filter((car) => car.is_batch == 1)
           } else if (adv.whole_sale_status === 'not_whole_sale') {
-            filteredCars = filteredCars.filter((car) => car.is_batch == 0)
+          filteredCars = filteredCars.filter((car) => car.is_batch == 0)
           }
         }
         if (adv.has_bl) {

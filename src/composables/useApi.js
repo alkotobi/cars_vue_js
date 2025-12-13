@@ -12,6 +12,64 @@ const API_BASE_URL = isLocalhost ? 'http://localhost:8000/api' : 'https://www.me
 const API_URL = `${API_BASE_URL}/api.php`
 const UPLOAD_URL = `${API_BASE_URL}/upload.php`
 
+// Configuration cache (loaded from db_code.json)
+let config_cache = null
+let config_promise = null
+
+// Function to load configuration from db_code.json
+// This file is in the public folder and will be accessible at /db_code.json when distributed
+async function loadConfig() {
+  // Return cached value if already loaded
+  if (config_cache !== null) {
+    return config_cache
+  }
+
+  // Return existing promise if already loading
+  if (config_promise) {
+    return config_promise
+  }
+
+  // Start loading
+  config_promise = (async () => {
+    try {
+      const response = await fetch('/db_code.json')
+      if (!response.ok) {
+        throw new Error(`Failed to load db_code.json: ${response.status}`)
+      }
+      const data = await response.json()
+      config_cache = {
+        db_name: data.db_name || 'merhab_cars',
+        upload_path: data.uplod_path || 'mig_files', // Note: typo in JSON key "uplod_path"
+      }
+      return config_cache
+    } catch (err) {
+      console.error('Error loading db_code.json, using defaults:', err)
+      // Fallback to default values
+      config_cache = {
+        db_name: 'merhab_cars',
+        upload_path: 'mig_files',
+      }
+      return config_cache
+    } finally {
+      config_promise = null
+    }
+  })()
+
+  return config_promise
+}
+
+// Helper function to get database name
+async function loadDbName() {
+  const config = await loadConfig()
+  return config.db_name
+}
+
+// Helper function to get upload path
+async function loadUploadPath() {
+  const config = await loadConfig()
+  return config.upload_path
+}
+
 // Debug logging
 // console.log('API Configuration:', {
 //   hostname,
@@ -44,9 +102,13 @@ export const useApi = () => {
       const user = !data.requiresAuth ? null : localStorage.getItem('user')
       const userData = user ? JSON.parse(user) : null
 
+      // Load database name from db_code.json
+      const db_name = await loadDbName()
+
       const requestData = {
         ...data,
         token: userData?.token,
+        dbname: db_name,
       }
 
       // Removed: console.log('API call to:', API_URL, 'with data:', requestData)
@@ -127,8 +189,12 @@ export const useApi = () => {
       //   uploadUrl: UPLOAD_URL,
       // })
 
+      // Load upload path from db_code.json
+      const uploadPath = await loadUploadPath()
+
       const formData = new FormData()
       formData.append('file', file)
+      formData.append('base_directory', uploadPath)
       formData.append('destination_folder', destinationFolder)
       if (customFilename) {
         formData.append('custom_filename', customFilename)
@@ -238,6 +304,9 @@ export const useApi = () => {
     try {
       // Removed: console.log('Attempting to handle cookie verification...')
 
+      // Load database name from db_code.json
+      const db_name = await loadDbName()
+
       // First, try to access the API endpoint to establish cookies
       const mainPageResponse = await fetch(API_URL, {
         method: 'POST',
@@ -246,7 +315,7 @@ export const useApi = () => {
           Accept: 'application/json, text/plain, */*',
           'Accept-Language': 'en-US,en;q=0.9',
         },
-        body: JSON.stringify({ action: 'ping' }),
+        body: JSON.stringify({ action: 'ping', dbname: db_name }),
       })
 
       // Removed: console.log('Main page response status:', mainPageResponse.status)
