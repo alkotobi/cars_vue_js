@@ -218,6 +218,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         // Security check: Resolve the full path and verify it's still within base directory
         // This prevents any remaining path traversal attempts
+        // Check if path is absolute (starts with / on Unix, or has drive letter on Windows)
+        $isAbsolutePath = (DIRECTORY_SEPARATOR === '/' && strlen($destinationPath) > 0 && $destinationPath[0] === '/');
         $resolvedParts = [];
         $pathParts = explode(DIRECTORY_SEPARATOR, str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $destinationPath));
         foreach ($pathParts as $part) {
@@ -230,7 +232,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $resolvedParts[] = $part;
             }
         }
-        $resolvedDestination = implode(DIRECTORY_SEPARATOR, $resolvedParts) . DIRECTORY_SEPARATOR;
+        // Preserve leading separator for absolute paths on Unix systems
+        // On Windows, drive letters (e.g., "C:") are already included in $resolvedParts
+        $resolvedDestination = ($isAbsolutePath ? DIRECTORY_SEPARATOR : '') . 
+                               implode(DIRECTORY_SEPARATOR, $resolvedParts) . DIRECTORY_SEPARATOR;
         
         // Verify the resolved destination path is within the base directory
         if (strpos($resolvedDestination, $realBasePath) !== 0) {
