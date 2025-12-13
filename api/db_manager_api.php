@@ -86,7 +86,8 @@ try {
         }
         // Should only contain valid Unix path characters (letters, numbers, dots, underscores, hyphens, forward slashes, and spaces)
         // Note: spaces are technically valid but not recommended
-        if (!preg_match('/^[\/a-zA-Z0-9._\-\s]+$/', $path)) {
+        // Using explicit space character instead of \s to prevent control characters (newlines, tabs, etc.)
+        if (!preg_match('/^[\/a-zA-Z0-9._\- ]+$/', $path)) {
             return false;
         }
         return true;
@@ -374,6 +375,125 @@ try {
                 $response['message'] = 'Database deleted successfully';
             } else {
                 $response['message'] = 'Failed to delete database';
+            }
+            break;
+            
+        case 'create_tables':
+            // Create tables from setup.sql
+            $id = intval($inputData['id'] ?? 0);
+            
+            if ($id <= 0) {
+                $response['message'] = 'Invalid database ID';
+                break;
+            }
+            
+            // Get database info
+            $getStmt = $conn->prepare("SELECT id, db_name, is_created FROM dbs WHERE id = ?");
+            $getStmt->execute([$id]);
+            $dbInfo = $getStmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$dbInfo) {
+                $response['message'] = 'Database not found';
+                break;
+            }
+            
+            if ($dbInfo['is_created'] == 1) {
+                $response['message'] = 'Tables have already been created for this database';
+                break;
+            }
+            
+            if (empty($dbInfo['db_name'])) {
+                $response['message'] = 'Database name is not set';
+                break;
+            }
+            
+            // Read setup.sql file
+            $setupSqlPath = __DIR__ . '/setup.sql';
+            if (!file_exists($setupSqlPath)) {
+                $response['message'] = 'setup.sql file not found';
+                break;
+            }
+            
+            $setupSql = file_get_contents($setupSqlPath);
+            if ($setupSql === false) {
+                $response['message'] = 'Failed to read setup.sql file';
+                break;
+            }
+            
+            // Parse SQL file to extract CREATE TABLE statements
+            // Remove comments
+            $setupSql = preg_replace('/--.*$/m', '', $setupSql); // Remove single-line comments
+            $setupSql = preg_replace('/\/\*.*?\*\//s', '', $setupSql); // Remove multi-line comments
+            
+            // Normalize whitespace (replace multiple whitespace with single space, but preserve newlines within statements)
+            $setupSql = preg_replace('/\s+/', ' ', $setupSql);
+            
+            // Split by semicolons and filter for CREATE TABLE statements
+            $statements = array_filter(
+                array_map('trim', explode(';', $setupSql)),
+                function($stmt) {
+                    $stmt = trim($stmt);
+                    return !empty($stmt) && stripos($stmt, 'CREATE TABLE') !== false;
+                }
+            );
+            
+            // Add semicolons back to statements (they were removed by explode)
+            $statements = array_map(function($stmt) {
+                return trim($stmt) . ';';
+            }, $statements);
+            
+            if (empty($statements)) {
+                $response['message'] = 'No CREATE TABLE statements found in setup.sql';
+                break;
+            }
+            
+            // Get database credentials from config.php
+            require_once __DIR__ . '/config.php';
+            $targetDbHost = $db_config['host'];
+            $targetDbUser = $db_config['user'];
+            $targetDbPass = $db_config['pass'];
+            $targetDbName = $dbInfo['db_name'];
+            
+            // Connect to target database
+            try {
+                $targetConn = new PDO(
+                    "mysql:host={$targetDbHost};dbname={$targetDbName}",
+                    $targetDbUser,
+                    $targetDbPass
+                );
+                $targetConn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            } catch (PDOException $e) {
+                $response['message'] = 'Failed to connect to target database: ' . $e->getMessage();
+                break;
+            }
+            
+            // Execute CREATE TABLE statements
+            $executedCount = 0;
+            $errors = [];
+            foreach ($statements as $statement) {
+                try {
+                    $targetConn->exec($statement);
+                    $executedCount++;
+                } catch (PDOException $e) {
+                    $errors[] = $e->getMessage();
+                }
+            }
+            
+            if (!empty($errors) && $executedCount === 0) {
+                $response['message'] = 'Failed to create tables: ' . implode('; ', $errors);
+                break;
+            }
+            
+            // Update is_created flag
+            $updateStmt = $conn->prepare("UPDATE dbs SET is_created = 1 WHERE id = ?");
+            if ($updateStmt->execute([$id])) {
+                $response['success'] = true;
+                $response['message'] = "Successfully created {$executedCount} table(s)";
+                if (!empty($errors)) {
+                    $response['message'] .= ' (some errors occurred: ' . implode('; ', $errors) . ')';
+                }
+            } else {
+                $response['message'] = 'Tables created but failed to update is_created flag';
             }
             break;
             

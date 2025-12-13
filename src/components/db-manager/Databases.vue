@@ -42,6 +42,7 @@
             <th>Serv Host Cost/Month</th>
             <th>Files Dir</th>
             <th>JS Dir</th>
+            <th>Status</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -58,7 +59,21 @@
             <td>{{ formatCurrency(db.serv_host_cost_per_month) }}</td>
             <td>{{ db.files_dir }}</td>
             <td>{{ db.js_dir }}</td>
+            <td>
+              <span :class="['status-badge', db.is_created == 1 ? 'status-created' : 'status-pending']">
+                {{ db.is_created == 1 ? 'Created' : 'Pending' }}
+              </span>
+            </td>
             <td class="actions-cell">
+              <button
+                @click="createTables(db)"
+                :disabled="db.is_created == 1 || creatingTables"
+                class="btn-create-tables"
+                :title="db.is_created == 1 ? 'Tables already created' : 'Create tables from setup.sql'"
+              >
+                <i class="fas fa-database"></i>
+                {{ creatingTables && creatingTablesId === db.id ? 'Creating...' : 'Create Tables' }}
+              </button>
               <button @click="openEditModal(db)" class="btn-edit" title="Edit">
                 <i class="fas fa-edit"></i>
               </button>
@@ -229,6 +244,8 @@ const editingDatabase = ref(null)
 const databaseToDelete = ref(null)
 const saving = ref(false)
 const deleting = ref(false)
+const creatingTables = ref(false)
+const creatingTablesId = ref(null)
 
 const formData = ref({
   db_code: '',
@@ -389,6 +406,49 @@ const cancelDelete = () => {
 }
 
 // Delete database
+// Create tables from setup.sql
+const createTables = async (db) => {
+  if (db.is_created == 1) {
+    return
+  }
+
+  creatingTables.value = true
+  creatingTablesId.value = db.id
+  error.value = ''
+  successMessage.value = ''
+
+  try {
+    const response = await fetch(`${getApiBaseUrl()}/db_manager_api.php`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        action: 'create_tables',
+        id: db.id,
+      }),
+    })
+
+    const result = await response.json()
+
+    if (result.success) {
+      successMessage.value = result.message || 'Tables created successfully'
+      await fetchDatabases()
+      setTimeout(() => {
+        successMessage.value = ''
+      }, 5000)
+    } else {
+      error.value = result.message || 'Failed to create tables'
+    }
+  } catch (err) {
+    error.value = 'An error occurred while creating tables'
+    console.error(err)
+  } finally {
+    creatingTables.value = false
+    creatingTablesId.value = null
+  }
+}
+
 const deleteDatabase = async () => {
   deleting.value = true
   error.value = ''
@@ -568,6 +628,7 @@ onMounted(() => {
   gap: 0.5rem;
 }
 
+.btn-create-tables,
 .btn-edit,
 .btn-delete {
   padding: 0.5rem;
@@ -575,11 +636,35 @@ onMounted(() => {
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.3s ease;
-  width: 32px;
-  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 0.25rem;
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
+.btn-create-tables {
+  background-color: #67c23a;
+  color: white;
+  padding: 0.5rem 0.75rem;
+  min-width: 120px;
+}
+
+.btn-create-tables:hover:not(:disabled) {
+  background-color: #85ce61;
+}
+
+.btn-create-tables:disabled {
+  background-color: #c0c4cc;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.btn-edit,
+.btn-delete {
+  width: 32px;
+  height: 32px;
 }
 
 .btn-edit {
@@ -598,6 +683,25 @@ onMounted(() => {
 
 .btn-delete:hover {
   background-color: #f78989;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.status-created {
+  background-color: #f0f9eb;
+  color: #67c23a;
+}
+
+.status-pending {
+  background-color: #fef0f0;
+  color: #f56c6c;
 }
 
 .empty-state {
