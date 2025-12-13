@@ -161,6 +161,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Get destination folder and filename from POST data
         $destinationFolder = isset($_POST['destination_folder']) ? trim($_POST['destination_folder']) : 'uploads';
         $customFileName = isset($_POST['custom_filename']) ? trim($_POST['custom_filename']) : '';
+        
+        // Sanitize destination folder (remove any parent directory references and path separators)
+        $destinationFolder = str_replace('..', '', $destinationFolder);
+        $destinationFolder = str_replace('//', '/', $destinationFolder);
+        $destinationFolder = str_replace('\\', '/', $destinationFolder); // Remove backslashes
+        $destinationFolder = trim($destinationFolder, '/');
+        
+        // Sanitize custom filename (remove any path separators and directory traversal)
+        if (!empty($customFileName)) {
+            $customFileName = basename($customFileName); // Extract only the filename, removing any path
+            $customFileName = str_replace('..', '', $customFileName);
+            $customFileName = str_replace('/', '', $customFileName);
+            $customFileName = str_replace('\\', '', $customFileName);
+        }
 
         // Validate file upload
         if ($fileError !== UPLOAD_ERR_OK) {
@@ -191,8 +205,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // Create and validate destination folder path
-        $destinationPath = $baseUploadDir . rtrim($destinationFolder, '/') . '/';
+        // Get the real base path (it exists, so realpath will work)
+        $realBasePath = realpath($baseUploadDir);
+        if ($realBasePath === false) {
+            throw new Exception('Invalid base directory');
+        }
+        $realBasePath = rtrim($realBasePath, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+        
+        // Build destination path from real base path + sanitized destination folder
+        $destinationPath = $realBasePath . rtrim($destinationFolder, '/') . DIRECTORY_SEPARATOR;
         error_log('Destination path: ' . $destinationPath);
+        
+        // Security check: Resolve the full path and verify it's still within base directory
+        // This prevents any remaining path traversal attempts
+        $resolvedParts = [];
+        $pathParts = explode(DIRECTORY_SEPARATOR, str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $destinationPath));
+        foreach ($pathParts as $part) {
+            if ($part === '..') {
+                // Attempted directory traversal - remove last component if exists
+                if (!empty($resolvedParts)) {
+                    array_pop($resolvedParts);
+                }
+            } elseif ($part !== '.' && $part !== '') {
+                $resolvedParts[] = $part;
+            }
+        }
+        $resolvedDestination = implode(DIRECTORY_SEPARATOR, $resolvedParts) . DIRECTORY_SEPARATOR;
+        
+        // Verify the resolved destination path is within the base directory
+        if (strpos($resolvedDestination, $realBasePath) !== 0) {
+            throw new Exception('Directory traversal attempt detected - destination path outside base directory');
+        }
+        
+        // Use the resolved path
+        $destinationPath = $resolvedDestination;
         
         if (!file_exists($destinationPath)) {
             error_log('Creating destination directory...');

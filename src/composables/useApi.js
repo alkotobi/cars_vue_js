@@ -279,14 +279,29 @@ export const useApi = () => {
     // Remove any leading slashes from the path and store in a new variable
     let processedPath = path.replace(/^\/+/, '')
 
-    // If the path already contains 'upload.php?path=' or 'upload_simple.php?path=', extract just the file path
+    // If the path already contains 'upload.php?path=' or 'upload_simple.php?path=', extract parameters
     if (
       processedPath.includes('upload.php?path=') ||
       processedPath.includes('upload_simple.php?path=')
     ) {
-      const match = processedPath.match(/path=(.+)$/)
-      if (match) {
-        processedPath = decodeURIComponent(match[1])
+      // Extract the query string part (everything after '?')
+      const queryString = processedPath.includes('?')
+        ? processedPath.split('?').slice(1).join('?')
+        : ''
+
+      // Parse the query parameters to extract path and base_directory separately
+      const urlParams = new URLSearchParams(queryString)
+      const filePath = urlParams.get('path')
+      const baseDirectory = urlParams.get('base_directory')
+
+      if (filePath) {
+        // Build the URL with proper query parameters
+        const url = new URL(UPLOAD_URL)
+        url.searchParams.set('path', filePath)
+        if (baseDirectory) {
+          url.searchParams.set('base_directory', baseDirectory)
+        }
+        return url.toString()
       }
     }
 
