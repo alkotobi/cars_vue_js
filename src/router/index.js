@@ -213,6 +213,12 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/db-manager',
+      name: 'db-manager',
+      component: () => import('../views/DbManagerView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/:pathMatch(.*)*',
       redirect: '/',
     },

@@ -74,6 +74,13 @@ onMounted(async () => {
 .app-main {
   flex: 1;
   background-color: #f8fafc;
+  padding-top: 70px; /* Account for fixed header height */
+}
+
+@media (max-width: 768px) {
+  .app-main {
+    padding-top: 60px; /* Smaller header on mobile */
+  }
 }
 
 @media print {
