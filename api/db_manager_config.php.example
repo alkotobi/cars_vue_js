@@ -1,0 +1,19 @@
+<?php
+// Database configuration for merhab_databases
+// Copy this file to db_manager_config.php and update with your actual credentials
+// IMPORTANT: db_manager_config.php is in .gitignore and should never be committed
+
+// Load from environment variables if available, otherwise use defaults
+$db_host = $_ENV['DB_MANAGER_HOST'] ?? 'localhost';
+$db_user = $_ENV['DB_MANAGER_USER'] ?? 'root';
+$db_pass = $_ENV['DB_MANAGER_PASS'] ?? 'your_password_here';
+$db_name = $_ENV['DB_MANAGER_NAME'] ?? 'merhab_databases';
+
+// Create a config array that can be used by other files
+$db_manager_config = [
+    'host' => $db_host,
+    'user' => $db_user,
+    'pass' => $db_pass,
+    'dbname' => $db_name
+];
+

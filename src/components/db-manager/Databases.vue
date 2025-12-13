@@ -107,7 +107,9 @@
                 required
                 placeholder="e.g., merhab_cars"
               />
-              <small v-if="!editingDatabase" class="help-text">DB Code will be auto-generated from DB Name</small>
+              <small v-if="!editingDatabase" class="help-text"
+                >DB Code will be auto-generated from DB Name</small
+              >
             </div>
           </div>
 
@@ -178,9 +180,7 @@
           </div>
 
           <div class="modal-actions">
-            <button type="button" @click="closeModal" class="btn-cancel">
-              Cancel
-            </button>
+            <button type="button" @click="closeModal" class="btn-cancel">Cancel</button>
             <button type="submit" :disabled="saving" class="btn-save">
               <i v-if="saving" class="fas fa-spinner fa-spin"></i>
               <i v-else class="fas fa-save"></i>
@@ -198,7 +198,10 @@
           <h3>Confirm Delete</h3>
         </div>
         <div class="modal-body">
-          <p>Are you sure you want to delete database <strong>{{ databaseToDelete?.db_code }}</strong>?</p>
+          <p>
+            Are you sure you want to delete database <strong>{{ databaseToDelete?.db_code }}</strong
+            >?
+          </p>
           <p class="warning-text">This action cannot be undone.</p>
         </div>
         <div class="modal-actions">
@@ -441,25 +444,25 @@ const formatCurrency = (amount) => {
 // Format Unix path on blur
 const formatUnixPath = (field) => {
   if (!formData.value[field]) return
-  
+
   let path = formData.value[field]
-  
+
   // Replace backslashes with forward slashes
   path = path.replace(/\\/g, '/')
-  
+
   // Remove double slashes
   path = path.replace(/\/+/g, '/')
-  
+
   // Ensure it starts with /
   if (!path.startsWith('/')) {
     path = '/' + path
   }
-  
+
   // Remove trailing slash (unless it's root)
   if (path.length > 1 && path.endsWith('/')) {
     path = path.slice(0, -1)
   }
-  
+
   formData.value[field] = path
 }
 
@@ -620,7 +623,7 @@ onMounted(() => {
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1000;
+  z-index: 2000;
 }
 
 .modal-content {
@@ -819,4 +822,3 @@ onMounted(() => {
   }
 }
 </style>
-

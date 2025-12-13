@@ -10,11 +10,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-// Database configuration for merhab_databases
-$db_host = 'localhost';
-$db_user = 'root';
-$db_pass = 'nooo';
-$db_name = 'merhab_databases';
+// Include database configuration
+require_once __DIR__ . '/db_manager_config.php';
+
+// Use config values
+$db_host = $db_manager_config['host'];
+$db_user = $db_manager_config['user'];
+$db_pass = $db_manager_config['pass'];
+$db_name = $db_manager_config['dbname'];
 
 // Response array
 $response = [
@@ -284,6 +287,13 @@ try {
             $getStmt = $conn->prepare("SELECT db_code FROM dbs WHERE id = ?");
             $getStmt->execute([$id]);
             $existing = $getStmt->fetch(PDO::FETCH_ASSOC);
+            
+            // Check if database still exists (race condition protection)
+            if (!$existing || !isset($existing['db_code'])) {
+                $response['message'] = 'Database not found or was deleted';
+                break;
+            }
+            
             $db_code = $existing['db_code'];
             
             // Prepare data

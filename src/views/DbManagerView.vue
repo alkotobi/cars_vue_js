@@ -83,7 +83,7 @@ onMounted(() => {
 
 .manager-layout {
   display: flex;
-  min-height: 100vh;
+  min-height: calc(100vh - 70px); /* Account for fixed header */
 }
 
 .main-content {
@@ -97,7 +97,7 @@ onMounted(() => {
   border-radius: 8px;
   padding: 2rem;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  min-height: calc(100vh - 4rem);
+  min-height: calc(100vh - 70px - 4rem); /* Account for header and padding */
 }
 
 h2 {
@@ -116,6 +116,10 @@ h2 {
 }
 
 @media (max-width: 768px) {
+  .manager-layout {
+    min-height: calc(100vh - 60px); /* Smaller header on mobile */
+  }
+
   .main-content {
     margin-left: 0;
     padding: 1rem;
@@ -123,7 +127,7 @@ h2 {
 
   .content-area {
     padding: 1rem;
+    min-height: calc(100vh - 60px - 2rem); /* Account for header and padding on mobile */
   }
 }
 </style>
-
