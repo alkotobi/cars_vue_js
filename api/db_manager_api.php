@@ -782,6 +782,9 @@ try {
             $totalUpdates = 0;
             $totalErrors = 0;
             $errors = [];
+            // Track which databases have already been marked with connection/version errors
+            // to avoid counting the same error multiple times (once per update record)
+            $dbErrorsTracked = [];
             
             // Iterate through db_updates records
             foreach ($dbUpdates as $update) {
@@ -791,15 +794,23 @@ try {
                 
                 // For each selected database, check if version >= from_version
                 foreach ($dbVersions as $dbId => $dbInfo) {
+                    // Check for connection error (only count once per database)
                     if ($dbInfo['conn'] === null) {
-                        $errors[] = "Database {$dbInfo['db_name']}: Cannot connect - " . ($dbInfo['error'] ?? 'Unknown error');
-                        $totalErrors++;
+                        if (!isset($dbErrorsTracked[$dbId]['conn'])) {
+                            $errors[] = "Database {$dbInfo['db_name']}: Cannot connect - " . ($dbInfo['error'] ?? 'Unknown error');
+                            $totalErrors++;
+                            $dbErrorsTracked[$dbId]['conn'] = true;
+                        }
                         continue;
                     }
                     
+                    // Check for version not found (only count once per database)
                     if ($dbInfo['version'] === null) {
-                        $errors[] = "Database {$dbInfo['db_name']}: Version not found";
-                        $totalErrors++;
+                        if (!isset($dbErrorsTracked[$dbId]['version'])) {
+                            $errors[] = "Database {$dbInfo['db_name']}: Version not found";
+                            $totalErrors++;
+                            $dbErrorsTracked[$dbId]['version'] = true;
+                        }
                         continue;
                     }
                     

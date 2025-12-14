@@ -28,8 +28,19 @@ CREATE TABLE IF NOT EXISTS `dbs` (
   `files_dir` varchar(255) DEFAULT NULL,
   `js_dir` varchar(255) DEFAULT NULL,
   `db_name` varchar(255) DEFAULT NULL,
+  `is_created` int DEFAULT '0',
   PRIMARY KEY (`id`),
   UNIQUE KEY `name` (`db_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Database updates table (for version migration)
+CREATE TABLE IF NOT EXISTS `db_updates` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `sql` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
+  `from_version` int NOT NULL,
+  `current_version` int NOT NULL,
+  `description` text,
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Advanced SQL table
