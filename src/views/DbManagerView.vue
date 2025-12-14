@@ -24,6 +24,9 @@
           <!-- Databases Component -->
           <Databases v-else-if="activeItem === 'databases'" />
 
+          <!-- Update DB Structure Component -->
+          <UpdateDbStructure v-else-if="activeItem === 'update-structure'" />
+
           <!-- Default view when no item selected -->
           <div v-else class="default-view">
             <h2>Database Manager</h2>
@@ -40,6 +43,7 @@ import { ref, onMounted } from 'vue'
 import LoginSignup from '../components/db-manager/LoginSignup.vue'
 import DbManagerSidebar from '../components/db-manager/DbManagerSidebar.vue'
 import Databases from '../components/db-manager/Databases.vue'
+import UpdateDbStructure from '../components/db-manager/UpdateDbStructure.vue'
 
 const isLoggedIn = ref(false)
 const activeItem = ref('')

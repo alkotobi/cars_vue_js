@@ -37,6 +37,10 @@
           <i class="fas fa-code"></i>
           Run SQL
         </button>
+        <button @click="openUpdateVersionModal" class="btn-toolbar" :disabled="selectedDatabases.length === 0">
+          <i class="fas fa-tag"></i>
+          Update Version
+        </button>
       </div>
       <div class="toolbar-right">
         <span v-if="selectedDatabases.length > 0" class="selected-count">
@@ -308,6 +312,49 @@
         </div>
       </div>
     </div>
+
+    <!-- Update Version Modal -->
+    <div v-if="showUpdateVersionModal" class="modal-overlay" @click="cancelUpdateVersion">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>Update Version</h3>
+        </div>
+        <div class="modal-body">
+          <div v-if="versionCheckError" class="error-message" style="margin-bottom: 1rem;">
+            <i class="fas fa-exclamation-circle"></i>
+            {{ versionCheckError }}
+          </div>
+          <div v-else>
+            <p>
+              Updating version for <strong>{{ selectedDatabases.length }}</strong> selected database(s).
+            </p>
+            <p v-if="selectedDatabasesVersions.length > 0" class="info-text">
+              Current version: <strong>v{{ selectedDatabasesVersions[0] }}</strong>
+            </p>
+          </div>
+          <div class="form-group">
+            <label for="new-version-input">New Version *</label>
+            <input
+              id="new-version-input"
+              type="number"
+              v-model="newVersionInput"
+              placeholder="Enter new version number"
+              min="1"
+              class="form-input"
+              :disabled="!!versionCheckError"
+              @keyup.enter="confirmUpdateVersion"
+            />
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button @click="cancelUpdateVersion" class="btn-cancel">Cancel</button>
+          <button @click="confirmUpdateVersion" :disabled="!newVersionInput || updatingVersion || !!versionCheckError" class="btn-primary">
+            <i v-if="updatingVersion" class="fas fa-spinner fa-spin"></i>
+            {{ updatingVersion ? 'Updating...' : 'Update Version' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -330,6 +377,11 @@ const showVersionModal = ref(false)
 const databaseToCreateTables = ref(null)
 const versionInput = ref('')
 const selectedDatabases = ref([])
+const showUpdateVersionModal = ref(false)
+const newVersionInput = ref('')
+const updatingVersion = ref(false)
+const versionCheckError = ref('')
+const selectedDatabasesVersions = ref([])
 
 const formData = ref({
   db_code: '',
@@ -627,6 +679,102 @@ const updateStructure = () => {
 const runSql = () => {
   console.log('Run SQL clicked for databases:', selectedDatabases.value)
   // Functionality will be implemented later
+}
+
+// Update version functionality
+const openUpdateVersionModal = () => {
+  if (selectedDatabases.value.length === 0) {
+    return
+  }
+
+  // Get selected databases with their versions
+  const selectedDbs = databases.value.filter(db => selectedDatabases.value.includes(db.id))
+  
+  // Check if all selected databases are created
+  const notCreated = selectedDbs.filter(db => db.is_created != 1)
+  if (notCreated.length > 0) {
+    error.value = 'All selected databases must be created before updating version'
+    return
+  }
+
+  // Get versions of selected databases
+  const versions = selectedDbs
+    .map(db => db.version)
+    .filter(v => v !== null && v !== undefined)
+
+  if (versions.length === 0) {
+    versionCheckError.value = 'Selected databases do not have version information'
+    selectedDatabasesVersions.value = []
+  } else {
+    // Check if all versions are the same
+    const uniqueVersions = [...new Set(versions)]
+    if (uniqueVersions.length > 1) {
+      versionCheckError.value = `Selected databases have different versions: ${uniqueVersions.join(', ')}. All databases must have the same version to update.`
+      selectedDatabasesVersions.value = []
+    } else {
+      versionCheckError.value = ''
+      selectedDatabasesVersions.value = uniqueVersions
+    }
+  }
+
+  newVersionInput.value = ''
+  showUpdateVersionModal.value = true
+}
+
+const cancelUpdateVersion = () => {
+  showUpdateVersionModal.value = false
+  newVersionInput.value = ''
+  versionCheckError.value = ''
+  selectedDatabasesVersions.value = []
+}
+
+const confirmUpdateVersion = async () => {
+  if (!newVersionInput.value || parseInt(newVersionInput.value) <= 0) {
+    return
+  }
+
+  if (versionCheckError.value) {
+    return
+  }
+
+  updatingVersion.value = true
+  error.value = ''
+  successMessage.value = ''
+
+  try {
+    const response = await fetch(`${getApiBaseUrl()}/db_manager_api.php`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        action: 'update_databases_version',
+        database_ids: selectedDatabases.value,
+        version: parseInt(newVersionInput.value),
+      }),
+    })
+
+    const result = await response.json()
+
+    if (result.success) {
+      successMessage.value = result.message || `Version updated successfully for ${selectedDatabases.value.length} database(s)`
+      showUpdateVersionModal.value = false
+      newVersionInput.value = ''
+      versionCheckError.value = ''
+      selectedDatabasesVersions.value = []
+      await fetchDatabases()
+      setTimeout(() => {
+        successMessage.value = ''
+      }, 5000)
+    } else {
+      error.value = result.message || 'Failed to update version'
+    }
+  } catch (err) {
+    error.value = 'An error occurred while updating version'
+    console.error(err)
+  } finally {
+    updatingVersion.value = false
+  }
 }
 
 // Format Unix path on blur
@@ -1048,6 +1196,12 @@ onMounted(() => {
 
 .form-group.full-width {
   grid-column: 1 / -1;
+}
+
+.info-text {
+  color: #606266;
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
 }
 
 .help-text {

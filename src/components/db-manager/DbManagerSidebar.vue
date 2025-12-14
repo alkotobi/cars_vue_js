@@ -25,6 +25,15 @@
         <i class="fas fa-server"></i>
         <span v-show="!isCollapsed">Databases</span>
       </button>
+      <button
+        @click="selectMenuItem('update-structure')"
+        :class="{ active: activeItem === 'update-structure' }"
+        class="nav-button"
+        :title="isCollapsed ? 'Update DB Structure' : ''"
+      >
+        <i class="fas fa-sync-alt"></i>
+        <span v-show="!isCollapsed">Update DB Structure</span>
+      </button>
     </nav>
     <div class="sidebar-footer">
       <button @click="logout" class="logout-button" :title="isCollapsed ? 'Logout' : ''">

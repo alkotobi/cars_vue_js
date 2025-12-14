@@ -545,6 +545,171 @@ try {
             }
             break;
             
+        case 'get_db_updates':
+            // Get all db_updates
+            $stmt = $conn->prepare("SELECT * FROM db_updates ORDER BY from_version ASC, current_version ASC");
+            $stmt->execute();
+            $updates = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $response['success'] = true;
+            $response['data'] = $updates;
+            break;
+            
+        case 'create_db_update':
+            // Create new db_update
+            $fromVersion = intval($inputData['from_version'] ?? 0);
+            $currentVersion = intval($inputData['current_version'] ?? 0);
+            $description = trim($inputData['description'] ?? '');
+            $sql = trim($inputData['sql'] ?? '');
+            
+            if ($fromVersion <= 0 || $currentVersion <= 0) {
+                $response['message'] = 'From version and current version must be positive numbers';
+                break;
+            }
+            
+            if (empty($sql)) {
+                $response['message'] = 'SQL is required';
+                break;
+            }
+            
+            if ($currentVersion <= $fromVersion) {
+                $response['message'] = 'Current version must be greater than from version';
+                break;
+            }
+            
+            $insertStmt = $conn->prepare("INSERT INTO db_updates (from_version, current_version, description, `sql`) VALUES (?, ?, ?, ?)");
+            if ($insertStmt->execute([$fromVersion, $currentVersion, $description, $sql])) {
+                $response['success'] = true;
+                $response['message'] = 'Update created successfully';
+                $response['data'] = ['id' => $conn->lastInsertId()];
+            } else {
+                $response['message'] = 'Failed to create update';
+            }
+            break;
+            
+        case 'update_db_update':
+            // Update existing db_update
+            $id = intval($inputData['id'] ?? 0);
+            $fromVersion = intval($inputData['from_version'] ?? 0);
+            $currentVersion = intval($inputData['current_version'] ?? 0);
+            $description = trim($inputData['description'] ?? '');
+            $sql = trim($inputData['sql'] ?? '');
+            
+            if ($id <= 0) {
+                $response['message'] = 'Invalid update ID';
+                break;
+            }
+            
+            if ($fromVersion <= 0 || $currentVersion <= 0) {
+                $response['message'] = 'From version and current version must be positive numbers';
+                break;
+            }
+            
+            if (empty($sql)) {
+                $response['message'] = 'SQL is required';
+                break;
+            }
+            
+            if ($currentVersion <= $fromVersion) {
+                $response['message'] = 'Current version must be greater than from version';
+                break;
+            }
+            
+            $updateStmt = $conn->prepare("UPDATE db_updates SET from_version = ?, current_version = ?, description = ?, `sql` = ? WHERE id = ?");
+            if ($updateStmt->execute([$fromVersion, $currentVersion, $description, $sql, $id])) {
+                $response['success'] = true;
+                $response['message'] = 'Update updated successfully';
+            } else {
+                $response['message'] = 'Failed to update';
+            }
+            break;
+            
+        case 'delete_db_update':
+            // Delete db_update
+            $id = intval($inputData['id'] ?? 0);
+            
+            if ($id <= 0) {
+                $response['message'] = 'Invalid update ID';
+                break;
+            }
+            
+            $deleteStmt = $conn->prepare("DELETE FROM db_updates WHERE id = ?");
+            if ($deleteStmt->execute([$id])) {
+                $response['success'] = true;
+                $response['message'] = 'Update deleted successfully';
+            } else {
+                $response['message'] = 'Failed to delete update';
+            }
+            break;
+            
+        case 'update_databases_version':
+            // Update version for multiple databases
+            $databaseIds = $inputData['database_ids'] ?? [];
+            $version = intval($inputData['version'] ?? 0);
+            
+            if (empty($databaseIds) || !is_array($databaseIds)) {
+                $response['message'] = 'Database IDs are required';
+                break;
+            }
+            
+            if ($version <= 0) {
+                $response['message'] = 'Version must be a positive number';
+                break;
+            }
+            
+            // Get database credentials from config.php
+            require_once __DIR__ . '/config.php';
+            $targetDbHost = $db_config['host'];
+            $targetDbUser = $db_config['user'];
+            $targetDbPass = $db_config['pass'];
+            
+            // Get database names for the selected IDs
+            $placeholders = implode(',', array_fill(0, count($databaseIds), '?'));
+            $getStmt = $conn->prepare("SELECT id, db_name FROM dbs WHERE id IN ($placeholders)");
+            $getStmt->execute($databaseIds);
+            $selectedDbs = $getStmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            if (empty($selectedDbs)) {
+                $response['message'] = 'No databases found for the selected IDs';
+                break;
+            }
+            
+            $successCount = 0;
+            $errors = [];
+            
+            foreach ($selectedDbs as $db) {
+                if (empty($db['db_name'])) {
+                    $errors[] = "Database ID {$db['id']}: Database name is not set";
+                    continue;
+                }
+                
+                try {
+                    $targetConn = new PDO(
+                        "mysql:host={$targetDbHost};dbname={$db['db_name']}",
+                        $targetDbUser,
+                        $targetDbPass
+                    );
+                    $targetConn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+                    
+                    // Update version in versions table
+                    $versionStmt = $targetConn->prepare("INSERT INTO versions (id, version) VALUES (1, ?) ON DUPLICATE KEY UPDATE version = ?");
+                    $versionStmt->execute([$version, $version]);
+                    $successCount++;
+                } catch (PDOException $e) {
+                    $errors[] = "Database {$db['db_name']}: " . $e->getMessage();
+                }
+            }
+            
+            if ($successCount > 0) {
+                $response['success'] = true;
+                $response['message'] = "Version updated successfully for {$successCount} database(s)";
+                if (!empty($errors)) {
+                    $response['message'] .= ' (some errors: ' . implode('; ', $errors) . ')';
+                }
+            } else {
+                $response['message'] = 'Failed to update version: ' . implode('; ', $errors);
+            }
+            break;
+            
         default:
             $response['message'] = 'No action specified';
             break;
