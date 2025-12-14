@@ -947,6 +947,71 @@ try {
             $response['data'] = $results;
             break;
             
+        case 'prepare_upload_folder':
+            // Prepare upload folder: create if doesn't exist, clear if exists
+            $databaseId = intval($inputData['database_id'] ?? 0);
+            $jsDir = trim($inputData['js_dir'] ?? '');
+            
+            if ($databaseId <= 0 || empty($jsDir)) {
+                $response['message'] = 'Invalid database ID or js_dir';
+                break;
+            }
+            
+            try {
+                // Remove leading slash if present (Unix path format, but we use it relative to project root)
+                $jsDir = ltrim($jsDir, '/');
+                $jsDir = rtrim($jsDir, '/');
+                
+                // Construct the full folder path (relative to project root)
+                $folderPath = __DIR__ . '/../' . $jsDir . '/';
+                
+                // Get the real path for security check
+                $realBasePath = realpath(__DIR__ . '/../');
+                if ($realBasePath === false) {
+                    throw new Exception('Invalid base directory');
+                }
+                $realBasePath = rtrim($realBasePath, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+                
+                // Resolve the folder path
+                $resolvedFolderPath = realpath($folderPath);
+                if ($resolvedFolderPath === false) {
+                    // Folder doesn't exist, create it
+                    if (!mkdir($folderPath, 0755, true)) {
+                        throw new Exception('Failed to create folder: ' . $folderPath);
+                    }
+                    $resolvedFolderPath = realpath($folderPath);
+                    if ($resolvedFolderPath === false) {
+                        throw new Exception('Failed to resolve created folder path');
+                    }
+                }
+                
+                // Verify the resolved path is within the base directory
+                $resolvedFolderPath = rtrim($resolvedFolderPath, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+                if (strpos($resolvedFolderPath, $realBasePath) !== 0) {
+                    throw new Exception('Directory traversal attempt detected');
+                }
+                
+                // Delete all contents (files and subdirectories)
+                $iterator = new RecursiveIteratorIterator(
+                    new RecursiveDirectoryIterator($resolvedFolderPath, RecursiveDirectoryIterator::SKIP_DOTS),
+                    RecursiveIteratorIterator::CHILD_FIRST
+                );
+                
+                foreach ($iterator as $path) {
+                    if ($path->isDir()) {
+                        rmdir($path->getPathname());
+                    } else {
+                        unlink($path->getPathname());
+                    }
+                }
+                
+                $response['success'] = true;
+                $response['message'] = 'Folder prepared successfully';
+            } catch (Exception $e) {
+                $response['message'] = 'Error preparing folder: ' . $e->getMessage();
+            }
+            break;
+            
         default:
             $response['message'] = 'No action specified';
             break;

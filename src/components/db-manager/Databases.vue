@@ -41,6 +41,10 @@
           <i class="fas fa-tag"></i>
           Update Version
         </button>
+        <button @click="openUploadCodeModal" class="btn-toolbar" :disabled="selectedDatabases.length === 0">
+          <i class="fas fa-upload"></i>
+          Upload Code Files
+        </button>
       </div>
       <div class="toolbar-right">
         <span v-if="selectedDatabases.length > 0" class="selected-count">
@@ -409,6 +413,111 @@
         </div>
       </div>
     </div>
+
+    <!-- Upload Code Files Modal -->
+    <div v-if="showUploadCodeModal" class="modal-overlay" @click="cancelUploadCode">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>Upload Code Files</h3>
+        </div>
+        <div class="modal-body">
+          <p>
+            Upload code file(s) to <strong>{{ selectedDatabases.length }}</strong> selected database(s).
+          </p>
+          <div class="form-group">
+            <label for="code-file-input">Select File(s) *</label>
+            <div
+              class="file-drop-zone"
+              :class="{ 'drag-over': isDragOver, 'has-files': selectedCodeFiles.length > 0 }"
+              @drop.prevent="handleFileDrop"
+              @dragover.prevent="isDragOver = true"
+              @dragenter.prevent="isDragOver = true"
+              @dragleave.prevent="isDragOver = false"
+            >
+              <input
+                id="code-file-input"
+                type="file"
+                ref="codeFileInput"
+                @change="handleFileSelect"
+                multiple
+                :disabled="uploadingCode"
+                class="file-input-hidden"
+              />
+              <div class="drop-zone-content">
+                <i class="fas fa-cloud-upload-alt"></i>
+                <p v-if="selectedCodeFiles.length === 0">
+                  <strong>Drag and drop files here</strong><br />
+                  or <span class="browse-link">browse</span> to select files
+                </p>
+                <p v-else>
+                  <strong>{{ selectedCodeFiles.length }} file(s) selected</strong><br />
+                  <span class="browse-link">Click to change files</span>
+                </p>
+              </div>
+            </div>
+            <div v-if="selectedCodeFiles.length > 0" class="selected-files">
+              <p><strong>Selected files:</strong></p>
+              <ul>
+                <li v-for="(file, index) in selectedCodeFiles" :key="index">
+                  {{ file.name }} ({{ formatFileSize(file.size) }})
+                </li>
+              </ul>
+            </div>
+          </div>
+          
+          <!-- Upload Results -->
+          <div v-if="uploadCodeResults.length > 0" class="upload-results">
+            <h4>Progress:</h4>
+            <div v-for="(result, index) in uploadCodeResults" :key="index" class="result-item" :class="{ 'result-error': result.error, 'result-success': !result.error && result.progress === 100 }">
+              <div class="result-header">
+                <strong>{{ result.db_name }}</strong>
+                <span v-if="result.error" class="result-status error">Error</span>
+                <span v-else-if="result.progress === 100" class="result-status success">Completed</span>
+                <span v-else class="result-status progress">In Progress</span>
+              </div>
+              
+              <!-- Progress Bar -->
+              <div v-if="!result.error" class="progress-container">
+                <div class="progress-bar">
+                  <div 
+                    class="progress-fill" 
+                    :style="{ width: (result.progress || 0) + '%' }"
+                  ></div>
+                </div>
+                <span class="progress-text">{{ result.progress || 0 }}%</span>
+              </div>
+              
+              <!-- Status Message -->
+              <div v-if="result.status" class="result-status-message">
+                {{ result.status }}
+              </div>
+              
+              <!-- Error Message -->
+              <div v-if="result.error" class="result-message">
+                {{ result.error }}
+              </div>
+              
+              <!-- Success Message with Files -->
+              <div v-else-if="result.files && result.files.length > 0" class="result-message">
+                <p>Uploaded {{ result.files.length }} file(s):</p>
+                <ul>
+                  <li v-for="(file, fileIndex) in result.files" :key="fileIndex">
+                    {{ file.name }} → {{ file.path }}
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button @click="cancelUploadCode" class="btn-cancel" :disabled="uploadingCode">Cancel</button>
+          <button @click="confirmUploadCode" :disabled="selectedCodeFiles.length === 0 || uploadingCode" class="btn-primary">
+            <i v-if="uploadingCode" class="fas fa-spinner fa-spin"></i>
+            {{ uploadingCode ? 'Uploading...' : 'Upload' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -440,6 +549,12 @@ const showRunSqlModal = ref(false)
 const runSqlInput = ref('')
 const runningSql = ref(false)
 const runSqlResults = ref([])
+const showUploadCodeModal = ref(false)
+const codeFileInput = ref(null)
+const selectedCodeFiles = ref([])
+const uploadingCode = ref(false)
+const uploadCodeResults = ref([])
+const isDragOver = ref(false)
 
 const formData = ref({
   db_code: '',
@@ -951,6 +1066,227 @@ const formatUnixPath = (field) => {
   }
 
   formData.value[field] = path
+}
+
+// Upload Code Files functionality
+const openUploadCodeModal = () => {
+  if (selectedDatabases.value.length === 0) {
+    error.value = 'Please select at least one database'
+    return
+  }
+  
+  // Check if all selected databases have js_dir
+  const selectedDbs = databases.value.filter(db => selectedDatabases.value.includes(db.id))
+  const withoutJsDir = selectedDbs.filter(db => !db.js_dir || db.js_dir.trim() === '')
+  if (withoutJsDir.length > 0) {
+    error.value = 'All selected databases must have a JS directory (js_dir) configured'
+    return
+  }
+  
+  selectedCodeFiles.value = []
+  uploadCodeResults.value = []
+  isDragOver.value = false
+  showUploadCodeModal.value = true
+}
+
+const handleFileSelect = (event) => {
+  const files = Array.from(event.target.files || [])
+  selectedCodeFiles.value = files
+  isDragOver.value = false
+}
+
+const handleFileDrop = (event) => {
+  isDragOver.value = false
+  const files = Array.from(event.dataTransfer.files || [])
+  if (files.length > 0) {
+    selectedCodeFiles.value = files
+    // Also update the file input element
+    if (codeFileInput.value) {
+      const dataTransfer = new DataTransfer()
+      files.forEach(file => dataTransfer.items.add(file))
+      codeFileInput.value.files = dataTransfer.files
+    }
+  }
+}
+
+const formatFileSize = (bytes) => {
+  if (bytes === 0) return '0 Bytes'
+  const k = 1024
+  const sizes = ['Bytes', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
+}
+
+const cancelUploadCode = () => {
+  showUploadCodeModal.value = false
+  selectedCodeFiles.value = []
+  uploadCodeResults.value = []
+  isDragOver.value = false
+  if (codeFileInput.value) {
+    codeFileInput.value.value = ''
+  }
+}
+
+const confirmUploadCode = async () => {
+  if (selectedCodeFiles.value.length === 0) {
+    error.value = 'Please select at least one file'
+    return
+  }
+  
+  uploadingCode.value = true
+  uploadCodeResults.value = []
+  error.value = ''
+  
+  try {
+    const selectedDbs = databases.value.filter(db => selectedDatabases.value.includes(db.id))
+    
+    // Group databases by js_dir to avoid duplicate uploads
+    const dbGroupsByJsDir = {}
+    selectedDbs.forEach(db => {
+      const jsDir = db.js_dir.trim()
+      if (!dbGroupsByJsDir[jsDir]) {
+        dbGroupsByJsDir[jsDir] = []
+      }
+      dbGroupsByJsDir[jsDir].push(db)
+    })
+    
+    // Initialize results for all databases
+    selectedDbs.forEach(db => {
+      uploadCodeResults.value.push({
+        db_name: db.db_name,
+        error: null,
+        files: [],
+        progress: 0,
+        status: 'preparing',
+        js_dir: db.js_dir.trim()
+      })
+    })
+    
+    // Process each unique js_dir
+    for (const [jsDir, dbGroup] of Object.entries(dbGroupsByJsDir)) {
+      // Find result indices for all databases in this group
+      const resultIndices = dbGroup.map(db => 
+        uploadCodeResults.value.findIndex(r => r.db_name === db.db_name)
+      )
+      
+      // Use the first database in the group for the API call
+      const firstDb = dbGroup[0]
+      
+      try {
+        // Step 1: Prepare folder (create if doesn't exist, clear if exists)
+        resultIndices.forEach(idx => {
+          uploadCodeResults.value[idx].status = 'Preparing folder...'
+          uploadCodeResults.value[idx].progress = 0
+        })
+        
+        const prepareResponse = await fetch(`${getApiBaseUrl()}/db_manager_api.php`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'prepare_upload_folder',
+            database_id: firstDb.id,
+            js_dir: jsDir,
+          }),
+        })
+        
+        const prepareResult = await prepareResponse.json()
+        
+        if (!prepareResult.success) {
+          const errorMsg = prepareResult.message || 'Failed to prepare folder'
+          resultIndices.forEach(idx => {
+            uploadCodeResults.value[idx].error = errorMsg
+            uploadCodeResults.value[idx].status = 'Error'
+          })
+          continue
+        }
+        
+        // Step 2: Upload files with progress (only once per js_dir)
+        resultIndices.forEach(idx => {
+          uploadCodeResults.value[idx].status = 'Uploading files...'
+        })
+        const totalFiles = selectedCodeFiles.value.length
+        const uploadedFiles = []
+        
+        for (let fileIndex = 0; fileIndex < selectedCodeFiles.value.length; fileIndex++) {
+          const file = selectedCodeFiles.value[fileIndex]
+          
+          // Update progress for all databases in this group
+          const progress = Math.round(((fileIndex + 1) / totalFiles) * 100)
+          resultIndices.forEach(idx => {
+            uploadCodeResults.value[idx].progress = progress
+            uploadCodeResults.value[idx].status = `Uploading ${fileIndex + 1}/${totalFiles}: ${file.name}`
+          })
+          
+          const formData = new FormData()
+          formData.append('file', file)
+          
+          // Use js_dir as base_directory, remove leading slash if present
+          let jsDirPath = jsDir
+          if (jsDirPath.startsWith('/')) {
+            jsDirPath = jsDirPath.substring(1)
+          }
+          formData.append('base_directory', jsDirPath)
+          formData.append('destination_folder', '') // Upload to root of js_dir
+          formData.append('custom_filename', file.name) // Keep original filename
+          
+          const uploadResponse = await fetch(`${getApiBaseUrl()}/upload.php`, {
+            method: 'POST',
+            body: formData,
+          })
+          
+          const uploadResult = await uploadResponse.json()
+          
+          if (uploadResult.success) {
+            uploadedFiles.push({
+              name: file.name,
+              path: uploadResult.file_path || 'Uploaded successfully'
+            })
+          } else {
+            const errorMsg = uploadResult.message || 'Upload failed'
+            resultIndices.forEach(idx => {
+              uploadCodeResults.value[idx].error = errorMsg
+              uploadCodeResults.value[idx].status = 'Error'
+            })
+            break // Stop uploading other files for this js_dir if one fails
+          }
+        }
+        
+        // Mark all databases in this group as complete
+        if (uploadedFiles.length > 0 && !resultIndices.some(idx => uploadCodeResults.value[idx].error)) {
+          resultIndices.forEach(idx => {
+            uploadCodeResults.value[idx].files = uploadedFiles
+            uploadCodeResults.value[idx].status = 'Completed'
+            uploadCodeResults.value[idx].progress = 100
+          })
+        }
+      } catch (err) {
+        const errorMsg = err.message || 'An error occurred during upload'
+        resultIndices.forEach(idx => {
+          uploadCodeResults.value[idx].error = errorMsg
+          uploadCodeResults.value[idx].status = 'Error'
+        })
+      }
+    }
+    
+    // Check if all uploads were successful
+    const allSuccessful = uploadCodeResults.value.every(r => !r.error && r.files.length > 0)
+    
+    if (allSuccessful) {
+      successMessage.value = 'All files uploaded successfully'
+      setTimeout(() => {
+        successMessage.value = ''
+        // Close the modal after successful upload
+        cancelUploadCode()
+      }, 2000)
+    }
+  } catch (err) {
+    error.value = 'An error occurred while uploading files'
+    console.error(err)
+  } finally {
+    uploadingCode.value = false
+  }
 }
 
 onMounted(() => {
@@ -1485,6 +1821,191 @@ onMounted(() => {
   font-size: 0.9rem;
   font-family: 'Courier New', monospace;
   word-break: break-word;
+}
+
+.upload-results {
+  margin-top: 1.5rem;
+}
+
+.upload-results h4 {
+  margin-bottom: 1rem;
+  color: #2c3e50;
+  font-size: 1.1rem;
+}
+
+.selected-files {
+  margin-top: 1rem;
+  padding: 1rem;
+  background-color: #f5f7fa;
+  border-radius: 4px;
+  border: 1px solid #e4e7ed;
+}
+
+.selected-files p {
+  margin: 0 0 0.5rem 0;
+  font-weight: 500;
+  color: #2c3e50;
+}
+
+.selected-files ul {
+  margin: 0;
+  padding-left: 1.5rem;
+  list-style-type: disc;
+}
+
+.selected-files li {
+  margin: 0.25rem 0;
+  color: #606266;
+}
+
+.result-message ul {
+  margin: 0.5rem 0;
+  padding-left: 1.5rem;
+  list-style-type: disc;
+}
+
+.result-message li {
+  margin: 0.25rem 0;
+}
+
+.file-drop-zone {
+  border: 2px dashed #dcdfe6;
+  border-radius: 8px;
+  padding: 3rem 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background-color: #fafafa;
+  position: relative;
+}
+
+.file-drop-zone:hover {
+  border-color: #409eff;
+  background-color: #f0f7ff;
+}
+
+.file-drop-zone.drag-over {
+  border-color: #409eff;
+  background-color: #e6f3ff;
+  transform: scale(1.02);
+}
+
+.file-drop-zone.has-files {
+  border-color: #67c23a;
+  background-color: #f0f9eb;
+}
+
+.file-input-hidden {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 1;
+}
+
+.drop-zone-content {
+  pointer-events: none;
+  z-index: 0;
+}
+
+.drop-zone-content i {
+  font-size: 3rem;
+  color: #909399;
+  margin-bottom: 1rem;
+  display: block;
+}
+
+.file-drop-zone.drag-over .drop-zone-content i,
+.file-drop-zone.has-files .drop-zone-content i {
+  color: #409eff;
+}
+
+.drop-zone-content p {
+  margin: 0;
+  color: #606266;
+  font-size: 1rem;
+}
+
+.browse-link {
+  color: #409eff;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.browse-link:hover {
+  color: #66b1ff;
+}
+
+.progress-container {
+  margin: 1rem 0;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 24px;
+  background-color: #e4e7ed;
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #409eff 0%, #66b1ff 100%);
+  border-radius: 12px;
+  transition: width 0.3s ease;
+  position: relative;
+}
+
+.progress-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.3),
+    transparent
+  );
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.progress-text {
+  font-weight: 600;
+  color: #2c3e50;
+  min-width: 50px;
+  text-align: right;
+  font-size: 0.9rem;
+}
+
+.result-status.progress {
+  background-color: #409eff;
+  color: white;
+}
+
+.result-status-message {
+  margin-top: 0.5rem;
+  color: #606266;
+  font-size: 0.9rem;
+  font-style: italic;
 }
 
 .modal-body {
