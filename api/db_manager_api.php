@@ -191,6 +191,39 @@ try {
             $stmt = $conn->prepare("SELECT * FROM dbs ORDER BY id DESC");
             $stmt->execute();
             $databases = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Fetch version for each created database
+            require_once __DIR__ . '/config.php';
+            $targetDbHost = $db_config['host'];
+            $targetDbUser = $db_config['user'];
+            $targetDbPass = $db_config['pass'];
+            
+            foreach ($databases as &$db) {
+                $db['version'] = null;
+                // Only fetch version if database is created
+                if ($db['is_created'] == 1 && !empty($db['db_name'])) {
+                    try {
+                        $targetConn = new PDO(
+                            "mysql:host={$targetDbHost};dbname={$db['db_name']}",
+                            $targetDbUser,
+                            $targetDbPass
+                        );
+                        $targetConn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+                        
+                        $versionStmt = $targetConn->prepare("SELECT version FROM versions WHERE id = 1");
+                        $versionStmt->execute();
+                        $versionData = $versionStmt->fetch(PDO::FETCH_ASSOC);
+                        if ($versionData && isset($versionData['version'])) {
+                            $db['version'] = intval($versionData['version']);
+                        }
+                    } catch (PDOException $e) {
+                        // If version fetch fails, leave it as null
+                        error_log('Failed to fetch version for database ' . $db['db_name'] . ': ' . $e->getMessage());
+                    }
+                }
+            }
+            unset($db); // Break reference
+            
             $response['success'] = true;
             $response['data'] = $databases;
             break;
@@ -381,9 +414,15 @@ try {
         case 'create_tables':
             // Create tables from setup.sql
             $id = intval($inputData['id'] ?? 0);
+            $version = intval($inputData['version'] ?? 0);
             
             if ($id <= 0) {
                 $response['message'] = 'Invalid database ID';
+                break;
+            }
+            
+            if ($version <= 0) {
+                $response['message'] = 'Version is required and must be a positive number';
                 break;
             }
             
@@ -428,12 +467,12 @@ try {
             // Normalize whitespace (replace multiple whitespace with single space, but preserve newlines within statements)
             $setupSql = preg_replace('/\s+/', ' ', $setupSql);
             
-            // Split by semicolons and filter for CREATE TABLE statements
+            // Split by semicolons and filter for CREATE TABLE and INSERT statements
             $statements = array_filter(
                 array_map('trim', explode(';', $setupSql)),
                 function($stmt) {
                     $stmt = trim($stmt);
-                    return !empty($stmt) && stripos($stmt, 'CREATE TABLE') !== false;
+                    return !empty($stmt) && (stripos($stmt, 'CREATE TABLE') !== false || stripos($stmt, 'INSERT') !== false);
                 }
             );
             
@@ -482,6 +521,15 @@ try {
             if (!empty($errors) && $executedCount === 0) {
                 $response['message'] = 'Failed to create tables: ' . implode('; ', $errors);
                 break;
+            }
+            
+            // Update version in versions table
+            try {
+                $versionStmt = $targetConn->prepare("INSERT INTO versions (id, version) VALUES (1, ?) ON DUPLICATE KEY UPDATE version = ?");
+                $versionStmt->execute([$version, $version]);
+            } catch (PDOException $e) {
+                // If versions table doesn't exist yet or update fails, log but don't fail the whole operation
+                error_log('Failed to update version: ' . $e->getMessage());
             }
             
             // Update is_created flag

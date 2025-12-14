@@ -11,8 +11,9 @@
         :active-item="activeItem"
         @select-item="handleSelectItem"
         @logout="handleLogout"
+        @toggle="handleSidebarToggle"
       />
-      <div class="main-content">
+      <div class="main-content" :class="{ 'sidebar-collapsed': sidebarCollapsed }">
         <div class="content-area">
           <!-- SQL Component -->
           <div v-if="activeItem === 'sql'" class="sql-section">
@@ -42,6 +43,7 @@ import Databases from '../components/db-manager/Databases.vue'
 
 const isLoggedIn = ref(false)
 const activeItem = ref('')
+const sidebarCollapsed = ref(true)
 
 const checkLoginStatus = () => {
   const user = localStorage.getItem('db_manager_user')
@@ -60,6 +62,10 @@ const handleLogout = () => {
 
 const handleSelectItem = (item) => {
   activeItem.value = item
+}
+
+const handleSidebarToggle = (collapsed) => {
+  sidebarCollapsed.value = collapsed
 }
 
 onMounted(() => {
@@ -90,6 +96,11 @@ onMounted(() => {
   margin-left: 250px;
   flex: 1;
   padding: 2rem;
+  transition: margin-left 0.3s ease;
+}
+
+.main-content.sidebar-collapsed {
+  margin-left: 70px;
 }
 
 .content-area {

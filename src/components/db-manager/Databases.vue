@@ -26,11 +26,38 @@
       {{ successMessage }}
     </div>
 
+    <!-- Toolbar -->
+    <div v-if="!loading && databases.length > 0" class="toolbar">
+      <div class="toolbar-left">
+        <button @click="updateStructure" class="btn-toolbar" :disabled="selectedDatabases.length === 0">
+          <i class="fas fa-sync-alt"></i>
+          Update Structure
+        </button>
+        <button @click="runSql" class="btn-toolbar" :disabled="selectedDatabases.length === 0">
+          <i class="fas fa-code"></i>
+          Run SQL
+        </button>
+      </div>
+      <div class="toolbar-right">
+        <span v-if="selectedDatabases.length > 0" class="selected-count">
+          {{ selectedDatabases.length }} database(s) selected
+        </span>
+      </div>
+    </div>
+
     <!-- Table -->
     <div v-if="!loading && databases.length > 0" class="table-container">
       <table class="databases-table">
         <thead>
           <tr>
+            <th>
+              <input
+                type="checkbox"
+                :checked="allSelected"
+                @change="toggleSelectAll"
+                class="checkbox-select-all"
+              />
+            </th>
             <th>ID</th>
             <th>DB Code</th>
             <th>DB Name</th>
@@ -43,11 +70,20 @@
             <th>Files Dir</th>
             <th>JS Dir</th>
             <th>Status</th>
+            <th>Version</th>
             <th>Actions</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="db in databases" :key="db.id">
+            <td>
+              <input
+                type="checkbox"
+                :value="db.id"
+                v-model="selectedDatabases"
+                class="checkbox-db"
+              />
+            </td>
             <td>{{ db.id }}</td>
             <td>{{ db.db_code }}</td>
             <td>{{ db.db_name }}</td>
@@ -62,6 +98,17 @@
             <td>
               <span :class="['status-badge', db.is_created == 1 ? 'status-created' : 'status-pending']">
                 {{ db.is_created == 1 ? 'Created' : 'Pending' }}
+              </span>
+            </td>
+            <td>
+              <span v-if="db.is_created == 1 && db.version !== null && db.version !== undefined" class="version-badge">
+                v{{ db.version }}
+              </span>
+              <span v-else-if="db.is_created == 1" class="version-badge version-unknown">
+                N/A
+              </span>
+              <span v-else class="version-badge version-pending">
+                -
               </span>
             </td>
             <td class="actions-cell">
@@ -228,11 +275,44 @@
         </div>
       </div>
     </div>
+
+    <!-- Version Input Modal -->
+    <div v-if="showVersionModal" class="modal-overlay" @click="cancelVersionInput">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>Enter Database Version</h3>
+        </div>
+        <div class="modal-body">
+          <p>
+            Please enter the version number for database <strong>{{ databaseToCreateTables?.db_code }}</strong>:
+          </p>
+          <div class="form-group">
+            <label for="version-input">Version:</label>
+            <input
+              id="version-input"
+              type="number"
+              v-model="versionInput"
+              placeholder="Enter version number"
+              min="1"
+              class="form-input"
+              @keyup.enter="confirmCreateTables"
+            />
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button @click="cancelVersionInput" class="btn-cancel">Cancel</button>
+          <button @click="confirmCreateTables" :disabled="!versionInput || creatingTables" class="btn-primary">
+            <i v-if="creatingTables" class="fas fa-spinner fa-spin"></i>
+            {{ creatingTables ? 'Creating...' : 'Create Tables' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 
 const databases = ref([])
 const loading = ref(false)
@@ -246,6 +326,10 @@ const saving = ref(false)
 const deleting = ref(false)
 const creatingTables = ref(false)
 const creatingTablesId = ref(null)
+const showVersionModal = ref(false)
+const databaseToCreateTables = ref(null)
+const versionInput = ref('')
+const selectedDatabases = ref([])
 
 const formData = ref({
   db_code: '',
@@ -407,13 +491,29 @@ const cancelDelete = () => {
 
 // Delete database
 // Create tables from setup.sql
-const createTables = async (db) => {
+const createTables = (db) => {
   if (db.is_created == 1) {
     return
   }
 
+  databaseToCreateTables.value = db
+  versionInput.value = ''
+  showVersionModal.value = true
+}
+
+const cancelVersionInput = () => {
+  showVersionModal.value = false
+  databaseToCreateTables.value = null
+  versionInput.value = ''
+}
+
+const confirmCreateTables = async () => {
+  if (!databaseToCreateTables.value || !versionInput.value || parseInt(versionInput.value) <= 0) {
+    return
+  }
+
   creatingTables.value = true
-  creatingTablesId.value = db.id
+  creatingTablesId.value = databaseToCreateTables.value.id
   error.value = ''
   successMessage.value = ''
 
@@ -425,7 +525,8 @@ const createTables = async (db) => {
       },
       body: JSON.stringify({
         action: 'create_tables',
-        id: db.id,
+        id: databaseToCreateTables.value.id,
+        version: parseInt(versionInput.value),
       }),
     })
 
@@ -433,6 +534,9 @@ const createTables = async (db) => {
 
     if (result.success) {
       successMessage.value = result.message || 'Tables created successfully'
+      showVersionModal.value = false
+      databaseToCreateTables.value = null
+      versionInput.value = ''
       await fetchDatabases()
       setTimeout(() => {
         successMessage.value = ''
@@ -501,6 +605,30 @@ const formatCurrency = (amount) => {
   }).format(amount)
 }
 
+// Select all functionality
+const allSelected = computed(() => {
+  return databases.value.length > 0 && selectedDatabases.value.length === databases.value.length
+})
+
+const toggleSelectAll = () => {
+  if (allSelected.value) {
+    selectedDatabases.value = []
+  } else {
+    selectedDatabases.value = databases.value.map(db => db.id)
+  }
+}
+
+// Toolbar button handlers (to be implemented later)
+const updateStructure = () => {
+  console.log('Update Structure clicked for databases:', selectedDatabases.value)
+  // Functionality will be implemented later
+}
+
+const runSql = () => {
+  console.log('Run SQL clicked for databases:', selectedDatabases.value)
+  // Functionality will be implemented later
+}
+
 // Format Unix path on blur
 const formatUnixPath = (field) => {
   if (!formData.value[field]) return
@@ -533,7 +661,11 @@ onMounted(() => {
 
 <style scoped>
 .databases-component {
+  position: relative;
+  width: 100%;
+  overflow-x: auto;
   padding: 0;
+  z-index: 1;
 }
 
 .header-section {
@@ -596,6 +728,8 @@ onMounted(() => {
 
 .table-container {
   overflow-x: auto;
+  position: relative;
+  z-index: 0;
 }
 
 .databases-table {
@@ -621,6 +755,86 @@ onMounted(() => {
 
 .databases-table tr:hover {
   background-color: #f5f7fa;
+}
+
+/* Checkbox Styles */
+.checkbox-select-all,
+.checkbox-db {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #409eff;
+}
+
+.checkbox-select-all {
+  margin: 0;
+}
+
+.checkbox-db {
+  margin: 0;
+}
+
+/* Toolbar Styles */
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background-color: #f5f7fa;
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+  position: relative;
+  z-index: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.toolbar-left {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.toolbar-right {
+  display: flex;
+  align-items: center;
+}
+
+.btn-toolbar {
+  background-color: #409eff;
+  color: white;
+  border: none;
+  padding: 0.625rem 1.25rem;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.btn-toolbar:hover:not(:disabled) {
+  background-color: #66b1ff;
+  transform: translateY(-1px);
+}
+
+.btn-toolbar:disabled {
+  background-color: #c0c4cc;
+  cursor: not-allowed;
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.btn-toolbar i {
+  font-size: 0.875rem;
+}
+
+.selected-count {
+  color: #606266;
+  font-size: 0.9rem;
+  font-weight: 500;
 }
 
 .actions-cell {
@@ -691,6 +905,26 @@ onMounted(() => {
   border-radius: 12px;
   font-size: 0.75rem;
   font-weight: 600;
+}
+
+.version-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background-color: #409eff;
+  color: white;
+}
+
+.version-badge.version-unknown {
+  background-color: #909399;
+  color: white;
+}
+
+.version-badge.version-pending {
+  background-color: #e4e7ed;
+  color: #909399;
   text-transform: uppercase;
 }
 
