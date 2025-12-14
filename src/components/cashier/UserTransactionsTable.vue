@@ -9,7 +9,8 @@ const props = defineProps({
   },
 })
 
-const { callApi } = useApi()
+const { callApi, getAssets } = useApi()
+const letterHeadUrl = ref(null)
 const sellPayments = ref([])
 const receivedTransfers = ref([])
 const sentTransfers = ref([])
@@ -316,14 +317,22 @@ const hasActiveFilters = computed(() => {
   )
 })
 
-const printTransactionsList = () => {
+const printTransactionsList = async () => {
   const printWindow = window.open('', '_blank')
   if (!printWindow) {
     alert('Popup blocked. Please allow popups for this site.')
     return
   }
 
-  const letterHeadUrl = new URL('../../assets/letter_head.png', import.meta.url).href
+  // Load assets if not already loaded
+  if (!letterHeadUrl.value) {
+    try {
+      const assets = await getAssets()
+      letterHeadUrl.value = assets?.letter_head || ''
+    } catch (err) {
+      console.error('Failed to load assets, using default:', err)
+    }
+  }
 
   // Calculate totals for print
   const printTotalIn = transactionsWithBalance.value.reduce(
@@ -481,7 +490,7 @@ const printTransactionsList = () => {
     </head>
     <body>
       <div class="letterhead">
-        <img src="${letterHeadUrl}" alt="Company Letterhead">
+        <img src="${letterHeadUrl.value}" alt="Company Letterhead">
       </div>
       
       <div class="report-header">
@@ -579,14 +588,22 @@ const printTransactionsList = () => {
   }
 }
 
-const printTransactionReceipt = (transaction) => {
+const printTransactionReceipt = async (transaction) => {
   const printWindow = window.open('', '_blank')
   if (!printWindow) {
     alert('Popup blocked. Please allow popups for this site.')
     return
   }
 
-  const letterHeadUrl = new URL('../../assets/letter_head.png', import.meta.url).href
+  // Load assets if not already loaded
+  if (!letterHeadUrl.value) {
+    try {
+      const assets = await getAssets()
+      letterHeadUrl.value = assets?.letter_head || ''
+    } catch (err) {
+      console.error('Failed to load assets, using default:', err)
+    }
+  }
 
   const receiptHtml = `
     <!DOCTYPE html>
@@ -712,7 +729,7 @@ const printTransactionReceipt = (transaction) => {
     </head>
     <body>
       <div class="letterhead">
-        <img src="${letterHeadUrl}" alt="Company Letterhead">
+        <img src="${letterHeadUrl.value}" alt="Company Letterhead">
       </div>
       
       <div class="receipt-title">TRANSACTION RECEIPT</div>

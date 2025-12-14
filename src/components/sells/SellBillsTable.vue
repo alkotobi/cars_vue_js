@@ -29,7 +29,8 @@ const emit = defineEmits(['refresh', 'select-bill', 'update-selected-bills'])
 const selectedBills = ref([])
 
 const router = useRouter()
-const { callApi } = useApi()
+const { callApi, getAssets } = useApi()
+const letterHeadUrl = ref(null)
 const sellBills = ref([])
 const loading = ref(true)
 const error = ref(null)
@@ -705,8 +706,18 @@ const handleBatchPrint = async () => {
   }
 }
 
-const generateBatchPrintReport = (billsData) => {
+const generateBatchPrintReport = async (billsData) => {
   console.log('generateBatchPrintReport called with:', billsData.length, 'bills')
+
+  // Load assets if not already loaded
+  if (!letterHeadUrl.value) {
+    try {
+      const assets = await getAssets()
+      letterHeadUrl.value = assets?.letter_head || ''
+    } catch (err) {
+      console.error('Failed to load assets, using default:', err)
+    }
+  }
 
   // Pre-translate all strings
   const translations = {
@@ -772,8 +783,15 @@ const generateBatchPrintReport = (billsData) => {
     return
   }
 
-  // Import letter head image using Vite's way
-  const letterHeadUrl = new URL('../../assets/letter_head.png', import.meta.url).href
+  // Load assets if not already loaded
+  if (!letterHeadUrl.value) {
+    try {
+      const assets = await getAssets()
+      letterHeadUrl.value = assets?.letter_head || ''
+    } catch (err) {
+      console.error('Failed to load assets, using default:', err)
+    }
+  }
 
   // Generate HTML
   let html = `
@@ -968,7 +986,7 @@ const generateBatchPrintReport = (billsData) => {
       </style>
     </head>
     <body>
-      <img src="${letterHeadUrl}" class="letter-head" alt="Letter Head" />
+      <img src="${letterHeadUrl.value}" class="letter-head" alt="Letter Head" />
   `
 
   // Add each bill

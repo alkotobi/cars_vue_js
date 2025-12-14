@@ -2,7 +2,8 @@
 import { ref, onMounted, computed } from 'vue'
 import { useApi } from '../../composables/useApi'
 
-const { callApi } = useApi()
+const { callApi, getAssets } = useApi()
+const letterHeadUrl = ref(null)
 const expenses = ref([])
 const filteredExpenses = ref([])
 const loading = ref(false)
@@ -185,14 +186,22 @@ const deleteExpense = async (expenseId) => {
   }
 }
 
-const printExpensesList = () => {
+const printExpensesList = async () => {
   const printWindow = window.open('', '_blank')
   if (!printWindow) {
     alert('Popup blocked. Please allow popups for this site.')
     return
   }
 
-  const letterHeadUrl = new URL('../../assets/letter_head.png', import.meta.url).href
+  // Load assets if not already loaded
+  if (!letterHeadUrl.value) {
+    try {
+      const assets = await getAssets()
+      letterHeadUrl.value = assets?.letter_head || ''
+    } catch (err) {
+      console.error('Failed to load assets, using default:', err)
+    }
+  }
 
   // Calculate total for print
   const printTotal = filteredExpenses.value.reduce((sum, expense) => {
@@ -333,7 +342,7 @@ const printExpensesList = () => {
     </head>
     <body>
       <div class="letterhead">
-        <img src="${letterHeadUrl}" alt="Company Letterhead">
+        <img src="${letterHeadUrl.value}" alt="Company Letterhead">
       </div>
       
       <div class="report-header">
@@ -418,14 +427,22 @@ const printExpensesList = () => {
   }
 }
 
-const printReceipt = (expense) => {
+const printReceipt = async (expense) => {
   const printWindow = window.open('', '_blank')
   if (!printWindow) {
     alert('Popup blocked. Please allow popups for this site.')
     return
   }
 
-  const letterHeadUrl = new URL('../../assets/letter_head.png', import.meta.url).href
+  // Load assets if not already loaded
+  if (!letterHeadUrl.value) {
+    try {
+      const assets = await getAssets()
+      letterHeadUrl.value = assets?.letter_head || ''
+    } catch (err) {
+      console.error('Failed to load assets, using default:', err)
+    }
+  }
 
   const receiptHtml = `
     <!DOCTYPE html>
@@ -554,7 +571,7 @@ const printReceipt = (expense) => {
     </head>
     <body>
       <div class="letterhead">
-        <img src="${letterHeadUrl}" alt="Company Letterhead">
+        <img src="${letterHeadUrl.value || ''}" alt="Company Letterhead">
       </div>
       
       <div class="receipt-header">

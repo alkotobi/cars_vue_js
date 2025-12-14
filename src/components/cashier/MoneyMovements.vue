@@ -3,7 +3,8 @@ import { ref, onMounted, computed } from 'vue'
 import { useApi } from '../../composables/useApi'
 import UserTransactionsTable from './UserTransactionsTable.vue'
 
-const { callApi } = useApi()
+const { callApi, getAssets } = useApi()
+const letterHeadUrl = ref(null)
 const users = ref([])
 const loading = ref(false)
 const error = ref(null)
@@ -207,14 +208,22 @@ const getSortIcon = (field) => {
   return sortDirection.value === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'
 }
 
-const printUsersList = () => {
+const printUsersList = async () => {
   const printWindow = window.open('', '_blank')
   if (!printWindow) {
     alert('Popup blocked. Please allow popups for this site.')
     return
   }
 
-  const letterHeadUrl = new URL('../../assets/letter_head.png', import.meta.url).href
+  // Load assets if not already loaded
+  if (!letterHeadUrl.value) {
+    try {
+      const assets = await getAssets()
+      letterHeadUrl.value = assets?.letter_head || ''
+    } catch (err) {
+      console.error('Failed to load assets, using default:', err)
+    }
+  }
 
   const usersListHtml = `
     <!DOCTYPE html>
@@ -357,7 +366,7 @@ const printUsersList = () => {
     </head>
     <body>
       <div class="letterhead">
-        <img src="${letterHeadUrl}" alt="Company Letterhead">
+        <img src="${letterHeadUrl.value}" alt="Company Letterhead">
       </div>
       
       <div class="report-header">

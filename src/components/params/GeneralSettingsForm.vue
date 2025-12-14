@@ -40,14 +40,14 @@
             <span>Logo (logo.png)</span>
           </label>
           <div class="file-input-wrapper">
-              <input
-                id="logo-input"
-                type="file"
-                accept=".png"
-                @change="handleFileSelect('logo', $event)"
-                :disabled="uploading || !uploadPath"
-                class="file-input"
-              />
+            <input
+              id="logo-input"
+              type="file"
+              accept=".png"
+              @change="handleFileSelect('logo', $event)"
+              :disabled="uploading || !uploadPath"
+              class="file-input"
+            />
             <button
               type="button"
               @click="triggerFileInput('logo')"
@@ -71,8 +71,16 @@
               <i class="fas fa-times"></i>
             </button>
           </div>
-          <div v-if="uploadResults.logo" class="upload-result" :class="{ success: uploadResults.logo.success, error: !uploadResults.logo.success }">
-            <i :class="uploadResults.logo.success ? 'fas fa-check-circle' : 'fas fa-exclamation-circle'"></i>
+          <div
+            v-if="uploadResults.logo"
+            class="upload-result"
+            :class="{ success: uploadResults.logo.success, error: !uploadResults.logo.success }"
+          >
+            <i
+              :class="
+                uploadResults.logo.success ? 'fas fa-check-circle' : 'fas fa-exclamation-circle'
+              "
+            ></i>
             <span>{{ uploadResults.logo.message }}</span>
           </div>
         </div>
@@ -84,14 +92,14 @@
             <span>Letter Head (letter_head.png)</span>
           </label>
           <div class="file-input-wrapper">
-              <input
-                id="letter-head-input"
-                type="file"
-                accept=".png"
-                @change="handleFileSelect('letter_head', $event)"
-                :disabled="uploading || !uploadPath"
-                class="file-input"
-              />
+            <input
+              id="letter-head-input"
+              type="file"
+              accept=".png"
+              @change="handleFileSelect('letter_head', $event)"
+              :disabled="uploading || !uploadPath"
+              class="file-input"
+            />
             <button
               type="button"
               @click="triggerFileInput('letter_head')"
@@ -115,8 +123,21 @@
               <i class="fas fa-times"></i>
             </button>
           </div>
-          <div v-if="uploadResults.letter_head" class="upload-result" :class="{ success: uploadResults.letter_head.success, error: !uploadResults.letter_head.success }">
-            <i :class="uploadResults.letter_head.success ? 'fas fa-check-circle' : 'fas fa-exclamation-circle'"></i>
+          <div
+            v-if="uploadResults.letter_head"
+            class="upload-result"
+            :class="{
+              success: uploadResults.letter_head.success,
+              error: !uploadResults.letter_head.success,
+            }"
+          >
+            <i
+              :class="
+                uploadResults.letter_head.success
+                  ? 'fas fa-check-circle'
+                  : 'fas fa-exclamation-circle'
+              "
+            ></i>
             <span>{{ uploadResults.letter_head.message }}</span>
           </div>
         </div>
@@ -128,14 +149,14 @@
             <span>Stamp (gml2.png)</span>
           </label>
           <div class="file-input-wrapper">
-              <input
-                id="gml2-input"
-                type="file"
-                accept=".png"
-                @change="handleFileSelect('gml2', $event)"
-                :disabled="uploading || !uploadPath"
-                class="file-input"
-              />
+            <input
+              id="gml2-input"
+              type="file"
+              accept=".png"
+              @change="handleFileSelect('gml2', $event)"
+              :disabled="uploading || !uploadPath"
+              class="file-input"
+            />
             <button
               type="button"
               @click="triggerFileInput('gml2')"
@@ -159,28 +180,28 @@
               <i class="fas fa-times"></i>
             </button>
           </div>
-          <div v-if="uploadResults.gml2" class="upload-result" :class="{ success: uploadResults.gml2.success, error: !uploadResults.gml2.success }">
-            <i :class="uploadResults.gml2.success ? 'fas fa-check-circle' : 'fas fa-exclamation-circle'"></i>
+          <div
+            v-if="uploadResults.gml2"
+            class="upload-result"
+            :class="{ success: uploadResults.gml2.success, error: !uploadResults.gml2.success }"
+          >
+            <i
+              :class="
+                uploadResults.gml2.success ? 'fas fa-check-circle' : 'fas fa-exclamation-circle'
+              "
+            ></i>
             <span>{{ uploadResults.gml2.message }}</span>
           </div>
         </div>
       </div>
 
       <div class="form-actions">
-        <button
-          @click="uploadFiles"
-          :disabled="!canUpload || uploading"
-          class="upload-btn"
-        >
+        <button @click="uploadFiles" :disabled="!canUpload || uploading" class="upload-btn">
           <i v-if="uploading" class="fas fa-spinner fa-spin"></i>
           <i v-else class="fas fa-upload"></i>
           {{ uploading ? 'Uploading...' : 'Upload Selected Files' }}
         </button>
-        <button
-          @click="clearAll"
-          :disabled="uploading || !hasSelectedFiles"
-          class="clear-all-btn"
-        >
+        <button @click="clearAll" :disabled="uploading || !hasSelectedFiles" class="clear-all-btn">
           <i class="fas fa-times"></i>
           Clear All
         </button>
@@ -201,12 +222,12 @@ const uploadPath = ref(null)
 const selectedFiles = ref({
   logo: null,
   letter_head: null,
-  gml2: null
+  gml2: null,
 })
 const uploadResults = ref({
   logo: null,
   letter_head: null,
-  gml2: null
+  gml2: null,
 })
 
 // Get API base URL
@@ -220,7 +241,7 @@ const getApiBaseUrl = () => {
 const loadConfiguration = async () => {
   loading.value = true
   error.value = null
-  
+
   try {
     // Step 1: Get db_code from db_code.json
     const dbCodeResponse = await fetch('/db_code.json')
@@ -228,34 +249,33 @@ const loadConfiguration = async () => {
       throw new Error('Failed to load db_code.json')
     }
     const dbCodeData = await dbCodeResponse.json()
-    
+
     if (!dbCodeData.db_code) {
       throw new Error('db_code not found in db_code.json')
     }
-    
+
     dbCode.value = dbCodeData.db_code
-    
+
     // Step 2: Get database record from dbs table
     const dbResponse = await fetch(
-      `${getApiBaseUrl()}/db_manager_api.php?action=get_database_by_code&db_code=${encodeURIComponent(dbCodeData.db_code)}`
+      `${getApiBaseUrl()}/db_manager_api.php?action=get_database_by_code&db_code=${encodeURIComponent(dbCodeData.db_code)}`,
     )
-    
+
     if (!dbResponse.ok) {
       throw new Error('Failed to fetch database information')
     }
-    
+
     const dbResult = await dbResponse.json()
-    
+
     if (!dbResult.success || !dbResult.data) {
       throw new Error('Database not found for the provided db_code')
     }
-    
-    if (!dbResult.data.js_dir) {
-      throw new Error('js_dir is not configured for this database')
+
+    if (!dbResult.data.files_dir) {
+      throw new Error('files_dir is not configured for this database')
     }
-    
-    uploadPath.value = dbResult.data.js_dir
-    
+
+    uploadPath.value = dbResult.data.files_dir
   } catch (err) {
     error.value = err.message || 'Failed to load configuration'
     console.error(err)
@@ -267,7 +287,7 @@ const loadConfiguration = async () => {
 const handleFileSelect = (fileType, event) => {
   const file = event.target.files?.[0]
   if (!file) return
-  
+
   // Validate file type
   if (file.type !== 'image/png') {
     error.value = `${fileType} must be a PNG file`
@@ -276,21 +296,21 @@ const handleFileSelect = (fileType, event) => {
     }, 5000)
     return
   }
-  
+
   // Expected filenames for each type
   const expectedNames = {
     logo: 'logo.png',
     letter_head: 'letter_head.png',
-    gml2: 'gml2.png'
+    gml2: 'gml2.png',
   }
-  
+
   // Create a new File object with the correct name
   // This ensures the file is renamed to the appropriate name before upload
   const renamedFile = new File([file], expectedNames[fileType], {
     type: file.type,
-    lastModified: file.lastModified
+    lastModified: file.lastModified,
   })
-  
+
   selectedFiles.value[fileType] = renamedFile
   uploadResults.value[fileType] = null
   error.value = null
@@ -300,9 +320,9 @@ const triggerFileInput = (fileType) => {
   const inputIds = {
     logo: 'logo-input',
     letter_head: 'letter-head-input',
-    gml2: 'gml2-input'
+    gml2: 'gml2-input',
   }
-  
+
   const inputId = inputIds[fileType]
   if (inputId) {
     const input = document.getElementById(inputId)
@@ -315,7 +335,7 @@ const triggerFileInput = (fileType) => {
 const clearFile = (fileType) => {
   selectedFiles.value[fileType] = null
   uploadResults.value[fileType] = null
-  
+
   // Clear the input using IDs
   if (fileType === 'logo') {
     const input = document.getElementById('logo-input')
@@ -333,19 +353,19 @@ const clearAll = () => {
   selectedFiles.value = {
     logo: null,
     letter_head: null,
-    gml2: null
+    gml2: null,
   }
   uploadResults.value = {
     logo: null,
     letter_head: null,
-    gml2: null
+    gml2: null,
   }
   error.value = null
   successMessage.value = null
-  
+
   // Clear all inputs
   const inputs = document.querySelectorAll('.file-input')
-  inputs.forEach(input => {
+  inputs.forEach((input) => {
     input.value = ''
   })
 }
@@ -355,15 +375,19 @@ const formatFileSize = (bytes) => {
   const k = 1024
   const sizes = ['Bytes', 'KB', 'MB', 'GB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
+  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i]
 }
 
 const canUpload = computed(() => {
-  return Object.values(selectedFiles.value).some(file => file !== null) && uploadPath.value && !uploading.value
+  return (
+    Object.values(selectedFiles.value).some((file) => file !== null) &&
+    uploadPath.value &&
+    !uploading.value
+  )
 })
 
 const hasSelectedFiles = computed(() => {
-  return Object.values(selectedFiles.value).some(file => file !== null)
+  return Object.values(selectedFiles.value).some((file) => file !== null)
 })
 
 // Helper function to ensure folder exists before upload
@@ -371,19 +395,16 @@ const ensureFolderExists = async () => {
   try {
     // Call db_manager_api to ensure the folder exists
     // This creates the folder if it doesn't exist (without clearing contents)
-    const response = await fetch(
-      `${getApiBaseUrl()}/db_manager_api.php?action=ensure_folder`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          js_dir: uploadPath.value // Use original path with leading slash if present
-        })
-      }
-    )
-    
+    const response = await fetch(`${getApiBaseUrl()}/db_manager_api.php?action=ensure_folder`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        js_dir: uploadPath.value, // API parameter name is js_dir but we pass files_dir value
+      }),
+    })
+
     const result = await response.json()
     if (!result.success) {
       throw new Error(result.message || 'Failed to ensure folder exists')
@@ -399,36 +420,36 @@ const ensureFolderExists = async () => {
 
 const uploadFiles = async () => {
   if (!canUpload.value) return
-  
+
   uploading.value = true
   error.value = null
   successMessage.value = null
-  
+
   // Reset upload results
   uploadResults.value = {
     logo: null,
     letter_head: null,
-    gml2: null
+    gml2: null,
   }
-  
+
   const fileTypes = ['logo', 'letter_head', 'gml2']
   const fileNames = {
     logo: 'logo.png',
     letter_head: 'letter_head.png',
-    gml2: 'gml2.png'
+    gml2: 'gml2.png',
   }
-  
+
   let successCount = 0
   let failCount = 0
-  
+
   try {
-    // Prepare js_dir path (remove leading slash if present)
-    let jsDir = uploadPath.value.trim()
-    if (jsDir.startsWith('/')) {
-      jsDir = jsDir.substring(1)
+    // Prepare files_dir path (remove leading slash if present)
+    let filesDir = uploadPath.value.trim()
+    if (filesDir.startsWith('/')) {
+      filesDir = filesDir.substring(1)
     }
-    jsDir = jsDir.trim()
-    
+    filesDir = filesDir.trim()
+
     // Ensure the folder exists before uploading
     // This creates the folder if it doesn't exist (without clearing contents)
     try {
@@ -438,48 +459,48 @@ const uploadFiles = async () => {
       // But we show a warning and continue
       console.warn('Folder creation failed, upload.php will attempt to create it:', folderErr)
     }
-    
+
     // Upload each selected file
     for (const fileType of fileTypes) {
       const file = selectedFiles.value[fileType]
       if (!file) continue
-      
+
       try {
         const formData = new FormData()
         formData.append('file', file)
-        formData.append('base_directory', jsDir)
-        formData.append('destination_folder', '') // Upload to root of js_dir
+        formData.append('base_directory', filesDir)
+        formData.append('destination_folder', '') // Upload to root of files_dir
         formData.append('custom_filename', fileNames[fileType]) // Use exact filename
-        
+
         const uploadResponse = await fetch(`${getApiBaseUrl()}/upload.php`, {
           method: 'POST',
           body: formData,
         })
-        
+
         const uploadResult = await uploadResponse.json()
-        
+
         if (uploadResult.success) {
           uploadResults.value[fileType] = {
             success: true,
-            message: `Uploaded successfully: ${uploadResult.file_path || fileNames[fileType]}`
+            message: `Uploaded successfully: ${uploadResult.file_path || fileNames[fileType]}`,
           }
           successCount++
         } else {
           uploadResults.value[fileType] = {
             success: false,
-            message: uploadResult.message || 'Upload failed'
+            message: uploadResult.message || 'Upload failed',
           }
           failCount++
         }
       } catch (err) {
         uploadResults.value[fileType] = {
           success: false,
-          message: err.message || 'An error occurred during upload'
+          message: err.message || 'An error occurred during upload',
         }
         failCount++
       }
     }
-    
+
     // Show summary message
     if (successCount > 0 && failCount === 0) {
       successMessage.value = `All ${successCount} file(s) uploaded successfully`
@@ -808,4 +829,3 @@ onMounted(() => {
   }
 }
 </style>
-

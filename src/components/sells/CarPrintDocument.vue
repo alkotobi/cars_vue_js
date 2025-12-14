@@ -1,10 +1,7 @@
 <script setup>
-import { ref, onMounted,   } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useEnhancedI18n } from '../../composables/useI18n'
 import { useApi } from '../../composables/useApi'
-import logoImage from '@/assets/logo.png'
-import stampImage from '@/assets/gml2.png'
-import letterHeadImage from '@/assets/letter_head.png'
 
 const { t } = useEnhancedI18n()
 const props = defineProps({
@@ -22,18 +19,21 @@ const props = defineProps({
   },
 })
 
-const { callApi } = useApi()
+const { callApi, getAssets } = useApi()
 const loading = ref(true)
 const error = ref(null)
 const carData = ref(null)
 const billData = ref(null)
+const logoUrl = ref(null)
+const stampUrl = ref(null)
+const letterHeadUrl = ref(null)
 
 const company = ref({
   name: 'GROUP MERHAB LIMITED',
   address: 'GUANGZHOU, CHINA',
   phone: '+86 123 456 7890',
   email: 'contact@merhab.com',
-  logo: logoImage,
+  logo: null, // Will be set from getAssets
 })
 
 const fetchCarData = async () => {
@@ -132,7 +132,31 @@ const formatPrice = (price) => {
   return price
 }
 
-onMounted(() => {
+// Load assets (logo, stamp, letter head)
+const loadAssets = async () => {
+  try {
+    const assets = await getAssets()
+    if (assets) {
+      logoUrl.value = assets.logo || null
+      stampUrl.value = assets.gml2 || null
+      letterHeadUrl.value = assets.letter_head || null
+
+      // Update company logo
+      if (logoUrl.value) {
+        company.value.logo = logoUrl.value
+      } else {
+        // Fallback to default
+        console.error('Failed to load assets, using defaults:', err)
+      }
+    }
+  } catch (err) {
+    console.error('Failed to load assets, using defaults:', err)
+    // Use fallback URLs
+  }
+}
+
+onMounted(async () => {
+  await loadAssets()
   fetchCarData()
 })
 </script>
@@ -144,7 +168,7 @@ onMounted(() => {
     <div v-else>
       <!-- Header Image -->
       <div class="report-header">
-        <img :src="letterHeadImage" alt="Letter Head" class="letter-head" />
+        <img :src="letterHeadUrl" alt="Letter Head" class="letter-head" />
       </div>
 
       <!-- Date and Reference -->
@@ -238,10 +262,10 @@ onMounted(() => {
             <div class="info-row">
               <span class="info-label bold-label">{{ t('sellBills.payment_terms') }}:</span>
               <span class="info-value">{{ options.paymentTerms.toUpperCase() }}</span>
-        </div>
-          <div class="info-row">
+            </div>
+            <div class="info-row">
               <span class="info-label bold-label">{{ t('sellBills.mode') }}:</span>
-            <span class="info-value">{{ options.paymentMode }}</span>
+              <span class="info-value">{{ options.paymentMode }}</span>
             </div>
           </div>
         </div>

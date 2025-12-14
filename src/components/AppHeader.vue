@@ -9,8 +9,9 @@ import ChatMessages from './chat/ChatMessages.vue'
 
 const router = useRouter()
 const { t } = useEnhancedI18n()
-const { callApi } = useApi()
+const { callApi, getAssets } = useApi()
 const user = ref(null)
+const logoUrl = ref(null)
 const showChatModal = ref(false)
 const unreadMessageCount = ref(0)
 const chatMessagesRef = ref(null)
@@ -220,9 +221,23 @@ const updateUnreadCount = async () => {
 let unreadCountInterval = null
 let tasksCountInterval = null
 
+// Load logo from assets
+const loadLogo = async () => {
+  try {
+    const assets = await getAssets()
+    if (assets && assets.logo) {
+      logoUrl.value = assets.logo
+    }
+  } catch (err) {
+    console.warn('Failed to load logo from assets, using default:', err)
+    // Keep logoUrl as null to use fallback
+  }
+}
+
 // Initialize user on component mount
 onMounted(async () => {
   await getUser()
+  loadLogo() // Load logo asynchronously
   watchUserChanges()
 
   // Set up activity listeners
@@ -287,7 +302,7 @@ onUnmounted(() => {
     <div class="header-content">
       <div class="header-left">
         <div class="logo-section">
-          <img src="../assets/logo.png" alt="Company Logo" class="company-logo" />
+          <img :src="logoUrl" alt="Company Logo" class="company-logo" />
           <div class="company-info">
             <h1 class="company-name">{{ t('app.companyName') }}</h1>
             <p class="company-tagline">{{ t('app.subtitle') }}</p>

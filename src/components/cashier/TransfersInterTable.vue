@@ -3,7 +3,8 @@ import { ref, onMounted, computed } from 'vue'
 import { useApi } from '../../composables/useApi'
 import TransferForm from './TransferForm.vue'
 
-const { callApi } = useApi()
+const { callApi, getAssets } = useApi()
+const letterHeadUrl = ref(null)
 const transfers = ref([])
 const users = ref([])
 const loading = ref(false)
@@ -227,14 +228,22 @@ const formatDateTime = (dateStr) => {
   return new Date(dateStr).toLocaleString()
 }
 
-const printTransferReceipt = (transfer) => {
+const printTransferReceipt = async (transfer) => {
   const printWindow = window.open('', '_blank')
   if (!printWindow) {
     alert('Popup blocked. Please allow popups for this site.')
     return
   }
 
-  const letterHeadUrl = new URL('../../assets/letter_head.png', import.meta.url).href
+  // Load assets if not already loaded
+  if (!letterHeadUrl.value) {
+    try {
+      const assets = await getAssets()
+      letterHeadUrl.value = assets?.letter_head || ''
+    } catch (err) {
+      console.error('Failed to load assets, using default:', err)
+    }
+  }
 
   const receiptHtml = `
     <!DOCTYPE html>
@@ -371,7 +380,7 @@ const printTransferReceipt = (transfer) => {
     </head>
     <body>
       <div class="letterhead">
-        <img src="${letterHeadUrl}" alt="Company Letterhead">
+        <img src="${letterHeadUrl.value}" alt="Company Letterhead">
       </div>
       
       <div class="receipt-title">INTERNAL TRANSFER RECEIPT</div>

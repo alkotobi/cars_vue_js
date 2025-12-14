@@ -385,11 +385,127 @@ export const useApi = () => {
     }
   }
 
+  // Get assets (logo.png, letter_head.png, gml2.png)
+  // Returns JSON with file locations, copies from js_dir to files_dir if needed
+  // Uses localStorage to cache results
+  async function getAssets() {
+    const STORAGE_KEY = 'assets_cache'
+    const ASSET_FILES = ['logo.png', 'letter_head.png', 'gml2.png']
+
+    // Check localStorage first
+    try {
+      const cached = localStorage.getItem(STORAGE_KEY)
+      if (cached) {
+        const cachedData = JSON.parse(cached)
+        // Check if cache is still valid (you can add timestamp validation here if needed)
+        return cachedData
+      }
+    } catch (err) {
+      console.warn('Error reading assets cache:', err)
+    }
+
+    try {
+      // Get db_code from db_code.json
+      const dbCodeResponse = await fetch('/db_code.json')
+      if (!dbCodeResponse.ok) {
+        throw new Error('Failed to load db_code.json')
+      }
+      const dbCodeData = await dbCodeResponse.json()
+
+      if (!dbCodeData.db_code) {
+        throw new Error('db_code not found in db_code.json')
+      }
+
+      // Get database info from dbs table
+      const dbResponse = await fetch(
+        `${DB_MANAGER_API_URL}?action=get_database_by_code&db_code=${encodeURIComponent(dbCodeData.db_code)}`,
+      )
+
+      if (!dbResponse.ok) {
+        throw new Error('Failed to fetch database information')
+      }
+
+      const dbResult = await dbResponse.json()
+
+      if (!dbResult.success || !dbResult.data) {
+        throw new Error('Database not found for the provided db_code')
+      }
+
+      const { files_dir, js_dir } = dbResult.data
+
+      if (!files_dir || !js_dir) {
+        throw new Error('files_dir and js_dir must be configured')
+      }
+
+      // Check if files exist in files_dir using API
+      const checkResponse = await fetch(DB_MANAGER_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          action: 'check_assets',
+          files_dir: files_dir,
+        }),
+      })
+
+      const checkResult = await checkResponse.json()
+      const existingFiles = checkResult.success ? checkResult.data?.existing || [] : []
+      const missingFiles = ASSET_FILES.filter((file) => !existingFiles.includes(file))
+
+      // If files are missing, copy them from js_dir to files_dir
+      if (missingFiles.length > 0) {
+        const copyResponse = await fetch(DB_MANAGER_API_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: new URLSearchParams({
+            action: 'copy_assets',
+            js_dir: js_dir,
+            files_dir: files_dir,
+          }),
+        })
+
+        const copyResult = await copyResponse.json()
+
+        if (!copyResult.success) {
+          throw new Error(`Failed to copy assets: ${copyResult.message || 'Unknown error'}`)
+        }
+      }
+
+      // Build file URLs
+      const filesDirPath = files_dir.startsWith('/') ? files_dir.substring(1) : files_dir
+      const filesDirUrl = `${UPLOAD_URL}?base_directory=${encodeURIComponent(filesDirPath)}&path=`
+
+      // Build result object with all file locations
+      const result = {
+        logo: filesDirUrl + encodeURIComponent('logo.png'),
+        letter_head: filesDirUrl + encodeURIComponent('letter_head.png'),
+        gml2: filesDirUrl + encodeURIComponent('gml2.png'),
+        files_dir: files_dir,
+      }
+
+      // Cache in localStorage
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(result))
+      } catch (err) {
+        console.warn('Error caching assets:', err)
+      }
+
+      return result
+    } catch (err) {
+      console.error('Error getting assets:', err)
+      throw err
+    }
+  }
+
   return {
     callApi,
     uploadFile,
     getFileUrl,
     handleCookieVerification,
+    getAssets,
     error,
     loading,
   }

@@ -947,6 +947,162 @@ try {
             $response['data'] = $results;
             break;
             
+        case 'check_assets':
+            // Check which asset files exist in files_dir
+            $filesDir = trim($inputData['files_dir'] ?? '');
+            
+            if (empty($filesDir)) {
+                $response['message'] = 'files_dir is required';
+                break;
+            }
+            
+            try {
+                // Remove leading slash
+                $filesDir = ltrim($filesDir, '/');
+                $filesDir = rtrim($filesDir, '/');
+                
+                // Construct full path
+                $filesDirPath = __DIR__ . '/../' . $filesDir . '/';
+                
+                // Security check
+                $realBasePath = realpath(__DIR__ . '/../');
+                if ($realBasePath === false) {
+                    throw new Exception('Invalid base directory');
+                }
+                $realBasePath = rtrim($realBasePath, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+                
+                // Resolve and verify files_dir path
+                $resolvedFilesDir = realpath($filesDirPath);
+                if ($resolvedFilesDir === false) {
+                    // Directory doesn't exist
+                    $response['success'] = true;
+                    $response['data'] = ['existing' => []];
+                    break;
+                }
+                $resolvedFilesDir = rtrim($resolvedFilesDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+                if (strpos($resolvedFilesDir, $realBasePath) !== 0) {
+                    throw new Exception('Directory traversal attempt detected');
+                }
+                
+                // Check which files exist
+                $assetFiles = ['logo.png', 'letter_head.png', 'gml2.png'];
+                $existingFiles = [];
+                
+                foreach ($assetFiles as $fileName) {
+                    $filePath = $resolvedFilesDir . $fileName;
+                    if (file_exists($filePath) && is_file($filePath)) {
+                        $existingFiles[] = $fileName;
+                    }
+                }
+                
+                $response['success'] = true;
+                $response['data'] = ['existing' => $existingFiles];
+            } catch (Exception $e) {
+                $response['message'] = $e->getMessage();
+            }
+            break;
+            
+        case 'copy_assets':
+            // Copy asset files (logo.png, letter_head.png, gml2.png) from js_dir to files_dir
+            $jsDir = trim($inputData['js_dir'] ?? '');
+            $filesDir = trim($inputData['files_dir'] ?? '');
+            
+            if (empty($jsDir) || empty($filesDir)) {
+                $response['message'] = 'js_dir and files_dir are required';
+                break;
+            }
+            
+            try {
+                // Remove leading slashes
+                $jsDir = ltrim($jsDir, '/');
+                $jsDir = rtrim($jsDir, '/');
+                $filesDir = ltrim($filesDir, '/');
+                $filesDir = rtrim($filesDir, '/');
+                
+                // Construct full paths
+                $jsDirPath = __DIR__ . '/../' . $jsDir . '/';
+                $filesDirPath = __DIR__ . '/../' . $filesDir . '/';
+                
+                // Security check - get real base path
+                $realBasePath = realpath(__DIR__ . '/../');
+                if ($realBasePath === false) {
+                    throw new Exception('Invalid base directory');
+                }
+                $realBasePath = rtrim($realBasePath, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+                
+                // Resolve and verify js_dir path
+                $resolvedJsDir = realpath($jsDirPath);
+                if ($resolvedJsDir === false) {
+                    throw new Exception('js_dir does not exist: ' . $jsDir);
+                }
+                $resolvedJsDir = rtrim($resolvedJsDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+                if (strpos($resolvedJsDir, $realBasePath) !== 0) {
+                    throw new Exception('Directory traversal attempt detected in js_dir');
+                }
+                
+                // Ensure files_dir exists
+                if (!file_exists($filesDirPath)) {
+                    if (!mkdir($filesDirPath, 0755, true)) {
+                        throw new Exception('Failed to create files_dir: ' . $filesDirPath);
+                    }
+                }
+                
+                // Resolve and verify files_dir path
+                $resolvedFilesDir = realpath($filesDirPath);
+                if ($resolvedFilesDir === false) {
+                    throw new Exception('Failed to resolve files_dir path');
+                }
+                $resolvedFilesDir = rtrim($resolvedFilesDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+                if (strpos($resolvedFilesDir, $realBasePath) !== 0) {
+                    throw new Exception('Directory traversal attempt detected in files_dir');
+                }
+                
+                // Files to copy
+                $assetFiles = ['logo.png', 'letter_head.png', 'gml2.png'];
+                $copiedFiles = [];
+                $errors = [];
+                
+                foreach ($assetFiles as $fileName) {
+                    $sourceFile = $resolvedJsDir . $fileName;
+                    $destFile = $resolvedFilesDir . $fileName;
+                    
+                    // Check if source file exists
+                    if (!file_exists($sourceFile)) {
+                        $errors[] = "Source file not found: {$fileName}";
+                        continue;
+                    }
+                    
+                    // Copy file
+                    if (!copy($sourceFile, $destFile)) {
+                        $errors[] = "Failed to copy: {$fileName}";
+                        continue;
+                    }
+                    
+                    // Set permissions
+                    chmod($destFile, 0644);
+                    
+                    $copiedFiles[] = $fileName;
+                }
+                
+                if (count($errors) > 0) {
+                    $response['message'] = 'Some files failed to copy: ' . implode(', ', $errors);
+                    $response['data'] = [
+                        'copied' => $copiedFiles,
+                        'errors' => $errors
+                    ];
+                } else {
+                    $response['success'] = true;
+                    $response['message'] = 'All files copied successfully';
+                    $response['data'] = [
+                        'copied' => $copiedFiles,
+                        'files_dir' => $filesDir
+                    ];
+                }
+            } catch (Exception $e) {
+                $response['message'] = $e->getMessage();
+            }
+            break;
+            
         case 'ensure_folder':
             // Ensure folder exists: create if doesn't exist (without clearing contents)
             $jsDir = trim($inputData['js_dir'] ?? '');

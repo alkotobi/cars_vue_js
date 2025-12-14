@@ -2,7 +2,6 @@
 import { ref, onMounted, computed, watch, onUnmounted } from 'vue'
 import { useEnhancedI18n } from '@/composables/useI18n'
 import { useApi } from '../../composables/useApi'
-import letterHeadImage from '../../assets/letter_head.png'
 import VinEditForm from './VinEditForm.vue'
 import CarFilesUploadForm from './CarFilesUploadForm.vue'
 import CarPortsEditForm from './CarPortsEditForm.vue'
@@ -129,7 +128,8 @@ const can_edit_cars_prop = computed(() => {
 
 const emit = defineEmits(['refresh', 'warehouse-changed'])
 
-const { callApi, getFileUrl } = useApi()
+const { callApi, getFileUrl, getAssets } = useApi()
+const letterHeadUrl = ref(null)
 const cars = ref([])
 const loading = ref(true)
 const error = ref(null)
@@ -386,7 +386,7 @@ const handlePrintOptionsClose = () => {
   showPrintOptions.value = false
 }
 
-const handlePrintWithOptions = (printData) => {
+const handlePrintWithOptions = async (printData) => {
   const { columns, cars, subject, coreContent } = printData
   console.log('Printing with options:', { columns, cars, subject, coreContent })
 
@@ -432,7 +432,7 @@ const handlePrintWithOptions = (printData) => {
   }
 
   // Create and print the report
-  printReport({
+  await printReport({
     title,
     cars,
     columns,
@@ -454,7 +454,7 @@ const handleLoadingOrderFromToolbar = () => {
   showPrintOptions.value = true
 }
 
-const handleLoadingOrderWithOptions = (data) => {
+const handleLoadingOrderWithOptions = async (data) => {
   const { columns, cars, subject, coreContent } = data
 
   // Generate loading order content based on action type
@@ -480,7 +480,7 @@ const handleLoadingOrderWithOptions = (data) => {
   `
 
   // Create and print the loading order report
-  printReport({
+  await printReport({
     title,
     cars,
     columns,
@@ -503,8 +503,22 @@ const handleVinFromToolbar = () => {
   console.log('Modal state after opening:', showVinAssignmentModal.value)
 }
 
-const printReport = (reportData) => {
+const printReport = async (reportData) => {
   const { title, cars: reportCars, columns, contentBeforeTable, contentAfterTable } = reportData
+
+  // Load assets if not already loaded
+  if (!letterHeadUrl.value) {
+    try {
+      const assets = await getAssets()
+      if (assets && assets.letter_head) {
+        letterHeadUrl.value = assets.letter_head
+      } else {
+        console.error('Failed to load assets, using default:', err)
+      }
+    } catch (err) {
+      console.error('Failed to load assets, using default:', err)
+    }
+  }
 
   // Generate REF number
   const generateRef = () => {
@@ -575,7 +589,7 @@ const printReport = (reportData) => {
       <div class="print-report">
         <div class="report-header">
           <img 
-            src="${letterHeadImage}" 
+            src="${letterHeadUrl.value || ''}" 
             alt="Letter Head" 
             class="letter-head"
             style="max-width: 100%; height: auto; max-height: 120px;"
@@ -1046,7 +1060,7 @@ const fetchCarsStock = async () => {
           if (adv.whole_sale_status === 'whole_sale') {
             filteredCars = filteredCars.filter((car) => car.is_batch == 1)
           } else if (adv.whole_sale_status === 'not_whole_sale') {
-          filteredCars = filteredCars.filter((car) => car.is_batch == 0)
+            filteredCars = filteredCars.filter((car) => car.is_batch == 0)
           }
         }
         if (adv.has_bl) {

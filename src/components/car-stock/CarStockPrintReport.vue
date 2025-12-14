@@ -1,14 +1,12 @@
 <script setup>
-import {  computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useApi } from '../../composables/useApi'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
 
-// Import the letter head image using the proper Vue.js way
-const letterHeadUrl = new URL('../../assets/letter_head.png', import.meta.url).href
-
-const { getFileUrl } = useApi()
+const { getFileUrl, getAssets } = useApi()
+const letterHeadUrl = ref(null)
 
 const props = defineProps({
   title: {
@@ -89,6 +87,27 @@ const generateRef = computed(() => {
   return `${userPrefix}${buttonPrefix}${dateStr}-${sequenceStr}`
 })
 
+// Load assets (logo, stamp, letter head)
+const loadAssets = async () => {
+  try {
+    const assets = await getAssets()
+    if (assets && assets.letter_head) {
+      letterHeadUrl.value = assets.letter_head
+    } else {
+      // Fallback to default
+      console.error('Failed to load assets, using default:', err)
+    }
+  } catch (err) {
+    console.error('Failed to load assets, using default:', err)
+    // Use fallback URL
+  }
+}
+
+// Load assets on mount
+onMounted(() => {
+  loadAssets()
+})
+
 const getCarValue = (car, columnKey) => {
   const value = car[columnKey]
 
@@ -119,7 +138,7 @@ const getCarValue = (car, columnKey) => {
     <!-- Header Image -->
     <div v-if="showHeader" class="report-header">
       <img
-        :src="letterHeadUrl"
+        :src="letterHeadUrl || ''"
         alt="Letter Head"
         class="letter-head"
         @error="$event.target.style.display = 'none'"
