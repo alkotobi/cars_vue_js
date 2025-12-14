@@ -37,7 +37,26 @@ export default defineConfig({
       output: {
         entryFileNames: `[name].[hash].js`,
         chunkFileNames: `[name].[hash].js`,
-        assetFileNames: `[name].[hash].[ext]`,
+        assetFileNames: (assetInfo) => {
+          // Preserve exact filenames for logo.png, letter_head.png, and gml2.png
+          const preservedAssets = ['logo.png', 'letter_head.png', 'gml2.png']
+          const assetName = assetInfo.name || ''
+          
+          // Check if the asset name ends with any of the preserved asset names
+          // This handles cases where the path might be included
+          const matchesPreserved = preservedAssets.some(name => {
+            return assetName.endsWith(name) || assetName.includes(`/${name}`) || assetName.includes(`\\${name}`)
+          })
+          
+          if (matchesPreserved) {
+            // Extract just the filename from the path
+            const fileName = assetName.split('/').pop() || assetName.split('\\').pop() || assetName
+            return fileName
+          }
+          
+          // For all other assets, use the default hashed naming
+          return `[name].[hash].[ext]`
+        },
         manualChunks: {
           vendor: ['vue', 'vue-router', 'pinia'],
           ui: ['element-plus'],

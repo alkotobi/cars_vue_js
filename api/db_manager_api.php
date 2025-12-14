@@ -237,7 +237,7 @@ try {
                 break;
             }
             
-            $stmt = $conn->prepare("SELECT db_name, files_dir FROM dbs WHERE db_code = ?");
+            $stmt = $conn->prepare("SELECT db_name, files_dir, js_dir FROM dbs WHERE db_code = ?");
             $stmt->execute([$db_code]);
             $database = $stmt->fetch(PDO::FETCH_ASSOC);
             
@@ -945,6 +945,59 @@ try {
             $response['success'] = true;
             $response['message'] = 'SQL executed on ' . count($results) . ' database(s)';
             $response['data'] = $results;
+            break;
+            
+        case 'ensure_folder':
+            // Ensure folder exists: create if doesn't exist (without clearing contents)
+            $jsDir = trim($inputData['js_dir'] ?? '');
+            
+            if (empty($jsDir)) {
+                $response['message'] = 'js_dir is required';
+                break;
+            }
+            
+            try {
+                // Remove leading slash if present (Unix path format, but we use it relative to project root)
+                $jsDir = ltrim($jsDir, '/');
+                $jsDir = rtrim($jsDir, '/');
+                
+                // Construct the full folder path (relative to project root)
+                $folderPath = __DIR__ . '/../' . $jsDir . '/';
+                
+                // Get the real path for security check
+                $realBasePath = realpath(__DIR__ . '/../');
+                if ($realBasePath === false) {
+                    throw new Exception('Invalid base directory');
+                }
+                $realBasePath = rtrim($realBasePath, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+                
+                // Resolve the folder path
+                $resolvedFolderPath = realpath($folderPath);
+                if ($resolvedFolderPath === false) {
+                    // Folder doesn't exist, create it
+                    if (!mkdir($folderPath, 0755, true)) {
+                        throw new Exception('Failed to create folder: ' . $folderPath);
+                    }
+                    $resolvedFolderPath = realpath($folderPath);
+                    if ($resolvedFolderPath === false) {
+                        throw new Exception('Failed to resolve created folder path');
+                    }
+                }
+                
+                // Verify the resolved path is within the base directory
+                $resolvedFolderPath = rtrim($resolvedFolderPath, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+                if (strpos($resolvedFolderPath, $realBasePath) !== 0) {
+                    throw new Exception('Directory traversal attempt detected');
+                }
+                
+                $response['success'] = true;
+                $response['message'] = 'Folder ensured successfully';
+                $response['data'] = [
+                    'path' => $resolvedFolderPath
+                ];
+            } catch (Exception $e) {
+                $response['message'] = $e->getMessage();
+            }
             break;
             
         case 'prepare_upload_folder':

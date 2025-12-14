@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import BanksTable from '../components/params/BanksTable.vue'
 import DefaultsForm from '../components/params/DefaultsForm.vue'
 import AlertSettingsForm from '../components/params/AlertSettingsForm.vue'
+import GeneralSettingsForm from '../components/params/GeneralSettingsForm.vue'
 
 const router = useRouter()
 const loading = ref(false)
@@ -181,7 +182,10 @@ const navigateToAdvancedSql = () => {
 
       <!-- Content area -->
       <div class="content">
-        <div v-if="activeSection === 'company'">
+        <div v-if="activeSection === 'general'">
+          <GeneralSettingsForm />
+        </div>
+        <div v-else-if="activeSection === 'company'">
           <BanksTable />
         </div>
         <div v-else-if="activeSection === 'billing'">
