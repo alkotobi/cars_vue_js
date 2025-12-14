@@ -710,6 +710,232 @@ try {
             }
             break;
             
+        case 'update_structure':
+            // Update structure for selected databases based on db_updates table
+            $databaseIds = $inputData['database_ids'] ?? [];
+            
+            if (empty($databaseIds) || !is_array($databaseIds)) {
+                $response['message'] = 'Database IDs are required';
+                break;
+            }
+            
+            // Get all db_updates records
+            $updatesStmt = $conn->prepare("SELECT * FROM db_updates ORDER BY from_version ASC, current_version ASC");
+            $updatesStmt->execute();
+            $dbUpdates = $updatesStmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            if (empty($dbUpdates)) {
+                $response['message'] = 'No update records found in db_updates table';
+                break;
+            }
+            
+            // Get database credentials from config.php
+            require_once __DIR__ . '/config.php';
+            $targetDbHost = $db_config['host'];
+            $targetDbUser = $db_config['user'];
+            $targetDbPass = $db_config['pass'];
+            
+            // Get selected databases with their versions
+            $placeholders = implode(',', array_fill(0, count($databaseIds), '?'));
+            $getStmt = $conn->prepare("SELECT id, db_name FROM dbs WHERE id IN ($placeholders)");
+            $getStmt->execute($databaseIds);
+            $selectedDbs = $getStmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            if (empty($selectedDbs)) {
+                $response['message'] = 'No databases found for the selected IDs';
+                break;
+            }
+            
+            // Fetch versions for selected databases
+            $dbVersions = [];
+            foreach ($selectedDbs as $db) {
+                if (empty($db['db_name'])) {
+                    continue;
+                }
+                
+                try {
+                    $targetConn = new PDO(
+                        "mysql:host={$targetDbHost};dbname={$db['db_name']}",
+                        $targetDbUser,
+                        $targetDbPass
+                    );
+                    $targetConn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+                    
+                    $versionStmt = $targetConn->prepare("SELECT version FROM versions WHERE id = 1");
+                    $versionStmt->execute();
+                    $versionData = $versionStmt->fetch(PDO::FETCH_ASSOC);
+                    $dbVersions[$db['id']] = [
+                        'db_name' => $db['db_name'],
+                        'version' => $versionData ? intval($versionData['version']) : null,
+                        'conn' => $targetConn
+                    ];
+                } catch (PDOException $e) {
+                    $dbVersions[$db['id']] = [
+                        'db_name' => $db['db_name'],
+                        'version' => null,
+                        'conn' => null,
+                        'error' => $e->getMessage()
+                    ];
+                }
+            }
+            
+            $totalUpdates = 0;
+            $totalErrors = 0;
+            $errors = [];
+            
+            // Iterate through db_updates records
+            foreach ($dbUpdates as $update) {
+                $fromVersion = intval($update['from_version']);
+                $currentVersion = intval($update['current_version']);
+                $sql = $update['sql'];
+                
+                // For each selected database, check if version >= from_version
+                foreach ($dbVersions as $dbId => $dbInfo) {
+                    if ($dbInfo['conn'] === null) {
+                        $errors[] = "Database {$dbInfo['db_name']}: Cannot connect - " . ($dbInfo['error'] ?? 'Unknown error');
+                        $totalErrors++;
+                        continue;
+                    }
+                    
+                    if ($dbInfo['version'] === null) {
+                        $errors[] = "Database {$dbInfo['db_name']}: Version not found";
+                        $totalErrors++;
+                        continue;
+                    }
+                    
+                    // Check if database version >= from_version
+                    if ($dbInfo['version'] >= $fromVersion) {
+                        try {
+                            // Execute the SQL statement
+                            $dbInfo['conn']->exec($sql);
+                            
+                            // Update version to current_version after successful SQL execution
+                            $versionUpdateStmt = $dbInfo['conn']->prepare("INSERT INTO versions (id, version) VALUES (1, ?) ON DUPLICATE KEY UPDATE version = ?");
+                            $versionUpdateStmt->execute([$currentVersion, $currentVersion]);
+                            
+                            // Update the version in our tracking array for subsequent checks
+                            $dbVersions[$dbId]['version'] = $currentVersion;
+                            
+                            $totalUpdates++;
+                        } catch (PDOException $e) {
+                            $errors[] = "Database {$dbInfo['db_name']} (update from v{$fromVersion} to v{$currentVersion}): " . $e->getMessage();
+                            $totalErrors++;
+                        }
+                    }
+                }
+            }
+            
+            // Close all connections
+            foreach ($dbVersions as $dbInfo) {
+                if ($dbInfo['conn'] !== null) {
+                    $dbInfo['conn'] = null;
+                }
+            }
+            
+            if ($totalUpdates > 0 || $totalErrors === 0) {
+                $response['success'] = true;
+                $response['message'] = "Structure update completed: {$totalUpdates} SQL statement(s) executed";
+                if (!empty($errors)) {
+                    $response['message'] .= ' (some errors: ' . implode('; ', array_slice($errors, 0, 5)) . ($totalErrors > 5 ? '...' : '') . ')';
+                }
+            } else {
+                $response['message'] = 'Failed to update structure: ' . implode('; ', array_slice($errors, 0, 5)) . ($totalErrors > 5 ? '...' : '');
+            }
+            break;
+            
+        case 'run_sql':
+            // Run SQL on selected databases
+            $databaseIds = $inputData['database_ids'] ?? [];
+            $sql = trim($inputData['sql'] ?? '');
+            
+            if (empty($databaseIds) || !is_array($databaseIds)) {
+                $response['message'] = 'Database IDs are required';
+                break;
+            }
+            
+            if (empty($sql)) {
+                $response['message'] = 'SQL statement is required';
+                break;
+            }
+            
+            // Get database credentials from config.php
+            require_once __DIR__ . '/config.php';
+            $targetDbHost = $db_config['host'];
+            $targetDbUser = $db_config['user'];
+            $targetDbPass = $db_config['pass'];
+            
+            // Get selected databases
+            $placeholders = implode(',', array_fill(0, count($databaseIds), '?'));
+            $getStmt = $conn->prepare("SELECT id, db_name FROM dbs WHERE id IN ($placeholders)");
+            $getStmt->execute($databaseIds);
+            $selectedDbs = $getStmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            if (empty($selectedDbs)) {
+                $response['message'] = 'No databases found for the selected IDs';
+                break;
+            }
+            
+            $results = [];
+            
+            // Execute SQL on each database
+            foreach ($selectedDbs as $db) {
+                if (empty($db['db_name'])) {
+                    $results[] = [
+                        'db_id' => $db['id'],
+                        'db_name' => 'Unknown',
+                        'error' => 'Database name is not set'
+                    ];
+                    continue;
+                }
+                
+                try {
+                    $targetConn = new PDO(
+                        "mysql:host={$targetDbHost};dbname={$db['db_name']}",
+                        $targetDbUser,
+                        $targetDbPass
+                    );
+                    $targetConn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+                    
+                    // Determine if this is a SELECT query or other type
+                    $sqlUpper = strtoupper(trim($sql));
+                    $isSelect = strpos($sqlUpper, 'SELECT') === 0;
+                    
+                    if ($isSelect) {
+                        // For SELECT queries, fetch results
+                        $stmt = $targetConn->prepare($sql);
+                        $stmt->execute();
+                        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                        $results[] = [
+                            'db_id' => $db['id'],
+                            'db_name' => $db['db_name'],
+                            'rows' => $rows,
+                            'row_count' => count($rows)
+                        ];
+                    } else {
+                        // For other queries (INSERT, UPDATE, DELETE, etc.), get affected rows
+                        $stmt = $targetConn->prepare($sql);
+                        $stmt->execute();
+                        $affectedRows = $stmt->rowCount();
+                        $results[] = [
+                            'db_id' => $db['id'],
+                            'db_name' => $db['db_name'],
+                            'affected_rows' => $affectedRows
+                        ];
+                    }
+                } catch (PDOException $e) {
+                    $results[] = [
+                        'db_id' => $db['id'],
+                        'db_name' => $db['db_name'],
+                        'error' => $e->getMessage()
+                    ];
+                }
+            }
+            
+            $response['success'] = true;
+            $response['message'] = 'SQL executed on ' . count($results) . ' database(s)';
+            $response['data'] = $results;
+            break;
+            
         default:
             $response['message'] = 'No action specified';
             break;

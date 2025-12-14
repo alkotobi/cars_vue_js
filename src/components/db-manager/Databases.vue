@@ -355,6 +355,60 @@
         </div>
       </div>
     </div>
+
+    <!-- Run SQL Modal -->
+    <div v-if="showRunSqlModal" class="modal-overlay" @click="cancelRunSql">
+      <div class="modal-content run-sql-modal" @click.stop>
+        <div class="modal-header">
+          <h3>Run SQL</h3>
+        </div>
+        <div class="modal-body">
+          <p>
+            Execute SQL on <strong>{{ selectedDatabases.length }}</strong> selected database(s).
+          </p>
+          <div class="form-group">
+            <label for="sql-input">SQL Statement *</label>
+            <textarea
+              id="sql-input"
+              v-model="runSqlInput"
+              required
+              rows="10"
+              class="form-input sql-textarea"
+              placeholder="Enter SQL statement to execute"
+              :disabled="runningSql"
+            ></textarea>
+          </div>
+          
+          <!-- Results -->
+          <div v-if="runSqlResults.length > 0" class="sql-results">
+            <h4>Results:</h4>
+            <div v-for="(result, index) in runSqlResults" :key="index" class="result-item" :class="{ 'result-error': result.error, 'result-success': !result.error }">
+              <div class="result-header">
+                <strong>{{ result.db_name }}</strong>
+                <span v-if="result.error" class="result-status error">Error</span>
+                <span v-else class="result-status success">Success</span>
+              </div>
+              <div v-if="result.error" class="result-message">
+                {{ result.error }}
+              </div>
+              <div v-else-if="result.affected_rows !== undefined" class="result-message">
+                Affected rows: {{ result.affected_rows }}
+              </div>
+              <div v-else-if="result.rows" class="result-message">
+                Rows returned: {{ result.rows.length }}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button @click="cancelRunSql" class="btn-cancel" :disabled="runningSql">Cancel</button>
+          <button @click="confirmRunSql" :disabled="!runSqlInput.trim() || runningSql" class="btn-primary">
+            <i v-if="runningSql" class="fas fa-spinner fa-spin"></i>
+            {{ runningSql ? 'Running...' : 'Run SQL' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -382,6 +436,10 @@ const newVersionInput = ref('')
 const updatingVersion = ref(false)
 const versionCheckError = ref('')
 const selectedDatabasesVersions = ref([])
+const showRunSqlModal = ref(false)
+const runSqlInput = ref('')
+const runningSql = ref(false)
+const runSqlResults = ref([])
 
 const formData = ref({
   db_code: '',
@@ -670,15 +728,59 @@ const toggleSelectAll = () => {
   }
 }
 
-// Toolbar button handlers (to be implemented later)
-const updateStructure = () => {
-  console.log('Update Structure clicked for databases:', selectedDatabases.value)
-  // Functionality will be implemented later
+// Toolbar button handlers
+const updateStructure = async () => {
+  if (selectedDatabases.value.length === 0) {
+    error.value = 'Please select at least one database'
+    return
+  }
+
+  // Confirm action
+  if (!confirm(`This will update the structure for ${selectedDatabases.value.length} selected database(s). Continue?`)) {
+    return
+  }
+
+  error.value = ''
+  successMessage.value = ''
+
+  try {
+    const response = await fetch(`${getApiBaseUrl()}/db_manager_api.php`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        action: 'update_structure',
+        database_ids: selectedDatabases.value,
+      }),
+    })
+
+    const result = await response.json()
+
+    if (result.success) {
+      successMessage.value = result.message || 'Structure updated successfully'
+      await fetchDatabases()
+      setTimeout(() => {
+        successMessage.value = ''
+      }, 5000)
+    } else {
+      error.value = result.message || 'Failed to update structure'
+    }
+  } catch (err) {
+    error.value = 'An error occurred while updating structure'
+    console.error(err)
+  }
 }
 
 const runSql = () => {
-  console.log('Run SQL clicked for databases:', selectedDatabases.value)
-  // Functionality will be implemented later
+  if (selectedDatabases.value.length === 0) {
+    error.value = 'Please select at least one database'
+    return
+  }
+  
+  runSqlInput.value = ''
+  runSqlResults.value = []
+  showRunSqlModal.value = true
 }
 
 // Update version functionality
@@ -726,6 +828,55 @@ const cancelUpdateVersion = () => {
   newVersionInput.value = ''
   versionCheckError.value = ''
   selectedDatabasesVersions.value = []
+}
+
+// Run SQL functionality
+const cancelRunSql = () => {
+  showRunSqlModal.value = false
+  runSqlInput.value = ''
+  runSqlResults.value = []
+}
+
+const confirmRunSql = async () => {
+  if (!runSqlInput.value.trim()) {
+    return
+  }
+
+  runningSql.value = true
+  error.value = ''
+  successMessage.value = ''
+  runSqlResults.value = []
+
+  try {
+    const response = await fetch(`${getApiBaseUrl()}/db_manager_api.php`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        action: 'run_sql',
+        database_ids: selectedDatabases.value,
+        sql: runSqlInput.value.trim(),
+      }),
+    })
+
+    const result = await response.json()
+
+    if (result.success) {
+      runSqlResults.value = result.data || []
+      successMessage.value = result.message || 'SQL executed successfully'
+      setTimeout(() => {
+        successMessage.value = ''
+      }, 5000)
+    } else {
+      error.value = result.message || 'Failed to execute SQL'
+    }
+  } catch (err) {
+    error.value = 'An error occurred while executing SQL'
+    console.error(err)
+  } finally {
+    runningSql.value = false
+  }
 }
 
 const confirmUpdateVersion = async () => {
@@ -805,6 +956,7 @@ const formatUnixPath = (field) => {
 onMounted(() => {
   fetchDatabases()
 })
+
 </script>
 
 <style scoped>
@@ -1259,6 +1411,80 @@ onMounted(() => {
 
 .delete-modal {
   max-width: 500px;
+}
+
+.run-sql-modal {
+  max-width: 900px;
+}
+
+.sql-textarea {
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+  resize: vertical;
+}
+
+.sql-results {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e4e7ed;
+}
+
+.sql-results h4 {
+  margin: 0 0 1rem 0;
+  color: #2c3e50;
+  font-size: 1rem;
+}
+
+.result-item {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  border-radius: 4px;
+  border: 1px solid #e4e7ed;
+}
+
+.result-item.result-success {
+  background-color: #f0f9eb;
+  border-color: #e1f3d8;
+}
+
+.result-item.result-error {
+  background-color: #fef0f0;
+  border-color: #fde2e2;
+}
+
+.result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.result-header strong {
+  color: #2c3e50;
+}
+
+.result-status {
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.result-status.success {
+  background-color: #67c23a;
+  color: white;
+}
+
+.result-status.error {
+  background-color: #f56c6c;
+  color: white;
+}
+
+.result-message {
+  color: #606266;
+  font-size: 0.9rem;
+  font-family: 'Courier New', monospace;
+  word-break: break-word;
 }
 
 .modal-body {
