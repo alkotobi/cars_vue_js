@@ -1428,15 +1428,27 @@ try {
                 // Construct the full file path
                 $filePath = __DIR__ . '/../' . $jsDir . '/db_code.json';
                 
+                // Debug logging
+                error_log('[read_db_code_json] Database ID: ' . $databaseId);
+                error_log('[read_db_code_json] js_dir from DB: ' . $jsDir);
+                error_log('[read_db_code_json] __DIR__: ' . __DIR__);
+                error_log('[read_db_code_json] Constructed filePath: ' . $filePath);
+                
                 // Get the real path for security check
                 $realBasePath = realpath(__DIR__ . '/../');
                 if ($realBasePath === false) {
                     throw new Exception('Invalid base directory');
                 }
                 $realBasePath = rtrim($realBasePath, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+                error_log('[read_db_code_json] realBasePath: ' . $realBasePath);
                 
                 // Resolve the file path
                 $resolvedFilePath = realpath($filePath);
+                error_log('[read_db_code_json] resolvedFilePath: ' . ($resolvedFilePath !== false ? $resolvedFilePath : 'FALSE'));
+                
+                // Also check if file exists using the constructed path directly
+                $fileExistsDirect = file_exists($filePath);
+                error_log('[read_db_code_json] file_exists($filePath): ' . ($fileExistsDirect ? 'TRUE' : 'FALSE'));
                 
                 // Verify the resolved path is within the base directory
                 if ($resolvedFilePath !== false) {
@@ -1447,13 +1459,24 @@ try {
                 }
                 
                 // Read file if exists, otherwise return default structure
-                if ($resolvedFilePath !== false && file_exists($resolvedFilePath)) {
-                    $fileContent = file_get_contents($resolvedFilePath);
+                // Use both checks: realpath might fail even if file exists (e.g., symlinks)
+                if (($resolvedFilePath !== false && file_exists($resolvedFilePath)) || $fileExistsDirect) {
+                    // Use resolved path if available, otherwise use constructed path
+                    $actualFilePath = $resolvedFilePath !== false ? $resolvedFilePath : $filePath;
+                    error_log('[read_db_code_json] Reading file from: ' . $actualFilePath);
+                    
+                    $fileContent = file_get_contents($actualFilePath);
+                    error_log('[read_db_code_json] File content length: ' . strlen($fileContent));
+                    error_log('[read_db_code_json] File content: ' . substr($fileContent, 0, 200));
+                    
                     $jsonData = json_decode($fileContent, true);
                     
                     if (json_last_error() !== JSON_ERROR_NONE) {
+                        error_log('[read_db_code_json] JSON decode error: ' . json_last_error_msg());
                         throw new Exception('Invalid JSON in db_code.json: ' . json_last_error_msg());
                     }
+                    
+                    error_log('[read_db_code_json] Parsed JSON data: ' . json_encode($jsonData));
                     
                     $response['success'] = true;
                     $response['message'] = 'File read successfully';
@@ -1463,11 +1486,19 @@ try {
                     ];
                 } else {
                     // File doesn't exist, return default structure
+                    error_log('[read_db_code_json] File not found. resolvedFilePath: ' . ($resolvedFilePath !== false ? $resolvedFilePath : 'FALSE') . ', fileExistsDirect: ' . ($fileExistsDirect ? 'TRUE' : 'FALSE'));
                     $response['success'] = true;
                     $response['message'] = 'File does not exist, returning default structure';
                     $response['data'] = [
                         'content' => ['db_code' => ''],
-                        'exists' => false
+                        'exists' => false,
+                        'debug' => [
+                            'js_dir' => $jsDir,
+                            'constructed_path' => $filePath,
+                            'resolved_path' => $resolvedFilePath !== false ? $resolvedFilePath : null,
+                            'file_exists_direct' => $fileExistsDirect,
+                            'base_path' => $realBasePath
+                        ]
                     ];
                 }
             } catch (Exception $e) {

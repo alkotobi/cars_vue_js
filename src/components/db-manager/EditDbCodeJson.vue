@@ -99,9 +99,13 @@ watch(
 )
 
 const loadJsonFile = async () => {
+  console.log('[EditDbCodeJson] loadJsonFile() called')
+  console.log('[EditDbCodeJson] Database:', props.database)
+  
   if (!props.database || !props.database.js_dir || props.database.js_dir.trim() === '') {
     error.value = 'JS directory (js_dir) is not configured for this database'
     jsonContent.value = JSON.stringify({ db_code: '' }, null, 2)
+    console.warn('[EditDbCodeJson] js_dir not configured')
     return
   }
 
@@ -110,30 +114,54 @@ const loadJsonFile = async () => {
   error.value = ''
 
   try {
+    const requestBody = {
+      action: 'read_db_code_json',
+      database_id: props.database.id,
+    }
+    console.log('[EditDbCodeJson] Fetching db_code.json with:', requestBody)
+    console.log('[EditDbCodeJson] API URL:', `${props.apiBaseUrl}/db_manager_api.php`)
+    console.log('[EditDbCodeJson] js_dir:', props.database.js_dir)
+    console.log('[EditDbCodeJson] Expected file path:', `${props.database.js_dir}/db_code.json`)
+
     const response = await fetch(`${props.apiBaseUrl}/db_manager_api.php`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        action: 'read_db_code_json',
-        database_id: props.database.id,
-      }),
+      body: JSON.stringify(requestBody),
     })
 
+    console.log('[EditDbCodeJson] Response status:', response.status)
+    console.log('[EditDbCodeJson] Response ok:', response.ok)
+
     const result = await response.json()
+    console.log('[EditDbCodeJson] API result:', result)
+    console.log('[EditDbCodeJson] API result.data:', result.data)
+    console.log('[EditDbCodeJson] File exists:', result.data?.exists)
+    if (result.data?.debug) {
+      console.log('[EditDbCodeJson] Debug info:', result.data.debug)
+    }
 
     if (result.success) {
       // Format JSON content with pretty printing
       jsonContent.value = JSON.stringify(result.data.content, null, 2)
+      console.log('[EditDbCodeJson] File loaded successfully. Content:', result.data.content)
+      console.log('[EditDbCodeJson] File exists flag:', result.data.exists)
+      
+      // If file doesn't exist, show a warning
+      if (!result.data.exists) {
+        console.warn('[EditDbCodeJson] File does not exist at path:', result.data.debug?.constructed_path)
+        error.value = `File not found at: ${result.data.debug?.constructed_path || 'unknown path'}`
+      }
     } else {
       error.value = result.message || 'Failed to load db_code.json'
+      console.error('[EditDbCodeJson] Failed to load:', result.message)
       // Still show modal with default content
       jsonContent.value = JSON.stringify({ db_code: '' }, null, 2)
     }
   } catch (err) {
     error.value = 'An error occurred while loading the file'
-    console.error(err)
+    console.error('[EditDbCodeJson] Error loading file:', err)
     // Show modal with default content
     jsonContent.value = JSON.stringify({ db_code: '' }, null, 2)
   } finally {

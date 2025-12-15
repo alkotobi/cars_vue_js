@@ -33,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $baseDirectory = ltrim($baseDirectory, '/');
         // Remove trailing slash for consistency
         $baseDirectory = rtrim($baseDirectory, '/');
-        
+
         // Get and sanitize the file path
         $requestedPath = $_GET['path'];
         

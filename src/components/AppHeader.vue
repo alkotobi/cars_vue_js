@@ -392,11 +392,32 @@ onUnmounted(() => {
                 console.error('[AppHeader] Logo image failed to load')
                 console.error('[AppHeader] Image src:', e.target.src)
                 console.error('[AppHeader] Error event:', e)
-                // Try to reload with fresh cache-buster
-                const currentSrc = e.target.src
-                const separator = currentSrc.includes('?') ? '&' : '?'
-                e.target.src = currentSrc + separator + 'retry=' + Date.now()
-                console.log('[AppHeader] Retrying with new src:', e.target.src)
+                
+                // Limit retries to prevent infinite loop
+                const retryCount = parseInt(e.target.dataset.retryCount || '0')
+                if (retryCount >= 3) {
+                  console.warn('[AppHeader] Max retries (3) reached, giving up')
+                  return
+                }
+                
+                // Clean URL and add fresh cache-buster (remove old retry params)
+                try {
+                  const currentSrc = e.target.src
+                  const url = new URL(currentSrc)
+                  // Remove all retry parameters
+                  url.searchParams.delete('retry')
+                  // Add fresh cache-buster
+                  url.searchParams.set('retry', Date.now().toString())
+                  e.target.src = url.toString()
+                  e.target.dataset.retryCount = (retryCount + 1).toString()
+                  console.log('[AppHeader] Retrying (' + (retryCount + 1) + '/3) with new src:', e.target.src)
+                } catch (urlError) {
+                  console.error('[AppHeader] Error parsing URL:', urlError)
+                  // Fallback: just add timestamp
+                  const separator = e.target.src.includes('?') ? '&' : '?'
+                  e.target.src = e.target.src.split('&retry=')[0] + separator + 'retry=' + Date.now()
+                  e.target.dataset.retryCount = (retryCount + 1).toString()
+                }
               }
             "
           />
