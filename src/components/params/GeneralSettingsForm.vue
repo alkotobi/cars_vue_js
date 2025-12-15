@@ -243,8 +243,19 @@ const loadConfiguration = async () => {
   error.value = null
 
   try {
-    // Step 1: Get db_code from db_code.json
-    const dbCodeResponse = await fetch('/db_code.json')
+    // Step 1: Get db_code from db_code.json (always in same folder as index.html)
+    // Get base path where index.html is located
+    const getBasePath = () => {
+      let baseUrl = import.meta.env.BASE_URL || './'
+      if (baseUrl === './' || baseUrl.startsWith('./')) {
+        const pathname = window.location.pathname
+        const match = pathname.match(/^(\/[^/]+\/)/)
+        return match ? match[1] : '/'
+      }
+      return baseUrl
+    }
+    const basePath = getBasePath()
+    const dbCodeResponse = await fetch(`${basePath}db_code.json`)
     if (!dbCodeResponse.ok) {
       throw new Error('Failed to load db_code.json')
     }

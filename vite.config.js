@@ -8,7 +8,10 @@ import vueDevTools from 'vite-plugin-vue-devtools'
 const isProduction = process.env.NODE_ENV === 'production'
 
 // Set API URL based on environment
-const apiUrl = isProduction ? 'https://cars.merhab.com' : 'http://localhost:8000'
+// Note: This is only used for the dev server proxy during development
+// In production, the app uses relative URLs (window.location.origin)
+// so it works from any client domain without code changes
+const apiUrl = 'http://localhost:8000'
 
 export default defineConfig({
   plugins: [vue(), vueDevTools()],
@@ -31,7 +34,7 @@ export default defineConfig({
       },
     },
   },
-  base: '/',
+  base: './',
   build: {
     rollupOptions: {
       output: {
@@ -41,19 +44,23 @@ export default defineConfig({
           // Preserve exact filenames for logo.png, letter_head.png, and gml2.png
           const preservedAssets = ['logo.png', 'letter_head.png', 'gml2.png']
           const assetName = assetInfo.name || ''
-          
+
           // Check if the asset name ends with any of the preserved asset names
           // This handles cases where the path might be included
-          const matchesPreserved = preservedAssets.some(name => {
-            return assetName.endsWith(name) || assetName.includes(`/${name}`) || assetName.includes(`\\${name}`)
+          const matchesPreserved = preservedAssets.some((name) => {
+            return (
+              assetName.endsWith(name) ||
+              assetName.includes(`/${name}`) ||
+              assetName.includes(`\\${name}`)
+            )
           })
-          
+
           if (matchesPreserved) {
             // Extract just the filename from the path
             const fileName = assetName.split('/').pop() || assetName.split('\\').pop() || assetName
             return fileName
           }
-          
+
           // For all other assets, use the default hashed naming
           return `[name].[hash].[ext]`
         },

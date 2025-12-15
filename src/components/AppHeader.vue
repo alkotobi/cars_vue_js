@@ -221,17 +221,47 @@ const updateUnreadCount = async () => {
 let unreadCountInterval = null
 let tasksCountInterval = null
 
+// Get base path helper (same logic as useApi.js)
+const getBasePath = () => {
+  let baseUrl = import.meta.env.BASE_URL || './'
+  if (baseUrl === './' || baseUrl.startsWith('./')) {
+    const pathname = window.location.pathname
+    const match = pathname.match(/^(\/[^/]+\/)/)
+    return match ? match[1] : '/'
+  }
+  return baseUrl
+}
+
 // Load logo from assets
 const loadLogo = async () => {
+  console.log('[AppHeader] loadLogo() called')
+  const basePath = getBasePath()
+  const fallbackLogo = `${basePath}logo.png`
+
   try {
+    console.log('[AppHeader] Calling getAssets()...')
     const assets = await getAssets()
+    console.log('[AppHeader] getAssets() returned:', assets)
+
     if (assets && assets.logo) {
+      console.log('[AppHeader] Setting logoUrl to:', assets.logo)
       logoUrl.value = assets.logo
+      console.log('[AppHeader] logoUrl.value is now:', logoUrl.value)
+    } else {
+      // Fallback to default logo path if getAssets doesn't return logo
+      console.log('[AppHeader] No logo in assets, using fallback:', fallbackLogo)
+      logoUrl.value = fallbackLogo
+      console.log('[AppHeader] logoUrl.value is now:', logoUrl.value)
     }
   } catch (err) {
-    console.warn('Failed to load logo from assets, using default:', err)
-    // Keep logoUrl as null to use fallback
+    console.warn('[AppHeader] Failed to load logo from assets, using default:', err)
+    // Fallback to default logo path
+    logoUrl.value = fallbackLogo
+    console.log('[AppHeader] logoUrl.value set to fallback:', logoUrl.value)
   }
+
+  console.log('[AppHeader] Final logoUrl.value:', logoUrl.value)
+  console.log('[AppHeader] Logo will be loaded from:', logoUrl.value || fallbackLogo)
 }
 
 // Initialize user on component mount
@@ -302,7 +332,26 @@ onUnmounted(() => {
     <div class="header-content">
       <div class="header-left">
         <div class="logo-section">
-          <img :src="logoUrl" alt="Company Logo" class="company-logo" />
+          <img
+            :src="logoUrl || `${getBasePath()}logo.png`"
+            alt="Company Logo"
+            class="company-logo"
+            @load="
+              () =>
+                console.log(
+                  '[AppHeader] Logo image loaded successfully from:',
+                  logoUrl || `${getBasePath()}logo.png`,
+                )
+            "
+            @error="
+              (e) =>
+                console.error(
+                  '[AppHeader] Logo image failed to load from:',
+                  logoUrl || `${getBasePath()}logo.png`,
+                  e,
+                )
+            "
+          />
           <div class="company-info">
             <h1 class="company-name">{{ t('app.companyName') }}</h1>
             <p class="company-tagline">{{ t('app.subtitle') }}</p>
@@ -382,7 +431,7 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   width: 100%;
-  z-index: 1000;
+  z-index: 1001; /* Increased to be above dialog overlays */
 }
 
 .header-content {
@@ -404,6 +453,8 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 15px;
+  position: relative;
+  z-index: 1;
 }
 
 .company-logo {
@@ -412,6 +463,11 @@ onUnmounted(() => {
   border-radius: 8px;
   object-fit: cover;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  display: block;
+  visibility: visible;
+  opacity: 1;
+  position: relative;
+  z-index: 1;
 }
 
 .company-info {

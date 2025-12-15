@@ -5,6 +5,28 @@ const hostname = window.location.hostname
 const protocol = window.location.protocol
 const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1'
 
+// Detect base path from current location (e.g., '/mig/' or '/')
+// This allows the app to work from any subdirectory
+const getBasePath = () => {
+  // Use Vite's BASE_URL if available (set in vite.config.js)
+  // If it's relative (./), convert to absolute based on current pathname
+  let baseUrl = import.meta.env.BASE_URL || './'
+
+  // If base is relative, convert to absolute path
+  if (baseUrl === './' || baseUrl.startsWith('./')) {
+    const pathname = window.location.pathname
+    // If pathname is like '/mig/login', extract '/mig/'
+    // If pathname is like '/login', use '/'
+    const match = pathname.match(/^(\/[^/]+\/)/)
+    return match ? match[1] : '/'
+  }
+
+  // If base is already absolute, use it as is
+  return baseUrl
+}
+
+const BASE_PATH = getBasePath()
+
 // Set API base URL based on environment
 // Use localhost API for development, production API for production
 const API_BASE_URL = isLocalhost ? 'http://localhost:8000/api' : 'https://www.merhab.com/api'
@@ -13,27 +35,29 @@ const API_URL = `${API_BASE_URL}/api.php`
 const UPLOAD_URL = `${API_BASE_URL}/upload.php`
 const DB_MANAGER_API_URL = `${API_BASE_URL}/db_manager_api.php`
 
-// Configuration cache (loaded from db_code.json)
-let config_cache = null
+// Promise to prevent concurrent loads (but no caching - always fetch fresh data)
 let config_promise = null
 
-// Function to load configuration from db_code.json
-// This file is in the public folder and will be accessible at /db_code.json when distributed
-async function loadConfig() {
-  // Return cached value if already loaded
-  if (config_cache !== null) {
-    return config_cache
-  }
+// Store upload_path for getFileUrl (updated on each loadConfig call)
+// This allows getFileUrl to work synchronously while using the correct base_directory
+let current_upload_path = null
 
-  // Return existing promise if already loading
+// Function to load configuration from db_code.json
+// This file is in the public folder and will be accessible at ./db_code.json (same folder as index.html)
+// No caching - always fetches fresh data
+async function loadConfig() {
+  // Return existing promise if already loading (to prevent concurrent requests)
   if (config_promise) {
     return config_promise
   }
 
-  // Start loading
+  // Start loading (always fetch fresh data)
   config_promise = (async () => {
     try {
-      const response = await fetch('/db_code.json')
+      // Get current base path (where index.html is located)
+      const currentBasePath = getBasePath()
+      // Load db_code.json from same folder as index.html (use base path)
+      const response = await fetch(`${currentBasePath}db_code.json`)
       if (!response.ok) {
         throw new Error(`Failed to load db_code.json: ${response.status}`)
       }
@@ -47,7 +71,20 @@ async function loadConfig() {
             `${DB_MANAGER_API_URL}?action=get_database_by_code&db_code=${encodeURIComponent(data.db_code)}`,
           )
           if (!dbResponse.ok) {
-            throw new Error(`Failed to fetch database info: ${dbResponse.status}`)
+            // Try to get error text for debugging
+            const errorText = await dbResponse.text()
+            console.error('API Error Response:', errorText.substring(0, 200))
+            throw new Error(
+              `Failed to fetch database info: ${dbResponse.status} ${dbResponse.statusText}`,
+            )
+          }
+          const contentType = dbResponse.headers.get('content-type')
+          if (!contentType || !contentType.includes('application/json')) {
+            const text = await dbResponse.text()
+            console.error('API returned non-JSON response:', text.substring(0, 500))
+            throw new Error(
+              `API returned non-JSON response. Check if ${DB_MANAGER_API_URL} exists.`,
+            )
           }
           const dbResult = await dbResponse.json()
 
@@ -58,11 +95,14 @@ async function loadConfig() {
                 `Database record found but db_name is missing for db_code: ${data.db_code}`,
               )
             }
-            config_cache = {
+            // Return fresh data (no caching)
+            const config = {
               db_name: dbResult.data.db_name,
               upload_path: dbResult.data.files_dir || '', // Use files_dir from dbs table (can be null/empty)
             }
-            return config_cache
+            // Update current_upload_path for getFileUrl
+            current_upload_path = config.upload_path
+            return config
           } else {
             throw new Error(`Database not found for db_code: ${data.db_code}`)
           }
@@ -78,11 +118,14 @@ async function loadConfig() {
           )
         }
 
-        config_cache = {
+        // Return fresh data (no caching)
+        const config = {
           db_name: data.db_name,
           upload_path: data.uplod_path,
         }
-        return config_cache
+        // Update current_upload_path for getFileUrl
+        current_upload_path = config.upload_path
+        return config
       }
     } catch (err) {
       console.error('Fatal error loading configuration:', err)
@@ -310,6 +353,7 @@ export const useApi = () => {
   }
 
   // Get file URL helper
+  // Uses current_upload_path (from loadConfig) as base_directory
   const getFileUrl = (path) => {
     // If path is already a full URL, return it as is
     if (path.startsWith('http')) {
@@ -345,7 +389,20 @@ export const useApi = () => {
       }
     }
 
-    return `${UPLOAD_URL}?path=${encodeURIComponent(processedPath)}`
+    // Use current_upload_path (from database) as base_directory
+    // This is updated whenever loadConfig() is called
+    const baseDirectory = current_upload_path || 'mig_files'
+
+    // Remove leading slash from baseDirectory if present (Unix path format)
+    const cleanBaseDirectory = baseDirectory.startsWith('/')
+      ? baseDirectory.substring(1)
+      : baseDirectory
+
+    // Build URL with base_directory parameter
+    const url = new URL(UPLOAD_URL)
+    url.searchParams.set('path', processedPath)
+    url.searchParams.set('base_directory', cleanBaseDirectory)
+    return url.toString()
   }
 
   // Function to handle cookie verification challenges
@@ -389,115 +446,28 @@ export const useApi = () => {
   // Returns JSON with file locations, copies from js_dir to files_dir if needed
   // Uses localStorage to cache results
   async function getAssets() {
-    const STORAGE_KEY = 'assets_cache'
-    const ASSET_FILES = ['logo.png', 'letter_head.png', 'gml2.png']
+    console.log('[getAssets] Function called')
 
-    // Check localStorage first
-    try {
-      const cached = localStorage.getItem(STORAGE_KEY)
-      if (cached) {
-        const cachedData = JSON.parse(cached)
-        // Check if cache is still valid (you can add timestamp validation here if needed)
-        return cachedData
-      }
-    } catch (err) {
-      console.warn('Error reading assets cache:', err)
+    // Get current base path (where index.html is located)
+    const currentBasePath = getBasePath()
+
+    // Files are in the same folder as index.html, use base path
+    // This works regardless of deployment location (root or subdirectory)
+    // No caching - always return fresh data since there's no computation
+    const result = {
+      logo: `${currentBasePath}logo.png`,
+      letter_head: `${currentBasePath}letter_head.png`,
+      gml2: `${currentBasePath}gml2.png`,
     }
+    console.log('[getAssets] Created result object:', result)
+    console.log('[getAssets] Current window location:', window.location.href)
+    console.log(
+      '[getAssets] Logo path will resolve to:',
+      new URL(result.logo, window.location.href).href,
+    )
 
-    try {
-      // Get db_code from db_code.json
-      const dbCodeResponse = await fetch('/db_code.json')
-      if (!dbCodeResponse.ok) {
-        throw new Error('Failed to load db_code.json')
-      }
-      const dbCodeData = await dbCodeResponse.json()
-
-      if (!dbCodeData.db_code) {
-        throw new Error('db_code not found in db_code.json')
-      }
-
-      // Get database info from dbs table
-      const dbResponse = await fetch(
-        `${DB_MANAGER_API_URL}?action=get_database_by_code&db_code=${encodeURIComponent(dbCodeData.db_code)}`,
-      )
-
-      if (!dbResponse.ok) {
-        throw new Error('Failed to fetch database information')
-      }
-
-      const dbResult = await dbResponse.json()
-
-      if (!dbResult.success || !dbResult.data) {
-        throw new Error('Database not found for the provided db_code')
-      }
-
-      const { files_dir, js_dir } = dbResult.data
-
-      if (!files_dir || !js_dir) {
-        throw new Error('files_dir and js_dir must be configured')
-      }
-
-      // Check if files exist in files_dir using API
-      const checkResponse = await fetch(DB_MANAGER_API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          action: 'check_assets',
-          files_dir: files_dir,
-        }),
-      })
-
-      const checkResult = await checkResponse.json()
-      const existingFiles = checkResult.success ? checkResult.data?.existing || [] : []
-      const missingFiles = ASSET_FILES.filter((file) => !existingFiles.includes(file))
-
-      // If files are missing, copy them from js_dir to files_dir
-      if (missingFiles.length > 0) {
-        const copyResponse = await fetch(DB_MANAGER_API_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body: new URLSearchParams({
-            action: 'copy_assets',
-            js_dir: js_dir,
-            files_dir: files_dir,
-          }),
-        })
-
-        const copyResult = await copyResponse.json()
-
-        if (!copyResult.success) {
-          throw new Error(`Failed to copy assets: ${copyResult.message || 'Unknown error'}`)
-        }
-      }
-
-      // Build file URLs
-      const filesDirPath = files_dir.startsWith('/') ? files_dir.substring(1) : files_dir
-      const filesDirUrl = `${UPLOAD_URL}?base_directory=${encodeURIComponent(filesDirPath)}&path=`
-
-      // Build result object with all file locations
-      const result = {
-        logo: filesDirUrl + encodeURIComponent('logo.png'),
-        letter_head: filesDirUrl + encodeURIComponent('letter_head.png'),
-        gml2: filesDirUrl + encodeURIComponent('gml2.png'),
-        files_dir: files_dir,
-      }
-
-      // Cache in localStorage
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(result))
-      } catch (err) {
-        console.warn('Error caching assets:', err)
-      }
-
-      return result
-    } catch (err) {
-      console.error('Error getting assets:', err)
-      throw err
-    }
+    console.log('[getAssets] Returning result:', result)
+    return result
   }
 
   return {

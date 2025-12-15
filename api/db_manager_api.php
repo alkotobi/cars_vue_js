@@ -1,32 +1,46 @@
 <?php
+// Start output buffering to prevent any output before headers
+ob_start();
+
+// Set CORS headers first, before any output
 header('Access-Control-Allow-Origin: *');
-header('Content-Type: application/json');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Access-Control-Allow-Headers,Content-Type,Access-Control-Allow-Methods,Authorization,X-Requested-With');
+header('Access-Control-Allow-Headers: Content-Type, Accept, Authorization, X-Requested-With');
+header('Access-Control-Max-Age: 86400'); // Cache preflight for 24 hours
+header('Content-Type: application/json');
 
 // Handle preflight OPTIONS request
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
+    ob_end_clean();
     exit;
 }
 
-// Include database configuration
-require_once __DIR__ . '/db_manager_config.php';
-
-// Use config values
-$db_host = $db_manager_config['host'];
-$db_user = $db_manager_config['user'];
-$db_pass = $db_manager_config['pass'];
-$db_name = $db_manager_config['dbname'];
-
-// Response array
+// Response array (initialize early)
 $response = [
     'success' => false,
     'message' => '',
     'data' => null
 ];
 
+// Wrap everything in try-catch to ensure headers are always sent
 try {
+    // Include database configuration
+    if (!file_exists(__DIR__ . '/db_manager_config.php')) {
+        throw new Exception('db_manager_config.php file not found');
+    }
+    require_once __DIR__ . '/db_manager_config.php';
+    
+    // Check if config is loaded
+    if (!isset($db_manager_config)) {
+        throw new Exception('Database configuration not loaded');
+    }
+    
+    // Use config values
+    $db_host = $db_manager_config['host'];
+    $db_user = $db_manager_config['user'];
+    $db_pass = $db_manager_config['pass'];
+    $db_name = $db_manager_config['dbname'];
     // Get request method
     $method = $_SERVER['REQUEST_METHOD'];
     
@@ -426,8 +440,8 @@ try {
                 break;
             }
             
-            // Get database info
-            $getStmt = $conn->prepare("SELECT id, db_name, is_created FROM dbs WHERE id = ?");
+            // Get database info (including db_code, files_dir, and js_dir for directory and db_code.json creation)
+            $getStmt = $conn->prepare("SELECT id, db_name, db_code, files_dir, js_dir, is_created FROM dbs WHERE id = ?");
             $getStmt->execute([$id]);
             $dbInfo = $getStmt->fetch(PDO::FETCH_ASSOC);
             
@@ -523,6 +537,77 @@ try {
                 break;
             }
             
+            // Create directories (files_dir and js_dir) if they are configured
+            $directoriesCreated = [];
+            $directoryErrors = [];
+            
+            // Helper function to create directory safely
+            $createDirectory = function($dirPath, $dirName) use (&$directoriesCreated, &$directoryErrors) {
+                if (empty($dirPath)) {
+                    return; // Skip if directory path is empty
+                }
+                
+                try {
+                    $dir = trim($dirPath);
+                    // Remove leading slash if present
+                    $dir = ltrim($dir, '/');
+                    $dir = rtrim($dir, '/');
+                    
+                    if (empty($dir)) {
+                        return; // Skip if directory is empty after trimming
+                    }
+                    
+                    // Construct the full directory path
+                    $fullDirPath = __DIR__ . '/../' . $dir;
+                    
+                    // Get the real path for security check
+                    $realBasePath = realpath(__DIR__ . '/../');
+                    if ($realBasePath === false) {
+                        throw new Exception('Invalid base directory');
+                    }
+                    $realBasePath = rtrim($realBasePath, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+                    
+                    // Normalize the directory path
+                    $normalizedDirPath = str_replace(['\\', '/'], DIRECTORY_SEPARATOR, $fullDirPath);
+                    $normalizedDirPath = preg_replace('/' . preg_quote(DIRECTORY_SEPARATOR, '/') . '+/', DIRECTORY_SEPARATOR, $normalizedDirPath);
+                    
+                    // Create directory and all parent directories if they don't exist
+                    if (!is_dir($normalizedDirPath)) {
+                        // Create directory recursively (creates parent directories if needed)
+                        if (!mkdir($normalizedDirPath, 0755, true)) {
+                            throw new Exception('Failed to create directory: ' . $normalizedDirPath);
+                        }
+                    }
+                    
+                    // Verify the directory exists and is within the base directory
+                    $resolvedDirPath = realpath($normalizedDirPath);
+                    if ($resolvedDirPath === false) {
+                        throw new Exception('Failed to resolve directory path: ' . $normalizedDirPath);
+                    }
+                    $resolvedDirPath = rtrim($resolvedDirPath, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+                    
+                    // Security check: ensure the resolved path is within the base directory
+                    if (strpos($resolvedDirPath, $realBasePath) !== 0) {
+                        throw new Exception('Directory traversal attempt detected');
+                    }
+                    
+                    $directoriesCreated[] = $dirName . ' (' . $dir . ')';
+                } catch (Exception $e) {
+                    $directoryErrors[] = $dirName . ': ' . $e->getMessage();
+                    error_log('Failed to create ' . $dirName . ' directory: ' . $e->getMessage());
+                }
+            };
+            
+            // Create files_dir if configured
+            if (!empty($dbInfo['files_dir'])) {
+                $createDirectory($dbInfo['files_dir'], 'files_dir');
+            }
+            
+            // Create js_dir if configured
+            if (!empty($dbInfo['js_dir'])) {
+                $createDirectory($dbInfo['js_dir'], 'js_dir');
+            }
+            
             // Update version in versions table
             try {
                 $versionStmt = $targetConn->prepare("INSERT INTO versions (id, version) VALUES (1, ?) ON DUPLICATE KEY UPDATE version = ?");
@@ -535,10 +620,99 @@ try {
             // Update is_created flag
             $updateStmt = $conn->prepare("UPDATE dbs SET is_created = 1 WHERE id = ?");
             if ($updateStmt->execute([$id])) {
+                // Create db_code.json file if js_dir is configured
+                $dbCodeJsonCreated = false;
+                $dbCodeJsonError = null;
+                
+                if (!empty($dbInfo['js_dir']) && !empty($dbInfo['db_code'])) {
+                    try {
+                        $jsDir = trim($dbInfo['js_dir']);
+                        // Remove leading slash if present
+                        $jsDir = ltrim($jsDir, '/');
+                        $jsDir = rtrim($jsDir, '/');
+                        
+                        // Construct the full directory and file path
+                        $dirPath = __DIR__ . '/../' . $jsDir;
+                        $filePath = $dirPath . '/db_code.json';
+                        
+                        // Get the real path for security check
+                        $realBasePath = realpath(__DIR__ . '/../');
+                        if ($realBasePath === false) {
+                            throw new Exception('Invalid base directory');
+                        }
+                        $realBasePath = rtrim($realBasePath, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+                        
+                        // Normalize the directory path
+                        $normalizedDirPath = str_replace(['\\', '/'], DIRECTORY_SEPARATOR, $dirPath);
+                        $normalizedDirPath = preg_replace('/' . preg_quote(DIRECTORY_SEPARATOR, '/') . '+/', DIRECTORY_SEPARATOR, $normalizedDirPath);
+                        
+                        // Create directory and all parent directories if they don't exist
+                        if (!is_dir($normalizedDirPath)) {
+                            // Create directory recursively (creates parent directories if needed)
+                            if (!mkdir($normalizedDirPath, 0755, true)) {
+                                throw new Exception('Failed to create directory: ' . $normalizedDirPath);
+                            }
+                        }
+                        
+                        // Verify the directory exists and is within the base directory
+                        $resolvedDirPath = realpath($normalizedDirPath);
+                        if ($resolvedDirPath === false) {
+                            throw new Exception('Failed to resolve directory path: ' . $normalizedDirPath);
+                        }
+                        $resolvedDirPath = rtrim($resolvedDirPath, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+                        
+                        // Security check: ensure the resolved path is within the base directory
+                        if (strpos($resolvedDirPath, $realBasePath) !== 0) {
+                            throw new Exception('Directory traversal attempt detected');
+                        }
+                        
+                        // Create JSON content
+                        $jsonContent = [
+                            'db_code' => $dbInfo['db_code']
+                        ];
+                        
+                        // Encode JSON with pretty printing
+                        $jsonString = json_encode($jsonContent, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                        
+                        if ($jsonString === false) {
+                            throw new Exception('Failed to encode JSON: ' . json_last_error_msg());
+                        }
+                        
+                        // Write file (only if it doesn't exist)
+                        if (!file_exists($filePath)) {
+                            if (file_put_contents($filePath, $jsonString) === false) {
+                                throw new Exception('Failed to write db_code.json file');
+                            }
+                            $dbCodeJsonCreated = true;
+                        }
+                    } catch (Exception $e) {
+                        $dbCodeJsonError = $e->getMessage();
+                        error_log('Failed to create db_code.json: ' . $dbCodeJsonError);
+                    }
+                }
+                
                 $response['success'] = true;
                 $response['message'] = "Successfully created {$executedCount} table(s)";
+                
+                // Add directory creation status
+                if (!empty($directoriesCreated)) {
+                    $response['message'] .= ', created directories: ' . implode(', ', $directoriesCreated);
+                }
+                if (!empty($directoryErrors)) {
+                    $response['message'] .= ' (directory errors: ' . implode('; ', $directoryErrors) . ')';
+                }
+                
+                // Add db_code.json creation status
+                if ($dbCodeJsonCreated) {
+                    $response['message'] .= ', created db_code.json';
+                }
+                if ($dbCodeJsonError) {
+                    $response['message'] .= ' (note: db_code.json creation failed: ' . $dbCodeJsonError . ')';
+                }
+                
+                // Add table creation errors if any
                 if (!empty($errors)) {
-                    $response['message'] .= ' (some errors occurred: ' . implode('; ', $errors) . ')';
+                    $response['message'] .= ' (some table errors occurred: ' . implode('; ', $errors) . ')';
                 }
             } else {
                 $response['message'] = 'Tables created but failed to update is_created flag';
@@ -1221,6 +1395,177 @@ try {
             }
             break;
             
+        case 'read_db_code_json':
+            // Read db_code.json file from js_dir
+            $databaseId = intval($inputData['database_id'] ?? 0);
+            
+            if ($databaseId <= 0) {
+                $response['message'] = 'Invalid database ID';
+                break;
+            }
+            
+            try {
+                // Get database record
+                $stmt = $conn->prepare("SELECT js_dir FROM dbs WHERE id = ?");
+                $stmt->execute([$databaseId]);
+                $db = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                if (!$db) {
+                    $response['message'] = 'Database not found';
+                    break;
+                }
+                
+                $jsDir = trim($db['js_dir'] ?? '');
+                if (empty($jsDir)) {
+                    $response['message'] = 'js_dir is not configured for this database';
+                    break;
+                }
+                
+                // Remove leading slash if present
+                $jsDir = ltrim($jsDir, '/');
+                $jsDir = rtrim($jsDir, '/');
+                
+                // Construct the full file path
+                $filePath = __DIR__ . '/../' . $jsDir . '/db_code.json';
+                
+                // Get the real path for security check
+                $realBasePath = realpath(__DIR__ . '/../');
+                if ($realBasePath === false) {
+                    throw new Exception('Invalid base directory');
+                }
+                $realBasePath = rtrim($realBasePath, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+                
+                // Resolve the file path
+                $resolvedFilePath = realpath($filePath);
+                
+                // Verify the resolved path is within the base directory
+                if ($resolvedFilePath !== false) {
+                    $resolvedDir = dirname($resolvedFilePath);
+                    if (strpos($resolvedDir, $realBasePath) !== 0) {
+                        throw new Exception('Directory traversal attempt detected');
+                    }
+                }
+                
+                // Read file if exists, otherwise return default structure
+                if ($resolvedFilePath !== false && file_exists($resolvedFilePath)) {
+                    $fileContent = file_get_contents($resolvedFilePath);
+                    $jsonData = json_decode($fileContent, true);
+                    
+                    if (json_last_error() !== JSON_ERROR_NONE) {
+                        throw new Exception('Invalid JSON in db_code.json: ' . json_last_error_msg());
+                    }
+                    
+                    $response['success'] = true;
+                    $response['message'] = 'File read successfully';
+                    $response['data'] = [
+                        'content' => $jsonData,
+                        'exists' => true
+                    ];
+                } else {
+                    // File doesn't exist, return default structure
+                    $response['success'] = true;
+                    $response['message'] = 'File does not exist, returning default structure';
+                    $response['data'] = [
+                        'content' => ['db_code' => ''],
+                        'exists' => false
+                    ];
+                }
+            } catch (Exception $e) {
+                $response['message'] = 'Error reading file: ' . $e->getMessage();
+            }
+            break;
+            
+        case 'write_db_code_json':
+            // Write db_code.json file to js_dir
+            $databaseId = intval($inputData['database_id'] ?? 0);
+            $jsonContent = $inputData['content'] ?? null;
+            
+            if ($databaseId <= 0) {
+                $response['message'] = 'Invalid database ID';
+                break;
+            }
+            
+            if ($jsonContent === null) {
+                $response['message'] = 'JSON content is required';
+                break;
+            }
+            
+            try {
+                // Validate JSON content
+                if (!is_array($jsonContent)) {
+                    throw new Exception('Content must be a valid JSON object');
+                }
+                
+                // Get database record
+                $stmt = $conn->prepare("SELECT js_dir FROM dbs WHERE id = ?");
+                $stmt->execute([$databaseId]);
+                $db = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                if (!$db) {
+                    $response['message'] = 'Database not found';
+                    break;
+                }
+                
+                $jsDir = trim($db['js_dir'] ?? '');
+                if (empty($jsDir)) {
+                    $response['message'] = 'js_dir is not configured for this database';
+                    break;
+                }
+                
+                // Remove leading slash if present
+                $jsDir = ltrim($jsDir, '/');
+                $jsDir = rtrim($jsDir, '/');
+                
+                // Construct the full directory and file path
+                $dirPath = __DIR__ . '/../' . $jsDir;
+                $filePath = $dirPath . '/db_code.json';
+                
+                // Get the real path for security check
+                $realBasePath = realpath(__DIR__ . '/../');
+                if ($realBasePath === false) {
+                    throw new Exception('Invalid base directory');
+                }
+                $realBasePath = rtrim($realBasePath, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+                
+                // Create directory if it doesn't exist
+                if (!is_dir($dirPath)) {
+                    if (!mkdir($dirPath, 0755, true)) {
+                        throw new Exception('Failed to create directory: ' . $dirPath);
+                    }
+                }
+                
+                // Verify the directory path is within the base directory
+                $resolvedDirPath = realpath($dirPath);
+                if ($resolvedDirPath === false) {
+                    throw new Exception('Failed to resolve directory path');
+                }
+                $resolvedDirPath = rtrim($resolvedDirPath, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+                if (strpos($resolvedDirPath, $realBasePath) !== 0) {
+                    throw new Exception('Directory traversal attempt detected');
+                }
+                
+                // Encode JSON with pretty printing
+                $jsonString = json_encode($jsonContent, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                
+                if ($jsonString === false) {
+                    throw new Exception('Failed to encode JSON: ' . json_last_error_msg());
+                }
+                
+                // Write file
+                if (file_put_contents($filePath, $jsonString) === false) {
+                    throw new Exception('Failed to write file');
+                }
+                
+                $response['success'] = true;
+                $response['message'] = 'File written successfully';
+                $response['data'] = [
+                    'path' => $jsDir . '/db_code.json'
+                ];
+            } catch (Exception $e) {
+                $response['message'] = 'Error writing file: ' . $e->getMessage();
+            }
+            break;
+            
         default:
             $response['message'] = 'No action specified';
             break;
@@ -1229,13 +1574,27 @@ try {
 } catch (Exception $e) {
     error_log('DB Manager API Error: ' . $e->getMessage());
     $response['message'] = $e->getMessage();
+    $response['success'] = false;
+    http_response_code(500);
+} catch (Error $e) {
+    error_log('DB Manager API Fatal Error: ' . $e->getMessage());
+    $response['message'] = 'Fatal error: ' . $e->getMessage();
+    $response['success'] = false;
     http_response_code(500);
 }
 
-// Ensure no output before JSON
-if (ob_get_length()) ob_clean();
+// Ensure headers are sent (re-send CORS headers in case of error)
+if (!headers_sent()) {
+    header('Access-Control-Allow-Origin: *');
+    header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type, Accept, Authorization, X-Requested-With');
+    header('Content-Type: application/json');
+}
 
-// Send JSON response
+// Clean output buffer and send JSON response
+if (ob_get_level()) {
+    ob_end_clean();
+}
 echo json_encode($response);
 exit;
 

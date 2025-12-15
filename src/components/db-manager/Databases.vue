@@ -124,13 +124,17 @@
                 @click="createTables(db)"
                 :disabled="db.is_created == 1 || creatingTables"
                 class="btn-create-tables"
-                :title="db.is_created == 1 ? 'Tables already created' : 'Create tables from setup.sql'"
+                :title="db.is_created == 1 ? 'Already created' : 'Create tables, directories, and db_code.json'"
               >
                 <i class="fas fa-database"></i>
-                {{ creatingTables && creatingTablesId === db.id ? 'Creating...' : 'Create Tables' }}
+                {{ creatingTables && creatingTablesId === db.id ? 'Creating...' : 'Create' }}
               </button>
               <button @click="openEditModal(db)" class="btn-edit" title="Edit">
                 <i class="fas fa-edit"></i>
+              </button>
+              <button @click="openJsonModal(db)" class="btn-json" title="Edit db_code.json">
+                <i class="fas fa-code"></i>
+                JSON
               </button>
               <button @click="confirmDelete(db)" class="btn-delete" title="Delete">
                 <i class="fas fa-trash"></i>
@@ -311,7 +315,7 @@
           <button @click="cancelVersionInput" class="btn-cancel">Cancel</button>
           <button @click="confirmCreateTables" :disabled="!versionInput || creatingTables" class="btn-primary">
             <i v-if="creatingTables" class="fas fa-spinner fa-spin"></i>
-            {{ creatingTables ? 'Creating...' : 'Create Tables' }}
+            {{ creatingTables ? 'Creating...' : 'Create' }}
           </button>
         </div>
       </div>
@@ -413,6 +417,15 @@
         </div>
       </div>
     </div>
+
+    <!-- Edit db_code.json Modal -->
+    <EditDbCodeJson
+      :show="showJsonModal"
+      :database="jsonEditingDatabase"
+      :api-base-url="getApiBaseUrl()"
+      @close="cancelJsonEdit"
+      @saved="handleJsonSaved"
+    />
 
     <!-- Upload Code Files Modal -->
     <div v-if="showUploadCodeModal" class="modal-overlay" @click="cancelUploadCode">
@@ -523,6 +536,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import EditDbCodeJson from './EditDbCodeJson.vue'
 
 const databases = ref([])
 const loading = ref(false)
@@ -555,6 +569,31 @@ const selectedCodeFiles = ref([])
 const uploadingCode = ref(false)
 const uploadCodeResults = ref([])
 const isDragOver = ref(false)
+const showJsonModal = ref(false)
+const jsonEditingDatabase = ref(null)
+
+// JSON file editing functionality
+const openJsonModal = (db) => {
+  if (!db.js_dir || db.js_dir.trim() === '') {
+    error.value = 'JS directory (js_dir) is not configured for this database'
+    return
+  }
+  
+  jsonEditingDatabase.value = db
+  showJsonModal.value = true
+}
+
+const cancelJsonEdit = () => {
+  showJsonModal.value = false
+  jsonEditingDatabase.value = null
+}
+
+const handleJsonSaved = (message) => {
+  successMessage.value = message
+  setTimeout(() => {
+    successMessage.value = ''
+  }, 5000)
+}
 
 const formData = ref({
   db_code: '',
@@ -715,7 +754,7 @@ const cancelDelete = () => {
 }
 
 // Delete database
-// Create tables from setup.sql
+// Create tables, directories, and db_code.json from setup.sql
 const createTables = (db) => {
   if (db.is_created == 1) {
     return
@@ -1512,7 +1551,8 @@ onMounted(() => {
 }
 
 .btn-edit,
-.btn-delete {
+.btn-delete,
+.btn-json {
   width: 32px;
   height: 32px;
 }
@@ -1524,6 +1564,20 @@ onMounted(() => {
 
 .btn-edit:hover {
   background-color: #66b1ff;
+}
+
+.btn-json {
+  background-color: #909399;
+  color: white;
+  font-size: 0.7rem;
+  padding: 0.25rem;
+  min-width: 50px;
+  width: auto;
+  height: 32px;
+}
+
+.btn-json:hover {
+  background-color: #a6a9ad;
 }
 
 .btn-delete {
