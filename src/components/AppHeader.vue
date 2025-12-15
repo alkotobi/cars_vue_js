@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
+import { ref, computed, onMounted, watch, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useEnhancedI18n } from '../composables/useI18n'
 import { useApi } from '../composables/useApi'
@@ -236,7 +236,14 @@ const getBasePath = () => {
 const loadLogo = async () => {
   console.log('[AppHeader] loadLogo() called')
   const basePath = getBasePath()
-  const fallbackLogo = `${basePath}logo.png`
+  
+  // Get assets version from localStorage
+  const STORAGE_KEY = 'assets_version'
+  const assetsVersion = localStorage.getItem(STORAGE_KEY) || Date.now().toString()
+  
+  // Add cache-busting with both version and timestamp for maximum cache invalidation
+  const timestamp = Date.now()
+  const fallbackLogo = `${basePath}logo.png?v=${assetsVersion}&t=${timestamp}`
 
   try {
     console.log('[AppHeader] Calling getAssets()...')
@@ -244,24 +251,32 @@ const loadLogo = async () => {
     console.log('[AppHeader] getAssets() returned:', assets)
 
     if (assets && assets.logo) {
-      console.log('[AppHeader] Setting logoUrl to:', assets.logo)
-      logoUrl.value = assets.logo
+      // Add additional timestamp to force reload even if version is same
+      const logoWithTimestamp = `${assets.logo}&t=${timestamp}`
+      console.log('[AppHeader] Setting logoUrl to:', logoWithTimestamp)
+      // Force reload by setting to empty first, then to new URL
+      logoUrl.value = ''
+      await nextTick()
+      logoUrl.value = logoWithTimestamp
       console.log('[AppHeader] logoUrl.value is now:', logoUrl.value)
     } else {
       // Fallback to default logo path if getAssets doesn't return logo
       console.log('[AppHeader] No logo in assets, using fallback:', fallbackLogo)
+      logoUrl.value = ''
+      await nextTick()
       logoUrl.value = fallbackLogo
       console.log('[AppHeader] logoUrl.value is now:', logoUrl.value)
     }
   } catch (err) {
     console.warn('[AppHeader] Failed to load logo from assets, using default:', err)
     // Fallback to default logo path
+    logoUrl.value = ''
+    await nextTick()
     logoUrl.value = fallbackLogo
     console.log('[AppHeader] logoUrl.value set to fallback:', logoUrl.value)
   }
 
   console.log('[AppHeader] Final logoUrl.value:', logoUrl.value)
-  console.log('[AppHeader] Logo will be loaded from:', logoUrl.value || fallbackLogo)
 }
 
 // Initialize user on component mount
@@ -269,6 +284,9 @@ onMounted(async () => {
   await getUser()
   loadLogo() // Load logo asynchronously
   watchUserChanges()
+  
+  // Listen for assets update event (when new logo/letterhead/stamp is uploaded)
+  window.addEventListener('assetsUpdated', loadLogo)
 
   // Set up activity listeners
   setupActivityListeners()
@@ -333,6 +351,7 @@ onUnmounted(() => {
       <div class="header-left">
         <div class="logo-section">
           <img
+            :key="logoUrl"
             :src="logoUrl || `${getBasePath()}logo.png`"
             alt="Company Logo"
             class="company-logo"

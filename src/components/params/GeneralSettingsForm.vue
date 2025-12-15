@@ -27,7 +27,7 @@
       <div class="info-box">
         <i class="fas fa-info-circle"></i>
         <div>
-          <p><strong>Upload Location:</strong> {{ uploadPath || 'Loading...' }}</p>
+          <p><strong>Upload Location:</strong> {{ uploadPath ? `/${uploadPath}/` : 'Loading...' }} (same folder as index.html)</p>
           <p v-if="dbCode" class="db-code-info">Database Code: {{ dbCode }}</p>
         </div>
       </div>
@@ -45,13 +45,13 @@
               type="file"
               accept=".png"
               @change="handleFileSelect('logo', $event)"
-              :disabled="uploading || !uploadPath"
+              :disabled="uploading || uploadPath === null || uploadPath === undefined"
               class="file-input"
             />
             <button
               type="button"
               @click="triggerFileInput('logo')"
-              :disabled="uploading || !uploadPath"
+              :disabled="uploading || uploadPath === null || uploadPath === undefined"
               class="browse-btn"
             >
               <i class="fas fa-folder-open"></i>
@@ -97,13 +97,13 @@
               type="file"
               accept=".png"
               @change="handleFileSelect('letter_head', $event)"
-              :disabled="uploading || !uploadPath"
+              :disabled="uploading || uploadPath === null || uploadPath === undefined"
               class="file-input"
             />
             <button
               type="button"
               @click="triggerFileInput('letter_head')"
-              :disabled="uploading || !uploadPath"
+              :disabled="uploading || uploadPath === null || uploadPath === undefined"
               class="browse-btn"
             >
               <i class="fas fa-folder-open"></i>
@@ -154,13 +154,13 @@
               type="file"
               accept=".png"
               @change="handleFileSelect('gml2', $event)"
-              :disabled="uploading || !uploadPath"
+              :disabled="uploading || uploadPath === null || uploadPath === undefined"
               class="file-input"
             />
             <button
               type="button"
               @click="triggerFileInput('gml2')"
-              :disabled="uploading || !uploadPath"
+              :disabled="uploading || uploadPath === null || uploadPath === undefined"
               class="browse-btn"
             >
               <i class="fas fa-folder-open"></i>
@@ -212,6 +212,9 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useApi } from '@/composables/useApi'
+
+const { updateAssetsVersion } = useApi()
 
 const loading = ref(false)
 const error = ref(null)
@@ -243,8 +246,7 @@ const loadConfiguration = async () => {
   error.value = null
 
   try {
-    // Step 1: Get db_code from db_code.json (always in same folder as index.html)
-    // Get base path where index.html is located
+    // Get base path where index.html is located (same folder as db_code.json)
     const getBasePath = () => {
       let baseUrl = import.meta.env.BASE_URL || './'
       if (baseUrl === './' || baseUrl.startsWith('./')) {
@@ -255,6 +257,8 @@ const loadConfiguration = async () => {
       return baseUrl
     }
     const basePath = getBasePath()
+    
+    // Load db_code.json to get db_code (for display purposes)
     const dbCodeResponse = await fetch(`${basePath}db_code.json`)
     if (!dbCodeResponse.ok) {
       throw new Error('Failed to load db_code.json')
@@ -267,26 +271,21 @@ const loadConfiguration = async () => {
 
     dbCode.value = dbCodeData.db_code
 
-    // Step 2: Get database record from dbs table
-    const dbResponse = await fetch(
-      `${getApiBaseUrl()}/db_manager_api.php?action=get_database_by_code&db_code=${encodeURIComponent(dbCodeData.db_code)}`,
-    )
-
-    if (!dbResponse.ok) {
-      throw new Error('Failed to fetch database information')
+    // Upload path is the same folder as index.html (where db_code.json is located)
+    // Convert basePath to a relative path format for upload.php
+    // If basePath is '/mig/', we want to use 'mig' as the base_directory
+    // If basePath is '/', we want to use empty string (root)
+    let uploadDir = basePath
+    if (uploadDir.startsWith('/')) {
+      uploadDir = uploadDir.substring(1) // Remove leading slash
     }
-
-    const dbResult = await dbResponse.json()
-
-    if (!dbResult.success || !dbResult.data) {
-      throw new Error('Database not found for the provided db_code')
+    if (uploadDir.endsWith('/')) {
+      uploadDir = uploadDir.slice(0, -1) // Remove trailing slash
     }
-
-    if (!dbResult.data.files_dir) {
-      throw new Error('files_dir is not configured for this database')
-    }
-
-    uploadPath.value = dbResult.data.files_dir
+    // If it's root, use empty string (files go to project root, same as index.html)
+    // upload.php will handle empty base_directory correctly
+    
+    uploadPath.value = uploadDir || '' // Empty string for root
   } catch (err) {
     error.value = err.message || 'Failed to load configuration'
     console.error(err)
@@ -392,7 +391,7 @@ const formatFileSize = (bytes) => {
 const canUpload = computed(() => {
   return (
     Object.values(selectedFiles.value).some((file) => file !== null) &&
-    uploadPath.value &&
+    (uploadPath.value !== null && uploadPath.value !== undefined) &&
     !uploading.value
   )
 })
@@ -406,13 +405,14 @@ const ensureFolderExists = async () => {
   try {
     // Call db_manager_api to ensure the folder exists
     // This creates the folder if it doesn't exist (without clearing contents)
-    const response = await fetch(`${getApiBaseUrl()}/db_manager_api.php?action=ensure_folder`, {
+    const response = await fetch(`${getApiBaseUrl()}/db_manager_api.php`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Type': 'application/json',
       },
-      body: new URLSearchParams({
-        js_dir: uploadPath.value, // API parameter name is js_dir but we pass files_dir value
+      body: JSON.stringify({
+        action: 'ensure_folder',
+        js_dir: uploadPath.value, // API parameter name is js_dir
       }),
     })
 
@@ -454,12 +454,9 @@ const uploadFiles = async () => {
   let failCount = 0
 
   try {
-    // Prepare files_dir path (remove leading slash if present)
-    let filesDir = uploadPath.value.trim()
-    if (filesDir.startsWith('/')) {
-      filesDir = filesDir.substring(1)
-    }
-    filesDir = filesDir.trim()
+    // Prepare upload path (already formatted in loadConfiguration)
+    // uploadPath.value is already in the correct format (e.g., 'mig' or '' for root)
+    let uploadDir = uploadPath.value || ''
 
     // Ensure the folder exists before uploading
     // This creates the folder if it doesn't exist (without clearing contents)
@@ -479,9 +476,9 @@ const uploadFiles = async () => {
       try {
         const formData = new FormData()
         formData.append('file', file)
-        formData.append('base_directory', filesDir)
-        formData.append('destination_folder', '') // Upload to root of files_dir
-        formData.append('custom_filename', fileNames[fileType]) // Use exact filename
+        formData.append('base_directory', uploadDir) // Upload to same folder as index.html
+        formData.append('destination_folder', '') // Upload to root of the directory
+        formData.append('custom_filename', fileNames[fileType]) // Use exact filename (will replace if exists)
 
         const uploadResponse = await fetch(`${getApiBaseUrl()}/upload.php`, {
           method: 'POST',
@@ -514,6 +511,11 @@ const uploadFiles = async () => {
 
     // Show summary message
     if (successCount > 0 && failCount === 0) {
+      // Update assets version to force browser to reload new images
+      // This updates the cache-busting query parameter for all asset URLs
+      updateAssetsVersion()
+      // Dispatch event to reload logo in AppHeader
+      window.dispatchEvent(new Event('assetsUpdated'))
       successMessage.value = `All ${successCount} file(s) uploaded successfully`
       setTimeout(() => {
         successMessage.value = null

@@ -1566,6 +1566,72 @@ try {
             }
             break;
             
+        case 'check_file_exists':
+            // Check if a file exists in js_dir
+            $databaseId = intval($inputData['database_id'] ?? 0);
+            $fileName = trim($inputData['file_name'] ?? '');
+            $jsDir = trim($inputData['js_dir'] ?? '');
+            
+            if ($databaseId <= 0 || empty($fileName)) {
+                $response['message'] = 'Invalid database ID or file name';
+                break;
+            }
+            
+            if (empty($jsDir)) {
+                // Get js_dir from database if not provided
+                $stmt = $conn->prepare("SELECT js_dir FROM dbs WHERE id = ?");
+                $stmt->execute([$databaseId]);
+                $db = $stmt->fetch(PDO::FETCH_ASSOC);
+                if (!$db || empty($db['js_dir'])) {
+                    $response['message'] = 'js_dir is not configured for this database';
+                    break;
+                }
+                $jsDir = trim($db['js_dir']);
+            }
+            
+            try {
+                // Remove leading slash if present
+                $jsDir = ltrim($jsDir, '/');
+                $jsDir = rtrim($jsDir, '/');
+                
+                // Sanitize filename
+                $fileName = basename($fileName);
+                $fileName = str_replace('..', '', $fileName);
+                
+                // Construct the full file path
+                $filePath = __DIR__ . '/../' . $jsDir . '/' . $fileName;
+                
+                // Get the real path for security check
+                $realBasePath = realpath(__DIR__ . '/../');
+                if ($realBasePath === false) {
+                    throw new Exception('Invalid base directory');
+                }
+                $realBasePath = rtrim($realBasePath, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+                
+                // Resolve the file path
+                $resolvedFilePath = realpath($filePath);
+                
+                // Verify the resolved path is within the base directory
+                if ($resolvedFilePath !== false) {
+                    $resolvedDir = dirname($resolvedFilePath);
+                    if (strpos($resolvedDir, $realBasePath) !== 0) {
+                        throw new Exception('Directory traversal attempt detected');
+                    }
+                }
+                
+                $fileExists = file_exists($filePath);
+                
+                $response['success'] = true;
+                $response['message'] = $fileExists ? 'File exists' : 'File does not exist';
+                $response['data'] = [
+                    'exists' => $fileExists,
+                    'file_path' => $jsDir . '/' . $fileName
+                ];
+            } catch (Exception $e) {
+                $response['message'] = 'Error checking file: ' . $e->getMessage();
+            }
+            break;
+            
         default:
             $response['message'] = 'No action specified';
             break;

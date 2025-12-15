@@ -45,6 +45,10 @@
           <i class="fas fa-upload"></i>
           Upload Code Files
         </button>
+        <button @click="openUpdatePhpModal" class="btn-toolbar">
+          <i class="fas fa-file-code"></i>
+          Update API Files
+        </button>
       </div>
       <div class="toolbar-right">
         <span v-if="selectedDatabases.length > 0" class="selected-count">
@@ -427,6 +431,92 @@
       @saved="handleJsonSaved"
     />
 
+    <!-- Update API Files Modal -->
+    <div v-if="showUpdatePhpModal" class="modal-overlay" @click="cancelUpdatePhp">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>Update API Files</h3>
+          <button @click="cancelUpdatePhp" class="modal-close">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <p>
+            Upload file(s) to <strong>/api/</strong> folder. Existing files will be replaced.
+          </p>
+          <div class="form-group">
+            <label for="php-file-input">Select File(s) *</label>
+            <div
+              class="file-drop-zone"
+              :class="{ 'drag-over': isDragOverPhp, 'has-files': selectedPhpFiles.length > 0 }"
+              @drop.prevent="handlePhpFileDrop"
+              @dragover.prevent="isDragOverPhp = true"
+              @dragenter.prevent="isDragOverPhp = true"
+              @dragleave.prevent="isDragOverPhp = false"
+            >
+              <input
+                id="php-file-input"
+                type="file"
+                ref="phpFileInput"
+                @change="handlePhpFileSelect"
+                multiple
+                :disabled="uploadingPhp"
+                class="file-input-hidden"
+              />
+              <div class="drop-zone-content">
+                <i class="fas fa-cloud-upload-alt"></i>
+                <p v-if="selectedPhpFiles.length === 0">
+                  <strong>Drag and drop files here</strong><br />
+                  or <span class="browse-link">browse</span> to select files
+                </p>
+                <p v-else>
+                  <strong>{{ selectedPhpFiles.length }} file(s) selected</strong><br />
+                  <span class="browse-link">Click to change files</span>
+                </p>
+              </div>
+            </div>
+            <div v-if="selectedPhpFiles.length > 0" class="selected-files">
+              <p><strong>Selected files:</strong></p>
+              <ul>
+                <li v-for="(file, index) in selectedPhpFiles" :key="index">
+                  {{ file.name }} ({{ formatFileSize(file.size) }})
+                </li>
+              </ul>
+            </div>
+          </div>
+          
+          <!-- Upload Results -->
+          <div v-if="updatePhpResults.length > 0" class="upload-results">
+            <h4>Results:</h4>
+            <div v-for="(result, index) in updatePhpResults" :key="index" class="result-item" :class="{ 'result-error': result.error, 'result-success': !result.error }">
+              <div class="result-header">
+                <strong>{{ result.file_name }}</strong>
+                <span v-if="result.error" class="result-status error">Error</span>
+                <span v-else class="result-status success">Success</span>
+              </div>
+              
+              <!-- Error Message -->
+              <div v-if="result.error" class="result-message">
+                {{ result.error }}
+              </div>
+              
+              <!-- Success Message -->
+              <div v-else class="result-message">
+                File uploaded successfully to /api/{{ result.file_name }}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button @click="cancelUpdatePhp" class="btn-cancel" :disabled="uploadingPhp">Cancel</button>
+          <button @click="confirmUpdatePhp" :disabled="selectedPhpFiles.length === 0 || uploadingPhp" class="btn-primary">
+            <i v-if="uploadingPhp" class="fas fa-spinner fa-spin"></i>
+            {{ uploadingPhp ? 'Uploading...' : 'Upload' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Upload Code Files Modal -->
     <div v-if="showUploadCodeModal" class="modal-overlay" @click="cancelUploadCode">
       <div class="modal-content" @click.stop>
@@ -519,6 +609,16 @@
                   </li>
                 </ul>
               </div>
+              
+              <!-- Skipped Files Message -->
+              <div v-if="result.skipped && result.skipped.length > 0" class="result-message" style="margin-top: 0.5rem; color: #909399;">
+                <p>Skipped {{ result.skipped.length }} protected file(s) (already exist):</p>
+                <ul>
+                  <li v-for="(file, fileIndex) in result.skipped" :key="fileIndex">
+                    {{ file.name }} - {{ file.reason }}
+                  </li>
+                </ul>
+              </div>
             </div>
           </div>
         </div>
@@ -571,6 +671,12 @@ const uploadCodeResults = ref([])
 const isDragOver = ref(false)
 const showJsonModal = ref(false)
 const jsonEditingDatabase = ref(null)
+const showUpdatePhpModal = ref(false)
+const phpFileInput = ref(null)
+const selectedPhpFiles = ref([])
+const uploadingPhp = ref(false)
+const updatePhpResults = ref([])
+const isDragOverPhp = ref(false)
 
 // JSON file editing functionality
 const openJsonModal = (db) => {
@@ -1166,6 +1272,115 @@ const cancelUploadCode = () => {
   }
 }
 
+// Update PHP Files functionality
+const openUpdatePhpModal = () => {
+  selectedPhpFiles.value = []
+  updatePhpResults.value = []
+  isDragOverPhp.value = false
+  showUpdatePhpModal.value = true
+}
+
+const handlePhpFileSelect = (event) => {
+  const files = Array.from(event.target.files || [])
+  // Accept any file type
+  selectedPhpFiles.value = files
+  isDragOverPhp.value = false
+}
+
+const handlePhpFileDrop = (event) => {
+  isDragOverPhp.value = false
+  const files = Array.from(event.dataTransfer.files || [])
+  if (files.length > 0) {
+    // Accept any file type
+    selectedPhpFiles.value = files
+    // Also update the file input element
+    if (phpFileInput.value) {
+      const dataTransfer = new DataTransfer()
+      files.forEach(file => dataTransfer.items.add(file))
+      phpFileInput.value.files = dataTransfer.files
+    }
+  }
+}
+
+const cancelUpdatePhp = () => {
+  showUpdatePhpModal.value = false
+  selectedPhpFiles.value = []
+  updatePhpResults.value = []
+  isDragOverPhp.value = false
+  if (phpFileInput.value) {
+    phpFileInput.value.value = ''
+  }
+}
+
+const confirmUpdatePhp = async () => {
+  if (selectedPhpFiles.value.length === 0) {
+    error.value = 'Please select at least one file'
+    return
+  }
+  
+  uploadingPhp.value = true
+  updatePhpResults.value = []
+  error.value = ''
+  
+  try {
+    const totalFiles = selectedPhpFiles.value.length
+    
+    for (let fileIndex = 0; fileIndex < selectedPhpFiles.value.length; fileIndex++) {
+      const file = selectedPhpFiles.value[fileIndex]
+      
+      // Initialize result for this file
+      const fileResult = {
+        file_name: file.name,
+        error: null,
+      }
+      updatePhpResults.value.push(fileResult)
+      
+      try {
+        const formData = new FormData()
+        formData.append('file', file)
+        
+        // Upload to api folder (base_directory = 'api')
+        formData.append('base_directory', 'api')
+        formData.append('destination_folder', '') // Upload to root of api folder
+        formData.append('custom_filename', file.name) // Keep original filename (will replace if exists)
+        
+        const uploadResponse = await fetch(`${getApiBaseUrl()}/upload.php`, {
+          method: 'POST',
+          body: formData,
+        })
+        
+        const uploadResult = await uploadResponse.json()
+        
+        if (uploadResult.success) {
+          fileResult.error = null
+        } else {
+          fileResult.error = uploadResult.message || 'Upload failed'
+        }
+      } catch (err) {
+        fileResult.error = 'An error occurred while uploading: ' + err.message
+        console.error('Error uploading PHP file:', err)
+      }
+    }
+    
+    // Show success message if all files uploaded successfully
+    const allSuccess = updatePhpResults.value.every(r => !r.error)
+    if (allSuccess) {
+      successMessage.value = `Successfully uploaded ${totalFiles} file(s) to /api/ folder`
+      setTimeout(() => {
+        successMessage.value = ''
+      }, 5000)
+    } else {
+      const failedCount = updatePhpResults.value.filter(r => r.error).length
+      error.value = `${failedCount} file(s) failed to upload`
+    }
+  } catch (err) {
+    error.value = 'An error occurred while uploading files'
+    console.error(err)
+  } finally {
+    uploadingPhp.value = false
+  }
+}
+
 const confirmUploadCode = async () => {
   if (selectedCodeFiles.value.length === 0) {
     error.value = 'Please select at least one file'
@@ -1245,18 +1460,67 @@ const confirmUploadCode = async () => {
         resultIndices.forEach(idx => {
           uploadCodeResults.value[idx].status = 'Uploading files...'
         })
+        
+        // Files to skip if they already exist
+        const protectedFiles = ['logo.png', 'letter_head.png', 'gml2.png', 'db_code.json']
+        
         const totalFiles = selectedCodeFiles.value.length
         const uploadedFiles = []
+        const skippedFiles = []
         
         for (let fileIndex = 0; fileIndex < selectedCodeFiles.value.length; fileIndex++) {
           const file = selectedCodeFiles.value[fileIndex]
+          
+          // Check if this is a protected file that should be skipped if it exists
+          const isProtectedFile = protectedFiles.includes(file.name)
+          let shouldSkip = false
+          
+          if (isProtectedFile) {
+            // Check if file already exists
+            try {
+              const checkResponse = await fetch(`${getApiBaseUrl()}/db_manager_api.php`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  action: 'check_file_exists',
+                  database_id: firstDb.id,
+                  file_name: file.name,
+                  js_dir: jsDir,
+                }),
+              })
+              
+              const checkResult = await checkResponse.json()
+              
+              if (checkResult.success && checkResult.data && checkResult.data.exists) {
+                shouldSkip = true
+                skippedFiles.push({
+                  name: file.name,
+                  reason: 'File already exists and is protected'
+                })
+              }
+            } catch (err) {
+              // If check fails, proceed with upload (don't block on check errors)
+              console.warn('Failed to check if file exists:', err)
+            }
+          }
           
           // Update progress for all databases in this group
           const progress = Math.round(((fileIndex + 1) / totalFiles) * 100)
           resultIndices.forEach(idx => {
             uploadCodeResults.value[idx].progress = progress
-            uploadCodeResults.value[idx].status = `Uploading ${fileIndex + 1}/${totalFiles}: ${file.name}`
+            if (shouldSkip) {
+              uploadCodeResults.value[idx].status = `Skipping ${fileIndex + 1}/${totalFiles}: ${file.name} (already exists)`
+            } else {
+              uploadCodeResults.value[idx].status = `Uploading ${fileIndex + 1}/${totalFiles}: ${file.name}`
+            }
           })
+          
+          // Skip upload if file exists and is protected
+          if (shouldSkip) {
+            continue
+          }
           
           const formData = new FormData()
           formData.append('file', file)
@@ -1290,6 +1554,16 @@ const confirmUploadCode = async () => {
             })
             break // Stop uploading other files for this js_dir if one fails
           }
+        }
+        
+        // Add skipped files info to results
+        if (skippedFiles.length > 0) {
+          resultIndices.forEach(idx => {
+            if (!uploadCodeResults.value[idx].skipped) {
+              uploadCodeResults.value[idx].skipped = []
+            }
+            uploadCodeResults.value[idx].skipped.push(...skippedFiles)
+          })
         }
         
         // Mark all databases in this group as complete

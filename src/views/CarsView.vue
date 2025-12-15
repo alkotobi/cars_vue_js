@@ -201,7 +201,9 @@ const handleReturnToMain = () => {
 
 const openCarsStockInNewTab = () => {
   const route = router.resolve({ name: 'cars-stock' })
-  window.open(route.href, '_blank')
+  // Use full URL to ensure correct base path for assets
+  const fullUrl = window.location.origin + route.href
+  window.open(fullUrl, '_blank')
 }
 
 const handleLoadClick = async () => {

@@ -11,8 +11,28 @@ import BuyBillPaymentsView from '../views/BuyBillPaymentsView.vue'
 import RatesView from '../views/RatesView.vue'
 
 // Use root path since we're using a subdomain
+// Detect base path dynamically (same logic as useApi.js)
+// This allows the app to work from any subdirectory or root
+const getRouterBasePath = () => {
+  // Use Vite's BASE_URL if available (set in vite.config.js)
+  // If it's relative (./), convert to absolute based on current pathname
+  let baseUrl = import.meta.env.BASE_URL || './'
+
+  // If base is relative, convert to absolute path
+  if (baseUrl === './' || baseUrl.startsWith('./')) {
+    const pathname = window.location.pathname
+    // If pathname is like '/mig/login', extract '/mig/'
+    // If pathname is like '/login', use '/'
+    const match = pathname.match(/^(\/[^/]+\/)/)
+    return match ? match[1] : '/'
+  }
+
+  // If base is already absolute, use it as is
+  return baseUrl
+}
+
 const router = createRouter({
-  history: createWebHistory('/mig/'),
+  history: createWebHistory(getRouterBasePath()),
   routes: [
     {
       path: '/',

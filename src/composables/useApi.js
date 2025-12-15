@@ -57,10 +57,27 @@ async function loadConfig() {
       // Get current base path (where index.html is located)
       const currentBasePath = getBasePath()
       // Load db_code.json from same folder as index.html (use base path)
-      const response = await fetch(`${currentBasePath}db_code.json`)
+      const dbCodeUrl = `${currentBasePath}db_code.json`
+      console.log('[loadConfig] Fetching db_code.json from:', dbCodeUrl)
+      const response = await fetch(dbCodeUrl)
       if (!response.ok) {
-        throw new Error(`Failed to load db_code.json: ${response.status}`)
+        const errorText = await response.text()
+        console.error('Failed to load db_code.json. Status:', response.status)
+        console.error('Response:', errorText.substring(0, 500))
+        throw new Error(`Failed to load db_code.json: ${response.status} ${response.statusText}`)
       }
+
+      // Check content type before parsing
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text()
+        console.error('db_code.json returned non-JSON response. Content-Type:', contentType)
+        console.error('Response:', text.substring(0, 500))
+        throw new Error(
+          `db_code.json returned non-JSON response (Content-Type: ${contentType}). Check if the file exists at ${dbCodeUrl}`,
+        )
+      }
+
       const data = await response.json()
 
       // Check if db_code exists
@@ -444,20 +461,34 @@ export const useApi = () => {
 
   // Get assets (logo.png, letter_head.png, gml2.png)
   // Returns JSON with file locations, copies from js_dir to files_dir if needed
-  // Uses localStorage to cache results
+  // Adds cache-busting query parameter to prevent browser caching
   async function getAssets() {
     console.log('[getAssets] Function called')
 
     // Get current base path (where index.html is located)
     const currentBasePath = getBasePath()
 
+    // Use a persistent version stored in localStorage that gets updated when files are uploaded
+    // This ensures cache-busting works even after page refresh
+    const STORAGE_KEY = 'assets_version'
+    let assetsVersion = localStorage.getItem(STORAGE_KEY)
+
+    // If no version exists, initialize with current timestamp
+    if (!assetsVersion) {
+      assetsVersion = Date.now().toString()
+      localStorage.setItem(STORAGE_KEY, assetsVersion)
+    }
+
+    // Add cache-busting version to force browser to reload images
+    const cacheBuster = `?v=${assetsVersion}`
+
     // Files are in the same folder as index.html, use base path
     // This works regardless of deployment location (root or subdirectory)
     // No caching - always return fresh data since there's no computation
     const result = {
-      logo: `${currentBasePath}logo.png`,
-      letter_head: `${currentBasePath}letter_head.png`,
-      gml2: `${currentBasePath}gml2.png`,
+      logo: `${currentBasePath}logo.png${cacheBuster}`,
+      letter_head: `${currentBasePath}letter_head.png${cacheBuster}`,
+      gml2: `${currentBasePath}gml2.png${cacheBuster}`,
     }
     console.log('[getAssets] Created result object:', result)
     console.log('[getAssets] Current window location:', window.location.href)
@@ -470,12 +501,34 @@ export const useApi = () => {
     return result
   }
 
+  // Function to update assets version (call this after uploading new assets)
+  function updateAssetsVersion() {
+    const STORAGE_KEY = 'assets_version'
+    const newVersion = Date.now().toString()
+    const oldVersion = localStorage.getItem(STORAGE_KEY)
+    localStorage.setItem(STORAGE_KEY, newVersion)
+    console.log('[updateAssetsVersion] Updated assets version from', oldVersion, 'to:', newVersion)
+    // Also clear any cached image data
+    if ('caches' in window) {
+      caches.keys().then((names) => {
+        names.forEach((name) => {
+          if (name.includes('logo') || name.includes('assets')) {
+            caches.delete(name)
+            console.log('[updateAssetsVersion] Deleted cache:', name)
+          }
+        })
+      })
+    }
+    return newVersion
+  }
+
   return {
     callApi,
     uploadFile,
     getFileUrl,
     handleCookieVerification,
     getAssets,
+    updateAssetsVersion,
     error,
     loading,
   }
