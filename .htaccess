@@ -5,22 +5,27 @@ RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
 # Handle Vue Router (SPA routing)
 # Works for both root and subdirectory deployments
-RewriteRule ^index\.html$ - [L]
 
-# Don't rewrite JavaScript, CSS, and other static assets
-RewriteCond %{REQUEST_URI} \.(js|mjs|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|json)$ [NC]
-RewriteRule ^ - [L]
-
-# Skip rewrite for real files and directories
+# IMPORTANT: Check for real files FIRST before any rewrites
+# Skip rewrite for real files and directories (this must be first)
 RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^ - [L]
 
-# Skip API and uploads directories
-RewriteCond %{REQUEST_URI} !^/api/
-RewriteCond %{REQUEST_URI} !^/uploads/
+# Don't rewrite JavaScript, CSS, and other static assets by extension
+# This catches files that might not exist yet but should be served directly
+RewriteCond %{REQUEST_URI} \.(js|mjs|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|json|map)$ [NC]
+RewriteRule ^ - [L]
 
-# Redirect all other requests to index.html
+# Skip API and uploads directories
+RewriteCond %{REQUEST_URI} ^/api/ [OR]
+RewriteCond %{REQUEST_URI} ^/uploads/
+RewriteRule ^ - [L]
+
+# Don't rewrite index.html itself
+RewriteRule ^index\.html$ - [L]
+
+# Redirect all other requests to index.html (SPA fallback)
 RewriteRule . index.html [L]
 
 # Security headers

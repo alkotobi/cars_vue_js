@@ -18,16 +18,25 @@ const getRouterBasePath = () => {
   // If it's relative (./), convert to absolute based on current pathname
   let baseUrl = import.meta.env.BASE_URL || './'
 
+  console.log('[Router] getRouterBasePath() called')
+  console.log('[Router] import.meta.env.BASE_URL:', import.meta.env.BASE_URL)
+  console.log('[Router] window.location.pathname:', window.location.pathname)
+  console.log('[Router] window.location.href:', window.location.href)
+
   // If base is relative, convert to absolute path
   if (baseUrl === './' || baseUrl.startsWith('./')) {
     const pathname = window.location.pathname
     // If pathname is like '/mig/login', extract '/mig/'
     // If pathname is like '/login', use '/'
     const match = pathname.match(/^(\/[^/]+\/)/)
-    return match ? match[1] : '/'
+    const detectedBase = match ? match[1] : '/'
+    console.log('[Router] Pathname match:', match)
+    console.log('[Router] Detected base path:', detectedBase)
+    return detectedBase
   }
 
   // If base is already absolute, use it as is
+  console.log('[Router] Using absolute base URL:', baseUrl)
   return baseUrl
 }
 

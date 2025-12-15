@@ -1,8 +1,25 @@
-<head>
+  <head>
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
     <meta charset="UTF-8">
+    <!-- Base tag to ensure relative URLs resolve correctly regardless of route -->
+    <script>
+      (function() {
+        // Detect base path from current location
+        const pathname = window.location.pathname
+        // Extract base path (e.g., '/mig_2026/' from '/mig_2026/cars/stock')
+        const match = pathname.match(/^(\/[^/]+\/)/)
+        const basePath = match ? match[1] : '/'
+        
+        // Create and insert <base> tag
+        const baseTag = document.createElement('base')
+        baseTag.href = basePath
+        document.head.insertBefore(baseTag, document.head.firstChild)
+        
+        console.log('[index.html] Created <base> tag with href:', basePath)
+      })()
+    </script>
     <link rel="icon" href="./logo.png" type="image/png">
     <link rel="apple-touch-icon" href="./logo.png">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,6 +27,48 @@
   </head>
   <body>
     <div id="app"></div>
+    <script>
+      // Debug: Log before loading main.js
+      console.log('=== [index.html] SCRIPT LOADING DEBUG ===')
+      console.log('[index.html] window.location.href:', window.location.href)
+      console.log('[index.html] window.location.pathname:', window.location.pathname)
+      console.log('[index.html] window.location.origin:', window.location.origin)
+      console.log('[index.html] document.baseURI:', document.baseURI)
+      console.log('[index.html] Script src will be:', '/src/main.js')
+      console.log('[index.html] Resolved script URL:', new URL('/src/main.js', window.location.href).href)
+      
+      // Check for <base> tag
+      const baseTag = document.querySelector('base')
+      if (baseTag) {
+        console.log('[index.html] <base> tag found:', baseTag.href)
+      } else {
+        console.log('[index.html] No <base> tag found')
+      }
+      
+      // Detect base path
+      const detectBasePath = () => {
+        const pathname = window.location.pathname
+        const match = pathname.match(/^(\/[^/]+\/)/)
+        return match ? match[1] : '/'
+      }
+      const detectedBase = detectBasePath()
+      console.log('[index.html] Detected base path:', detectedBase)
+      console.log('==========================================')
+      
+      // Add error handler for module loading failures
+      window.addEventListener('error', (event) => {
+        if (event.target && event.target.tagName === 'SCRIPT') {
+          console.error('=== SCRIPT LOADING ERROR ===')
+          console.error('Failed to load script:', event.target.src)
+          console.error('Error message:', event.message)
+          console.error('Error type:', event.type)
+          console.error('Current URL:', window.location.href)
+          console.error('Script URL:', event.target.src)
+          console.error('Resolved script URL:', new URL(event.target.src, window.location.href).href)
+          console.error('============================')
+        }
+      }, true)
+    </script>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
