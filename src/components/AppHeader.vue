@@ -239,25 +239,47 @@ const loadLogo = async () => {
   
   // Get assets version from localStorage
   const STORAGE_KEY = 'assets_version'
-  const assetsVersion = localStorage.getItem(STORAGE_KEY) || Date.now().toString()
+  let assetsVersion = localStorage.getItem(STORAGE_KEY)
+  
+  console.log('[AppHeader] Current assets version from localStorage:', assetsVersion)
+  
+  // If no version exists, initialize with current timestamp
+  if (!assetsVersion) {
+    assetsVersion = Date.now().toString()
+    localStorage.setItem(STORAGE_KEY, assetsVersion)
+    console.log('[AppHeader] Initialized new assets version:', assetsVersion)
+  }
   
   // Add cache-busting with both version and timestamp for maximum cache invalidation
   const timestamp = Date.now()
-  const fallbackLogo = `${basePath}logo.png?v=${assetsVersion}&t=${timestamp}`
+  const random = Math.random().toString(36).substring(7) // Add random string for extra cache busting
+  const fallbackLogo = `${basePath}logo.png?v=${assetsVersion}&t=${timestamp}&r=${random}`
 
   try {
     console.log('[AppHeader] Calling getAssets()...')
     const assets = await getAssets()
     console.log('[AppHeader] getAssets() returned:', assets)
+    console.log('[AppHeader] Assets version used by getAssets:', localStorage.getItem(STORAGE_KEY))
 
     if (assets && assets.logo) {
-      // Add additional timestamp to force reload even if version is same
-      const logoWithTimestamp = `${assets.logo}&t=${timestamp}`
-      console.log('[AppHeader] Setting logoUrl to:', logoWithTimestamp)
+      // Add additional timestamp and random string to force reload
+      const logoWithCacheBuster = `${assets.logo}&t=${timestamp}&r=${random}`
+      console.log('[AppHeader] Setting logoUrl to:', logoWithCacheBuster)
+      console.log('[AppHeader] Full logo URL will be:', new URL(logoWithCacheBuster, window.location.href).href)
+      
       // Force reload by setting to empty first, then to new URL
       logoUrl.value = ''
       await nextTick()
-      logoUrl.value = logoWithTimestamp
+      logoUrl.value = logoWithCacheBuster
+      
+      // Also try to reload the image element directly
+      await nextTick()
+      const imgElement = document.querySelector('.company-logo')
+      if (imgElement) {
+        imgElement.src = logoWithCacheBuster
+        console.log('[AppHeader] Forced image element src update')
+      }
+      
       console.log('[AppHeader] logoUrl.value is now:', logoUrl.value)
     } else {
       // Fallback to default logo path if getAssets doesn't return logo
@@ -277,6 +299,7 @@ const loadLogo = async () => {
   }
 
   console.log('[AppHeader] Final logoUrl.value:', logoUrl.value)
+  console.log('[AppHeader] Final logo URL:', new URL(logoUrl.value || fallbackLogo, window.location.href).href)
 }
 
 // Initialize user on component mount
@@ -355,20 +378,26 @@ onUnmounted(() => {
             :src="logoUrl || `${getBasePath()}logo.png`"
             alt="Company Logo"
             class="company-logo"
+            crossorigin="anonymous"
             @load="
-              () =>
-                console.log(
-                  '[AppHeader] Logo image loaded successfully from:',
-                  logoUrl || `${getBasePath()}logo.png`,
-                )
+              (e) => {
+                console.log('[AppHeader] Logo image loaded successfully')
+                console.log('[AppHeader] Image src:', e.target.src)
+                console.log('[AppHeader] Image naturalWidth:', e.target.naturalWidth)
+                console.log('[AppHeader] Image naturalHeight:', e.target.naturalHeight)
+              }
             "
             @error="
-              (e) =>
-                console.error(
-                  '[AppHeader] Logo image failed to load from:',
-                  logoUrl || `${getBasePath()}logo.png`,
-                  e,
-                )
+              (e) => {
+                console.error('[AppHeader] Logo image failed to load')
+                console.error('[AppHeader] Image src:', e.target.src)
+                console.error('[AppHeader] Error event:', e)
+                // Try to reload with fresh cache-buster
+                const currentSrc = e.target.src
+                const separator = currentSrc.includes('?') ? '&' : '?'
+                e.target.src = currentSrc + separator + 'retry=' + Date.now()
+                console.log('[AppHeader] Retrying with new src:', e.target.src)
+              }
             "
           />
           <div class="company-info">

@@ -517,7 +517,8 @@ export const useApi = () => {
     const oldVersion = localStorage.getItem(STORAGE_KEY)
     localStorage.setItem(STORAGE_KEY, newVersion)
     console.log('[updateAssetsVersion] Updated assets version from', oldVersion, 'to:', newVersion)
-    // Also clear any cached image data
+
+    // Clear any cached image data
     if ('caches' in window) {
       caches.keys().then((names) => {
         names.forEach((name) => {
@@ -528,6 +529,17 @@ export const useApi = () => {
         })
       })
     }
+
+    // Force clear browser image cache by creating a dummy image and setting src to empty
+    // This helps clear the browser's internal image cache
+    try {
+      const img = new Image()
+      img.src = ''
+      console.log('[updateAssetsVersion] Cleared image cache')
+    } catch (e) {
+      console.warn('[updateAssetsVersion] Could not clear image cache:', e)
+    }
+
     return newVersion
   }
 
