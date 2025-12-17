@@ -543,6 +543,284 @@ export const useApi = () => {
     return newVersion
   }
 
+  // ============================================
+  // Car Files Management Functions
+  // ============================================
+
+  // Get current user from localStorage
+  const getCurrentUser = () => {
+    const userStr = localStorage.getItem('user')
+    return userStr ? JSON.parse(userStr) : null
+  }
+
+  // Get file categories
+  const getCarFileCategories = async () => {
+    const result = await callApi({
+      action: 'get_car_file_categories',
+      requiresAuth: false,
+    })
+    console.log('[useApi] getCarFileCategories result:', result)
+    // API returns { success: true, data: [...] } or { success: true, results: [...] }
+    if (result.success) {
+      return result.data || result.results || []
+    }
+    return []
+  }
+
+  // Get files for a car (with permission filtering)
+  const getCarFiles = async (carId) => {
+    const user = getCurrentUser()
+    const result = await callApi({
+      action: 'get_car_files',
+      car_id: carId,
+      user_id: user?.id || null,
+      is_admin: user?.role_id === 1,
+      requiresAuth: true,
+    })
+    console.log('[useApi] getCarFiles result:', result)
+    // API returns { success: true, data: [...] }
+    if (result.success) {
+      return result.data || []
+    }
+    return []
+  }
+
+  // Upload a file and create file record
+  const uploadCarFile = async (file, carId, categoryId, notes = null) => {
+    const user = getCurrentUser()
+    if (!user) {
+      throw new Error('User not authenticated')
+    }
+
+    // Upload file first
+    const fileExtension = file.name.split('.').pop().toLowerCase()
+    const filename = `file_${Date.now()}.${fileExtension}`
+    const destinationFolder = `cars/${carId}/${categoryId}`
+
+    const uploadResult = await uploadFile(file, destinationFolder, filename)
+
+    if (!uploadResult.success) {
+      throw new Error(uploadResult.message || 'File upload failed')
+    }
+
+    // Create file record in database
+    const filePath = uploadResult.relativePath || uploadResult.file_path
+    const createResult = await callApi({
+      action: 'create_car_file',
+      car_id: carId,
+      category_id: categoryId,
+      file_path: filePath,
+      file_name: file.name,
+      file_size: file.size,
+      file_type: file.type,
+      uploaded_by: user.id,
+      notes: notes,
+      requiresAuth: true,
+    })
+
+    if (!createResult.success) {
+      throw new Error(createResult.error || 'Failed to create file record')
+    }
+
+    return {
+      ...createResult,
+      file_path: filePath,
+      file_name: file.name,
+    }
+  }
+
+  // Delete a file (soft delete)
+  const deleteCarFile = async (fileId) => {
+    const user = getCurrentUser()
+    if (!user) {
+      throw new Error('User not authenticated')
+    }
+
+    const result = await callApi({
+      action: 'delete_car_file',
+      file_id: fileId,
+      user_id: user.id,
+      is_admin: user.role_id === 1,
+      requiresAuth: true,
+    })
+
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to delete file')
+    }
+
+    return result
+  }
+
+  // Check out physical copy
+  const checkoutPhysicalCopy = async (fileId, expectedReturnDate = null, notes = null) => {
+    const user = getCurrentUser()
+    if (!user) {
+      throw new Error('User not authenticated')
+    }
+
+    const result = await callApi({
+      action: 'checkout_physical_copy',
+      file_id: fileId,
+      user_id: user.id,
+      expected_return_date: expectedReturnDate,
+      notes: notes,
+      requiresAuth: true,
+    })
+
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to check out file')
+    }
+
+    return result
+  }
+
+  // Check in physical copy
+  const checkinPhysicalCopy = async (fileId, notes = null) => {
+    const user = getCurrentUser()
+    if (!user) {
+      throw new Error('User not authenticated')
+    }
+
+    const result = await callApi({
+      action: 'checkin_physical_copy',
+      file_id: fileId,
+      user_id: user.id,
+      notes: notes,
+      requiresAuth: true,
+    })
+
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to check in file')
+    }
+
+    return result
+  }
+
+  // Transfer physical copy
+  const transferPhysicalCopy = async (
+    fileId,
+    toUserId,
+    notes = null,
+    expectedReturnDate = null,
+  ) => {
+    const user = getCurrentUser()
+    if (!user) {
+      throw new Error('User not authenticated')
+    }
+
+    // Get file info to find current holder
+    // We need to get the car_id first, then get files for that car
+    // For now, we'll let the API handle finding the current holder
+    // But API requires from_user_id, so we need to get it
+    // Let's get the file by querying with a special action or get all files
+    // Actually, the API should get current holder from tracking table
+    // Let's modify approach: get file info via a query first
+    const fileQueryResult = await callApi({
+      query:
+        'SELECT cf.id, cpt.current_holder_id FROM car_files cf LEFT JOIN car_file_physical_tracking cpt ON cf.id = cpt.car_file_id AND cpt.status = "checked_out" WHERE cf.id = ?',
+      params: [fileId],
+      requiresAuth: true,
+    })
+
+    const fileData = fileQueryResult.data?.[0]
+    const fromUserId = fileData?.current_holder_id || user.id
+
+    const result = await callApi({
+      action: 'transfer_physical_copy',
+      file_id: fileId,
+      from_user_id: fromUserId,
+      to_user_id: toUserId,
+      transferred_by: user.id,
+      notes: notes,
+      expected_return_date: expectedReturnDate,
+      requiresAuth: true,
+    })
+
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to transfer file')
+    }
+
+    return result
+  }
+
+  // Get transfer history
+  const getFileTransferHistory = async (fileId) => {
+    const result = await callApi({
+      action: 'get_file_transfer_history',
+      file_id: fileId,
+      requiresAuth: true,
+    })
+    return result.success ? result.data : []
+  }
+
+  // Get my physical copies
+  const getMyPhysicalCopies = async () => {
+    const user = getCurrentUser()
+    if (!user) {
+      return []
+    }
+
+    const result = await callApi({
+      action: 'get_my_physical_copies',
+      user_id: user.id,
+      requiresAuth: true,
+    })
+    return result.success ? result.data : []
+  }
+
+  // Get users for transfer dropdown
+  const getUsersForTransfer = async (fileId) => {
+    const result = await callApi({
+      action: 'get_users_for_transfer',
+      file_id: fileId,
+      requiresAuth: true,
+    })
+    return result.success ? result.data : []
+  }
+
+  // Create file category (admin only)
+  const createFileCategory = async (categoryData) => {
+    const user = getCurrentUser()
+    if (!user || user.role_id !== 1) {
+      throw new Error('Admin access required')
+    }
+
+    const result = await callApi({
+      action: 'create_file_category',
+      ...categoryData,
+      is_admin: true,
+      requiresAuth: true,
+    })
+
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to create category')
+    }
+
+    return result
+  }
+
+  // Update file category (admin only)
+  const updateFileCategory = async (categoryId, categoryData) => {
+    const user = getCurrentUser()
+    if (!user || user.role_id !== 1) {
+      throw new Error('Admin access required')
+    }
+
+    const result = await callApi({
+      action: 'update_file_category',
+      category_id: categoryId,
+      ...categoryData,
+      is_admin: true,
+      requiresAuth: true,
+    })
+
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to update category')
+    }
+
+    return result
+  }
+
   return {
     callApi,
     uploadFile,
@@ -550,6 +828,19 @@ export const useApi = () => {
     handleCookieVerification,
     getAssets,
     updateAssetsVersion,
+    // Car Files Management
+    getCarFileCategories,
+    getCarFiles,
+    uploadCarFile,
+    deleteCarFile,
+    checkoutPhysicalCopy,
+    checkinPhysicalCopy,
+    transferPhysicalCopy,
+    getFileTransferHistory,
+    getMyPhysicalCopies,
+    getUsersForTransfer,
+    createFileCategory,
+    updateFileCategory,
     error,
     loading,
   }

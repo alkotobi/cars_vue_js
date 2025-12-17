@@ -3,7 +3,7 @@ import { ref, onMounted, computed, watch, onUnmounted } from 'vue'
 import { useEnhancedI18n } from '@/composables/useI18n'
 import { useApi } from '../../composables/useApi'
 import VinEditForm from './VinEditForm.vue'
-import CarFilesUploadForm from './CarFilesUploadForm.vue'
+import CarFilesManagement from './CarFilesManagement.vue'
 import CarPortsEditForm from './CarPortsEditForm.vue'
 import CarMoneyEditForm from './CarMoneyEditForm.vue'
 import CarWarehouseForm from './CarWarehouseForm.vue'
@@ -2263,7 +2263,7 @@ const handleMarkDelivered = async () => {
       @save="handleVinSave"
     />
 
-    <CarFilesUploadForm
+    <CarFilesManagement
       v-if="showFilesUploadForm"
       :car="selectedCar"
       :show="showFilesUploadForm"

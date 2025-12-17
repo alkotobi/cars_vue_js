@@ -1374,22 +1374,55 @@ try {
                     throw new Exception('Directory traversal attempt detected');
                 }
                 
-                // Delete all contents (files and subdirectories)
+                // Protected files that should NOT be deleted
+                $protectedFiles = ['logo.png', 'letter_head.png', 'gml2.png', 'db_code.json'];
+                
+                // Delete all contents (files and subdirectories) EXCEPT protected files
                 $iterator = new RecursiveIteratorIterator(
                     new RecursiveDirectoryIterator($resolvedFolderPath, RecursiveDirectoryIterator::SKIP_DOTS),
                     RecursiveIteratorIterator::CHILD_FIRST
                 );
                 
+                $deletedFiles = [];
+                $skippedFiles = [];
+                
                 foreach ($iterator as $path) {
+                    $fileName = $path->getFilename();
+                    $relativePath = str_replace($resolvedFolderPath, '', $path->getPathname());
+                    
+                    // Skip protected files (only check files in root of js_dir, not subdirectories)
+                    if (!$path->isDir() && strpos($relativePath, DIRECTORY_SEPARATOR) === false) {
+                        if (in_array($fileName, $protectedFiles)) {
+                            $skippedFiles[] = $fileName;
+                            continue; // Skip deleting protected files
+                        }
+                    }
+                    
+                    // Delete the file or directory
                     if ($path->isDir()) {
                         rmdir($path->getPathname());
                     } else {
                         unlink($path->getPathname());
+                        $deletedFiles[] = $fileName;
                     }
                 }
                 
+                // Log what was deleted and what was preserved
+                error_log('[prepare_upload_folder] Deleted files: ' . implode(', ', $deletedFiles));
+                if (count($skippedFiles) > 0) {
+                    error_log('[prepare_upload_folder] Preserved protected files: ' . implode(', ', $skippedFiles));
+                }
+                
                 $response['success'] = true;
-                $response['message'] = 'Folder prepared successfully';
+                $message = 'Folder prepared successfully';
+                if (count($skippedFiles) > 0) {
+                    $message .= '. Preserved protected files: ' . implode(', ', $skippedFiles);
+                }
+                $response['message'] = $message;
+                $response['data'] = [
+                    'deleted_count' => count($deletedFiles),
+                    'preserved_files' => $skippedFiles
+                ];
             } catch (Exception $e) {
                 $response['message'] = 'Error preparing folder: ' . $e->getMessage();
             }
