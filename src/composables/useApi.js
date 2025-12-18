@@ -821,6 +821,89 @@ export const useApi = () => {
     return result
   }
 
+  // Custom Clearance Agents CRUD
+  const getCustomClearanceAgents = async () => {
+    const result = await callApi({
+      action: 'get_custom_clearance_agents',
+      requiresAuth: true,
+    })
+    if (result.success) {
+      return result.data || []
+    }
+    throw new Error(result.error || 'Failed to fetch custom clearance agents')
+  }
+
+  const createCustomClearanceAgent = async (agentData) => {
+    const user = getCurrentUser()
+    if (!user || user.role_id !== 1) throw new Error('Admin access required')
+
+    const result = await callApi({
+      action: 'create_custom_clearance_agent',
+      is_admin: true,
+      ...agentData,
+      requiresAuth: true,
+    })
+    if (result.success) {
+      return result.message || 'Agent created successfully'
+    }
+    throw new Error(result.error || 'Failed to create agent')
+  }
+
+  const updateCustomClearanceAgent = async (agentId, agentData) => {
+    const user = getCurrentUser()
+    if (!user || user.role_id !== 1) throw new Error('Admin access required')
+
+    const result = await callApi({
+      action: 'update_custom_clearance_agent',
+      id: agentId,
+      is_admin: true,
+      ...agentData,
+      requiresAuth: true,
+    })
+    if (result.success) {
+      return result.message || 'Agent updated successfully'
+    }
+    throw new Error(result.error || 'Failed to update agent')
+  }
+
+  const deleteCustomClearanceAgent = async (agentId) => {
+    const user = getCurrentUser()
+    if (!user || user.role_id !== 1) throw new Error('Admin access required')
+
+    const result = await callApi({
+      action: 'delete_custom_clearance_agent',
+      id: agentId,
+      is_admin: true,
+      requiresAuth: true,
+    })
+    if (result.success) {
+      return result.message || 'Agent deleted successfully'
+    }
+    throw new Error(result.error || 'Failed to delete agent')
+  }
+
+  // Rollback checkout (admin only)
+  const rollbackCheckout = async (fileId, notes = null) => {
+    const user = getCurrentUser()
+    if (!user) {
+      throw new Error('User not authenticated')
+    }
+
+    const result = await callApi({
+      action: 'rollback_checkout',
+      file_id: fileId,
+      user_id: user.id,
+      notes: notes,
+      requiresAuth: true,
+    })
+
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to rollback checkout')
+    }
+
+    return result
+  }
+
   return {
     callApi,
     uploadFile,
@@ -836,11 +919,16 @@ export const useApi = () => {
     checkoutPhysicalCopy,
     checkinPhysicalCopy,
     transferPhysicalCopy,
+    rollbackCheckout,
     getFileTransferHistory,
     getMyPhysicalCopies,
     getUsersForTransfer,
     createFileCategory,
     updateFileCategory,
+    getCustomClearanceAgents,
+    createCustomClearanceAgent,
+    updateCustomClearanceAgent,
+    deleteCustomClearanceAgent,
     error,
     loading,
   }

@@ -676,6 +676,153 @@ CREATE TABLE IF NOT EXISTS `warehouses` (
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 -- ============================================
+-- Car Files Management System Tables
+-- ============================================
+
+-- Car file categories table
+CREATE TABLE IF NOT EXISTS `car_file_categories` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `category_name` varchar(255) NOT NULL,
+  `importance_level` tinyint(1) NOT NULL DEFAULT 3 COMMENT '1=Critical, 2=High, 3=Medium, 4=Low, 5=Optional',
+  `is_required` tinyint(1) NOT NULL DEFAULT 0 COMMENT '1=Required, 0=Optional',
+  `display_order` int(11) NOT NULL DEFAULT 0 COMMENT 'Order for UI display',
+  `description` text DEFAULT NULL,
+  `visibility_scope` enum('public', 'department', 'role', 'private') NOT NULL DEFAULT 'public' COMMENT 'Who can see files in this category',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `category_name` (`category_name`),
+  KEY `idx_importance` (`importance_level`),
+  KEY `idx_display_order` (`display_order`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+-- Insert default categories
+INSERT IGNORE INTO `car_file_categories` (`category_name`, `importance_level`, `is_required`, `display_order`, `description`, `visibility_scope`) VALUES
+('Bill of Lading', 1, 1, 1, 'Bill of Lading document', 'public'),
+('Invoice', 2, 1, 2, 'Sell Invoice (PI)', 'public'),
+('Packing List', 2, 1, 3, 'Buy Packing List (PI)', 'public'),
+('Certificate of Origin', 3, 0, 4, 'COO Certificate', 'public'),
+('Certificate of Conformity', 3, 0, 5, 'COC Certificate', 'public');
+
+-- Car files table
+CREATE TABLE IF NOT EXISTS `car_files` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `car_id` int(11) NOT NULL COMMENT 'FK to cars_stock',
+  `category_id` int(11) NOT NULL COMMENT 'FK to car_file_categories',
+  `file_path` varchar(500) NOT NULL COMMENT 'Storage path to file',
+  `file_name` varchar(255) NOT NULL COMMENT 'Original filename',
+  `file_size` bigint(20) DEFAULT NULL COMMENT 'File size in bytes',
+  `file_type` varchar(100) DEFAULT NULL COMMENT 'MIME type',
+  `uploaded_by` int(11) NOT NULL COMMENT 'FK to users - who uploaded',
+  `uploaded_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `version` int(11) NOT NULL DEFAULT 1 COMMENT 'File version number',
+  `notes` text DEFAULT NULL COMMENT 'Additional notes about the file',
+  `visibility_scope` enum('public', 'department', 'role', 'private') DEFAULT NULL COMMENT 'Override category visibility, NULL = use category default',
+  `allowed_viewers` text DEFAULT NULL COMMENT 'JSON array of user_ids who can view, NULL = all',
+  `department_id` int(11) DEFAULT NULL COMMENT 'FK to departments if visibility is department-based',
+  `is_active` tinyint(1) NOT NULL DEFAULT 1 COMMENT '0=Deleted/Archived, 1=Active',
+  PRIMARY KEY (`id`),
+  KEY `idx_car_id` (`car_id`),
+  KEY `idx_category_id` (`category_id`),
+  KEY `idx_uploaded_by` (`uploaded_by`),
+  KEY `idx_uploaded_at` (`uploaded_at`),
+  KEY `idx_car_category` (`car_id`, `category_id`),
+  KEY `idx_is_active` (`is_active`),
+  CONSTRAINT `fk_car_files_car` FOREIGN KEY (`car_id`) REFERENCES `cars_stock` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_car_files_category` FOREIGN KEY (`category_id`) REFERENCES `car_file_categories` (`id`) ON DELETE RESTRICT,
+  CONSTRAINT `fk_car_files_uploaded_by` FOREIGN KEY (`uploaded_by`) REFERENCES `users` (`id`) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+-- Custom clearance agents table (Transiteurs)
+CREATE TABLE IF NOT EXISTS `custom_clearance_agents` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) NOT NULL COMMENT 'Agent name or company name',
+  `contact_person` varchar(255) DEFAULT NULL COMMENT 'Contact person name',
+  `phone` varchar(50) DEFAULT NULL COMMENT 'Phone number',
+  `email` varchar(255) DEFAULT NULL COMMENT 'Email address',
+  `address` text DEFAULT NULL COMMENT 'Physical address',
+  `license_number` varchar(100) DEFAULT NULL COMMENT 'License or registration number',
+  `notes` text DEFAULT NULL COMMENT 'Additional notes',
+  `is_active` tinyint(1) NOT NULL DEFAULT 1 COMMENT '1=Active, 0=Inactive',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_is_active` (`is_active`),
+  KEY `idx_name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+-- Car file physical tracking table
+CREATE TABLE IF NOT EXISTS `car_file_physical_tracking` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `car_file_id` int(11) NOT NULL COMMENT 'FK to car_files',
+  `current_holder_id` int(11) DEFAULT NULL COMMENT 'FK to users - who has physical copy now, NULL = available',
+  `previous_holder_id` int(11) DEFAULT NULL COMMENT 'FK to users - who had it before',
+  `custom_clearance_agent_id` int(11) DEFAULT NULL COMMENT 'FK to custom_clearance_agents - if checked out to agent',
+  `checkout_type` enum('user', 'client', 'custom_clearance_agent') NOT NULL DEFAULT 'user' COMMENT 'Type of checkout: user, client, or custom clearance agent',
+  `client_id` int(11) DEFAULT NULL COMMENT 'FK to clients - if checked out to client',
+  `checked_out_at` timestamp NULL DEFAULT NULL COMMENT 'When physical copy was taken',
+  `checked_in_at` timestamp NULL DEFAULT NULL COMMENT 'When returned, NULL if still out',
+  `transfer_notes` text DEFAULT NULL COMMENT 'Notes about the transfer',
+  `transferred_by` int(11) DEFAULT NULL COMMENT 'FK to users - who made the transfer',
+  `transferred_at` timestamp NULL DEFAULT NULL COMMENT 'When transfer was made',
+  `status` enum('available', 'checked_out', 'lost', 'archived') NOT NULL DEFAULT 'available',
+  `is_visible_to_holder_only` tinyint(1) NOT NULL DEFAULT 0 COMMENT '1=only holder+admin can see, 0=use file visibility rules',
+  `expected_return_date` date DEFAULT NULL COMMENT 'Expected return date for checked out files',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_car_file_id` (`car_file_id`),
+  KEY `idx_current_holder` (`current_holder_id`),
+  KEY `idx_status` (`status`),
+  KEY `idx_checked_out_at` (`checked_out_at`),
+  KEY `idx_car_file_status` (`car_file_id`, `status`),
+  KEY `idx_agent_id` (`custom_clearance_agent_id`),
+  KEY `idx_client_id` (`client_id`),
+  KEY `idx_checkout_type` (`checkout_type`),
+  CONSTRAINT `fk_physical_tracking_file` FOREIGN KEY (`car_file_id`) REFERENCES `car_files` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_physical_tracking_current_holder` FOREIGN KEY (`current_holder_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_physical_tracking_previous_holder` FOREIGN KEY (`previous_holder_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_physical_tracking_transferred_by` FOREIGN KEY (`transferred_by`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_tracking_agent` FOREIGN KEY (`custom_clearance_agent_id`) REFERENCES `custom_clearance_agents` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_tracking_client` FOREIGN KEY (`client_id`) REFERENCES `clients` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+-- Car file transfers table (history)
+CREATE TABLE IF NOT EXISTS `car_file_transfers` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `car_file_id` int(11) NOT NULL COMMENT 'FK to car_files',
+  `from_user_id` int(11) DEFAULT NULL COMMENT 'FK to users - who transferred from, NULL = available',
+  `to_user_id` int(11) DEFAULT NULL COMMENT 'FK to users - who received (NULL if transferred to agent or client)',
+  `from_agent_id` int(11) DEFAULT NULL COMMENT 'FK to custom_clearance_agents - if transferred from agent',
+  `to_agent_id` int(11) DEFAULT NULL COMMENT 'FK to custom_clearance_agents - if transferred to agent',
+  `from_client_name` varchar(255) DEFAULT NULL COMMENT 'Client name if transferred from client',
+  `to_client_name` varchar(255) DEFAULT NULL COMMENT 'Client name if transferred to client',
+  `transfer_type` enum('user_to_user', 'user_to_agent', 'agent_to_user', 'user_to_client', 'client_to_user') NOT NULL DEFAULT 'user_to_user',
+  `transferred_by` int(11) NOT NULL COMMENT 'FK to users - who performed the transfer',
+  `transferred_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `notes` text DEFAULT NULL COMMENT 'Transfer notes',
+  `return_expected_date` date DEFAULT NULL COMMENT 'Expected return date',
+  `returned_at` timestamp NULL DEFAULT NULL COMMENT 'When file was returned (checked in)',
+  `return_notes` text DEFAULT NULL COMMENT 'Return notes',
+  PRIMARY KEY (`id`),
+  KEY `idx_car_file_id` (`car_file_id`),
+  KEY `idx_from_user` (`from_user_id`),
+  KEY `idx_to_user` (`to_user_id`),
+  KEY `idx_transferred_by` (`transferred_by`),
+  KEY `idx_transferred_at` (`transferred_at`),
+  KEY `idx_returned_at` (`returned_at`),
+  KEY `idx_from_agent` (`from_agent_id`),
+  KEY `idx_to_agent` (`to_agent_id`),
+  KEY `idx_transfer_type` (`transfer_type`),
+  CONSTRAINT `fk_transfers_file` FOREIGN KEY (`car_file_id`) REFERENCES `car_files` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_transfers_from_user` FOREIGN KEY (`from_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_transfers_to_user` FOREIGN KEY (`to_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_transfers_transferred_by` FOREIGN KEY (`transferred_by`) REFERENCES `users` (`id`) ON DELETE RESTRICT,
+  CONSTRAINT `fk_transfers_from_agent` FOREIGN KEY (`from_agent_id`) REFERENCES `custom_clearance_agents` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_transfers_to_agent` FOREIGN KEY (`to_agent_id`) REFERENCES `custom_clearance_agents` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+-- ============================================
 -- Add more CREATE TABLE statements below
 -- ============================================
 

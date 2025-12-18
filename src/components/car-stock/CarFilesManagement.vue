@@ -1,5 +1,9 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
+import { ElSelect, ElOption } from 'element-plus'
+import 'element-plus/dist/index.css'
+import PhysicalCopyTracking from './PhysicalCopyTracking.vue'
+import CustomClearanceAgents from './CustomClearanceAgents.vue'
 import { useApi } from '../../composables/useApi'
 import { useEnhancedI18n } from '@/composables/useI18n'
 
@@ -12,11 +16,15 @@ const {
   checkoutPhysicalCopy,
   checkinPhysicalCopy,
   transferPhysicalCopy,
+  rollbackCheckout,
   getMyPhysicalCopies,
   getUsersForTransfer,
+  getFileTransferHistory,
   getFileUrl,
   createFileCategory,
   updateFileCategory,
+  getCustomClearanceAgents,
+  callApi,
 } = useApi()
 
 const props = defineProps({
@@ -64,6 +72,24 @@ const filesByCategory = computed(() => {
       files: (files.value || []).filter((f) => f.category_id === cat.id),
     }
   })
+
+  // Debug: Log file statuses for checked out files
+  if (files.value && files.value.length > 0) {
+    const checkedOutFiles = files.value.filter((f) => f.physical_status === 'checked_out')
+    if (checkedOutFiles.length > 0) {
+      console.log(
+        '[CarFilesManagement] Checked out files:',
+        checkedOutFiles.map((f) => ({
+          id: f.id,
+          name: f.file_name,
+          physical_status: f.physical_status,
+          checkout_type: f.checkout_type,
+          holder: f.current_holder_username || f.agent_name || f.client_name,
+        })),
+      )
+    }
+  }
+
   console.log(
     '[CarFilesManagement] filesByCategory computed:',
     grouped,
@@ -189,35 +215,266 @@ const handleDeleteFile = async (fileId) => {
   }
 }
 
-// Check out physical copy
-const handleCheckout = async (fileId) => {
-  const expectedReturn = prompt('Expected return date (YYYY-MM-DD) - optional:')
-  const notes = prompt('Notes (optional):')
+// Check out physical copy modal
+const showCheckoutModal = ref(false)
+const fileToCheckout = ref(null)
+const checkoutType = ref('user') // 'user', 'client', or 'custom_clearance_agent'
+const checkoutUserId = ref(null)
+const checkoutAgentId = ref(null)
+const checkoutClientId = ref(null)
+const checkoutClientName = ref('')
+const checkoutClientContact = ref('')
+const checkoutNotes = ref('')
+const checkoutAvailableUsers = ref([])
+const availableAgents = ref([])
+const availableClients = ref([])
+const filteredUsers = ref([])
+const filteredClients = ref([])
+const loadingUsers = ref(false)
+const loadingClients = ref(false)
+
+const openCheckoutModal = async (file) => {
+  console.log('[CarFilesManagement] openCheckoutModal called with file:', file)
+  fileToCheckout.value = file
+  checkoutType.value = 'user'
+  checkoutUserId.value = null
+  checkoutAgentId.value = null
+  checkoutClientId.value = null
+  checkoutClientName.value = ''
+  checkoutClientContact.value = ''
+  checkoutNotes.value = ''
+
+  // Load initial data for dropdowns
+  try {
+    console.log('[CarFilesManagement] Loading users/clients/agents...')
+    await loadUsers()
+    await loadClients()
+    const agents = await getCustomClearanceAgents()
+    availableAgents.value = agents || []
+    console.log('[CarFilesManagement] Data loaded, showing modal')
+  } catch (err) {
+    console.error('[CarFilesManagement] Failed to load users/clients/agents:', err)
+    error.value = 'Failed to load checkout data: ' + (err.message || err)
+  }
+
+  showCheckoutModal.value = true
+  console.log('[CarFilesManagement] showCheckoutModal set to:', showCheckoutModal.value)
+}
+
+// Load users from database
+const loadUsers = async () => {
+  loadingUsers.value = true
+  try {
+    const users = await getUsersForTransfer(fileToCheckout.value?.id || 0)
+    checkoutAvailableUsers.value = users || []
+    filteredUsers.value = users || []
+  } catch (err) {
+    console.error('Failed to load users:', err)
+    checkoutAvailableUsers.value = []
+    filteredUsers.value = []
+  } finally {
+    loadingUsers.value = false
+  }
+}
+
+// Load clients from database
+const loadClients = async () => {
+  loadingClients.value = true
+  try {
+    const result = await callApi({
+      query:
+        'SELECT id, name, email, mobiles, address FROM clients WHERE is_client = 1 ORDER BY name ASC',
+      params: [],
+      requiresAuth: true,
+    })
+    if (result.success) {
+      availableClients.value = result.data || []
+      filteredClients.value = result.data || []
+    }
+  } catch (err) {
+    console.error('Failed to load clients:', err)
+    availableClients.value = []
+    filteredClients.value = []
+  } finally {
+    loadingClients.value = false
+  }
+}
+
+// Remote method for user search
+const searchUsers = (query) => {
+  if (!query) {
+    filteredUsers.value = checkoutAvailableUsers.value
+    return
+  }
+  const searchTerm = query.toLowerCase()
+  filteredUsers.value = checkoutAvailableUsers.value.filter(
+    (user) =>
+      user.username?.toLowerCase().includes(searchTerm) ||
+      user.email?.toLowerCase().includes(searchTerm),
+  )
+}
+
+// Remote method for client search
+const searchClients = (query) => {
+  if (!query) {
+    filteredClients.value = availableClients.value
+    return
+  }
+  const searchTerm = query.toLowerCase()
+  filteredClients.value = availableClients.value.filter(
+    (client) =>
+      client.name?.toLowerCase().includes(searchTerm) ||
+      client.email?.toLowerCase().includes(searchTerm) ||
+      client.mobiles?.toLowerCase().includes(searchTerm),
+  )
+}
+
+// Handle user selection
+const handleUserChange = (userId) => {
+  if (userId) {
+    const user = checkoutAvailableUsers.value.find((u) => u.id === userId)
+    if (user) {
+      checkoutClientName.value = ''
+      checkoutClientContact.value = ''
+      checkoutClientId.value = null
+    }
+  }
+}
+
+// Handle client selection
+const handleClientChange = (clientId) => {
+  if (clientId) {
+    const client = availableClients.value.find((c) => c.id === clientId)
+    if (client) {
+      checkoutClientId.value = client.id
+      checkoutClientName.value = client.name
+      checkoutClientContact.value = client.mobiles || client.email || ''
+      checkoutUserId.value = null
+    }
+  }
+}
+
+const confirmCheckout = async () => {
+  if (!fileToCheckout.value) {
+    console.error('[CarFilesManagement] confirmCheckout: No file to checkout')
+    return
+  }
+
+  console.log('[CarFilesManagement] confirmCheckout called', {
+    file: fileToCheckout.value,
+    checkoutType: checkoutType.value,
+    userId: checkoutUserId.value,
+    agentId: checkoutAgentId.value,
+    clientId: checkoutClientId.value,
+  })
+
+  // Validate based on checkout type
+  if (checkoutType.value === 'user' && !checkoutUserId.value) {
+    error.value = 'Please select a user'
+    return
+  }
+  if (checkoutType.value === 'custom_clearance_agent' && !checkoutAgentId.value) {
+    error.value = 'Veuillez sélectionner un transiteur'
+    return
+  }
+  if (checkoutType.value === 'client' && !checkoutClientId.value) {
+    error.value = 'Veuillez sélectionner un client'
+    return
+  }
 
   loading.value = true
   error.value = null
+  success.value = null
 
   try {
-    await checkoutPhysicalCopy(fileId, expectedReturn || null, notes || null)
-    success.value = 'File checked out successfully'
-    await loadData()
+    const user = currentUser.value
+    console.log('[CarFilesManagement] Calling checkout API...', {
+      file_id: fileToCheckout.value.id,
+      checkout_type: checkoutType.value,
+      user_id: checkoutType.value === 'user' ? checkoutUserId.value : null,
+      agent_id: checkoutType.value === 'custom_clearance_agent' ? checkoutAgentId.value : null,
+      client_id: checkoutType.value === 'client' ? checkoutClientId.value : null,
+    })
+
+    const result = await callApi({
+      action: 'checkout_physical_copy',
+      file_id: fileToCheckout.value.id,
+      checkout_type: checkoutType.value,
+      user_id: checkoutType.value === 'user' ? checkoutUserId.value : null,
+      agent_id: checkoutType.value === 'custom_clearance_agent' ? checkoutAgentId.value : null,
+      client_id: checkoutType.value === 'client' ? checkoutClientId.value : null,
+      client_name: checkoutType.value === 'client' ? checkoutClientName.value : null,
+      client_contact: checkoutType.value === 'client' ? checkoutClientContact.value : null,
+      notes: checkoutNotes.value || null,
+      performed_by: user?.id,
+      requiresAuth: true,
+    })
+
+    console.log('[CarFilesManagement] Checkout API response:', result)
+
+    if (result.success) {
+      success.value = 'File checked out successfully'
+      showCheckoutModal.value = false
+      console.log('[CarFilesManagement] Reloading data...')
+      await loadData()
+      console.log('[CarFilesManagement] Data reloaded')
+    } else {
+      throw new Error(result.error || 'Failed to check out file')
+    }
   } catch (err) {
-    error.value = err.message || 'Failed to check out file'
+    console.error('[CarFilesManagement] Checkout error:', err)
+    error.value = err.message || err.error || 'Failed to check out file'
   } finally {
     loading.value = false
   }
 }
 
-// Check in physical copy
-const handleCheckin = async (fileId) => {
-  if (!confirm('Check in this physical copy?')) return
+// Rollback checkout (admin only)
+const handleRollbackCheckout = async (file) => {
+  if (
+    !confirm(
+      `Are you sure you want to rollback the checkout for "${file.file_name}"? This will make the file available again.`,
+    )
+  ) {
+    return
+  }
+
+  loading.value = true
+  error.value = null
+  success.value = null
+
+  try {
+    await rollbackCheckout(file.id, 'Rollback checkout by admin')
+    success.value = 'Checkout rolled back successfully'
+    await loadData()
+  } catch (err) {
+    error.value = err.message || 'Failed to rollback checkout'
+  } finally {
+    loading.value = false
+  }
+}
+
+// Check in physical copy modal
+const showCheckinModal = ref(false)
+const fileToCheckin = ref(null)
+const checkinNotes = ref('')
+
+const openCheckinModal = (file) => {
+  fileToCheckin.value = file
+  checkinNotes.value = ''
+  showCheckinModal.value = true
+}
+
+const confirmCheckin = async () => {
+  if (!fileToCheckin.value) return
 
   loading.value = true
   error.value = null
 
   try {
-    await checkinPhysicalCopy(fileId)
+    await checkinPhysicalCopy(fileToCheckin.value.id, checkinNotes.value || null)
     success.value = 'File checked in successfully'
+    showCheckinModal.value = false
     await loadData()
   } catch (err) {
     error.value = err.message || 'Failed to check in file'
@@ -232,7 +489,12 @@ const fileToTransfer = ref(null)
 const transferToUserId = ref(null)
 const transferNotes = ref('')
 const transferExpectedReturn = ref('')
-const availableUsers = ref([])
+const transferAvailableUsers = ref([])
+
+// Transfer history modal
+const showHistoryModal = ref(false)
+const fileForHistory = ref(null)
+const transferHistory = ref([])
 
 const openTransferModal = async (file) => {
   fileToTransfer.value = file
@@ -242,7 +504,7 @@ const openTransferModal = async (file) => {
 
   try {
     const users = await getUsersForTransfer(file.id)
-    availableUsers.value = users
+    transferAvailableUsers.value = users
     showTransferModal.value = true
   } catch (err) {
     error.value = err.message || 'Failed to load users'
@@ -275,6 +537,30 @@ const confirmTransfer = async () => {
   }
 }
 
+// Transfer history
+const openHistoryModal = async (file) => {
+  console.log('[CarFilesManagement] Opening history modal for file:', file)
+  fileForHistory.value = file
+  loading.value = true
+  error.value = null
+  showHistoryModal.value = true // Show modal immediately, even while loading
+
+  try {
+    console.log('[CarFilesManagement] Fetching transfer history for file_id:', file.id)
+    const history = await getFileTransferHistory(file.id)
+    console.log('[CarFilesManagement] Transfer history received:', history)
+    transferHistory.value = history || []
+    if (history && history.length === 0) {
+      console.log('[CarFilesManagement] No transfer history found for this file')
+    }
+  } catch (err) {
+    console.error('[CarFilesManagement] Error loading transfer history:', err)
+    error.value = err.message || 'Failed to load transfer history'
+  } finally {
+    loading.value = false
+  }
+}
+
 // Create/Edit Category Modal
 const showCategoryModal = ref(false)
 const editingCategory = ref(null)
@@ -284,7 +570,6 @@ const categoryForm = ref({
   is_required: false,
   display_order: 0,
   description: '',
-  visibility_scope: 'public',
 })
 
 const openCategoryModal = (category = null) => {
@@ -296,7 +581,6 @@ const openCategoryModal = (category = null) => {
       is_required: category.is_required === 1 || category.is_required === true,
       display_order: category.display_order,
       description: category.description || '',
-      visibility_scope: category.visibility_scope || 'public',
     }
   } else {
     editingCategory.value = null
@@ -306,7 +590,6 @@ const openCategoryModal = (category = null) => {
       is_required: false,
       display_order: categories.value.length,
       description: '',
-      visibility_scope: 'public',
     }
   }
   showCategoryModal.value = true
@@ -340,13 +623,32 @@ const saveCategory = async () => {
   }
 }
 
+// Physical Copy Tracking Modal
+const showTrackingModal = ref(false)
+
+const openTrackingModal = () => {
+  showTrackingModal.value = true
+}
+
+// Custom Clearance Agents Modal
+const showAgentsModal = ref(false)
+
 const closeModal = () => {
   error.value = null
   success.value = null
   selectedFiles.value = {}
   showTransferModal.value = false
   showCategoryModal.value = false
+  showCheckoutModal.value = false
+  showCheckinModal.value = false
+  showHistoryModal.value = false
   emit('close')
+}
+
+// Format date helper
+const formatDate = (dateString) => {
+  if (!dateString) return '-'
+  return new Date(dateString).toLocaleDateString()
 }
 
 // Watch for show prop changes
@@ -379,6 +681,23 @@ onMounted(() => {
           Car Files Management
         </h3>
         <div class="header-actions">
+          <button
+            v-if="isAdmin"
+            @click="showAgentsModal = true"
+            class="btn-agents"
+            title="Gérer les transiteurs"
+          >
+            <i class="fas fa-user-tie"></i>
+            Agents
+          </button>
+          <button
+            @click="openTrackingModal"
+            class="btn-tracking"
+            title="View physical copy tracking"
+          >
+            <i class="fas fa-clipboard-list"></i>
+            Tracking
+          </button>
           <button
             v-if="isAdmin"
             @click="openCategoryModal()"
@@ -474,60 +793,99 @@ onMounted(() => {
 
               <div class="file-actions">
                 <!-- Physical Copy Status -->
-                <div v-if="file.physical_status" class="physical-status">
-                  <span v-if="file.physical_status === 'available'" class="status-badge available">
+                <div class="physical-status">
+                  <span
+                    v-if="!file.physical_status || file.physical_status === 'available'"
+                    class="status-badge available"
+                  >
                     <i class="fas fa-check-circle"></i> Available
                   </span>
                   <span
                     v-else-if="file.physical_status === 'checked_out'"
                     class="status-badge checked-out"
                   >
-                    <i class="fas fa-user"></i>
-                    {{ file.current_holder_username || 'Unknown' }}
+                    <i v-if="file.checkout_type === 'user'" class="fas fa-user"></i>
+                    <i
+                      v-else-if="file.checkout_type === 'custom_clearance_agent'"
+                      class="fas fa-user-tie"
+                    ></i>
+                    <i v-else-if="file.checkout_type === 'client'" class="fas fa-building"></i>
+                    <span class="holder-info">
+                      <strong v-if="file.checkout_type === 'user'">
+                        Utilisateur: {{ file.current_holder_username || 'Unknown User' }}
+                      </strong>
+                      <strong v-else-if="file.checkout_type === 'custom_clearance_agent'">
+                        Transiteur: {{ file.agent_name || 'Unknown Agent' }}
+                      </strong>
+                      <strong v-else-if="file.checkout_type === 'client'">
+                        Client: {{ file.client_name || 'Unknown Client' }}
+                      </strong>
+                      <span v-else>
+                        {{
+                          file.current_holder_username ||
+                          file.agent_name ||
+                          file.client_name ||
+                          'Unknown'
+                        }}
+                      </span>
+                    </span>
                   </span>
                 </div>
 
-                <!-- Actions -->
-                <div class="action-buttons">
-                  <button
-                    v-if="file.physical_status === 'available'"
-                    @click="handleCheckout(file.id)"
-                    class="btn-action btn-checkout"
-                    title="Check out physical copy"
-                  >
-                    <i class="fas fa-sign-out-alt"></i>
-                  </button>
-                  <button
-                    v-if="
-                      file.physical_status === 'checked_out' &&
-                      file.current_holder_id === currentUser?.id
-                    "
-                    @click="handleCheckin(file.id)"
-                    class="btn-action btn-checkin"
-                    title="Check in physical copy"
-                  >
-                    <i class="fas fa-sign-in-alt"></i>
-                  </button>
-                  <button
-                    v-if="
-                      file.physical_status === 'checked_out' &&
-                      file.current_holder_id === currentUser?.id
-                    "
-                    @click="openTransferModal(file)"
-                    class="btn-action btn-transfer"
-                    title="Transfer to another user"
-                  >
-                    <i class="fas fa-exchange-alt"></i>
-                  </button>
-                  <button
-                    v-if="file.uploaded_by === currentUser?.id || isAdmin"
-                    @click="handleDeleteFile(file.id)"
-                    class="btn-action btn-delete"
-                    title="Delete file"
-                  >
-                    <i class="fas fa-trash"></i>
-                  </button>
-                </div>
+                <!-- Actions - Only show if file is available (not checked out) -->
+                <template v-if="file.physical_status !== 'checked_out'">
+                  <div class="action-buttons">
+                    <button
+                      @click="
+                        () => {
+                          console.log(
+                            '[CarFilesManagement] Checkout button clicked for file:',
+                            file,
+                          )
+                          openCheckoutModal(file)
+                        }
+                      "
+                      class="btn-action btn-checkout"
+                      title="Check out physical copy"
+                    >
+                      <i class="fas fa-sign-out-alt"></i>
+                      Check Out
+                    </button>
+                    <button
+                      @click="openHistoryModal(file)"
+                      class="btn-action btn-history"
+                      title="View transfer history"
+                    >
+                      <i class="fas fa-history"></i>
+                      History
+                    </button>
+                    <button
+                      v-if="file.uploaded_by === currentUser?.id || isAdmin"
+                      @click="handleDeleteFile(file.id)"
+                      class="btn-action btn-delete"
+                      title="Delete file"
+                    >
+                      <i class="fas fa-trash"></i>
+                    </button>
+                  </div>
+                </template>
+
+                <!-- Show message when checked out - NO ACTIONS AVAILABLE (except admin rollback) -->
+                <template v-else>
+                  <div class="checked-out-message">
+                    <i class="fas fa-info-circle"></i>
+                    Document vérifié - Aucune action disponible
+                    <button
+                      v-if="isAdmin"
+                      @click="handleRollbackCheckout(file)"
+                      class="btn-rollback"
+                      title="Rollback checkout (Admin only)"
+                    >
+                      <i class="fas fa-undo"></i>
+                      Rollback
+                    </button>
+                  </div>
+                </template>
               </div>
             </div>
 
@@ -581,7 +939,7 @@ onMounted(() => {
             <label>Transfer to:</label>
             <select v-model="transferToUserId" class="form-select">
               <option value="">Select user...</option>
-              <option v-for="user in availableUsers" :key="user.id" :value="user.id">
+              <option v-for="user in transferAvailableUsers" :key="user.id" :value="user.id">
                 {{ user.username }} ({{ user.email }})
               </option>
             </select>
@@ -607,6 +965,246 @@ onMounted(() => {
         </div>
       </div>
     </div>
+
+    <!-- Checkout Modal -->
+    <div v-if="showCheckoutModal" class="modal-overlay" @click="showCheckoutModal = false">
+      <div class="modal-content action-modal" @click.stop>
+        <div class="modal-header">
+          <h3>Check Out Physical Copy</h3>
+          <button @click="showCheckoutModal = false" class="close-btn">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>File:</label>
+            <p>
+              <strong>{{ fileToCheckout?.file_name }}</strong>
+            </p>
+            <p class="text-muted">{{ fileToCheckout?.category_name }}</p>
+          </div>
+
+          <div class="form-group">
+            <label>Check Out To: *</label>
+            <select v-model="checkoutType" class="form-select">
+              <option value="user">User</option>
+              <option value="client">Client</option>
+              <option value="custom_clearance_agent">Transiteur</option>
+            </select>
+          </div>
+
+          <!-- User Selection -->
+          <div v-if="checkoutType === 'user'" class="form-group">
+            <label>Select User: *</label>
+            <el-select
+              v-model="checkoutUserId"
+              filterable
+              remote
+              :remote-method="searchUsers"
+              :loading="loadingUsers"
+              placeholder="Select or search user..."
+              style="width: 100%"
+              @change="handleUserChange"
+            >
+              <el-option
+                v-for="user in filteredUsers"
+                :key="user.id"
+                :label="user.username"
+                :value="user.id"
+              >
+                <i class="fas fa-user"></i>
+                {{ user.username }}
+                <small v-if="user.email"> ({{ user.email }})</small>
+              </el-option>
+            </el-select>
+          </div>
+
+          <!-- Agent Selection -->
+          <div v-if="checkoutType === 'custom_clearance_agent'" class="form-group">
+            <label>Sélectionner un Transiteur: *</label>
+            <div class="form-row">
+              <select v-model="checkoutAgentId" class="form-select" required>
+                <option value="">Select agent...</option>
+                <option v-for="agent in availableAgents" :key="agent.id" :value="agent.id">
+                  {{ agent.name }}
+                  <span v-if="agent.contact_person"> - {{ agent.contact_person }}</span>
+                </option>
+              </select>
+              <button
+                @click="showAgentsModal = true"
+                class="btn-manage-agents"
+                title="Manage agents"
+              >
+                <i class="fas fa-cog"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Client Selection -->
+          <template v-if="checkoutType === 'client'">
+            <div class="form-group">
+              <label>Sélectionner un Client: *</label>
+              <el-select
+                v-model="checkoutClientId"
+                filterable
+                remote
+                :remote-method="searchClients"
+                :loading="loadingClients"
+                placeholder="Rechercher un client..."
+                style="width: 100%"
+                @change="handleClientChange"
+              >
+                <el-option
+                  v-for="client in filteredClients"
+                  :key="client.id"
+                  :label="client.name"
+                  :value="client.id"
+                >
+                  <i class="fas fa-user"></i>
+                  {{ client.name }}
+                  <small v-if="client.email || client.mobiles">
+                    <span v-if="client.email">{{ client.email }}</span>
+                    <span v-if="client.mobiles"> - {{ client.mobiles }}</span>
+                  </small>
+                </el-option>
+              </el-select>
+            </div>
+          </template>
+          <div class="form-group">
+            <label>Notes (optional):</label>
+            <textarea
+              v-model="checkoutNotes"
+              class="form-textarea"
+              rows="3"
+              placeholder="Add any notes about the checkout..."
+            ></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button @click="showCheckoutModal = false" class="btn-cancel">Cancel</button>
+          <button @click="confirmCheckout" :disabled="loading" class="btn-primary">
+            Check Out
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Check In Modal -->
+    <div v-if="showCheckinModal" class="modal-overlay" @click="showCheckinModal = false">
+      <div class="modal-content action-modal" @click.stop>
+        <div class="modal-header">
+          <h3>Check In Physical Copy</h3>
+          <button @click="showCheckinModal = false" class="close-btn">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>File:</label>
+            <p>
+              <strong>{{ fileToCheckin?.file_name }}</strong>
+            </p>
+            <p class="text-muted">{{ fileToCheckin?.category_name }}</p>
+          </div>
+          <div class="form-group">
+            <label>Notes (optional):</label>
+            <textarea
+              v-model="checkinNotes"
+              class="form-textarea"
+              rows="3"
+              placeholder="Add any notes about the check-in..."
+            ></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button @click="showCheckinModal = false" class="btn-cancel">Cancel</button>
+          <button @click="confirmCheckin" :disabled="loading" class="btn-primary">Check In</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Transfer History Modal -->
+    <div v-if="showHistoryModal" class="modal-overlay" @click="showHistoryModal = false">
+      <div class="modal-content history-modal" @click.stop>
+        <div class="modal-header">
+          <h3>Transfer History</h3>
+          <button @click="showHistoryModal = false" class="close-btn">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="file-info-header">
+            <p>
+              <strong>{{ fileForHistory?.file_name }}</strong>
+            </p>
+            <p class="text-muted">{{ fileForHistory?.category_name }}</p>
+          </div>
+
+          <div v-if="loading" class="loading-state">
+            <i class="fas fa-spinner fa-spin"></i>
+            <span>Loading history...</span>
+          </div>
+
+          <div v-else-if="transferHistory.length === 0" class="empty-state">
+            <i class="fas fa-history"></i>
+            <p>No transfer history found</p>
+          </div>
+
+          <div v-else class="history-list">
+            <div
+              v-for="(transfer, index) in transferHistory"
+              :key="transfer.id"
+              class="history-item"
+            >
+              <div class="history-header">
+                <span class="history-number">#{{ transferHistory.length - index }}</span>
+                <span class="history-date">{{ formatDate(transfer.transferred_at) }}</span>
+              </div>
+              <div class="history-content">
+                <div class="history-transfer">
+                  <i class="fas fa-arrow-right"></i>
+                  <span v-if="transfer.from_username">
+                    {{ transfer.from_username }}
+                  </span>
+                  <span v-else class="text-muted">Available</span>
+                  <i class="fas fa-arrow-right"></i>
+                  <span>{{ transfer.to_username }}</span>
+                </div>
+                <div v-if="transfer.notes" class="history-notes">
+                  <i class="fas fa-comment"></i>
+                  {{ transfer.notes }}
+                </div>
+                <div v-if="transfer.return_expected_date" class="history-return">
+                  <i class="fas fa-calendar"></i>
+                  Expected return: {{ formatDate(transfer.return_expected_date) }}
+                </div>
+                <div v-if="transfer.returned_at" class="history-returned">
+                  <i class="fas fa-check-circle"></i>
+                  Returned: {{ formatDate(transfer.returned_at) }}
+                  <span v-if="transfer.return_notes" class="return-notes">
+                    ({{ transfer.return_notes }})
+                  </span>
+                </div>
+                <div class="history-by">
+                  <i class="fas fa-user"></i>
+                  <span v-if="transfer.returned_at">Checked in by</span>
+                  <span v-else>Transferred by</span>: {{ transfer.transferred_by_username }}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button @click="showHistoryModal = false" class="btn-close">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Physical Copy Tracking Modal -->
+    <PhysicalCopyTracking :show="showTrackingModal" @close="showTrackingModal = false" />
+
+    <!-- Custom Clearance Agents Modal -->
+    <CustomClearanceAgents :show="showAgentsModal" @close="showAgentsModal = false" />
 
     <!-- Category Create/Edit Modal -->
     <div v-if="showCategoryModal" class="modal-overlay" @click="showCategoryModal = false">
@@ -667,16 +1265,6 @@ onMounted(() => {
               placeholder="Optional description of this file category"
             ></textarea>
           </div>
-
-          <div class="form-group">
-            <label>Visibility Scope</label>
-            <select v-model="categoryForm.visibility_scope" class="form-select">
-              <option value="public">Public - All users can see</option>
-              <option value="department">Department - Same department only</option>
-              <option value="role">Role - Same role level only</option>
-              <option value="private">Private - Uploader only</option>
-            </select>
-          </div>
         </div>
         <div class="modal-footer">
           <button @click="showCategoryModal = false" class="btn-cancel">Cancel</button>
@@ -730,6 +1318,69 @@ onMounted(() => {
   margin: 0;
   font-size: 1.25rem;
   color: #1f2937;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-agents {
+  padding: 0.5rem 1rem;
+  background-color: #f59e0b;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: background-color 0.2s;
+}
+
+.btn-agents:hover {
+  background-color: #d97706;
+}
+
+.btn-tracking {
+  padding: 0.5rem 1rem;
+  background-color: #8b5cf6;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: background-color 0.2s;
+}
+
+.btn-tracking:hover {
+  background-color: #7c3aed;
+}
+
+.btn-add-category {
+  padding: 0.5rem 1rem;
+  background-color: #10b981;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: background-color 0.2s;
+}
+
+.btn-add-category:hover {
+  background-color: #059669;
 }
 
 .close-btn {
@@ -839,12 +1490,14 @@ onMounted(() => {
 .file-item {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   padding: 1rem;
   border: 1px solid #e5e7eb;
   border-radius: 4px;
   margin-bottom: 0.5rem;
   background-color: #ffffff;
+  flex-wrap: wrap;
+  gap: 1rem;
 }
 
 .file-info {
@@ -877,8 +1530,11 @@ onMounted(() => {
 
 .file-actions {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 1rem;
+  flex-wrap: wrap;
+  flex: 1;
+  justify-content: flex-end;
 }
 
 .physical-status {
@@ -902,26 +1558,82 @@ onMounted(() => {
 .status-badge.checked-out {
   background-color: #fef2f2;
   color: #dc2626;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.holder-info {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.checked-out-message {
+  padding: 0.75rem;
+  background-color: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  color: #6b7280;
+  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.btn-rollback {
+  padding: 0.5rem 1rem;
+  background-color: #dc2626;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: background-color 0.2s;
+  margin-left: auto;
+}
+
+.btn-rollback:hover {
+  background-color: #b91c1c;
+}
+
+.btn-rollback:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
 }
 
 .action-buttons {
   display: flex;
   gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
 }
 
 .btn-action {
   background: none;
   border: 1px solid #e5e7eb;
   border-radius: 4px;
-  padding: 0.5rem;
+  padding: 0.5rem 0.75rem;
   cursor: pointer;
   color: #6b7280;
   transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  white-space: nowrap;
 }
 
 .btn-action:hover {
   background-color: #f9fafb;
   border-color: #d1d5db;
+  color: #374151;
 }
 
 .btn-action.btn-delete {
@@ -931,6 +1643,15 @@ onMounted(() => {
 .btn-action.btn-delete:hover {
   background-color: #fef2f2;
   border-color: #dc2626;
+}
+
+.btn-action.btn-history {
+  color: #8b5cf6;
+}
+
+.btn-action.btn-history:hover {
+  background-color: #f3e8ff;
+  border-color: #8b5cf6;
 }
 
 .upload-section {
@@ -1056,6 +1777,93 @@ onMounted(() => {
   color: #6b7280;
 }
 
+.action-modal,
+.history-modal {
+  max-width: 600px;
+}
+
+.file-info-header {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.history-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.history-item {
+  padding: 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  margin-bottom: 0.75rem;
+  background-color: #ffffff;
+}
+
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.history-number {
+  font-weight: 600;
+  color: #3b82f6;
+}
+
+.history-date {
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+.history-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.history-transfer {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500;
+}
+
+.history-notes,
+.history-return,
+.history-returned,
+.history-by {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+.history-returned {
+  color: #10b981;
+  font-weight: 500;
+}
+
+.returned-badge {
+  margin-left: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  background-color: #10b981;
+  color: white;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.return-notes {
+  font-style: italic;
+  color: #6b7280;
+}
+
 .empty-state {
   text-align: center;
   padding: 3rem 1rem;
@@ -1071,5 +1879,48 @@ onMounted(() => {
 .empty-state p {
   margin: 0;
   font-size: 1rem;
+}
+
+.form-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+
+.btn-manage-agents {
+  padding: 0.5rem;
+  background-color: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #6b7280;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn-manage-agents:hover {
+  background-color: #e5e7eb;
+  border-color: #9ca3af;
+  color: #374151;
+}
+
+/* Element Plus select styling */
+:deep(.el-select) {
+  width: 100%;
+}
+
+:deep(.el-select-dropdown__item) {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+:deep(.el-select-dropdown__item i) {
+  color: #3b82f6;
+}
+
+:deep(.el-select-dropdown__item small) {
+  color: #6b7280;
+  margin-left: 0.5rem;
 }
 </style>

@@ -384,7 +384,37 @@ if (isset($postData['action'])) {
                     throw new Exception($conn['error']);
                 }
                 
+                // Check if client_id column exists
+                $hasClientIdColumn = false;
+                try {
+                    $checkColumnQuery = "SELECT COUNT(*) as cnt FROM INFORMATION_SCHEMA.COLUMNS 
+                        WHERE TABLE_SCHEMA = DATABASE() 
+                        AND TABLE_NAME = 'car_file_physical_tracking' 
+                        AND COLUMN_NAME = 'client_id'";
+                    $stmt = $conn->prepare($checkColumnQuery);
+                    $stmt->execute();
+                    $result = $stmt->fetch(PDO::FETCH_ASSOC);
+                    $hasClientIdColumn = ($result && $result['cnt'] > 0);
+                } catch (Exception $e) {
+                    // If check fails, assume column doesn't exist
+                    $hasClientIdColumn = false;
+                }
+                
                 // Build query with permission filtering
+                $clientFields = $hasClientIdColumn 
+                    ? "cpt.client_id,
+                        cl.name as client_name,
+                        cl.email as client_email,
+                        cl.mobiles as client_contact,"
+                    : "NULL as client_id,
+                        NULL as client_name,
+                        NULL as client_email,
+                        NULL as client_contact,";
+                
+                $clientJoin = $hasClientIdColumn 
+                    ? "LEFT JOIN clients cl ON cpt.client_id = cl.id"
+                    : "";
+                
                 $query = "
                     SELECT 
                         cf.*,
@@ -397,6 +427,10 @@ if (isset($postData['action'])) {
                         cpt.id as tracking_id,
                         cpt.current_holder_id,
                         u_holder.username as current_holder_username,
+                        cpt.custom_clearance_agent_id,
+                        cca.name as agent_name,
+                        cpt.checkout_type,
+                        {$clientFields}
                         cpt.status as physical_status,
                         cpt.checked_out_at,
                         cpt.checked_in_at,
@@ -404,9 +438,20 @@ if (isset($postData['action'])) {
                     FROM car_files cf
                     INNER JOIN car_file_categories cfc ON cf.category_id = cfc.id
                     LEFT JOIN users u ON cf.uploaded_by = u.id
-                    LEFT JOIN car_file_physical_tracking cpt ON cf.id = cpt.car_file_id 
-                        AND cpt.status IN ('available', 'checked_out')
+                    LEFT JOIN (
+                        SELECT cpt1.*
+                        FROM car_file_physical_tracking cpt1
+                        INNER JOIN (
+                            SELECT car_file_id, MAX(id) as max_id
+                            FROM car_file_physical_tracking
+                            WHERE status IN ('available', 'checked_out')
+                            GROUP BY car_file_id
+                        ) cpt2 ON cpt1.car_file_id = cpt2.car_file_id AND cpt1.id = cpt2.max_id
+                        WHERE cpt1.status IN ('available', 'checked_out')
+                    ) cpt ON cf.id = cpt.car_file_id
                     LEFT JOIN users u_holder ON cpt.current_holder_id = u_holder.id
+                    LEFT JOIN custom_clearance_agents cca ON cpt.custom_clearance_agent_id = cca.id
+                    {$clientJoin}
                     WHERE cf.car_id = ? AND cf.is_active = 1
                 ";
                 
@@ -438,6 +483,7 @@ if (isset($postData['action'])) {
 
         case 'create_car_file':
             // Create a new file record (after upload)
+            // Automatically assigns the uploader as the first owner
             if (!isset($postData['car_id']) || !isset($postData['category_id']) || 
                 !isset($postData['file_path']) || !isset($postData['file_name']) ||
                 !isset($postData['uploaded_by'])) {
@@ -446,24 +492,53 @@ if (isset($postData['action'])) {
                 exit;
             }
             
-            $query = "INSERT INTO car_files 
-                (car_id, category_id, file_path, file_name, file_size, file_type, uploaded_by, notes, visibility_scope)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
-            
-            $params = [
-                intval($postData['car_id']),
-                intval($postData['category_id']),
-                $postData['file_path'],
-                $postData['file_name'],
-                isset($postData['file_size']) ? intval($postData['file_size']) : null,
-                isset($postData['file_type']) ? $postData['file_type'] : null,
-                intval($postData['uploaded_by']),
-                isset($postData['notes']) ? $postData['notes'] : null,
-                isset($postData['visibility_scope']) ? $postData['visibility_scope'] : null
-            ];
-            
-            $result = executeQuery($query, $params);
-            echo json_encode($result);
+            try {
+                $conn = getConnection(getDbConfig());
+                if (is_array($conn) && isset($conn['error'])) {
+                    throw new Exception($conn['error']);
+                }
+                
+                $conn->beginTransaction();
+                
+                $uploadedBy = intval($postData['uploaded_by']);
+                
+                // Insert file record
+                $query = "INSERT INTO car_files 
+                    (car_id, category_id, file_path, file_name, file_size, file_type, uploaded_by, notes, visibility_scope)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                
+                $params = [
+                    intval($postData['car_id']),
+                    intval($postData['category_id']),
+                    $postData['file_path'],
+                    $postData['file_name'],
+                    isset($postData['file_size']) ? intval($postData['file_size']) : null,
+                    isset($postData['file_type']) ? $postData['file_type'] : null,
+                    $uploadedBy,
+                    isset($postData['notes']) ? $postData['notes'] : null,
+                    isset($postData['visibility_scope']) ? $postData['visibility_scope'] : null
+                ];
+                
+                $stmt = $conn->prepare($query);
+                $stmt->execute($params);
+                $fileId = $conn->lastInsertId();
+                
+                // Create tracking record - file starts as available (not checked out)
+                // The file is available until someone checks it out
+                $trackingQuery = "INSERT INTO car_file_physical_tracking 
+                    (car_file_id, current_holder_id, status, checkout_type, transfer_notes)
+                    VALUES (?, NULL, 'available', 'user', 'File uploaded - available for checkout')";
+                $stmt = $conn->prepare($trackingQuery);
+                $stmt->execute([$fileId]);
+                
+                $conn->commit();
+                echo json_encode(['success' => true, 'lastInsertId' => $fileId]);
+            } catch (Exception $e) {
+                if (isset($conn)) {
+                    $conn->rollBack();
+                }
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            }
             exit;
 
         case 'delete_car_file':
@@ -508,17 +583,38 @@ if (isset($postData['action'])) {
             exit;
 
         case 'checkout_physical_copy':
-            // Check out a physical copy of a file
-            if (!isset($postData['file_id']) || !isset($postData['user_id'])) {
+            // Check out a physical copy of a file (to user, client, or custom clearance agent)
+            if (!isset($postData['file_id']) || !isset($postData['checkout_type'])) {
                 http_response_code(400);
-                echo json_encode(['success' => false, 'error' => 'file_id and user_id are required']);
+                echo json_encode(['success' => false, 'error' => 'file_id and checkout_type are required']);
                 exit;
             }
             
             $fileId = intval($postData['file_id']);
-            $userId = intval($postData['user_id']);
-            $expectedReturnDate = isset($postData['expected_return_date']) ? $postData['expected_return_date'] : null;
+            $checkoutType = $postData['checkout_type']; // 'user', 'client', or 'custom_clearance_agent'
             $notes = isset($postData['notes']) ? $postData['notes'] : null;
+            $userId = isset($postData['user_id']) ? intval($postData['user_id']) : null;
+            $agentId = isset($postData['agent_id']) ? intval($postData['agent_id']) : null;
+            $clientId = isset($postData['client_id']) ? intval($postData['client_id']) : null;
+            $clientName = isset($postData['client_name']) ? trim($postData['client_name']) : null;
+            $clientContact = isset($postData['client_contact']) ? trim($postData['client_contact']) : null;
+            
+            // Validate based on checkout type
+            if ($checkoutType === 'user' && !$userId) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'user_id is required for user checkout']);
+                exit;
+            }
+            if ($checkoutType === 'custom_clearance_agent' && !$agentId) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'agent_id is required for agent checkout']);
+                exit;
+            }
+            if ($checkoutType === 'client' && !$clientId) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'client_id is required for client checkout']);
+                exit;
+            }
             
             try {
                 $conn = getConnection(getDbConfig());
@@ -528,43 +624,174 @@ if (isset($postData['action'])) {
                 
                 $conn->beginTransaction();
                 
-                // Check if file exists and is available
-                $checkQuery = "SELECT id FROM car_files WHERE id = ? AND is_active = 1";
+                // Check if file exists
+                $checkQuery = "SELECT id, uploaded_by FROM car_files WHERE id = ? AND is_active = 1";
                 $stmt = $conn->prepare($checkQuery);
                 $stmt->execute([$fileId]);
-                if (!$stmt->fetch()) {
+                $file = $stmt->fetch(PDO::FETCH_ASSOC);
+                if (!$file) {
                     throw new Exception('File not found or inactive');
                 }
                 
-                // Check if already checked out
-                $trackingQuery = "SELECT id, current_holder_id FROM car_file_physical_tracking 
-                    WHERE car_file_id = ? AND status IN ('available', 'checked_out')";
+                // Get current tracking
+                $trackingQuery = "SELECT id, current_holder_id, custom_clearance_agent_id, checkout_type, client_id 
+                    FROM car_file_physical_tracking 
+                    WHERE car_file_id = ? AND status = 'checked_out'";
                 $stmt = $conn->prepare($trackingQuery);
                 $stmt->execute([$fileId]);
                 $existing = $stmt->fetch(PDO::FETCH_ASSOC);
                 
-                if ($existing && $existing['current_holder_id'] !== null) {
-                    throw new Exception('File is already checked out');
+                if ($existing) {
+                    throw new Exception('File is already checked out. Please check it in first.');
                 }
                 
+                // Get previous holder info for transfer history (from previous checkout if any)
+                $fromUserId = null;
+                $fromAgentId = null;
+                $fromClientName = null;
+                // Note: $existing will be null here since we throw if it exists, but keeping for future use
+                
+                // Determine who is performing the checkout (current user)
+                $performedBy = isset($postData['performed_by']) ? intval($postData['performed_by']) : $file['uploaded_by'];
+                
                 // Create or update tracking record
-                if ($existing) {
-                    $updateQuery = "UPDATE car_file_physical_tracking 
-                        SET current_holder_id = ?, checked_out_at = NOW(), 
-                            status = 'checked_out', expected_return_date = ?, transfer_notes = ?
-                        WHERE id = ?";
-                    $stmt = $conn->prepare($updateQuery);
-                    $stmt->execute([$userId, $expectedReturnDate, $notes, $existing['id']]);
-                } else {
-                    $insertQuery = "INSERT INTO car_file_physical_tracking 
-                        (car_file_id, current_holder_id, checked_out_at, status, expected_return_date, transfer_notes)
-                        VALUES (?, ?, NOW(), 'checked_out', ?, ?)";
-                    $stmt = $conn->prepare($insertQuery);
-                    $stmt->execute([$fileId, $userId, $expectedReturnDate, $notes]);
+                $insertQuery = "INSERT INTO car_file_physical_tracking 
+                    (car_file_id, current_holder_id, custom_clearance_agent_id, checkout_type, 
+                     client_id, checked_out_at, status, transfer_notes)
+                    VALUES (?, ?, ?, ?, ?, NOW(), 'checked_out', ?)";
+                $stmt = $conn->prepare($insertQuery);
+                $stmt->execute([
+                    $fileId, 
+                    $checkoutType === 'user' ? $userId : null,
+                    $checkoutType === 'custom_clearance_agent' ? $agentId : null,
+                    $checkoutType,
+                    $checkoutType === 'client' ? $clientId : null,
+                    $notes
+                ]);
+                
+                // Determine transfer type and create transfer history record
+                $transferType = 'user_to_user';
+                $toUserId = null;
+                $toAgentId = null;
+                $toClientName = null;
+                
+                if ($checkoutType === 'user') {
+                    $toUserId = $userId;
+                    $transferType = 'user_to_user';
+                } elseif ($checkoutType === 'custom_clearance_agent') {
+                    $toAgentId = $agentId;
+                    $transferType = 'user_to_agent';
+                } elseif ($checkoutType === 'client') {
+                    // Get client name from database using client_id
+                    if ($clientId) {
+                        $clientNameQuery = "SELECT name FROM clients WHERE id = ?";
+                        $stmt = $conn->prepare($clientNameQuery);
+                        $stmt->execute([$clientId]);
+                        $clientData = $stmt->fetch(PDO::FETCH_ASSOC);
+                        $toClientName = $clientData ? $clientData['name'] : null;
+                    }
+                    $transferType = 'user_to_client';
                 }
+                
+                // Insert transfer record - to_user_id can be NULL when checking out to agent or client
+                $transferQuery = "INSERT INTO car_file_transfers 
+                    (car_file_id, from_user_id, from_agent_id, to_user_id, to_agent_id, 
+                     from_client_name, to_client_name, transferred_by, notes, transfer_type)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                $stmt = $conn->prepare($transferQuery);
+                $stmt->execute([
+                    $fileId, 
+                    $fromUserId, 
+                    $fromAgentId, 
+                    $toUserId,  // NULL for agent/client checkout
+                    $toAgentId,
+                    $fromClientName, 
+                    $toClientName, 
+                    $performedBy,
+                    $notes ?: 'Checked out', 
+                    $transferType
+                ]);
                 
                 $conn->commit();
                 echo json_encode(['success' => true, 'message' => 'File checked out successfully']);
+            } catch (Exception $e) {
+                if (isset($conn)) {
+                    $conn->rollBack();
+                }
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            }
+            exit;
+
+        case 'rollback_checkout':
+            // Rollback a checkout operation (admin only)
+            if (!isset($postData['file_id']) || !isset($postData['user_id'])) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'file_id and user_id are required']);
+                exit;
+            }
+            
+            $fileId = intval($postData['file_id']);
+            $userId = intval($postData['user_id']); // Admin user ID
+            $notes = isset($postData['notes']) ? $postData['notes'] : 'Rollback checkout (admin)';
+            
+            try {
+                $conn = getConnection(getDbConfig());
+                if (is_array($conn) && isset($conn['error'])) {
+                    throw new Exception($conn['error']);
+                }
+                
+                // Verify user is admin
+                $adminCheck = "SELECT role_id FROM users WHERE id = ?";
+                $stmt = $conn->prepare($adminCheck);
+                $stmt->execute([$userId]);
+                $user = $stmt->fetch(PDO::FETCH_ASSOC);
+                if (!$user || $user['role_id'] != 1) {
+                    throw new Exception('Only administrators can rollback checkouts');
+                }
+                
+                $conn->beginTransaction();
+                
+                // Get current tracking record
+                $trackingQuery = "SELECT id, status FROM car_file_physical_tracking 
+                    WHERE car_file_id = ? AND status = 'checked_out'";
+                $stmt = $conn->prepare($trackingQuery);
+                $stmt->execute([$fileId]);
+                $tracking = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                if (!$tracking) {
+                    throw new Exception('File is not currently checked out');
+                }
+                
+                // Get the most recent transfer record ID before deleting
+                $getTransferQuery = "SELECT id FROM car_file_transfers 
+                    WHERE car_file_id = ? 
+                    ORDER BY transferred_at DESC 
+                    LIMIT 1";
+                $stmt = $conn->prepare($getTransferQuery);
+                $stmt->execute([$fileId]);
+                $transferRecord = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                // Delete the checkout tracking record
+                $deleteTrackingQuery = "DELETE FROM car_file_physical_tracking WHERE id = ?";
+                $stmt = $conn->prepare($deleteTrackingQuery);
+                $stmt->execute([$tracking['id']]);
+                
+                // Delete the most recent transfer record (the checkout record) if it exists
+                if ($transferRecord) {
+                    $deleteTransferQuery = "DELETE FROM car_file_transfers WHERE id = ?";
+                    $stmt = $conn->prepare($deleteTransferQuery);
+                    $stmt->execute([$transferRecord['id']]);
+                }
+                
+                // Create a new available tracking record
+                $insertTrackingQuery = "INSERT INTO car_file_physical_tracking 
+                    (car_file_id, current_holder_id, status, checkout_type, transfer_notes)
+                    VALUES (?, NULL, 'available', 'user', ?)";
+                $stmt = $conn->prepare($insertTrackingQuery);
+                $stmt->execute([$fileId, $notes]);
+                
+                $conn->commit();
+                echo json_encode(['success' => true, 'message' => 'Checkout rolled back successfully']);
             } catch (Exception $e) {
                 if (isset($conn)) {
                     $conn->rollBack();
@@ -602,13 +829,33 @@ if (isset($postData['action'])) {
                     throw new Exception('File is not checked out to you');
                 }
                 
+                // Get current holder before checkin for transfer history
+                $currentHolderId = $tracking['current_holder_id'];
+                
                 // Update tracking
                 $updateQuery = "UPDATE car_file_physical_tracking 
-                    SET current_holder_id = NULL, checked_in_at = NOW(), 
+                    SET previous_holder_id = current_holder_id,
+                        current_holder_id = NULL, checked_in_at = NOW(), 
                         status = 'available', transfer_notes = ?
                     WHERE id = ?";
                 $stmt = $conn->prepare($updateQuery);
                 $stmt->execute([$notes, $tracking['id']]);
+                
+                // Update the last transfer record to mark it as returned (if exists)
+                // This marks the transfer that gave the file to the current holder as returned
+                // We also update transferred_by to show who checked it in
+                // We need to update the most recent transfer where this user received the file
+                $updateLastTransferQuery = "UPDATE car_file_transfers 
+                    SET returned_at = NOW(), return_notes = ?, transferred_by = ?
+                    WHERE car_file_id = ? AND to_user_id = ? AND returned_at IS NULL
+                    ORDER BY transferred_at DESC LIMIT 1";
+                $stmt = $conn->prepare($updateLastTransferQuery);
+                $updateResult = $stmt->execute([$notes, $userId, $fileId, $currentHolderId]);
+                
+                // If no record was updated (shouldn't happen, but just in case), log it
+                if ($stmt->rowCount() === 0) {
+                    error_log("Warning: No transfer record found to update for check-in. File ID: $fileId, User ID: $currentHolderId");
+                }
                 
                 echo json_encode(['success' => true, 'message' => 'File checked in successfully']);
             } catch (Exception $e) {
@@ -701,7 +948,9 @@ if (isset($postData['action'])) {
                 cft.*,
                 u_from.username as from_username,
                 u_to.username as to_username,
-                u_transfer.username as transferred_by_username
+                u_transfer.username as transferred_by_username,
+                cft.returned_at,
+                cft.return_notes
                 FROM car_file_transfers cft
                 LEFT JOIN users u_from ON cft.from_user_id = u_from.id
                 INNER JOIN users u_to ON cft.to_user_id = u_to.id
@@ -722,16 +971,15 @@ if (isset($postData['action'])) {
             }
             
             $query = "INSERT INTO car_file_categories 
-                (category_name, importance_level, is_required, display_order, description, visibility_scope)
-                VALUES (?, ?, ?, ?, ?, ?)";
+                (category_name, importance_level, is_required, display_order, description)
+                VALUES (?, ?, ?, ?, ?)";
             
             $params = [
                 $postData['category_name'],
                 isset($postData['importance_level']) ? intval($postData['importance_level']) : 3,
                 isset($postData['is_required']) ? (int)$postData['is_required'] : 0,
                 isset($postData['display_order']) ? intval($postData['display_order']) : 0,
-                isset($postData['description']) ? $postData['description'] : null,
-                isset($postData['visibility_scope']) ? $postData['visibility_scope'] : 'public'
+                isset($postData['description']) ? $postData['description'] : null
             ];
             
             $result = executeQuery($query, $params);
@@ -769,10 +1017,6 @@ if (isset($postData['action'])) {
             if (isset($postData['description'])) {
                 $updates[] = "description = ?";
                 $params[] = $postData['description'];
-            }
-            if (isset($postData['visibility_scope'])) {
-                $updates[] = "visibility_scope = ?";
-                $params[] = $postData['visibility_scope'];
             }
             
             if (empty($updates)) {
@@ -850,6 +1094,130 @@ if (isset($postData['action'])) {
             } catch (Exception $e) {
                 echo json_encode(['success' => false, 'error' => $e->getMessage()]);
             }
+            exit;
+
+        case 'get_custom_clearance_agents':
+            // Get all active custom clearance agents
+            $query = "SELECT * FROM custom_clearance_agents WHERE is_active = 1 ORDER BY name ASC";
+            $result = executeQuery($query);
+            echo json_encode($result);
+            exit;
+
+        case 'create_custom_clearance_agent':
+            // Create a new custom clearance agent (admin only)
+            if (!isset($postData['is_admin']) || !$postData['is_admin']) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Admin access required']);
+                exit;
+            }
+
+            $name = isset($postData['name']) ? trim($postData['name']) : '';
+            if (empty($name)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Name is required']);
+                exit;
+            }
+
+            $query = "INSERT INTO custom_clearance_agents 
+                (name, contact_person, phone, email, address, license_number, notes, is_active)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+            
+            $params = [
+                $name,
+                isset($postData['contact_person']) ? $postData['contact_person'] : null,
+                isset($postData['phone']) ? $postData['phone'] : null,
+                isset($postData['email']) ? $postData['email'] : null,
+                isset($postData['address']) ? $postData['address'] : null,
+                isset($postData['license_number']) ? $postData['license_number'] : null,
+                isset($postData['notes']) ? $postData['notes'] : null,
+                isset($postData['is_active']) ? (int)$postData['is_active'] : 1
+            ];
+            
+            $result = executeQuery($query, $params);
+            echo json_encode($result);
+            exit;
+
+        case 'update_custom_clearance_agent':
+            // Update a custom clearance agent (admin only)
+            if (!isset($postData['is_admin']) || !$postData['is_admin']) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Admin access required']);
+                exit;
+            }
+
+            if (!isset($postData['id'])) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Agent ID is required']);
+                exit;
+            }
+
+            $agentId = intval($postData['id']);
+            $updates = [];
+            $params = [];
+
+            if (isset($postData['name'])) {
+                $updates[] = "name = ?";
+                $params[] = trim($postData['name']);
+            }
+            if (isset($postData['contact_person'])) {
+                $updates[] = "contact_person = ?";
+                $params[] = $postData['contact_person'];
+            }
+            if (isset($postData['phone'])) {
+                $updates[] = "phone = ?";
+                $params[] = $postData['phone'];
+            }
+            if (isset($postData['email'])) {
+                $updates[] = "email = ?";
+                $params[] = $postData['email'];
+            }
+            if (isset($postData['address'])) {
+                $updates[] = "address = ?";
+                $params[] = $postData['address'];
+            }
+            if (isset($postData['license_number'])) {
+                $updates[] = "license_number = ?";
+                $params[] = $postData['license_number'];
+            }
+            if (isset($postData['notes'])) {
+                $updates[] = "notes = ?";
+                $params[] = $postData['notes'];
+            }
+            if (isset($postData['is_active'])) {
+                $updates[] = "is_active = ?";
+                $params[] = (int)$postData['is_active'];
+            }
+
+            if (empty($updates)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'No fields to update']);
+                exit;
+            }
+
+            $params[] = $agentId;
+            $query = "UPDATE custom_clearance_agents SET " . implode(', ', $updates) . " WHERE id = ?";
+            $result = executeQuery($query, $params);
+            echo json_encode($result);
+            exit;
+
+        case 'delete_custom_clearance_agent':
+            // Soft delete a custom clearance agent (admin only)
+            if (!isset($postData['is_admin']) || !$postData['is_admin']) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Admin access required']);
+                exit;
+            }
+
+            if (!isset($postData['id'])) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Agent ID is required']);
+                exit;
+            }
+
+            $agentId = intval($postData['id']);
+            $query = "UPDATE custom_clearance_agents SET is_active = 0 WHERE id = ?";
+            $result = executeQuery($query, [$agentId]);
+            echo json_encode($result);
             exit;
     
         default:
