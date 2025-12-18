@@ -73,6 +73,111 @@ const canUploadCarFiles = computed(() => {
   return currentUser.value.permissions?.some((p) => p.permission_name === 'can_upload_car_files')
 })
 
+// Get all files that belong to current user (current holder)
+// Files can be: 'available', 'checked_out' (to current user), or null (no tracking record)
+const myFiles = computed(() => {
+  if (!currentUser.value || !files.value) return []
+  const result = files.value.filter((f) => {
+    // Skip files with pending transfers
+    if (f.has_pending_transfer) return false
+
+    // If file is checked out to current user, it belongs to them
+    if (f.physical_status === 'checked_out' && f.current_holder_id === currentUser.value.id) {
+      return true
+    }
+
+    // If file is available and current user is the holder
+    if (f.physical_status === 'available' && f.current_holder_id === currentUser.value.id) {
+      return true
+    }
+
+    // If file has no tracking record (null status), check if current user is the uploader
+    if (f.physical_status === null && f.uploaded_by === currentUser.value.id) {
+      return true
+    }
+
+    return false
+  })
+
+  // Debug logging
+  console.log('[CarFilesManagement] myFiles computed:', {
+    totalFiles: files.value.length,
+    myFilesCount: result.length,
+    currentUserId: currentUser.value.id,
+    filesStatus: files.value.map((f) => ({
+      id: f.id,
+      name: f.file_name,
+      physical_status: f.physical_status,
+      current_holder_id: f.current_holder_id,
+      uploaded_by: f.uploaded_by,
+      has_pending_transfer: f.has_pending_transfer,
+    })),
+  })
+
+  return result
+})
+
+// Check if all files belong to current user and are available for batch operations
+// Files can be: 'available', 'checked_out' (to current user), or null (no tracking record)
+const canBatchOperate = computed(() => {
+  if (!currentUser.value || !files.value || files.value.length === 0) {
+    console.log('[CarFilesManagement] canBatchOperate: false - no user or files')
+    return false
+  }
+
+  // Get all files that don't have pending transfers
+  // Exclude files checked out to someone else
+  const eligibleFiles = files.value.filter((f) => {
+    if (f.has_pending_transfer) return false
+
+    // Exclude files checked out to someone else
+    if (f.physical_status === 'checked_out' && f.current_holder_id !== currentUser.value.id) {
+      return false
+    }
+
+    // Include: available, checked_out to current user, or null (no tracking)
+    return (
+      f.physical_status === 'available' ||
+      (f.physical_status === 'checked_out' && f.current_holder_id === currentUser.value.id) ||
+      f.physical_status === null
+    )
+  })
+
+  if (eligibleFiles.length === 0) {
+    console.log('[CarFilesManagement] canBatchOperate: false - no eligible files')
+    return false
+  }
+
+  // Check if all eligible files belong to current user
+  const allBelongToUser = eligibleFiles.every((f) => {
+    if (f.physical_status === 'checked_out' || f.physical_status === 'available') {
+      return f.current_holder_id === currentUser.value.id
+    } else if (f.physical_status === null) {
+      // No tracking record - check if user is the uploader
+      return f.uploaded_by === currentUser.value.id
+    }
+    return false
+  })
+
+  console.log('[CarFilesManagement] canBatchOperate:', {
+    eligibleFilesCount: eligibleFiles.length,
+    allBelongToUser,
+    eligibleFiles: eligibleFiles.map((f) => ({
+      id: f.id,
+      name: f.file_name,
+      physical_status: f.physical_status,
+      current_holder_id: f.current_holder_id,
+      uploaded_by: f.uploaded_by,
+      belongsToUser:
+        f.physical_status === null
+          ? f.uploaded_by === currentUser.value.id
+          : f.current_holder_id === currentUser.value.id,
+    })),
+  })
+
+  return allBelongToUser
+})
+
 // Group files by category
 const filesByCategory = computed(() => {
   const grouped = {}
@@ -226,6 +331,104 @@ const handleRejectTransfer = async (transfer) => {
     await loadPendingTransfers()
   } catch (err) {
     error.value = err.message || 'Failed to reject transfer'
+  } finally {
+    loading.value = false
+  }
+}
+
+// Approve all pending transfers
+const handleApproveAll = async () => {
+  if (pendingTransfers.value.length === 0) {
+    error.value = 'No pending transfers to approve'
+    return
+  }
+
+  if (
+    !confirm(
+      `Are you sure you want to approve all ${pendingTransfers.value.length} pending transfer(s)?`,
+    )
+  ) {
+    return
+  }
+
+  loading.value = true
+  error.value = null
+  success.value = null
+
+  try {
+    const results = []
+    const errors = []
+
+    // Loop through all pending transfers and approve each one
+    for (const transfer of pendingTransfers.value) {
+      try {
+        await approveTransfer(transfer.id)
+        results.push(transfer.file_name)
+      } catch (err) {
+        errors.push({ file: transfer.file_name, error: err.message || 'Failed to approve' })
+      }
+    }
+
+    if (errors.length > 0) {
+      error.value = `Batch approval completed with errors. ${results.length} succeeded, ${errors.length} failed.`
+      console.error('Batch approval errors:', errors)
+    } else {
+      success.value = `Successfully approved ${results.length} transfer(s)`
+    }
+
+    await loadPendingTransfers()
+    await loadData() // Reload files to update status
+  } catch (err) {
+    error.value = err.message || 'Failed to approve all transfers'
+  } finally {
+    loading.value = false
+  }
+}
+
+// Reject all pending transfers
+const handleRejectAll = async () => {
+  if (pendingTransfers.value.length === 0) {
+    error.value = 'No pending transfers to reject'
+    return
+  }
+
+  if (
+    !confirm(
+      `Are you sure you want to reject all ${pendingTransfers.value.length} pending transfer(s)?`,
+    )
+  ) {
+    return
+  }
+
+  loading.value = true
+  error.value = null
+  success.value = null
+
+  try {
+    const results = []
+    const errors = []
+
+    // Loop through all pending transfers and reject each one
+    for (const transfer of pendingTransfers.value) {
+      try {
+        await rejectTransfer(transfer.id)
+        results.push(transfer.file_name)
+      } catch (err) {
+        errors.push({ file: transfer.file_name, error: err.message || 'Failed to reject' })
+      }
+    }
+
+    if (errors.length > 0) {
+      error.value = `Batch rejection completed with errors. ${results.length} succeeded, ${errors.length} failed.`
+      console.error('Batch rejection errors:', errors)
+    } else {
+      success.value = `Successfully rejected ${results.length} transfer(s)`
+    }
+
+    await loadPendingTransfers()
+    await loadData() // Reload files to update status
+  } catch (err) {
+    error.value = err.message || 'Failed to reject all transfers'
   } finally {
     loading.value = false
   }
@@ -658,6 +861,314 @@ const confirmTransfer = async () => {
   }
 }
 
+// Batch Transfer
+const showBatchTransferModal = ref(false)
+const batchTransferToUserId = ref(null)
+const batchTransferNotes = ref('')
+const batchTransferExpectedReturn = ref('')
+const batchTransferAvailableUsers = ref([])
+
+const openBatchTransferModal = async () => {
+  if (!canBatchOperate.value) {
+    error.value =
+      'Cannot perform batch operation: Not all documents belong to you. Please ensure all documents are available and you are the current holder.'
+    return
+  }
+
+  // Get eligible files - include files checked out to current user, available, or null
+  const eligibleFiles = files.value.filter((f) => {
+    if (f.has_pending_transfer) return false
+
+    // Include files checked out to current user
+    if (f.physical_status === 'checked_out' && f.current_holder_id === currentUser.value.id) {
+      return true
+    }
+
+    // Include available files where current user is holder
+    if (f.physical_status === 'available' && f.current_holder_id === currentUser.value.id) {
+      return true
+    }
+
+    // Include files with no tracking record where current user is uploader
+    if (f.physical_status === null && f.uploaded_by === currentUser.value.id) {
+      return true
+    }
+
+    return false
+  })
+
+  if (eligibleFiles.length === 0) {
+    error.value = 'No files available for batch transfer'
+    return
+  }
+
+  batchTransferToUserId.value = null
+  batchTransferNotes.value = ''
+  batchTransferExpectedReturn.value = ''
+
+  try {
+    // Use first file to get users (they should be the same for all files)
+    const users = await getUsersForTransfer(eligibleFiles[0].id)
+    batchTransferAvailableUsers.value = users
+    showBatchTransferModal.value = true
+  } catch (err) {
+    error.value = err.message || 'Failed to load users'
+  }
+}
+
+const confirmBatchTransfer = async () => {
+  if (!batchTransferToUserId.value) {
+    error.value = 'Please select a user to transfer to'
+    return
+  }
+
+  // Get eligible files - include files checked out to current user, available, or null
+  const eligibleFiles = files.value.filter((f) => {
+    if (f.has_pending_transfer) return false
+
+    // Include files checked out to current user
+    if (f.physical_status === 'checked_out' && f.current_holder_id === currentUser.value.id) {
+      return true
+    }
+
+    // Include available files where current user is holder
+    if (f.physical_status === 'available' && f.current_holder_id === currentUser.value.id) {
+      return true
+    }
+
+    // Include files with no tracking record where current user is uploader
+    if (f.physical_status === null && f.uploaded_by === currentUser.value.id) {
+      return true
+    }
+
+    return false
+  })
+
+  if (eligibleFiles.length === 0) {
+    error.value = 'No files available for batch transfer'
+    return
+  }
+
+  // Double-check: ensure all files belong to current user
+  const notMyFiles = eligibleFiles.filter((f) => f.current_holder_id !== currentUser.value.id)
+  if (notMyFiles.length > 0) {
+    error.value =
+      'Cannot perform batch transfer: Some documents do not belong to you. Please try again.'
+    return
+  }
+
+  loading.value = true
+  error.value = null
+  success.value = null
+
+  try {
+    const results = []
+    const errors = []
+
+    // Loop through files and transfer each one
+    for (const file of eligibleFiles) {
+      try {
+        await transferPhysicalCopy(
+          file.id,
+          batchTransferToUserId.value,
+          batchTransferNotes.value || null,
+          batchTransferExpectedReturn.value || null,
+        )
+        results.push(file.file_name)
+      } catch (err) {
+        errors.push({ file: file.file_name, error: err.message || 'Failed to transfer' })
+      }
+    }
+
+    if (errors.length > 0) {
+      error.value = `Batch transfer completed with errors. ${results.length} succeeded, ${errors.length} failed.`
+      console.error('Batch transfer errors:', errors)
+    } else {
+      success.value = `Successfully transferred ${results.length} file(s)`
+    }
+
+    showBatchTransferModal.value = false
+    await loadPendingTransfers()
+    await loadData()
+  } catch (err) {
+    error.value = err.message || 'Failed to perform batch transfer'
+  } finally {
+    loading.value = false
+  }
+}
+
+// Batch Checkout
+const showBatchCheckoutModal = ref(false)
+const batchCheckoutType = ref('user') // 'user', 'client', or 'custom_clearance_agent'
+const batchCheckoutUserId = ref(null)
+const batchCheckoutAgentId = ref(null)
+const batchCheckoutClientId = ref(null)
+const batchCheckoutClientName = ref('')
+const batchCheckoutClientContact = ref('')
+const batchCheckoutNotes = ref('')
+const batchCheckoutAvailableUsers = ref([])
+const batchAvailableAgents = ref([])
+const batchAvailableClients = ref([])
+
+const openBatchCheckoutModal = async () => {
+  if (!canBatchOperate.value) {
+    error.value =
+      'Cannot perform batch operation: Not all documents belong to you. Please ensure all documents are available and you are the current holder.'
+    return
+  }
+
+  // Get eligible files - include files checked out to current user, available, or null
+  const eligibleFiles = files.value.filter((f) => {
+    if (f.has_pending_transfer) return false
+
+    // Include files checked out to current user
+    if (f.physical_status === 'checked_out' && f.current_holder_id === currentUser.value.id) {
+      return true
+    }
+
+    // Include available files where current user is holder
+    if (f.physical_status === 'available' && f.current_holder_id === currentUser.value.id) {
+      return true
+    }
+
+    // Include files with no tracking record where current user is uploader
+    if (f.physical_status === null && f.uploaded_by === currentUser.value.id) {
+      return true
+    }
+
+    return false
+  })
+
+  if (eligibleFiles.length === 0) {
+    error.value = 'No files available for batch checkout'
+    return
+  }
+
+  batchCheckoutType.value = 'user'
+  batchCheckoutUserId.value = null
+  batchCheckoutAgentId.value = null
+  batchCheckoutClientId.value = null
+  batchCheckoutClientName.value = ''
+  batchCheckoutClientContact.value = ''
+  batchCheckoutNotes.value = ''
+
+  try {
+    await loadUsers()
+    await loadClients()
+    const agents = await getCustomClearanceAgents()
+    batchAvailableAgents.value = agents || []
+    showBatchCheckoutModal.value = true
+  } catch (err) {
+    error.value = 'Failed to load checkout data: ' + (err.message || err)
+  }
+}
+
+const confirmBatchCheckout = async () => {
+  // Get eligible files - include files checked out to current user, available, or null
+  const eligibleFiles = files.value.filter((f) => {
+    if (f.has_pending_transfer) return false
+
+    // Include files checked out to current user
+    if (f.physical_status === 'checked_out' && f.current_holder_id === currentUser.value.id) {
+      return true
+    }
+
+    // Include available files where current user is holder
+    if (f.physical_status === 'available' && f.current_holder_id === currentUser.value.id) {
+      return true
+    }
+
+    // Include files with no tracking record where current user is uploader
+    if (f.physical_status === null && f.uploaded_by === currentUser.value.id) {
+      return true
+    }
+
+    return false
+  })
+
+  if (eligibleFiles.length === 0) {
+    error.value = 'No files available for batch checkout'
+    return
+  }
+
+  // Double-check: ensure all files belong to current user
+  const notMyFiles = eligibleFiles.filter((f) => f.current_holder_id !== currentUser.value.id)
+  if (notMyFiles.length > 0) {
+    error.value =
+      'Cannot perform batch checkout: Some documents do not belong to you. Please try again.'
+    return
+  }
+
+  // Validate based on checkout type
+  if (batchCheckoutType.value === 'user' && !batchCheckoutUserId.value) {
+    error.value = 'Please select a user'
+    return
+  }
+  if (batchCheckoutType.value === 'custom_clearance_agent' && !batchCheckoutAgentId.value) {
+    error.value = 'Veuillez sélectionner un transiteur'
+    return
+  }
+  if (batchCheckoutType.value === 'client' && !batchCheckoutClientId.value) {
+    error.value = 'Veuillez sélectionner un client'
+    return
+  }
+
+  loading.value = true
+  error.value = null
+  success.value = null
+
+  try {
+    const user = currentUser.value
+    const results = []
+    const errors = []
+
+    // Loop through files and checkout each one
+    for (const file of eligibleFiles) {
+      try {
+        const result = await callApi({
+          action: 'checkout_physical_copy',
+          file_id: file.id,
+          checkout_type: batchCheckoutType.value,
+          user_id: batchCheckoutType.value === 'user' ? batchCheckoutUserId.value : null,
+          agent_id:
+            batchCheckoutType.value === 'custom_clearance_agent'
+              ? batchCheckoutAgentId.value
+              : null,
+          client_id: batchCheckoutType.value === 'client' ? batchCheckoutClientId.value : null,
+          client_name: batchCheckoutType.value === 'client' ? batchCheckoutClientName.value : null,
+          client_contact:
+            batchCheckoutType.value === 'client' ? batchCheckoutClientContact.value : null,
+          notes: batchCheckoutNotes.value || null,
+          performed_by: user?.id,
+          requiresAuth: true,
+        })
+
+        if (result.success) {
+          results.push(file.file_name)
+        } else {
+          errors.push({ file: file.file_name, error: result.error || 'Failed to checkout' })
+        }
+      } catch (err) {
+        errors.push({ file: file.file_name, error: err.message || 'Failed to checkout' })
+      }
+    }
+
+    if (errors.length > 0) {
+      error.value = `Batch checkout completed with errors. ${results.length} succeeded, ${errors.length} failed.`
+      console.error('Batch checkout errors:', errors)
+    } else {
+      success.value = `Successfully checked out ${results.length} file(s)`
+    }
+
+    showBatchCheckoutModal.value = false
+    await loadData()
+  } catch (err) {
+    error.value = err.message || 'Failed to perform batch checkout'
+  } finally {
+    loading.value = false
+  }
+}
+
 // Transfer history
 const openHistoryModal = async (file) => {
   console.log('[CarFilesManagement] Opening history modal for file:', file)
@@ -854,6 +1365,38 @@ onMounted(() => {
           >
             <i class="fas fa-plus"></i>
             Add Category
+          </button>
+          <button
+            v-if="canUploadCarFiles"
+            @click="openBatchTransferModal"
+            class="btn-batch-transfer"
+            :class="{ disabled: !canBatchOperate }"
+            :disabled="!canBatchOperate"
+            :title="
+              canBatchOperate
+                ? 'Batch transfer all documents'
+                : 'Batch transfer unavailable: Not all documents belong to you'
+            "
+          >
+            <i class="fas fa-exchange-alt"></i>
+            Batch Transfer
+            <span v-if="myFiles.length > 0" class="batch-count">({{ myFiles.length }})</span>
+          </button>
+          <button
+            v-if="canUploadCarFiles"
+            @click="openBatchCheckoutModal"
+            class="btn-batch-checkout"
+            :class="{ disabled: !canBatchOperate }"
+            :disabled="!canBatchOperate"
+            :title="
+              canBatchOperate
+                ? 'Batch checkout all documents'
+                : 'Batch checkout unavailable: Not all documents belong to you'
+            "
+          >
+            <i class="fas fa-sign-out-alt"></i>
+            Batch Checkout
+            <span v-if="myFiles.length > 0" class="batch-count">({{ myFiles.length }})</span>
           </button>
           <button class="close-btn" @click="closeModal" :disabled="isProcessing">
             <i class="fas fa-times"></i>
@@ -1545,6 +2088,28 @@ onMounted(() => {
           </div>
         </div>
         <div class="modal-footer">
+          <div style="display: flex; gap: 0.5rem; flex: 1; justify-content: flex-start">
+            <button
+              v-if="pendingTransfers.length > 0"
+              @click="handleApproveAll"
+              class="btn-approve-all"
+              :disabled="loading"
+              title="Approve all pending transfers"
+            >
+              <i class="fas fa-check-double"></i>
+              Approve All ({{ pendingTransfers.length }})
+            </button>
+            <button
+              v-if="pendingTransfers.length > 0"
+              @click="handleRejectAll"
+              class="btn-reject-all"
+              :disabled="loading"
+              title="Reject all pending transfers"
+            >
+              <i class="fas fa-times-circle"></i>
+              Reject All ({{ pendingTransfers.length }})
+            </button>
+          </div>
           <button @click="showPendingTransfersModal = false" class="btn-cancel">Close</button>
         </div>
       </div>
@@ -1647,6 +2212,153 @@ onMounted(() => {
 
     <!-- Custom Clearance Agents Modal -->
     <CustomClearanceAgents :show="showAgentsModal" @close="showAgentsModal = false" />
+
+    <!-- Batch Transfer Modal -->
+    <div
+      v-if="showBatchTransferModal"
+      class="modal-overlay"
+      @click="showBatchTransferModal = false"
+    >
+      <div class="modal-content transfer-modal" @click.stop>
+        <div class="modal-header">
+          <h3>Batch Transfer All Documents</h3>
+          <button @click="showBatchTransferModal = false" class="close-btn">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Files to transfer:</label>
+            <p class="text-muted">{{ myFiles.length }} document(s) will be transferred</p>
+          </div>
+          <div class="form-group">
+            <label>Transfer to:</label>
+            <select v-model="batchTransferToUserId" class="form-select">
+              <option value="">Select user...</option>
+              <option v-for="user in batchTransferAvailableUsers" :key="user.id" :value="user.id">
+                {{ user.username }} ({{ user.email }})
+              </option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Expected Return Date:</label>
+            <input v-model="batchTransferExpectedReturn" type="date" class="form-input" />
+          </div>
+          <div class="form-group">
+            <label>Notes:</label>
+            <textarea v-model="batchTransferNotes" class="form-textarea" rows="3"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button @click="showBatchTransferModal = false" class="btn-cancel">Cancel</button>
+          <button
+            @click="confirmBatchTransfer"
+            :disabled="!batchTransferToUserId || loading"
+            class="btn-primary"
+          >
+            Transfer All
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Batch Checkout Modal -->
+    <div
+      v-if="showBatchCheckoutModal"
+      class="modal-overlay"
+      @click="showBatchCheckoutModal = false"
+    >
+      <div class="modal-content action-modal" @click.stop>
+        <div class="modal-header">
+          <h3>Batch Checkout All Documents</h3>
+          <button @click="showBatchCheckoutModal = false" class="close-btn">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Files to checkout:</label>
+            <p class="text-muted">{{ myFiles.length }} document(s) will be checked out</p>
+          </div>
+          <div class="form-group">
+            <label>Checkout Type:</label>
+            <select v-model="batchCheckoutType" class="form-select">
+              <option value="user">To User</option>
+              <option value="client">To Client</option>
+              <option value="custom_clearance_agent">To Transiteur</option>
+            </select>
+          </div>
+
+          <!-- User Selection -->
+          <div v-if="batchCheckoutType === 'user'" class="form-group">
+            <label>Select User:</label>
+            <select v-model="batchCheckoutUserId" class="form-select">
+              <option value="">Select user...</option>
+              <option v-for="user in batchCheckoutAvailableUsers" :key="user.id" :value="user.id">
+                {{ user.username }} ({{ user.email }})
+              </option>
+            </select>
+          </div>
+
+          <!-- Client Selection -->
+          <div v-if="batchCheckoutType === 'client'" class="form-group">
+            <label>Select Client:</label>
+            <el-select
+              v-model="batchCheckoutClientId"
+              filterable
+              remote
+              :remote-method="searchClients"
+              placeholder="Search and select client..."
+              class="w-100"
+              style="width: 100%"
+            >
+              <el-option
+                v-for="client in filteredClients"
+                :key="client.id"
+                :label="`${client.name}${client.email ? ' - ' + client.email : ''}`"
+                :value="client.id"
+              >
+                <div>
+                  <div>{{ client.name }}</div>
+                  <small v-if="client.email" class="text-muted">{{ client.email }}</small>
+                </div>
+              </el-option>
+            </el-select>
+          </div>
+
+          <!-- Transiteur Selection -->
+          <div v-if="batchCheckoutType === 'custom_clearance_agent'" class="form-group">
+            <label>Select Transiteur:</label>
+            <select v-model="batchCheckoutAgentId" class="form-select">
+              <option value="">Select transiteur...</option>
+              <option v-for="agent in batchAvailableAgents" :key="agent.id" :value="agent.id">
+                {{ agent.name }} ({{ agent.contact }})
+              </option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Notes:</label>
+            <textarea v-model="batchCheckoutNotes" class="form-textarea" rows="3"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button @click="showBatchCheckoutModal = false" class="btn-cancel">Cancel</button>
+          <button
+            @click="confirmBatchCheckout"
+            :disabled="
+              loading ||
+              (batchCheckoutType === 'user' && !batchCheckoutUserId) ||
+              (batchCheckoutType === 'client' && !batchCheckoutClientId) ||
+              (batchCheckoutType === 'custom_clearance_agent' && !batchCheckoutAgentId)
+            "
+            class="btn-primary"
+          >
+            Checkout All
+          </button>
+        </div>
+      </div>
+    </div>
 
     <!-- Category Create/Edit Modal -->
     <div v-if="showCategoryModal" class="modal-overlay" @click="showCategoryModal = false">
@@ -1766,6 +2478,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .btn-agents {
@@ -1823,6 +2536,42 @@ onMounted(() => {
 
 .btn-add-category:hover {
   background-color: #059669;
+}
+
+.btn-batch-transfer,
+.btn-batch-checkout {
+  padding: 0.5rem 1rem;
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: background-color 0.2s;
+}
+
+.btn-batch-transfer:hover:not(:disabled),
+.btn-batch-checkout:hover:not(:disabled) {
+  background-color: #2563eb;
+}
+
+.btn-batch-transfer:disabled,
+.btn-batch-checkout:disabled,
+.btn-batch-transfer.disabled,
+.btn-batch-checkout.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: #9ca3af;
+}
+
+.batch-count {
+  font-size: 0.75rem;
+  opacity: 0.9;
+  font-weight: 600;
 }
 
 .close-btn {
@@ -2527,6 +3276,47 @@ onMounted(() => {
 
 .btn-reject:disabled {
   background-color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.btn-approve-all,
+.btn-reject-all {
+  padding: 0.75rem 1.5rem;
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: background-color 0.2s;
+}
+
+.btn-approve-all {
+  background-color: #10b981;
+  color: white;
+}
+
+.btn-approve-all:hover:not(:disabled) {
+  background-color: #059669;
+}
+
+.btn-approve-all:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-reject-all {
+  background-color: #dc2626;
+  color: white;
+}
+
+.btn-reject-all:hover:not(:disabled) {
+  background-color: #b91c1c;
+}
+
+.btn-reject-all:disabled {
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
