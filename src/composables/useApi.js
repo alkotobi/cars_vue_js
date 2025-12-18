@@ -708,22 +708,22 @@ export const useApi = () => {
       throw new Error('User not authenticated')
     }
 
-    // Get file info to find current holder
-    // We need to get the car_id first, then get files for that car
-    // For now, we'll let the API handle finding the current holder
-    // But API requires from_user_id, so we need to get it
-    // Let's get the file by querying with a special action or get all files
-    // Actually, the API should get current holder from tracking table
-    // Let's modify approach: get file info via a query first
+    // Get file info to find current holder or uploader
+    // If file is available, use uploader as from_user_id
+    // If file is checked out, use current_holder_id
     const fileQueryResult = await callApi({
       query:
-        'SELECT cf.id, cpt.current_holder_id FROM car_files cf LEFT JOIN car_file_physical_tracking cpt ON cf.id = cpt.car_file_id AND cpt.status = "checked_out" WHERE cf.id = ?',
+        'SELECT cf.id, cf.uploaded_by, cpt.current_holder_id, cpt.status FROM car_files cf LEFT JOIN car_file_physical_tracking cpt ON cf.id = cpt.car_file_id AND cpt.status IN ("available", "checked_out") WHERE cf.id = ?',
       params: [fileId],
       requiresAuth: true,
     })
 
     const fileData = fileQueryResult.data?.[0]
-    const fromUserId = fileData?.current_holder_id || user.id
+    // If file is available, use uploader; otherwise use current holder
+    const fromUserId =
+      fileData?.status === 'available'
+        ? fileData?.uploaded_by || user.id
+        : fileData?.current_holder_id || user.id
 
     const result = await callApi({
       action: 'transfer_physical_copy',
@@ -745,9 +745,16 @@ export const useApi = () => {
 
   // Get transfer history
   const getFileTransferHistory = async (fileId) => {
+    const user = getCurrentUser()
+    if (!user) {
+      throw new Error('User not authenticated')
+    }
+
     const result = await callApi({
       action: 'get_file_transfer_history',
       file_id: fileId,
+      user_id: user.id,
+      is_admin: user.role_id === 1,
       requiresAuth: true,
     })
     return result.success ? result.data : []
@@ -766,6 +773,99 @@ export const useApi = () => {
       requiresAuth: true,
     })
     return result.success ? result.data : []
+  }
+
+  // Get pending transfers for current user
+  const getPendingTransfers = async () => {
+    const user = getCurrentUser()
+    if (!user) {
+      throw new Error('User not authenticated')
+    }
+
+    console.log(
+      '[useApi] getPendingTransfers: Calling API with user_id:',
+      user.id,
+      'username:',
+      user.username,
+    )
+    const result = await callApi({
+      action: 'get_pending_transfers',
+      user_id: user.id,
+      requiresAuth: true,
+    })
+
+    console.log('[useApi] getPendingTransfers: Full API response:', JSON.stringify(result, null, 2))
+
+    if (result.debug) {
+      console.log('[useApi] getPendingTransfers: Debug info:', result.debug)
+      console.log(
+        '[useApi] getPendingTransfers: All pending transfers in DB:',
+        result.debug.all_pending,
+      )
+    }
+
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to get pending transfers')
+    }
+
+    console.log('[useApi] getPendingTransfers: Returning', result.data?.length || 0, 'transfers')
+    if (result.data && result.data.length > 0) {
+      console.log(
+        '[useApi] getPendingTransfers: Transfer details:',
+        result.data.map((t) => ({
+          id: t.id,
+          file_name: t.file_name,
+          from_user_id: t.from_user_id,
+          to_user_id: t.to_user_id,
+          transfer_status: t.transfer_status,
+        })),
+      )
+    }
+    return result.data || []
+  }
+
+  // Approve a pending transfer
+  const approveTransfer = async (transferId, notes = null) => {
+    const user = getCurrentUser()
+    if (!user) {
+      throw new Error('User not authenticated')
+    }
+
+    const result = await callApi({
+      action: 'approve_transfer',
+      transfer_id: transferId,
+      user_id: user.id,
+      notes: notes,
+      requiresAuth: true,
+    })
+
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to approve transfer')
+    }
+
+    return result
+  }
+
+  // Reject a pending transfer
+  const rejectTransfer = async (transferId, notes = null) => {
+    const user = getCurrentUser()
+    if (!user) {
+      throw new Error('User not authenticated')
+    }
+
+    const result = await callApi({
+      action: 'reject_transfer',
+      transfer_id: transferId,
+      user_id: user.id,
+      notes: notes,
+      requiresAuth: true,
+    })
+
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to reject transfer')
+    }
+
+    return result
   }
 
   // Get users for transfer dropdown
@@ -922,6 +1022,9 @@ export const useApi = () => {
     rollbackCheckout,
     getFileTransferHistory,
     getMyPhysicalCopies,
+    getPendingTransfers,
+    approveTransfer,
+    rejectTransfer,
     getUsersForTransfer,
     createFileCategory,
     updateFileCategory,

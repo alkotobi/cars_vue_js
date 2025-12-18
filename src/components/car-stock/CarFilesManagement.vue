@@ -18,6 +18,9 @@ const {
   transferPhysicalCopy,
   rollbackCheckout,
   getMyPhysicalCopies,
+  getPendingTransfers,
+  approveTransfer,
+  rejectTransfer,
   getUsersForTransfer,
   getFileTransferHistory,
   getFileUrl,
@@ -48,6 +51,8 @@ const categories = ref([])
 const files = ref([])
 const selectedFiles = ref({}) // { categoryId: file }
 const isProcessing = ref(false)
+const pendingTransfers = ref([])
+const showPendingTransfersModal = ref(false)
 
 // Check if current user is admin
 const currentUser = computed(() => {
@@ -57,6 +62,15 @@ const currentUser = computed(() => {
 
 const isAdmin = computed(() => {
   return currentUser.value?.role_id === 1
+})
+
+// Check if user has can_upload_car_files permission
+const canUploadCarFiles = computed(() => {
+  if (!currentUser.value) return false
+  // Admin has all permissions
+  if (isAdmin.value) return true
+  // Check for specific permission
+  return currentUser.value.permissions?.some((p) => p.permission_name === 'can_upload_car_files')
 })
 
 // Group files by category
@@ -131,6 +145,92 @@ const loadData = async () => {
   }
 }
 
+// Load pending transfers
+const loadPendingTransfers = async () => {
+  try {
+    console.log('[CarFilesManagement] Loading pending transfers for user:', currentUser.value?.id)
+    const transfers = await getPendingTransfers()
+    pendingTransfers.value = transfers || []
+    console.log('[CarFilesManagement] Loaded pending transfers:', pendingTransfers.value.length)
+    if (pendingTransfers.value.length > 0) {
+      console.log(
+        '[CarFilesManagement] Pending transfers:',
+        pendingTransfers.value.map((t) => ({
+          id: t.id,
+          car_file_id: t.car_file_id,
+          file_name: t.file_name,
+          from_user_id: t.from_user_id,
+          to_user_id: t.to_user_id,
+          transfer_status: t.transfer_status,
+        })),
+      )
+    }
+  } catch (err) {
+    console.error('[CarFilesManagement] Failed to load pending transfers:', err)
+    pendingTransfers.value = []
+  }
+}
+
+// Check if a file has a pending transfer
+const hasPendingTransfer = (file) => {
+  // First check if the file object has has_pending_transfer flag from API
+  if (file.has_pending_transfer === 1 || file.has_pending_transfer === true) {
+    return true
+  }
+  // Fallback: check pending transfers array
+  const hasPending = pendingTransfers.value.some((transfer) => transfer.car_file_id === file.id)
+  return hasPending
+}
+
+// Check if current user is the recipient of a pending transfer
+const isPendingTransferRecipient = (file) => {
+  if (file.has_pending_transfer && file.pending_transfer_to_user_id === currentUser?.id) {
+    return true
+  }
+  return pendingTransfers.value.some(
+    (transfer) => transfer.car_file_id === file.id && transfer.to_user_id === currentUser?.id,
+  )
+}
+
+// Approve a pending transfer
+const handleApproveTransfer = async (transfer) => {
+  loading.value = true
+  error.value = null
+
+  try {
+    await approveTransfer(transfer.id)
+    success.value = 'Transfer approved successfully'
+    await loadPendingTransfers()
+    await loadData() // Reload files to update status
+  } catch (err) {
+    error.value = err.message || 'Failed to approve transfer'
+  } finally {
+    loading.value = false
+  }
+}
+
+// Reject a pending transfer
+const handleRejectTransfer = async (transfer) => {
+  if (
+    !confirm(`Are you sure you want to reject the transfer request for "${transfer.file_name}"?`)
+  ) {
+    return
+  }
+
+  loading.value = true
+  error.value = null
+
+  try {
+    await rejectTransfer(transfer.id)
+    success.value = 'Transfer rejected'
+    await loadPendingTransfers()
+  } catch (err) {
+    error.value = err.message || 'Failed to reject transfer'
+  } finally {
+    loading.value = false
+  }
+}
+
 // Handle file selection
 const handleFileSelect = (event, categoryId) => {
   const file = event.target.files?.[0]
@@ -196,16 +296,24 @@ const uploadFile = async (categoryId) => {
   }
 }
 
-// Delete file
-const handleDeleteFile = async (fileId) => {
-  if (!confirm('Are you sure you want to delete this file?')) return
+// Delete file (admin only)
+const handleDeleteFile = async (file) => {
+  if (!isAdmin.value) {
+    error.value = 'Only admins can delete files'
+    return
+  }
+
+  const fileName = file.file_name || 'this file'
+  const confirmMessage = `Are you sure you want to delete "${fileName}"?\n\nThis will permanently delete:\n- The file from the server\n- The database record\n\nThis action cannot be undone.`
+
+  if (!confirm(confirmMessage)) return
 
   loading.value = true
   error.value = null
 
   try {
-    await deleteCarFile(fileId)
-    success.value = 'File deleted successfully'
+    await deleteCarFile(file.id)
+    success.value = 'File and database record deleted successfully'
     await loadData()
     emit('save', props.car)
   } catch (err) {
@@ -433,7 +541,7 @@ const confirmCheckout = async () => {
 const handleRollbackCheckout = async (file) => {
   if (
     !confirm(
-      `Are you sure you want to rollback the checkout for "${file.file_name}"? This will make the file available again.`,
+      `Are you sure you want to rollback the last transfer/checkout for "${file.file_name}"? This will restore the previous holder.`,
     )
   ) {
     return
@@ -444,11 +552,18 @@ const handleRollbackCheckout = async (file) => {
   success.value = null
 
   try {
-    await rollbackCheckout(file.id, 'Rollback checkout by admin')
-    success.value = 'Checkout rolled back successfully'
+    // Pass null to let the API generate the note with the actual username
+    await rollbackCheckout(file.id, null)
+    success.value = 'Transfer/checkout rolled back successfully'
     await loadData()
   } catch (err) {
-    error.value = err.message || 'Failed to rollback checkout'
+    const errorMsg = err.message || 'Failed to rollback checkout'
+    if (errorMsg.includes('initial file upload') || errorMsg.includes('Cannot rollback initial')) {
+      error.value =
+        'Cannot rollback initial file upload. Use delete instead if you want to remove the file.'
+    } else {
+      error.value = errorMsg
+    }
   } finally {
     loading.value = false
   }
@@ -527,9 +642,15 @@ const confirmTransfer = async () => {
       transferNotes.value || null,
       transferExpectedReturn.value || null,
     )
-    success.value = 'File transferred successfully'
+    success.value = 'Transfer request sent. Waiting for recipient approval.'
     showTransferModal.value = false
+    // Reload pending transfers first, then reload file data
+    await loadPendingTransfers()
     await loadData()
+    console.log(
+      '[CarFilesManagement] After transfer - pending transfers:',
+      pendingTransfers.value.length,
+    )
   } catch (err) {
     error.value = err.message || 'Failed to transfer file'
   } finally {
@@ -657,6 +778,7 @@ watch(
   (newVal) => {
     if (newVal) {
       loadData()
+      loadPendingTransfers()
     } else {
       closeModal()
     }
@@ -664,10 +786,22 @@ watch(
   { immediate: true },
 )
 
+// Watch for pending transfers modal to reload when opened
+watch(
+  () => showPendingTransfersModal.value,
+  (newVal) => {
+    if (newVal) {
+      console.log('[CarFilesManagement] Pending transfers modal opened, reloading...')
+      loadPendingTransfers()
+    }
+  },
+)
+
 // Load data on mount if shown
 onMounted(() => {
   if (props.show) {
     loadData()
+    loadPendingTransfers()
   }
 })
 </script>
@@ -682,7 +816,20 @@ onMounted(() => {
         </h3>
         <div class="header-actions">
           <button
-            v-if="isAdmin"
+            v-if="canUploadCarFiles"
+            @click="showPendingTransfersModal = true"
+            class="btn-pending-transfers"
+            title="View pending transfers"
+            :class="{ 'has-pending': pendingTransfers.length > 0 }"
+          >
+            <i class="fas fa-clock"></i>
+            Pending Transfers
+            <span v-if="pendingTransfers.length > 0" class="pending-badge">
+              {{ pendingTransfers.length }}
+            </span>
+          </button>
+          <button
+            v-if="isAdmin && canUploadCarFiles"
             @click="showAgentsModal = true"
             class="btn-agents"
             title="Gérer les transiteurs"
@@ -691,6 +838,7 @@ onMounted(() => {
             Agents
           </button>
           <button
+            v-if="canUploadCarFiles"
             @click="openTrackingModal"
             class="btn-tracking"
             title="View physical copy tracking"
@@ -794,8 +942,16 @@ onMounted(() => {
               <div class="file-actions">
                 <!-- Physical Copy Status -->
                 <div class="physical-status">
+                  <!-- Check if file has pending transfer -->
                   <span
-                    v-if="!file.physical_status || file.physical_status === 'available'"
+                    v-if="hasPendingTransfer(file)"
+                    class="status-badge pending-transfer"
+                    title="Pending transfer - waiting for approval"
+                  >
+                    <i class="fas fa-clock"></i> Pending Transfer
+                  </span>
+                  <span
+                    v-else-if="!file.physical_status || file.physical_status === 'available'"
                     class="status-badge available"
                   >
                     <i class="fas fa-check-circle"></i> Available
@@ -832,10 +988,35 @@ onMounted(() => {
                   </span>
                 </div>
 
-                <!-- Actions - Only show if file is available (not checked out) -->
-                <template v-if="file.physical_status !== 'checked_out'">
-                  <div class="action-buttons">
+                <!-- Show message when file has pending transfer -->
+                <template v-if="hasPendingTransfer(file)">
+                  <div class="pending-transfer-message">
+                    <i class="fas fa-clock"></i>
+                    <span v-if="isPendingTransferRecipient(file)">
+                      Transfer pending - Click "Pending Transfers" button above to approve/reject
+                    </span>
+                    <span v-else> Transfer pending - waiting for recipient approval </span>
                     <button
+                      @click="showPendingTransfersModal = true"
+                      class="btn-view-pending"
+                      title="View pending transfers"
+                    >
+                      View
+                    </button>
+                  </div>
+                </template>
+
+                <!-- Actions - Only show if file is available (not checked out) and no pending transfer -->
+                <!-- Note: After upload, file should be checked out to uploader, so this should rarely show -->
+                <template v-else-if="file.physical_status !== 'checked_out'">
+                  <div v-if="canUploadCarFiles" class="action-buttons">
+                    <!-- Only current holder (uploader) can checkout -->
+                    <button
+                      v-if="
+                        file.current_holder_id === currentUser?.id ||
+                        (file.physical_status === 'available' &&
+                          file.uploaded_by === currentUser?.id)
+                      "
                       @click="
                         () => {
                           console.log(
@@ -851,6 +1032,21 @@ onMounted(() => {
                       <i class="fas fa-sign-out-alt"></i>
                       Check Out
                     </button>
+                    <!-- Only current holder can transfer -->
+                    <button
+                      v-if="
+                        file.current_holder_id === currentUser?.id ||
+                        (file.physical_status === 'available' &&
+                          file.uploaded_by === currentUser?.id)
+                      "
+                      @click="openTransferModal(file)"
+                      class="btn-action btn-transfer"
+                      title="Transfer to another user"
+                    >
+                      <i class="fas fa-exchange-alt"></i>
+                      Transfer
+                    </button>
+                    <!-- History button - visible to everyone with permission -->
                     <button
                       @click="openHistoryModal(file)"
                       class="btn-action btn-history"
@@ -860,37 +1056,151 @@ onMounted(() => {
                       History
                     </button>
                     <button
-                      v-if="file.uploaded_by === currentUser?.id || isAdmin"
-                      @click="handleDeleteFile(file.id)"
+                      v-if="isAdmin"
+                      @click="handleDeleteFile(file)"
                       class="btn-action btn-delete"
-                      title="Delete file"
+                      title="Delete file (admin only)"
                     >
                       <i class="fas fa-trash"></i>
                     </button>
                   </div>
+                  <div v-else class="no-permission-message">
+                    <i class="fas fa-lock"></i>
+                    <span>You do not have permission to manage car files</span>
+                  </div>
                 </template>
 
-                <!-- Show message when checked out - NO ACTIONS AVAILABLE (except admin rollback) -->
+                <!-- Show actions when checked out -->
                 <template v-else>
-                  <div class="checked-out-message">
-                    <i class="fas fa-info-circle"></i>
-                    Document vérifié - Aucune action disponible
-                    <button
-                      v-if="isAdmin"
-                      @click="handleRollbackCheckout(file)"
-                      class="btn-rollback"
-                      title="Rollback checkout (Admin only)"
+                  <!-- Only show actions if user has permission -->
+                  <template v-if="canUploadCarFiles">
+                    <!-- If current user is the holder, show Transfer, Checkout, History, and Rollback buttons -->
+                    <div v-if="file.current_holder_id === currentUser?.id" class="action-buttons">
+                      <button
+                        @click="openTransferModal(file)"
+                        class="btn-action btn-transfer"
+                        title="Transfer to another user"
+                      >
+                        <i class="fas fa-exchange-alt"></i>
+                        Transfer
+                      </button>
+                      <button
+                        @click="
+                          () => {
+                            console.log(
+                              '[CarFilesManagement] Checkout button clicked for file:',
+                              file,
+                            )
+                            openCheckoutModal(file)
+                          }
+                        "
+                        class="btn-action btn-checkout"
+                        title="Check out to user/client/agent"
+                      >
+                        <i class="fas fa-sign-out-alt"></i>
+                        Check Out
+                      </button>
+                      <button
+                        @click="openHistoryModal(file)"
+                        class="btn-action btn-history"
+                        title="View transfer history"
+                      >
+                        <i class="fas fa-history"></i>
+                        History
+                      </button>
+                      <!-- Rollback - only current holder can rollback -->
+                      <button
+                        @click="handleRollbackCheckout(file)"
+                        class="btn-action btn-rollback"
+                        title="Rollback last transfer/checkout"
+                      >
+                        <i class="fas fa-undo"></i>
+                        Rollback
+                      </button>
+                      <!-- Delete button - admin only -->
+                      <button
+                        v-if="isAdmin"
+                        @click="handleDeleteFile(file)"
+                        class="btn-action btn-delete"
+                        title="Delete file (admin only)"
+                      >
+                        <i class="fas fa-trash"></i>
+                      </button>
+                    </div>
+                    <!-- If checked out to client/transiteur (current_holder_id is NULL), show rollback to previous holder -->
+                    <div
+                      v-else-if="
+                        !file.current_holder_id && file.previous_holder_id === currentUser?.id
+                      "
+                      class="action-buttons"
                     >
-                      <i class="fas fa-undo"></i>
-                      Rollback
-                    </button>
+                      <!-- Rollback - previous holder can rollback when checked out to client/transiteur -->
+                      <button
+                        @click="handleRollbackCheckout(file)"
+                        class="btn-action btn-rollback"
+                        title="Rollback checkout to client/transiteur"
+                      >
+                        <i class="fas fa-undo"></i>
+                        Rollback
+                      </button>
+                      <!-- History button - visible to everyone with permission -->
+                      <button
+                        @click="openHistoryModal(file)"
+                        class="btn-action btn-history"
+                        title="View transfer history"
+                      >
+                        <i class="fas fa-history"></i>
+                        History
+                      </button>
+                      <!-- Delete button - admin only -->
+                      <button
+                        v-if="isAdmin"
+                        @click="handleDeleteFile(file)"
+                        class="btn-action btn-delete"
+                        title="Delete file (admin only)"
+                      >
+                        <i class="fas fa-trash"></i>
+                      </button>
+                    </div>
+                    <!-- If someone else has it or checked out to client/transiteur (but not previous holder), show message with History button -->
+                    <div v-else class="checked-out-message">
+                      <div style="display: flex; align-items: center; gap: 0.5rem; flex: 1">
+                        <i class="fas fa-info-circle"></i>
+                        <span>Document vérifié - Aucune action disponible</span>
+                      </div>
+                      <div style="display: flex; gap: 0.5rem">
+                        <!-- History button - visible to everyone with permission -->
+                        <button
+                          @click="openHistoryModal(file)"
+                          class="btn-action btn-history"
+                          title="View transfer history"
+                        >
+                          <i class="fas fa-history"></i>
+                          History
+                        </button>
+                        <!-- Delete button - admin only -->
+                        <button
+                          v-if="isAdmin"
+                          @click="handleDeleteFile(file)"
+                          class="btn-action btn-delete"
+                          title="Delete file (admin only)"
+                        >
+                          <i class="fas fa-trash"></i>
+                        </button>
+                      </div>
+                    </div>
+                  </template>
+                  <!-- No permission message -->
+                  <div v-else class="no-permission-message">
+                    <i class="fas fa-lock"></i>
+                    <span>You do not have permission to manage car files</span>
                   </div>
                 </template>
               </div>
             </div>
 
-            <!-- Upload Section -->
-            <div class="upload-section">
+            <!-- Upload Section - Only show if user has permission -->
+            <div v-if="canUploadCarFiles" class="upload-section">
               <input
                 :id="`file-input-${categoryId}`"
                 type="file"
@@ -1123,6 +1433,123 @@ onMounted(() => {
       </div>
     </div>
 
+    <!-- Pending Transfers Modal -->
+    <div
+      v-if="showPendingTransfersModal"
+      class="modal-overlay"
+      @click="showPendingTransfersModal = false"
+    >
+      <div class="modal-content pending-transfers-modal" @click.stop>
+        <div class="modal-header">
+          <h3>
+            <i class="fas fa-clock"></i>
+            Pending Transfers
+            <span v-if="pendingTransfers.length > 0" class="pending-count">
+              ({{ pendingTransfers.length }})
+            </span>
+          </h3>
+          <button @click="showPendingTransfersModal = false" class="close-btn">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div v-if="loading" class="loading-state">
+            <i class="fas fa-spinner fa-spin"></i>
+            <span>Loading pending transfers...</span>
+          </div>
+
+          <div v-else-if="pendingTransfers.length === 0" class="empty-state">
+            <i class="fas fa-check-circle"></i>
+            <p>No pending transfers</p>
+            <div
+              style="
+                font-size: 0.75rem;
+                color: #6b7280;
+                margin-top: 0.5rem;
+                text-align: left;
+                padding: 1rem;
+                background: #f3f4f6;
+                border-radius: 4px;
+              "
+            >
+              <p><strong>Debug Info:</strong></p>
+              <p>Current user ID: {{ currentUser?.id }}</p>
+              <p>Current username: {{ currentUser?.username }}</p>
+              <p>Pending transfers array length: {{ pendingTransfers.length }}</p>
+              <p>Loading state: {{ loading }}</p>
+              <p style="margin-top: 0.5rem; color: #dc2626">
+                <strong>Check browser console (F12) for detailed logs</strong>
+              </p>
+            </div>
+          </div>
+
+          <div v-else class="pending-transfers-list">
+            <div
+              v-for="transfer in pendingTransfers"
+              :key="transfer.id"
+              class="pending-transfer-item"
+            >
+              <div class="transfer-info">
+                <div class="transfer-header">
+                  <strong>{{ transfer.file_name }}</strong>
+                  <span class="transfer-date">{{ formatDate(transfer.transferred_at) }}</span>
+                </div>
+                <div class="transfer-details">
+                  <div class="transfer-from">
+                    <i class="fas fa-user"></i>
+                    From: {{ transfer.from_username || 'Unknown' }}
+                  </div>
+                  <div class="transfer-to">
+                    <i class="fas fa-user"></i>
+                    To: {{ transfer.to_username || 'You' }}
+                  </div>
+                  <div v-if="transfer.category_name" class="transfer-category">
+                    <i class="fas fa-folder"></i>
+                    Category: {{ transfer.category_name }}
+                  </div>
+                  <div v-if="transfer.vin" class="transfer-car">
+                    <i class="fas fa-car"></i>
+                    VIN: {{ transfer.vin }}
+                  </div>
+                  <div v-if="transfer.notes" class="transfer-notes">
+                    <i class="fas fa-comment"></i>
+                    {{ transfer.notes }}
+                  </div>
+                  <div v-if="transfer.return_expected_date" class="transfer-return-date">
+                    <i class="fas fa-calendar"></i>
+                    Expected return: {{ formatDate(transfer.return_expected_date) }}
+                  </div>
+                </div>
+              </div>
+              <div class="transfer-actions">
+                <button
+                  @click="handleApproveTransfer(transfer)"
+                  class="btn-approve"
+                  :disabled="loading"
+                  title="Approve transfer"
+                >
+                  <i class="fas fa-check"></i>
+                  Approve
+                </button>
+                <button
+                  @click="handleRejectTransfer(transfer)"
+                  class="btn-reject"
+                  :disabled="loading"
+                  title="Reject transfer"
+                >
+                  <i class="fas fa-times"></i>
+                  Reject
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button @click="showPendingTransfersModal = false" class="btn-cancel">Close</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Transfer History Modal -->
     <div v-if="showHistoryModal" class="modal-overlay" @click="showHistoryModal = false">
       <div class="modal-content history-modal" @click.stop>
@@ -1166,9 +1593,24 @@ onMounted(() => {
                   <span v-if="transfer.from_username">
                     {{ transfer.from_username }}
                   </span>
+                  <span v-else-if="transfer.from_agent_name">
+                    Transiteur: {{ transfer.from_agent_name }}
+                  </span>
+                  <span v-else-if="transfer.from_client_name">
+                    Client: {{ transfer.from_client_name }}
+                  </span>
                   <span v-else class="text-muted">Available</span>
                   <i class="fas fa-arrow-right"></i>
-                  <span>{{ transfer.to_username }}</span>
+                  <span v-if="transfer.to_username">
+                    {{ transfer.to_username }}
+                  </span>
+                  <span v-else-if="transfer.to_agent_name">
+                    Transiteur: {{ transfer.to_agent_name }}
+                  </span>
+                  <span v-else-if="transfer.to_client_name">
+                    Client: {{ transfer.to_client_name }}
+                  </span>
+                  <span v-else class="text-muted">Unknown</span>
                 </div>
                 <div v-if="transfer.notes" class="history-notes">
                   <i class="fas fa-comment"></i>
@@ -1922,5 +2364,213 @@ onMounted(() => {
 :deep(.el-select-dropdown__item small) {
   color: #6b7280;
   margin-left: 0.5rem;
+}
+
+.btn-pending-transfers {
+  padding: 0.5rem 1rem;
+  background-color: #f59e0b;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: background-color 0.2s;
+  position: relative;
+}
+
+.btn-pending-transfers:hover {
+  background-color: #d97706;
+}
+
+.btn-pending-transfers.has-pending {
+  background-color: #dc2626;
+  animation: pulse 2s infinite;
+}
+
+.btn-pending-transfers.has-pending:hover {
+  background-color: #b91c1c;
+}
+
+.pending-badge {
+  background-color: white;
+  color: #dc2626;
+  border-radius: 50%;
+  width: 1.5rem;
+  height: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: bold;
+  margin-left: 0.25rem;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+.pending-transfers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.pending-transfer-item {
+  padding: 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background-color: #f9fafb;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.transfer-info {
+  flex: 1;
+}
+
+.transfer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.transfer-header strong {
+  font-size: 1rem;
+  color: #1f2937;
+}
+
+.transfer-date {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.transfer-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.transfer-details > div {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: #4b5563;
+}
+
+.transfer-details i {
+  color: #6b7280;
+  width: 1rem;
+}
+
+.transfer-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.btn-approve {
+  padding: 0.5rem 1rem;
+  background-color: #10b981;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: background-color 0.2s;
+}
+
+.btn-approve:hover {
+  background-color: #059669;
+}
+
+.btn-approve:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.btn-reject {
+  padding: 0.5rem 1rem;
+  background-color: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: background-color 0.2s;
+}
+
+.btn-reject:hover {
+  background-color: #dc2626;
+}
+
+.btn-reject:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.pending-count {
+  font-size: 0.875rem;
+  color: #6b7280;
+  font-weight: normal;
+}
+
+.status-badge.pending-transfer {
+  background-color: #fef3c7;
+  color: #d97706;
+  border: 1px solid #fbbf24;
+}
+
+.pending-transfer-message {
+  padding: 0.75rem;
+  background-color: #fef3c7;
+  border: 1px solid #fbbf24;
+  border-radius: 4px;
+  color: #d97706;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.pending-transfer-message i {
+  color: #d97706;
+}
+
+.btn-view-pending {
+  margin-left: auto;
+  padding: 0.25rem 0.75rem;
+  background-color: #d97706;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  transition: background-color 0.2s;
+}
+
+.btn-view-pending:hover {
+  background-color: #b45309;
 }
 </style>
