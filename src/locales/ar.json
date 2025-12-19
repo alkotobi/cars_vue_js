@@ -461,6 +461,8 @@
     "search_vin": "البحث عن رقم الشاصي...",
     "buy_bill_ref": "مرجع فاتورة الشراء",
     "search_buy_bill_ref": "البحث عن مرجع فاتورة الشراء...",
+    "no_buy_bill": "لا يوجد فاتورة شراء",
+    "combining_cars": "جاري دمج السيارات...",
     "containerRef": "مرجع الحاوية",
     "container_ref": "مرجع الحاوية",
     "batch_sell_pricing": "تسعير البيع بالدفعة",
@@ -845,7 +847,13 @@
     "vin": "رقم الشاصي",
     "export_license": "رخصة التصدير",
     "delivered": "تم التسليم",
-    "mark_delivered_for_selected_cars": "تعيين السيارات المحددة كمُسلَّمة"
+    "mark_delivered_for_selected_cars": "تعيين السيارات المحددة كمُسلَّمة",
+    "combine": "دمج",
+    "combine_by_buy_ref": "دمج حسب مرجع الشراء",
+    "combine_by_container": "دمج حسب الحاوية",
+    "by_buy_ref": "حسب مرجع الشراء",
+    "by_container": "حسب الحاوية",
+    "uncombine": "إلغاء الدمج"
   },
   "vinEditForm": {
     "edit_vin_number": "تعديل رقم الشاصي",

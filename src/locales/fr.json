@@ -580,6 +580,8 @@
     "search_vin": "Rechercher un VIN...",
     "buy_bill_ref": "Réf. Facture d'Achat",
     "search_buy_bill_ref": "Rechercher une réf. facture d'achat...",
+    "no_buy_bill": "Pas de Facture d'Achat",
+    "combining_cars": "Combinaison des voitures...",
     "containerRef": "Réf. Conteneur",
     "container_ref": "Réf. Conteneur",
     "batch_sell_pricing": "Prix de Vente par Lot",
@@ -962,7 +964,13 @@
     "vin": "VIN",
     "export_license": "Licence d'exportation",
     "delivered": "Livré",
-    "mark_delivered_for_selected_cars": "Marquer les voitures sélectionnées comme livrées"
+    "mark_delivered_for_selected_cars": "Marquer les voitures sélectionnées comme livrées",
+    "combine": "Combiner",
+    "combine_by_buy_ref": "Combiner par référence d'achat",
+    "combine_by_container": "Combiner par conteneur",
+    "by_buy_ref": "Par référence d'achat",
+    "by_container": "Par conteneur",
+    "uncombine": "Décombiner"
   },
   "vinEditForm": {
     "edit_vin_number": "Modifier le numéro VIN",

@@ -1,9 +1,49 @@
 <script setup>
-import {} from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useEnhancedI18n } from '@/composables/useI18n'
 import CarStockPrintDropdown from './CarStockPrintDropdown.vue'
 
 const { t } = useEnhancedI18n()
+
+const isCombineDropdownOpen = ref(false)
+
+const toggleCombineDropdown = () => {
+  isCombineDropdownOpen.value = !isCombineDropdownOpen.value
+}
+
+const closeCombineDropdown = () => {
+  isCombineDropdownOpen.value = false
+}
+
+const handleCombineByBuyRef = () => {
+  emit('combine-by-buy-ref')
+  closeCombineDropdown()
+}
+
+const handleCombineByContainer = () => {
+  emit('combine-by-container')
+  closeCombineDropdown()
+}
+
+const handleUncombine = () => {
+  emit('uncombine')
+  closeCombineDropdown()
+}
+
+// Close dropdown when clicking outside
+const handleClickOutside = (event) => {
+  if (!event.target.closest('.combine-dropdown')) {
+    closeCombineDropdown()
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
+})
 
 const props = defineProps({
   selectedCars: {
@@ -26,6 +66,10 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  isCombineMode: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 const emit = defineEmits([
@@ -42,6 +86,9 @@ const emit = defineEmits([
   'delete-cars',
   'toggle-hidden',
   'mark-delivered',
+  'combine-by-buy-ref',
+  'combine-by-container',
+  'uncombine',
 ])
 </script>
 
@@ -228,6 +275,48 @@ const emit = defineEmits([
         @print-selected="$emit('print-selected')"
         @loading-order="$emit('loading-order')"
       />
+      <div class="combine-dropdown">
+        <button
+          @click="toggleCombineDropdown"
+          class="combine-dropdown-toggle"
+          :title="t('carStockToolbar.combine')"
+        >
+          <i class="fas fa-layer-group"></i>
+          <span>{{ t('carStockToolbar.combine') }}</span>
+          <i class="fas fa-chevron-down dropdown-arrow" :class="{ rotated: isCombineDropdownOpen }"></i>
+        </button>
+
+        <div v-if="isCombineDropdownOpen" class="combine-dropdown-menu">
+          <button
+            v-if="!isCombineMode"
+            @click="handleCombineByBuyRef"
+            class="combine-dropdown-item"
+            :title="t('carStockToolbar.combine_by_buy_ref')"
+          >
+            <i class="fas fa-shopping-cart"></i>
+            <span>{{ t('carStockToolbar.by_buy_ref') }}</span>
+          </button>
+          <button
+            v-if="!isCombineMode"
+            @click="handleCombineByContainer"
+            class="combine-dropdown-item"
+            :title="t('carStockToolbar.combine_by_container')"
+          >
+            <i class="fas fa-box"></i>
+            <span>{{ t('carStockToolbar.by_container') }}</span>
+          </button>
+          <div v-if="isCombineMode" class="combine-dropdown-divider"></div>
+          <button
+            v-if="isCombineMode"
+            @click="handleUncombine"
+            class="combine-dropdown-item uncombine-item"
+            :title="t('carStockToolbar.uncombine')"
+          >
+            <i class="fas fa-times-circle"></i>
+            <span>{{ t('carStockToolbar.uncombine') }}</span>
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -281,6 +370,7 @@ const emit = defineEmits([
 .toolbar-right {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -614,6 +704,128 @@ const emit = defineEmits([
   box-shadow: none;
 }
 
+/* Combine Dropdown Styles */
+.combine-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.combine-dropdown-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background-color: #6366f1;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  min-width: 100px;
+  justify-content: center;
+}
+
+.combine-dropdown-toggle:hover:not(:disabled) {
+  background-color: #4f46e5;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.combine-dropdown-toggle:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.combine-dropdown .dropdown-arrow {
+  font-size: 12px;
+  transition: transform 0.2s ease;
+}
+
+.combine-dropdown .dropdown-arrow.rotated {
+  transform: rotate(180deg);
+}
+
+.combine-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 1000;
+  min-width: 200px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  margin-top: 4px;
+  overflow: hidden;
+}
+
+.combine-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 16px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  color: #374151;
+  transition: background-color 0.2s ease;
+  text-align: left;
+}
+
+.combine-dropdown-item:hover:not(:disabled) {
+  background-color: #f3f4f6;
+  color: #1f2937;
+}
+
+.combine-dropdown-item:disabled {
+  color: #9ca3af;
+  cursor: not-allowed;
+  background-color: #f9fafb;
+}
+
+.combine-dropdown-item i {
+  width: 16px;
+  text-align: center;
+  color: #6b7280;
+}
+
+.combine-dropdown-item:hover:not(:disabled) i {
+  color: #374151;
+}
+
+.combine-dropdown-item:disabled i {
+  color: #d1d5db;
+}
+
+.combine-dropdown-divider {
+  height: 1px;
+  background-color: #e5e7eb;
+  margin: 4px 0;
+}
+
+.combine-dropdown-item.uncombine-item {
+  color: #ef4444;
+}
+
+.combine-dropdown-item.uncombine-item:hover:not(:disabled) {
+  background-color: #fef2f2;
+  color: #dc2626;
+}
+
+.combine-dropdown-item.uncombine-item i {
+  color: #ef4444;
+}
+
+.combine-dropdown-item.uncombine-item:hover:not(:disabled) i {
+  color: #dc2626;
+}
+
 @media (max-width: 768px) {
   .car-stock-toolbar {
     flex-direction: column;
@@ -625,6 +837,25 @@ const emit = defineEmits([
   .toolbar-left,
   .toolbar-right {
     justify-content: center;
+  }
+
+  .combine-dropdown-menu {
+    right: auto;
+    left: 0;
+    min-width: 180px;
+  }
+
+  .combine-dropdown-toggle {
+    min-width: 80px;
+    padding: 10px 12px;
+  }
+
+  .combine-dropdown-toggle span {
+    display: none;
+  }
+
+  .combine-dropdown-toggle i:first-child {
+    margin-right: 0;
   }
 }
 </style>

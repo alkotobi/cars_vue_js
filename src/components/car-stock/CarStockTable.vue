@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, computed, watch, onUnmounted } from 'vue'
+import { ref, onMounted, computed, watch, onUnmounted, nextTick } from 'vue'
 import { useEnhancedI18n } from '@/composables/useI18n'
 import { useApi } from '../../composables/useApi'
 import VinEditForm from './VinEditForm.vue'
@@ -23,7 +23,7 @@ import CarExportLicenseBulkEditForm from './CarExportLicenseBulkEditForm.vue'
 
 import { useRouter } from 'vue-router'
 
-const { t } = useEnhancedI18n()
+const { t, locale } = useEnhancedI18n()
 const isDropdownOpen = ref({})
 const props = defineProps({
   cars: Array,
@@ -144,6 +144,7 @@ const isProcessing = ref({
   load: false,
   task: false,
   notes: false,
+  combine: false,
 })
 
 // Add new refs and computed properties for VIN editing
@@ -240,6 +241,26 @@ const isAdmin = computed(() => {
   return user.value.role_id === 1
 })
 
+// Computed property for buy bill ref header translation
+const buyBillRefHeader = computed(() => {
+  const translation = t('carStock.buy_bill_ref')
+  // If translation returns the key or locale code, use fallback
+  if (translation === 'carStock.buy_bill_ref' || translation === 'en' || translation === locale.value) {
+    return 'Buy Bill Ref'
+  }
+  return translation
+})
+
+// Computed property for combining cars translation
+const combiningCarsText = computed(() => {
+  const translation = t('carStock.combining_cars')
+  // If translation returns the key or locale code, use fallback
+  if (translation === 'carStock.combining_cars' || translation === 'en' || translation === locale.value) {
+    return 'Combining cars...'
+  }
+  return translation
+})
+
 // Add to the data/refs section
 const showAdvancedFilter = ref(false)
 const advancedFilters = ref({})
@@ -249,6 +270,10 @@ const sortConfig = ref({
   key: 'id',
   direction: 'desc',
 })
+
+// Combine mode state
+const isCombineMode = ref(false)
+const previousSortConfig = ref(null)
 
 // Add sort function
 const toggleSort = (key) => {
@@ -263,6 +288,24 @@ const toggleSort = (key) => {
 // Add sorted cars computed property
 const sortedCars = computed(() => {
   if (!cars.value) return []
+
+  // If in combine mode, sort by buy_bill_ref first, then by id
+  if (isCombineMode.value) {
+    return [...cars.value].sort((a, b) => {
+      const aBuyRef = a.buy_bill_ref || ''
+      const bBuyRef = b.buy_bill_ref || ''
+      
+      // First sort by buy_bill_ref
+      if (aBuyRef !== bBuyRef) {
+        if (!aBuyRef) return 1
+        if (!bBuyRef) return -1
+        return aBuyRef.localeCompare(bBuyRef)
+      }
+      
+      // Then sort by id
+      return a.id - b.id
+    })
+  }
 
   return [...cars.value].sort((a, b) => {
     let aVal = a[sortConfig.value.key]
@@ -2250,6 +2293,147 @@ const handleMarkDelivered = async () => {
     alert(t('carStock.failed_to_mark_delivered') + (error.message ? `: ${error.message}` : ''))
   }
 }
+
+// Add handlers for combine actions
+const handleCombineByBuyRef = async () => {
+  // Show loading indicator immediately
+  isProcessing.value.combine = true
+  
+  // Force browser to render the loading indicator
+  // Use setTimeout to yield to the browser's render cycle
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  await new Promise((resolve) => requestAnimationFrame(resolve))
+  await new Promise((resolve) => setTimeout(resolve, 50))
+  
+  // Now do the computation
+  // Store previous sort config
+  previousSortConfig.value = { ...sortConfig.value }
+  
+  // Enable combine mode - this triggers the heavy computation
+  isCombineMode.value = true
+  
+  // Clear selection when entering combine mode
+  selectedCars.value.clear()
+  selectAll.value = false
+  
+  // Wait for computation to complete
+  await nextTick()
+  await nextTick()
+  await new Promise((resolve) => setTimeout(resolve, 100))
+  
+  // Hide loading indicator
+  isProcessing.value.combine = false
+}
+
+const handleCombineByContainer = () => {
+  // Placeholder - will be implemented later
+  console.log('Combine by container clicked')
+}
+
+const handleUncombine = () => {
+  // Restore previous sort config if available
+  if (previousSortConfig.value) {
+    sortConfig.value = { ...previousSortConfig.value }
+    previousSortConfig.value = null
+  }
+  
+  // Disable combine mode
+  isCombineMode.value = false
+  
+  // Keep selection - don't clear it
+  updateSelectAllState()
+}
+
+// Group cars by buy_bill_ref for combine mode
+const groupedCarsByBuyRef = computed(() => {
+  if (!isCombineMode.value || !sortedCars.value) return {}
+  
+  const groups = {}
+  sortedCars.value.forEach((car) => {
+    const buyRef = car.buy_bill_ref || 'no_buy_bill'
+    if (!groups[buyRef]) {
+      groups[buyRef] = []
+    }
+    groups[buyRef].push(car)
+  })
+  
+  return groups
+})
+
+// Get buy ref for a car (used in template)
+const getBuyRefForCar = (car) => {
+  return car.buy_bill_ref || null
+}
+
+// Check if this is the first car in a buy ref group
+const isFirstCarInGroup = (car, index) => {
+  if (!isCombineMode.value) return false
+  if (index === 0) return true
+  
+  const currentBuyRef = car.buy_bill_ref || null
+  const previousCar = sortedCars.value[index - 1]
+  const previousBuyRef = previousCar?.buy_bill_ref || null
+  
+  return currentBuyRef !== previousBuyRef
+}
+
+// Get row span for buy ref group
+const getBuyRefRowSpan = (car, index) => {
+  if (!isCombineMode.value) return 0
+  
+  const buyRef = car.buy_bill_ref || null
+  if (!buyRef) return 0
+  
+  // Count how many consecutive cars have the same buy ref
+  let count = 1
+  for (let i = index + 1; i < sortedCars.value.length; i++) {
+    if (sortedCars.value[i].buy_bill_ref === buyRef) {
+      count++
+    } else {
+      break
+    }
+  }
+  
+  return count
+}
+
+// Toggle selection for all cars in a buy ref group
+const toggleBuyRefGroupSelection = (buyRef) => {
+  if (!isCombineMode.value) return
+  
+  const carsInGroup = sortedCars.value.filter((car) => car.buy_bill_ref === buyRef)
+  const allSelected = carsInGroup.every((car) => selectedCars.value.has(car.id))
+  
+  if (allSelected) {
+    // Deselect all cars in group
+    carsInGroup.forEach((car) => {
+      selectedCars.value.delete(car.id)
+    })
+  } else {
+    // Select all cars in group
+    carsInGroup.forEach((car) => {
+      selectedCars.value.add(car.id)
+    })
+  }
+  
+  updateSelectAllState()
+}
+
+// Check if all cars in a buy ref group are selected
+const isBuyRefGroupSelected = (buyRef) => {
+  if (!isCombineMode.value) return false
+  
+  const carsInGroup = sortedCars.value.filter((car) => car.buy_bill_ref === buyRef)
+  if (carsInGroup.length === 0) return false
+  
+  return carsInGroup.every((car) => selectedCars.value.has(car.id))
+}
+
+// Get count of cars in a buy ref group
+const getBuyRefGroupCount = (buyRef) => {
+  if (!isCombineMode.value) return 0
+  return sortedCars.value.filter((car) => car.buy_bill_ref === buyRef).length
+}
 </script>
 
 <template>
@@ -2377,6 +2561,7 @@ const handleMarkDelivered = async () => {
         :can-change-color="can_change_car_color"
         :can-hide-car="can_hide_car"
         :is-admin="user?.role_id === 1"
+        :is-combine-mode="isCombineMode"
         @print-selected="handlePrintSelected"
         @loading-order="handleLoadingOrderFromToolbar"
         @vin="handleVinFromToolbar"
@@ -2391,12 +2576,18 @@ const handleMarkDelivered = async () => {
         @refresh="handleRefresh"
         @delete-cars="handleDeleteCars"
         @toggle-hidden="handleToggleHidden"
+        @combine-by-buy-ref="handleCombineByBuyRef"
+        @combine-by-container="handleCombineByContainer"
+        @uncombine="handleUncombine"
       />
 
-      <div class="table-container">
+      <div class="table-container" :class="{ 'processing-combine': isProcessing.combine }">
         <table class="cars-table">
           <thead>
             <tr>
+              <th v-if="isCombineMode" class="buy-ref-group-header frozen-column">
+                {{ buyBillRefHeader }}
+              </th>
               <th class="select-all-header">
                 <input
                   type="checkbox"
@@ -2469,12 +2660,6 @@ const handleMarkDelivered = async () => {
                   {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
                 </span>
               </th>
-              <th @click="toggleSort('warehouse_name')" class="sortable">
-                {{ t('carStock.warehouse') }}
-                <span v-if="sortConfig.key === 'warehouse_name'" class="sort-indicator">
-                  {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
-                </span>
-              </th>
               <th>{{ t('carStock.bl') }}</th>
               <th @click="toggleSort('notes')" class="sortable">
                 {{ t('carStock.notes') }}
@@ -2486,14 +2671,41 @@ const handleMarkDelivered = async () => {
           </thead>
           <tbody>
             <tr
-              v-for="car in sortedCars"
+              v-for="(car, index) in sortedCars"
               :key="car.id"
               :class="{
                 'used-car': car.is_used_car,
                 selected: selectedCars.has(car.id),
                 'hidden-car': car.hidden,
+                'buy-ref-group-row': isCombineMode && car.buy_bill_ref,
               }"
             >
+              <td
+                v-if="isCombineMode"
+                v-show="isFirstCarInGroup(car, index)"
+                :rowspan="getBuyRefRowSpan(car, index)"
+                class="buy-ref-group-cell frozen-column"
+                :class="{ 'group-selected': isBuyRefGroupSelected(car.buy_bill_ref) }"
+              >
+                <div class="buy-ref-group-content">
+                  <input
+                    type="checkbox"
+                    :checked="isBuyRefGroupSelected(car.buy_bill_ref)"
+                    @change="toggleBuyRefGroupSelection(car.buy_bill_ref)"
+                    :title="`Select all cars in ${car.buy_bill_ref || 'No Buy Bill'}`"
+                    class="group-checkbox"
+                  />
+                  <div class="buy-ref-text">
+                    <div class="buy-ref-label">
+                      {{ car.buy_bill_ref || t('carStock.no_buy_bill') }}
+                    </div>
+                    <div class="buy-ref-count">
+                      {{ getBuyRefGroupCount(car.buy_bill_ref) }}
+                      {{ getBuyRefGroupCount(car.buy_bill_ref) === 1 ? t('carStockToolbar.car') : t('carStockToolbar.cars') }}
+                    </div>
+                  </div>
+                </div>
+              </td>
               <td class="select-cell">
                 <input
                   type="checkbox"
@@ -2671,13 +2883,6 @@ const handleMarkDelivered = async () => {
                     </div>
                   </div>
                 </div>
-              </td>
-              <td>
-                <div v-if="car.warehouse_name" class="info-badge badge-warehouse">
-                  <i class="fas fa-building"></i>
-                  {{ car.warehouse_name }}
-                </div>
-                <div v-else>-</div>
               </td>
               <td class="documents-cell">
                 <div class="document-links">
@@ -3063,16 +3268,6 @@ const handleMarkDelivered = async () => {
           </div>
         </div>
 
-        <!-- Warehouse Section -->
-        <div class="card-section">
-          <div class="section-title">Warehouse</div>
-          <div v-if="car.warehouse_name" class="info-badge badge-warehouse">
-            <i class="fas fa-building"></i>
-            {{ car.warehouse_name }}
-          </div>
-          <div v-else class="card-value">-</div>
-        </div>
-
         <!-- Documents Section -->
         <div class="card-section">
           <div class="section-title">Documents</div>
@@ -3133,6 +3328,16 @@ const handleMarkDelivered = async () => {
       </div>
     </div>
   </div>
+
+  <!-- Combine Loading Overlay -->
+  <teleport to="body">
+    <div v-show="isProcessing.combine" class="combine-loading-overlay">
+      <div class="combine-loading-content">
+        <i class="fas fa-spinner fa-spin"></i>
+        <span>{{ combiningCarsText }}</span>
+      </div>
+    </div>
+  </teleport>
 
   <!-- Teleport Dropdown Menu -->
   <teleport to="body">
@@ -4629,5 +4834,145 @@ const handleMarkDelivered = async () => {
 
 .status-item span {
   white-space: nowrap;
+}
+
+/* Frozen Buy Ref Group Column Styles */
+.frozen-column {
+  position: sticky;
+  left: 0;
+  z-index: 10;
+  background-color: #f8f9fa;
+  border-right: 2px solid #e5e7eb;
+  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.1);
+}
+
+.buy-ref-group-header {
+  min-width: 280px !important;
+  max-width: 280px !important;
+  width: 280px !important;
+  padding: 12px;
+  text-align: center;
+  font-weight: 600;
+  background-color: #e0f2fe;
+  border-bottom: 2px solid #0ea5e9;
+  color: #0c4a6e;
+}
+
+.buy-ref-group-cell {
+  min-width: 280px !important;
+  max-width: 280px !important;
+  width: 280px !important;
+  padding: 12px;
+  vertical-align: top;
+  background-color: #f0f9ff;
+  border-right: 2px solid #0ea5e9;
+  border-bottom: 1px solid #bae6fd;
+}
+
+.buy-ref-group-cell.group-selected {
+  background-color: #dbeafe;
+  border-right-color: #3b82f6;
+}
+
+.buy-ref-group-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  width: 100%;
+}
+
+.group-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #3b82f6;
+}
+
+.buy-ref-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+}
+
+.buy-ref-label {
+  font-weight: 600;
+  font-size: 13px;
+  color: #1f2937;
+  word-break: break-word;
+  max-width: 100%;
+  overflow-wrap: break-word;
+}
+
+.buy-ref-count {
+  font-size: 11px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.buy-ref-group-row {
+  background-color: #fafafa;
+}
+
+.buy-ref-group-row:hover {
+  background-color: #f0f9ff;
+}
+
+.buy-ref-group-row.selected {
+  background-color: #e0f2fe;
+}
+
+/* Ensure frozen column stays on top of other columns when scrolling horizontally */
+.table-container {
+  position: relative;
+}
+
+.cars-table thead th.frozen-column {
+  z-index: 101;
+}
+
+.cars-table tbody td.frozen-column {
+  z-index: 10;
+}
+
+/* Combine Loading Overlay */
+.combine-loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  backdrop-filter: blur(2px);
+}
+
+.combine-loading-content {
+  background: white;
+  padding: 24px 32px;
+  border-radius: 8px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 16px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.combine-loading-content i {
+  font-size: 20px;
+  color: #3b82f6;
+}
+
+.table-container.processing-combine {
+  opacity: 0.6;
+  pointer-events: none;
 }
 </style>

@@ -377,7 +377,13 @@
     "vin": "车架号",
     "export_license": "出口许可证",
     "delivered": "已交付",
-    "mark_delivered_for_selected_cars": "将选定车辆标记为已交付"
+    "mark_delivered_for_selected_cars": "将选定车辆标记为已交付",
+    "combine": "合并",
+    "combine_by_buy_ref": "按购买参考合并",
+    "combine_by_container": "按容器合并",
+    "by_buy_ref": "按购买参考",
+    "by_container": "按容器",
+    "uncombine": "取消合并"
   },
   "vinEditForm": {
     "edit_vin_number": "编辑车架号",
@@ -713,6 +719,8 @@
     "search_vin": "搜索车架号",
     "buy_bill_ref": "购买账单参考",
     "search_buy_bill_ref": "搜索购买账单参考",
+    "no_buy_bill": "无购买账单",
+    "combining_cars": "合并汽车中...",
     "containerRef": "集装箱参考",
     "container_ref": "集装箱参考",
     "buy_price": "购买价格",

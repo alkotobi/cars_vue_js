@@ -395,7 +395,13 @@
     "toggle_hidden": "Toggle Hidden",
     "toggle_hidden_status": "Toggle hidden status of selected cars",
     "delivered": "Delivered",
-    "mark_delivered_for_selected_cars": "Mark selected cars as delivered"
+    "mark_delivered_for_selected_cars": "Mark selected cars as delivered",
+    "combine": "Combine",
+    "combine_by_buy_ref": "Combine by buy reference",
+    "combine_by_container": "Combine by container",
+    "by_buy_ref": "By Buy Ref",
+    "by_container": "By Container",
+    "uncombine": "Uncombine"
   },
   "vinEditForm": {
     "edit_vin_number": "Edit VIN Number",
@@ -718,6 +724,8 @@
     "search_vin": "Search VIN",
     "buy_bill_ref": "Buy Bill Ref",
     "search_buy_bill_ref": "Search buy bill ref",
+    "no_buy_bill": "No Buy Bill",
+    "combining_cars": "Combining cars...",
     "containerRef": "Container Ref",
     "container_ref": "Container Ref",
     "buy_price": "Buy Price",
