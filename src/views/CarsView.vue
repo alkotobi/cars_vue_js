@@ -14,6 +14,7 @@ import BuyView from './BuyView.vue'
 import SellBillsView from './SellBillsView.vue'
 import WarehousesView from './WarehousesView.vue'
 import ContainersView from './ContainersView.vue'
+import TeamsView from './TeamsView.vue'
 import StatisticsView from './StatisticsView.vue'
 import LoadingView from './LoadingView.vue'
 import { useApi } from '../composables/useApi'
@@ -42,6 +43,7 @@ const isProcessing = ref({
   warehouses: false,
   containers: false,
   containersRef: false,
+  teams: false,
   statistics: false,
   load: false,
   loadingInquiry: false,
@@ -101,6 +103,7 @@ const navigateTo = async (view) => {
       warehouses: 'Warehouses Management - Cars System',
       containers: 'Containers Management - Cars System',
       'containers-ref': 'Containers Reference - Cars System',
+      teams: 'Teams Management - Cars System',
       statistics: 'Statistics - Cars System',
       load: 'Loading Management - Cars System',
       'loading-inquiry': 'Loading Inquiry - Cars System',
@@ -499,6 +502,16 @@ const handleTrackingClick = async () => {
           <span>{{ t('cars.containers') }}</span>
           <i v-if="isProcessing.containers" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
+        <button
+          @click="navigateTo('teams')"
+          :class="{ active: activeView === 'teams', processing: isProcessing.teams }"
+          class="sidebar-btn"
+          :disabled="isProcessing.teams"
+        >
+          <i class="fas fa-users-cog"></i>
+          <span>{{ t('cars.teams') || 'Teams' }}</span>
+          <i v-if="isProcessing.teams" class="fas fa-spinner fa-spin loading-indicator"></i>
+        </button>
       </div>
     </div>
     <div class="main-content">
@@ -525,6 +538,7 @@ const handleTrackingClick = async () => {
           <SuppliersView v-if="currentView === 'suppliers'" :key="'suppliers'" />
           <WarehousesView v-if="currentView === 'warehouses'" :key="'warehouses'" />
           <ContainersView v-if="currentView === 'containers'" :key="'containers'" />
+          <TeamsView v-if="currentView === 'teams'" :key="'teams'" />
           <StatisticsView v-if="currentView === 'statistics'" :key="'statistics'" />
           <LoadingView v-if="currentView === 'load'" :key="'loading-view'" />
           <LoadingView v-if="currentView === 'loading-inquiry'" :key="'loading-inquiry-view'" />

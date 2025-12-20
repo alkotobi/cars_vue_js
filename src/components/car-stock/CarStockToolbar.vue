@@ -6,13 +6,43 @@ import CarStockPrintDropdown from './CarStockPrintDropdown.vue'
 const { t } = useEnhancedI18n()
 
 const isCombineDropdownOpen = ref(false)
+const isSelectionsDropdownOpen = ref(false)
+const isDocumentsDropdownOpen = ref(false)
 
 const toggleCombineDropdown = () => {
   isCombineDropdownOpen.value = !isCombineDropdownOpen.value
+  if (isCombineDropdownOpen.value) {
+    isSelectionsDropdownOpen.value = false
+    isDocumentsDropdownOpen.value = false
+  }
 }
 
 const closeCombineDropdown = () => {
   isCombineDropdownOpen.value = false
+}
+
+const toggleSelectionsDropdown = () => {
+  isSelectionsDropdownOpen.value = !isSelectionsDropdownOpen.value
+  if (isSelectionsDropdownOpen.value) {
+    isCombineDropdownOpen.value = false
+    isDocumentsDropdownOpen.value = false
+  }
+}
+
+const closeSelectionsDropdown = () => {
+  isSelectionsDropdownOpen.value = false
+}
+
+const toggleDocumentsDropdown = () => {
+  isDocumentsDropdownOpen.value = !isDocumentsDropdownOpen.value
+  if (isDocumentsDropdownOpen.value) {
+    isCombineDropdownOpen.value = false
+    isSelectionsDropdownOpen.value = false
+  }
+}
+
+const closeDocumentsDropdown = () => {
+  isDocumentsDropdownOpen.value = false
 }
 
 const handleCombineByBuyRef = () => {
@@ -34,6 +64,12 @@ const handleUncombine = () => {
 const handleClickOutside = (event) => {
   if (!event.target.closest('.combine-dropdown')) {
     closeCombineDropdown()
+  }
+  if (!event.target.closest('.selections-dropdown')) {
+    closeSelectionsDropdown()
+  }
+  if (!event.target.closest('.documents-dropdown')) {
+    closeDocumentsDropdown()
   }
 }
 
@@ -89,6 +125,10 @@ const emit = defineEmits([
   'combine-by-buy-ref',
   'combine-by-container',
   'uncombine',
+  'save-selection',
+  'show-selections',
+  'transfer',
+  'checkout',
 ])
 </script>
 
@@ -314,6 +354,71 @@ const emit = defineEmits([
           >
             <i class="fas fa-times-circle"></i>
             <span>{{ t('carStockToolbar.uncombine') }}</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="selections-dropdown">
+        <button
+          @click="toggleSelectionsDropdown"
+          class="selections-dropdown-toggle"
+          :title="t('carStockToolbar.selections')"
+        >
+          <i class="fas fa-bookmark"></i>
+          <span>{{ t('carStockToolbar.selections') || 'Selections' }}</span>
+          <i class="fas fa-chevron-down dropdown-arrow" :class="{ rotated: isSelectionsDropdownOpen }"></i>
+        </button>
+
+        <div v-if="isSelectionsDropdownOpen" class="selections-dropdown-menu">
+          <button
+            @click="$emit('save-selection'); closeSelectionsDropdown()"
+            class="selections-dropdown-item"
+            :disabled="selectedCars.size === 0"
+            :title="t('carStockToolbar.save_selection')"
+          >
+            <i class="fas fa-save"></i>
+            <span>{{ t('carStockToolbar.save_selection') || 'Save Selection' }}</span>
+          </button>
+          <button
+            @click="$emit('show-selections'); closeSelectionsDropdown()"
+            class="selections-dropdown-item"
+            :title="t('carStockToolbar.show_selections')"
+          >
+            <i class="fas fa-list"></i>
+            <span>{{ t('carStockToolbar.show_selections') || 'Show Selections' }}</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="documents-dropdown">
+        <button
+          @click="toggleDocumentsDropdown"
+          class="documents-dropdown-toggle"
+          :title="t('carStockToolbar.documents')"
+        >
+          <i class="fas fa-file-alt"></i>
+          <span>{{ t('carStockToolbar.documents') || 'Documents' }}</span>
+          <i class="fas fa-chevron-down dropdown-arrow" :class="{ rotated: isDocumentsDropdownOpen }"></i>
+        </button>
+
+        <div v-if="isDocumentsDropdownOpen" class="documents-dropdown-menu">
+          <button
+            @click="$emit('transfer'); closeDocumentsDropdown()"
+            class="documents-dropdown-item"
+            :disabled="selectedCars.size === 0"
+            :title="t('carStockToolbar.transfer')"
+          >
+            <i class="fas fa-exchange-alt"></i>
+            <span>{{ t('carStockToolbar.transfer') || 'Transfer' }}</span>
+          </button>
+          <button
+            @click="$emit('checkout'); closeDocumentsDropdown()"
+            class="documents-dropdown-item"
+            :disabled="selectedCars.size === 0"
+            :title="t('carStockToolbar.checkout')"
+          >
+            <i class="fas fa-shopping-cart"></i>
+            <span>{{ t('carStockToolbar.checkout') || 'Checkout' }}</span>
           </button>
         </div>
       </div>
@@ -826,6 +931,105 @@ const emit = defineEmits([
   color: #dc2626;
 }
 
+/* Selections Dropdown Styles */
+.selections-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.selections-dropdown-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background-color: #8b5cf6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  min-width: 100px;
+  justify-content: center;
+}
+
+.selections-dropdown-toggle:hover:not(:disabled) {
+  background-color: #7c3aed;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.selections-dropdown-toggle:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.selections-dropdown .dropdown-arrow {
+  font-size: 12px;
+  transition: transform 0.2s ease;
+}
+
+.selections-dropdown .dropdown-arrow.rotated {
+  transform: rotate(180deg);
+}
+
+.selections-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 1000;
+  min-width: 200px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  margin-top: 4px;
+  overflow: hidden;
+}
+
+.selections-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 16px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  color: #374151;
+  transition: background-color 0.2s ease;
+  text-align: left;
+}
+
+.selections-dropdown-item:hover:not(:disabled) {
+  background-color: #f3f4f6;
+  color: #1f2937;
+}
+
+.selections-dropdown-item:disabled {
+  color: #9ca3af;
+  cursor: not-allowed;
+  background-color: #f9fafb;
+}
+
+.selections-dropdown-item i {
+  width: 16px;
+  text-align: center;
+  color: #6b7280;
+}
+
+.selections-dropdown-item:hover:not(:disabled) i {
+  color: #374151;
+}
+
+.selections-dropdown-item:disabled i {
+  color: #d1d5db;
+}
+
 @media (max-width: 768px) {
   .car-stock-toolbar {
     flex-direction: column;
@@ -857,5 +1061,142 @@ const emit = defineEmits([
   .combine-dropdown-toggle i:first-child {
     margin-right: 0;
   }
+
+  .selections-dropdown-menu {
+    right: auto;
+    left: 0;
+    min-width: 180px;
+  }
+
+  .selections-dropdown-toggle {
+    min-width: 80px;
+    padding: 10px 12px;
+  }
+
+  .selections-dropdown-toggle span {
+    display: none;
+  }
+
+  .selections-dropdown-toggle i:first-child {
+    margin-right: 0;
+  }
+
+  .documents-dropdown-menu {
+    right: auto;
+    left: 0;
+    min-width: 180px;
+  }
+
+  .documents-dropdown-toggle {
+    min-width: 80px;
+    padding: 10px 12px;
+  }
+
+  .documents-dropdown-toggle span {
+    display: none;
+  }
+
+  .documents-dropdown-toggle i:first-child {
+    margin-right: 0;
+  }
+}
+
+/* Documents Dropdown Styles */
+.documents-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.documents-dropdown-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background-color: #06b6d4;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  min-width: 100px;
+  justify-content: center;
+}
+
+.documents-dropdown-toggle:hover:not(:disabled) {
+  background-color: #0891b2;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.documents-dropdown-toggle:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.documents-dropdown .dropdown-arrow {
+  font-size: 12px;
+  transition: transform 0.2s ease;
+}
+
+.documents-dropdown .dropdown-arrow.rotated {
+  transform: rotate(180deg);
+}
+
+.documents-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 1000;
+  min-width: 200px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  margin-top: 4px;
+  overflow: hidden;
+}
+
+.documents-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 16px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  color: #374151;
+  transition: background-color 0.2s ease;
+  text-align: left;
+}
+
+.documents-dropdown-item:hover:not(:disabled) {
+  background-color: #f3f4f6;
+  color: #1f2937;
+}
+
+.documents-dropdown-item:disabled {
+  color: #9ca3af;
+  cursor: not-allowed;
+  background-color: #f9fafb;
+}
+
+.documents-dropdown-item i {
+  width: 16px;
+  text-align: center;
+  color: #6b7280;
+}
+
+.documents-dropdown-item:hover:not(:disabled) i {
+  color: #374151;
+}
+
+.documents-dropdown-item:disabled i {
+  color: #d1d5db;
 }
 </style>

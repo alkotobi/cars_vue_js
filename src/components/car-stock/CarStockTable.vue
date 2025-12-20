@@ -20,6 +20,9 @@ import CarPortsBulkEditForm from './CarPortsBulkEditForm.vue'
 import CarNotesBulkEditForm from './CarNotesBulkEditForm.vue'
 import CarColorBulkEditForm from './CarColorBulkEditForm.vue'
 import CarExportLicenseBulkEditForm from './CarExportLicenseBulkEditForm.vue'
+import SaveSelectionForm from './SaveSelectionForm.vue'
+import SendSelectionForm from './SendSelectionForm.vue'
+import ShowSelectionsModal from './ShowSelectionsModal.vue'
 
 import { useRouter } from 'vue-router'
 
@@ -273,6 +276,7 @@ const sortConfig = ref({
 
 // Combine mode state
 const isCombineMode = ref(false)
+const combineModeType = ref(null) // 'buy_ref' or 'container'
 const previousSortConfig = ref(null)
 
 // Add sort function
@@ -289,22 +293,39 @@ const toggleSort = (key) => {
 const sortedCars = computed(() => {
   if (!cars.value) return []
 
-  // If in combine mode, sort by buy_bill_ref first, then by id
+  // If in combine mode, sort by the appropriate field
   if (isCombineMode.value) {
-    return [...cars.value].sort((a, b) => {
-      const aBuyRef = a.buy_bill_ref || ''
-      const bBuyRef = b.buy_bill_ref || ''
-      
-      // First sort by buy_bill_ref
-      if (aBuyRef !== bBuyRef) {
-        if (!aBuyRef) return 1
-        if (!bBuyRef) return -1
-        return aBuyRef.localeCompare(bBuyRef)
-      }
-      
-      // Then sort by id
-      return a.id - b.id
-    })
+    if (combineModeType.value === 'buy_ref') {
+      return [...cars.value].sort((a, b) => {
+        const aBuyRef = a.buy_bill_ref || ''
+        const bBuyRef = b.buy_bill_ref || ''
+        
+        // First sort by buy_bill_ref
+        if (aBuyRef !== bBuyRef) {
+          if (!aBuyRef) return 1
+          if (!bBuyRef) return -1
+          return aBuyRef.localeCompare(bBuyRef)
+        }
+        
+        // Then sort by id
+        return a.id - b.id
+      })
+    } else if (combineModeType.value === 'container') {
+      return [...cars.value].sort((a, b) => {
+        const aContainer = a.container_ref || ''
+        const bContainer = b.container_ref || ''
+        
+        // First sort by container_ref
+        if (aContainer !== bContainer) {
+          if (!aContainer) return 1
+          if (!bContainer) return -1
+          return aContainer.localeCompare(bContainer)
+        }
+        
+        // Then sort by id
+        return a.id - b.id
+      })
+    }
   }
 
   return [...cars.value].sort((a, b) => {
@@ -430,8 +451,8 @@ const handlePrintOptionsClose = () => {
 }
 
 const handlePrintWithOptions = async (printData) => {
-  const { columns, cars, subject, coreContent } = printData
-  console.log('Printing with options:', { columns, cars, subject, coreContent })
+  const { columns, cars, subject, coreContent, groupBy } = printData
+  console.log('Printing with options:', { columns, cars, subject, coreContent, groupBy })
 
   // Generate print content based on action type
   let title = subject || ''
@@ -481,6 +502,7 @@ const handlePrintWithOptions = async (printData) => {
     columns,
     contentBeforeTable,
     contentAfterTable,
+    groupBy: groupBy || '',
   })
 
   // Close the modal after handling the print event
@@ -547,7 +569,7 @@ const handleVinFromToolbar = () => {
 }
 
 const printReport = async (reportData) => {
-  const { title, cars: reportCars, columns, contentBeforeTable, contentAfterTable } = reportData
+  const { title, cars: reportCars, columns, contentBeforeTable, contentAfterTable, groupBy = '' } = reportData
 
   // Load assets if not already loaded
   if (!letterHeadUrl.value) {
@@ -624,6 +646,8 @@ const printReport = async (reportData) => {
         .table-header { background-color: #f8f9fa; border: 1px solid #dee2e6; padding: 8px 12px; text-align: left; font-weight: bold; color: #495057; white-space: nowrap; }
         .table-row:nth-child(even) { background-color: #f8f9fa; }
         .table-cell { border: 1px solid #dee2e6; padding: 8px 12px; text-align: left; vertical-align: top; }
+        .group-header-row { background-color: #e0f2fe; }
+        .group-header-cell { background-color: #e0f2fe; border: 2px solid #0ea5e9; padding: 10px 12px; font-weight: bold; color: #0c4a6e; }
         .content-after-table { margin-top: 20px; line-height: 1.6; font-size: 14px; }
         @media print { body { padding: 0; margin: 0; } .report-table { font-size: 10px; } .table-header, .table-cell { padding: 6px 8px; } .letter-head { max-height: 80px; } .report-title { font-size: 20px; margin-bottom: 20px; } }
       </style>
@@ -1842,6 +1866,11 @@ const handleColorBulkSave = (updatedCars) => {
 // Add new refs for color bulk edit form
 const showColorBulkEditForm = ref(false)
 
+// Add new refs for selections
+const showSaveSelectionForm = ref(false)
+const showSendSelectionForm = ref(false)
+const showSelectionsModal = ref(false)
+
 // Add computed property for color permission
 const can_change_car_color = computed(() => {
   if (!user.value) return false
@@ -2309,12 +2338,12 @@ const handleCombineByBuyRef = async () => {
   // Store previous sort config
   previousSortConfig.value = { ...sortConfig.value }
   
-  // Enable combine mode - this triggers the heavy computation
+  // Enable combine mode with buy_ref type
+  combineModeType.value = 'buy_ref'
   isCombineMode.value = true
   
-  // Clear selection when entering combine mode
-  selectedCars.value.clear()
-  selectAll.value = false
+  // Keep selection - don't clear it
+  updateSelectAllState()
   
   // Wait for computation to complete
   await nextTick()
@@ -2325,9 +2354,34 @@ const handleCombineByBuyRef = async () => {
   isProcessing.value.combine = false
 }
 
-const handleCombineByContainer = () => {
-  // Placeholder - will be implemented later
-  console.log('Combine by container clicked')
+const handleCombineByContainer = async () => {
+  // Show loading indicator immediately
+  isProcessing.value.combine = true
+  
+  // Force browser to render the loading indicator
+  // Use setTimeout to yield to the browser's render cycle
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  await new Promise((resolve) => requestAnimationFrame(resolve))
+  await new Promise((resolve) => setTimeout(resolve, 50))
+  
+  // Now do the computation
+  // Store previous sort config
+  previousSortConfig.value = { ...sortConfig.value }
+  
+  // Enable combine mode with container type
+  combineModeType.value = 'container'
+  isCombineMode.value = true
+  
+  // Keep selection - don't clear it
+  updateSelectAllState()
+  
+  // Wait for computation to complete
+  await nextTick()
+  await nextTick()
+  await new Promise((resolve) => setTimeout(resolve, 100))
+  
+  // Hide loading indicator
+  isProcessing.value.combine = false
 }
 
 const handleUncombine = () => {
@@ -2339,6 +2393,7 @@ const handleUncombine = () => {
   
   // Disable combine mode
   isCombineMode.value = false
+  combineModeType.value = null
   
   // Keep selection - don't clear it
   updateSelectAllState()
@@ -2365,43 +2420,74 @@ const getBuyRefForCar = (car) => {
   return car.buy_bill_ref || null
 }
 
-// Check if this is the first car in a buy ref group
+// Check if this is the first car in a group (buy ref or container)
 const isFirstCarInGroup = (car, index) => {
   if (!isCombineMode.value) return false
   if (index === 0) return true
   
-  const currentBuyRef = car.buy_bill_ref || null
-  const previousCar = sortedCars.value[index - 1]
-  const previousBuyRef = previousCar?.buy_bill_ref || null
-  
-  return currentBuyRef !== previousBuyRef
-}
-
-// Get row span for buy ref group
-const getBuyRefRowSpan = (car, index) => {
-  if (!isCombineMode.value) return 0
-  
-  const buyRef = car.buy_bill_ref || null
-  if (!buyRef) return 0
-  
-  // Count how many consecutive cars have the same buy ref
-  let count = 1
-  for (let i = index + 1; i < sortedCars.value.length; i++) {
-    if (sortedCars.value[i].buy_bill_ref === buyRef) {
-      count++
-    } else {
-      break
-    }
+  if (combineModeType.value === 'buy_ref') {
+    const currentBuyRef = car.buy_bill_ref || null
+    const previousCar = sortedCars.value[index - 1]
+    const previousBuyRef = previousCar?.buy_bill_ref || null
+    return currentBuyRef !== previousBuyRef
+  } else if (combineModeType.value === 'container') {
+    const currentContainer = car.container_ref || null
+    const previousCar = sortedCars.value[index - 1]
+    const previousContainer = previousCar?.container_ref || null
+    return currentContainer !== previousContainer
   }
   
-  return count
+  return false
 }
 
-// Toggle selection for all cars in a buy ref group
-const toggleBuyRefGroupSelection = (buyRef) => {
+// Get row span for group (buy ref or container)
+const getGroupRowSpan = (car, index) => {
+  if (!isCombineMode.value) return 0
+  
+  if (combineModeType.value === 'buy_ref') {
+    const buyRef = car.buy_bill_ref || null
+    if (!buyRef) return 0
+    
+    // Count how many consecutive cars have the same buy ref
+    let count = 1
+    for (let i = index + 1; i < sortedCars.value.length; i++) {
+      if (sortedCars.value[i].buy_bill_ref === buyRef) {
+        count++
+      } else {
+        break
+      }
+    }
+    return count
+  } else if (combineModeType.value === 'container') {
+    const containerRef = car.container_ref || null
+    if (!containerRef) return 0
+    
+    // Count how many consecutive cars have the same container ref
+    let count = 1
+    for (let i = index + 1; i < sortedCars.value.length; i++) {
+      if (sortedCars.value[i].container_ref === containerRef) {
+        count++
+      } else {
+        break
+      }
+    }
+    return count
+  }
+  
+  return 0
+}
+
+// Toggle selection for all cars in a group (buy ref or container)
+const toggleGroupSelection = (groupValue) => {
   if (!isCombineMode.value) return
   
-  const carsInGroup = sortedCars.value.filter((car) => car.buy_bill_ref === buyRef)
+  let carsInGroup = []
+  if (combineModeType.value === 'buy_ref') {
+    carsInGroup = sortedCars.value.filter((car) => car.buy_bill_ref === groupValue)
+  } else if (combineModeType.value === 'container') {
+    carsInGroup = sortedCars.value.filter((car) => car.container_ref === groupValue)
+  }
+  
   const allSelected = carsInGroup.every((car) => selectedCars.value.has(car.id))
   
   if (allSelected) {
@@ -2419,20 +2505,118 @@ const toggleBuyRefGroupSelection = (buyRef) => {
   updateSelectAllState()
 }
 
-// Check if all cars in a buy ref group are selected
-const isBuyRefGroupSelected = (buyRef) => {
+// Check if all cars in a group are selected (buy ref or container)
+const isGroupSelected = (groupValue) => {
   if (!isCombineMode.value) return false
   
-  const carsInGroup = sortedCars.value.filter((car) => car.buy_bill_ref === buyRef)
-  if (carsInGroup.length === 0) return false
+  let carsInGroup = []
+  if (combineModeType.value === 'buy_ref') {
+    carsInGroup = sortedCars.value.filter((car) => car.buy_bill_ref === groupValue)
+  } else if (combineModeType.value === 'container') {
+    carsInGroup = sortedCars.value.filter((car) => car.container_ref === groupValue)
+  }
   
+  if (carsInGroup.length === 0) return false
   return carsInGroup.every((car) => selectedCars.value.has(car.id))
 }
 
-// Get count of cars in a buy ref group
-const getBuyRefGroupCount = (buyRef) => {
+// Get count of cars in a group (buy ref or container)
+const getGroupCount = (groupValue) => {
   if (!isCombineMode.value) return 0
-  return sortedCars.value.filter((car) => car.buy_bill_ref === buyRef).length
+  
+  if (combineModeType.value === 'buy_ref') {
+    return sortedCars.value.filter((car) => car.buy_bill_ref === groupValue).length
+  } else if (combineModeType.value === 'container') {
+    return sortedCars.value.filter((car) => car.container_ref === groupValue).length
+  }
+  
+  return 0
+}
+
+// Get group value for display (buy ref or container)
+const getGroupValue = (car) => {
+  if (combineModeType.value === 'buy_ref') {
+    return car.buy_bill_ref || null
+  } else if (combineModeType.value === 'container') {
+    return car.container_ref || null
+  }
+  return null
+}
+
+// Get group label for header
+const getGroupHeaderLabel = computed(() => {
+  if (combineModeType.value === 'buy_ref') {
+    return buyBillRefHeader.value
+  } else if (combineModeType.value === 'container') {
+    const translation = t('carStock.container_ref')
+    if (translation === 'carStock.container_ref' || translation === 'en' || translation === locale.value) {
+      return 'Container Ref'
+    }
+    return translation
+  }
+  return ''
+})
+
+// Handlers for selections
+const handleSaveSelection = () => {
+  if (selectedCars.value.size === 0) {
+    alert(t('carStock.no_cars_selected_for_saving') || 'No cars selected')
+    return
+  }
+  showSaveSelectionForm.value = true
+}
+
+const handleSendSelection = () => {
+  if (selectedCars.value.size === 0) {
+    alert(t('carStock.no_cars_selected_for_sending') || 'No cars selected')
+    return
+  }
+  showSendSelectionForm.value = true
+}
+
+const handleShowSelections = () => {
+  showSelectionsModal.value = true
+}
+
+const handleSelectionSaved = (result) => {
+  alert(t('carStock.selection_saved_successfully') || 'Selection saved successfully')
+  showSaveSelectionForm.value = false
+}
+
+const handleSelectionSent = (result) => {
+  alert(t('carStock.selection_sent_successfully') || 'Selection sent successfully')
+  showSendSelectionForm.value = false
+}
+
+const handleSelectionLoaded = (selection) => {
+  // Clear current selection
+  selectedCars.value.clear()
+  // Select cars from loaded selection
+  selection.carIds.forEach((carId) => {
+    selectedCars.value.add(carId)
+  })
+  updateSelectAllState()
+  alert(
+    `${selection.carIds.length} ${selection.carIds.length === 1 ? (t('carStockToolbar.car') || 'car') : (t('carStockToolbar.cars') || 'cars')} ${t('carStock.loaded') || 'loaded'}`,
+  )
+}
+
+const handleTransfer = () => {
+  if (selectedCars.value.size === 0) {
+    alert(t('carStock.no_cars_selected_for_transfer') || 'No cars selected for transfer')
+    return
+  }
+  // TODO: Implement transfer functionality
+  console.log('Transfer clicked for cars:', Array.from(selectedCars.value))
+}
+
+const handleCheckout = () => {
+  if (selectedCars.value.size === 0) {
+    alert(t('carStock.no_cars_selected_for_checkout') || 'No cars selected for checkout')
+    return
+  }
+  // TODO: Implement checkout functionality
+  console.log('Checkout clicked for cars:', Array.from(selectedCars.value))
 }
 </script>
 
@@ -2579,6 +2763,11 @@ const getBuyRefGroupCount = (buyRef) => {
         @combine-by-buy-ref="handleCombineByBuyRef"
         @combine-by-container="handleCombineByContainer"
         @uncombine="handleUncombine"
+        @save-selection="handleSaveSelection"
+        @send-selection="handleSendSelection"
+        @show-selections="handleShowSelections"
+        @transfer="handleTransfer"
+        @checkout="handleCheckout"
       />
 
       <div class="table-container" :class="{ 'processing-combine': isProcessing.combine }">
@@ -2586,7 +2775,7 @@ const getBuyRefGroupCount = (buyRef) => {
           <thead>
             <tr>
               <th v-if="isCombineMode" class="buy-ref-group-header frozen-column">
-                {{ buyBillRefHeader }}
+                {{ getGroupHeaderLabel }}
               </th>
               <th class="select-all-header">
                 <input
@@ -2677,31 +2866,31 @@ const getBuyRefGroupCount = (buyRef) => {
                 'used-car': car.is_used_car,
                 selected: selectedCars.has(car.id),
                 'hidden-car': car.hidden,
-                'buy-ref-group-row': isCombineMode && car.buy_bill_ref,
+                'buy-ref-group-row': isCombineMode && ((combineModeType.value === 'buy_ref' && car.buy_bill_ref) || (combineModeType.value === 'container' && car.container_ref)),
               }"
             >
               <td
                 v-if="isCombineMode"
                 v-show="isFirstCarInGroup(car, index)"
-                :rowspan="getBuyRefRowSpan(car, index)"
+                :rowspan="getGroupRowSpan(car, index)"
                 class="buy-ref-group-cell frozen-column"
-                :class="{ 'group-selected': isBuyRefGroupSelected(car.buy_bill_ref) }"
+                :class="{ 'group-selected': isGroupSelected(getGroupValue(car)) }"
               >
                 <div class="buy-ref-group-content">
                   <input
                     type="checkbox"
-                    :checked="isBuyRefGroupSelected(car.buy_bill_ref)"
-                    @change="toggleBuyRefGroupSelection(car.buy_bill_ref)"
-                    :title="`Select all cars in ${car.buy_bill_ref || 'No Buy Bill'}`"
+                    :checked="isGroupSelected(getGroupValue(car))"
+                    @change="toggleGroupSelection(getGroupValue(car))"
+                    :title="`Select all cars in ${getGroupValue(car) || (combineModeType.value === 'buy_ref' ? t('carStock.no_buy_bill') : t('carStock.no_container_ref'))}`"
                     class="group-checkbox"
                   />
                   <div class="buy-ref-text">
                     <div class="buy-ref-label">
-                      {{ car.buy_bill_ref || t('carStock.no_buy_bill') }}
+                      {{ getGroupValue(car) || (combineModeType.value === 'buy_ref' ? t('carStock.no_buy_bill') : t('carStock.no_container_ref')) }}
                     </div>
                     <div class="buy-ref-count">
-                      {{ getBuyRefGroupCount(car.buy_bill_ref) }}
-                      {{ getBuyRefGroupCount(car.buy_bill_ref) === 1 ? t('carStockToolbar.car') : t('carStockToolbar.cars') }}
+                      {{ getGroupCount(getGroupValue(car)) }}
+                      {{ getGroupCount(getGroupValue(car)) === 1 ? t('carStockToolbar.car') : t('carStockToolbar.cars') }}
                     </div>
                   </div>
                 </div>
@@ -3544,6 +3733,27 @@ const getBuyRefGroupCount = (buyRef) => {
     :is-admin="isAdmin"
     @close="showExportLicenseBulkEditForm = false"
     @save="handleExportLicenseBulkSave"
+  />
+
+  <!-- Selections Components -->
+  <SaveSelectionForm
+    :show="showSaveSelectionForm"
+    :selected-car-ids="Array.from(selectedCars)"
+    @close="showSaveSelectionForm = false"
+    @saved="handleSelectionSaved"
+  />
+
+  <SendSelectionForm
+    :show="showSendSelectionForm"
+    :selected-car-ids="Array.from(selectedCars)"
+    @close="showSendSelectionForm = false"
+    @sent="handleSelectionSent"
+  />
+
+  <ShowSelectionsModal
+    :show="showSelectionsModal"
+    @close="showSelectionsModal = false"
+    @selection-loaded="handleSelectionLoaded"
   />
 </template>
 

@@ -30,11 +30,17 @@ const getSubjectStorageKey = (actionType) => `car-stock-${actionType}-subject`
 // Storage key for core content - action-specific
 const getCoreContentStorageKey = (actionType) => `car-stock-${actionType}-core-content`
 
+// Storage key for group by - action-specific
+const getGroupByStorageKey = (actionType) => `car-stock-${actionType}-group-by`
+
 // Subject text for the report
 const subjectText = ref('')
 
 // Core content for the report
 const coreContentText = ref('')
+
+// Group by option
+const groupBy = ref('')
 
 // Function to load saved column preferences for specific action
 const loadSavedColumns = (actionType) => {
@@ -253,27 +259,30 @@ const handleAction = () => {
     return
   }
 
-  // Save subject text and core content before emitting
+  // Save subject text, core content, and group by before emitting
   saveSubjectText(props.actionType)
   saveCoreContent(props.actionType)
+  saveGroupBy(props.actionType)
 
   isProcessing.value = true
 
   if (props.actionType === 'loading-order') {
-    // Emit the loading order event with selected columns, cars, subject, and core content
+    // Emit the loading order event with selected columns, cars, subject, core content, and group by
     emit('loading-order', {
       columns: selectedColumns,
       cars: props.selectedCars,
       subject: subjectText.value,
       coreContent: coreContentText.value,
+      groupBy: groupBy.value,
     })
   } else {
-    // Emit the print event with selected columns, cars, subject, and core content
+    // Emit the print event with selected columns, cars, subject, core content, and group by
     emit('print', {
       columns: selectedColumns,
       cars: props.selectedCars,
       subject: subjectText.value,
       coreContent: coreContentText.value,
+      groupBy: groupBy.value,
     })
   }
 
@@ -342,6 +351,50 @@ const handleSubjectChange = () => {
 const handleCoreContentChange = () => {
   saveCoreContent(props.actionType)
 }
+
+// Function to load saved group by for specific action
+const loadSavedGroupBy = (actionType) => {
+  try {
+    const storageKey = getGroupByStorageKey(actionType)
+    const saved = localStorage.getItem(storageKey)
+    if (saved) {
+      groupBy.value = saved
+    } else {
+      groupBy.value = ''
+    }
+  } catch (error) {
+    console.warn(`Failed to load saved group by for ${actionType}:`, error)
+    groupBy.value = ''
+  }
+}
+
+// Function to save group by for specific action
+const saveGroupBy = (actionType) => {
+  try {
+    const storageKey = getGroupByStorageKey(actionType)
+    localStorage.setItem(storageKey, groupBy.value)
+  } catch (error) {
+    console.warn(`Failed to save group by for ${actionType}:`, error)
+  }
+}
+
+// Function to handle group by changes
+const handleGroupByChange = () => {
+  saveGroupBy(props.actionType)
+}
+
+// Available group by options
+const groupByOptions = ref([
+  { value: '', label: t('carStockPrintOptions.no_grouping') || 'No Grouping' },
+  { value: 'buy_bill_ref', label: t('carStockPrintOptions.groupByBuyBillRef') || 'Buy Bill Ref' },
+  { value: 'container_ref', label: t('carStockPrintOptions.groupByContainerRef') || 'Container Ref' },
+  { value: 'client_name', label: t('carStockPrintOptions.groupByClient') || 'Client' },
+  { value: 'loading_port', label: t('carStockPrintOptions.groupByLoadingPort') || 'Loading Port' },
+  { value: 'discharge_port', label: t('carStockPrintOptions.groupByDischargePort') || 'Discharge Port' },
+  { value: 'warehouse_name', label: t('carStockPrintOptions.groupByWarehouse') || 'Warehouse' },
+  { value: 'status', label: t('carStockPrintOptions.groupByStatus') || 'Status' },
+  { value: 'color', label: t('carStockPrintOptions.groupByColor') || 'Color' },
+])
 </script>
 
 <template>
@@ -419,6 +472,34 @@ const handleCoreContentChange = () => {
             <div class="core-content-help">
               <i class="fas fa-info-circle"></i>
               <span>{{ t('carStockPrintOptions.reportCoreContentHelp') }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="group-by-section">
+          <div class="section-header">
+            <h4>
+              <i class="fas fa-layer-group"></i>
+              {{ t('carStockPrintOptions.groupBy') || 'Group By' }}
+            </h4>
+          </div>
+          <div class="group-by-container">
+            <select
+              v-model="groupBy"
+              @change="handleGroupByChange"
+              class="group-by-select"
+            >
+              <option
+                v-for="option in groupByOptions"
+                :key="option.value"
+                :value="option.value"
+              >
+                {{ option.label }}
+              </option>
+            </select>
+            <div class="group-by-help">
+              <i class="fas fa-info-circle"></i>
+              <span>{{ t('carStockPrintOptions.groupByHelp') || 'Group printed rows by a specific column' }}</span>
             </div>
           </div>
         </div>
@@ -675,6 +756,48 @@ const handleCoreContentChange = () => {
 }
 
 .core-content-help i {
+  color: #9ca3af;
+  font-size: 10px;
+}
+
+.group-by-section {
+  margin-bottom: 20px;
+}
+
+.group-by-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.group-by-select {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: all 0.2s ease;
+  background: white;
+  cursor: pointer;
+}
+
+.group-by-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.group-by-help {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #6b7280;
+  font-style: italic;
+}
+
+.group-by-help i {
   color: #9ca3af;
   font-size: 10px;
 }
