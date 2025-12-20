@@ -131,7 +131,7 @@ const can_edit_cars_prop = computed(() => {
 
 const emit = defineEmits(['refresh', 'warehouse-changed'])
 
-const { callApi, getFileUrl, getAssets } = useApi()
+const { callApi, getFileUrl, getAssets, getCarFiles, transferPhysicalCopy, getUsersForTransfer, getCustomClearanceAgents } = useApi()
 const letterHeadUrl = ref(null)
 const cars = ref([])
 const loading = ref(true)
@@ -229,6 +229,30 @@ const selectedCarForSwitchBuyBill = ref(null)
 
 // Add new refs for VIN assignment modal
 const showVinAssignmentModal = ref(false)
+
+// Batch transfer modal state
+const showBatchTransferModal = ref(false)
+const batchTransferToUserId = ref(null)
+const batchTransferNotes = ref('')
+const batchTransferExpectedReturn = ref('')
+const batchTransferAvailableUsers = ref([])
+const batchTransferFiles = ref([])
+const isBatchTransferring = ref(false)
+
+// Batch checkout modal state
+const showBatchCheckoutModal = ref(false)
+const batchCheckoutType = ref('user') // 'user', 'client', or 'custom_clearance_agent'
+const batchCheckoutUserId = ref(null)
+const batchCheckoutAgentId = ref(null)
+const batchCheckoutClientId = ref(null)
+const batchCheckoutClientName = ref('')
+const batchCheckoutClientContact = ref('')
+const batchCheckoutNotes = ref('')
+const batchCheckoutAvailableUsers = ref([])
+const batchCheckoutAvailableAgents = ref([])
+const batchCheckoutAvailableClients = ref([])
+const batchCheckoutFiles = ref([])
+const isBatchCheckouting = ref(false)
 
 // Add new refs for ports bulk edit form
 const showPortsBulkEditForm = ref(false)
@@ -2601,22 +2625,595 @@ const handleSelectionLoaded = (selection) => {
   )
 }
 
-const handleTransfer = () => {
-  if (selectedCars.value.size === 0) {
-    alert(t('carStock.no_cars_selected_for_transfer') || 'No cars selected for transfer')
-    return
+const handleTransfer = async () => {
+  console.log('[BatchTransfer] Starting batch transfer process')
+  
+  try {
+    // Validate required functions are available
+    if (typeof getCarFiles !== 'function') {
+      throw new Error('getCarFiles function is not available')
+    }
+    if (typeof transferPhysicalCopy !== 'function') {
+      throw new Error('transferPhysicalCopy function is not available')
+    }
+    if (typeof getUsersForTransfer !== 'function') {
+      throw new Error('getUsersForTransfer function is not available')
+    }
+    
+    if (!selectedCars || !selectedCars.value || selectedCars.value.size === 0) {
+      alert(t('carStock.no_cars_selected_for_transfer') || 'No cars selected for transfer')
+      return
+    }
+
+    if (!user.value || !user.value.id) {
+      console.error('[BatchTransfer] User not authenticated:', user.value)
+      alert(t('carStock.user_not_authenticated') || 'User not authenticated. Please log in again.')
+      return
+    }
+
+    // Get all selected cars - use sortedCars if available, otherwise use cars
+    const carsList = sortedCars?.value || cars.value || []
+    const selectedCarsList = carsList.filter((car) => selectedCars.value.has(car.id))
+    console.log('[BatchTransfer] Selected cars:', selectedCarsList.length, selectedCarsList.map(c => c.id))
+    
+    if (selectedCarsList.length === 0) {
+      alert(t('carStock.no_cars_selected_for_transfer') || 'No cars selected for transfer')
+      return
+    }
+
+    // Collect all files from all selected cars
+    const allFiles = []
+    const currentUserId = user.value.id
+    const errors = []
+
+    console.log('[BatchTransfer] Current user ID:', currentUserId)
+
+    for (const car of selectedCarsList) {
+      try {
+        console.log(`[BatchTransfer] Loading files for car ${car.id}`)
+        const carFiles = await getCarFiles(car.id)
+        console.log(`[BatchTransfer] Car ${car.id} files:`, carFiles?.length || 0, carFiles)
+        
+        if (!Array.isArray(carFiles)) {
+          console.warn(`[BatchTransfer] getCarFiles returned non-array for car ${car.id}:`, carFiles)
+          continue
+        }
+        
+        // Filter eligible files for this car
+        const eligibleFiles = carFiles.filter((f) => {
+          // Skip files with pending transfers
+          if (f.has_pending_transfer) {
+            console.log(`[BatchTransfer] File ${f.id} has pending transfer, skipping`)
+            return false
+          }
+
+          // Include files checked out to current user
+          if (f.physical_status === 'checked_out' && f.current_holder_id === currentUserId) {
+            console.log(`[BatchTransfer] File ${f.id} is checked out to user, eligible`)
+            return true
+          }
+
+          // Include available files where current user is holder
+          if (f.physical_status === 'available' && f.current_holder_id === currentUserId) {
+            console.log(`[BatchTransfer] File ${f.id} is available to user, eligible`)
+            return true
+          }
+
+          // Include files with no tracking record where current user is uploader
+          if (f.physical_status === null && f.uploaded_by === currentUserId) {
+            console.log(`[BatchTransfer] File ${f.id} has no tracking, user is uploader, eligible`)
+            return true
+          }
+
+          console.log(`[BatchTransfer] File ${f.id} not eligible:`, {
+            physical_status: f.physical_status,
+            current_holder_id: f.current_holder_id,
+            uploaded_by: f.uploaded_by,
+            currentUserId
+          })
+          return false
+        })
+
+        console.log(`[BatchTransfer] Car ${car.id} eligible files:`, eligibleFiles.length)
+
+        // Add car info to each file for reference
+        eligibleFiles.forEach((file) => {
+          allFiles.push({
+            ...file,
+            car_id: car.id,
+            car_name: car.car_name || `Car #${car.id}`,
+          })
+        })
+      } catch (err) {
+        const errorMsg = err.message || String(err)
+        console.error(`[BatchTransfer] Error loading files for car ${car.id}:`, err)
+        errors.push(`Car ${car.id}: ${errorMsg}`)
+      }
+    }
+
+    console.log('[BatchTransfer] Total eligible files:', allFiles.length)
+
+    if (allFiles.length === 0) {
+      if (errors.length > 0) {
+        console.error('[BatchTransfer] Errors occurred:', errors)
+        alert(
+          t('carStock.no_files_available_for_batch_transfer_with_errors') ||
+          `No files available for batch transfer. Errors: ${errors.join('; ')}`
+        )
+      } else {
+        alert(t('carStock.no_files_available_for_batch_transfer') || 'No files available for batch transfer. Please ensure you are the holder of the documents.')
+      }
+      return
+    }
+
+    // Store files for batch transfer
+    batchTransferFiles.value = allFiles
+    batchTransferToUserId.value = null
+    batchTransferNotes.value = ''
+    batchTransferExpectedReturn.value = ''
+
+    // Get users for transfer (use first file to get users)
+    try {
+      if (!allFiles[0] || !allFiles[0].id) {
+        throw new Error('Invalid file data: missing file ID')
+      }
+      
+      console.log('[BatchTransfer] Getting users for transfer, file ID:', allFiles[0].id)
+      const users = await getUsersForTransfer(allFiles[0].id)
+      console.log('[BatchTransfer] Users for transfer:', users)
+      
+      if (!Array.isArray(users)) {
+        throw new Error('Invalid response from getUsersForTransfer: expected array')
+      }
+      
+      batchTransferAvailableUsers.value = users
+      
+      if (users.length === 0) {
+        alert(t('carStock.no_users_available_for_transfer') || 'No users available for transfer. Please contact an administrator.')
+        return
+      }
+      
+      console.log('[BatchTransfer] Opening modal with', allFiles.length, 'files and', users.length, 'users')
+      showBatchTransferModal.value = true
+    } catch (err) {
+      const errorMsg = err.message || String(err)
+      console.error('[BatchTransfer] Error loading users for transfer:', err)
+      alert(t('carStock.failed_to_load_users_for_transfer') || 'Failed to load users for transfer: ' + errorMsg)
+    }
+  } catch (err) {
+    const errorMsg = err.message || String(err)
+    const errorStack = err.stack || ''
+    console.error('[BatchTransfer] Error preparing batch transfer:', {
+      message: errorMsg,
+      stack: errorStack,
+      error: err,
+      selectedCars: selectedCars?.value?.size,
+      user: user.value?.id,
+      sortedCars: sortedCars?.value?.length,
+      cars: cars.value?.length,
+      getCarFiles: typeof getCarFiles,
+      transferPhysicalCopy: typeof transferPhysicalCopy,
+      getUsersForTransfer: typeof getUsersForTransfer,
+    })
+    alert(
+      (t('carStock.failed_to_prepare_batch_transfer') || 'Failed to prepare batch transfer') +
+      ': ' + errorMsg +
+      (errorStack ? '\n\nCheck console for details.' : '')
+    )
   }
-  // TODO: Implement transfer functionality
-  console.log('Transfer clicked for cars:', Array.from(selectedCars.value))
 }
 
-const handleCheckout = () => {
-  if (selectedCars.value.size === 0) {
-    alert(t('carStock.no_cars_selected_for_checkout') || 'No cars selected for checkout')
+const confirmBatchTransfer = async () => {
+  if (!batchTransferToUserId.value) {
+    alert(t('carStock.please_select_user_to_transfer_to') || 'Please select a user to transfer to')
     return
   }
-  // TODO: Implement checkout functionality
-  console.log('Checkout clicked for cars:', Array.from(selectedCars.value))
+
+  if (batchTransferFiles.value.length === 0) {
+    alert(t('carStock.no_files_to_transfer') || 'No files to transfer')
+    return
+  }
+
+  isBatchTransferring.value = true
+
+  try {
+    const results = []
+    const errors = []
+    const currentUserId = user.value?.id
+
+    // Loop through all files and transfer each one
+    for (const file of batchTransferFiles.value) {
+      try {
+        // Double-check eligibility before transferring
+        const isEligible =
+          (!file.has_pending_transfer &&
+            ((file.physical_status === 'checked_out' && file.current_holder_id === currentUserId) ||
+              (file.physical_status === 'available' && file.current_holder_id === currentUserId) ||
+              (file.physical_status === null && file.uploaded_by === currentUserId)))
+
+        if (!isEligible) {
+          errors.push({
+            file: file.file_name,
+            car: file.car_name,
+            error: 'File is not eligible for transfer',
+          })
+          continue
+        }
+
+        await transferPhysicalCopy(
+          file.id,
+          batchTransferToUserId.value,
+          batchTransferNotes.value || null,
+          batchTransferExpectedReturn.value || null,
+        )
+        results.push({ file: file.file_name, car: file.car_name })
+      } catch (err) {
+        errors.push({
+          file: file.file_name,
+          car: file.car_name,
+          error: err.message || 'Failed to transfer',
+        })
+      }
+    }
+
+    // Show results
+    if (errors.length > 0) {
+      const errorMsg =
+        t('carStock.batch_transfer_completed_with_errors') ||
+        `Batch transfer completed with errors. ${results.length} succeeded, ${errors.length} failed.`
+      alert(errorMsg)
+      console.error('Batch transfer errors:', errors)
+    } else {
+      const successMsg =
+        t('carStock.batch_transfer_success') || `Successfully transferred ${results.length} file(s)`
+      alert(successMsg)
+    }
+
+    // Close modal and refresh
+    showBatchTransferModal.value = false
+    batchTransferFiles.value = []
+    fetchCarsStock()
+  } catch (err) {
+    console.error('Error performing batch transfer:', err)
+    alert(t('carStock.failed_to_perform_batch_transfer') || 'Failed to perform batch transfer: ' + err.message)
+  } finally {
+    isBatchTransferring.value = false
+  }
+}
+
+const closeBatchTransferModal = () => {
+  showBatchTransferModal.value = false
+  batchTransferFiles.value = []
+  batchTransferToUserId.value = null
+  batchTransferNotes.value = ''
+  batchTransferExpectedReturn.value = ''
+}
+
+const handleCheckout = async () => {
+  console.log('[BatchCheckout] Starting batch checkout process')
+  
+  try {
+    if (selectedCars.value.size === 0) {
+      alert(t('carStock.no_cars_selected_for_checkout') || 'No cars selected for checkout')
+      return
+    }
+
+    if (!user.value || !user.value.id) {
+      console.error('[BatchCheckout] User not authenticated:', user.value)
+      alert(t('carStock.user_not_authenticated') || 'User not authenticated. Please log in again.')
+      return
+    }
+
+    // Get all selected cars - use sortedCars if available, otherwise use cars
+    const carsList = sortedCars?.value || cars.value || []
+    const selectedCarsList = carsList.filter((car) => car && selectedCars.value.has(car.id))
+    console.log('[BatchCheckout] Selected cars:', selectedCarsList.length, selectedCarsList.map(c => c?.id))
+    
+    if (selectedCarsList.length === 0) {
+      alert(t('carStock.no_cars_selected_for_checkout') || 'No cars selected for checkout')
+      return
+    }
+
+    // Collect all files from all selected cars
+    const allFiles = []
+    const currentUserId = user.value.id
+    const errors = []
+
+    console.log('[BatchCheckout] Current user ID:', currentUserId)
+
+    for (const car of selectedCarsList) {
+      if (!car || !car.id) {
+        console.warn('[BatchCheckout] Skipping invalid car:', car)
+        continue
+      }
+      
+      try {
+        console.log(`[BatchCheckout] Loading files for car ${car.id}`)
+        
+        if (!getCarFiles) {
+          throw new Error('getCarFiles function is not available')
+        }
+        
+        const carFiles = await getCarFiles(car.id)
+        console.log(`[BatchCheckout] Car ${car.id} files:`, carFiles?.length || 0, carFiles)
+        
+        if (!Array.isArray(carFiles)) {
+          console.warn(`[BatchCheckout] getCarFiles returned non-array for car ${car.id}:`, carFiles)
+          continue
+        }
+        
+        // Filter eligible files for this car
+        const eligibleFiles = carFiles.filter((f) => {
+          // Skip files with pending transfers
+          if (f.has_pending_transfer) {
+            console.log(`[BatchCheckout] File ${f.id} has pending transfer, skipping`)
+            return false
+          }
+
+          // Include files checked out to current user
+          if (f.physical_status === 'checked_out' && f.current_holder_id === currentUserId) {
+            console.log(`[BatchCheckout] File ${f.id} is checked out to user, eligible`)
+            return true
+          }
+
+          // Include available files where current user is holder
+          if (f.physical_status === 'available' && f.current_holder_id === currentUserId) {
+            console.log(`[BatchCheckout] File ${f.id} is available to user, eligible`)
+            return true
+          }
+
+          // Include files with no tracking record where current user is uploader
+          if (f.physical_status === null && f.uploaded_by === currentUserId) {
+            console.log(`[BatchCheckout] File ${f.id} has no tracking, user is uploader, eligible`)
+            return true
+          }
+
+          console.log(`[BatchCheckout] File ${f.id} not eligible:`, {
+            physical_status: f.physical_status,
+            current_holder_id: f.current_holder_id,
+            uploaded_by: f.uploaded_by,
+            currentUserId
+          })
+          return false
+        })
+
+        console.log(`[BatchCheckout] Car ${car.id} eligible files:`, eligibleFiles.length)
+
+        // Add car info to each file for reference
+        eligibleFiles.forEach((file) => {
+          allFiles.push({
+            ...file,
+            car_id: car.id,
+            car_name: car.car_name || `Car #${car.id}`,
+          })
+        })
+      } catch (err) {
+        const errorMsg = err.message || String(err)
+        console.error(`[BatchCheckout] Error loading files for car ${car.id}:`, err)
+        errors.push(`Car ${car.id}: ${errorMsg}`)
+      }
+    }
+
+    console.log('[BatchCheckout] Total eligible files:', allFiles.length)
+
+    if (allFiles.length === 0) {
+      if (errors.length > 0) {
+        console.error('[BatchCheckout] Errors occurred:', errors)
+        alert(
+          t('carStock.no_files_available_for_batch_checkout_with_errors') ||
+          `No files available for batch checkout. Errors: ${errors.join('; ')}`
+        )
+      } else {
+        alert(t('carStock.no_files_available_for_batch_checkout') || 'No files available for batch checkout. Please ensure you are the holder of the documents.')
+      }
+      return
+    }
+
+    // Store files for batch checkout
+    batchCheckoutFiles.value = allFiles
+    batchCheckoutType.value = 'user'
+    batchCheckoutUserId.value = null
+    batchCheckoutAgentId.value = null
+    batchCheckoutClientId.value = null
+    batchCheckoutClientName.value = ''
+    batchCheckoutClientContact.value = ''
+    batchCheckoutNotes.value = ''
+
+    // Load users, clients, and agents
+    try {
+      if (!allFiles[0] || !allFiles[0].id) {
+        throw new Error('Invalid file data: missing file ID')
+      }
+      
+      console.log('[BatchCheckout] Loading users, clients, and agents...')
+      
+      // Load users
+      if (getUsersForTransfer) {
+        const users = await getUsersForTransfer(allFiles[0].id)
+        batchCheckoutAvailableUsers.value = Array.isArray(users) ? users : []
+      }
+      
+      // Load clients
+      const clientsResult = await callApi({
+        query: 'SELECT id, name, email, mobiles, address FROM clients WHERE is_client = 1 ORDER BY name ASC',
+        params: [],
+        requiresAuth: true,
+      })
+      if (clientsResult.success) {
+        batchCheckoutAvailableClients.value = clientsResult.data || []
+      }
+      
+      // Load agents
+      if (getCustomClearanceAgents) {
+        const agents = await getCustomClearanceAgents()
+        batchCheckoutAvailableAgents.value = Array.isArray(agents) ? agents : []
+      }
+      
+      console.log('[BatchCheckout] Data loaded:', {
+        users: batchCheckoutAvailableUsers.value.length,
+        clients: batchCheckoutAvailableClients.value.length,
+        agents: batchCheckoutAvailableAgents.value.length
+      })
+      
+      if (batchCheckoutAvailableUsers.value.length === 0 && 
+          batchCheckoutAvailableClients.value.length === 0 && 
+          batchCheckoutAvailableAgents.value.length === 0) {
+        alert(t('carStock.no_checkout_options_available') || 'No checkout options available. Please contact an administrator.')
+        return
+      }
+      
+      showBatchCheckoutModal.value = true
+    } catch (err) {
+      const errorMsg = err.message || String(err)
+      console.error('[BatchCheckout] Error loading checkout data:', err)
+      alert(t('carStock.failed_to_load_checkout_data') || 'Failed to load checkout data: ' + errorMsg)
+    }
+  } catch (err) {
+    const errorMsg = err.message || String(err)
+    const errorStack = err.stack || ''
+    console.error('[BatchCheckout] Error preparing batch checkout:', {
+      message: errorMsg,
+      stack: errorStack,
+      error: err,
+      selectedCars: selectedCars?.value?.size,
+      user: user.value?.id,
+      sortedCars: sortedCars?.value?.length,
+      cars: cars.value?.length,
+      getCarFiles: typeof getCarFiles,
+      getUsersForTransfer: typeof getUsersForTransfer,
+      getCustomClearanceAgents: typeof getCustomClearanceAgents,
+    })
+    alert(
+      (t('carStock.failed_to_prepare_batch_checkout') || 'Failed to prepare batch checkout') +
+      ': ' + errorMsg +
+      (errorStack ? '\n\nCheck console for details.' : '')
+    )
+  }
+}
+
+const confirmBatchCheckout = async () => {
+  // Validate based on checkout type
+  if (batchCheckoutType.value === 'user' && !batchCheckoutUserId.value) {
+    alert(t('carStock.please_select_user_for_checkout') || 'Please select a user')
+    return
+  }
+  if (batchCheckoutType.value === 'custom_clearance_agent' && !batchCheckoutAgentId.value) {
+    alert(t('carStock.please_select_agent_for_checkout') || 'Please select a custom clearance agent')
+    return
+  }
+  if (batchCheckoutType.value === 'client' && !batchCheckoutClientId.value && !batchCheckoutClientName.value) {
+    alert(t('carStock.please_select_client_for_checkout') || 'Please select a client or enter client name')
+    return
+  }
+
+  if (batchCheckoutFiles.value.length === 0) {
+    alert(t('carStock.no_files_to_checkout') || 'No files to checkout')
+    return
+  }
+
+  isBatchCheckouting.value = true
+
+  try {
+    const results = []
+    const errors = []
+    const currentUserId = user.value?.id
+
+    // Loop through all files and checkout each one
+    for (const file of batchCheckoutFiles.value) {
+      try {
+        // Double-check eligibility before checking out
+        const isEligible =
+          (!file.has_pending_transfer &&
+            ((file.physical_status === 'checked_out' && file.current_holder_id === currentUserId) ||
+              (file.physical_status === 'available' && file.current_holder_id === currentUserId) ||
+              (file.physical_status === null && file.uploaded_by === currentUserId)))
+
+        if (!isEligible) {
+          errors.push({
+            file: file.file_name,
+            car: file.car_name,
+            error: 'File is not eligible for checkout',
+          })
+          continue
+        }
+
+        const result = await callApi({
+          action: 'checkout_physical_copy',
+          file_id: file.id,
+          checkout_type: batchCheckoutType.value,
+          user_id: batchCheckoutType.value === 'user' ? batchCheckoutUserId.value : null,
+          agent_id: batchCheckoutType.value === 'custom_clearance_agent' ? batchCheckoutAgentId.value : null,
+          client_id: batchCheckoutType.value === 'client' ? batchCheckoutClientId.value : null,
+          client_name: batchCheckoutType.value === 'client' ? batchCheckoutClientName.value : null,
+          client_contact: batchCheckoutType.value === 'client' ? batchCheckoutClientContact.value : null,
+          notes: batchCheckoutNotes.value || null,
+          performed_by: currentUserId,
+          requiresAuth: true,
+        })
+
+        if (result.success) {
+          results.push({ file: file.file_name, car: file.car_name })
+        } else {
+          errors.push({
+            file: file.file_name,
+            car: file.car_name,
+            error: result.error || 'Failed to checkout',
+          })
+        }
+      } catch (err) {
+        errors.push({
+          file: file.file_name,
+          car: file.car_name,
+          error: err.message || 'Failed to checkout',
+        })
+      }
+    }
+
+    // Show results
+    if (errors.length > 0) {
+      const errorMsg =
+        t('carStock.batch_checkout_completed_with_errors') ||
+        `Batch checkout completed with errors. ${results.length} succeeded, ${errors.length} failed.`
+      alert(errorMsg)
+      console.error('Batch checkout errors:', errors)
+    } else {
+      const successMsg =
+        t('carStock.batch_checkout_success') || `Successfully checked out ${results.length} file(s)`
+      alert(successMsg)
+    }
+
+    // Close modal and refresh
+    showBatchCheckoutModal.value = false
+    batchCheckoutFiles.value = []
+    fetchCarsStock()
+  } catch (err) {
+    console.error('Error performing batch checkout:', err)
+    alert(t('carStock.failed_to_perform_batch_checkout') || 'Failed to perform batch checkout: ' + err.message)
+  } finally {
+    isBatchCheckouting.value = false
+  }
+}
+
+const handleClientChange = () => {
+  if (batchCheckoutClientId.value) {
+    const client = batchCheckoutAvailableClients.value.find(c => c.id === batchCheckoutClientId.value)
+    if (client) {
+      batchCheckoutClientName.value = client.name || ''
+      batchCheckoutClientContact.value = client.mobiles || client.email || ''
+    }
+  }
+}
+
+const closeBatchCheckoutModal = () => {
+  showBatchCheckoutModal.value = false
+  batchCheckoutFiles.value = []
+  batchCheckoutType.value = 'user'
+  batchCheckoutUserId.value = null
+  batchCheckoutAgentId.value = null
+  batchCheckoutClientId.value = null
+  batchCheckoutClientName.value = ''
+  batchCheckoutClientContact.value = ''
+  batchCheckoutNotes.value = ''
 }
 </script>
 
@@ -3755,6 +4352,260 @@ const handleCheckout = () => {
     @close="showSelectionsModal = false"
     @selection-loaded="handleSelectionLoaded"
   />
+
+  <!-- Batch Transfer Modal -->
+  <div v-if="showBatchTransferModal" class="modal-overlay" @click="closeBatchTransferModal">
+    <div class="modal-content batch-transfer-modal" @click.stop>
+      <div class="modal-header">
+        <h3>{{ t('carStock.batch_transfer_documents') || 'Batch Transfer Documents' }}</h3>
+        <button class="close-btn" @click="closeBatchTransferModal">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="info-section">
+          <i class="fas fa-info-circle"></i>
+          <span>
+            {{ t('carStock.batch_transfer_info', { count: batchTransferFiles.length, cars: selectedCars.size }) ||
+            `Transferring ${batchTransferFiles.length} file(s) from ${selectedCars.size} selected car(s)` }}
+          </span>
+        </div>
+
+        <div class="form-group">
+          <label>{{ t('carStock.transfer_to_user') || 'Transfer To User' }} *</label>
+          <select
+            v-model="batchTransferToUserId"
+            class="form-select"
+            :disabled="isBatchTransferring"
+          >
+            <option value="">{{ t('carStock.select_user') || 'Select a user...' }}</option>
+            <option
+              v-for="userOption in batchTransferAvailableUsers"
+              :key="userOption.id"
+              :value="userOption.id"
+            >
+              {{ userOption.name || userOption.username }}
+            </option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>{{ t('carStock.notes') || 'Notes' }} ({{ t('carStock.optional') || 'Optional' }})</label>
+          <textarea
+            v-model="batchTransferNotes"
+            class="form-textarea"
+            rows="3"
+            :disabled="isBatchTransferring"
+            :placeholder="t('carStock.transfer_notes_placeholder') || 'Add any notes about this transfer...'"
+          ></textarea>
+        </div>
+
+        <div class="form-group">
+          <label>{{ t('carStock.expected_return_date') || 'Expected Return Date' }} ({{ t('carStock.optional') || 'Optional' }})</label>
+          <input
+            v-model="batchTransferExpectedReturn"
+            type="date"
+            class="form-input"
+            :disabled="isBatchTransferring"
+          />
+        </div>
+
+        <div v-if="batchTransferFiles.length > 0" class="files-preview">
+          <h4>{{ t('carStock.files_to_transfer') || 'Files to Transfer' }} ({{ batchTransferFiles.length }})</h4>
+          <div class="files-list">
+            <div
+              v-for="(file, index) in batchTransferFiles"
+              :key="index"
+              class="file-item"
+            >
+              <i class="fas fa-file"></i>
+              <span>{{ file.file_name }}</span>
+              <span class="car-name">({{ file.car_name }})</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button
+          @click="closeBatchTransferModal"
+          class="cancel-btn"
+          :disabled="isBatchTransferring"
+        >
+          {{ t('carStock.cancel') || 'Cancel' }}
+        </button>
+        <button
+          @click="confirmBatchTransfer"
+          class="confirm-btn"
+          :disabled="isBatchTransferring || !batchTransferToUserId"
+        >
+          <i v-if="isBatchTransferring" class="fas fa-spinner fa-spin"></i>
+          {{ t('carStock.confirm_transfer') || 'Confirm Transfer' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Batch Checkout Modal -->
+  <div v-if="showBatchCheckoutModal" class="modal-overlay" @click="closeBatchCheckoutModal">
+    <div class="modal-content batch-checkout-modal" @click.stop>
+      <div class="modal-header">
+        <h3>{{ t('carStock.batch_checkout_documents') || 'Batch Checkout Documents' }}</h3>
+        <button class="close-btn" @click="closeBatchCheckoutModal">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="info-section">
+          <i class="fas fa-info-circle"></i>
+          <span>
+            {{ t('carStock.batch_checkout_info', { count: batchCheckoutFiles.length, cars: selectedCars.size }) ||
+            `Checking out ${batchCheckoutFiles.length} file(s) from ${selectedCars.size} selected car(s)` }}
+          </span>
+        </div>
+
+        <div class="form-group">
+          <label>{{ t('carStock.checkout_to') || 'Check Out To' }} *</label>
+          <select
+            v-model="batchCheckoutType"
+            class="form-select"
+            :disabled="isBatchCheckouting"
+          >
+            <option value="user">{{ t('carStock.user') || 'User' }}</option>
+            <option value="client">{{ t('carStock.client') || 'Client' }}</option>
+            <option value="custom_clearance_agent">{{ t('carStock.custom_clearance_agent') || 'Custom Clearance Agent' }}</option>
+          </select>
+        </div>
+
+        <!-- User Selection -->
+        <div v-if="batchCheckoutType === 'user'" class="form-group">
+          <label>{{ t('carStock.select_user') || 'Select User' }} *</label>
+          <select
+            v-model="batchCheckoutUserId"
+            class="form-select"
+            :disabled="isBatchCheckouting"
+          >
+            <option value="">{{ t('carStock.select_user') || 'Select a user...' }}</option>
+            <option
+              v-for="userOption in batchCheckoutAvailableUsers"
+              :key="userOption.id"
+              :value="userOption.id"
+            >
+              {{ userOption.name || userOption.username }}
+            </option>
+          </select>
+        </div>
+
+        <!-- Agent Selection -->
+        <div v-if="batchCheckoutType === 'custom_clearance_agent'" class="form-group">
+          <label>{{ t('carStock.select_agent') || 'Select Custom Clearance Agent' }} *</label>
+          <select
+            v-model="batchCheckoutAgentId"
+            class="form-select"
+            :disabled="isBatchCheckouting"
+          >
+            <option value="">{{ t('carStock.select_agent') || 'Select an agent...' }}</option>
+            <option
+              v-for="agent in batchCheckoutAvailableAgents"
+              :key="agent.id"
+              :value="agent.id"
+            >
+              {{ agent.name }}
+            </option>
+          </select>
+        </div>
+
+        <!-- Client Selection -->
+        <div v-if="batchCheckoutType === 'client'" class="form-group">
+          <label>{{ t('carStock.select_client') || 'Select Client' }} *</label>
+          <select
+            v-model="batchCheckoutClientId"
+            class="form-select"
+            :disabled="isBatchCheckouting"
+            @change="handleClientChange"
+          >
+            <option value="">{{ t('carStock.select_client') || 'Select a client...' }}</option>
+            <option
+              v-for="client in batchCheckoutAvailableClients"
+              :key="client.id"
+              :value="client.id"
+            >
+              {{ client.name }}
+            </option>
+          </select>
+        </div>
+
+        <!-- Client Name (for new clients) -->
+        <div v-if="batchCheckoutType === 'client' && !batchCheckoutClientId" class="form-group">
+          <label>{{ t('carStock.client_name') || 'Client Name' }} *</label>
+          <input
+            v-model="batchCheckoutClientName"
+            type="text"
+            class="form-input"
+            :disabled="isBatchCheckouting"
+            :placeholder="t('carStock.enter_client_name') || 'Enter client name...'"
+          />
+        </div>
+
+        <!-- Client Contact (for new clients) -->
+        <div v-if="batchCheckoutType === 'client' && !batchCheckoutClientId" class="form-group">
+          <label>{{ t('carStock.client_contact') || 'Client Contact' }} ({{ t('carStock.optional') || 'Optional' }})</label>
+          <input
+            v-model="batchCheckoutClientContact"
+            type="text"
+            class="form-input"
+            :disabled="isBatchCheckouting"
+            :placeholder="t('carStock.enter_client_contact') || 'Enter client contact...'"
+          />
+        </div>
+
+        <div class="form-group">
+          <label>{{ t('carStock.notes') || 'Notes' }} ({{ t('carStock.optional') || 'Optional' }})</label>
+          <textarea
+            v-model="batchCheckoutNotes"
+            class="form-textarea"
+            rows="3"
+            :disabled="isBatchCheckouting"
+            :placeholder="t('carStock.checkout_notes_placeholder') || 'Add any notes about this checkout...'"
+          ></textarea>
+        </div>
+
+        <div v-if="batchCheckoutFiles.length > 0" class="files-preview">
+          <h4>{{ t('carStock.files_to_checkout') || 'Files to Checkout' }} ({{ batchCheckoutFiles.length }})</h4>
+          <div class="files-list">
+            <div
+              v-for="(file, index) in batchCheckoutFiles"
+              :key="index"
+              class="file-item"
+            >
+              <i class="fas fa-file"></i>
+              <span>{{ file.file_name }}</span>
+              <span class="car-name">({{ file.car_name }})</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button
+          @click="closeBatchCheckoutModal"
+          class="cancel-btn"
+          :disabled="isBatchCheckouting"
+        >
+          {{ t('carStock.cancel') || 'Cancel' }}
+        </button>
+        <button
+          @click="confirmBatchCheckout"
+          class="confirm-btn"
+          :disabled="isBatchCheckouting || 
+            (batchCheckoutType === 'user' && !batchCheckoutUserId) ||
+            (batchCheckoutType === 'client' && !batchCheckoutClientId && !batchCheckoutClientName) ||
+            (batchCheckoutType === 'custom_clearance_agent' && !batchCheckoutAgentId)"
+        >
+          <i v-if="isBatchCheckouting" class="fas fa-spinner fa-spin"></i>
+          {{ t('carStock.confirm_checkout') || 'Confirm Checkout' }}
+        </button>
+      </div>
+    </div>
+  </div>
 </template>
 
 <style scoped>
@@ -5184,5 +6035,325 @@ const handleCheckout = () => {
 .table-container.processing-combine {
   opacity: 0.6;
   pointer-events: none;
+}
+
+/* Batch Transfer Modal Styles */
+.batch-transfer-modal {
+  max-width: 600px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.batch-transfer-modal .modal-body {
+  padding: 20px;
+}
+
+.batch-transfer-modal .info-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #eff6ff;
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  color: #1e40af;
+  font-weight: 500;
+}
+
+.batch-transfer-modal .info-section i {
+  color: #3b82f6;
+}
+
+.batch-transfer-modal .form-group {
+  margin-bottom: 20px;
+}
+
+.batch-transfer-modal .form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.batch-transfer-modal .form-select,
+.batch-transfer-modal .form-input,
+.batch-transfer-modal .form-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+.batch-transfer-modal .form-select:focus,
+.batch-transfer-modal .form-input:focus,
+.batch-transfer-modal .form-textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.batch-transfer-modal .form-select:disabled,
+.batch-transfer-modal .form-input:disabled,
+.batch-transfer-modal .form-textarea:disabled {
+  background-color: #f3f4f6;
+  cursor: not-allowed;
+}
+
+.batch-transfer-modal .form-textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.batch-transfer-modal .files-preview {
+  margin-top: 20px;
+  padding: 16px;
+  background: #f9fafb;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.batch-transfer-modal .files-preview h4 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.batch-transfer-modal .files-list {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.batch-transfer-modal .file-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: white;
+  border-radius: 4px;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: #374151;
+}
+
+.batch-transfer-modal .file-item i {
+  color: #6b7280;
+}
+
+.batch-transfer-modal .file-item .car-name {
+  color: #9ca3af;
+  font-size: 12px;
+  margin-left: auto;
+}
+
+.batch-transfer-modal .modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 20px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.batch-transfer-modal .cancel-btn,
+.batch-transfer-modal .confirm-btn {
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+  border: none;
+}
+
+.batch-transfer-modal .cancel-btn {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.batch-transfer-modal .cancel-btn:hover:not(:disabled) {
+  background: #e5e7eb;
+}
+
+.batch-transfer-modal .confirm-btn {
+  background: #3b82f6;
+  color: white;
+}
+
+.batch-transfer-modal .confirm-btn:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.batch-transfer-modal .confirm-btn:disabled,
+.batch-transfer-modal .cancel-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Batch Checkout Modal Styles - reuse transfer modal styles */
+.batch-checkout-modal {
+  max-width: 600px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.batch-checkout-modal .modal-body {
+  padding: 20px;
+}
+
+.batch-checkout-modal .info-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #eff6ff;
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  color: #1e40af;
+  font-weight: 500;
+}
+
+.batch-checkout-modal .info-section i {
+  color: #3b82f6;
+}
+
+.batch-checkout-modal .form-group {
+  margin-bottom: 20px;
+}
+
+.batch-checkout-modal .form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.batch-checkout-modal .form-select,
+.batch-checkout-modal .form-input,
+.batch-checkout-modal .form-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+.batch-checkout-modal .form-select:focus,
+.batch-checkout-modal .form-input:focus,
+.batch-checkout-modal .form-textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.batch-checkout-modal .form-select:disabled,
+.batch-checkout-modal .form-input:disabled,
+.batch-checkout-modal .form-textarea:disabled {
+  background-color: #f3f4f6;
+  cursor: not-allowed;
+}
+
+.batch-checkout-modal .form-textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.batch-checkout-modal .files-preview {
+  margin-top: 20px;
+  padding: 16px;
+  background: #f9fafb;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.batch-checkout-modal .files-preview h4 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.batch-checkout-modal .files-list {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.batch-checkout-modal .file-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: white;
+  border-radius: 4px;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: #374151;
+}
+
+.batch-checkout-modal .file-item i {
+  color: #6b7280;
+}
+
+.batch-checkout-modal .file-item .car-name {
+  color: #9ca3af;
+  font-size: 12px;
+  margin-left: auto;
+}
+
+.batch-checkout-modal .modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 20px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.batch-checkout-modal .cancel-btn,
+.batch-checkout-modal .confirm-btn {
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+  border: none;
+}
+
+.batch-checkout-modal .cancel-btn {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.batch-checkout-modal .cancel-btn:hover:not(:disabled) {
+  background: #e5e7eb;
+}
+
+.batch-checkout-modal .confirm-btn {
+  background: #3b82f6;
+  color: white;
+}
+
+.batch-checkout-modal .confirm-btn:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.batch-checkout-modal .confirm-btn:disabled,
+.batch-checkout-modal .cancel-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 </style>
