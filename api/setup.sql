@@ -225,12 +225,14 @@ CREATE TABLE IF NOT EXISTS `cars_stock` (
   `is_loading_inquiry_sent` tinyint(1) DEFAULT '0',
   `date_assigned` timestamp NULL DEFAULT NULL,
   `id_color` int DEFAULT NULL,
+  `payment_confirmed` tinyint(1) DEFAULT 0 COMMENT 'Payment confirmed status - only admins or users with can_confirm_payment permission can set to true',
   `hidden_by_user_id` int DEFAULT NULL,
   `hidden_time_stamp` timestamp NULL DEFAULT NULL,
   `path_coo` varchar(255) DEFAULT NULL,
   `path_coc` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `vin` (`vin`)
+  UNIQUE KEY `vin` (`vin`),
+  KEY `idx_payment_confirmed` (`payment_confirmed`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 -- Chat groups table
@@ -451,7 +453,8 @@ INSERT IGNORE INTO `permissions` (`permission_name`, `description`) VALUES
 ('can_change_car_color', 'Can change car color'),
 ('can_c_other_users_sells', 'Can create other users sells'),
 ('can_unassign_cars', 'Can unassign cars'),
-('can_hide_car', 'Can hide cars');
+('can_hide_car', 'Can hide cars'),
+('can_confirm_payment', 'Can confirm payment for sell bills and cars');
 
 -- Priorities table
 CREATE TABLE IF NOT EXISTS `priorities` (
@@ -509,8 +512,10 @@ CREATE TABLE IF NOT EXISTS `sell_bill` (
   `path_pi` varchar(255) DEFAULT NULL,
   `bill_ref` varchar(255) DEFAULT NULL,
   `is_batch_sell` tinyint(1) DEFAULT '0',
+  `payment_confirmed` tinyint(1) DEFAULT 0 COMMENT 'Payment confirmed status - only admins or users with can_confirm_payment permission can set to true',
   `time_created` timestamp NULL DEFAULT NULL,
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  KEY `idx_payment_confirmed` (`payment_confirmed`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 -- Sell payments table

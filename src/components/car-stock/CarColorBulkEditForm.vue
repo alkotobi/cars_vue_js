@@ -44,7 +44,6 @@ onMounted(async () => {
 
 const fetchColors = async () => {
   try {
-    console.log('Fetching colors...')
     const result = await callApi({
       query: `
         SELECT id, color as name, hexa 
@@ -54,12 +53,9 @@ const fetchColors = async () => {
       requiresAuth: true,
     })
 
-    console.log('Colors fetch result:', result)
     if (result.success && result.data && result.data.length > 0) {
       colors.value = result.data
-      console.log('Colors loaded:', colors.value)
     } else {
-      console.log('No colors found or error:', result)
       // Fallback to basic colors if database query fails
       colors.value = [
         { id: 1, name: 'Red', hexa: '#ff0000' },
@@ -71,10 +67,8 @@ const fetchColors = async () => {
         { id: 7, name: 'Silver', hexa: '#c0c0c0' },
         { id: 8, name: 'Gray', hexa: '#808080' },
       ]
-      console.log('Using fallback colors:', colors.value)
     }
   } catch (err) {
-    console.error('Error fetching colors:', err)
     // Fallback to basic colors if database query fails
     colors.value = [
       { id: 1, name: 'Red', hexa: '#ff0000' },
@@ -86,7 +80,6 @@ const fetchColors = async () => {
       { id: 7, name: 'Silver', hexa: '#c0c0c0' },
       { id: 8, name: 'Gray', hexa: '#808080' },
     ]
-    console.log('Using fallback colors due to error:', colors.value)
   }
 }
 
@@ -112,7 +105,6 @@ const handleSave = async () => {
     })
 
     if (result.success) {
-      console.log('Colors updated for cars:', carIds)
       emit(
         'save',
         props.selectedCars.map((car) => ({ ...car, id_color: colorId })),
@@ -121,7 +113,6 @@ const handleSave = async () => {
       alert(t('carColorBulkEditForm.failedToUpdateCarColors'))
     }
   } catch (err) {
-    console.error('Error updating car colors:', err)
     alert(t('carColorBulkEditForm.errorUpdatingCarColors'))
   } finally {
     isProcessing.value = false
@@ -150,7 +141,6 @@ const handleRevert = async () => {
     })
 
     if (result.success) {
-      console.log('Colors removed from cars:', carIds)
       emit(
         'save',
         props.selectedCars.map((car) => ({ ...car, id_color: null })),
@@ -159,7 +149,6 @@ const handleRevert = async () => {
       alert(t('carColorBulkEditForm.failedToRemoveCarColors'))
     }
   } catch (err) {
-    console.error('Error removing car colors:', err)
     alert(t('carColorBulkEditForm.errorRemovingCarColors'))
   } finally {
     isProcessing.value = false

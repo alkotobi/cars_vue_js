@@ -43,6 +43,12 @@ const can_edit_cars_discharge_port = computed(() => {
   return user.value.permissions?.some((p) => p.permission_name === 'can_edit_cars_discharge_port')
 })
 
+const can_confirm_payment = computed(() => {
+  if (!user.value) return false
+  if (user.value.role_id === 1) return true
+  return user.value.permissions?.some((p) => p.permission_name === 'can_confirm_payment')
+})
+
 const emit = defineEmits(['save', 'cancel'])
 
 const { callApi, uploadFile, getFileUrl } = useApi()
@@ -85,6 +91,7 @@ const formData = ref({
   date_get_documents_from_supp: null,
   date_get_keys_from_supp: null,
   rate: null,
+  payment_confirmed: false,
 })
 
 // Handle file changes
@@ -165,6 +172,8 @@ watch(
         ...newData,
         // Convert rate to number if it exists, otherwise null
         rate: newData.rate ? Number(newData.rate) : null,
+        // Convert payment_confirmed from database format (0/1) to boolean
+        payment_confirmed: Boolean(newData.payment_confirmed),
       }
 
       // Format dates for input fields
@@ -290,7 +299,8 @@ const saveCar = async () => {
           in_wharhouse_date = ?,
           date_get_documents_from_supp = ?,
           date_get_keys_from_supp = ?,
-          rate = ?
+          rate = ?,
+          payment_confirmed = ?
         WHERE id = ?
       `,
       params: [
@@ -316,6 +326,7 @@ const saveCar = async () => {
         formData.value.date_get_documents_from_supp || null,
         formData.value.date_get_keys_from_supp || null,
         formData.value.rate || null,
+        can_confirm_payment.value && formData.value.payment_confirmed ? 1 : 0,
         formData.value.id,
       ],
     })
@@ -401,6 +412,15 @@ onMounted(() => {
             v-model="formData.rate"
             step="0.01"
           />
+        </div>
+
+        <div v-if="can_confirm_payment" class="form-group">
+          <input
+            type="checkbox"
+            id="payment_confirmed"
+            v-model="formData.payment_confirmed"
+          />
+          <label for="payment_confirmed" class="checkbox-label">{{ t('carStock.payment_confirmed') }}</label>
         </div>
 
         <div class="form-group">

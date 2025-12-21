@@ -115,8 +115,6 @@ watch(
 watch(
   () => props.buyBillId,
   (newBuyBillId) => {
-    // Reset filtered data
-    cars.value = null
     // Apply filters to in-memory backup
     fetchCarsStock()
   },
@@ -148,6 +146,7 @@ const isProcessing = ref({
   task: false,
   notes: false,
   combine: false,
+  payment: false,
 })
 
 // Add new refs and computed properties for VIN editing
@@ -195,6 +194,12 @@ const can_edit_warehouse = computed(() => {
   if (!user.value) return false
   if (user.value.role_id === 1) return true
   return user.value.permissions?.some((p) => p.permission_name === 'can_edit_warehouse')
+})
+
+const can_confirm_payment = computed(() => {
+  if (!user.value) return false
+  if (user.value.role_id === 1) return true
+  return user.value.permissions?.some((p) => p.permission_name === 'can_confirm_payment')
 })
 
 // Add to the data/refs section
@@ -476,7 +481,6 @@ const handlePrintOptionsClose = () => {
 
 const handlePrintWithOptions = async (printData) => {
   const { columns, cars, subject, coreContent, groupBy } = printData
-  console.log('Printing with options:', { columns, cars, subject, coreContent, groupBy })
 
   // Generate print content based on action type
   let title = subject || ''
@@ -587,9 +591,7 @@ const handleVinFromToolbar = () => {
     return
   }
 
-  console.log('Opening VIN assignment modal')
   showVinAssignmentModal.value = true
-  console.log('Modal state after opening:', showVinAssignmentModal.value)
 }
 
 const printReport = async (reportData) => {
@@ -601,11 +603,9 @@ const printReport = async (reportData) => {
       const assets = await getAssets()
       if (assets && assets.letter_head) {
         letterHeadUrl.value = assets.letter_head
-      } else {
-        console.error('Failed to load assets, using default:', err)
       }
     } catch (err) {
-      console.error('Failed to load assets, using default:', err)
+      // Failed to load assets, using default
     }
   }
 
@@ -779,12 +779,9 @@ const fetchDefaults = async () => {
     })
     if (result.success && result.data.length > 0) {
       defaults.value = result.data[0]
-      console.log('Defaults loaded:', defaults.value)
-    } else {
-      console.log('No defaults found or API failed:', result)
     }
   } catch (error) {
-    console.error('Error fetching defaults:', error)
+    // Error fetching defaults
   }
 }
 
@@ -1231,66 +1228,46 @@ const fetchCarsStock = async () => {
           const alertType = props.alertType
           const currentDate = new Date()
 
-          console.log(`[Alert Filter] Type: ${alertType}, Days: ${alertDays}`)
-          console.log(`[Alert Filter] Before filtering: ${filteredCars.length} cars`)
-
           if (alertType === 'unloaded') {
             // Cars sold more than X days ago that haven't been loaded
-            let debugCount = 0
             filteredCars = filteredCars.filter((car) => {
-              debugCount++
               // Must have a sell date (is sold)
               if (!car.date_sell) {
-                console.log(`[Debug] Car ${car.id} filtered out: no date_sell`)
                 return false
               }
               // Must not be loaded
               if (car.date_loding) {
-                console.log(`[Debug] Car ${car.id} filtered out: has date_loding`)
                 return false
               }
               // Must not have documents sent
               if (car.date_send_documents) {
-                console.log(`[Debug] Car ${car.id} filtered out: has date_send_documents`)
                 return false
               }
               // Must not be hidden
               if (car.hidden == 1) {
-                console.log(`[Debug] Car ${car.id} filtered out: is hidden`)
                 return false
               }
               // Must not be batch
               if (car.is_batch == 1) {
-                console.log(`[Debug] Car ${car.id} filtered out: is batch`)
                 return false
               }
               // Must not be batch sell
               if (car.is_batch_sell == 1) {
-                console.log(`[Debug] Car ${car.id} filtered out: is batch sell`)
                 return false
               }
               // Must not have container ref
               if (car.container_ref && car.container_ref !== '') {
-                console.log(`[Debug] Car ${car.id} filtered out: has container_ref`)
                 return false
               }
 
               const sellDate = new Date(car.date_sell)
               const daysDiff = (currentDate - sellDate) / (1000 * 60 * 60 * 24)
               if (daysDiff <= alertDays) {
-                console.log(
-                  `[Debug] Car ${car.id} filtered out: days diff ${daysDiff} <= ${alertDays}`,
-                )
                 return false
               }
 
-              console.log(
-                `[Debug] Car ${car.id} passed all filters: days diff ${daysDiff} > ${alertDays}`,
-              )
               return true
             })
-
-            console.log(`[Alert Filter] After unloaded filtering: ${filteredCars.length} cars`)
           } else if (alertType === 'not_arrived') {
             // Cars purchased more than X days ago that haven't arrived at port
             filteredCars = filteredCars.filter((car) => {
@@ -1312,7 +1289,6 @@ const fetchCarsStock = async () => {
               return daysDiff > alertDays
             })
 
-            console.log(`[Alert Filter] After not_arrived filtering: ${filteredCars.length} cars`)
           } else if (alertType === 'no_licence') {
             // Cars purchased more than X days ago without export license
             filteredCars = filteredCars.filter((car) => {
@@ -1334,62 +1310,42 @@ const fetchCarsStock = async () => {
               return daysDiff > alertDays
             })
 
-            console.log(`[Alert Filter] After no_licence filtering: ${filteredCars.length} cars`)
           } else if (alertType === 'no_docs_sent') {
             // Cars sold more than X days ago without documents sent
             filteredCars = filteredCars.filter((car) => {
               // Must have a sell bill (INNER JOIN equivalent)
               if (!car.date_sell) {
-                console.log(`[Debug] Car ${car.id} filtered out: no sell bill (no date_sell)`)
                 return false
               }
               // Must not have documents sent
               if (car.date_send_documents) {
-                console.log(`[Debug] Car ${car.id} filtered out: has date_send_documents`)
                 return false
               }
               // Must not be hidden
               if (car.hidden == 1) {
-                console.log(`[Debug] Car ${car.id} filtered out: is hidden`)
                 return false
               }
               // Must not be batch
               if (car.is_batch == 1) {
-                console.log(`[Debug] Car ${car.id} filtered out: is batch`)
                 return false
               }
               // Must not be batch sell
               if (car.is_batch_sell == 1) {
-                console.log(`[Debug] Car ${car.id} filtered out: is batch sell`)
                 return false
               }
 
               const sellDate = new Date(car.date_sell)
               const daysDiff = (currentDate - sellDate) / (1000 * 60 * 60 * 24)
               if (daysDiff <= alertDays) {
-                console.log(
-                  `[Debug] Car ${car.id} filtered out: days diff ${daysDiff} <= ${alertDays}`,
-                )
                 return false
               }
 
-              console.log(
-                `[Debug] Car ${car.id} passed all filters: days diff ${daysDiff} > ${alertDays}`,
-              )
               return true
             })
-
-            console.log(`[Alert Filter] After no_docs_sent filtering: ${filteredCars.length} cars`)
           }
         }
       }
     }
-
-    // Debug logs
-    console.log('[CarStockTable] allCars.value:', allCars.value)
-    console.log('[CarStockTable] allCars.value.length:', allCars.value.length)
-    console.log('[CarStockTable] filteredCars:', filteredCars)
-    console.log('[CarStockTable] filteredCars.length:', filteredCars.length)
 
     cars.value = filteredCars
   } catch (err) {
@@ -1679,7 +1635,6 @@ const handleTaskClose = () => {
 }
 
 const handleTaskSave = (result) => {
-  console.log('Task saved:', result)
   showTaskForm.value = false
   selectedCarForTask.value = null
   alert(t('carStock.task_created_successfully'))
@@ -1693,11 +1648,8 @@ const handleSwitchBuyBillClose = () => {
 }
 
 const handleSwitchBuyBillSave = async (result) => {
-  console.log('Switch result received:', result)
   showSwitchBuyBillForm.value = false
   selectedCarForSwitchBuyBill.value = null
-
-  console.log('Starting switch process for cars:', result.carId1, 'and', result.carId2)
 
   try {
     const switchResult = await callApi({
@@ -1719,21 +1671,15 @@ const handleSwitchBuyBillSave = async (result) => {
       ],
     })
 
-    console.log('Switch result:', switchResult)
-
     if (switchResult.success) {
       alert(t('carStock.purchase_bills_switched_successfully'))
       fetchCarsStock()
     } else {
-      console.error('Switch failed:', switchResult)
       alert(t('carStock.failed_to_switch_purchase_bills'))
     }
   } catch (err) {
-    console.error('Error switching purchase bills:', err)
     alert(t('carStock.error_switching_purchase_bills'))
   }
-
-  console.log('Switch result was not successful:', result)
 }
 
 // Add this method after other methods
@@ -1803,14 +1749,11 @@ const cancelNotes = () => {
 }
 
 const handleVinsAssigned = (assignments) => {
-  console.log('VINs assigned:', assignments)
   showVinAssignmentModal.value = false
   fetchCarsStock()
 }
 
-// Add a separate close handler for debugging
 const handleVinAssignmentModalClose = () => {
-  console.log('Closing VIN assignment modal from parent')
   showVinAssignmentModal.value = false
 }
 
@@ -1821,12 +1764,10 @@ const handlePortsFromToolbar = () => {
   }
 
   const updatedCars = sortedCars.value.filter((car) => selectedCars.value.has(car.id))
-  console.log('Ports updated for cars:', updatedCars)
   showPortsBulkEditForm.value = true
 }
 
 const handlePortsBulkSave = (updatedCars) => {
-  console.log('Ports updated for cars:', updatedCars)
   showPortsBulkEditForm.value = false
   fetchCarsStock()
 }
@@ -1849,7 +1790,6 @@ const handleNotesFromToolbar = () => {
   }
 
   const updatedCars = sortedCars.value.filter((car) => selectedCars.value.has(car.id))
-  console.log('Notes updated for cars:', updatedCars)
   showNotesBulkEditForm.value = true
 }
 
@@ -1865,7 +1805,6 @@ const handleTaskFromToolbar = () => {
 }
 
 const handleNotesBulkSave = (updatedCars) => {
-  console.log('Notes updated for cars:', updatedCars)
   showNotesBulkEditForm.value = false
   fetchCarsStock()
 }
@@ -1877,12 +1816,10 @@ const handleColorFromToolbar = () => {
   }
 
   const updatedCars = sortedCars.value.filter((car) => selectedCars.value.has(car.id))
-  console.log('Colors updated for cars:', updatedCars)
   showColorBulkEditForm.value = true
 }
 
 const handleColorBulkSave = (updatedCars) => {
-  console.log('Colors updated for cars:', updatedCars)
   showColorBulkEditForm.value = false
   fetchCarsStock()
 }
@@ -1918,7 +1855,6 @@ const handleExportLicenseFromToolbar = () => {
   }
 
   const updatedCars = sortedCars.value.filter((car) => selectedCars.value.has(car.id))
-  console.log('Export licenses updated for cars:', updatedCars)
   showExportLicenseBulkEditForm.value = true
 }
 
@@ -1994,13 +1930,18 @@ const loadInitialCarsData = async () => {
   error.value = null
   try {
     // Build the WHERE clause conditionally based on admin status
-    let whereClause = 'cs.date_send_documents IS NULL'
-    if (!isAdmin.value) {
+    let whereClause = '1=1' // Default: show all cars
+    const currentUserId = user.value?.id
+    const isUserAdmin = user.value?.role_id === 1
+    
+    if (!isUserAdmin && currentUserId) {
       // Non-admin users can only see:
       // 1. Non-hidden cars (hidden = 0)
       // 2. Cars they hid themselves (hidden = 1 AND hidden_by_user_id = current_user_id)
-      const currentUserId = user.value?.id
-      whereClause += ` AND (cs.hidden = 0 OR (cs.hidden = 1 AND cs.hidden_by_user_id = ${currentUserId}))`
+      whereClause = `(cs.hidden = 0 OR (cs.hidden = 1 AND cs.hidden_by_user_id = ${currentUserId}))`
+    } else if (!isUserAdmin && !currentUserId) {
+      // If user is not admin and no user ID, show only non-hidden cars
+      whereClause = 'cs.hidden = 0'
     }
 
     const result = await callApi({
@@ -2078,13 +2019,27 @@ const loadInitialCarsData = async () => {
       `,
     })
     if (result.success) {
-      allCars.value = result.data
-      cars.value = result.data
+      // Set default payment_confirmed to 0 if column doesn't exist yet
+      const carsData = (result.data || []).map(car => ({
+        ...car,
+        payment_confirmed: car.payment_confirmed !== undefined ? car.payment_confirmed : 0
+      }))
+      allCars.value = carsData
+      cars.value = carsData
+      // Temporary debug - remove after fixing
+      if (!result.data || result.data.length === 0) {
+        console.warn('CarStockTable: Query returned no data. WHERE clause:', whereClause, 'User:', user.value)
+      }
     } else {
       error.value = result.error || 'Failed to fetch cars stock'
+      allCars.value = []
+      cars.value = []
+      console.error('CarStockTable: Query failed:', result.error)
     }
   } catch (err) {
     error.value = err.message || 'An error occurred'
+    allCars.value = []
+    cars.value = []
   } finally {
     loading.value = false
   }
@@ -2167,7 +2122,6 @@ defineExpose({
 
     // Add new cars to allCars
     allCars.value.push(...newCars)
-    console.log(`[CarStockTable] Added ${newCars.length} new cars to memory`)
 
     // Apply current filters to update the display
     fetchCarsStock()
@@ -2228,7 +2182,6 @@ const handleDeleteCars = async () => {
       alert(t('carStock.failed_to_delete_cars') + ': ' + (result.error || 'Unknown error'))
     }
   } catch (error) {
-    console.error('Error deleting cars:', error)
     alert(t('carStock.failed_to_delete_cars') + ': ' + error.message)
   }
 }
@@ -2294,7 +2247,6 @@ const handleToggleHidden = async () => {
       alert(t('carStock.failed_to_toggle_hidden') + ': ' + (result.error || 'Unknown error'))
     }
   } catch (error) {
-    console.error('Error toggling hidden status:', error)
     alert(t('carStock.failed_to_toggle_hidden') + ': ' + error.message)
   }
 }
@@ -2342,7 +2294,6 @@ const handleMarkDelivered = async () => {
       alert(t('carStock.failed_to_mark_delivered') + (result.error ? `: ${result.error}` : ''))
     }
   } catch (error) {
-    console.error('Error marking cars as delivered:', error)
     alert(t('carStock.failed_to_mark_delivered') + (error.message ? `: ${error.message}` : ''))
   }
 }
@@ -2406,6 +2357,46 @@ const handleCombineByContainer = async () => {
   
   // Hide loading indicator
   isProcessing.value.combine = false
+}
+
+const togglePaymentConfirmed = async (car) => {
+  if (!can_confirm_payment.value) {
+    alert(t('carStock.no_permission_to_confirm_payment') || 'You do not have permission to confirm payments')
+    return
+  }
+
+  if (isProcessing.value.payment) return
+
+  isProcessing.value.payment = true
+
+  try {
+    // Check if payment_confirmed column exists by trying to update it
+    // If column doesn't exist, show message to run migration
+    const currentStatus = car.payment_confirmed !== undefined ? car.payment_confirmed : 0
+    const newStatus = currentStatus ? 0 : 1
+    const result = await callApi({
+      query: `
+        UPDATE cars_stock
+        SET payment_confirmed = ?
+        WHERE id = ?
+      `,
+      params: [newStatus, car.id],
+    })
+
+    if (result.success) {
+      // Update local state
+      const carIndex = cars.value.findIndex((c) => c.id === car.id)
+      if (carIndex !== -1) {
+        cars.value[carIndex].payment_confirmed = newStatus
+      }
+    } else {
+      alert(t('carStock.failed_to_update_payment_confirmed') || 'Failed to update payment confirmed status: ' + result.error)
+    }
+  } catch (err) {
+    alert(t('carStock.error_updating_payment_confirmed') || 'Error updating payment confirmed status: ' + err.message)
+  } finally {
+    isProcessing.value.payment = false
+  }
 }
 
 const handleUncombine = () => {
@@ -2626,8 +2617,6 @@ const handleSelectionLoaded = (selection) => {
 }
 
 const handleTransfer = async () => {
-  console.log('[BatchTransfer] Starting batch transfer process')
-  
   try {
     // Validate required functions are available
     if (typeof getCarFiles !== 'function') {
@@ -2646,7 +2635,6 @@ const handleTransfer = async () => {
     }
 
     if (!user.value || !user.value.id) {
-      console.error('[BatchTransfer] User not authenticated:', user.value)
       alert(t('carStock.user_not_authenticated') || 'User not authenticated. Please log in again.')
       return
     }
@@ -2654,7 +2642,6 @@ const handleTransfer = async () => {
     // Get all selected cars - use sortedCars if available, otherwise use cars
     const carsList = sortedCars?.value || cars.value || []
     const selectedCarsList = carsList.filter((car) => selectedCars.value.has(car.id))
-    console.log('[BatchTransfer] Selected cars:', selectedCarsList.length, selectedCarsList.map(c => c.id))
     
     if (selectedCarsList.length === 0) {
       alert(t('carStock.no_cars_selected_for_transfer') || 'No cars selected for transfer')
@@ -2666,16 +2653,11 @@ const handleTransfer = async () => {
     const currentUserId = user.value.id
     const errors = []
 
-    console.log('[BatchTransfer] Current user ID:', currentUserId)
-
     for (const car of selectedCarsList) {
       try {
-        console.log(`[BatchTransfer] Loading files for car ${car.id}`)
         const carFiles = await getCarFiles(car.id)
-        console.log(`[BatchTransfer] Car ${car.id} files:`, carFiles?.length || 0, carFiles)
         
         if (!Array.isArray(carFiles)) {
-          console.warn(`[BatchTransfer] getCarFiles returned non-array for car ${car.id}:`, carFiles)
           continue
         }
         
@@ -2683,38 +2665,26 @@ const handleTransfer = async () => {
         const eligibleFiles = carFiles.filter((f) => {
           // Skip files with pending transfers
           if (f.has_pending_transfer) {
-            console.log(`[BatchTransfer] File ${f.id} has pending transfer, skipping`)
             return false
           }
 
           // Include files checked out to current user
           if (f.physical_status === 'checked_out' && f.current_holder_id === currentUserId) {
-            console.log(`[BatchTransfer] File ${f.id} is checked out to user, eligible`)
             return true
           }
 
           // Include available files where current user is holder
           if (f.physical_status === 'available' && f.current_holder_id === currentUserId) {
-            console.log(`[BatchTransfer] File ${f.id} is available to user, eligible`)
             return true
           }
 
           // Include files with no tracking record where current user is uploader
           if (f.physical_status === null && f.uploaded_by === currentUserId) {
-            console.log(`[BatchTransfer] File ${f.id} has no tracking, user is uploader, eligible`)
             return true
           }
 
-          console.log(`[BatchTransfer] File ${f.id} not eligible:`, {
-            physical_status: f.physical_status,
-            current_holder_id: f.current_holder_id,
-            uploaded_by: f.uploaded_by,
-            currentUserId
-          })
           return false
         })
-
-        console.log(`[BatchTransfer] Car ${car.id} eligible files:`, eligibleFiles.length)
 
         // Add car info to each file for reference
         eligibleFiles.forEach((file) => {
@@ -2726,16 +2696,12 @@ const handleTransfer = async () => {
         })
       } catch (err) {
         const errorMsg = err.message || String(err)
-        console.error(`[BatchTransfer] Error loading files for car ${car.id}:`, err)
         errors.push(`Car ${car.id}: ${errorMsg}`)
       }
     }
 
-    console.log('[BatchTransfer] Total eligible files:', allFiles.length)
-
     if (allFiles.length === 0) {
       if (errors.length > 0) {
-        console.error('[BatchTransfer] Errors occurred:', errors)
         alert(
           t('carStock.no_files_available_for_batch_transfer_with_errors') ||
           `No files available for batch transfer. Errors: ${errors.join('; ')}`
@@ -2758,9 +2724,7 @@ const handleTransfer = async () => {
         throw new Error('Invalid file data: missing file ID')
       }
       
-      console.log('[BatchTransfer] Getting users for transfer, file ID:', allFiles[0].id)
       const users = await getUsersForTransfer(allFiles[0].id)
-      console.log('[BatchTransfer] Users for transfer:', users)
       
       if (!Array.isArray(users)) {
         throw new Error('Invalid response from getUsersForTransfer: expected array')
@@ -2773,28 +2737,14 @@ const handleTransfer = async () => {
         return
       }
       
-      console.log('[BatchTransfer] Opening modal with', allFiles.length, 'files and', users.length, 'users')
       showBatchTransferModal.value = true
     } catch (err) {
       const errorMsg = err.message || String(err)
-      console.error('[BatchTransfer] Error loading users for transfer:', err)
       alert(t('carStock.failed_to_load_users_for_transfer') || 'Failed to load users for transfer: ' + errorMsg)
     }
   } catch (err) {
     const errorMsg = err.message || String(err)
     const errorStack = err.stack || ''
-    console.error('[BatchTransfer] Error preparing batch transfer:', {
-      message: errorMsg,
-      stack: errorStack,
-      error: err,
-      selectedCars: selectedCars?.value?.size,
-      user: user.value?.id,
-      sortedCars: sortedCars?.value?.length,
-      cars: cars.value?.length,
-      getCarFiles: typeof getCarFiles,
-      transferPhysicalCopy: typeof transferPhysicalCopy,
-      getUsersForTransfer: typeof getUsersForTransfer,
-    })
     alert(
       (t('carStock.failed_to_prepare_batch_transfer') || 'Failed to prepare batch transfer') +
       ': ' + errorMsg +
@@ -2862,7 +2812,6 @@ const confirmBatchTransfer = async () => {
         t('carStock.batch_transfer_completed_with_errors') ||
         `Batch transfer completed with errors. ${results.length} succeeded, ${errors.length} failed.`
       alert(errorMsg)
-      console.error('Batch transfer errors:', errors)
     } else {
       const successMsg =
         t('carStock.batch_transfer_success') || `Successfully transferred ${results.length} file(s)`
@@ -2874,7 +2823,6 @@ const confirmBatchTransfer = async () => {
     batchTransferFiles.value = []
     fetchCarsStock()
   } catch (err) {
-    console.error('Error performing batch transfer:', err)
     alert(t('carStock.failed_to_perform_batch_transfer') || 'Failed to perform batch transfer: ' + err.message)
   } finally {
     isBatchTransferring.value = false
@@ -2890,8 +2838,6 @@ const closeBatchTransferModal = () => {
 }
 
 const handleCheckout = async () => {
-  console.log('[BatchCheckout] Starting batch checkout process')
-  
   try {
     if (selectedCars.value.size === 0) {
       alert(t('carStock.no_cars_selected_for_checkout') || 'No cars selected for checkout')
@@ -2899,7 +2845,6 @@ const handleCheckout = async () => {
     }
 
     if (!user.value || !user.value.id) {
-      console.error('[BatchCheckout] User not authenticated:', user.value)
       alert(t('carStock.user_not_authenticated') || 'User not authenticated. Please log in again.')
       return
     }
@@ -2907,7 +2852,6 @@ const handleCheckout = async () => {
     // Get all selected cars - use sortedCars if available, otherwise use cars
     const carsList = sortedCars?.value || cars.value || []
     const selectedCarsList = carsList.filter((car) => car && selectedCars.value.has(car.id))
-    console.log('[BatchCheckout] Selected cars:', selectedCarsList.length, selectedCarsList.map(c => c?.id))
     
     if (selectedCarsList.length === 0) {
       alert(t('carStock.no_cars_selected_for_checkout') || 'No cars selected for checkout')
@@ -2919,26 +2863,19 @@ const handleCheckout = async () => {
     const currentUserId = user.value.id
     const errors = []
 
-    console.log('[BatchCheckout] Current user ID:', currentUserId)
-
     for (const car of selectedCarsList) {
       if (!car || !car.id) {
-        console.warn('[BatchCheckout] Skipping invalid car:', car)
         continue
       }
       
       try {
-        console.log(`[BatchCheckout] Loading files for car ${car.id}`)
-        
         if (!getCarFiles) {
           throw new Error('getCarFiles function is not available')
         }
         
         const carFiles = await getCarFiles(car.id)
-        console.log(`[BatchCheckout] Car ${car.id} files:`, carFiles?.length || 0, carFiles)
         
         if (!Array.isArray(carFiles)) {
-          console.warn(`[BatchCheckout] getCarFiles returned non-array for car ${car.id}:`, carFiles)
           continue
         }
         
@@ -2946,38 +2883,26 @@ const handleCheckout = async () => {
         const eligibleFiles = carFiles.filter((f) => {
           // Skip files with pending transfers
           if (f.has_pending_transfer) {
-            console.log(`[BatchCheckout] File ${f.id} has pending transfer, skipping`)
             return false
           }
 
           // Include files checked out to current user
           if (f.physical_status === 'checked_out' && f.current_holder_id === currentUserId) {
-            console.log(`[BatchCheckout] File ${f.id} is checked out to user, eligible`)
             return true
           }
 
           // Include available files where current user is holder
           if (f.physical_status === 'available' && f.current_holder_id === currentUserId) {
-            console.log(`[BatchCheckout] File ${f.id} is available to user, eligible`)
             return true
           }
 
           // Include files with no tracking record where current user is uploader
           if (f.physical_status === null && f.uploaded_by === currentUserId) {
-            console.log(`[BatchCheckout] File ${f.id} has no tracking, user is uploader, eligible`)
             return true
           }
 
-          console.log(`[BatchCheckout] File ${f.id} not eligible:`, {
-            physical_status: f.physical_status,
-            current_holder_id: f.current_holder_id,
-            uploaded_by: f.uploaded_by,
-            currentUserId
-          })
           return false
         })
-
-        console.log(`[BatchCheckout] Car ${car.id} eligible files:`, eligibleFiles.length)
 
         // Add car info to each file for reference
         eligibleFiles.forEach((file) => {
@@ -2989,16 +2914,12 @@ const handleCheckout = async () => {
         })
       } catch (err) {
         const errorMsg = err.message || String(err)
-        console.error(`[BatchCheckout] Error loading files for car ${car.id}:`, err)
         errors.push(`Car ${car.id}: ${errorMsg}`)
       }
     }
 
-    console.log('[BatchCheckout] Total eligible files:', allFiles.length)
-
     if (allFiles.length === 0) {
       if (errors.length > 0) {
-        console.error('[BatchCheckout] Errors occurred:', errors)
         alert(
           t('carStock.no_files_available_for_batch_checkout_with_errors') ||
           `No files available for batch checkout. Errors: ${errors.join('; ')}`
@@ -3025,8 +2946,6 @@ const handleCheckout = async () => {
         throw new Error('Invalid file data: missing file ID')
       }
       
-      console.log('[BatchCheckout] Loading users, clients, and agents...')
-      
       // Load users
       if (getUsersForTransfer) {
         const users = await getUsersForTransfer(allFiles[0].id)
@@ -3049,12 +2968,6 @@ const handleCheckout = async () => {
         batchCheckoutAvailableAgents.value = Array.isArray(agents) ? agents : []
       }
       
-      console.log('[BatchCheckout] Data loaded:', {
-        users: batchCheckoutAvailableUsers.value.length,
-        clients: batchCheckoutAvailableClients.value.length,
-        agents: batchCheckoutAvailableAgents.value.length
-      })
-      
       if (batchCheckoutAvailableUsers.value.length === 0 && 
           batchCheckoutAvailableClients.value.length === 0 && 
           batchCheckoutAvailableAgents.value.length === 0) {
@@ -3065,24 +2978,11 @@ const handleCheckout = async () => {
       showBatchCheckoutModal.value = true
     } catch (err) {
       const errorMsg = err.message || String(err)
-      console.error('[BatchCheckout] Error loading checkout data:', err)
       alert(t('carStock.failed_to_load_checkout_data') || 'Failed to load checkout data: ' + errorMsg)
     }
   } catch (err) {
     const errorMsg = err.message || String(err)
     const errorStack = err.stack || ''
-    console.error('[BatchCheckout] Error preparing batch checkout:', {
-      message: errorMsg,
-      stack: errorStack,
-      error: err,
-      selectedCars: selectedCars?.value?.size,
-      user: user.value?.id,
-      sortedCars: sortedCars?.value?.length,
-      cars: cars.value?.length,
-      getCarFiles: typeof getCarFiles,
-      getUsersForTransfer: typeof getUsersForTransfer,
-      getCustomClearanceAgents: typeof getCustomClearanceAgents,
-    })
     alert(
       (t('carStock.failed_to_prepare_batch_checkout') || 'Failed to prepare batch checkout') +
       ': ' + errorMsg +
@@ -3175,7 +3075,6 @@ const confirmBatchCheckout = async () => {
         t('carStock.batch_checkout_completed_with_errors') ||
         `Batch checkout completed with errors. ${results.length} succeeded, ${errors.length} failed.`
       alert(errorMsg)
-      console.error('Batch checkout errors:', errors)
     } else {
       const successMsg =
         t('carStock.batch_checkout_success') || `Successfully checked out ${results.length} file(s)`
@@ -3187,7 +3086,6 @@ const confirmBatchCheckout = async () => {
     batchCheckoutFiles.value = []
     fetchCarsStock()
   } catch (err) {
-    console.error('Error performing batch checkout:', err)
     alert(t('carStock.failed_to_perform_batch_checkout') || 'Failed to perform batch checkout: ' + err.message)
   } finally {
     isBatchCheckouting.value = false
@@ -3446,6 +3344,7 @@ const closeBatchCheckoutModal = () => {
                   {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
                 </span>
               </th>
+              <th v-if="can_confirm_payment">{{ t('carStock.payment_confirmed') }}</th>
               <th>{{ t('carStock.bl') }}</th>
               <th @click="toggleSort('notes')" class="sortable">
                 {{ t('carStock.notes') }}
@@ -3670,6 +3569,19 @@ const closeBatchCheckoutModal = () => {
                   </div>
                 </div>
               </td>
+
+              <td v-if="can_confirm_payment" class="payment-confirmed-column">
+                <button
+                  @click="togglePaymentConfirmed(car)"
+                  :disabled="isProcessing.payment"
+                  :class="['payment-confirmed-btn', (car.payment_confirmed || 0) ? 'confirmed' : 'not-confirmed']"
+                  :title="(car.payment_confirmed || 0) ? t('carStock.payment_confirmed_yes') : t('carStock.payment_confirmed_no')"
+                >
+                  <i :class="(car.payment_confirmed || 0) ? 'fas fa-check-circle' : 'far fa-circle'"></i>
+                  {{ (car.payment_confirmed || 0) ? t('carStock.confirmed') : t('carStock.not_confirmed') }}
+                </button>
+              </td>
+
               <td class="documents-cell">
                 <div class="document-links">
                   <a
@@ -5870,6 +5782,62 @@ const closeBatchCheckoutModal = () => {
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+/* Payment confirmed column */
+.payment-confirmed-column {
+  text-align: center;
+  padding: 8px;
+}
+
+.payment-confirmed-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  background-color: #f3f4f6;
+  color: #6b7280;
+  border: 1px solid #e5e7eb;
+}
+
+.payment-confirmed-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.payment-confirmed-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.payment-confirmed-btn.confirmed {
+  background-color: #dcfce7;
+  color: #166534;
+  border-color: #bbf7d0;
+}
+
+.payment-confirmed-btn.confirmed:hover:not(:disabled) {
+  background-color: #bbf7d0;
+}
+
+.payment-confirmed-btn.not-confirmed {
+  background-color: #fee2e2;
+  color: #991b1b;
+  border-color: #fecaca;
+}
+
+.payment-confirmed-btn.not-confirmed:hover:not(:disabled) {
+  background-color: #fecaca;
+}
+
+.payment-confirmed-btn i {
+  font-size: 1rem;
 }
 
 /* Status column multiline support */

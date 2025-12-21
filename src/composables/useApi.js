@@ -12,11 +12,6 @@ const getBasePath = () => {
   // If it's relative (./), convert to absolute based on current pathname
   let baseUrl = import.meta.env.BASE_URL || './'
 
-  console.log('[useApi] getBasePath() called')
-  console.log('[useApi] import.meta.env.BASE_URL:', import.meta.env.BASE_URL)
-  console.log('[useApi] window.location.pathname:', window.location.pathname)
-  console.log('[useApi] window.location.href:', window.location.href)
-
   // If base is relative, convert to absolute path
   if (baseUrl === './' || baseUrl.startsWith('./')) {
     const pathname = window.location.pathname
@@ -24,13 +19,10 @@ const getBasePath = () => {
     // If pathname is like '/login', use '/'
     const match = pathname.match(/^(\/[^/]+\/)/)
     const detectedBase = match ? match[1] : '/'
-    console.log('[useApi] Pathname match:', match)
-    console.log('[useApi] Detected base path:', detectedBase)
     return detectedBase
   }
 
   // If base is already absolute, use it as is
-  console.log('[useApi] Using absolute base URL:', baseUrl)
   return baseUrl
 }
 
@@ -67,12 +59,9 @@ async function loadConfig() {
       const currentBasePath = getBasePath()
       // Load db_code.json from same folder as index.html (use base path)
       const dbCodeUrl = `${currentBasePath}db_code.json`
-      console.log('[loadConfig] Fetching db_code.json from:', dbCodeUrl)
       const response = await fetch(dbCodeUrl)
       if (!response.ok) {
         const errorText = await response.text()
-        console.error('Failed to load db_code.json. Status:', response.status)
-        console.error('Response:', errorText.substring(0, 500))
         throw new Error(`Failed to load db_code.json: ${response.status} ${response.statusText}`)
       }
 
@@ -80,8 +69,6 @@ async function loadConfig() {
       const contentType = response.headers.get('content-type')
       if (!contentType || !contentType.includes('application/json')) {
         const text = await response.text()
-        console.error('db_code.json returned non-JSON response. Content-Type:', contentType)
-        console.error('Response:', text.substring(0, 500))
         throw new Error(
           `db_code.json returned non-JSON response (Content-Type: ${contentType}). Check if the file exists at ${dbCodeUrl}`,
         )
@@ -99,7 +86,6 @@ async function loadConfig() {
           if (!dbResponse.ok) {
             // Try to get error text for debugging
             const errorText = await dbResponse.text()
-            console.error('API Error Response:', errorText.substring(0, 200))
             throw new Error(
               `Failed to fetch database info: ${dbResponse.status} ${dbResponse.statusText}`,
             )
@@ -107,7 +93,6 @@ async function loadConfig() {
           const contentType = dbResponse.headers.get('content-type')
           if (!contentType || !contentType.includes('application/json')) {
             const text = await dbResponse.text()
-            console.error('API returned non-JSON response:', text.substring(0, 500))
             throw new Error(
               `API returned non-JSON response. Check if ${DB_MANAGER_API_URL} exists.`,
             )
@@ -133,7 +118,6 @@ async function loadConfig() {
             throw new Error(`Database not found for db_code: ${data.db_code}`)
           }
         } catch (dbErr) {
-          console.error('Error fetching database from dbs table:', dbErr)
           throw dbErr
         }
       } else {
@@ -154,7 +138,6 @@ async function loadConfig() {
         return config
       }
     } catch (err) {
-      console.error('Fatal error loading configuration:', err)
       // Fatal error - stop the website
       throw new Error(
         `FATAL ERROR: Cannot load database configuration. ${err.message}. Please check db_code.json file.`,
@@ -472,8 +455,6 @@ export const useApi = () => {
   // Returns JSON with file locations, copies from js_dir to files_dir if needed
   // Adds cache-busting query parameter to prevent browser caching
   async function getAssets() {
-    console.log('[getAssets] Function called')
-
     // Get current base path (where index.html is located)
     const currentBasePath = getBasePath()
 
@@ -499,14 +480,6 @@ export const useApi = () => {
       letter_head: `${currentBasePath}letter_head.png${cacheBuster}`,
       gml2: `${currentBasePath}gml2.png${cacheBuster}`,
     }
-    console.log('[getAssets] Created result object:', result)
-    console.log('[getAssets] Current window location:', window.location.href)
-    console.log(
-      '[getAssets] Logo path will resolve to:',
-      new URL(result.logo, window.location.href).href,
-    )
-
-    console.log('[getAssets] Returning result:', result)
     return result
   }
 
@@ -516,7 +489,6 @@ export const useApi = () => {
     const newVersion = Date.now().toString()
     const oldVersion = localStorage.getItem(STORAGE_KEY)
     localStorage.setItem(STORAGE_KEY, newVersion)
-    console.log('[updateAssetsVersion] Updated assets version from', oldVersion, 'to:', newVersion)
 
     // Clear any cached image data
     if ('caches' in window) {
@@ -524,7 +496,6 @@ export const useApi = () => {
         names.forEach((name) => {
           if (name.includes('logo') || name.includes('assets')) {
             caches.delete(name)
-            console.log('[updateAssetsVersion] Deleted cache:', name)
           }
         })
       })
@@ -535,9 +506,8 @@ export const useApi = () => {
     try {
       const img = new Image()
       img.src = ''
-      console.log('[updateAssetsVersion] Cleared image cache')
     } catch (e) {
-      console.warn('[updateAssetsVersion] Could not clear image cache:', e)
+      // Could not clear image cache
     }
 
     return newVersion
@@ -559,7 +529,6 @@ export const useApi = () => {
       action: 'get_car_file_categories',
       requiresAuth: false,
     })
-    console.log('[useApi] getCarFileCategories result:', result)
     // API returns { success: true, data: [...] } or { success: true, results: [...] }
     if (result.success) {
       return result.data || result.results || []
@@ -577,7 +546,6 @@ export const useApi = () => {
       is_admin: user?.role_id === 1,
       requiresAuth: true,
     })
-    console.log('[useApi] getCarFiles result:', result)
     // API returns { success: true, data: [...] }
     if (result.success) {
       return result.data || []
@@ -782,45 +750,16 @@ export const useApi = () => {
       throw new Error('User not authenticated')
     }
 
-    console.log(
-      '[useApi] getPendingTransfers: Calling API with user_id:',
-      user.id,
-      'username:',
-      user.username,
-    )
     const result = await callApi({
       action: 'get_pending_transfers',
       user_id: user.id,
       requiresAuth: true,
     })
 
-    console.log('[useApi] getPendingTransfers: Full API response:', JSON.stringify(result, null, 2))
-
-    if (result.debug) {
-      console.log('[useApi] getPendingTransfers: Debug info:', result.debug)
-      console.log(
-        '[useApi] getPendingTransfers: All pending transfers in DB:',
-        result.debug.all_pending,
-      )
-    }
-
     if (!result.success) {
       throw new Error(result.error || 'Failed to get pending transfers')
     }
 
-    console.log('[useApi] getPendingTransfers: Returning', result.data?.length || 0, 'transfers')
-    if (result.data && result.data.length > 0) {
-      console.log(
-        '[useApi] getPendingTransfers: Transfer details:',
-        result.data.map((t) => ({
-          id: t.id,
-          file_name: t.file_name,
-          from_user_id: t.from_user_id,
-          to_user_id: t.to_user_id,
-          transfer_status: t.transfer_status,
-        })),
-      )
-    }
     return result.data || []
   }
 

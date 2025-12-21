@@ -234,20 +234,16 @@ const getBasePath = () => {
 
 // Load logo from assets
 const loadLogo = async () => {
-  console.log('[AppHeader] loadLogo() called')
   const basePath = getBasePath()
   
   // Get assets version from localStorage
   const STORAGE_KEY = 'assets_version'
   let assetsVersion = localStorage.getItem(STORAGE_KEY)
   
-  console.log('[AppHeader] Current assets version from localStorage:', assetsVersion)
-  
   // If no version exists, initialize with current timestamp
   if (!assetsVersion) {
     assetsVersion = Date.now().toString()
     localStorage.setItem(STORAGE_KEY, assetsVersion)
-    console.log('[AppHeader] Initialized new assets version:', assetsVersion)
   }
   
   // Add cache-busting with both version and timestamp for maximum cache invalidation
@@ -256,16 +252,11 @@ const loadLogo = async () => {
   const fallbackLogo = `${basePath}logo.png?v=${assetsVersion}&t=${timestamp}&r=${random}`
 
   try {
-    console.log('[AppHeader] Calling getAssets()...')
     const assets = await getAssets()
-    console.log('[AppHeader] getAssets() returned:', assets)
-    console.log('[AppHeader] Assets version used by getAssets:', localStorage.getItem(STORAGE_KEY))
 
     if (assets && assets.logo) {
       // Add additional timestamp and random string to force reload
       const logoWithCacheBuster = `${assets.logo}&t=${timestamp}&r=${random}`
-      console.log('[AppHeader] Setting logoUrl to:', logoWithCacheBuster)
-      console.log('[AppHeader] Full logo URL will be:', new URL(logoWithCacheBuster, window.location.href).href)
       
       // Force reload by setting to empty first, then to new URL
       logoUrl.value = ''
@@ -277,29 +268,19 @@ const loadLogo = async () => {
       const imgElement = document.querySelector('.company-logo')
       if (imgElement) {
         imgElement.src = logoWithCacheBuster
-        console.log('[AppHeader] Forced image element src update')
       }
-      
-      console.log('[AppHeader] logoUrl.value is now:', logoUrl.value)
     } else {
       // Fallback to default logo path if getAssets doesn't return logo
-      console.log('[AppHeader] No logo in assets, using fallback:', fallbackLogo)
       logoUrl.value = ''
       await nextTick()
       logoUrl.value = fallbackLogo
-      console.log('[AppHeader] logoUrl.value is now:', logoUrl.value)
     }
   } catch (err) {
-    console.warn('[AppHeader] Failed to load logo from assets, using default:', err)
     // Fallback to default logo path
     logoUrl.value = ''
     await nextTick()
     logoUrl.value = fallbackLogo
-    console.log('[AppHeader] logoUrl.value set to fallback:', logoUrl.value)
   }
-
-  console.log('[AppHeader] Final logoUrl.value:', logoUrl.value)
-  console.log('[AppHeader] Final logo URL:', new URL(logoUrl.value || fallbackLogo, window.location.href).href)
 }
 
 // Initialize user on component mount
@@ -379,24 +360,12 @@ onUnmounted(() => {
             alt="Company Logo"
             class="company-logo"
             crossorigin="anonymous"
-            @load="
-              (e) => {
-                console.log('[AppHeader] Logo image loaded successfully')
-                console.log('[AppHeader] Image src:', e.target.src)
-                console.log('[AppHeader] Image naturalWidth:', e.target.naturalWidth)
-                console.log('[AppHeader] Image naturalHeight:', e.target.naturalHeight)
-              }
-            "
+            @load="() => {}"
             @error="
               (e) => {
-                console.error('[AppHeader] Logo image failed to load')
-                console.error('[AppHeader] Image src:', e.target.src)
-                console.error('[AppHeader] Error event:', e)
-                
                 // Limit retries to prevent infinite loop
                 const retryCount = parseInt(e.target.dataset.retryCount || '0')
                 if (retryCount >= 3) {
-                  console.warn('[AppHeader] Max retries (3) reached, giving up')
                   return
                 }
                 
@@ -410,9 +379,7 @@ onUnmounted(() => {
                   url.searchParams.set('retry', Date.now().toString())
                   e.target.src = url.toString()
                   e.target.dataset.retryCount = (retryCount + 1).toString()
-                  console.log('[AppHeader] Retrying (' + (retryCount + 1) + '/3) with new src:', e.target.src)
                 } catch (urlError) {
-                  console.error('[AppHeader] Error parsing URL:', urlError)
                   // Fallback: just add timestamp
                   const separator = e.target.src.includes('?') ? '&' : '?'
                   e.target.src = e.target.src.split('&retry=')[0] + separator + 'retry=' + Date.now()

@@ -25,6 +25,11 @@ const props = defineProps({
 })
 const user = ref(null)
 const isAdmin = computed(() => user.value?.role_id === 1)
+const can_confirm_payment = computed(() => {
+  if (!user.value) return false
+  if (user.value.role_id === 1) return true
+  return user.value.permissions?.some((p) => p.permission_name === 'can_confirm_payment')
+})
 
 const emit = defineEmits(['save', 'cancel'])
 
@@ -46,6 +51,7 @@ const formData = ref({
   notes: '',
   is_batch_sell: false,
   id_user: null,
+  payment_confirmed: false,
 })
 
 // Watch for changes in billData prop
@@ -57,6 +63,8 @@ watch(
         ...newData,
         // Convert is_batch_sell from database format (0/1) to boolean
         is_batch_sell: Boolean(newData.is_batch_sell),
+        // Convert payment_confirmed from database format (0/1) to boolean
+        payment_confirmed: Boolean(newData.payment_confirmed),
       }
 
       // For non-admin users, always set id_user to current user's ID
@@ -178,8 +186,8 @@ const saveBill = async () => {
       // First insert the bill to get the ID
       result = await callApi({
         query: `
-          INSERT INTO sell_bill (id_broker, date_sell, notes, id_user, is_batch_sell, time_created)
-          VALUES (?, ?, ?, ?, ?, NOW())
+          INSERT INTO sell_bill (id_broker, date_sell, notes, id_user, is_batch_sell, payment_confirmed, time_created)
+          VALUES (?, ?, ?, ?, ?, ?, NOW())
         `,
         params: [
           formData.value.id_broker || null,
@@ -187,6 +195,7 @@ const saveBill = async () => {
           formData.value.notes || '',
           formData.value.id_user || null,
           formData.value.is_batch_sell ? 1 : 0,
+          can_confirm_payment.value && formData.value.payment_confirmed ? 1 : 0,
         ],
       })
 
@@ -259,7 +268,7 @@ const saveBill = async () => {
       result = await callApi({
         query: `
           UPDATE sell_bill
-          SET id_broker = ?, date_sell = ?, notes = ?, is_batch_sell = ?, id_user = ?
+          SET id_broker = ?, date_sell = ?, notes = ?, is_batch_sell = ?, id_user = ?, payment_confirmed = ?
           WHERE id = ?
         `,
         params: [
@@ -268,6 +277,7 @@ const saveBill = async () => {
           formData.value.notes || '',
           formData.value.is_batch_sell ? 1 : 0,
           formData.value.id_user || null,
+          can_confirm_payment.value && formData.value.payment_confirmed ? 1 : 0,
           formData.value.id,
         ],
       })
@@ -420,6 +430,18 @@ onMounted(() => {
             class="form-checkbox"
           />
           <label for="is_batch_sell" class="checkbox-label">{{ t('sellBills.batch_sell') }}</label>
+        </div>
+      </div>
+
+      <div v-if="can_confirm_payment" class="form-group">
+        <div class="checkbox-wrapper">
+          <input
+            type="checkbox"
+            id="payment_confirmed"
+            v-model="formData.payment_confirmed"
+            class="form-checkbox"
+          />
+          <label for="payment_confirmed" class="checkbox-label">{{ t('sellBills.payment_confirmed') }}</label>
         </div>
       </div>
 

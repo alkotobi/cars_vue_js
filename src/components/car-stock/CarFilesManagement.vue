@@ -99,21 +99,6 @@ const myFiles = computed(() => {
     return false
   })
 
-  // Debug logging
-  console.log('[CarFilesManagement] myFiles computed:', {
-    totalFiles: files.value.length,
-    myFilesCount: result.length,
-    currentUserId: currentUser.value.id,
-    filesStatus: files.value.map((f) => ({
-      id: f.id,
-      name: f.file_name,
-      physical_status: f.physical_status,
-      current_holder_id: f.current_holder_id,
-      uploaded_by: f.uploaded_by,
-      has_pending_transfer: f.has_pending_transfer,
-    })),
-  })
-
   return result
 })
 
@@ -121,7 +106,6 @@ const myFiles = computed(() => {
 // Files can be: 'available', 'checked_out' (to current user), or null (no tracking record)
 const canBatchOperate = computed(() => {
   if (!currentUser.value || !files.value || files.value.length === 0) {
-    console.log('[CarFilesManagement] canBatchOperate: false - no user or files')
     return false
   }
 
@@ -144,7 +128,6 @@ const canBatchOperate = computed(() => {
   })
 
   if (eligibleFiles.length === 0) {
-    console.log('[CarFilesManagement] canBatchOperate: false - no eligible files')
     return false
   }
 
@@ -159,22 +142,6 @@ const canBatchOperate = computed(() => {
     return false
   })
 
-  console.log('[CarFilesManagement] canBatchOperate:', {
-    eligibleFilesCount: eligibleFiles.length,
-    allBelongToUser,
-    eligibleFiles: eligibleFiles.map((f) => ({
-      id: f.id,
-      name: f.file_name,
-      physical_status: f.physical_status,
-      current_holder_id: f.current_holder_id,
-      uploaded_by: f.uploaded_by,
-      belongsToUser:
-        f.physical_status === null
-          ? f.uploaded_by === currentUser.value.id
-          : f.current_holder_id === currentUser.value.id,
-    })),
-  })
-
   return allBelongToUser
 })
 
@@ -182,7 +149,6 @@ const canBatchOperate = computed(() => {
 const filesByCategory = computed(() => {
   const grouped = {}
   if (!categories.value || categories.value.length === 0) {
-    console.log('[CarFilesManagement] No categories available')
     return grouped
   }
   categories.value.forEach((cat) => {
@@ -192,31 +158,6 @@ const filesByCategory = computed(() => {
     }
   })
 
-  // Debug: Log file statuses for checked out files
-  if (files.value && files.value.length > 0) {
-    const checkedOutFiles = files.value.filter((f) => f.physical_status === 'checked_out')
-    if (checkedOutFiles.length > 0) {
-      console.log(
-        '[CarFilesManagement] Checked out files:',
-        checkedOutFiles.map((f) => ({
-          id: f.id,
-          name: f.file_name,
-          physical_status: f.physical_status,
-          checkout_type: f.checkout_type,
-          holder: f.current_holder_username || f.agent_name || f.client_name,
-        })),
-      )
-    }
-  }
-
-  console.log(
-    '[CarFilesManagement] filesByCategory computed:',
-    grouped,
-    'Categories:',
-    categories.value.length,
-    'Files:',
-    files.value.length,
-  )
   return grouped
 })
 
@@ -244,7 +185,6 @@ const loadData = async () => {
     files.value = carFiles
   } catch (err) {
     error.value = err.message || 'Failed to load data'
-    console.error('Load error:', err)
   } finally {
     loading.value = false
   }
@@ -253,25 +193,9 @@ const loadData = async () => {
 // Load pending transfers
 const loadPendingTransfers = async () => {
   try {
-    console.log('[CarFilesManagement] Loading pending transfers for user:', currentUser.value?.id)
     const transfers = await getPendingTransfers()
     pendingTransfers.value = transfers || []
-    console.log('[CarFilesManagement] Loaded pending transfers:', pendingTransfers.value.length)
-    if (pendingTransfers.value.length > 0) {
-      console.log(
-        '[CarFilesManagement] Pending transfers:',
-        pendingTransfers.value.map((t) => ({
-          id: t.id,
-          car_file_id: t.car_file_id,
-          file_name: t.file_name,
-          from_user_id: t.from_user_id,
-          to_user_id: t.to_user_id,
-          transfer_status: t.transfer_status,
-        })),
-      )
-    }
   } catch (err) {
-    console.error('[CarFilesManagement] Failed to load pending transfers:', err)
     pendingTransfers.value = []
   }
 }
@@ -371,7 +295,6 @@ const handleApproveAll = async () => {
 
     if (errors.length > 0) {
       error.value = `Batch approval completed with errors. ${results.length} succeeded, ${errors.length} failed.`
-      console.error('Batch approval errors:', errors)
     } else {
       success.value = `Successfully approved ${results.length} transfer(s)`
     }
@@ -420,7 +343,6 @@ const handleRejectAll = async () => {
 
     if (errors.length > 0) {
       error.value = `Batch rejection completed with errors. ${results.length} succeeded, ${errors.length} failed.`
-      console.error('Batch rejection errors:', errors)
     } else {
       success.value = `Successfully rejected ${results.length} transfer(s)`
     }
@@ -545,7 +467,6 @@ const loadingUsers = ref(false)
 const loadingClients = ref(false)
 
 const openCheckoutModal = async (file) => {
-  console.log('[CarFilesManagement] openCheckoutModal called with file:', file)
   fileToCheckout.value = file
   checkoutType.value = 'user'
   checkoutUserId.value = null
@@ -557,19 +478,15 @@ const openCheckoutModal = async (file) => {
 
   // Load initial data for dropdowns
   try {
-    console.log('[CarFilesManagement] Loading users/clients/agents...')
     await loadUsers()
     await loadClients()
     const agents = await getCustomClearanceAgents()
     availableAgents.value = agents || []
-    console.log('[CarFilesManagement] Data loaded, showing modal')
   } catch (err) {
-    console.error('[CarFilesManagement] Failed to load users/clients/agents:', err)
     error.value = 'Failed to load checkout data: ' + (err.message || err)
   }
 
   showCheckoutModal.value = true
-  console.log('[CarFilesManagement] showCheckoutModal set to:', showCheckoutModal.value)
 }
 
 // Load users from database
@@ -580,7 +497,6 @@ const loadUsers = async () => {
     checkoutAvailableUsers.value = users || []
     filteredUsers.value = users || []
   } catch (err) {
-    console.error('Failed to load users:', err)
     checkoutAvailableUsers.value = []
     filteredUsers.value = []
   } finally {
@@ -603,7 +519,6 @@ const loadClients = async () => {
       filteredClients.value = result.data || []
     }
   } catch (err) {
-    console.error('Failed to load clients:', err)
     availableClients.value = []
     filteredClients.value = []
   } finally {
@@ -667,17 +582,8 @@ const handleClientChange = (clientId) => {
 
 const confirmCheckout = async () => {
   if (!fileToCheckout.value) {
-    console.error('[CarFilesManagement] confirmCheckout: No file to checkout')
     return
   }
-
-  console.log('[CarFilesManagement] confirmCheckout called', {
-    file: fileToCheckout.value,
-    checkoutType: checkoutType.value,
-    userId: checkoutUserId.value,
-    agentId: checkoutAgentId.value,
-    clientId: checkoutClientId.value,
-  })
 
   // Validate based on checkout type
   if (checkoutType.value === 'user' && !checkoutUserId.value) {
@@ -699,13 +605,6 @@ const confirmCheckout = async () => {
 
   try {
     const user = currentUser.value
-    console.log('[CarFilesManagement] Calling checkout API...', {
-      file_id: fileToCheckout.value.id,
-      checkout_type: checkoutType.value,
-      user_id: checkoutType.value === 'user' ? checkoutUserId.value : null,
-      agent_id: checkoutType.value === 'custom_clearance_agent' ? checkoutAgentId.value : null,
-      client_id: checkoutType.value === 'client' ? checkoutClientId.value : null,
-    })
 
     const result = await callApi({
       action: 'checkout_physical_copy',
@@ -721,19 +620,14 @@ const confirmCheckout = async () => {
       requiresAuth: true,
     })
 
-    console.log('[CarFilesManagement] Checkout API response:', result)
-
     if (result.success) {
       success.value = 'File checked out successfully'
       showCheckoutModal.value = false
-      console.log('[CarFilesManagement] Reloading data...')
       await loadData()
-      console.log('[CarFilesManagement] Data reloaded')
     } else {
       throw new Error(result.error || 'Failed to check out file')
     }
   } catch (err) {
-    console.error('[CarFilesManagement] Checkout error:', err)
     error.value = err.message || err.error || 'Failed to check out file'
   } finally {
     loading.value = false
@@ -850,10 +744,6 @@ const confirmTransfer = async () => {
     // Reload pending transfers first, then reload file data
     await loadPendingTransfers()
     await loadData()
-    console.log(
-      '[CarFilesManagement] After transfer - pending transfers:',
-      pendingTransfers.value.length,
-    )
   } catch (err) {
     error.value = err.message || 'Failed to transfer file'
   } finally {
@@ -982,7 +872,6 @@ const confirmBatchTransfer = async () => {
 
     if (errors.length > 0) {
       error.value = `Batch transfer completed with errors. ${results.length} succeeded, ${errors.length} failed.`
-      console.error('Batch transfer errors:', errors)
     } else {
       success.value = `Successfully transferred ${results.length} file(s)`
     }
@@ -1155,7 +1044,6 @@ const confirmBatchCheckout = async () => {
 
     if (errors.length > 0) {
       error.value = `Batch checkout completed with errors. ${results.length} succeeded, ${errors.length} failed.`
-      console.error('Batch checkout errors:', errors)
     } else {
       success.value = `Successfully checked out ${results.length} file(s)`
     }
@@ -1171,22 +1059,15 @@ const confirmBatchCheckout = async () => {
 
 // Transfer history
 const openHistoryModal = async (file) => {
-  console.log('[CarFilesManagement] Opening history modal for file:', file)
   fileForHistory.value = file
   loading.value = true
   error.value = null
   showHistoryModal.value = true // Show modal immediately, even while loading
 
   try {
-    console.log('[CarFilesManagement] Fetching transfer history for file_id:', file.id)
     const history = await getFileTransferHistory(file.id)
-    console.log('[CarFilesManagement] Transfer history received:', history)
     transferHistory.value = history || []
-    if (history && history.length === 0) {
-      console.log('[CarFilesManagement] No transfer history found for this file')
-    }
   } catch (err) {
-    console.error('[CarFilesManagement] Error loading transfer history:', err)
     error.value = err.message || 'Failed to load transfer history'
   } finally {
     loading.value = false
@@ -1302,7 +1183,6 @@ watch(
   () => showPendingTransfersModal.value,
   (newVal) => {
     if (newVal) {
-      console.log('[CarFilesManagement] Pending transfers modal opened, reloading...')
       loadPendingTransfers()
     }
   },
@@ -1429,15 +1309,6 @@ onMounted(() => {
           <p>No file categories found. Please run the database migration first.</p>
         </div>
 
-        <!-- Debug Info (remove in production) -->
-        <div
-          v-if="!loading"
-          style="padding: 1rem; background: #f0f0f0; margin-bottom: 1rem; font-size: 0.875rem"
-        >
-          <strong>Debug:</strong> Categories: {{ categories.length }}, Files: {{ files.length }},
-          Groups: {{ Object.keys(filesByCategory).length }}
-        </div>
-
         <!-- Files by Category -->
         <div
           v-for="(group, categoryId) in filesByCategory"
@@ -1560,15 +1431,7 @@ onMounted(() => {
                         (file.physical_status === 'available' &&
                           file.uploaded_by === currentUser?.id)
                       "
-                      @click="
-                        () => {
-                          console.log(
-                            '[CarFilesManagement] Checkout button clicked for file:',
-                            file,
-                          )
-                          openCheckoutModal(file)
-                        }
-                      "
+                      @click="openCheckoutModal(file)"
                       class="btn-action btn-checkout"
                       title="Check out physical copy"
                     >
@@ -1628,15 +1491,7 @@ onMounted(() => {
                         Transfer
                       </button>
                       <button
-                        @click="
-                          () => {
-                            console.log(
-                              '[CarFilesManagement] Checkout button clicked for file:',
-                              file,
-                            )
-                            openCheckoutModal(file)
-                          }
-                        "
+                        @click="openCheckoutModal(file)"
                         class="btn-action btn-checkout"
                         title="Check out to user/client/agent"
                       >
@@ -2004,26 +1859,6 @@ onMounted(() => {
           <div v-else-if="pendingTransfers.length === 0" class="empty-state">
             <i class="fas fa-check-circle"></i>
             <p>No pending transfers</p>
-            <div
-              style="
-                font-size: 0.75rem;
-                color: #6b7280;
-                margin-top: 0.5rem;
-                text-align: left;
-                padding: 1rem;
-                background: #f3f4f6;
-                border-radius: 4px;
-              "
-            >
-              <p><strong>Debug Info:</strong></p>
-              <p>Current user ID: {{ currentUser?.id }}</p>
-              <p>Current username: {{ currentUser?.username }}</p>
-              <p>Pending transfers array length: {{ pendingTransfers.length }}</p>
-              <p>Loading state: {{ loading }}</p>
-              <p style="margin-top: 0.5rem; color: #dc2626">
-                <strong>Check browser console (F12) for detailed logs</strong>
-              </p>
-            </div>
           </div>
 
           <div v-else class="pending-transfers-list">

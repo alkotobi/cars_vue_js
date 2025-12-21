@@ -181,7 +181,6 @@ export default {
           )
         }
       } catch (error) {
-        console.error('Error assigning VINs:', error)
         alert(t('vinAssignmentModal.error_assigning_vins') + ': ' + error.message)
       } finally {
         isProcessing.value = false
@@ -205,20 +204,15 @@ export default {
           vin: null,
         }))
 
-        console.log('Sending revert VIN request:', assignments)
-
         const response = await callApi({
           action: 'assign_multiple_vins',
           assignments: assignments,
         })
 
-        console.log('Revert VIN response:', response)
-
         if (response.success) {
           emit('vins-assigned', assignments)
           closeModal()
         } else {
-          console.error('Revert VIN failed:', response)
           alert(
             t('vinAssignmentModal.error_reverting_vins') +
               ': ' +
@@ -226,7 +220,6 @@ export default {
           )
         }
       } catch (error) {
-        console.error('Error reverting VINs:', error)
         alert(t('vinAssignmentModal.error_reverting_vins') + ': ' + error.message)
       } finally {
         isProcessing.value = false
@@ -234,21 +227,11 @@ export default {
     }
 
     const closeModal = () => {
-      console.log('Closing VIN assignment modal')
       vinInput.value = ''
       vinList.value = []
       assignedVins.value = []
       emit('close')
     }
-
-    // Add debugging for modal visibility
-    watch(
-      () => props.isVisible,
-      (newValue) => {
-        console.log('VIN assignment modal visibility changed:', newValue)
-      },
-      { immediate: true },
-    )
 
     // Watch for changes in selected cars to update assigned VINs preview
     watch(

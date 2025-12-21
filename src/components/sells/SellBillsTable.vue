@@ -75,6 +75,13 @@ const can_edit_sell_bill = computed(() => {
   return user.value.permissions?.some((p) => p.permission_name === 'can_edit_sell_bill')
 })
 
+// Add computed property for payment confirmation permission
+const can_confirm_payment = computed(() => {
+  if (!user.value) return false
+  if (user.value.role_id === 1) return true
+  return user.value.permissions?.some((p) => p.permission_name === 'can_confirm_payment')
+})
+
 const sortConfig = ref({
   field: 'id',
   direction: 'desc',
@@ -1228,6 +1235,49 @@ const getLoadingStatus = (bill) => {
     }
   }
 }
+
+// Toggle payment confirmed status
+const togglePaymentConfirmed = async (bill) => {
+  if (!can_confirm_payment.value) {
+    alert(t('sellBills.no_permission_to_confirm_payment') || 'You do not have permission to confirm payments')
+    return
+  }
+
+  if (isProcessing.value) return
+
+  isProcessing.value = true
+
+  try {
+    const newStatus = bill.payment_confirmed ? 0 : 1
+    const result = await callApi({
+      query: `
+        UPDATE sell_bill
+        SET payment_confirmed = ?
+        WHERE id = ?
+      `,
+      params: [newStatus, bill.id],
+    })
+
+    if (result.success) {
+      // Update local state
+      const billIndex = sellBills.value.findIndex((b) => b.id === bill.id)
+      if (billIndex !== -1) {
+        sellBills.value[billIndex].payment_confirmed = newStatus
+      }
+      const allBillIndex = allSellBills.value.findIndex((b) => b.id === bill.id)
+      if (allBillIndex !== -1) {
+        allSellBills.value[allBillIndex].payment_confirmed = newStatus
+      }
+    } else {
+      alert(t('sellBills.failed_to_update_payment_confirmed') || 'Failed to update payment confirmed status: ' + result.error)
+    }
+  } catch (err) {
+    console.error('Error toggling payment confirmed:', err)
+    alert(t('sellBills.error_updating_payment_confirmed') || 'Error updating payment confirmed status: ' + err.message)
+  } finally {
+    isProcessing.value = false
+  }
+}
 </script>
 
 <template>
@@ -1503,6 +1553,17 @@ const getLoadingStatus = (bill) => {
               >
                 {{ getPaymentStatus(bill).text }}
               </span>
+            </td>
+            <td v-if="can_confirm_payment">
+              <button
+                @click.stop="togglePaymentConfirmed(bill)"
+                :disabled="isProcessing"
+                :class="['payment-confirmed-btn', bill.payment_confirmed ? 'confirmed' : 'not-confirmed']"
+                :title="bill.payment_confirmed ? t('sellBills.payment_confirmed_yes') : t('sellBills.payment_confirmed_no')"
+              >
+                <i :class="bill.payment_confirmed ? 'fas fa-check-circle' : 'far fa-circle'"></i>
+                {{ bill.payment_confirmed ? t('sellBills.confirmed') : t('sellBills.not_confirmed') }}
+              </button>
             </td>
             <td>
               <span
@@ -2345,5 +2406,56 @@ const getLoadingStatus = (bill) => {
   background-color: #dc2626;
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3);
+}
+
+/* Payment confirmed button styles */
+.payment-confirmed-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  background-color: #f3f4f6;
+  color: #6b7280;
+  border: 1px solid #e5e7eb;
+}
+
+.payment-confirmed-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.payment-confirmed-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.payment-confirmed-btn.confirmed {
+  background-color: #dcfce7;
+  color: #166534;
+  border-color: #bbf7d0;
+}
+
+.payment-confirmed-btn.confirmed:hover:not(:disabled) {
+  background-color: #bbf7d0;
+}
+
+.payment-confirmed-btn.not-confirmed {
+  background-color: #fee2e2;
+  color: #991b1b;
+  border-color: #fecaca;
+}
+
+.payment-confirmed-btn.not-confirmed:hover:not(:disabled) {
+  background-color: #fecaca;
+}
+
+.payment-confirmed-btn i {
+  font-size: 1rem;
 }
 </style>
