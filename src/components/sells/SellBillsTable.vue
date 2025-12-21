@@ -1249,6 +1249,13 @@ const togglePaymentConfirmed = async (bill) => {
 
   try {
     const newStatus = bill.payment_confirmed ? 0 : 1
+    
+    // Get current user info for permission check
+    if (!user.value || !user.value.id) {
+      alert('User authentication required')
+      return
+    }
+    
     const result = await callApi({
       query: `
         UPDATE sell_bill
@@ -1256,6 +1263,9 @@ const togglePaymentConfirmed = async (bill) => {
         WHERE id = ?
       `,
       params: [newStatus, bill.id],
+      user_id: user.value.id,
+      is_admin: user.value.role_id === 1,
+      requiresAuth: true,
     })
 
     if (result.success) {
@@ -1268,8 +1278,31 @@ const togglePaymentConfirmed = async (bill) => {
       if (allBillIndex !== -1) {
         allSellBills.value[allBillIndex].payment_confirmed = newStatus
       }
+      
+      // Emit refresh event to parent component
+      emit('refresh')
+      
+      // Dispatch global event for CarStockTable to listen to (if it's on a different page)
+      window.dispatchEvent(new CustomEvent('payment-confirmed-updated', {
+        detail: { billId: bill.id, newStatus }
+      }))
+      
+      // Show success message
+      if (newStatus === 1) {
+        alert(t('sellBills.payment_confirmed_success') || 'Payment confirmed. All cars in this sell bill have also been confirmed.')
+      } else {
+        alert(t('sellBills.payment_unconfirmed_success') || 'Payment unconfirmed. All cars in this sell bill have also been unconfirmed.')
+      }
     } else {
-      alert(t('sellBills.failed_to_update_payment_confirmed') || 'Failed to update payment confirmed status: ' + result.error)
+      const errorMsg = result.error || 'Unknown error'
+      // Check if it's a missing column error
+      if (errorMsg.includes("Unknown column 'payment_confirmed'") || errorMsg.includes("doesn't exist")) {
+        alert('Payment confirmed column does not exist. Please run migration 008_add_payment_confirmed_to_sell_bill.sql')
+      } else if (errorMsg.includes('Permission denied')) {
+        alert(errorMsg)
+      } else {
+        alert('Failed to update payment confirmed status: ' + errorMsg)
+      }
     }
   } catch (err) {
     console.error('Error toggling payment confirmed:', err)
@@ -1506,6 +1539,9 @@ const togglePaymentConfirmed = async (bill) => {
               ></i>
             </th>
             <th><i class="fas fa-money-bill-wave"></i> {{ t('sellBills.payment_status') }}</th>
+            <th v-if="can_confirm_payment">
+              <i class="fas fa-check-circle"></i> {{ t('sellBills.payment_confirmed') }}
+            </th>
             <th><i class="fas fa-shipping-fast"></i> {{ t('sellBills.loading_status') }}</th>
             <th><i class="fas fa-cog"></i> {{ t('sellBills.actions') }}</th>
           </tr>

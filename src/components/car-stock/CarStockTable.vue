@@ -2045,6 +2045,13 @@ const loadInitialCarsData = async () => {
   }
 }
 
+// Handler for payment confirmation updates
+const handlePaymentConfirmedUpdate = (event) => {
+  // Refresh cars list when payment confirmation is updated
+  // This happens when a sell bill's payment is confirmed/unconfirmed
+  fetchCarsStock()
+}
+
 onMounted(async () => {
   const userStr = localStorage.getItem('user')
   if (userStr) {
@@ -2057,12 +2064,15 @@ onMounted(async () => {
   // Add event listeners for teleport dropdown
   document.addEventListener('click', handleClickOutside)
   document.addEventListener('scroll', handleScroll, true)
+  // Listen for payment confirmation updates from sell bills
+  window.addEventListener('payment-confirmed-updated', handlePaymentConfirmedUpdate)
 })
 
 onUnmounted(() => {
   // Remove event listeners
   document.removeEventListener('click', handleClickOutside)
   document.removeEventListener('scroll', handleScroll, true)
+  window.removeEventListener('payment-confirmed-updated', handlePaymentConfirmedUpdate)
 })
 
 // Expose the fetchCarsStock method to parent components
@@ -2374,6 +2384,13 @@ const togglePaymentConfirmed = async (car) => {
     // If column doesn't exist, show message to run migration
     const currentStatus = car.payment_confirmed !== undefined ? car.payment_confirmed : 0
     const newStatus = currentStatus ? 0 : 1
+    
+    // Get current user info for permission check
+    if (!user.value || !user.value.id) {
+      alert('User authentication required')
+      return
+    }
+    
     const result = await callApi({
       query: `
         UPDATE cars_stock
@@ -2381,6 +2398,9 @@ const togglePaymentConfirmed = async (car) => {
         WHERE id = ?
       `,
       params: [newStatus, car.id],
+      user_id: user.value.id,
+      is_admin: user.value.role_id === 1,
+      requiresAuth: true,
     })
 
     if (result.success) {
@@ -2390,7 +2410,13 @@ const togglePaymentConfirmed = async (car) => {
         cars.value[carIndex].payment_confirmed = newStatus
       }
     } else {
-      alert(t('carStock.failed_to_update_payment_confirmed') || 'Failed to update payment confirmed status: ' + result.error)
+      const errorMsg = result.error || 'Unknown error'
+      // Check if it's a missing column error
+      if (errorMsg.includes("Unknown column 'payment_confirmed'") || errorMsg.includes("doesn't exist")) {
+        alert('Payment confirmed column does not exist. Please run migration 009_add_payment_confirmed_to_cars_stock.sql')
+      } else {
+        alert('Failed to update payment confirmed status: ' + errorMsg)
+      }
     }
   } catch (err) {
     alert(t('carStock.error_updating_payment_confirmed') || 'Error updating payment confirmed status: ' + err.message)

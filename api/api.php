@@ -1874,6 +1874,83 @@ if (!isset($postData['query']) || empty($postData['query'])) {
 $query = $postData['query'];
 $params = isset($postData['params']) ? $postData['params'] : [];
 
+// Check if query is updating payment_confirmed column - requires permission check
+$queryUpper = strtoupper(trim($query));
+$isPaymentConfirmedUpdate = (strpos($queryUpper, 'UPDATE') === 0 && (strpos($queryUpper, 'PAYMENT_CONFIRMED') !== false || strpos($queryUpper, '`payment_confirmed`') !== false));
+
+if ($isPaymentConfirmedUpdate) {
+    // Require user_id and is_admin for payment_confirmed updates
+    if (!isset($postData['user_id']) || !isset($postData['is_admin'])) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'User authentication required for payment confirmation updates']);
+        exit;
+    }
+    
+    $userId = intval($postData['user_id']);
+    $isAdmin = isset($postData['is_admin']) ? (bool)$postData['is_admin'] : false;
+    
+    try {
+        $conn = getConnection(getDbConfig());
+        if (is_array($conn) && isset($conn['error'])) {
+            throw new Exception($conn['error']);
+        }
+        
+        // Check permission: must be admin or have can_confirm_payment permission
+        if (!$isAdmin && !hasPermission($conn, $userId, 'can_confirm_payment')) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'error' => 'Permission denied: You do not have permission to confirm payments']);
+            exit;
+        }
+        
+        // Check if this is updating sell_bill table
+        $isSellBillUpdate = (stripos($queryUpper, 'UPDATE') === 0 && stripos($queryUpper, 'SELL_BILL') !== false);
+        
+        if ($isSellBillUpdate) {
+            // Extract bill ID from WHERE clause and new payment_confirmed value from params
+            // The query should be: UPDATE sell_bill SET payment_confirmed = ? WHERE id = ?
+            // Params should be: [newStatus, billId]
+            if (count($params) >= 2) {
+                $newStatus = intval($params[0]);
+                $billId = intval($params[1]);
+                
+                // Execute the sell_bill update using the existing connection
+                try {
+                    $stmt = $conn->prepare($query);
+                    $stmt->execute($params);
+                    $affectedRows = $stmt->rowCount();
+                    $result = ['success' => true, 'affectedRows' => $affectedRows];
+                    
+                    // If update was successful, update all related cars
+                    if ($affectedRows > 0) {
+                        $updateCarsQuery = "UPDATE cars_stock SET payment_confirmed = ? WHERE id_sell = ?";
+                        $carsStmt = $conn->prepare($updateCarsQuery);
+                        $carsStmt->execute([$newStatus, $billId]);
+                        $carsAffected = $carsStmt->rowCount();
+                        
+                        // Log the update (optional, for debugging)
+                        if ($carsAffected > 0) {
+                            error_log("Updated payment_confirmed for $carsAffected cars related to sell_bill ID $billId to status $newStatus");
+                        }
+                    }
+                    
+                    // Return the sell_bill update result
+                    http_response_code(200);
+                    echo json_encode($result);
+                    exit;
+                } catch (Exception $e) {
+                    http_response_code(500);
+                    echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+                    exit;
+                }
+            }
+        }
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Error checking permissions: ' . $e->getMessage()]);
+        exit;
+    }
+}
+
 // Execute query and return result
 http_response_code(200);
 echo json_encode(executeQuery($query, $params));
