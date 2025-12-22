@@ -860,6 +860,27 @@ export const useApi = () => {
     return result
   }
 
+  // Delete file category (admin only)
+  const deleteFileCategory = async (categoryId) => {
+    const user = getCurrentUser()
+    if (!user || user.role_id !== 1) {
+      throw new Error('Admin access required')
+    }
+
+    const result = await callApi({
+      action: 'delete_file_category',
+      category_id: categoryId,
+      is_admin: true,
+      requiresAuth: true,
+    })
+
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to delete category')
+    }
+
+    return result
+  }
+
   // Custom Clearance Agents CRUD
   const getCustomClearanceAgents = async () => {
     const result = await callApi({
@@ -967,6 +988,7 @@ export const useApi = () => {
     getUsersForTransfer,
     createFileCategory,
     updateFileCategory,
+    deleteFileCategory,
     getCustomClearanceAgents,
     createCustomClearanceAgent,
     updateCustomClearanceAgent,

@@ -1539,7 +1539,7 @@ const togglePaymentConfirmed = async (bill) => {
               ></i>
             </th>
             <th><i class="fas fa-money-bill-wave"></i> {{ t('sellBills.payment_status') }}</th>
-            <th v-if="can_confirm_payment">
+            <th>
               <i class="fas fa-check-circle"></i> {{ t('sellBills.payment_confirmed') }}
             </th>
             <th><i class="fas fa-shipping-fast"></i> {{ t('sellBills.loading_status') }}</th>
@@ -1590,12 +1590,12 @@ const togglePaymentConfirmed = async (bill) => {
                 {{ getPaymentStatus(bill).text }}
               </span>
             </td>
-            <td v-if="can_confirm_payment">
+            <td>
               <button
-                @click.stop="togglePaymentConfirmed(bill)"
-                :disabled="isProcessing"
-                :class="['payment-confirmed-btn', bill.payment_confirmed ? 'confirmed' : 'not-confirmed']"
-                :title="bill.payment_confirmed ? t('sellBills.payment_confirmed_yes') : t('sellBills.payment_confirmed_no')"
+                @click.stop="can_confirm_payment ? togglePaymentConfirmed(bill) : null"
+                :disabled="isProcessing || !can_confirm_payment"
+                :class="['payment-confirmed-btn', bill.payment_confirmed ? 'confirmed' : 'not-confirmed', !can_confirm_payment ? 'read-only' : '']"
+                :title="can_confirm_payment ? (bill.payment_confirmed ? t('sellBills.payment_confirmed_yes') : t('sellBills.payment_confirmed_no')) : t('sellBills.no_permission_to_confirm_payment')"
               >
                 <i :class="bill.payment_confirmed ? 'fas fa-check-circle' : 'far fa-circle'"></i>
                 {{ bill.payment_confirmed ? t('sellBills.confirmed') : t('sellBills.not_confirmed') }}
@@ -2493,5 +2493,15 @@ const togglePaymentConfirmed = async (bill) => {
 
 .payment-confirmed-btn i {
   font-size: 1rem;
+}
+
+.payment-confirmed-btn.read-only {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.payment-confirmed-btn.read-only:hover {
+  transform: none;
+  box-shadow: none;
 }
 </style>

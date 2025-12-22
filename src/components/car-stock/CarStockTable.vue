@@ -129,7 +129,15 @@ const can_edit_cars_prop = computed(() => {
 
 const emit = defineEmits(['refresh', 'warehouse-changed'])
 
-const { callApi, getFileUrl, getAssets, getCarFiles, transferPhysicalCopy, getUsersForTransfer, getCustomClearanceAgents } = useApi()
+const {
+  callApi,
+  getFileUrl,
+  getAssets,
+  getCarFiles,
+  transferPhysicalCopy,
+  getUsersForTransfer,
+  getCustomClearanceAgents,
+} = useApi()
 const letterHeadUrl = ref(null)
 const cars = ref([])
 const loading = ref(true)
@@ -277,7 +285,11 @@ const isAdmin = computed(() => {
 const buyBillRefHeader = computed(() => {
   const translation = t('carStock.buy_bill_ref')
   // If translation returns the key or locale code, use fallback
-  if (translation === 'carStock.buy_bill_ref' || translation === 'en' || translation === locale.value) {
+  if (
+    translation === 'carStock.buy_bill_ref' ||
+    translation === 'en' ||
+    translation === locale.value
+  ) {
     return 'Buy Bill Ref'
   }
   return translation
@@ -287,7 +299,11 @@ const buyBillRefHeader = computed(() => {
 const combiningCarsText = computed(() => {
   const translation = t('carStock.combining_cars')
   // If translation returns the key or locale code, use fallback
-  if (translation === 'carStock.combining_cars' || translation === 'en' || translation === locale.value) {
+  if (
+    translation === 'carStock.combining_cars' ||
+    translation === 'en' ||
+    translation === locale.value
+  ) {
     return 'Combining cars...'
   }
   return translation
@@ -328,14 +344,14 @@ const sortedCars = computed(() => {
       return [...cars.value].sort((a, b) => {
         const aBuyRef = a.buy_bill_ref || ''
         const bBuyRef = b.buy_bill_ref || ''
-        
+
         // First sort by buy_bill_ref
         if (aBuyRef !== bBuyRef) {
           if (!aBuyRef) return 1
           if (!bBuyRef) return -1
           return aBuyRef.localeCompare(bBuyRef)
         }
-        
+
         // Then sort by id
         return a.id - b.id
       })
@@ -343,14 +359,14 @@ const sortedCars = computed(() => {
       return [...cars.value].sort((a, b) => {
         const aContainer = a.container_ref || ''
         const bContainer = b.container_ref || ''
-        
+
         // First sort by container_ref
         if (aContainer !== bContainer) {
           if (!aContainer) return 1
           if (!bContainer) return -1
           return aContainer.localeCompare(bContainer)
         }
-        
+
         // Then sort by id
         return a.id - b.id
       })
@@ -595,7 +611,14 @@ const handleVinFromToolbar = () => {
 }
 
 const printReport = async (reportData) => {
-  const { title, cars: reportCars, columns, contentBeforeTable, contentAfterTable, groupBy = '' } = reportData
+  const {
+    title,
+    cars: reportCars,
+    columns,
+    contentBeforeTable,
+    contentAfterTable,
+    groupBy = '',
+  } = reportData
 
   // Load assets if not already loaded
   if (!letterHeadUrl.value) {
@@ -1288,7 +1311,6 @@ const fetchCarsStock = async () => {
               const daysDiff = (currentDate - buyDate) / (1000 * 60 * 60 * 24)
               return daysDiff > alertDays
             })
-
           } else if (alertType === 'no_licence') {
             // Cars purchased more than X days ago without export license
             filteredCars = filteredCars.filter((car) => {
@@ -1309,7 +1331,6 @@ const fetchCarsStock = async () => {
               const daysDiff = (currentDate - buyDate) / (1000 * 60 * 60 * 24)
               return daysDiff > alertDays
             })
-
           } else if (alertType === 'no_docs_sent') {
             // Cars sold more than X days ago without documents sent
             filteredCars = filteredCars.filter((car) => {
@@ -1933,7 +1954,7 @@ const loadInitialCarsData = async () => {
     let whereClause = '1=1' // Default: show all cars
     const currentUserId = user.value?.id
     const isUserAdmin = user.value?.role_id === 1
-    
+
     if (!isUserAdmin && currentUserId) {
       // Non-admin users can only see:
       // 1. Non-hidden cars (hidden = 0)
@@ -2020,15 +2041,20 @@ const loadInitialCarsData = async () => {
     })
     if (result.success) {
       // Set default payment_confirmed to 0 if column doesn't exist yet
-      const carsData = (result.data || []).map(car => ({
+      const carsData = (result.data || []).map((car) => ({
         ...car,
-        payment_confirmed: car.payment_confirmed !== undefined ? car.payment_confirmed : 0
+        payment_confirmed: car.payment_confirmed !== undefined ? car.payment_confirmed : 0,
       }))
       allCars.value = carsData
       cars.value = carsData
       // Temporary debug - remove after fixing
       if (!result.data || result.data.length === 0) {
-        console.warn('CarStockTable: Query returned no data. WHERE clause:', whereClause, 'User:', user.value)
+        console.warn(
+          'CarStockTable: Query returned no data. WHERE clause:',
+          whereClause,
+          'User:',
+          user.value,
+        )
       }
     } else {
       error.value = result.error || 'Failed to fetch cars stock'
@@ -2312,29 +2338,29 @@ const handleMarkDelivered = async () => {
 const handleCombineByBuyRef = async () => {
   // Show loading indicator immediately
   isProcessing.value.combine = true
-  
+
   // Force browser to render the loading indicator
   // Use setTimeout to yield to the browser's render cycle
   await new Promise((resolve) => setTimeout(resolve, 0))
   await new Promise((resolve) => requestAnimationFrame(resolve))
   await new Promise((resolve) => setTimeout(resolve, 50))
-  
+
   // Now do the computation
   // Store previous sort config
   previousSortConfig.value = { ...sortConfig.value }
-  
+
   // Enable combine mode with buy_ref type
   combineModeType.value = 'buy_ref'
   isCombineMode.value = true
-  
+
   // Keep selection - don't clear it
   updateSelectAllState()
-  
+
   // Wait for computation to complete
   await nextTick()
   await nextTick()
   await new Promise((resolve) => setTimeout(resolve, 100))
-  
+
   // Hide loading indicator
   isProcessing.value.combine = false
 }
@@ -2342,36 +2368,39 @@ const handleCombineByBuyRef = async () => {
 const handleCombineByContainer = async () => {
   // Show loading indicator immediately
   isProcessing.value.combine = true
-  
+
   // Force browser to render the loading indicator
   // Use setTimeout to yield to the browser's render cycle
   await new Promise((resolve) => setTimeout(resolve, 0))
   await new Promise((resolve) => requestAnimationFrame(resolve))
   await new Promise((resolve) => setTimeout(resolve, 50))
-  
+
   // Now do the computation
   // Store previous sort config
   previousSortConfig.value = { ...sortConfig.value }
-  
+
   // Enable combine mode with container type
   combineModeType.value = 'container'
   isCombineMode.value = true
-  
+
   // Keep selection - don't clear it
   updateSelectAllState()
-  
+
   // Wait for computation to complete
   await nextTick()
   await nextTick()
   await new Promise((resolve) => setTimeout(resolve, 100))
-  
+
   // Hide loading indicator
   isProcessing.value.combine = false
 }
 
 const togglePaymentConfirmed = async (car) => {
   if (!can_confirm_payment.value) {
-    alert(t('carStock.no_permission_to_confirm_payment') || 'You do not have permission to confirm payments')
+    alert(
+      t('carStock.no_permission_to_confirm_payment') ||
+        'You do not have permission to confirm payments',
+    )
     return
   }
 
@@ -2384,13 +2413,13 @@ const togglePaymentConfirmed = async (car) => {
     // If column doesn't exist, show message to run migration
     const currentStatus = car.payment_confirmed !== undefined ? car.payment_confirmed : 0
     const newStatus = currentStatus ? 0 : 1
-    
+
     // Get current user info for permission check
     if (!user.value || !user.value.id) {
       alert('User authentication required')
       return
     }
-    
+
     const result = await callApi({
       query: `
         UPDATE cars_stock
@@ -2412,14 +2441,22 @@ const togglePaymentConfirmed = async (car) => {
     } else {
       const errorMsg = result.error || 'Unknown error'
       // Check if it's a missing column error
-      if (errorMsg.includes("Unknown column 'payment_confirmed'") || errorMsg.includes("doesn't exist")) {
-        alert('Payment confirmed column does not exist. Please run migration 009_add_payment_confirmed_to_cars_stock.sql')
+      if (
+        errorMsg.includes("Unknown column 'payment_confirmed'") ||
+        errorMsg.includes("doesn't exist")
+      ) {
+        alert(
+          'Payment confirmed column does not exist. Please run migration 009_add_payment_confirmed_to_cars_stock.sql',
+        )
       } else {
         alert('Failed to update payment confirmed status: ' + errorMsg)
       }
     }
   } catch (err) {
-    alert(t('carStock.error_updating_payment_confirmed') || 'Error updating payment confirmed status: ' + err.message)
+    alert(
+      t('carStock.error_updating_payment_confirmed') ||
+        'Error updating payment confirmed status: ' + err.message,
+    )
   } finally {
     isProcessing.value.payment = false
   }
@@ -2431,11 +2468,11 @@ const handleUncombine = () => {
     sortConfig.value = { ...previousSortConfig.value }
     previousSortConfig.value = null
   }
-  
+
   // Disable combine mode
   isCombineMode.value = false
   combineModeType.value = null
-  
+
   // Keep selection - don't clear it
   updateSelectAllState()
 }
@@ -2443,7 +2480,7 @@ const handleUncombine = () => {
 // Group cars by buy_bill_ref for combine mode
 const groupedCarsByBuyRef = computed(() => {
   if (!isCombineMode.value || !sortedCars.value) return {}
-  
+
   const groups = {}
   sortedCars.value.forEach((car) => {
     const buyRef = car.buy_bill_ref || 'no_buy_bill'
@@ -2452,7 +2489,7 @@ const groupedCarsByBuyRef = computed(() => {
     }
     groups[buyRef].push(car)
   })
-  
+
   return groups
 })
 
@@ -2465,7 +2502,7 @@ const getBuyRefForCar = (car) => {
 const isFirstCarInGroup = (car, index) => {
   if (!isCombineMode.value) return false
   if (index === 0) return true
-  
+
   if (combineModeType.value === 'buy_ref') {
     const currentBuyRef = car.buy_bill_ref || null
     const previousCar = sortedCars.value[index - 1]
@@ -2477,18 +2514,18 @@ const isFirstCarInGroup = (car, index) => {
     const previousContainer = previousCar?.container_ref || null
     return currentContainer !== previousContainer
   }
-  
+
   return false
 }
 
 // Get row span for group (buy ref or container)
 const getGroupRowSpan = (car, index) => {
   if (!isCombineMode.value) return 0
-  
+
   if (combineModeType.value === 'buy_ref') {
     const buyRef = car.buy_bill_ref || null
     if (!buyRef) return 0
-    
+
     // Count how many consecutive cars have the same buy ref
     let count = 1
     for (let i = index + 1; i < sortedCars.value.length; i++) {
@@ -2502,7 +2539,7 @@ const getGroupRowSpan = (car, index) => {
   } else if (combineModeType.value === 'container') {
     const containerRef = car.container_ref || null
     if (!containerRef) return 0
-    
+
     // Count how many consecutive cars have the same container ref
     let count = 1
     for (let i = index + 1; i < sortedCars.value.length; i++) {
@@ -2514,23 +2551,23 @@ const getGroupRowSpan = (car, index) => {
     }
     return count
   }
-  
+
   return 0
 }
 
 // Toggle selection for all cars in a group (buy ref or container)
 const toggleGroupSelection = (groupValue) => {
   if (!isCombineMode.value) return
-  
+
   let carsInGroup = []
   if (combineModeType.value === 'buy_ref') {
     carsInGroup = sortedCars.value.filter((car) => car.buy_bill_ref === groupValue)
   } else if (combineModeType.value === 'container') {
     carsInGroup = sortedCars.value.filter((car) => car.container_ref === groupValue)
   }
-  
+
   const allSelected = carsInGroup.every((car) => selectedCars.value.has(car.id))
-  
+
   if (allSelected) {
     // Deselect all cars in group
     carsInGroup.forEach((car) => {
@@ -2542,21 +2579,21 @@ const toggleGroupSelection = (groupValue) => {
       selectedCars.value.add(car.id)
     })
   }
-  
+
   updateSelectAllState()
 }
 
 // Check if all cars in a group are selected (buy ref or container)
 const isGroupSelected = (groupValue) => {
   if (!isCombineMode.value) return false
-  
+
   let carsInGroup = []
   if (combineModeType.value === 'buy_ref') {
     carsInGroup = sortedCars.value.filter((car) => car.buy_bill_ref === groupValue)
   } else if (combineModeType.value === 'container') {
     carsInGroup = sortedCars.value.filter((car) => car.container_ref === groupValue)
   }
-  
+
   if (carsInGroup.length === 0) return false
   return carsInGroup.every((car) => selectedCars.value.has(car.id))
 }
@@ -2564,13 +2601,13 @@ const isGroupSelected = (groupValue) => {
 // Get count of cars in a group (buy ref or container)
 const getGroupCount = (groupValue) => {
   if (!isCombineMode.value) return 0
-  
+
   if (combineModeType.value === 'buy_ref') {
     return sortedCars.value.filter((car) => car.buy_bill_ref === groupValue).length
   } else if (combineModeType.value === 'container') {
     return sortedCars.value.filter((car) => car.container_ref === groupValue).length
   }
-  
+
   return 0
 }
 
@@ -2590,7 +2627,11 @@ const getGroupHeaderLabel = computed(() => {
     return buyBillRefHeader.value
   } else if (combineModeType.value === 'container') {
     const translation = t('carStock.container_ref')
-    if (translation === 'carStock.container_ref' || translation === 'en' || translation === locale.value) {
+    if (
+      translation === 'carStock.container_ref' ||
+      translation === 'en' ||
+      translation === locale.value
+    ) {
       return 'Container Ref'
     }
     return translation
@@ -2638,7 +2679,7 @@ const handleSelectionLoaded = (selection) => {
   })
   updateSelectAllState()
   alert(
-    `${selection.carIds.length} ${selection.carIds.length === 1 ? (t('carStockToolbar.car') || 'car') : (t('carStockToolbar.cars') || 'cars')} ${t('carStock.loaded') || 'loaded'}`,
+    `${selection.carIds.length} ${selection.carIds.length === 1 ? t('carStockToolbar.car') || 'car' : t('carStockToolbar.cars') || 'cars'} ${t('carStock.loaded') || 'loaded'}`,
   )
 }
 
@@ -2654,7 +2695,7 @@ const handleTransfer = async () => {
     if (typeof getUsersForTransfer !== 'function') {
       throw new Error('getUsersForTransfer function is not available')
     }
-    
+
     if (!selectedCars || !selectedCars.value || selectedCars.value.size === 0) {
       alert(t('carStock.no_cars_selected_for_transfer') || 'No cars selected for transfer')
       return
@@ -2668,7 +2709,7 @@ const handleTransfer = async () => {
     // Get all selected cars - use sortedCars if available, otherwise use cars
     const carsList = sortedCars?.value || cars.value || []
     const selectedCarsList = carsList.filter((car) => selectedCars.value.has(car.id))
-    
+
     if (selectedCarsList.length === 0) {
       alert(t('carStock.no_cars_selected_for_transfer') || 'No cars selected for transfer')
       return
@@ -2682,11 +2723,11 @@ const handleTransfer = async () => {
     for (const car of selectedCarsList) {
       try {
         const carFiles = await getCarFiles(car.id)
-        
+
         if (!Array.isArray(carFiles)) {
           continue
         }
-        
+
         // Filter eligible files for this car
         const eligibleFiles = carFiles.filter((f) => {
           // Skip files with pending transfers
@@ -2730,10 +2771,13 @@ const handleTransfer = async () => {
       if (errors.length > 0) {
         alert(
           t('carStock.no_files_available_for_batch_transfer_with_errors') ||
-          `No files available for batch transfer. Errors: ${errors.join('; ')}`
+            `No files available for batch transfer. Errors: ${errors.join('; ')}`,
         )
       } else {
-        alert(t('carStock.no_files_available_for_batch_transfer') || 'No files available for batch transfer. Please ensure you are the holder of the documents.')
+        alert(
+          t('carStock.no_files_available_for_batch_transfer') ||
+            'No files available for batch transfer. Please ensure you are the holder of the documents.',
+        )
       }
       return
     }
@@ -2749,32 +2793,39 @@ const handleTransfer = async () => {
       if (!allFiles[0] || !allFiles[0].id) {
         throw new Error('Invalid file data: missing file ID')
       }
-      
+
       const users = await getUsersForTransfer(allFiles[0].id)
-      
+
       if (!Array.isArray(users)) {
         throw new Error('Invalid response from getUsersForTransfer: expected array')
       }
-      
+
       batchTransferAvailableUsers.value = users
-      
+
       if (users.length === 0) {
-        alert(t('carStock.no_users_available_for_transfer') || 'No users available for transfer. Please contact an administrator.')
+        alert(
+          t('carStock.no_users_available_for_transfer') ||
+            'No users available for transfer. Please contact an administrator.',
+        )
         return
       }
-      
+
       showBatchTransferModal.value = true
     } catch (err) {
       const errorMsg = err.message || String(err)
-      alert(t('carStock.failed_to_load_users_for_transfer') || 'Failed to load users for transfer: ' + errorMsg)
+      alert(
+        t('carStock.failed_to_load_users_for_transfer') ||
+          'Failed to load users for transfer: ' + errorMsg,
+      )
     }
   } catch (err) {
     const errorMsg = err.message || String(err)
     const errorStack = err.stack || ''
     alert(
       (t('carStock.failed_to_prepare_batch_transfer') || 'Failed to prepare batch transfer') +
-      ': ' + errorMsg +
-      (errorStack ? '\n\nCheck console for details.' : '')
+        ': ' +
+        errorMsg +
+        (errorStack ? '\n\nCheck console for details.' : ''),
     )
   }
 }
@@ -2802,10 +2853,10 @@ const confirmBatchTransfer = async () => {
       try {
         // Double-check eligibility before transferring
         const isEligible =
-          (!file.has_pending_transfer &&
-            ((file.physical_status === 'checked_out' && file.current_holder_id === currentUserId) ||
-              (file.physical_status === 'available' && file.current_holder_id === currentUserId) ||
-              (file.physical_status === null && file.uploaded_by === currentUserId)))
+          !file.has_pending_transfer &&
+          ((file.physical_status === 'checked_out' && file.current_holder_id === currentUserId) ||
+            (file.physical_status === 'available' && file.current_holder_id === currentUserId) ||
+            (file.physical_status === null && file.uploaded_by === currentUserId))
 
         if (!isEligible) {
           errors.push({
@@ -2849,7 +2900,10 @@ const confirmBatchTransfer = async () => {
     batchTransferFiles.value = []
     fetchCarsStock()
   } catch (err) {
-    alert(t('carStock.failed_to_perform_batch_transfer') || 'Failed to perform batch transfer: ' + err.message)
+    alert(
+      t('carStock.failed_to_perform_batch_transfer') ||
+        'Failed to perform batch transfer: ' + err.message,
+    )
   } finally {
     isBatchTransferring.value = false
   }
@@ -2878,7 +2932,7 @@ const handleCheckout = async () => {
     // Get all selected cars - use sortedCars if available, otherwise use cars
     const carsList = sortedCars?.value || cars.value || []
     const selectedCarsList = carsList.filter((car) => car && selectedCars.value.has(car.id))
-    
+
     if (selectedCarsList.length === 0) {
       alert(t('carStock.no_cars_selected_for_checkout') || 'No cars selected for checkout')
       return
@@ -2893,18 +2947,18 @@ const handleCheckout = async () => {
       if (!car || !car.id) {
         continue
       }
-      
+
       try {
         if (!getCarFiles) {
           throw new Error('getCarFiles function is not available')
         }
-        
+
         const carFiles = await getCarFiles(car.id)
-        
+
         if (!Array.isArray(carFiles)) {
           continue
         }
-        
+
         // Filter eligible files for this car
         const eligibleFiles = carFiles.filter((f) => {
           // Skip files with pending transfers
@@ -2948,10 +3002,13 @@ const handleCheckout = async () => {
       if (errors.length > 0) {
         alert(
           t('carStock.no_files_available_for_batch_checkout_with_errors') ||
-          `No files available for batch checkout. Errors: ${errors.join('; ')}`
+            `No files available for batch checkout. Errors: ${errors.join('; ')}`,
         )
       } else {
-        alert(t('carStock.no_files_available_for_batch_checkout') || 'No files available for batch checkout. Please ensure you are the holder of the documents.')
+        alert(
+          t('carStock.no_files_available_for_batch_checkout') ||
+            'No files available for batch checkout. Please ensure you are the holder of the documents.',
+        )
       }
       return
     }
@@ -2971,48 +3028,57 @@ const handleCheckout = async () => {
       if (!allFiles[0] || !allFiles[0].id) {
         throw new Error('Invalid file data: missing file ID')
       }
-      
+
       // Load users
       if (getUsersForTransfer) {
         const users = await getUsersForTransfer(allFiles[0].id)
         batchCheckoutAvailableUsers.value = Array.isArray(users) ? users : []
       }
-      
+
       // Load clients
       const clientsResult = await callApi({
-        query: 'SELECT id, name, email, mobiles, address FROM clients WHERE is_client = 1 ORDER BY name ASC',
+        query:
+          'SELECT id, name, email, mobiles, address FROM clients WHERE is_client = 1 ORDER BY name ASC',
         params: [],
         requiresAuth: true,
       })
       if (clientsResult.success) {
         batchCheckoutAvailableClients.value = clientsResult.data || []
       }
-      
+
       // Load agents
       if (getCustomClearanceAgents) {
         const agents = await getCustomClearanceAgents()
         batchCheckoutAvailableAgents.value = Array.isArray(agents) ? agents : []
       }
-      
-      if (batchCheckoutAvailableUsers.value.length === 0 && 
-          batchCheckoutAvailableClients.value.length === 0 && 
-          batchCheckoutAvailableAgents.value.length === 0) {
-        alert(t('carStock.no_checkout_options_available') || 'No checkout options available. Please contact an administrator.')
+
+      if (
+        batchCheckoutAvailableUsers.value.length === 0 &&
+        batchCheckoutAvailableClients.value.length === 0 &&
+        batchCheckoutAvailableAgents.value.length === 0
+      ) {
+        alert(
+          t('carStock.no_checkout_options_available') ||
+            'No checkout options available. Please contact an administrator.',
+        )
         return
       }
-      
+
       showBatchCheckoutModal.value = true
     } catch (err) {
       const errorMsg = err.message || String(err)
-      alert(t('carStock.failed_to_load_checkout_data') || 'Failed to load checkout data: ' + errorMsg)
+      alert(
+        t('carStock.failed_to_load_checkout_data') || 'Failed to load checkout data: ' + errorMsg,
+      )
     }
   } catch (err) {
     const errorMsg = err.message || String(err)
     const errorStack = err.stack || ''
     alert(
       (t('carStock.failed_to_prepare_batch_checkout') || 'Failed to prepare batch checkout') +
-      ': ' + errorMsg +
-      (errorStack ? '\n\nCheck console for details.' : '')
+        ': ' +
+        errorMsg +
+        (errorStack ? '\n\nCheck console for details.' : ''),
     )
   }
 }
@@ -3024,11 +3090,20 @@ const confirmBatchCheckout = async () => {
     return
   }
   if (batchCheckoutType.value === 'custom_clearance_agent' && !batchCheckoutAgentId.value) {
-    alert(t('carStock.please_select_agent_for_checkout') || 'Please select a custom clearance agent')
+    alert(
+      t('carStock.please_select_agent_for_checkout') || 'Please select a custom clearance agent',
+    )
     return
   }
-  if (batchCheckoutType.value === 'client' && !batchCheckoutClientId.value && !batchCheckoutClientName.value) {
-    alert(t('carStock.please_select_client_for_checkout') || 'Please select a client or enter client name')
+  if (
+    batchCheckoutType.value === 'client' &&
+    !batchCheckoutClientId.value &&
+    !batchCheckoutClientName.value
+  ) {
+    alert(
+      t('carStock.please_select_client_for_checkout') ||
+        'Please select a client or enter client name',
+    )
     return
   }
 
@@ -3049,10 +3124,10 @@ const confirmBatchCheckout = async () => {
       try {
         // Double-check eligibility before checking out
         const isEligible =
-          (!file.has_pending_transfer &&
-            ((file.physical_status === 'checked_out' && file.current_holder_id === currentUserId) ||
-              (file.physical_status === 'available' && file.current_holder_id === currentUserId) ||
-              (file.physical_status === null && file.uploaded_by === currentUserId)))
+          !file.has_pending_transfer &&
+          ((file.physical_status === 'checked_out' && file.current_holder_id === currentUserId) ||
+            (file.physical_status === 'available' && file.current_holder_id === currentUserId) ||
+            (file.physical_status === null && file.uploaded_by === currentUserId))
 
         if (!isEligible) {
           errors.push({
@@ -3068,10 +3143,14 @@ const confirmBatchCheckout = async () => {
           file_id: file.id,
           checkout_type: batchCheckoutType.value,
           user_id: batchCheckoutType.value === 'user' ? batchCheckoutUserId.value : null,
-          agent_id: batchCheckoutType.value === 'custom_clearance_agent' ? batchCheckoutAgentId.value : null,
+          agent_id:
+            batchCheckoutType.value === 'custom_clearance_agent'
+              ? batchCheckoutAgentId.value
+              : null,
           client_id: batchCheckoutType.value === 'client' ? batchCheckoutClientId.value : null,
           client_name: batchCheckoutType.value === 'client' ? batchCheckoutClientName.value : null,
-          client_contact: batchCheckoutType.value === 'client' ? batchCheckoutClientContact.value : null,
+          client_contact:
+            batchCheckoutType.value === 'client' ? batchCheckoutClientContact.value : null,
           notes: batchCheckoutNotes.value || null,
           performed_by: currentUserId,
           requiresAuth: true,
@@ -3112,7 +3191,10 @@ const confirmBatchCheckout = async () => {
     batchCheckoutFiles.value = []
     fetchCarsStock()
   } catch (err) {
-    alert(t('carStock.failed_to_perform_batch_checkout') || 'Failed to perform batch checkout: ' + err.message)
+    alert(
+      t('carStock.failed_to_perform_batch_checkout') ||
+        'Failed to perform batch checkout: ' + err.message,
+    )
   } finally {
     isBatchCheckouting.value = false
   }
@@ -3120,7 +3202,9 @@ const confirmBatchCheckout = async () => {
 
 const handleClientChange = () => {
   if (batchCheckoutClientId.value) {
-    const client = batchCheckoutAvailableClients.value.find(c => c.id === batchCheckoutClientId.value)
+    const client = batchCheckoutAvailableClients.value.find(
+      (c) => c.id === batchCheckoutClientId.value,
+    )
     if (client) {
       batchCheckoutClientName.value = client.name || ''
       batchCheckoutClientContact.value = client.mobiles || client.email || ''
@@ -3370,7 +3454,7 @@ const closeBatchCheckoutModal = () => {
                   {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
                 </span>
               </th>
-              <th v-if="can_confirm_payment">{{ t('carStock.payment_confirmed') }}</th>
+              <th>{{ t('carStock.payment_confirmed') }}</th>
               <th>{{ t('carStock.bl') }}</th>
               <th @click="toggleSort('notes')" class="sortable">
                 {{ t('carStock.notes') }}
@@ -3388,7 +3472,10 @@ const closeBatchCheckoutModal = () => {
                 'used-car': car.is_used_car,
                 selected: selectedCars.has(car.id),
                 'hidden-car': car.hidden,
-                'buy-ref-group-row': isCombineMode && ((combineModeType.value === 'buy_ref' && car.buy_bill_ref) || (combineModeType.value === 'container' && car.container_ref)),
+                'buy-ref-group-row':
+                  isCombineMode &&
+                  ((combineModeType.value === 'buy_ref' && car.buy_bill_ref) ||
+                    (combineModeType.value === 'container' && car.container_ref)),
               }"
             >
               <td
@@ -3408,11 +3495,20 @@ const closeBatchCheckoutModal = () => {
                   />
                   <div class="buy-ref-text">
                     <div class="buy-ref-label">
-                      {{ getGroupValue(car) || (combineModeType.value === 'buy_ref' ? t('carStock.no_buy_bill') : t('carStock.no_container_ref')) }}
+                      {{
+                        getGroupValue(car) ||
+                        (combineModeType.value === 'buy_ref'
+                          ? t('carStock.no_buy_bill')
+                          : t('carStock.no_container_ref'))
+                      }}
                     </div>
                     <div class="buy-ref-count">
                       {{ getGroupCount(getGroupValue(car)) }}
-                      {{ getGroupCount(getGroupValue(car)) === 1 ? t('carStockToolbar.car') : t('carStockToolbar.cars') }}
+                      {{
+                        getGroupCount(getGroupValue(car)) === 1
+                          ? t('carStockToolbar.car')
+                          : t('carStockToolbar.cars')
+                      }}
                     </div>
                   </div>
                 </div>
@@ -3596,15 +3692,31 @@ const closeBatchCheckoutModal = () => {
                 </div>
               </td>
 
-              <td v-if="can_confirm_payment" class="payment-confirmed-column">
+              <td class="payment-confirmed-column">
                 <button
-                  @click="togglePaymentConfirmed(car)"
-                  :disabled="isProcessing.payment"
-                  :class="['payment-confirmed-btn', (car.payment_confirmed || 0) ? 'confirmed' : 'not-confirmed']"
-                  :title="(car.payment_confirmed || 0) ? t('carStock.payment_confirmed_yes') : t('carStock.payment_confirmed_no')"
+                  @click="can_confirm_payment ? togglePaymentConfirmed(car) : null"
+                  :disabled="isProcessing.payment || !can_confirm_payment"
+                  :class="[
+                    'payment-confirmed-btn',
+                    car.payment_confirmed || 0 ? 'confirmed' : 'not-confirmed',
+                    !can_confirm_payment ? 'read-only' : '',
+                  ]"
+                  :title="
+                    can_confirm_payment
+                      ? car.payment_confirmed || 0
+                        ? t('carStock.payment_confirmed_yes')
+                        : t('carStock.payment_confirmed_no')
+                      : t('carStock.no_permission_to_confirm_payment')
+                  "
                 >
-                  <i :class="(car.payment_confirmed || 0) ? 'fas fa-check-circle' : 'far fa-circle'"></i>
-                  {{ (car.payment_confirmed || 0) ? t('carStock.confirmed') : t('carStock.not_confirmed') }}
+                  <i
+                    :class="car.payment_confirmed || 0 ? 'fas fa-check-circle' : 'far fa-circle'"
+                  ></i>
+                  {{
+                    car.payment_confirmed || 0
+                      ? t('carStock.confirmed')
+                      : t('carStock.not_confirmed')
+                  }}
                 </button>
               </td>
 
@@ -4303,8 +4415,13 @@ const closeBatchCheckoutModal = () => {
         <div class="info-section">
           <i class="fas fa-info-circle"></i>
           <span>
-            {{ t('carStock.batch_transfer_info', { count: batchTransferFiles.length, cars: selectedCars.size }) ||
-            `Transferring ${batchTransferFiles.length} file(s) from ${selectedCars.size} selected car(s)` }}
+            {{
+              t('carStock.batch_transfer_info', {
+                count: batchTransferFiles.length,
+                cars: selectedCars.size,
+              }) ||
+              `Transferring ${batchTransferFiles.length} file(s) from ${selectedCars.size} selected car(s)`
+            }}
           </span>
         </div>
 
@@ -4327,18 +4444,28 @@ const closeBatchCheckoutModal = () => {
         </div>
 
         <div class="form-group">
-          <label>{{ t('carStock.notes') || 'Notes' }} ({{ t('carStock.optional') || 'Optional' }})</label>
+          <label
+            >{{ t('carStock.notes') || 'Notes' }} ({{
+              t('carStock.optional') || 'Optional'
+            }})</label
+          >
           <textarea
             v-model="batchTransferNotes"
             class="form-textarea"
             rows="3"
             :disabled="isBatchTransferring"
-            :placeholder="t('carStock.transfer_notes_placeholder') || 'Add any notes about this transfer...'"
+            :placeholder="
+              t('carStock.transfer_notes_placeholder') || 'Add any notes about this transfer...'
+            "
           ></textarea>
         </div>
 
         <div class="form-group">
-          <label>{{ t('carStock.expected_return_date') || 'Expected Return Date' }} ({{ t('carStock.optional') || 'Optional' }})</label>
+          <label
+            >{{ t('carStock.expected_return_date') || 'Expected Return Date' }} ({{
+              t('carStock.optional') || 'Optional'
+            }})</label
+          >
           <input
             v-model="batchTransferExpectedReturn"
             type="date"
@@ -4348,13 +4475,13 @@ const closeBatchCheckoutModal = () => {
         </div>
 
         <div v-if="batchTransferFiles.length > 0" class="files-preview">
-          <h4>{{ t('carStock.files_to_transfer') || 'Files to Transfer' }} ({{ batchTransferFiles.length }})</h4>
+          <h4>
+            {{ t('carStock.files_to_transfer') || 'Files to Transfer' }} ({{
+              batchTransferFiles.length
+            }})
+          </h4>
           <div class="files-list">
-            <div
-              v-for="(file, index) in batchTransferFiles"
-              :key="index"
-              class="file-item"
-            >
+            <div v-for="(file, index) in batchTransferFiles" :key="index" class="file-item">
               <i class="fas fa-file"></i>
               <span>{{ file.file_name }}</span>
               <span class="car-name">({{ file.car_name }})</span>
@@ -4364,11 +4491,7 @@ const closeBatchCheckoutModal = () => {
       </div>
 
       <div class="modal-actions">
-        <button
-          @click="closeBatchTransferModal"
-          class="cancel-btn"
-          :disabled="isBatchTransferring"
-        >
+        <button @click="closeBatchTransferModal" class="cancel-btn" :disabled="isBatchTransferring">
           {{ t('carStock.cancel') || 'Cancel' }}
         </button>
         <button
@@ -4395,32 +4518,31 @@ const closeBatchCheckoutModal = () => {
         <div class="info-section">
           <i class="fas fa-info-circle"></i>
           <span>
-            {{ t('carStock.batch_checkout_info', { count: batchCheckoutFiles.length, cars: selectedCars.size }) ||
-            `Checking out ${batchCheckoutFiles.length} file(s) from ${selectedCars.size} selected car(s)` }}
+            {{
+              t('carStock.batch_checkout_info', {
+                count: batchCheckoutFiles.length,
+                cars: selectedCars.size,
+              }) ||
+              `Checking out ${batchCheckoutFiles.length} file(s) from ${selectedCars.size} selected car(s)`
+            }}
           </span>
         </div>
 
         <div class="form-group">
           <label>{{ t('carStock.checkout_to') || 'Check Out To' }} *</label>
-          <select
-            v-model="batchCheckoutType"
-            class="form-select"
-            :disabled="isBatchCheckouting"
-          >
+          <select v-model="batchCheckoutType" class="form-select" :disabled="isBatchCheckouting">
             <option value="user">{{ t('carStock.user') || 'User' }}</option>
             <option value="client">{{ t('carStock.client') || 'Client' }}</option>
-            <option value="custom_clearance_agent">{{ t('carStock.custom_clearance_agent') || 'Custom Clearance Agent' }}</option>
+            <option value="custom_clearance_agent">
+              {{ t('carStock.custom_clearance_agent') || 'Custom Clearance Agent' }}
+            </option>
           </select>
         </div>
 
         <!-- User Selection -->
         <div v-if="batchCheckoutType === 'user'" class="form-group">
           <label>{{ t('carStock.select_user') || 'Select User' }} *</label>
-          <select
-            v-model="batchCheckoutUserId"
-            class="form-select"
-            :disabled="isBatchCheckouting"
-          >
+          <select v-model="batchCheckoutUserId" class="form-select" :disabled="isBatchCheckouting">
             <option value="">{{ t('carStock.select_user') || 'Select a user...' }}</option>
             <option
               v-for="userOption in batchCheckoutAvailableUsers"
@@ -4435,17 +4557,9 @@ const closeBatchCheckoutModal = () => {
         <!-- Agent Selection -->
         <div v-if="batchCheckoutType === 'custom_clearance_agent'" class="form-group">
           <label>{{ t('carStock.select_agent') || 'Select Custom Clearance Agent' }} *</label>
-          <select
-            v-model="batchCheckoutAgentId"
-            class="form-select"
-            :disabled="isBatchCheckouting"
-          >
+          <select v-model="batchCheckoutAgentId" class="form-select" :disabled="isBatchCheckouting">
             <option value="">{{ t('carStock.select_agent') || 'Select an agent...' }}</option>
-            <option
-              v-for="agent in batchCheckoutAvailableAgents"
-              :key="agent.id"
-              :value="agent.id"
-            >
+            <option v-for="agent in batchCheckoutAvailableAgents" :key="agent.id" :value="agent.id">
               {{ agent.name }}
             </option>
           </select>
@@ -4485,7 +4599,11 @@ const closeBatchCheckoutModal = () => {
 
         <!-- Client Contact (for new clients) -->
         <div v-if="batchCheckoutType === 'client' && !batchCheckoutClientId" class="form-group">
-          <label>{{ t('carStock.client_contact') || 'Client Contact' }} ({{ t('carStock.optional') || 'Optional' }})</label>
+          <label
+            >{{ t('carStock.client_contact') || 'Client Contact' }} ({{
+              t('carStock.optional') || 'Optional'
+            }})</label
+          >
           <input
             v-model="batchCheckoutClientContact"
             type="text"
@@ -4496,24 +4614,30 @@ const closeBatchCheckoutModal = () => {
         </div>
 
         <div class="form-group">
-          <label>{{ t('carStock.notes') || 'Notes' }} ({{ t('carStock.optional') || 'Optional' }})</label>
+          <label
+            >{{ t('carStock.notes') || 'Notes' }} ({{
+              t('carStock.optional') || 'Optional'
+            }})</label
+          >
           <textarea
             v-model="batchCheckoutNotes"
             class="form-textarea"
             rows="3"
             :disabled="isBatchCheckouting"
-            :placeholder="t('carStock.checkout_notes_placeholder') || 'Add any notes about this checkout...'"
+            :placeholder="
+              t('carStock.checkout_notes_placeholder') || 'Add any notes about this checkout...'
+            "
           ></textarea>
         </div>
 
         <div v-if="batchCheckoutFiles.length > 0" class="files-preview">
-          <h4>{{ t('carStock.files_to_checkout') || 'Files to Checkout' }} ({{ batchCheckoutFiles.length }})</h4>
+          <h4>
+            {{ t('carStock.files_to_checkout') || 'Files to Checkout' }} ({{
+              batchCheckoutFiles.length
+            }})
+          </h4>
           <div class="files-list">
-            <div
-              v-for="(file, index) in batchCheckoutFiles"
-              :key="index"
-              class="file-item"
-            >
+            <div v-for="(file, index) in batchCheckoutFiles" :key="index" class="file-item">
               <i class="fas fa-file"></i>
               <span>{{ file.file_name }}</span>
               <span class="car-name">({{ file.car_name }})</span>
@@ -4523,20 +4647,20 @@ const closeBatchCheckoutModal = () => {
       </div>
 
       <div class="modal-actions">
-        <button
-          @click="closeBatchCheckoutModal"
-          class="cancel-btn"
-          :disabled="isBatchCheckouting"
-        >
+        <button @click="closeBatchCheckoutModal" class="cancel-btn" :disabled="isBatchCheckouting">
           {{ t('carStock.cancel') || 'Cancel' }}
         </button>
         <button
           @click="confirmBatchCheckout"
           class="confirm-btn"
-          :disabled="isBatchCheckouting || 
+          :disabled="
+            isBatchCheckouting ||
             (batchCheckoutType === 'user' && !batchCheckoutUserId) ||
-            (batchCheckoutType === 'client' && !batchCheckoutClientId && !batchCheckoutClientName) ||
-            (batchCheckoutType === 'custom_clearance_agent' && !batchCheckoutAgentId)"
+            (batchCheckoutType === 'client' &&
+              !batchCheckoutClientId &&
+              !batchCheckoutClientName) ||
+            (batchCheckoutType === 'custom_clearance_agent' && !batchCheckoutAgentId)
+          "
         >
           <i v-if="isBatchCheckouting" class="fas fa-spinner fa-spin"></i>
           {{ t('carStock.confirm_checkout') || 'Confirm Checkout' }}
@@ -5864,6 +5988,16 @@ const closeBatchCheckoutModal = () => {
 
 .payment-confirmed-btn i {
   font-size: 1rem;
+}
+
+.payment-confirmed-btn.read-only {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.payment-confirmed-btn.read-only:hover {
+  transform: none;
+  box-shadow: none;
 }
 
 /* Status column multiline support */

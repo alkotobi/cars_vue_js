@@ -189,7 +189,7 @@ INSERT IGNORE INTO `cars_names` (`car_name`) VALUES
 
 -- Cars stock table
 CREATE TABLE IF NOT EXISTS `cars_stock` (
-  `id` int NOT NULL AUTO_INCREMENT,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `notes` text,
   `id_buy_details` int DEFAULT NULL,
   `date_sell` datetime DEFAULT NULL,
@@ -286,7 +286,7 @@ CREATE TABLE IF NOT EXISTS `chat_users` (
 
 -- Clients table
 CREATE TABLE IF NOT EXISTS `clients` (
-  `id` int NOT NULL AUTO_INCREMENT,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `name` varchar(255) NOT NULL,
   `address` varchar(255) DEFAULT NULL,
   `email` varchar(255) DEFAULT NULL,
@@ -612,12 +612,12 @@ CREATE TABLE IF NOT EXISTS `transfer_details` (
 
 -- Users table
 CREATE TABLE IF NOT EXISTS `users` (
-  `id` int NOT NULL AUTO_INCREMENT,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `username` varchar(50) NOT NULL,
   `email` varchar(100) NOT NULL,
   `password` varchar(255) NOT NULL,
-  `role_id` int NOT NULL,
-  `max_unpayed_created_bills` int DEFAULT '0',
+  `role_id` int(11) NOT NULL,
+  `max_unpayed_created_bills` int(11) DEFAULT '0',
   PRIMARY KEY (`id`),
   UNIQUE KEY `username` (`username`),
   UNIQUE KEY `email` (`email`)
@@ -629,8 +629,8 @@ INSERT IGNORE INTO `users` (`username`, `email`, `password`, `role_id`, `max_unp
 
 -- Transfers table
 CREATE TABLE IF NOT EXISTS `transfers` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `id_user_do_transfer` int NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id_user_do_transfer` int(11) NOT NULL,
   `date_do_transfer` datetime NOT NULL,
   `amount_sending_da` decimal(10,2) NOT NULL,
   `rate` decimal(10,2) NOT NULL,
@@ -833,36 +833,7 @@ CREATE TABLE IF NOT EXISTS `car_file_transfers` (
 -- Car Selections System Tables
 -- ============================================
 
--- Jobs table
--- Note: One team can have multiple jobs, but each job belongs to only one team
-CREATE TABLE IF NOT EXISTS `jobs` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `name` varchar(255) NOT NULL COMMENT 'Job name',
-  `description` text DEFAULT NULL COMMENT 'Job description',
-  `category` varchar(100) DEFAULT NULL COMMENT 'Job category (loading, delivery, inspection, documentation, etc.)',
-  `estimated_duration_hours` int(11) DEFAULT NULL COMMENT 'Estimated duration in hours',
-  `is_active` tinyint(1) NOT NULL DEFAULT 1 COMMENT '1=Active, 0=Inactive',
-  `team_id` int(11) DEFAULT NULL COMMENT 'FK to teams - each job belongs to one team (one team can have multiple jobs)',
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  KEY `idx_is_active` (`is_active`),
-  KEY `idx_category` (`category`),
-  KEY `idx_name` (`name`),
-  KEY `idx_team_id` (`team_id`),
-  CONSTRAINT `fk_jobs_team` FOREIGN KEY (`team_id`) REFERENCES `teams` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 COMMENT='Jobs assigned to teams - one team can have multiple jobs, each job belongs to one team';
-
--- Insert default jobs
-INSERT IGNORE INTO `jobs` (`name`, `description`, `category`, `is_active`) VALUES
-('Loading', 'Load cars onto container/ship', 'loading', 1),
-('Delivery', 'Deliver cars to destination', 'delivery', 1),
-('Inspection', 'Inspect cars for quality/condition', 'inspection', 1),
-('Documentation', 'Prepare and process documents', 'documentation', 1),
-('Warehouse Management', 'Manage warehouse operations', 'warehouse', 1),
-('Custom Clearance', 'Handle custom clearance procedures', 'custom_clearance', 1);
-
--- Teams table
+-- Teams table (must be created before jobs since jobs references teams)
 CREATE TABLE IF NOT EXISTS `teams` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `name` varchar(255) NOT NULL COMMENT 'Team name',
@@ -895,6 +866,34 @@ CREATE TABLE IF NOT EXISTS `team_members` (
   CONSTRAINT `fk_team_members_team` FOREIGN KEY (`team_id`) REFERENCES `teams` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `fk_team_members_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COMMENT='Team members - users can only be in one team at a time';
+
+-- Jobs table (must be created after teams since jobs references teams)
+CREATE TABLE IF NOT EXISTS `jobs` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) NOT NULL COMMENT 'Job name',
+  `description` text DEFAULT NULL COMMENT 'Job description',
+  `category` varchar(100) DEFAULT NULL COMMENT 'Job category (loading, delivery, inspection, documentation, etc.)',
+  `estimated_duration_hours` int(11) DEFAULT NULL COMMENT 'Estimated duration in hours',
+  `is_active` tinyint(1) NOT NULL DEFAULT 1 COMMENT '1=Active, 0=Inactive',
+  `team_id` int(11) DEFAULT NULL COMMENT 'FK to teams - each job belongs to one team (one team can have multiple jobs)',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_is_active` (`is_active`),
+  KEY `idx_category` (`category`),
+  KEY `idx_name` (`name`),
+  KEY `idx_team_id` (`team_id`),
+  CONSTRAINT `fk_jobs_team` FOREIGN KEY (`team_id`) REFERENCES `teams` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COMMENT='Jobs assigned to teams - one team can have multiple jobs, each job belongs to one team';
+
+-- Insert default jobs
+INSERT IGNORE INTO `jobs` (`name`, `description`, `category`, `is_active`) VALUES
+('Loading', 'Load cars onto container/ship', 'loading', 1),
+('Delivery', 'Deliver cars to destination', 'delivery', 1),
+('Inspection', 'Inspect cars for quality/condition', 'inspection', 1),
+('Documentation', 'Prepare and process documents', 'documentation', 1),
+('Warehouse Management', 'Manage warehouse operations', 'warehouse', 1),
+('Custom Clearance', 'Handle custom clearance procedures', 'custom_clearance', 1);
 
 -- Car selections table
 CREATE TABLE IF NOT EXISTS `car_selections` (

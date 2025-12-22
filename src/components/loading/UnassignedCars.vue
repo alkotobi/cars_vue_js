@@ -228,6 +228,9 @@
                 ></i>
                 <i v-else class="fas fa-sort sort-inactive"></i>
               </th>
+              <th>
+                <i class="fas fa-check-circle"></i> {{ t('carStock.payment_confirmed') }}
+              </th>
               <th>{{ t('loading.actions') }}</th>
             </tr>
           </thead>
@@ -271,6 +274,33 @@
                 >
                   {{ getPaymentStatusText(car) }}
                 </span>
+              </td>
+              <td class="payment-confirmed-column">
+                <button
+                  @click.stop="can_confirm_payment ? togglePaymentConfirmed(car) : null"
+                  :disabled="isProcessingPayment || !can_confirm_payment"
+                  :class="[
+                    'payment-confirmed-btn',
+                    car.payment_confirmed || 0 ? 'confirmed' : 'not-confirmed',
+                    !can_confirm_payment ? 'read-only' : '',
+                  ]"
+                  :title="
+                    can_confirm_payment
+                      ? car.payment_confirmed || 0
+                        ? t('carStock.payment_confirmed_yes')
+                        : t('carStock.payment_confirmed_no')
+                      : t('carStock.no_permission_to_confirm_payment')
+                  "
+                >
+                  <i
+                    :class="car.payment_confirmed || 0 ? 'fas fa-check-circle' : 'far fa-circle'"
+                  ></i>
+                  {{
+                    car.payment_confirmed || 0
+                      ? t('carStock.confirmed')
+                      : t('carStock.not_confirmed')
+                  }}
+                </button>
               </td>
               <td class="actions-cell">
                 <div class="action-buttons">
@@ -441,6 +471,14 @@ const loading = ref(false)
 const error = ref(null)
 const selectedCarId = ref(null)
 const isAssigning = ref(false)
+const user = ref(null)
+const isAdmin = computed(() => user.value?.role_id === 1)
+const can_confirm_payment = computed(() => {
+  if (!user.value) return false
+  if (user.value.role_id === 1) return true
+  return user.value.permissions?.some((p) => p.permission_name === 'can_confirm_payment')
+})
+const isProcessingPayment = ref(false)
 const filters = ref({
   carName: '',
   color: '',
@@ -594,6 +632,7 @@ const fetchUnassignedCars = async () => {
           sb.bill_ref as sell_bill_ref,
           dp.discharge_port,
           cs.container_ref,
+          cs.payment_confirmed,
           -- Add payment calculations
           (cs.price_cell + COALESCE(cs.freight, 0)) as total_cfr,
           COALESCE((
@@ -618,8 +657,13 @@ const fetchUnassignedCars = async () => {
     })
 
     if (result.success) {
-      unassignedCars.value = result.data || []
-      allUnassignedCars.value = result.data || []
+      // Set default payment_confirmed to 0 if column doesn't exist yet
+      const carsData = (result.data || []).map((car) => ({
+        ...car,
+        payment_confirmed: car.payment_confirmed !== undefined ? car.payment_confirmed : 0,
+      }))
+      unassignedCars.value = carsData
+      allUnassignedCars.value = carsData
       applyFilters() // Apply any existing filters
     } else {
       error.value = result.error || t('loading.failed_to_load_unassigned_cars')
@@ -707,6 +751,78 @@ const sortByColumn = (column) => {
 
 const refreshData = () => {
   fetchUnassignedCars()
+}
+
+// Toggle payment confirmed status
+const togglePaymentConfirmed = async (car) => {
+  if (!can_confirm_payment.value) {
+    alert(
+      t('carStock.no_permission_to_confirm_payment') ||
+        'You do not have permission to confirm payments',
+    )
+    return
+  }
+
+  if (isProcessingPayment.value) return
+
+  isProcessingPayment.value = true
+
+  try {
+    const currentStatus = car.payment_confirmed !== undefined ? car.payment_confirmed : 0
+    const newStatus = currentStatus ? 0 : 1
+
+    // Get current user info for permission check
+    if (!user.value || !user.value.id) {
+      alert('User authentication required')
+      return
+    }
+
+    const result = await callApi({
+      query: `
+        UPDATE cars_stock
+        SET payment_confirmed = ?
+        WHERE id = ?
+      `,
+      params: [newStatus, car.id],
+      user_id: user.value.id,
+      is_admin: user.value.role_id === 1,
+      requiresAuth: true,
+    })
+
+    if (result.success) {
+      // Update local state
+      const carIndex = unassignedCars.value.findIndex((c) => c.id === car.id)
+      if (carIndex !== -1) {
+        unassignedCars.value[carIndex].payment_confirmed = newStatus
+      }
+      const allCarIndex = allUnassignedCars.value.findIndex((c) => c.id === car.id)
+      if (allCarIndex !== -1) {
+        allUnassignedCars.value[allCarIndex].payment_confirmed = newStatus
+      }
+    } else {
+      const errorMsg = result.error || 'Unknown error'
+      // Check if it's a missing column error
+      if (
+        errorMsg.includes("Unknown column 'payment_confirmed'") ||
+        errorMsg.includes("doesn't exist")
+      ) {
+        alert(
+          'Payment confirmed column does not exist. Please run migration 009_add_payment_confirmed_to_cars_stock.sql',
+        )
+      } else if (errorMsg.includes('Permission denied')) {
+        alert(errorMsg)
+      } else {
+        alert('Failed to update payment confirmed status: ' + errorMsg)
+      }
+    }
+  } catch (err) {
+    alert(
+      t('carStock.error_updating_payment_confirmed') ||
+        'Error updating payment confirmed status: ' + err.message,
+    )
+  } finally {
+    isProcessingPayment.value = false
+  }
 }
 
 const assignCar = async (car) => {
@@ -970,6 +1086,10 @@ watch(
 )
 
 onMounted(() => {
+  const userStr = localStorage.getItem('user')
+  if (userStr) {
+    user.value = JSON.parse(userStr)
+  }
   fetchUnassignedCars()
 })
 
@@ -1659,5 +1779,69 @@ defineExpose({
 .payment-status-cell {
   text-align: center;
   vertical-align: middle;
+}
+
+/* Payment confirmed column */
+.payment-confirmed-column {
+  text-align: center;
+  padding: 8px;
+}
+
+.payment-confirmed-btn {
+  padding: 6px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background-color: white;
+  cursor: pointer;
+  font-size: 0.875rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.payment-confirmed-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.payment-confirmed-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.payment-confirmed-btn.confirmed {
+  background-color: #d1fae5;
+  border-color: #10b981;
+  color: #065f46;
+}
+
+.payment-confirmed-btn.confirmed:hover:not(:disabled) {
+  background-color: #a7f3d0;
+}
+
+.payment-confirmed-btn.not-confirmed {
+  background-color: #fee2e2;
+  border-color: #ef4444;
+  color: #991b1b;
+}
+
+.payment-confirmed-btn.not-confirmed:hover:not(:disabled) {
+  background-color: #fecaca;
+}
+
+.payment-confirmed-btn i {
+  font-size: 1rem;
+}
+
+.payment-confirmed-btn.read-only {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.payment-confirmed-btn.read-only:hover {
+  transform: none;
+  box-shadow: none;
 }
 </style>

@@ -26,6 +26,7 @@ const {
   getFileUrl,
   createFileCategory,
   updateFileCategory,
+  deleteFileCategory,
   getCustomClearanceAgents,
   callApi,
 } = useApi()
@@ -53,6 +54,7 @@ const selectedFiles = ref({}) // { categoryId: file }
 const isProcessing = ref(false)
 const pendingTransfers = ref([])
 const showPendingTransfersModal = ref(false)
+const dragOverCategory = ref(null) // Track which category is being dragged over
 
 // Check if current user is admin
 const currentUser = computed(() => {
@@ -61,7 +63,10 @@ const currentUser = computed(() => {
 })
 
 const isAdmin = computed(() => {
-  return currentUser.value?.role_id === 1
+  const adminStatus = currentUser.value?.role_id === 1
+  // Debug: uncomment to check admin status
+  // console.log('isAdmin:', adminStatus, 'currentUser:', currentUser.value)
+  return adminStatus
 })
 
 // Check if user has can_upload_car_files permission
@@ -356,6 +361,18 @@ const handleRejectAll = async () => {
   }
 }
 
+// Check if category already has a file
+const categoryHasFile = (categoryId) => {
+  const categoryFiles = files.value.filter((f) => f.category_id === categoryId && f.is_active !== 0)
+  return categoryFiles.length > 0
+}
+
+// Get existing file for a category
+const getExistingFileForCategory = (categoryId) => {
+  const categoryFiles = files.value.filter((f) => f.category_id === categoryId && f.is_active !== 0)
+  return categoryFiles.length > 0 ? categoryFiles[0] : null
+}
+
 // Handle file selection
 const handleFileSelect = (event, categoryId) => {
   const file = event.target.files?.[0]
@@ -391,17 +408,90 @@ const handleFileSelect = (event, categoryId) => {
   error.value = null
 }
 
+// Handle drag and drop
+const handleDragOver = (event, categoryId) => {
+  event.preventDefault()
+  event.stopPropagation()
+  dragOverCategory.value = categoryId
+}
+
+const handleDragLeave = (event, categoryId) => {
+  event.preventDefault()
+  event.stopPropagation()
+  // Only clear if we're leaving the drop zone (not just moving to a child element)
+  const rect = event.currentTarget.getBoundingClientRect()
+  const x = event.clientX
+  const y = event.clientY
+  if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+    dragOverCategory.value = null
+  }
+}
+
+const handleDrop = (event, categoryId) => {
+  event.preventDefault()
+  event.stopPropagation()
+  dragOverCategory.value = null
+
+  const files = event.dataTransfer.files
+  if (!files || files.length === 0) return
+
+  // Only handle the first file
+  const file = files[0]
+  
+  // Create a synthetic event object to reuse handleFileSelect logic
+  const syntheticEvent = {
+    target: {
+      files: [file],
+      value: ''
+    }
+  }
+  
+  handleFileSelect(syntheticEvent, categoryId)
+}
+
 // Upload file
 const uploadFile = async (categoryId) => {
   const file = selectedFiles.value[categoryId]
   if (!file) return
+
+  // Check if category already has a file
+  const existingFile = getExistingFileForCategory(categoryId)
+  if (existingFile) {
+    // Ask for confirmation to replace
+    const confirmReplace = confirm(
+      `This category already has a file: "${existingFile.file_name}".\n\nDo you want to replace it with the new file?`
+    )
+    
+    if (!confirmReplace) {
+      // User cancelled - clear selection
+      delete selectedFiles.value[categoryId]
+      const input = document.getElementById(`file-input-${categoryId}`)
+      if (input) input.value = ''
+      return
+    }
+
+    // User confirmed - try to delete old file first (backend will also handle it if this fails)
+    isProcessing.value = true
+    error.value = null
+
+    try {
+      // Try to delete old file for better UX (immediate feedback)
+      // If this fails, backend will handle the replacement automatically
+      await deleteCarFile(existingFile.id)
+    } catch (err) {
+      // Log error but continue - backend will handle replacement
+      console.warn('Frontend delete failed, backend will handle replacement:', err)
+    }
+  }
 
   isProcessing.value = true
   error.value = null
 
   try {
     const result = await uploadCarFile(file, props.car.id, categoryId)
-    success.value = 'File uploaded successfully'
+    success.value = existingFile 
+      ? 'File replaced successfully' 
+      : 'File uploaded successfully'
 
     // Reload files
     await loadData()
@@ -1129,11 +1219,62 @@ const saveCategory = async () => {
     }
     showCategoryModal.value = false
     await loadData()
+    // Reload categories table if it's open
+    if (showCategoriesTableModal.value) {
+      await loadCategoriesForTable()
+    }
   } catch (err) {
     error.value = err.message || 'Failed to save category'
   } finally {
     loading.value = false
   }
+}
+
+// Categories Table Modal
+const showCategoriesTableModal = ref(false)
+const categoriesForTable = ref([])
+const loadingCategories = ref(false)
+
+const loadCategoriesForTable = async () => {
+  loadingCategories.value = true
+  try {
+    const cats = await getCarFileCategories()
+    categoriesForTable.value = cats || []
+  } catch (err) {
+    error.value = err.message || 'Failed to load categories'
+  } finally {
+    loadingCategories.value = false
+  }
+}
+
+const openCategoriesTableModal = async () => {
+  showCategoriesTableModal.value = true
+  await loadCategoriesForTable()
+}
+
+const handleDeleteCategory = async (category) => {
+  if (!confirm(`Are you sure you want to delete the category "${category.category_name}"?`)) {
+    return
+  }
+
+  loading.value = true
+  error.value = null
+
+  try {
+    await deleteFileCategory(category.id)
+    success.value = 'Category deleted successfully'
+    await loadData()
+    await loadCategoriesForTable()
+  } catch (err) {
+    error.value = err.message || 'Failed to delete category'
+  } finally {
+    loading.value = false
+  }
+}
+
+const handleEditCategoryFromTable = (category) => {
+  showCategoriesTableModal.value = false
+  openCategoryModal(category)
 }
 
 // Physical Copy Tracking Modal
@@ -1152,6 +1293,7 @@ const closeModal = () => {
   selectedFiles.value = {}
   showTransferModal.value = false
   showCategoryModal.value = false
+  showCategoriesTableModal.value = false
   showCheckoutModal.value = false
   showCheckinModal.value = false
   showHistoryModal.value = false
@@ -1162,6 +1304,15 @@ const closeModal = () => {
 const formatDate = (dateString) => {
   if (!dateString) return '-'
   return new Date(dateString).toLocaleDateString()
+}
+
+// Format file size helper
+const formatFileSize = (bytes) => {
+  if (!bytes) return '0 Bytes'
+  const k = 1024
+  const sizes = ['Bytes', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
 }
 
 // Watch for show prop changes
@@ -1236,6 +1387,15 @@ onMounted(() => {
           >
             <i class="fas fa-clipboard-list"></i>
             Tracking
+          </button>
+          <button
+            v-if="isAdmin || true"
+            @click="openCategoriesTableModal"
+            class="btn-categories"
+            title="Manage categories"
+          >
+            <i class="fas fa-list"></i>
+            Categories
           </button>
           <button
             v-if="isAdmin"
@@ -1597,28 +1757,72 @@ onMounted(() => {
               </div>
             </div>
 
-            <!-- Upload Section - Only show if user has permission -->
-            <div v-if="canUploadCarFiles" class="upload-section">
-              <input
-                :id="`file-input-${categoryId}`"
-                type="file"
-                class="file-input"
-                @change="(e) => handleFileSelect(e, categoryId)"
-                :disabled="isProcessing"
-                accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx,.xls,.xlsx"
-              />
+            <!-- Upload Section - Show if user has permission -->
+            <div
+              v-if="canUploadCarFiles"
+              class="upload-section"
+              :class="{
+                'has-existing-file': categoryHasFile(categoryId),
+                'drag-over': dragOverCategory === categoryId
+              }"
+              @dragover.prevent="handleDragOver($event, categoryId)"
+              @dragleave.prevent="handleDragLeave($event, categoryId)"
+              @drop.prevent="handleDrop($event, categoryId)"
+            >
+              <div class="drop-zone" :class="{ 'drag-active': dragOverCategory === categoryId }">
+                <div v-if="!selectedFiles[categoryId]" class="drop-zone-content">
+                  <i class="fas fa-cloud-upload-alt"></i>
+                  <p class="drop-zone-text">
+                    <span class="drop-zone-main-text">Drag & drop a file here</span>
+                    <span class="drop-zone-sub-text">or click to browse</span>
+                  </p>
+                </div>
+                <div v-else class="drop-zone-content file-selected">
+                  <i class="fas fa-file"></i>
+                  <p class="drop-zone-text">
+                    <span class="drop-zone-main-text">{{ selectedFiles[categoryId].name }}</span>
+                    <span class="drop-zone-sub-text">{{ formatFileSize(selectedFiles[categoryId].size) }}</span>
+                  </p>
+                  <button
+                    @click.stop="
+                      delete selectedFiles[categoryId];
+                      const input = document.getElementById(`file-input-${categoryId}`);
+                      if (input) input.value = '';
+                    "
+                    class="btn-remove-file"
+                    title="Remove file"
+                  >
+                    <i class="fas fa-times"></i>
+                  </button>
+                </div>
+                <input
+                  :id="`file-input-${categoryId}`"
+                  type="file"
+                  class="file-input-hidden"
+                  @change="(e) => handleFileSelect(e, categoryId)"
+                  :disabled="isProcessing"
+                  accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx,.xls,.xlsx"
+                />
+              </div>
               <button
                 @click="uploadFile(categoryId)"
                 :disabled="!selectedFiles[categoryId] || isProcessing"
                 class="btn-upload"
+                :class="{ 'btn-replace': categoryHasFile(categoryId) && selectedFiles[categoryId] }"
               >
-                <i class="fas fa-upload"></i>
+                <i class="fas" :class="categoryHasFile(categoryId) && selectedFiles[categoryId] ? 'fa-exchange-alt' : 'fa-upload'"></i>
                 {{
                   selectedFiles[categoryId]
-                    ? `Upload ${selectedFiles[categoryId].name}`
+                    ? categoryHasFile(categoryId)
+                      ? `Replace with ${selectedFiles[categoryId].name}`
+                      : `Upload ${selectedFiles[categoryId].name}`
                     : 'Select File'
                 }}
               </button>
+              <div v-if="categoryHasFile(categoryId) && !selectedFiles[categoryId]" class="upload-info-message">
+                <i class="fas fa-info-circle"></i>
+                <span>This category has a file. Drag & drop or select a new file to replace it.</span>
+              </div>
             </div>
           </div>
         </div>
@@ -2267,6 +2471,117 @@ onMounted(() => {
         </div>
       </div>
     </div>
+
+    <!-- Categories Table Modal -->
+    <div v-if="showCategoriesTableModal" class="modal-overlay" @click="showCategoriesTableModal = false">
+      <div class="modal-content categories-table-modal" @click.stop>
+        <div class="modal-header">
+          <h3>
+            <i class="fas fa-list"></i>
+            Manage Categories
+          </h3>
+          <div class="header-actions">
+            <button
+              @click="openCategoryModal()"
+              class="btn-add-category"
+              title="Add new category"
+            >
+              <i class="fas fa-plus"></i>
+              Add Category
+            </button>
+            <button @click="showCategoriesTableModal = false" class="close-btn">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+        </div>
+        <div class="modal-body">
+          <!-- Loading State -->
+          <div v-if="loadingCategories" class="loading-state">
+            <i class="fas fa-spinner fa-spin"></i>
+            <span>Loading categories...</span>
+          </div>
+
+          <!-- Error Message -->
+          <div v-if="error" class="error-message">
+            <i class="fas fa-exclamation-circle"></i>
+            {{ error }}
+          </div>
+
+          <!-- Success Message -->
+          <div v-if="success" class="success-message">
+            <i class="fas fa-check-circle"></i>
+            {{ success }}
+          </div>
+
+          <!-- Categories Table -->
+          <div v-if="!loadingCategories" class="categories-table-container">
+            <table class="categories-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Importance</th>
+                  <th>Required</th>
+                  <th>Display Order</th>
+                  <th>Description</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-if="categoriesForTable.length === 0">
+                  <td colspan="6" class="text-center">No categories found</td>
+                </tr>
+                <tr v-for="category in categoriesForTable" :key="category.id">
+                  <td>
+                    <strong>{{ category.category_name }}</strong>
+                  </td>
+                  <td>
+                    <span
+                      class="importance-badge"
+                      :style="{
+                        backgroundColor: importanceConfig[category.importance_level]?.bgColor || '#f3f4f6',
+                        color: importanceConfig[category.importance_level]?.color || '#374151',
+                      }"
+                    >
+                      {{ importanceConfig[category.importance_level]?.label || category.importance_level }}
+                    </span>
+                  </td>
+                  <td>
+                    <span v-if="category.is_required === 1 || category.is_required === true" class="badge-required">
+                      <i class="fas fa-check-circle"></i> Required
+                    </span>
+                    <span v-else class="badge-optional">Optional</span>
+                  </td>
+                  <td>{{ category.display_order }}</td>
+                  <td>
+                    <span v-if="category.description" class="description-text">{{ category.description }}</span>
+                    <span v-else class="text-muted">-</span>
+                  </td>
+                  <td>
+                    <div class="action-buttons">
+                      <button
+                        @click="handleEditCategoryFromTable(category)"
+                        class="btn-edit"
+                        title="Edit category"
+                      >
+                        <i class="fas fa-edit"></i>
+                      </button>
+                      <button
+                        @click="handleDeleteCategory(category)"
+                        class="btn-delete"
+                        title="Delete category"
+                        :disabled="loading"
+                      >
+                        <i class="fas fa-trash"></i>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -2371,6 +2686,25 @@ onMounted(() => {
 
 .btn-add-category:hover {
   background-color: #059669;
+}
+
+.btn-categories {
+  padding: 0.5rem 1rem;
+  background-color: #6366f1;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: background-color 0.2s;
+}
+
+.btn-categories:hover {
+  background-color: #4f46e5;
 }
 
 .btn-batch-transfer,
@@ -2682,19 +3016,118 @@ onMounted(() => {
 
 .upload-section {
   display: flex;
-  gap: 0.5rem;
-  align-items: center;
+  flex-direction: column;
+  gap: 0.75rem;
   padding: 1rem;
   background-color: #f9fafb;
   border-radius: 4px;
   margin-top: 0.5rem;
+  transition: all 0.2s ease;
 }
 
-.file-input {
+.upload-section.drag-over {
+  background-color: #dbeafe;
+  border: 2px dashed #3b82f6;
+}
+
+.drop-zone {
+  position: relative;
+  min-height: 120px;
+  border: 2px dashed #d1d5db;
+  border-radius: 8px;
+  background-color: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.drop-zone:hover {
+  border-color: #3b82f6;
+  background-color: #f0f9ff;
+}
+
+.drop-zone.drag-active {
+  border-color: #3b82f6;
+  background-color: #dbeafe;
+  border-style: solid;
+}
+
+.drop-zone-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1.5rem;
+  width: 100%;
+  text-align: center;
+}
+
+.drop-zone-content.file-selected {
+  flex-direction: row;
+  justify-content: space-between;
+  padding: 1rem;
+}
+
+.drop-zone-content i {
+  font-size: 2.5rem;
+  color: #9ca3af;
+  margin-bottom: 0.5rem;
+}
+
+.drop-zone.drag-active .drop-zone-content i,
+.drop-zone:hover .drop-zone-content i {
+  color: #3b82f6;
+}
+
+.drop-zone-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
   flex: 1;
-  padding: 0.5rem;
-  border: 1px solid #d1d5db;
+}
+
+.drop-zone-main-text {
+  font-weight: 500;
+  color: #1f2937;
+  font-size: 0.875rem;
+}
+
+.drop-zone-sub-text {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.file-input-hidden {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 1;
+}
+
+.btn-remove-file {
+  padding: 0.375rem;
+  background-color: #ef4444;
+  color: white;
+  border: none;
   border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
+  z-index: 2;
+  position: relative;
+}
+
+.btn-remove-file:hover {
+  background-color: #dc2626;
 }
 
 .btn-upload {
@@ -2714,6 +3147,150 @@ onMounted(() => {
 .btn-upload:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.upload-section.has-existing-file {
+  background-color: #fef3c7;
+  border: 1px solid #fbbf24;
+}
+
+.upload-info-message {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #92400e;
+  font-size: 0.875rem;
+  padding: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.upload-info-message i {
+  color: #f59e0b;
+  font-size: 1rem;
+}
+
+.btn-upload.btn-replace {
+  background-color: #f59e0b;
+}
+
+.btn-upload.btn-replace:hover:not(:disabled) {
+  background-color: #d97706;
+}
+
+.upload-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  background-color: #f9fafb;
+  border-radius: 4px;
+  margin-top: 0.5rem;
+  transition: all 0.2s ease;
+}
+
+.upload-section.drag-over {
+  background-color: #dbeafe;
+  border: 2px dashed #3b82f6;
+}
+
+.drop-zone {
+  position: relative;
+  min-height: 120px;
+  border: 2px dashed #d1d5db;
+  border-radius: 8px;
+  background-color: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.drop-zone:hover {
+  border-color: #3b82f6;
+  background-color: #f0f9ff;
+}
+
+.drop-zone.drag-active {
+  border-color: #3b82f6;
+  background-color: #dbeafe;
+  border-style: solid;
+}
+
+.drop-zone-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1.5rem;
+  width: 100%;
+  text-align: center;
+}
+
+.drop-zone-content.file-selected {
+  flex-direction: row;
+  justify-content: space-between;
+  padding: 1rem;
+}
+
+.drop-zone-content i {
+  font-size: 2.5rem;
+  color: #9ca3af;
+  margin-bottom: 0.5rem;
+}
+
+.drop-zone.drag-active .drop-zone-content i,
+.drop-zone:hover .drop-zone-content i {
+  color: #3b82f6;
+}
+
+.drop-zone-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+}
+
+.drop-zone-main-text {
+  font-weight: 500;
+  color: #1f2937;
+  font-size: 0.875rem;
+}
+
+.drop-zone-sub-text {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.file-input-hidden {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 1;
+}
+
+.btn-remove-file {
+  padding: 0.375rem;
+  background-color: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
+  z-index: 2;
+  position: relative;
+}
+
+.btn-remove-file:hover {
+  background-color: #dc2626;
 }
 
 .modal-footer {
@@ -3197,5 +3774,127 @@ onMounted(() => {
 
 .btn-view-pending:hover {
   background-color: #b45309;
+}
+
+.categories-table-modal {
+  max-width: 1200px;
+}
+
+.categories-table-container {
+  overflow-x: auto;
+}
+
+.categories-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+
+.categories-table thead {
+  background-color: #f9fafb;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.categories-table th {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.categories-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e5e7eb;
+  color: #1f2937;
+}
+
+.categories-table tbody tr:hover {
+  background-color: #f9fafb;
+}
+
+.categories-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.importance-badge {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.badge-required {
+  color: #dc2626;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.badge-optional {
+  color: #6b7280;
+}
+
+.description-text {
+  color: #6b7280;
+  font-size: 0.875rem;
+  max-width: 300px;
+  display: inline-block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn-edit {
+  padding: 0.375rem 0.75rem;
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: background-color 0.2s;
+}
+
+.btn-edit:hover {
+  background-color: #2563eb;
+}
+
+.btn-delete {
+  padding: 0.375rem 0.75rem;
+  background-color: #dc2626;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: background-color 0.2s;
+}
+
+.btn-delete:hover:not(:disabled) {
+  background-color: #b91c1c;
+}
+
+.btn-delete:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.text-muted {
+  color: #9ca3af;
 }
 </style>

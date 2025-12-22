@@ -4,6 +4,21 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
 
+// Plugin to remove vendor chunk preload links
+const removeVendorPreload = () => {
+  return {
+    name: 'remove-vendor-preload',
+    transformIndexHtml(html) {
+      // Remove preload/modulepreload links for vendor chunks
+      // This prevents browser warnings about unused preloaded resources
+      return html.replace(
+        /<link[^>]*rel=["'](modulepreload|preload)["'][^>]*vendor[^>]*>/gi,
+        ''
+      )
+    },
+  }
+}
+
 // Get environment
 const isProduction = process.env.NODE_ENV === 'production'
 
@@ -14,7 +29,7 @@ const isProduction = process.env.NODE_ENV === 'production'
 const apiUrl = 'http://localhost:8000'
 
 export default defineConfig({
-  plugins: [vue(), vueDevTools()],
+  plugins: [vue(), vueDevTools(), removeVendorPreload()],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

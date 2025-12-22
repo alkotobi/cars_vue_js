@@ -549,6 +549,61 @@ if (isset($postData['action'])) {
                 $conn->beginTransaction();
                 
                 $uploadedBy = intval($postData['uploaded_by']);
+                $carId = intval($postData['car_id']);
+                $categoryId = intval($postData['category_id']);
+                
+                // Check if category already has an active file for this car
+                $checkQuery = "SELECT id, file_path FROM car_files 
+                    WHERE car_id = ? AND category_id = ? AND is_active = 1
+                    LIMIT 1";
+                $checkStmt = $conn->prepare($checkQuery);
+                $checkStmt->execute([$carId, $categoryId]);
+                $existingFile = $checkStmt->fetch(PDO::FETCH_ASSOC);
+                
+                // If file exists, soft delete it first (replace scenario)
+                if ($existingFile) {
+                    $existingFileId = $existingFile['id'];
+                    $existingFilePath = $existingFile['file_path'];
+                    
+                    // Get base directory for file deletion
+                    $baseDirectory = 'mig_files'; // Default
+                    try {
+                        $configQuery = "SELECT js_dir FROM dbs LIMIT 1";
+                        $configStmt = $conn->prepare($configQuery);
+                        $configStmt->execute();
+                        $dbConfig = $configStmt->fetch(PDO::FETCH_ASSOC);
+                        if ($dbConfig && isset($dbConfig['js_dir'])) {
+                            $jsDir = $dbConfig['js_dir'];
+                            $dbCodeJsonPath = __DIR__ . '/../' . $jsDir . '/db_code.json';
+                            if (file_exists($dbCodeJsonPath)) {
+                                $dbCodeContent = file_get_contents($dbCodeJsonPath);
+                                $dbCodeData = json_decode($dbCodeContent, true);
+                                if ($dbCodeData && isset($dbCodeData['files_dir'])) {
+                                    $baseDirectory = $dbCodeData['files_dir'];
+                                }
+                            }
+                        }
+                    } catch (Exception $e) {
+                        error_log('Could not get base directory: ' . $e->getMessage());
+                    }
+                    
+                    // Delete physical file if it exists
+                    $baseDirectory = str_replace('..', '', $baseDirectory);
+                    $baseDirectory = ltrim($baseDirectory, '/');
+                    $baseDirectory = rtrim($baseDirectory, '/');
+                    $existingFilePath = str_replace('..', '', $existingFilePath);
+                    $existingFilePath = ltrim($existingFilePath, '/');
+                    $fullFilePath = __DIR__ . '/../' . $baseDirectory . '/' . $existingFilePath;
+                    
+                    if (file_exists($fullFilePath)) {
+                        @unlink($fullFilePath);
+                    }
+                    
+                    // Soft delete the existing file record
+                    $deleteQuery = "UPDATE car_files SET is_active = 0 WHERE id = ?";
+                    $deleteStmt = $conn->prepare($deleteQuery);
+                    $deleteStmt->execute([$existingFileId]);
+                }
                 
                 // Insert file record
                 $query = "INSERT INTO car_files 
@@ -556,8 +611,8 @@ if (isset($postData['action'])) {
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
                 
                 $params = [
-                    intval($postData['car_id']),
-                    intval($postData['category_id']),
+                    $carId,
+                    $categoryId,
                     $postData['file_path'],
                     $postData['file_name'],
                     isset($postData['file_size']) ? intval($postData['file_size']) : null,
@@ -1664,6 +1719,31 @@ if (isset($postData['action'])) {
             $params[] = $categoryId;
             $query = "UPDATE car_file_categories SET " . implode(', ', $updates) . " WHERE id = ?";
             $result = executeQuery($query, $params);
+            echo json_encode($result);
+            exit;
+
+        case 'delete_file_category':
+            // Delete a file category (admin only)
+            if (!isset($postData['category_id']) || !isset($postData['is_admin']) || !$postData['is_admin']) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Admin access required']);
+                exit;
+            }
+            
+            $categoryId = intval($postData['category_id']);
+            
+            // Check if category has files
+            $checkQuery = "SELECT COUNT(*) as file_count FROM car_files WHERE category_id = ?";
+            $checkResult = executeQuery($checkQuery, [$categoryId]);
+            
+            if ($checkResult['success'] && isset($checkResult['data'][0]['file_count']) && $checkResult['data'][0]['file_count'] > 0) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Cannot delete category: It has associated files. Please delete or reassign files first.']);
+                exit;
+            }
+            
+            $query = "DELETE FROM car_file_categories WHERE id = ?";
+            $result = executeQuery($query, [$categoryId]);
             echo json_encode($result);
             exit;
 
