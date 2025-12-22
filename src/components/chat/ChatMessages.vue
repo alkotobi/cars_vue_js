@@ -77,6 +77,9 @@ const selectedMessages = ref(new Set())
 const showBulkDatePicker = ref(false)
 const bulkEditDate = ref(null)
 
+// Message search state
+const messageSearch = ref('')
+
 // Common emojis for the picker
 const emojis = [
   '😀',
@@ -2065,14 +2068,48 @@ watch(
       currentPage.value = 1
       hasMoreMessages.value = true
       fetchMessages(newGroupId)
+      // Clear search when switching groups
+      messageSearch.value = ''
     } else {
       addDebugInfo('groupCleared', { reason: 'No group selected or invalid group ID' })
       messages.value = []
       hasMoreMessages.value = false
+      messageSearch.value = ''
     }
   },
   { immediate: true },
 )
+
+// Filtered messages based on search
+const filteredMessages = computed(() => {
+  if (!messageSearch.value.trim()) {
+    return messages.value
+  }
+
+  const searchTerm = messageSearch.value.trim().toLowerCase()
+  
+  return messages.value.filter((message) => {
+    // Search in message content
+    const messageContent = message.message?.toLowerCase() || ''
+    
+    // Search in sender username
+    const senderName = message.sender_username?.toLowerCase() || ''
+    
+    // Search in sender role
+    const senderRole = message.sender_role?.toLowerCase() || ''
+    
+    return (
+      messageContent.includes(searchTerm) ||
+      senderName.includes(searchTerm) ||
+      senderRole.includes(searchTerm)
+    )
+  })
+})
+
+// Clear search
+const clearMessageSearch = () => {
+  messageSearch.value = ''
+}
 </script>
 
 <template>
@@ -2115,6 +2152,33 @@ watch(
       </div>
     </div>
 
+    <!-- Message Search Box -->
+    <div class="message-search-container">
+      <div class="message-search-wrapper">
+        <i class="fas fa-search message-search-icon"></i>
+        <input
+          type="text"
+          v-model="messageSearch"
+          placeholder="Search messages, senders..."
+          class="message-search-input"
+        />
+        <button
+          v-if="messageSearch"
+          @click="clearMessageSearch"
+          class="clear-message-search-btn"
+          title="Clear search"
+        >
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div v-if="messageSearch && filteredMessages.length > 0" class="search-results-info">
+        {{ filteredMessages.length }} / {{ messages.length }} messages
+      </div>
+      <div v-if="messageSearch && filteredMessages.length === 0 && messages.length > 0" class="no-search-results">
+        No messages found matching "{{ messageSearch }}"
+      </div>
+    </div>
+
     <div class="messages-container" ref="messagesContainer" @click="handleMessagesContainerClick">
       <!-- Load More Button -->
       <div v-if="hasMoreMessages" class="load-more-container">
@@ -2138,6 +2202,14 @@ watch(
         <p class="sub-text">Start the conversation!</p>
       </div>
 
+      <div v-else-if="messageSearch && filteredMessages.length === 0" class="no-search-results-in-list">
+        <i class="fas fa-search"></i>
+        <p>No messages found matching "{{ messageSearch }}"</p>
+        <button @click="clearMessageSearch" class="clear-search-link-btn">
+          Clear search
+        </button>
+      </div>
+
       <div v-else class="messages-list">
         <!-- Select All button (shown in selection mode) -->
         <div v-if="selectionMode" class="select-all-container">
@@ -2150,14 +2222,14 @@ watch(
           </span>
         </div>
         <div
-          v-for="(message, index) in messages"
+          v-for="(message, index) in filteredMessages"
           :key="message.id"
           class="message-wrapper"
           :class="{ 'own-message': isOwnMessage(message), 'selected': selectedMessages.has(message.id) }"
         >
           <!-- Date separator -->
           <div
-            v-if="index === 0 || formatDate(message.time) !== formatDate(messages[index - 1].time)"
+            v-if="index === 0 || formatDate(message.time) !== formatDate(filteredMessages[index - 1].time)"
             class="date-separator"
           >
             {{ formatDate(message.time) }}
@@ -2576,6 +2648,115 @@ watch(
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.message-search-container {
+  padding: 12px 16px;
+  background-color: #f1f5f9;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.message-search-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.message-search-icon {
+  position: absolute;
+  left: 12px;
+  color: #64748b;
+  font-size: 14px;
+  pointer-events: none;
+}
+
+.message-search-input {
+  width: 100%;
+  padding: 8px 12px 8px 36px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #374151;
+  background-color: white;
+  transition: all 0.2s ease;
+}
+
+.message-search-input:focus {
+  outline: none;
+  border-color: #06b6d4;
+  box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.1);
+}
+
+.message-search-input::placeholder {
+  color: #9ca3af;
+}
+
+.clear-message-search-btn {
+  position: absolute;
+  right: 8px;
+  background: none;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  font-size: 12px;
+}
+
+.clear-message-search-btn:hover {
+  background-color: #e5e7eb;
+  color: #374151;
+}
+
+.search-results-info {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #64748b;
+  text-align: right;
+}
+
+.no-search-results {
+  margin-top: 8px;
+  padding: 8px;
+  text-align: center;
+  font-size: 12px;
+  color: #64748b;
+  font-style: italic;
+}
+
+.no-search-results-in-list {
+  padding: 40px 20px;
+  text-align: center;
+  color: #64748b;
+}
+
+.no-search-results-in-list i {
+  font-size: 2rem;
+  color: #9ca3af;
+  margin-bottom: 12px;
+}
+
+.no-search-results-in-list p {
+  margin: 0 0 12px 0;
+  font-size: 0.9rem;
+}
+
+.clear-search-link-btn {
+  background: none;
+  border: none;
+  color: #06b6d4;
+  cursor: pointer;
+  font-size: 0.9rem;
+  text-decoration: underline;
+  padding: 4px 8px;
+}
+
+.clear-search-link-btn:hover {
+  color: #0891b2;
 }
 
 .timezone-info {

@@ -197,7 +197,50 @@ const openChat = () => {
 
 const closeChat = () => {
   showChatModal.value = false
+  pendingGroupSelection.value = null
 }
+
+const chatModalRef = ref(null)
+const pendingGroupSelection = ref(null)
+
+// Handle event to open chat with specific group
+const handleOpenChatWithGroup = async (event) => {
+  const { groupId, groupName } = event.detail
+  
+  // Store the group to select
+  pendingGroupSelection.value = { id: groupId, name: groupName }
+  
+  // Open the chat modal
+  showChatModal.value = true
+  unreadMessageCount.value = 0
+}
+
+// Watch for chat modal opening and handle pending group selection
+watch(showChatModal, async (isOpen) => {
+  if (isOpen && pendingGroupSelection.value) {
+    const { id: groupId } = pendingGroupSelection.value
+    
+    // Wait for modal to be ready and select the group
+    await nextTick()
+    
+    // Give modal more time to mount and groups to load
+    setTimeout(async () => {
+      if (chatModalRef.value && chatModalRef.value.selectGroupById) {
+        await chatModalRef.value.selectGroupById(groupId)
+        // Clear pending selection after successful selection
+        pendingGroupSelection.value = null
+      } else {
+        // Retry if not ready yet
+        setTimeout(async () => {
+          if (chatModalRef.value && chatModalRef.value.selectGroupById) {
+            await chatModalRef.value.selectGroupById(groupId)
+            pendingGroupSelection.value = null
+          }
+        }, 1000)
+      }
+    }, 800)
+  }
+})
 
 // Function to update unread message count
 const updateUnreadCount = async () => {
@@ -303,6 +346,9 @@ onMounted(async () => {
   // Listen for global events to force update badge
   window.addEventListener('forceUpdateBadge', updateUnreadCount)
   window.addEventListener('forceUpdateTasks', fetchPendingTasksCount)
+  
+  // Listen for event to open chat with specific group
+  window.addEventListener('open-chat-with-group', handleOpenChatWithGroup)
 })
 
 // Separate function to initialize chat data
@@ -340,9 +386,10 @@ onUnmounted(() => {
   if (chatMessagesRef.value?.cleanup) {
     chatMessagesRef.value.cleanup()
   }
-  // Remove global event listener
+  // Remove global event listeners
   window.removeEventListener('forceUpdateBadge', updateUnreadCount)
   window.removeEventListener('forceUpdateTasks', fetchPendingTasksCount)
+  window.removeEventListener('open-chat-with-group', handleOpenChatWithGroup)
 
   // Clean up activity listeners
   cleanupActivityListeners()
@@ -445,7 +492,7 @@ onUnmounted(() => {
         </button>
       </div>
       <div class="chat-modal-content">
-        <ChatModal />
+        <ChatModal ref="chatModalRef" />
       </div>
     </div>
   </div>

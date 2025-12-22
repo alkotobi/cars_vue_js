@@ -4,6 +4,7 @@ import { useEnhancedI18n } from '@/composables/useI18n'
 import { useApi } from '../../composables/useApi'
 import SendSelectionForm from './SendSelectionForm.vue'
 import CarStockPrintOptions from './CarStockPrintOptions.vue'
+import SelectionChatButton from './SelectionChatButton.vue'
 
 const { t } = useEnhancedI18n()
 const { callApi, getFileUrl, getAssets } = useApi()
@@ -138,9 +139,10 @@ const loadSelections = async () => {
 const getCarCount = (selection) => {
   if (!selection.selection_data) return 0
   try {
-    const data = typeof selection.selection_data === 'string' 
-      ? JSON.parse(selection.selection_data) 
-      : selection.selection_data
+    const data =
+      typeof selection.selection_data === 'string'
+        ? JSON.parse(selection.selection_data)
+        : selection.selection_data
     return Array.isArray(data) ? data.length : 0
   } catch {
     return 0
@@ -181,7 +183,12 @@ const handleSelectionSent = () => {
 }
 
 const handleDeleteSelection = async (selection) => {
-  if (!confirm(t('carStock.confirm_remove_selection') || `Are you sure you want to remove "${selection.name}" from your list?`)) {
+  if (
+    !confirm(
+      t('carStock.confirm_remove_selection') ||
+        `Are you sure you want to remove "${selection.name}" from your list?`,
+    )
+  ) {
     return
   }
 
@@ -196,25 +203,29 @@ const handleDeleteSelection = async (selection) => {
     }
 
     const userId = parseInt(user.id)
-    
+
     // Get current owned_by array
     const currentOwnedBy = Array.isArray(selection.owned_by) ? selection.owned_by : []
-    
+
     // Remove current user from owned_by
-    const updatedOwnedBy = currentOwnedBy.filter(id => parseInt(id) !== userId)
-    
+    const updatedOwnedBy = currentOwnedBy.filter((id) => parseInt(id) !== userId)
+
     // If no users left, delete the selection entirely
     if (updatedOwnedBy.length === 0) {
       const deleteResult = await callApi({
         query: 'DELETE FROM car_selections WHERE id = ?',
         params: [selection.id],
       })
-      
+
       if (deleteResult.success) {
         await loadSelections()
         alert(t('carStock.selection_deleted_successfully') || 'Selection deleted successfully')
       } else {
-        alert(deleteResult.error || t('carStock.failed_to_delete_selection') || 'Failed to delete selection')
+        alert(
+          deleteResult.error ||
+            t('carStock.failed_to_delete_selection') ||
+            'Failed to delete selection',
+        )
       }
     } else {
       // Update owned_by to remove current user
@@ -227,7 +238,9 @@ const handleDeleteSelection = async (selection) => {
         await loadSelections()
         alert(t('carStock.selection_removed_successfully') || 'Selection removed from your list')
       } else {
-        alert(result.error || t('carStock.failed_to_remove_selection') || 'Failed to remove selection')
+        alert(
+          result.error || t('carStock.failed_to_remove_selection') || 'Failed to remove selection',
+        )
       }
     }
   } catch (err) {
@@ -239,7 +252,7 @@ const handleDeleteSelection = async (selection) => {
 
 const loadComments = async (selectionId) => {
   if (loadingComments.value[selectionId]) return
-  
+
   loadingComments.value[selectionId] = true
   try {
     const result = await callApi({
@@ -252,7 +265,7 @@ const loadComments = async (selectionId) => {
       `,
       params: [selectionId],
     })
-    
+
     if (result.success) {
       comments.value[selectionId] = result.data || []
     }
@@ -343,31 +356,32 @@ const handleStatusChange = async (selection, newStatus) => {
 
 const getAvailableStatuses = (currentStatus) => {
   const allStatuses = ['pending', 'in_progress', 'completed', 'cancelled']
-  return allStatuses.filter(status => status !== currentStatus)
+  return allStatuses.filter((status) => status !== currentStatus)
 }
 
 const loadSelectionCars = async (selection) => {
   const selectionId = selection.id
   let carIds = []
-  
+
   try {
     if (selection.selection_data) {
-      carIds = typeof selection.selection_data === 'string' 
-        ? JSON.parse(selection.selection_data) 
-        : selection.selection_data
+      carIds =
+        typeof selection.selection_data === 'string'
+          ? JSON.parse(selection.selection_data)
+          : selection.selection_data
     }
   } catch (e) {
     console.error('Error parsing selection_data:', e)
     carIds = []
   }
-  
+
   if (!carIds || carIds.length === 0) {
     selectionCars.value[selectionId] = []
     return
   }
 
   if (loadingCars.value[selectionId]) return
-  
+
   loadingCars.value[selectionId] = true
 
   try {
@@ -433,14 +447,14 @@ const loadSelectionCars = async (selection) => {
 
 const toggleShowCars = async (selection) => {
   const selectionId = selection.id
-  
+
   if (showingCars.value[selectionId]) {
     // Hide cars
     showingCars.value[selectionId] = false
   } else {
     // Show cars for this selection
     showingCars.value[selectionId] = true
-    
+
     // Load cars if not already loaded
     if (!selectionCars.value[selectionId]) {
       await loadSelectionCars(selection)
@@ -533,7 +547,7 @@ const handlePrintSelection = async (selection) => {
   }
 
   const cars = selectionCars.value[selection.id] || []
-  
+
   if (cars.length === 0) {
     alert(t('carStock.no_cars_in_selection') || 'No cars in this selection')
     return
@@ -586,8 +600,10 @@ const handlePrintWithOptions = async (printData) => {
       return `${userPrefix}${buttonPrefix}${dateStr}-${sequenceStr}`
     }
 
-    const title = subject || `${t('carStock.selection') || 'Selection'}: ${selection.name} (ID: ${selection.id})`
-    
+    const title =
+      subject ||
+      `${t('carStock.selection') || 'Selection'}: ${selection.name} (ID: ${selection.id})`
+
     const contentBeforeTable = `
       <div style="margin: 20px 0; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #3b82f6; border-radius: 4px;">
         <p><strong>${t('carStock.selection_name') || 'Selection Name'}:</strong> ${selection.name}</p>
@@ -665,59 +681,55 @@ const handlePrintWithOptions = async (printData) => {
                   if (!groupByValue || groupByValue === '') {
                     // No grouping - render all cars normally
                     return cars
-                      .map(
-                        (car) => {
-                          const cells = columns.map((col) => {
-                            const value = car[col.key]
-                            let displayValue = '-'
-                            
-                            // Handle calculated values first
-                            if (col.key === 'cfr_usd') {
-                              if (value) {
-                                displayValue = '$' + parseFloat(value).toLocaleString()
-                              } else if (car.price_cell && car.freight) {
-                                const fob = parseFloat(car.price_cell) || 0
-                                const freight = parseFloat(car.freight) || 0
-                                displayValue = '$' + (fob + freight).toLocaleString()
-                              }
-                            } else if (col.key === 'cfr_dza') {
-                              if (value) {
-                                displayValue = parseFloat(value).toLocaleString()
-                              } else if (car.cfr_da) {
-                                displayValue = parseFloat(car.cfr_da).toLocaleString()
-                              } else if (car.price_cell && car.freight && car.rate) {
-                                const fob = parseFloat(car.price_cell) || 0
-                                const freight = parseFloat(car.freight) || 0
-                                const rate = parseFloat(car.rate) || 0
-                                const cfrUsd = fob + freight
-                                const cfrDza = cfrUsd * rate
-                                displayValue = cfrDza.toLocaleString()
-                              }
-                            } else if (value !== null && value !== undefined) {
-                              if (col.key === 'client_id_picture' && value) {
-                                displayValue = `<img src="${getFileUrl(value)}" alt="Client ID" style="max-width: 100px; max-height: 60px; object-fit: contain;" />`
-                              } else if (col.key.includes('date') && value) {
-                                displayValue = new Date(value).toLocaleDateString()
-                              } else if (
-                                ['price_cell', 'freight', 'rate', 'cfr_da'].includes(
-                                  col.key,
-                                ) &&
-                                value
-                              ) {
-                                if (col.key === 'price_cell' || col.key === 'freight') {
-                                  displayValue = '$' + parseFloat(value).toLocaleString()
-                                } else {
-                                  displayValue = parseFloat(value).toLocaleString()
-                                }
-                              } else {
-                                displayValue = value.toString()
-                              }
+                      .map((car) => {
+                        const cells = columns.map((col) => {
+                          const value = car[col.key]
+                          let displayValue = '-'
+
+                          // Handle calculated values first
+                          if (col.key === 'cfr_usd') {
+                            if (value) {
+                              displayValue = '$' + parseFloat(value).toLocaleString()
+                            } else if (car.price_cell && car.freight) {
+                              const fob = parseFloat(car.price_cell) || 0
+                              const freight = parseFloat(car.freight) || 0
+                              displayValue = '$' + (fob + freight).toLocaleString()
                             }
-                            return `<td class="table-cell">${displayValue}</td>`
-                          })
-                          return `<tr class="table-row">${cells.join('')}</tr>`
-                        }
-                      )
+                          } else if (col.key === 'cfr_dza') {
+                            if (value) {
+                              displayValue = parseFloat(value).toLocaleString()
+                            } else if (car.cfr_da) {
+                              displayValue = parseFloat(car.cfr_da).toLocaleString()
+                            } else if (car.price_cell && car.freight && car.rate) {
+                              const fob = parseFloat(car.price_cell) || 0
+                              const freight = parseFloat(car.freight) || 0
+                              const rate = parseFloat(car.rate) || 0
+                              const cfrUsd = fob + freight
+                              const cfrDza = cfrUsd * rate
+                              displayValue = cfrDza.toLocaleString()
+                            }
+                          } else if (value !== null && value !== undefined) {
+                            if (col.key === 'client_id_picture' && value) {
+                              displayValue = `<img src="${getFileUrl(value)}" alt="Client ID" style="max-width: 100px; max-height: 60px; object-fit: contain;" />`
+                            } else if (col.key.includes('date') && value) {
+                              displayValue = new Date(value).toLocaleDateString()
+                            } else if (
+                              ['price_cell', 'freight', 'rate', 'cfr_da'].includes(col.key) &&
+                              value
+                            ) {
+                              if (col.key === 'price_cell' || col.key === 'freight') {
+                                displayValue = '$' + parseFloat(value).toLocaleString()
+                              } else {
+                                displayValue = parseFloat(value).toLocaleString()
+                              }
+                            } else {
+                              displayValue = value.toString()
+                            }
+                          }
+                          return `<td class="table-cell">${displayValue}</td>`
+                        })
+                        return `<tr class="table-row">${cells.join('')}</tr>`
+                      })
                       .join('')
                   } else {
                     // Group by selected column
@@ -729,22 +741,32 @@ const handlePrintWithOptions = async (printData) => {
                       }
                       groups[groupValue].push(car)
                     })
-                    
+
                     // Sort groups by group value
                     const sortedGroups = Object.keys(groups).sort()
-                    
+
                     return sortedGroups
                       .map((groupValue) => {
                         const groupCars = groups[groupValue]
-                        const groupLabel = groupByValue === 'buy_bill_ref' ? 'Buy Bill Ref' :
-                                          groupByValue === 'container_ref' ? 'Container Ref' :
-                                          groupByValue === 'client_name' ? 'Client' :
-                                          groupByValue === 'loading_port' ? 'Loading Port' :
-                                          groupByValue === 'discharge_port' ? 'Discharge Port' :
-                                          groupByValue === 'warehouse_name' ? 'Warehouse' :
-                                          groupByValue === 'status' ? 'Status' :
-                                          groupByValue === 'color' ? 'Color' : groupByValue
-                        
+                        const groupLabel =
+                          groupByValue === 'buy_bill_ref'
+                            ? 'Buy Bill Ref'
+                            : groupByValue === 'container_ref'
+                              ? 'Container Ref'
+                              : groupByValue === 'client_name'
+                                ? 'Client'
+                                : groupByValue === 'loading_port'
+                                  ? 'Loading Port'
+                                  : groupByValue === 'discharge_port'
+                                    ? 'Discharge Port'
+                                    : groupByValue === 'warehouse_name'
+                                      ? 'Warehouse'
+                                      : groupByValue === 'status'
+                                        ? 'Status'
+                                        : groupByValue === 'color'
+                                          ? 'Color'
+                                          : groupByValue
+
                         return `
                           <tr class="group-header-row">
                             <td colspan="${columns.length}" class="group-header-cell">
@@ -752,59 +774,55 @@ const handlePrintWithOptions = async (printData) => {
                             </td>
                           </tr>
                           ${groupCars
-                            .map(
-                              (car) => {
-                                const cells = columns.map((col) => {
-                                  const value = car[col.key]
-                                  let displayValue = '-'
-                                  
-                                  // Handle calculated values first
-                                  if (col.key === 'cfr_usd') {
-                                    if (value) {
-                                      displayValue = '$' + parseFloat(value).toLocaleString()
-                                    } else if (car.price_cell && car.freight) {
-                                      const fob = parseFloat(car.price_cell) || 0
-                                      const freight = parseFloat(car.freight) || 0
-                                      displayValue = '$' + (fob + freight).toLocaleString()
-                                    }
-                                  } else if (col.key === 'cfr_dza') {
-                                    if (value) {
-                                      displayValue = parseFloat(value).toLocaleString()
-                                    } else if (car.cfr_da) {
-                                      displayValue = parseFloat(car.cfr_da).toLocaleString()
-                                    } else if (car.price_cell && car.freight && car.rate) {
-                                      const fob = parseFloat(car.price_cell) || 0
-                                      const freight = parseFloat(car.freight) || 0
-                                      const rate = parseFloat(car.rate) || 0
-                                      const cfrUsd = fob + freight
-                                      const cfrDza = cfrUsd * rate
-                                      displayValue = cfrDza.toLocaleString()
-                                    }
-                                  } else if (value !== null && value !== undefined) {
-                                    if (col.key === 'client_id_picture' && value) {
-                                      displayValue = `<img src="${getFileUrl(value)}" alt="Client ID" style="max-width: 100px; max-height: 60px; object-fit: contain;" />`
-                                    } else if (col.key.includes('date') && value) {
-                                      displayValue = new Date(value).toLocaleDateString()
-                                    } else if (
-                                      ['price_cell', 'freight', 'rate', 'cfr_da'].includes(
-                                        col.key,
-                                      ) &&
-                                      value
-                                    ) {
-                                      if (col.key === 'price_cell' || col.key === 'freight') {
-                                        displayValue = '$' + parseFloat(value).toLocaleString()
-                                      } else {
-                                        displayValue = parseFloat(value).toLocaleString()
-                                      }
-                                    } else {
-                                      displayValue = value.toString()
-                                    }
+                            .map((car) => {
+                              const cells = columns.map((col) => {
+                                const value = car[col.key]
+                                let displayValue = '-'
+
+                                // Handle calculated values first
+                                if (col.key === 'cfr_usd') {
+                                  if (value) {
+                                    displayValue = '$' + parseFloat(value).toLocaleString()
+                                  } else if (car.price_cell && car.freight) {
+                                    const fob = parseFloat(car.price_cell) || 0
+                                    const freight = parseFloat(car.freight) || 0
+                                    displayValue = '$' + (fob + freight).toLocaleString()
                                   }
-                                  return `<td class="table-cell">${displayValue}</td>`
-                                })
-                                return `<tr class="table-row">${cells.join('')}</tr>`
-                              }
-                            )
+                                } else if (col.key === 'cfr_dza') {
+                                  if (value) {
+                                    displayValue = parseFloat(value).toLocaleString()
+                                  } else if (car.cfr_da) {
+                                    displayValue = parseFloat(car.cfr_da).toLocaleString()
+                                  } else if (car.price_cell && car.freight && car.rate) {
+                                    const fob = parseFloat(car.price_cell) || 0
+                                    const freight = parseFloat(car.freight) || 0
+                                    const rate = parseFloat(car.rate) || 0
+                                    const cfrUsd = fob + freight
+                                    const cfrDza = cfrUsd * rate
+                                    displayValue = cfrDza.toLocaleString()
+                                  }
+                                } else if (value !== null && value !== undefined) {
+                                  if (col.key === 'client_id_picture' && value) {
+                                    displayValue = `<img src="${getFileUrl(value)}" alt="Client ID" style="max-width: 100px; max-height: 60px; object-fit: contain;" />`
+                                  } else if (col.key.includes('date') && value) {
+                                    displayValue = new Date(value).toLocaleDateString()
+                                  } else if (
+                                    ['price_cell', 'freight', 'rate', 'cfr_da'].includes(col.key) &&
+                                    value
+                                  ) {
+                                    if (col.key === 'price_cell' || col.key === 'freight') {
+                                      displayValue = '$' + parseFloat(value).toLocaleString()
+                                    } else {
+                                      displayValue = parseFloat(value).toLocaleString()
+                                    }
+                                  } else {
+                                    displayValue = value.toString()
+                                  }
+                                }
+                                return `<td class="table-cell">${displayValue}</td>`
+                              })
+                              return `<tr class="table-row">${cells.join('')}</tr>`
+                            })
                             .join('')}
                         `
                       })
@@ -838,6 +856,10 @@ const handlePrintWithOptions = async (printData) => {
   }
 }
 
+const handleClosePrintOptions = () => {
+  showPrintOptions.value = false
+  selectedSelectionForPrint.value = null
+}
 </script>
 
 <template>
@@ -858,9 +880,22 @@ const handlePrintWithOptions = async (printData) => {
             {{ t('carStock.filters') || 'Filters' }}
             <i class="fas fa-chevron-down" :class="{ rotated: showFilters }"></i>
           </button>
-          <div class="filter-summary" v-if="filters.search || filters.status || filters.priority || filters.dateFrom || filters.dateTo">
+          <div
+            class="filter-summary"
+            v-if="
+              filters.search ||
+              filters.status ||
+              filters.priority ||
+              filters.dateFrom ||
+              filters.dateTo
+            "
+          >
             <span class="filter-count">{{ selections.length }} / {{ allSelections.length }}</span>
-            <button @click="resetFilters" class="clear-filters-btn" :title="t('carStock.clear_filters') || 'Clear Filters'">
+            <button
+              @click="resetFilters"
+              class="clear-filters-btn"
+              :title="t('carStock.clear_filters') || 'Clear Filters'"
+            >
               <i class="fas fa-times"></i>
             </button>
           </div>
@@ -877,7 +912,9 @@ const handlePrintWithOptions = async (printData) => {
               <input
                 type="text"
                 v-model="filters.search"
-                :placeholder="t('carStock.search_selections_placeholder') || 'Search by name or description...'"
+                :placeholder="
+                  t('carStock.search_selections_placeholder') || 'Search by name or description...'
+                "
                 @input="applyFilters"
                 class="filter-input"
               />
@@ -892,9 +929,15 @@ const handlePrintWithOptions = async (printData) => {
               <select v-model="filters.status" @change="applyFilters" class="filter-input">
                 <option value="">{{ t('carStock.all') || 'All' }}</option>
                 <option value="pending">{{ t('carStock.status_pending') || 'Pending' }}</option>
-                <option value="in_progress">{{ t('carStock.status_in_progress') || 'In Progress' }}</option>
-                <option value="completed">{{ t('carStock.status_completed') || 'Completed' }}</option>
-                <option value="cancelled">{{ t('carStock.status_cancelled') || 'Cancelled' }}</option>
+                <option value="in_progress">
+                  {{ t('carStock.status_in_progress') || 'In Progress' }}
+                </option>
+                <option value="completed">
+                  {{ t('carStock.status_completed') || 'Completed' }}
+                </option>
+                <option value="cancelled">
+                  {{ t('carStock.status_cancelled') || 'Cancelled' }}
+                </option>
               </select>
             </div>
 
@@ -981,7 +1024,10 @@ const handlePrintWithOptions = async (printData) => {
                   <div class="status-badge-container">
                     <span
                       class="status-badge"
-                      :style="{ backgroundColor: statusColors[selection.status] + '20', color: statusColors[selection.status] }"
+                      :style="{
+                        backgroundColor: statusColors[selection.status] + '20',
+                        color: statusColors[selection.status],
+                      }"
                     >
                       {{ t(`carStock.status_${selection.status}`) || selection.status }}
                     </span>
@@ -992,7 +1038,9 @@ const handlePrintWithOptions = async (printData) => {
                       :value="selection.status"
                       :title="t('carStock.change_status') || 'Change Status'"
                     >
-                      <option :value="selection.status" disabled>{{ t(`carStock.status_${selection.status}`) || selection.status }}</option>
+                      <option :value="selection.status" disabled>
+                        {{ t(`carStock.status_${selection.status}`) || selection.status }}
+                      </option>
                       <option
                         v-for="status in getAvailableStatuses(selection.status)"
                         :key="status"
@@ -1005,20 +1053,32 @@ const handlePrintWithOptions = async (printData) => {
                   </div>
                   <span
                     class="priority-badge"
-                    :style="{ backgroundColor: priorityColors[selection.priority] + '20', color: priorityColors[selection.priority] }"
+                    :style="{
+                      backgroundColor: priorityColors[selection.priority] + '20',
+                      color: priorityColors[selection.priority],
+                    }"
                   >
                     {{ t(`carStock.priority_${selection.priority}`) || selection.priority }}
                   </span>
                 </div>
               </div>
               <div class="selection-actions">
+                <SelectionChatButton :selection="selection" />
                 <button
                   @click="toggleShowCars(selection)"
                   class="action-btn view-cars-btn"
-                  :title="showingCars[selection.id] ? (t('carStock.hide_cars') || 'Hide Cars') : (t('carStock.view_cars') || 'View Cars')"
+                  :title="
+                    showingCars[selection.id]
+                      ? t('carStock.hide_cars') || 'Hide Cars'
+                      : t('carStock.view_cars') || 'View Cars'
+                  "
                 >
                   <i class="fas" :class="showingCars[selection.id] ? 'fa-eye-slash' : 'fa-eye'"></i>
-                  {{ showingCars[selection.id] ? (t('carStock.hide_cars') || 'Hide Cars') : (t('carStock.view_cars') || 'View Cars') }}
+                  {{
+                    showingCars[selection.id]
+                      ? t('carStock.hide_cars') || 'Hide Cars'
+                      : t('carStock.view_cars') || 'View Cars'
+                  }}
                 </button>
                 <button
                   @click="handlePrintSelection(selection)"
@@ -1064,7 +1124,14 @@ const handlePrintWithOptions = async (printData) => {
             <div class="selection-details">
               <div class="detail-item">
                 <i class="fas fa-car"></i>
-                <span>{{ getCarCount(selection) }} {{ getCarCount(selection) === 1 ? t('carStockToolbar.car') : t('carStockToolbar.cars') }}</span>
+                <span
+                  >{{ getCarCount(selection) }}
+                  {{
+                    getCarCount(selection) === 1
+                      ? t('carStockToolbar.car')
+                      : t('carStockToolbar.cars')
+                  }}</span
+                >
               </div>
               <div class="detail-item">
                 <i class="fas fa-user"></i>
@@ -1086,21 +1153,35 @@ const handlePrintWithOptions = async (printData) => {
                 <i class="fas fa-clock"></i>
                 <span>{{ t('carStock.due_date') }}: {{ formatDate(selection.due_date) }}</span>
               </div>
-              <div v-if="selection.deadline" class="detail-item" :class="{ 'deadline-passed': isDeadlinePassed(selection.deadline) }">
+              <div
+                v-if="selection.deadline"
+                class="detail-item"
+                :class="{ 'deadline-passed': isDeadlinePassed(selection.deadline) }"
+              >
                 <i class="fas fa-calendar-times"></i>
                 <span>{{ t('carStock.deadline') }}: {{ formatDate(selection.deadline) }}</span>
-                <span v-if="isDeadlinePassed(selection.deadline)" class="deadline-warning">({{ t('carStock.overdue') || 'Overdue' }})</span>
+                <span v-if="isDeadlinePassed(selection.deadline)" class="deadline-warning"
+                  >({{ t('carStock.overdue') || 'Overdue' }})</span
+                >
               </div>
               <div v-if="selection.status_changed_at" class="detail-item">
                 <i class="fas fa-exchange-alt"></i>
-                <span>{{ t('carStock.status_changed_at') || 'Status Changed' }}: {{ formatDate(selection.status_changed_at) }}</span>
+                <span
+                  >{{ t('carStock.status_changed_at') || 'Status Changed' }}:
+                  {{ formatDate(selection.status_changed_at) }}</span
+                >
                 <span v-if="selection.previous_status" class="status-change-info">
-                  ({{ t('carStock.from') || 'from' }}: {{ t(`carStock.status_${selection.previous_status}`) || selection.previous_status }})
+                  ({{ t('carStock.from') || 'from' }}:
+                  {{
+                    t(`carStock.status_${selection.previous_status}`) || selection.previous_status
+                  }})
                 </span>
               </div>
               <div v-if="selection.job_done_on" class="detail-item">
                 <i class="fas fa-check-circle"></i>
-                <span>{{ t('carStock.completed_at') }}: {{ formatDate(selection.job_done_on) }}</span>
+                <span
+                  >{{ t('carStock.completed_at') }}: {{ formatDate(selection.job_done_on) }}</span
+                >
               </div>
             </div>
 
@@ -1110,7 +1191,10 @@ const handlePrintWithOptions = async (printData) => {
                 <i class="fas fa-spinner fa-spin"></i>
                 <span>{{ t('carStock.loading_cars') || 'Loading cars...' }}</span>
               </div>
-              <div v-else-if="selectionCars[selection.id] && selectionCars[selection.id].length > 0" class="simple-cars-table-container">
+              <div
+                v-else-if="selectionCars[selection.id] && selectionCars[selection.id].length > 0"
+                class="simple-cars-table-container"
+              >
                 <table class="simple-cars-table">
                   <thead>
                     <tr>
@@ -1181,7 +1265,10 @@ const handlePrintWithOptions = async (printData) => {
                   <i class="fas fa-spinner fa-spin"></i>
                   <span>{{ t('carStock.loading') }}</span>
                 </div>
-                <div v-else-if="comments[selection.id] && comments[selection.id].length > 0" class="comments-list">
+                <div
+                  v-else-if="comments[selection.id] && comments[selection.id].length > 0"
+                  class="comments-list"
+                >
                   <div
                     v-for="comment in comments[selection.id]"
                     :key="comment.id"
@@ -1241,9 +1328,11 @@ const handlePrintWithOptions = async (printData) => {
     <!-- Print Options Modal -->
     <CarStockPrintOptions
       :show="showPrintOptions"
-      :selected-cars="selectedSelectionForPrint ? (selectionCars[selectedSelectionForPrint.id] || []) : []"
+      :selected-cars="
+        selectedSelectionForPrint ? selectionCars[selectedSelectionForPrint.id] || [] : []
+      "
       action-type="print"
-      @close="showPrintOptions = false; selectedSelectionForPrint = null"
+      @close="handleClosePrintOptions"
       @print="handlePrintWithOptions"
     />
   </div>
@@ -2007,4 +2096,3 @@ const handlePrintWithOptions = async (printData) => {
   }
 }
 </style>
-

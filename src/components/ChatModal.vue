@@ -57,6 +57,10 @@ const handleGroupSelected = (group) => {
 
 const handleMessageSent = (message) => {
   // Message sent event handler
+  // Refresh groups list to update sorting by latest message
+  if (chatSidebarRef.value?.refreshGroups) {
+    chatSidebarRef.value.refreshGroups()
+  }
 }
 
 const handleNewMessagesReceived = (groupId) => {
@@ -64,6 +68,11 @@ const handleNewMessagesReceived = (groupId) => {
   if (chatMainRef.value?.getAllNewMessagesCounts) {
     const counts = chatMainRef.value.getAllNewMessagesCounts()
     newMessagesCounts.value = counts
+  }
+
+  // Refresh groups list to update sorting by latest message
+  if (chatSidebarRef.value?.refreshGroups) {
+    chatSidebarRef.value.refreshGroups()
   }
 
   // Scroll to bottom when new messages are received
@@ -108,6 +117,11 @@ const updateNewMessageCounts = () => {
       const counts = chatMessagesRef.value.getAllNewMessagesCounts()
       newMessagesCounts.value = counts
     }
+    
+    // Refresh groups list to update sorting by latest message
+    if (chatSidebarRef.value?.refreshGroups) {
+      chatSidebarRef.value.refreshGroups()
+    }
   } catch (error) {
     console.error('Error updating new message counts:', error)
   }
@@ -134,6 +148,19 @@ watch(selectedGroup, async (newGroup, oldGroup) => {
       }
     }, 1000) // Wait for messages to load
   }
+})
+
+// Expose method to select group by ID (for external calls)
+const selectGroupById = async (groupId) => {
+  if (chatSidebarRef.value?.selectGroupById) {
+    return await chatSidebarRef.value.selectGroupById(groupId)
+  }
+  return null
+}
+
+// Expose methods for parent components
+defineExpose({
+  selectGroupById,
 })
 </script>
 

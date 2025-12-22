@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useApi } from '../../composables/useApi'
 import ChatUsersPopup from './ChatUsersPopup.vue'
 import AddGroup from './AddGroup.vue'
@@ -13,8 +13,10 @@ const props = defineProps({
 
 const { callApi, loading, error } = useApi()
 const chatGroups = ref([])
+const allChatGroups = ref([]) // Store all groups for filtering
 const selectedGroup = ref(null)
 const currentUser = ref(null)
+const searchFilter = ref('')
 
 // Popup state
 const showUsersPopup = ref(false)
@@ -57,13 +59,23 @@ const fetchChatGroups = async () => {
           cg.name, 
           cg.description, 
           cg.id_user_owner, 
-          cg.is_active 
+          cg.is_active,
+          COALESCE(MAX(cm.time), '1970-01-01 00:00:00') as latest_message_time,
+          GROUP_CONCAT(DISTINCT u.username ORDER BY u.username SEPARATOR ', ') as user_names,
+          SUBSTRING_INDEX(
+            GROUP_CONCAT(DISTINCT cm.message ORDER BY cm.time DESC SEPARATOR ' '), 
+            ' ', 
+            100
+          ) as recent_messages
         FROM chat_groups cg
         INNER JOIN chat_users cu ON cg.id = cu.id_chat_group
+        LEFT JOIN users u ON cu.id_user = u.id AND cu.is_active = 1
+        LEFT JOIN chat_messages cm ON cg.id = cm.id_chat_group
         WHERE cg.is_active = 1 
           AND cu.is_active = 1
           AND cu.id_user = ?
-        ORDER BY cg.name ASC
+        GROUP BY cg.id, cg.name, cg.description, cg.id_user_owner, cg.is_active
+        ORDER BY latest_message_time DESC, cg.name ASC
       `,
       params: [currentUser.value.id],
       requiresAuth: true,
@@ -72,10 +84,12 @@ const fetchChatGroups = async () => {
     console.log('Chat groups result:', result)
 
     if (result.success && result.data) {
-      chatGroups.value = result.data
-      console.log('Chat groups loaded:', chatGroups.value)
+      allChatGroups.value = result.data
+      applyFilter()
+      console.log('Chat groups loaded:', allChatGroups.value)
     } else {
       console.log('No groups found or API failed:', result)
+      allChatGroups.value = []
       chatGroups.value = []
     }
   } catch (err) {
@@ -157,12 +171,56 @@ const getNewMessageCount = (groupId) => {
   return count
 }
 
+// Method to refresh groups (can be called from outside)
+const refreshGroups = async () => {
+  await fetchChatGroups()
+}
+
+// Filter groups based on search term
+const applyFilter = () => {
+  const searchTerm = searchFilter.value.trim().toLowerCase()
+  
+  if (!searchTerm) {
+    chatGroups.value = [...allChatGroups.value]
+    return
+  }
+
+  chatGroups.value = allChatGroups.value.filter((group) => {
+    // Search in name
+    const nameMatch = group.name?.toLowerCase().includes(searchTerm)
+    
+    // Search in description
+    const descriptionMatch = group.description?.toLowerCase().includes(searchTerm)
+    
+    // Search in user names
+    const userNamesMatch = group.user_names?.toLowerCase().includes(searchTerm)
+    
+    // Search in recent messages (limit to first 1000 chars to avoid performance issues)
+    const messagesMatch = group.recent_messages?.toLowerCase().includes(searchTerm)
+    
+    return nameMatch || descriptionMatch || userNamesMatch || messagesMatch
+  })
+}
+
+// Watch for search filter changes
+const handleSearchInput = () => {
+  applyFilter()
+}
+
+// Clear search filter
+const clearFilter = () => {
+  searchFilter.value = ''
+  applyFilter()
+}
+
 // Expose methods to parent
 defineExpose({
   cleanup: () => {
     // Cleanup function if needed
   },
   selectGroupById,
+  refreshGroups,
+  fetchChatGroups,
 })
 </script>
 
@@ -176,6 +234,32 @@ defineExpose({
         </button>
       </div>
     </div>
+    
+    <!-- Search Filter -->
+    <div class="search-filter-container">
+      <div class="search-input-wrapper">
+        <i class="fas fa-search search-icon"></i>
+        <input
+          type="text"
+          v-model="searchFilter"
+          @input="handleSearchInput"
+          placeholder="Search groups, users, messages..."
+          class="search-input"
+        />
+        <button
+          v-if="searchFilter"
+          @click="clearFilter"
+          class="clear-search-btn"
+          title="Clear search"
+        >
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div v-if="searchFilter" class="filter-info">
+        {{ chatGroups.length }} / {{ allChatGroups.length }} groups
+      </div>
+    </div>
+
     <div class="groups-table">
       <table>
         <thead>
@@ -214,11 +298,18 @@ defineExpose({
         <i class="fas fa-spinner fa-spin"></i> Loading groups...
       </div>
       <div v-if="error" class="error"><i class="fas fa-exclamation-triangle"></i> {{ error }}</div>
-      <div v-if="!loading && chatGroups.length === 0" class="no-groups">
+      <div v-if="!loading && chatGroups.length === 0 && !searchFilter" class="no-groups">
         <i class="fas fa-comments"></i>
         <p>No chat groups available</p>
         <button @click="showAddGroup" class="btn btn-primary">
           <i class="fas fa-plus"></i> Create First Group
+        </button>
+      </div>
+      <div v-if="!loading && chatGroups.length === 0 && searchFilter" class="no-results">
+        <i class="fas fa-search"></i>
+        <p>No groups found matching "{{ searchFilter }}"</p>
+        <button @click="clearFilter" class="btn btn-secondary">
+          Clear search
         </button>
       </div>
     </div>
@@ -265,6 +356,75 @@ defineExpose({
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.search-filter-container {
+  padding: 12px 16px;
+  border-bottom: 1px solid #e2e8f0;
+  background-color: #f8fafc;
+}
+
+.search-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  color: #64748b;
+  font-size: 14px;
+  pointer-events: none;
+}
+
+.search-input {
+  width: 100%;
+  padding: 8px 12px 8px 36px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #374151;
+  background-color: white;
+  transition: all 0.2s ease;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #06b6d4;
+  box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.1);
+}
+
+.search-input::placeholder {
+  color: #9ca3af;
+}
+
+.clear-search-btn {
+  position: absolute;
+  right: 8px;
+  background: none;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  font-size: 12px;
+}
+
+.clear-search-btn:hover {
+  background-color: #e5e7eb;
+  color: #374151;
+}
+
+.filter-info {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #64748b;
+  text-align: right;
 }
 
 .header-buttons {
@@ -403,10 +563,37 @@ defineExpose({
 
 .loading,
 .error,
-.no-groups {
+.no-groups,
+.no-results {
   padding: 20px;
   text-align: center;
   color: #64748b;
+}
+
+.no-results {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+}
+
+.no-results i {
+  font-size: 2rem;
+  color: #9ca3af;
+}
+
+.no-results p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.btn-secondary {
+  background-color: #6b7280;
+  color: white;
+}
+
+.btn-secondary:hover {
+  background-color: #4b5563;
 }
 
 .error {
