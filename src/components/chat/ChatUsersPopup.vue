@@ -1,7 +1,11 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
 import { useApi } from '../../composables/useApi'
+import { useEnhancedI18n } from '../../composables/useI18n'
 import AddUserToGroup from './AddUserToGroup.vue'
+import AddClientToGroup from './AddClientToGroup.vue'
+
+const { t } = useEnhancedI18n()
 
 const props = defineProps({
   groupId: {
@@ -20,17 +24,20 @@ const props = defineProps({
 
 const { callApi, loading, error } = useApi()
 const chatUsers = ref([])
+const chatClients = ref([])
 
 // User permissions and group info
 const currentUser = ref(null)
 const groupOwner = ref(null)
 const canRemoveUsers = ref(false)
+const canRemoveClients = ref(false)
 
 // Emit events to parent
 const emit = defineEmits(['close'])
 
-// Add user modal state
+// Add user/client modal state
 const showAddUserModal = ref(false)
+const showAddClientModal = ref(false)
 
 // Define all functions first
 const fetchCurrentUser = async () => {
@@ -88,9 +95,12 @@ const fetchGroupInfo = async () => {
           cg.id,
           cg.name,
           cg.id_user_owner,
-          u.username as owner_username
+          cg.id_client_owner,
+          u.username as owner_username,
+          c.name as owner_client_name
         FROM chat_groups cg
         LEFT JOIN users u ON cg.id_user_owner = u.id
+        LEFT JOIN clients c ON cg.id_client_owner = c.id
         WHERE cg.id = ?
       `,
       params: [props.groupId],
@@ -103,7 +113,7 @@ const fetchGroupInfo = async () => {
       groupOwner.value = result.data[0]
       console.log('Group owner loaded:', groupOwner.value)
 
-      // Check if current user can remove users
+      // Check if current user can remove users/clients
       checkRemovePermissions()
     } else {
       console.log('No group info found or API failed')
@@ -120,22 +130,26 @@ const checkRemovePermissions = () => {
 
   if (!currentUser.value || !groupOwner.value) {
     canRemoveUsers.value = false
-    console.log('Missing user or group data, canRemoveUsers set to false')
+    canRemoveClients.value = false
+    console.log('Missing user or group data, canRemove set to false')
     return
   }
 
-  // Allow if user is admin or is the group owner
+  // Allow if user is admin or is the group owner (user owner only for now)
   const isAdmin = currentUser.value.role_name === 'admin'
   const isOwner = currentUser.value.id === groupOwner.value.id_user_owner
 
   canRemoveUsers.value = isAdmin || isOwner
+  canRemoveClients.value = isAdmin || isOwner
   console.log(
     'Remove permissions - isAdmin:',
     isAdmin,
     'isOwner:',
     isOwner,
-    'canRemove:',
+    'canRemoveUsers:',
     canRemoveUsers.value,
+    'canRemoveClients:',
+    canRemoveClients.value,
   )
   console.log(
     'Current user ID:',
@@ -148,9 +162,10 @@ const checkRemovePermissions = () => {
 
 const fetchChatUsers = async () => {
   try {
-    console.log('Fetching chat users for group:', props.groupId)
+    console.log('Fetching chat users and clients for group:', props.groupId)
 
-    const result = await callApi({
+    // Fetch users
+    const usersResult = await callApi({
       query: `
         SELECT 
           cu.id,
@@ -163,33 +178,63 @@ const fetchChatUsers = async () => {
         FROM chat_users cu
         LEFT JOIN users u ON cu.id_user = u.id
         LEFT JOIN roles r ON u.role_id = r.id
-        WHERE cu.id_chat_group = ? AND cu.is_active = 1
+        WHERE cu.id_chat_group = ? AND cu.is_active = 1 AND cu.id_user IS NOT NULL
         ORDER BY u.username ASC
       `,
       params: [props.groupId],
       requiresAuth: true,
     })
 
-    console.log('API result:', result)
+    // Fetch clients
+    const clientsResult = await callApi({
+      query: `
+        SELECT 
+          cu.id,
+          cu.id_client,
+          cu.id_chat_group,
+          cu.is_active,
+          c.name,
+          c.email,
+          c.mobiles
+        FROM chat_users cu
+        LEFT JOIN clients c ON cu.id_client = c.id
+        WHERE cu.id_chat_group = ? AND cu.is_active = 1 AND cu.id_client IS NOT NULL
+        ORDER BY c.name ASC
+      `,
+      params: [props.groupId],
+      requiresAuth: true,
+    })
 
-    if (result.success && result.data) {
-      chatUsers.value = result.data
+    console.log('Users API result:', usersResult)
+    console.log('Clients API result:', clientsResult)
+
+    if (usersResult.success && usersResult.data) {
+      chatUsers.value = usersResult.data
       console.log('Chat users loaded:', chatUsers.value)
     } else {
-      console.log('No data returned or API call failed:', result)
+      chatUsers.value = []
+      console.log('No users returned or API call failed:', usersResult)
+    }
+
+    if (clientsResult.success && clientsResult.data) {
+      chatClients.value = clientsResult.data
+      console.log('Chat clients loaded:', chatClients.value)
+    } else {
+      chatClients.value = []
+      console.log('No clients returned or API call failed:', clientsResult)
     }
   } catch (err) {
-    console.error('Error fetching chat users:', err)
+    console.error('Error fetching chat users/clients:', err)
   }
 }
 
 const removeUserFromGroup = async (userId, username) => {
   if (!canRemoveUsers.value) {
-    alert('You do not have permission to remove users from this group')
+    alert(t('chat.noPermissionToRemoveUsers') || 'You do not have permission to remove users from this group')
     return
   }
 
-  if (!confirm(`Are you sure you want to remove "${username}" from this group?`)) {
+  if (!confirm(t('chat.confirmRemoveUser', { username }) || `Are you sure you want to remove "${username}" from this group?`)) {
     return
   }
 
@@ -209,13 +254,49 @@ const removeUserFromGroup = async (userId, username) => {
     if (result.success) {
       // Refresh the users list
       await fetchChatUsers()
-      alert(`"${username}" has been removed from the group`)
+      alert(t('chat.userRemovedFromGroup', { username }) || `"${username}" has been removed from the group`)
     } else {
-      alert('Failed to remove user from group')
+      alert(t('chat.failedToRemoveUser') || 'Failed to remove user from group')
     }
   } catch (err) {
     console.error('Error removing user from group:', err)
-    alert('Error removing user from group')
+    alert(t('chat.errorRemovingUser') || 'Error removing user from group')
+  }
+}
+
+const removeClientFromGroup = async (clientId, clientName) => {
+  if (!canRemoveClients.value) {
+    alert(t('chat.noPermissionToRemoveClients') || 'You do not have permission to remove clients from this group')
+    return
+  }
+
+  if (!confirm(t('chat.confirmRemoveClient', { clientName }) || `Are you sure you want to remove "${clientName}" from this group?`)) {
+    return
+  }
+
+  try {
+    const result = await callApi({
+      query: `
+        UPDATE chat_users 
+        SET is_active = 0 
+        WHERE id_client = ? AND id_chat_group = ?
+      `,
+      params: [clientId, props.groupId],
+      requiresAuth: true,
+    })
+
+    console.log('Remove client result:', result)
+
+    if (result.success) {
+      // Refresh the users/clients list
+      await fetchChatUsers()
+      alert(t('chat.clientRemovedFromGroup', { clientName }) || `"${clientName}" has been removed from the group`)
+    } else {
+      alert(t('chat.failedToRemoveClient') || 'Failed to remove client from group')
+    }
+  } catch (err) {
+    console.error('Error removing client from group:', err)
+    alert(t('chat.errorRemovingClient') || 'Error removing client from group')
   }
 }
 
@@ -238,8 +319,21 @@ const closeAddUserModal = () => {
   showAddUserModal.value = false
 }
 
+const showAddClient = () => {
+  showAddClientModal.value = true
+}
+
+const closeAddClientModal = () => {
+  showAddClientModal.value = false
+}
+
 const handleUserAdded = () => {
   // Refresh the users list after adding a new user
+  fetchChatUsers()
+}
+
+const handleClientAdded = () => {
+  // Refresh the clients list after adding a new client
   fetchChatUsers()
 }
 
@@ -265,10 +359,13 @@ watch(
   <div v-if="isVisible" class="popup-overlay" @click="handleBackdropClick">
     <div class="popup-content">
       <div class="popup-header">
-        <h3><i class="fas fa-users"></i> Users in "{{ groupName }}"</h3>
+        <h3><i class="fas fa-users"></i> {{ t('chat.membersInGroup', { name: groupName }) }}</h3>
         <div class="header-actions">
-          <button @click="showAddUser" class="add-user-btn" title="Add User">
+          <button @click="showAddUser" class="add-user-btn" :title="t('chat.addUser')">
             <i class="fas fa-user-plus"></i>
+          </button>
+          <button @click="showAddClient" class="add-client-btn" :title="t('chat.addClient')">
+            <i class="fas fa-building"></i>
           </button>
           <button @click="closePopup" class="close-btn">
             <i class="fas fa-times"></i>
@@ -278,66 +375,120 @@ watch(
 
       <div class="popup-body">
         <div v-if="loading" class="loading">
-          <i class="fas fa-spinner fa-spin"></i> Loading users...
+          <i class="fas fa-spinner fa-spin"></i> {{ t('chat.loadingUsers') }}
         </div>
 
         <div v-else-if="error" class="error">
           <i class="fas fa-exclamation-triangle"></i> {{ error }}
         </div>
 
-        <div v-else-if="chatUsers.length === 0" class="no-users">
+        <div v-else-if="chatUsers.length === 0 && chatClients.length === 0" class="no-users">
           <i class="fas fa-user-slash"></i>
-          <p>No users in this group</p>
-          <button @click="showAddUser" class="btn btn-primary">
-            <i class="fas fa-user-plus"></i> Add First User
-          </button>
+          <p>{{ t('chat.noMembersInGroup') }}</p>
+          <div class="no-users-actions">
+            <button @click="showAddUser" class="btn btn-primary">
+              <i class="fas fa-user-plus"></i> {{ t('chat.addUser') }}
+            </button>
+            <button @click="showAddClient" class="btn btn-primary">
+              <i class="fas fa-building"></i> {{ t('chat.addClient') }}
+            </button>
+          </div>
         </div>
 
-        <div v-else class="users-table">
-          <table>
-            <thead>
-              <tr>
-                <th>Username</th>
-                <th>Email</th>
-                <th>Role</th>
-                <th>Status</th>
-                <th v-if="canRemoveUsers" class="actions-header">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="user in chatUsers" :key="user.id" class="user-row">
-                <td>
-                  <i class="fas fa-user-circle"></i>
-                  {{ user.username }}
-                </td>
-                <td>{{ user.email }}</td>
-                <td>
-                  <span class="role-badge">{{ user.role_name }}</span>
-                </td>
-                <td>
-                  <span class="status-badge active"> <i class="fas fa-circle"></i> Active </span>
-                </td>
-                <td v-if="canRemoveUsers" class="actions-cell">
-                  <button
-                    @click="removeUserFromGroup(user.id_user, user.username)"
-                    class="remove-btn"
-                    :title="`Remove ${user.username} from group`"
-                    :disabled="user.id_user === currentUser?.id"
-                  >
-                    <i class="fas fa-user-minus"></i>
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+        <div v-else class="members-container">
+          <!-- Users Section -->
+          <div v-if="chatUsers.length > 0" class="members-section">
+            <h4><i class="fas fa-users"></i> {{ t('chat.users') }} ({{ chatUsers.length }})</h4>
+            <div class="users-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>{{ t('chat.username') }}</th>
+                    <th>{{ t('chat.email') }}</th>
+                    <th>{{ t('chat.role') }}</th>
+                    <th>{{ t('chat.status') }}</th>
+                    <th v-if="canRemoveUsers" class="actions-header">{{ t('chat.actions') }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="user in chatUsers" :key="user.id" class="user-row">
+                    <td>
+                      <i class="fas fa-user-circle"></i>
+                      {{ user.username }}
+                    </td>
+                    <td>{{ user.email }}</td>
+                    <td>
+                      <span class="role-badge">{{ user.role_name }}</span>
+                    </td>
+                    <td>
+                      <span class="status-badge active"> <i class="fas fa-circle"></i> {{ t('chat.active') }} </span>
+                    </td>
+                    <td v-if="canRemoveUsers" class="actions-cell">
+                      <button
+                        @click="removeUserFromGroup(user.id_user, user.username)"
+                        class="remove-btn"
+                        :title="t('chat.removeFromGroup', { name: user.username })"
+                        :disabled="user.id_user === currentUser?.id"
+                      >
+                        <i class="fas fa-user-minus"></i>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Clients Section -->
+          <div v-if="chatClients.length > 0" class="members-section">
+            <h4><i class="fas fa-building"></i> {{ t('chat.clients') }} ({{ chatClients.length }})</h4>
+            <div class="users-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>{{ t('chat.name') }}</th>
+                    <th>{{ t('chat.email') }}</th>
+                    <th>{{ t('chat.mobile') }}</th>
+                    <th>{{ t('chat.status') }}</th>
+                    <th v-if="canRemoveClients" class="actions-header">{{ t('chat.actions') }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="client in chatClients" :key="client.id" class="user-row">
+                    <td>
+                      <i class="fas fa-building"></i>
+                      {{ client.name }}
+                    </td>
+                    <td>{{ client.email || '-' }}</td>
+                    <td>{{ client.mobiles || '-' }}</td>
+                    <td>
+                      <span class="status-badge active"> <i class="fas fa-circle"></i> {{ t('chat.active') }} </span>
+                    </td>
+                    <td v-if="canRemoveClients" class="actions-cell">
+                      <button
+                        @click="removeClientFromGroup(client.id_client, client.name)"
+                        class="remove-btn"
+                        :title="t('chat.removeFromGroup', { name: client.name })"
+                      >
+                        <i class="fas fa-user-minus"></i>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </div>
 
       <div class="popup-footer">
         <button @click="showAddUser" class="btn btn-primary">
-          <i class="fas fa-user-plus"></i> Add User
+          <i class="fas fa-user-plus"></i> {{ t('chat.addUser') }}
         </button>
-        <button @click="closePopup" class="btn btn-secondary">Close</button>
+        <button @click="showAddClient" class="btn btn-primary">
+          <i class="fas fa-building"></i> {{ t('chat.addClient') }}
+        </button>
+        <button @click="closePopup" class="btn btn-secondary">{{ t('buttons.close') }}</button>
       </div>
     </div>
 
@@ -348,6 +499,14 @@ watch(
       :is-visible="showAddUserModal"
       @close="closeAddUserModal"
       @user-added="handleUserAdded"
+    />
+
+    <!-- Add Client Modal -->
+    <AddClientToGroup
+      :group-id="groupId"
+      :is-visible="showAddClientModal"
+      @close="closeAddClientModal"
+      @client-added="handleClientAdded"
     />
   </div>
 </template>
@@ -401,7 +560,8 @@ watch(
   align-items: center;
 }
 
-.add-user-btn {
+.add-user-btn,
+.add-client-btn {
   background-color: rgba(255, 255, 255, 0.2);
   border: none;
   color: white;
@@ -412,7 +572,8 @@ watch(
   transition: background-color 0.2s;
 }
 
-.add-user-btn:hover {
+.add-user-btn:hover,
+.add-client-btn:hover {
   background-color: rgba(255, 255, 255, 0.3);
 }
 
@@ -543,6 +704,36 @@ watch(
   color: #06b6d4;
   margin-bottom: 16px;
   display: block;
+}
+
+.no-users-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.members-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.members-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.members-section h4 {
+  margin: 0;
+  color: #374151;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1rem;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #e2e8f0;
 }
 
 .popup-footer {

@@ -50,7 +50,8 @@ const getUser = async () => {
 
 // Fetch pending tasks count
 const fetchPendingTasksCount = async () => {
-  if (!user.value) {
+  // Only fetch for logged-in users, not clients
+  if (!user.value || !user.value.id || !user.value.role_id) {
     return
   }
 
@@ -182,6 +183,12 @@ const currentPageName = computed(() => {
 
 // Chat functions
 const openChat = () => {
+  // Only allow chat for logged-in users, not clients
+  if (!user.value || !user.value.id || !user.value.role_id) {
+    console.warn('Chat is only available for logged-in users')
+    return
+  }
+
   showChatModal.value = true
   // Reset unread count when opening chat
   unreadMessageCount.value = 0
@@ -458,7 +465,12 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <button @click="openChat" class="chat-btn" :title="t('app.openChat')">
+        <button 
+          v-if="user && user.id && user.role_id" 
+          @click="openChat" 
+          class="chat-btn" 
+          :title="t('app.openChat')"
+        >
           <i class="fas fa-comments"></i>
           <span class="chat-label">{{ t('navigation.chat') }}</span>
           <span v-if="unreadMessageCount > 0" class="notification-badge">
@@ -466,7 +478,12 @@ onUnmounted(() => {
           </span>
         </button>
 
-        <button @click="router.push('/tasks')" class="tasks-btn" :title="t('app.viewTasks')">
+        <button 
+          v-if="user && user.id && user.role_id" 
+          @click="router.push('/tasks')" 
+          class="tasks-btn" 
+          :title="t('app.viewTasks')"
+        >
           <i class="fas fa-tasks"></i>
           <span class="tasks-label">{{ t('navigation.tasks') }}</span>
           <span v-if="pendingTasksCount > 0" class="notification-badge">
@@ -474,7 +491,7 @@ onUnmounted(() => {
           </span>
         </button>
 
-        <LogoutButton />
+        <LogoutButton v-if="user && user.id && user.role_id" />
       </div>
     </div>
   </header>
@@ -818,7 +835,7 @@ onUnmounted(() => {
   width: 95%;
   max-width: 1200px;
   height: 90%;
-  max-height: 800px;
+  max-height: 90vh;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
   display: flex;
   flex-direction: column;
@@ -871,8 +888,11 @@ onUnmounted(() => {
 
 .chat-modal-content {
   flex: 1;
+  min-height: 0;
   overflow: hidden;
   position: relative;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Responsive adjustments for chat modal */

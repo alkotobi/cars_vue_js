@@ -1,13 +1,25 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useApi } from '../../composables/useApi'
+import { useEnhancedI18n } from '../../composables/useI18n'
 import ChatUsersPopup from './ChatUsersPopup.vue'
 import AddGroup from './AddGroup.vue'
+
+const { t } = useEnhancedI18n()
 
 const props = defineProps({
   newMessagesCounts: {
     type: Object,
     default: () => ({}),
+  },
+  // Client mode props (optional)
+  clientId: {
+    type: Number,
+    default: null,
+  },
+  clientName: {
+    type: String,
+    default: null,
   },
 })
 
@@ -16,7 +28,9 @@ const chatGroups = ref([])
 const allChatGroups = ref([]) // Store all groups for filtering
 const selectedGroup = ref(null)
 const currentUser = ref(null)
+const currentClient = ref(null)
 const searchFilter = ref('')
+const isClientMode = computed(() => props.clientId !== null)
 
 // Popup state
 const showUsersPopup = ref(false)
@@ -32,6 +46,12 @@ onMounted(async () => {
 })
 
 const getCurrentUser = () => {
+  if (isClientMode.value) {
+    // In client mode, set client info
+    currentClient.value = { id: props.clientId, name: props.clientName }
+    return
+  }
+  
   try {
     const userStr = localStorage.getItem('user')
     if (userStr) {
@@ -45,40 +65,94 @@ const getCurrentUser = () => {
 
 const fetchChatGroups = async () => {
   try {
-    if (!currentUser.value) {
-      console.log('No current user available')
-      return
+    if (isClientMode.value) {
+      if (!currentClient.value) {
+        console.log('No current client available')
+        return
+      }
+    } else {
+      if (!currentUser.value) {
+        console.log('No current user available')
+        return
+      }
     }
 
-    console.log('Current user for group fetch:', currentUser.value)
+    let query, params, requiresAuth
 
-    const result = await callApi({
-      query: `
+    if (isClientMode.value) {
+      // Client mode: fetch groups where client is a member
+      query = `
         SELECT DISTINCT
           cg.id, 
           cg.name, 
           cg.description, 
-          cg.id_user_owner, 
+          cg.id_user_owner,
+          cg.id_client_owner,
           cg.is_active,
           COALESCE(MAX(cm.time), '1970-01-01 00:00:00') as latest_message_time,
-          GROUP_CONCAT(DISTINCT u.username ORDER BY u.username SEPARATOR ', ') as user_names,
+          CONCAT_WS(', ',
+            NULLIF(GROUP_CONCAT(DISTINCT u.username ORDER BY u.username SEPARATOR ', '), ''),
+            NULLIF(GROUP_CONCAT(DISTINCT c.name ORDER BY c.name SEPARATOR ', '), '')
+          ) as user_names,
           SUBSTRING_INDEX(
             GROUP_CONCAT(DISTINCT cm.message ORDER BY cm.time DESC SEPARATOR ' '), 
             ' ', 
             100
           ) as recent_messages
         FROM chat_groups cg
-        INNER JOIN chat_users cu ON cg.id = cu.id_chat_group
-        LEFT JOIN users u ON cu.id_user = u.id AND cu.is_active = 1
+        INNER JOIN chat_users cu_member ON cg.id = cu_member.id_chat_group
+        LEFT JOIN chat_users cu ON cg.id = cu.id_chat_group AND cu.is_active = 1
+        LEFT JOIN users u ON cu.id_user = u.id
+        LEFT JOIN clients c ON cu.id_client = c.id
         LEFT JOIN chat_messages cm ON cg.id = cm.id_chat_group
         WHERE cg.is_active = 1 
-          AND cu.is_active = 1
-          AND cu.id_user = ?
-        GROUP BY cg.id, cg.name, cg.description, cg.id_user_owner, cg.is_active
+          AND cu_member.is_active = 1
+          AND cu_member.id_client = ?
+        GROUP BY cg.id, cg.name, cg.description, cg.id_user_owner, cg.id_client_owner, cg.is_active
         ORDER BY latest_message_time DESC, cg.name ASC
-      `,
-      params: [currentUser.value.id],
-      requiresAuth: true,
+      `
+      params = [currentClient.value.id]
+      requiresAuth = false
+    } else {
+      // User mode: fetch groups where user is a member
+      query = `
+        SELECT DISTINCT
+          cg.id, 
+          cg.name, 
+          cg.description, 
+          cg.id_user_owner,
+          cg.id_client_owner,
+          cg.is_active,
+          COALESCE(MAX(cm.time), '1970-01-01 00:00:00') as latest_message_time,
+          CONCAT_WS(', ',
+            NULLIF(GROUP_CONCAT(DISTINCT u.username ORDER BY u.username SEPARATOR ', '), ''),
+            NULLIF(GROUP_CONCAT(DISTINCT c.name ORDER BY c.name SEPARATOR ', '), '')
+          ) as user_names,
+          SUBSTRING_INDEX(
+            GROUP_CONCAT(DISTINCT cm.message ORDER BY cm.time DESC SEPARATOR ' '), 
+            ' ', 
+            100
+          ) as recent_messages
+        FROM chat_groups cg
+        INNER JOIN chat_users cu_member ON cg.id = cu_member.id_chat_group
+        LEFT JOIN chat_users cu ON cg.id = cu.id_chat_group AND cu.is_active = 1
+        LEFT JOIN users u ON cu.id_user = u.id
+        LEFT JOIN clients c ON cu.id_client = c.id
+        LEFT JOIN chat_messages cm ON cg.id = cm.id_chat_group
+        WHERE cg.is_active = 1 
+          AND cu_member.is_active = 1
+          AND cu_member.id_user = ?
+        GROUP BY cg.id, cg.name, cg.description, cg.id_user_owner, cg.id_client_owner, cg.is_active
+        ORDER BY latest_message_time DESC, cg.name ASC
+      `
+      params = [currentUser.value.id]
+      requiresAuth = true
+    }
+
+    const result = await callApi({
+      query,
+      params,
+      requiresAuth,
     })
 
     console.log('Chat groups result:', result)
@@ -227,9 +301,9 @@ defineExpose({
 <template>
   <div class="chat-sidebar">
     <div class="sidebar-header">
-      <h3><i class="fas fa-comments"></i> Chat Groups</h3>
+      <h3><i class="fas fa-comments"></i> {{ t('navigation.teams') || 'Groups' }}</h3>
       <div class="header-buttons">
-        <button @click="showAddGroup" class="add-group-btn" title="Add New Group">
+        <button v-if="!isClientMode" @click="showAddGroup" class="add-group-btn" :title="t('chat.addNewGroup')">
           <i class="fas fa-plus"></i>
         </button>
       </div>
@@ -243,14 +317,14 @@ defineExpose({
           type="text"
           v-model="searchFilter"
           @input="handleSearchInput"
-          placeholder="Search groups, users, messages..."
+          :placeholder="t('chat.searchGroups')"
           class="search-input"
         />
         <button
           v-if="searchFilter"
           @click="clearFilter"
           class="clear-search-btn"
-          title="Clear search"
+          :title="t('chat.clearSearch')"
         >
           <i class="fas fa-times"></i>
         </button>
@@ -264,9 +338,9 @@ defineExpose({
       <table>
         <thead>
           <tr>
-            <th>Group Name</th>
-            <th>Description</th>
-            <th>Actions</th>
+            <th>{{ t('cars.teamName') || 'Group Name' }}</th>
+            <th>{{ t('cars.description') || 'Description' }}</th>
+            <th>{{ t('cars.actions') || 'Actions' }}</th>
           </tr>
         </thead>
         <tbody>
@@ -285,9 +359,9 @@ defineExpose({
                 </span>
               </div>
             </td>
-            <td>{{ group.description || 'No description' }}</td>
+            <td>{{ group.description || (t('cars.description') || 'No description') }}</td>
             <td>
-              <button @click="showUsers(group, $event)" class="users-btn" title="View Users">
+              <button @click="showUsers(group, $event)" class="users-btn" :title="t('chat.members')">
                 <i class="fas fa-users"></i>
               </button>
             </td>
@@ -295,21 +369,21 @@ defineExpose({
         </tbody>
       </table>
       <div v-if="loading" class="loading">
-        <i class="fas fa-spinner fa-spin"></i> Loading groups...
+        <i class="fas fa-spinner fa-spin"></i> {{ t('chat.loadingGroups') }}
       </div>
       <div v-if="error" class="error"><i class="fas fa-exclamation-triangle"></i> {{ error }}</div>
       <div v-if="!loading && chatGroups.length === 0 && !searchFilter" class="no-groups">
         <i class="fas fa-comments"></i>
-        <p>No chat groups available</p>
-        <button @click="showAddGroup" class="btn btn-primary">
-          <i class="fas fa-plus"></i> Create First Group
+        <p>{{ t('chat.noGroupsFound') }}</p>
+        <button v-if="!isClientMode" @click="showAddGroup" class="btn btn-primary">
+          <i class="fas fa-plus"></i> {{ t('chat.addNewGroup') }}
         </button>
       </div>
       <div v-if="!loading && chatGroups.length === 0 && searchFilter" class="no-results">
         <i class="fas fa-search"></i>
-        <p>No groups found matching "{{ searchFilter }}"</p>
+        <p>{{ t('chat.noGroupsFound') }}</p>
         <button @click="clearFilter" class="btn btn-secondary">
-          Clear search
+          {{ t('chat.clearSearch') }}
         </button>
       </div>
     </div>
@@ -323,8 +397,9 @@ defineExpose({
       @close="closeUsersPopup"
     />
 
-    <!-- Add Group Modal -->
+    <!-- Add Group Modal (only for users) -->
     <AddGroup
+      v-if="!isClientMode"
       :is-visible="showAddGroupModal"
       @close="closeAddGroupModal"
       @group-added="handleGroupAdded"

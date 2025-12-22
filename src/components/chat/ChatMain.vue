@@ -1,11 +1,14 @@
 <script setup>
-import {   ref } from 'vue'
+import { ref, computed } from 'vue'
 import ChatMessages from './ChatMessages.vue'
+import { useEnhancedI18n } from '../../composables/useI18n'
+
+const { t } = useEnhancedI18n()
 
 const props = defineProps({
   welcomeMessage: {
     type: String,
-    default: 'Welcome to Chat!',
+    default: null,
   },
   selectedGroup: {
     type: Object,
@@ -13,6 +16,15 @@ const props = defineProps({
   },
   onForceUpdateCounts: {
     type: Function,
+    default: null,
+  },
+  // Client mode props (optional)
+  clientId: {
+    type: Number,
+    default: null,
+  },
+  clientName: {
+    type: String,
     default: null,
   },
 })
@@ -82,8 +94,8 @@ defineExpose({
   <div class="chat-main">
     <div v-if="!selectedGroup" class="select-group-message">
       <i class="fas fa-hand-pointer"></i>
-      <h2>{{ welcomeMessage }}</h2>
-      <p>Select a chat group from the sidebar to start chatting</p>
+      <h2>{{ welcomeMessage || t('chat.welcomeToChat') }}</h2>
+      <p>{{ t('chat.selectGroupToStart') }}</p>
     </div>
 
     <ChatMessages
@@ -91,6 +103,8 @@ defineExpose({
       ref="chatMessagesRef"
       :group-id="selectedGroup.id"
       :group-name="selectedGroup.name"
+      :client-id="clientId"
+      :client-name="clientName"
       @message-sent="handleMessageSent"
       @new-messages-received="handleNewMessagesReceived"
       @reset-triggered="handleReset"
@@ -101,9 +115,11 @@ defineExpose({
 <style scoped>
 .chat-main {
   flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   height: 100%;
+  overflow: hidden;
 }
 
 .select-group-message {

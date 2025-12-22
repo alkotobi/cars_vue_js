@@ -4,10 +4,13 @@ import { useRoute } from 'vue-router'
 import { useApi } from '../composables/useApi'
 import { useEnhancedI18n } from '../composables/useI18n'
 import { ElMessage } from 'element-plus'
+import ChatModal from '../components/ChatModal.vue'
+import { useCarClientChat } from '../composables/useCarClientChat'
 
 const route = useRoute()
 const { callApi, error, getFileUrl } = useApi()
 const { t, locale, availableLocales } = useEnhancedI18n()
+const { createOrGetCarClientChatGroup } = useCarClientChat()
 const client = ref(null)
 const clientCars = ref([])
 const isLoading = ref(false)
@@ -15,6 +18,7 @@ const shareUrl = ref(window.location.href)
 const isDev = ref(process.env.NODE_ENV === 'development')
 const user = ref(JSON.parse(localStorage.getItem('user')))
 const isAdmin = computed(() => user.value?.role_id === 1)
+const showChatModal = ref(false)
 
 // Create computed property for available locales with proper format
 const availableLanguages = computed(() => [
@@ -260,6 +264,23 @@ watch(googleMapsLoaded, async (loaded) => {
 const fetchClientDetails = async () => {
   isLoading.value = true
   try {
+    // First, get client ID from token
+    const clientLookupResult = await callApi({
+      query: `
+        SELECT id FROM clients WHERE share_token = ?
+      `,
+      params: [route.params.token],
+      requiresAuth: false,
+    })
+
+    if (!clientLookupResult.success || !clientLookupResult.data || clientLookupResult.data.length === 0) {
+      error.value = 'Client not found or invalid link'
+      isLoading.value = false
+      return
+    }
+
+    const clientId = clientLookupResult.data[0].id
+
     const [clientResult, carsResult] = await Promise.all([
       callApi({
         query: `
@@ -274,10 +295,10 @@ const fetchClientDetails = async () => {
             COUNT(cs.id) as cars_count
           FROM clients c
           LEFT JOIN cars_stock cs ON c.id = cs.id_client
-          WHERE c.id = ?
+          WHERE c.share_token = ?
           GROUP BY c.id
         `,
-        params: [route.params.id],
+        params: [route.params.token],
         requiresAuth: false,
       }),
       callApi({
@@ -315,7 +336,7 @@ const fetchClientDetails = async () => {
           WHERE cs.id_client = ? AND cs.hidden = 0
           ORDER BY cs.in_wharhouse_date DESC, cs.id DESC
         `,
-        params: [route.params.id],
+        params: [clientId],
         requiresAuth: false,
       }),
     ])
@@ -336,6 +357,9 @@ const fetchClientDetails = async () => {
       // Load Google Maps and fetch car locations
       await loadGoogleMapsAPI()
       await fetchCarLocations()
+
+      // Create chat groups for each car
+      await createChatGroupsForCars()
     }
   } catch (err) {
     console.error('Error fetching client details:', err)
@@ -381,6 +405,90 @@ const formatContainerRef = (containerRef) => {
   return containerRef.substring(0, 4) + '*'.repeat(containerRef.length - 4)
 }
 
+// Create chat groups for each car
+const createChatGroupsForCars = async () => {
+  if (!client.value || !clientCars.value || clientCars.value.length === 0) {
+    return
+  }
+
+  try {
+    for (const car of clientCars.value) {
+      // Generate car name: "Brand Model" or "Model" or "Car ID"
+      const carName = car.brand && car.model
+        ? `${car.brand} ${car.model}`
+        : car.model || car.brand || `Car ${car.id}`
+
+      // Create or get chat group for this car
+      // Note: We don't need to track users found here as it's just initialization
+      await createOrGetCarClientChatGroup(
+        client.value.id,
+        client.value.name,
+        car.id,
+        carName
+      )
+    }
+    console.log('Chat groups created/verified for all cars')
+  } catch (err) {
+    console.error('Error creating chat groups for cars:', err)
+    // Don't show error to client, just log it
+  }
+}
+
+// Refresh chat groups and check for new users to add
+const refreshChatGroupsAndOpenChat = async () => {
+  if (!client.value || !clientCars.value || clientCars.value.length === 0) {
+    showChatModal.value = true
+    return
+  }
+
+  try {
+    let totalUsersFound = 0
+    
+    // Refresh all chat groups for each car (this will check for new users)
+    for (const car of clientCars.value) {
+      // Generate car name: "Brand Model" or "Model" or "Car ID"
+      const carName = car.brand && car.model
+        ? `${car.brand} ${car.model}`
+        : car.model || car.brand || `Car ${car.id}`
+
+      // Re-run createOrGetCarClientChatGroup to check for new users
+      const result = await createOrGetCarClientChatGroup(
+        client.value.id,
+        client.value.name,
+        car.id,
+        carName
+      )
+      
+      if (result && result.usersFound) {
+        totalUsersFound += result.usersFound
+      }
+    }
+    
+    console.log('Chat groups refreshed, checking for new users completed')
+    
+    // Show informational message if no users found
+    if (totalUsersFound === 0) {
+      ElMessage({
+        message: t('clientDetails.noUsersFoundForChat'),
+        type: 'info',
+        duration: 5000,
+      })
+    } else {
+      ElMessage({
+        message: t('clientDetails.usersAddedToChat', { count: totalUsersFound }),
+        type: 'success',
+        duration: 3000,
+      })
+    }
+  } catch (err) {
+    console.error('Error refreshing chat groups:', err)
+    // Don't show error to client, just log it
+  } finally {
+    // Open chat modal after refreshing
+    showChatModal.value = true
+  }
+}
+
 onMounted(() => {
   fetchClientDetails()
 })
@@ -418,6 +526,14 @@ onMounted(() => {
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- Chat Button - Top of View -->
+    <div v-if="client && !isLoading" class="info-section chat-button-section top-chat-button">
+      <button @click="refreshChatGroupsAndOpenChat" class="open-chat-btn">
+        <i class="fas fa-comments"></i>
+        {{ t('clientDetails.openChat') }}
+      </button>
     </div>
 
     <!-- Loading State -->
@@ -673,6 +789,28 @@ onMounted(() => {
         <div class="empty-state">
           <i class="fas fa-car fa-2x"></i>
           <p>{{ t('clientDetails.noCarsFound') }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chat Modal -->
+    <div v-if="showChatModal" class="chat-modal-overlay" @click="showChatModal = false">
+      <div class="chat-modal" @click.stop>
+        <div class="chat-modal-header">
+          <h3>
+            <i class="fas fa-comments"></i>
+            {{ t('clientDetails.chat') }} {{ client.name }}
+          </h3>
+          <button @click="showChatModal = false" class="close-chat-btn">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="chat-modal-content">
+          <ChatModal
+            v-if="client"
+            :client-id="client.id"
+            :client-name="client.name"
+          />
         </div>
       </div>
     </div>
@@ -1312,5 +1450,181 @@ onMounted(() => {
 .no-map-message i {
   color: #ffc107;
   font-size: 16px;
+}
+
+/* Chat Button Section */
+.chat-button-section {
+  text-align: center;
+  padding: 30px 20px;
+}
+
+.chat-button-section.top-chat-button {
+  padding: 20px;
+  margin-bottom: 20px;
+  background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(6, 182, 212, 0.3);
+}
+
+.open-chat-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 28px;
+  background-color: #06b6d4;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(6, 182, 212, 0.3);
+}
+
+.top-chat-button .open-chat-btn {
+  background-color: white;
+  color: #06b6d4;
+  font-size: 1.2rem;
+  padding: 16px 32px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.top-chat-button .open-chat-btn:hover {
+  background-color: #f0f9ff;
+  color: #0891b2;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.open-chat-btn:hover {
+  background-color: #0891b2;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(6, 182, 212, 0.4);
+}
+
+.open-chat-btn:active {
+  transform: translateY(0);
+}
+
+.open-chat-btn i {
+  font-size: 1.2rem;
+}
+
+/* Chat Modal */
+.chat-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 20px;
+}
+
+.chat-modal {
+  background: white;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 1200px;
+  height: 90%;
+  max-height: 95vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+
+.chat-modal-header {
+  padding: 20px 24px;
+  background-color: #06b6d4;
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.chat-modal-header h3 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.3rem;
+}
+
+.close-chat-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  font-size: 1.3rem;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
+}
+
+.close-chat-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.chat-modal-content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Mobile Responsive for Chat Modal */
+@media (max-width: 768px) {
+  .chat-modal-overlay {
+    padding: 0;
+  }
+
+  .chat-modal {
+    max-width: 100%;
+    max-height: 100vh;
+    border-radius: 0;
+    height: 100vh;
+  }
+
+  .chat-modal-header {
+    padding: 16px 20px;
+  }
+
+  .chat-modal-header h3 {
+    font-size: 1.1rem;
+  }
+
+  .open-chat-btn {
+    padding: 12px 24px;
+    font-size: 1rem;
+    width: 100%;
+    max-width: 300px;
+  }
+}
+
+@media (max-width: 480px) {
+  .chat-modal-header {
+    padding: 14px 16px;
+  }
+
+  .chat-modal-header h3 {
+    font-size: 1rem;
+  }
+
+  .open-chat-btn {
+    padding: 10px 20px;
+    font-size: 0.95rem;
+  }
 }
 </style>

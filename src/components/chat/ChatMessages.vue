@@ -1,6 +1,9 @@
 <script setup>
 import { ref, onMounted, watch, nextTick, computed } from 'vue'
 import { useApi } from '../../composables/useApi'
+import { useEnhancedI18n } from '../../composables/useI18n'
+
+const { t } = useEnhancedI18n()
 
 const props = defineProps({
   groupId: {
@@ -10,6 +13,15 @@ const props = defineProps({
   groupName: {
     type: String,
     required: true,
+  },
+  // Client mode props (optional)
+  clientId: {
+    type: Number,
+    default: null,
+  },
+  clientName: {
+    type: String,
+    default: null,
   },
 })
 
@@ -21,6 +33,8 @@ const messagesByGroup = ref({}) // Store messages for each group: { groupId: [me
 const newMessagesCountByGroup = ref({}) // Track new messages count per group: { groupId: count }
 const newMessage = ref('')
 const currentUser = ref(null)
+const currentClient = ref(null)
+const isClientMode = computed(() => props.clientId !== null)
 const isSending = ref(false)
 const messagesContainer = ref(null)
 const messageInputRef = ref(null)
@@ -543,6 +557,13 @@ const emojis = [
 
 // Get current user
 const getCurrentUser = () => {
+  if (isClientMode.value) {
+    // In client mode, set client info
+    currentClient.value = { id: props.clientId, name: props.clientName }
+    addDebugInfo('clientLoaded', currentClient.value)
+    return
+  }
+  
   try {
     const userStr = localStorage.getItem('user')
     addDebugInfo('getCurrentUser', { userStr })
@@ -559,6 +580,13 @@ const getCurrentUser = () => {
     addError(`Error getting current user: ${err.message}`)
     currentUser.value = null
   }
+}
+
+// Reset pagination when switching groups
+const resetPagination = () => {
+  currentPage.value = 1
+  hasMoreMessages.value = true
+  isLoadingMore.value = false
 }
 
 // Watch for group changes
@@ -606,19 +634,22 @@ const fetchAllMessages = async () => {
           cm.id,
           cm.id_chat_group,
           cm.message_from_user_id,
+          cm.message_from_client_id,
           cm.chat_replay_to_message_id,
           cm.message,
           cm.time,
-          u.username as sender_username,
-          r.role_name as sender_role
+          COALESCE(u.username, c.name) as sender_username,
+          COALESCE(r.role_name, 'Client') as sender_role,
+          CASE WHEN cm.message_from_user_id IS NOT NULL THEN 'user' ELSE 'client' END as sender_type
         FROM chat_messages cm
         LEFT JOIN users u ON cm.message_from_user_id = u.id
         LEFT JOIN roles r ON u.role_id = r.id
+        LEFT JOIN clients c ON cm.message_from_client_id = c.id
         WHERE cm.id_chat_group = ?
         ORDER BY cm.id ASC
       `,
       params: [props.groupId],
-      requiresAuth: true,
+      requiresAuth: !isClientMode.value,
     })
 
     if (result.success && result.data) {
@@ -651,12 +682,25 @@ const fetchAllMessages = async () => {
 
 const fetchMessages = async (groupId) => {
   try {
-    if (!currentUser.value) {
-      addError('No current user available')
-      return
+    if (isClientMode.value) {
+      if (!currentClient.value) {
+        addError(t('chat.noCurrentClient'))
+        return
+      }
+    } else {
+      if (!currentUser.value) {
+        addError(t('chat.noCurrentUser'))
+        return
+      }
     }
 
-    addDebugInfo('fetchMessages', { groupId, page: currentPage.value, user: currentUser.value })
+    addDebugInfo('fetchMessages', { 
+      groupId, 
+      page: currentPage.value, 
+      user: currentUser.value,
+      client: currentClient.value,
+      isClientMode: isClientMode.value
+    })
 
     const offset = (currentPage.value - 1) * messagesPerPage
 
@@ -666,19 +710,22 @@ const fetchMessages = async (groupId) => {
           cm.id,
           cm.id_chat_group,
           cm.message_from_user_id,
+          cm.message_from_client_id,
           cm.message,
           cm.time,
-          u.username as sender_username,
-          r.role_name as sender_role
+          COALESCE(u.username, c.name) as sender_username,
+          COALESCE(r.role_name, 'Client') as sender_role,
+          CASE WHEN cm.message_from_user_id IS NOT NULL THEN 'user' ELSE 'client' END as sender_type
         FROM chat_messages cm
         LEFT JOIN users u ON cm.message_from_user_id = u.id
         LEFT JOIN roles r ON u.role_id = r.id
+        LEFT JOIN clients c ON cm.message_from_client_id = c.id
         WHERE cm.id_chat_group = ?
         ORDER BY cm.id DESC
         LIMIT ${messagesPerPage} OFFSET ${offset}
       `,
       params: [groupId],
-      requiresAuth: true,
+      requiresAuth: !isClientMode.value,
     })
 
     addDebugInfo('fetchMessages_result', result)
@@ -725,32 +772,69 @@ const fetchMessages = async (groupId) => {
 }
 
 const sendMessage = async () => {
-  if (!newMessage.value.trim() || !currentUser.value) {
-    return
+  if (isClientMode.value) {
+    if (!newMessage.value.trim() || !currentClient.value) {
+      return
+    }
+  } else {
+    if (!newMessage.value.trim() || !currentUser.value) {
+      return
+    }
   }
 
   try {
     isSending.value = true
 
-    const result = await callApi({
-      query: `
+    let query, params, requiresAuth, newMsg
+
+    if (isClientMode.value) {
+      // Client sending message
+      query = `
+        INSERT INTO chat_messages (id_chat_group, message_from_client_id, message, time) 
+        VALUES (?, ?, ?, UTC_TIMESTAMP())
+      `
+      params = [props.groupId, currentClient.value.id, newMessage.value.trim()]
+      requiresAuth = false
+    } else {
+      // User sending message
+      query = `
         INSERT INTO chat_messages (id_chat_group, message_from_user_id, message, time) 
         VALUES (?, ?, ?, UTC_TIMESTAMP())
-      `,
-      params: [props.groupId, currentUser.value.id, newMessage.value.trim()],
-      requiresAuth: true,
+      `
+      params = [props.groupId, currentUser.value.id, newMessage.value.trim()]
+      requiresAuth = true
+    }
+
+    const result = await callApi({
+      query,
+      params,
+      requiresAuth,
     })
 
     if (result.success) {
       // Add the new message to both current list and group cache
-      const newMsg = {
-        id: result.lastInsertId,
-        id_chat_group: props.groupId,
-        message_from_user_id: currentUser.value.id,
-        message: newMessage.value.trim(),
-        time: new Date().toISOString(), // Use UTC time
-        sender_username: currentUser.value.username,
-        sender_role: currentUser.value.role_name,
+      if (isClientMode.value) {
+        newMsg = {
+          id: result.lastInsertId,
+          id_chat_group: props.groupId,
+          message_from_client_id: currentClient.value.id,
+          message: newMessage.value.trim(),
+          time: new Date().toISOString(),
+          sender_username: currentClient.value.name,
+          sender_role: 'Client',
+          sender_type: 'client',
+        }
+      } else {
+        newMsg = {
+          id: result.lastInsertId,
+          id_chat_group: props.groupId,
+          message_from_user_id: currentUser.value.id,
+          message: newMessage.value.trim(),
+          time: new Date().toISOString(),
+          sender_username: currentUser.value.username,
+          sender_role: currentUser.value.role_name,
+          sender_type: 'user',
+        }
       }
 
       messages.value.push(newMsg)
@@ -767,11 +851,11 @@ const sendMessage = async () => {
       // Dispatch global event to update header badge
       window.dispatchEvent(new Event('forceUpdateBadge'))
     } else {
-      alert('Failed to send message')
+      alert(t('chat.failedToSendMessage'))
     }
   } catch (err) {
     console.error('Error sending message:', err)
-    alert('Error sending message')
+    alert(t('chat.errorSendingMessage'))
   } finally {
     isSending.value = false
 
@@ -887,11 +971,21 @@ const getRelativeTime = (timeString) => {
 }
 
 const isOwnMessage = (message) => {
-  return message.message_from_user_id === currentUser.value?.id
+  if (isClientMode.value) {
+    if (!currentClient.value) return false
+    return message.message_from_client_id === currentClient.value.id
+  } else {
+    if (!currentUser.value) return false
+    return message.message_from_user_id === currentUser.value.id
+  }
 }
 
 // Check if user can edit message date (admin or message owner)
 const canEditMessageDate = (message) => {
+  if (isClientMode.value) {
+    // Clients cannot edit message dates
+    return false
+  }
   if (!currentUser.value) return false
   // Admin can edit any message
   if (currentUser.value.role_id === 1) return true
@@ -998,7 +1092,11 @@ const updateBulkMessageDates = async () => {
         // Convert to UTC for database
         const utcDate = combinedDate.toISOString().slice(0, 19).replace('T', ' ')
 
-        // Update this message
+        // Update this message (only for users, not clients)
+        if (isClientMode.value) {
+          alert('Clients cannot edit message dates')
+          return
+        }
         const result = await callApi({
           query: `UPDATE chat_messages SET time = ? WHERE id = ?`,
           params: [utcDate, message.id],
@@ -1084,7 +1182,7 @@ const updateMessageDate = async () => {
         WHERE id = ?
       `,
       params: [utcDate, editingMessageId.value],
-      requiresAuth: true,
+      requiresAuth: !isClientMode.value,
     })
 
     if (result.success) {
@@ -1173,11 +1271,19 @@ const restartMessagePolling = () => {
 
   // Restart with new interval
   refreshInterval = setInterval(async () => {
-    if (props.groupId && props.groupId > 0 && currentUser.value) {
-      try {
-        await fetchNewMessages(props.groupId)
-      } catch (err) {
-        console.error(`Timer: Error fetching new messages for group ${props.groupId}:`, err)
+    if (props.groupId && props.groupId > 0) {
+      if (isClientMode.value && currentClient.value) {
+        try {
+          await fetchNewMessages(props.groupId)
+        } catch (err) {
+          console.error(`Timer: Error fetching new messages for group ${props.groupId}:`, err)
+        }
+      } else if (!isClientMode.value && currentUser.value) {
+        try {
+          await fetchNewMessages(props.groupId)
+        } catch (err) {
+          console.error(`Timer: Error fetching new messages for group ${props.groupId}:`, err)
+        }
       }
     }
   }, currentInterval)
@@ -1319,6 +1425,11 @@ const fetchAllGroupsMessages = async () => {
   try {
     // Removed: console.log('Fetching messages for all groups...')
 
+    // Skip fetchAllGroupsMessages in client mode (only for users)
+    if (isClientMode.value) {
+      return
+    }
+
     if (!currentUser.value) {
       // Removed: console.log('No current user available')
       return
@@ -1374,13 +1485,14 @@ const fetchAllGroupsMessages = async () => {
       // Removed: console.log(`Last read message ID for group ${group.name}: ${lastReadMessageId}`)
 
       // Count unread messages (messages with ID > last_read_message_id and not from current user)
+      // Include both user messages (from other users) and client messages
       const unreadCountResult = await callApi({
         query: `
           SELECT COUNT(*) as unread_count
           FROM chat_messages 
           WHERE id_chat_group = ? 
             AND id > ?
-            AND message_from_user_id != ?
+            AND (message_from_user_id IS NULL OR message_from_user_id != ?)
         `,
         params: [group.id, lastReadMessageId, currentUser.value.id],
         requiresAuth: true,
@@ -1400,14 +1512,17 @@ const fetchAllGroupsMessages = async () => {
             cm.id,
             cm.id_chat_group,
             cm.message_from_user_id,
+            cm.message_from_client_id,
             cm.chat_replay_to_message_id,
             cm.message,
             cm.time,
-            u.username as sender_username,
-            r.role_name as sender_role
+            COALESCE(u.username, c.name) as sender_username,
+            COALESCE(r.role_name, 'Client') as sender_role,
+            CASE WHEN cm.message_from_user_id IS NOT NULL THEN 'user' ELSE 'client' END as sender_type
           FROM chat_messages cm
           LEFT JOIN users u ON cm.message_from_user_id = u.id
           LEFT JOIN roles r ON u.role_id = r.id
+          LEFT JOIN clients c ON cm.message_from_client_id = c.id
           WHERE cm.id_chat_group = ?
           ORDER BY cm.id ASC
         `,
@@ -1624,32 +1739,56 @@ const uploadFileToChat = async () => {
 
     if (uploadResult.success) {
       // Create a file message with special prefix
-      const fileMessage = {
-        id_chat_group: props.groupId,
-        message_from_user_id: currentUser.value.id,
-        message: `[FILE]${uploadResult.relativePath}|${selectedFile.value.name}|${selectedFile.value.size}|${selectedFile.value.type}`,
+      let query, params, requiresAuth
+      
+      if (isClientMode.value) {
+        query = `
+          INSERT INTO chat_messages (id_chat_group, message_from_client_id, message, time) 
+          VALUES (?, ?, ?, UTC_TIMESTAMP())
+        `
+        params = [props.groupId, currentClient.value.id, `[FILE]${uploadResult.relativePath}|${selectedFile.value.name}|${selectedFile.value.size}|${selectedFile.value.type}`]
+        requiresAuth = false
+      } else {
+        query = `
+          INSERT INTO chat_messages (id_chat_group, message_from_user_id, message, time) 
+          VALUES (?, ?, ?, UTC_TIMESTAMP())
+        `
+        params = [props.groupId, currentUser.value.id, `[FILE]${uploadResult.relativePath}|${selectedFile.value.name}|${selectedFile.value.size}|${selectedFile.value.type}`]
+        requiresAuth = true
       }
 
       // Send the file message to the database
       const result = await callApi({
-        query: `
-          INSERT INTO chat_messages (id_chat_group, message_from_user_id, message, time) 
-          VALUES (?, ?, ?, UTC_TIMESTAMP())
-        `,
-        params: [fileMessage.id_chat_group, fileMessage.message_from_user_id, fileMessage.message],
-        requiresAuth: true,
+        query,
+        params,
+        requiresAuth,
       })
 
       if (result.success) {
         // Add the new message to both current list and group cache
-        const newMsg = {
-          id: result.lastInsertId,
-          id_chat_group: props.groupId,
-          message_from_user_id: currentUser.value.id,
-          message: fileMessage.message,
-          time: new Date().toISOString(),
-          sender_username: currentUser.value.username,
-          sender_role: currentUser.value.role_name,
+        let newMsg
+        if (isClientMode.value) {
+          newMsg = {
+            id: result.lastInsertId,
+            id_chat_group: props.groupId,
+            message_from_client_id: currentClient.value.id,
+            message: `[FILE]${uploadResult.relativePath}|${selectedFile.value.name}|${selectedFile.value.size}|${selectedFile.value.type}`,
+            time: new Date().toISOString(),
+            sender_username: currentClient.value.name,
+            sender_role: 'Client',
+            sender_type: 'client',
+          }
+        } else {
+          newMsg = {
+            id: result.lastInsertId,
+            id_chat_group: props.groupId,
+            message_from_user_id: currentUser.value.id,
+            message: `[FILE]${uploadResult.relativePath}|${selectedFile.value.name}|${selectedFile.value.size}|${selectedFile.value.type}`,
+            time: new Date().toISOString(),
+            sender_username: currentUser.value.username,
+            sender_role: currentUser.value.role_name,
+            sender_type: 'user',
+          }
         }
 
         messages.value.push(newMsg)
@@ -1896,36 +2035,76 @@ const sendVoiceMessage = async () => {
 
     if (uploadResult.success) {
       // Create a voice message with special prefix
-      const voiceMessage = {
-        id_chat_group: props.groupId,
-        message_from_user_id: currentUser.value.id,
-        message: `[VOICE]${uploadResult.relativePath}|voice_message.wav|${audioFile.size}|audio/wav|${recordingTime.value}`,
+      let query, params, requiresAuth
+      
+      if (isClientMode.value) {
+        const voiceMessage = {
+          id_chat_group: props.groupId,
+          message_from_client_id: currentClient.value.id,
+          message: `[VOICE]${uploadResult.relativePath}|voice_message.wav|${audioFile.size}|audio/wav|${recordingTime.value}`,
+        }
+        query = `
+          INSERT INTO chat_messages (id_chat_group, message_from_client_id, message, time) 
+          VALUES (?, ?, ?, UTC_TIMESTAMP())
+        `
+        params = [
+          voiceMessage.id_chat_group,
+          voiceMessage.message_from_client_id,
+          voiceMessage.message,
+        ]
+        requiresAuth = false
+      } else {
+        const voiceMessage = {
+          id_chat_group: props.groupId,
+          message_from_user_id: currentUser.value.id,
+          message: `[VOICE]${uploadResult.relativePath}|voice_message.wav|${audioFile.size}|audio/wav|${recordingTime.value}`,
+        }
+        query = `
+          INSERT INTO chat_messages (id_chat_group, message_from_user_id, message, time) 
+          VALUES (?, ?, ?, UTC_TIMESTAMP())
+        `
+        params = [
+          voiceMessage.id_chat_group,
+          voiceMessage.message_from_user_id,
+          voiceMessage.message,
+        ]
+        requiresAuth = true
       }
 
       // Send the voice message to the database
       const result = await callApi({
-        query: `
-          INSERT INTO chat_messages (id_chat_group, message_from_user_id, message, time) 
-          VALUES (?, ?, ?, UTC_TIMESTAMP())
-        `,
-        params: [
-          voiceMessage.id_chat_group,
-          voiceMessage.message_from_user_id,
-          voiceMessage.message,
-        ],
-        requiresAuth: true,
+        query,
+        params,
+        requiresAuth,
       })
 
       if (result.success) {
         // Add the new message to both current list and group cache
-        const newMsg = {
-          id: result.lastInsertId,
-          id_chat_group: props.groupId,
-          message_from_user_id: currentUser.value.id,
-          message: voiceMessage.message,
-          time: new Date().toISOString(),
-          sender_username: currentUser.value.username,
-          sender_role: currentUser.value.role_name,
+        let newMsg
+        const voiceMessageText = `[VOICE]${uploadResult.relativePath}|voice_message.wav|${audioFile.size}|audio/wav|${recordingTime.value}`
+        
+        if (isClientMode.value) {
+          newMsg = {
+            id: result.lastInsertId,
+            id_chat_group: props.groupId,
+            message_from_client_id: currentClient.value.id,
+            message: voiceMessageText,
+            time: new Date().toISOString(),
+            sender_username: currentClient.value.name,
+            sender_role: 'Client',
+            sender_type: 'client',
+          }
+        } else {
+          newMsg = {
+            id: result.lastInsertId,
+            id_chat_group: props.groupId,
+            message_from_user_id: currentUser.value.id,
+            message: voiceMessageText,
+            time: new Date().toISOString(),
+            sender_username: currentUser.value.username,
+            sender_role: currentUser.value.role_name,
+            sender_type: 'user',
+          }
         }
 
         messages.value.push(newMsg)
@@ -1950,7 +2129,7 @@ const sendVoiceMessage = async () => {
     }
   } catch (err) {
     console.error('Error sending voice message:', err)
-    fileError.value = err.message || 'Failed to send voice message'
+    fileError.value = err.message || t('chat.failedToSendVoiceMessage')
   } finally {
     isUploading.value = false
     // Clean up
@@ -2004,13 +2183,6 @@ const loadMoreMessages = async () => {
   }
 }
 
-// Reset pagination when switching groups
-const resetPagination = () => {
-  currentPage.value = 1
-  hasMoreMessages.value = true
-  isLoadingMore.value = false
-}
-
 // Fetch only new messages for polling (doesn't affect pagination)
 const fetchNewMessages = async (groupId) => {
   try {
@@ -2027,19 +2199,22 @@ const fetchNewMessages = async (groupId) => {
           cm.id,
           cm.id_chat_group,
           cm.message_from_user_id,
+          cm.message_from_client_id,
           cm.message,
           cm.time,
-          u.username as sender_username,
-          r.role_name as sender_role
+          COALESCE(u.username, c.name) as sender_username,
+          COALESCE(r.role_name, 'Client') as sender_role,
+          CASE WHEN cm.message_from_user_id IS NOT NULL THEN 'user' ELSE 'client' END as sender_type
         FROM chat_messages cm
         LEFT JOIN users u ON cm.message_from_user_id = u.id
         LEFT JOIN roles r ON u.role_id = r.id
+        LEFT JOIN clients c ON cm.message_from_client_id = c.id
         WHERE cm.id_chat_group = CAST(? AS UNSIGNED)
           AND cm.id > CAST(? AS UNSIGNED)
         ORDER BY cm.id ASC
       `,
       params: [groupId, currentHighestId],
-      requiresAuth: true,
+      requiresAuth: !isClientMode.value,
     })
 
     if (result.success && result.data && result.data.length > 0) {
@@ -2127,10 +2302,10 @@ const clearMessageSearch = () => {
           v-if="isAdmin"
           @click="toggleSelectionMode"
           :class="['selection-mode-btn', { active: selectionMode }]"
-          :title="selectionMode ? 'Exit selection mode' : 'Enter selection mode'"
+          :title="selectionMode ? t('chat.exitSelectionMode') : t('chat.enterSelectionMode')"
         >
           <i :class="selectionMode ? 'fas fa-check-square' : 'fas fa-square'"></i>
-          {{ selectionMode ? 'Selection Mode' : 'Select Messages' }}
+          {{ selectionMode ? t('chat.selectionMode') : t('chat.selectMessages') }}
         </button>
         <button
           v-if="selectionMode && selectedMessages.size > 0"
@@ -2139,13 +2314,13 @@ const clearMessageSearch = () => {
           :title="`Edit date for ${selectedMessages.size} selected message(s)`"
         >
           <i class="fas fa-calendar-alt"></i>
-          Edit Date ({{ selectedMessages.size }})
+          {{ t('chat.editDate') }} ({{ selectedMessages.size }})
         </button>
         <button
           v-if="selectionMode && selectedMessages.size > 0"
           @click="deselectAllMessages"
           class="deselect-all-btn"
-          title="Deselect all"
+          :title="t('chat.deselectAll')"
         >
           <i class="fas fa-times"></i>
         </button>
@@ -2159,14 +2334,14 @@ const clearMessageSearch = () => {
         <input
           type="text"
           v-model="messageSearch"
-          placeholder="Search messages, senders..."
+          :placeholder="t('chat.searchMessages')"
           class="message-search-input"
         />
         <button
           v-if="messageSearch"
           @click="clearMessageSearch"
           class="clear-message-search-btn"
-          title="Clear search"
+          :title="t('chat.clearSearch')"
         >
           <i class="fas fa-times"></i>
         </button>
@@ -2189,7 +2364,7 @@ const clearMessageSearch = () => {
       </div>
 
       <div v-if="loading && messages.length === 0" class="loading-messages">
-        <i class="fas fa-spinner fa-spin"></i> Loading messages...
+        <i class="fas fa-spinner fa-spin"></i> {{ t('chat.loadingMessages') }}
       </div>
 
       <div v-else-if="error" class="error-messages">
@@ -2198,13 +2373,13 @@ const clearMessageSearch = () => {
 
       <div v-else-if="messages.length === 0" class="no-messages">
         <i class="fas fa-comment-slash"></i>
-        <p>No messages yet</p>
-        <p class="sub-text">Start the conversation!</p>
+        <p>{{ t('chat.noMessagesYet') }}</p>
+        <p class="sub-text">{{ t('chat.startConversation') }}</p>
       </div>
 
       <div v-else-if="messageSearch && filteredMessages.length === 0" class="no-search-results-in-list">
         <i class="fas fa-search"></i>
-        <p>No messages found matching "{{ messageSearch }}"</p>
+        <p>{{ t('chat.noMessagesFound', { search: messageSearch }) }}</p>
         <button @click="clearMessageSearch" class="clear-search-link-btn">
           Clear search
         </button>
@@ -2254,7 +2429,7 @@ const clearMessageSearch = () => {
                   v-if="canEditMessageDate(message)"
                   @click="openDateEditor(message)"
                   class="edit-date-btn"
-                  title="Edit message date"
+                  :title="t('chat.editMessageDate')"
                 >
                   <i class="fas fa-edit"></i>
                 </button>
@@ -2286,7 +2461,7 @@ const clearMessageSearch = () => {
                         )
                       "
                       class="download-btn"
-                      title="Download voice message"
+                      :title="t('chat.downloadVoiceMessage')"
                     >
                       <i class="fas fa-download"></i>
                     </button>
@@ -2311,7 +2486,7 @@ const clearMessageSearch = () => {
                         parseFileMessage(message.message)?.fileName,
                       )
                     "
-                    title="Click to download"
+                    :title="t('chat.clickToDownload')"
                   />
                   <div class="file-info-overlay">
                     <span class="file-name">{{ parseFileMessage(message.message)?.fileName }}</span>
@@ -2347,7 +2522,7 @@ const clearMessageSearch = () => {
                         )
                       "
                       class="download-btn"
-                      title="Download video"
+                      :title="t('chat.downloadVideo')"
                     >
                       <i class="fas fa-download"></i>
                     </button>
@@ -2383,7 +2558,7 @@ const clearMessageSearch = () => {
                         )
                       "
                       class="download-btn"
-                      title="Download audio"
+                      :title="t('chat.downloadAudio')"
                     >
                       <i class="fas fa-download"></i>
                     </button>
@@ -2409,7 +2584,7 @@ const clearMessageSearch = () => {
                       )
                     "
                     class="download-btn"
-                    title="Download file"
+                    :title="t('chat.downloadFile')"
                   >
                     <i class="fas fa-download"></i>
                   </button>
@@ -2432,13 +2607,13 @@ const clearMessageSearch = () => {
 
     <div class="message-input-container">
       <div class="input-wrapper">
-        <button @click="toggleEmojiPicker" class="emoji-button" title="Add emoji" type="button">
+        <button @click="toggleEmojiPicker" class="emoji-button" :title="t('chat.addEmoji')" type="button">
           <i class="fas fa-smile"></i>
         </button>
         <button
           @click="selectFile"
           class="file-button"
-          title="Attach file"
+          :title="t('chat.attachFile')"
           type="button"
           :disabled="isUploading"
         >
@@ -2448,7 +2623,7 @@ const clearMessageSearch = () => {
           @click="isRecording ? stopRecording() : startRecording()"
           class="voice-button"
           :class="{ recording: isRecording }"
-          title="Record voice message"
+          :title="t('chat.recordVoiceMessage')"
           type="button"
           :disabled="isUploading"
         >
@@ -2458,7 +2633,7 @@ const clearMessageSearch = () => {
           v-model="newMessage"
           @keypress="handleKeyPress"
           @click="handleInputClick"
-          placeholder="Type your message..."
+          :placeholder="t('chat.typeYourMessage')"
           class="message-input"
           :disabled="isSending"
           rows="1"
@@ -2484,18 +2659,18 @@ const clearMessageSearch = () => {
         <div class="progress-bar">
           <div class="progress-fill" :style="{ width: uploadProgress + '%' }"></div>
         </div>
-        <span class="progress-text">Uploading file...</span>
+        <span class="progress-text">{{ t('chat.uploadingFile') }}</span>
       </div>
 
       <!-- Voice recording interface -->
       <div v-if="isRecording" class="voice-recording">
         <div class="recording-indicator">
           <i class="fas fa-microphone"></i>
-          <span class="recording-text">Recording...</span>
+          <span class="recording-text">{{ t('chat.recording') }}</span>
           <span class="recording-time">{{ formatRecordingTime(recordingTime) }}</span>
         </div>
         <div class="recording-actions">
-          <button @click="cancelRecording" class="cancel-btn" title="Cancel recording">
+          <button @click="cancelRecording" class="cancel-btn" :title="t('chat.cancelRecording')">
             <i class="fas fa-times"></i>
           </button>
         </div>
@@ -2506,10 +2681,10 @@ const clearMessageSearch = () => {
         <div class="voice-preview-content">
           <audio :src="audioUrl" controls class="voice-audio"></audio>
           <div class="voice-actions">
-            <button @click="sendVoiceMessage" class="send-voice-btn" title="Send voice message">
+            <button @click="sendVoiceMessage" class="send-voice-btn" :title="t('chat.sendVoiceMessage')">
               <i class="fas fa-paper-plane"></i>
             </button>
-            <button @click="cancelRecording" class="cancel-voice-btn" title="Cancel">
+            <button @click="cancelRecording" class="cancel-voice-btn" :title="t('chat.cancel')">
               <i class="fas fa-times"></i>
             </button>
           </div>
@@ -2523,7 +2698,7 @@ const clearMessageSearch = () => {
 
       <div class="input-footer">
         <span class="char-count">{{ newMessage.length }}/1000</span>
-        <span class="send-hint">Press Enter to send, Shift+Enter for new line</span>
+        <span class="send-hint">{{ t('chat.pressEnterToSend') }}</span>
       </div>
 
       <!-- Hidden file input -->
@@ -2620,20 +2795,28 @@ const clearMessageSearch = () => {
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-height: 0;
+  max-height: 100%;
   background-color: white;
   border-radius: 8px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   overflow: hidden;
+  position: relative;
 }
 
 .messages-header {
-  padding: 16px 20px;
+  padding: 8px 16px;
   background-color: #06b6d4;
   color: white;
   border-bottom: 1px solid #e2e8f0;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 2;
 }
 
 .messages-header h3 {
@@ -2641,19 +2824,28 @@ const clearMessageSearch = () => {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 1.1rem;
+  font-size: 0.95rem;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .group-info {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .message-search-container {
-  padding: 12px 16px;
+  padding: 8px 16px;
   background-color: #f1f5f9;
   border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 2;
 }
 
 .message-search-wrapper {
@@ -2760,27 +2952,34 @@ const clearMessageSearch = () => {
 }
 
 .timezone-info {
-  font-size: 0.9rem;
+  font-size: 0.75rem;
   opacity: 0.9;
   display: flex;
   align-items: center;
   gap: 4px;
+  white-space: nowrap;
 }
 
 .member-count {
-  font-size: 0.9rem;
+  font-size: 0.75rem;
   opacity: 0.9;
   display: flex;
   align-items: center;
   gap: 4px;
+  white-space: nowrap;
 }
 
 .messages-container {
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 100%;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 20px;
   background-color: #f8fafc;
   scroll-behavior: smooth;
+  position: relative;
+  -webkit-overflow-scrolling: touch;
 }
 
 .loading-messages,
@@ -3195,18 +3394,24 @@ const clearMessageSearch = () => {
 }
 
 .message-input-container {
+  flex-shrink: 0;
+  flex-grow: 0;
   padding: 12px 16px;
-  background-color: white;
+  background-color: #ffffff;
   border-top: 1px solid #e2e8f0;
+  z-index: 10;
+  width: 100%;
+  box-sizing: border-box;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
+  position: relative;
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
 }
 
 .input-wrapper {
   display: flex;
   align-items: flex-end;
   gap: 8px;
-  padding: 12px 16px;
-  background-color: white;
-  border-top: 1px solid #e2e8f0;
 }
 
 .emoji-button {
@@ -3216,13 +3421,18 @@ const clearMessageSearch = () => {
   font-size: 1.2rem;
   cursor: pointer;
   padding: 8px;
-  border-radius: 4px;
-  transition: background-color 0.2s;
+  border-radius: 8px;
+  transition: all 0.2s;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 40px;
-  height: 40px;
+  min-width: 44px;
+  height: 44px;
+}
+
+.emoji-button:hover {
+  background-color: #f1f5f9;
+  color: #06b6d4;
 }
 
 .emoji-button:hover {
@@ -3237,13 +3447,18 @@ const clearMessageSearch = () => {
   font-size: 1.2rem;
   cursor: pointer;
   padding: 8px;
-  border-radius: 4px;
-  transition: background-color 0.2s;
+  border-radius: 8px;
+  transition: all 0.2s;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 40px;
-  height: 40px;
+  min-width: 44px;
+  height: 44px;
+}
+
+.file-button:hover {
+  background-color: #f1f5f9;
+  color: #06b6d4;
 }
 
 .file-button:hover {
@@ -3258,13 +3473,13 @@ const clearMessageSearch = () => {
   font-size: 1.2rem;
   cursor: pointer;
   padding: 8px;
-  border-radius: 4px;
-  transition: background-color 0.2s;
+  border-radius: 8px;
+  transition: all 0.2s;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 40px;
-  height: 40px;
+  min-width: 44px;
+  height: 44px;
 }
 
 .voice-button:hover {
@@ -3276,19 +3491,21 @@ const clearMessageSearch = () => {
   flex: 1;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
-  padding: 12px;
+  padding: 10px 14px;
   font-size: 0.95rem;
   resize: none;
   outline: none;
   transition: border-color 0.2s;
   font-family: inherit;
-  line-height: 1.4;
+  line-height: 1.5;
   max-height: 120px;
-  min-height: 40px;
+  min-height: 44px;
+  background-color: #ffffff;
 }
 
 .message-input:focus {
   border-color: #06b6d4;
+  box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.1);
 }
 
 .message-input:disabled {
@@ -3302,15 +3519,23 @@ const clearMessageSearch = () => {
   color: white;
   border: none;
   border-radius: 8px;
-  padding: 12px 16px;
+  padding: 10px 16px;
   cursor: pointer;
   font-size: 1rem;
-  transition: background-color 0.2s;
+  font-weight: 500;
+  transition: all 0.2s;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 40px;
-  height: 40px;
+  min-width: 44px;
+  height: 44px;
+  box-shadow: 0 2px 4px rgba(6, 182, 212, 0.2);
+}
+
+.send-button:hover:not(:disabled) {
+  background-color: #0891b2;
+  box-shadow: 0 4px 8px rgba(6, 182, 212, 0.3);
+  transform: translateY(-1px);
 }
 
 .send-button:hover:not(:disabled) {
@@ -3323,9 +3548,12 @@ const clearMessageSearch = () => {
 }
 
 .input-footer {
-  flex-direction: column;
-  gap: 4px;
-  align-items: flex-start;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 6px;
+  font-size: 0.75rem;
+  color: #64748b;
 }
 
 .char-count {
@@ -3642,7 +3870,16 @@ const clearMessageSearch = () => {
   }
 
   .messages-header {
-    padding: 12px 16px;
+    padding: 6px 12px;
+  }
+
+  .messages-header h3 {
+    font-size: 0.85rem;
+  }
+
+  .timezone-info,
+  .member-count {
+    font-size: 0.7rem;
   }
 
   .messages-container {

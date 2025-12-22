@@ -164,7 +164,7 @@ const router = createRouter({
       component: () => import('../views/ClientsView.vue'),
     },
     {
-      path: '/clients/:id',
+      path: '/clients/:token',
       name: 'client-details',
       component: () => import('../views/ClientDetailsView.vue'),
     },

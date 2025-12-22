@@ -434,7 +434,7 @@ const loadInitialClientsData = async () => {
     const result = await callApi({
       query: `
         SELECT 
-          c.id, c.name, c.address, c.email, c.mobiles, c.id_no, c.nin, c.is_broker, c.is_client, c.notes, c.id_copy_path,
+          c.id, c.share_token, c.name, c.address, c.email, c.mobiles, c.id_no, c.nin, c.is_broker, c.is_client, c.notes, c.id_copy_path,
           COUNT(cs.id) as cars_count
         FROM clients c
         LEFT JOIN cars_stock cs ON c.id = cs.id_client
@@ -1568,7 +1568,7 @@ const handleRefresh = async () => {
         Edit Client
       </button>
       <router-link
-        :to="`/clients/${selectedClientForActions?.id}`"
+        :to="`/clients/${selectedClientForActions?.share_token || selectedClientForActions?.id}`"
         class="task-dropdown-item"
         target="_blank"
       >
@@ -2147,7 +2147,7 @@ const handleRefresh = async () => {
           </li>
           <li>
             <router-link
-              :to="`/clients/${getClientById(teleportDropdown.clientId)?.id}`"
+              :to="`/clients/${getClientById(teleportDropdown.clientId)?.share_token || getClientById(teleportDropdown.clientId)?.id}`"
               class="dropdown-item"
               target="_blank"
               @click="handleViewDetails"

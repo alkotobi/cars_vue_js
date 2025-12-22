@@ -241,8 +241,10 @@ CREATE TABLE IF NOT EXISTS `chat_groups` (
   `name` varchar(255) COLLATE utf8mb4_general_ci DEFAULT NULL,
   `description` text COLLATE utf8mb4_general_ci,
   `id_user_owner` int DEFAULT NULL,
+  `id_client_owner` int DEFAULT NULL,
   `is_active` tinyint(1) DEFAULT '1',
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  KEY `idx_id_client_owner` (`id_client_owner`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- Chat last read message table
@@ -250,9 +252,11 @@ CREATE TABLE IF NOT EXISTS `chat_last_read_message` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
   `id_group` int DEFAULT NULL,
   `id_user` int DEFAULT NULL,
+  `id_client` int DEFAULT NULL,
   `id_last_read_message` int DEFAULT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `id_group` (`id_group`,`id_user`)
+  KEY `idx_group_user` (`id_group`,`id_user`),
+  KEY `idx_group_client` (`id_group`,`id_client`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 -- Chat messages table
@@ -260,10 +264,12 @@ CREATE TABLE IF NOT EXISTS `chat_messages` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
   `id_chat_group` int DEFAULT NULL,
   `message_from_user_id` int DEFAULT NULL,
+  `message_from_client_id` int DEFAULT NULL,
   `chat_replay_to_message_id` int DEFAULT NULL,
   `message` text COLLATE utf8mb4_general_ci,
   `time` timestamp NULL DEFAULT NULL,
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  KEY `idx_message_from_client_id` (`message_from_client_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- Chat read by table
@@ -271,22 +277,27 @@ CREATE TABLE IF NOT EXISTS `chat_read_by` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
   `id_chat_message` int DEFAULT NULL,
   `id_user` int DEFAULT NULL,
+  `id_client` int DEFAULT NULL,
   `read_at` timestamp NULL DEFAULT NULL,
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  KEY `idx_id_client` (`id_client`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
--- Chat users table
+-- Chat users table (supports both users and clients)
 CREATE TABLE IF NOT EXISTS `chat_users` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
   `id_user` int DEFAULT NULL,
+  `id_client` int DEFAULT NULL,
   `id_chat_group` int DEFAULT NULL,
   `is_active` tinyint(1) DEFAULT '1',
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  KEY `idx_id_client` (`id_client`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- Clients table
 CREATE TABLE IF NOT EXISTS `clients` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
+  `share_token` varchar(64) DEFAULT NULL,
   `name` varchar(255) NOT NULL,
   `address` varchar(255) DEFAULT NULL,
   `email` varchar(255) DEFAULT NULL,
@@ -299,7 +310,8 @@ CREATE TABLE IF NOT EXISTS `clients` (
   `notes` text,
   PRIMARY KEY (`id`),
   UNIQUE KEY `client_name_unic` (`name`,`id_no`),
-  UNIQUE KEY `id_no` (`id_no`)
+  UNIQUE KEY `id_no` (`id_no`),
+  UNIQUE KEY `idx_share_token` (`share_token`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 -- Colors table
