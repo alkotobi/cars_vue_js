@@ -566,7 +566,7 @@ const getCurrentUser = () => {
     addDebugInfo('clientLoaded', currentClient.value)
     return
   }
-  
+
   try {
     const userStr = localStorage.getItem('user')
     addDebugInfo('getCurrentUser', { userStr })
@@ -735,12 +735,12 @@ const fetchMessages = async (groupId) => {
       }
     }
 
-    addDebugInfo('fetchMessages', { 
-      groupId, 
-      page: currentPage.value, 
+    addDebugInfo('fetchMessages', {
+      groupId,
+      page: currentPage.value,
       user: currentUser.value,
       client: currentClient.value,
-      isClientMode: isClientMode.value
+      isClientMode: isClientMode.value,
     })
 
     const offset = (currentPage.value - 1) * messagesPerPage
@@ -778,6 +778,8 @@ const fetchMessages = async (groupId) => {
         // First page - replace all messages
         messages.value = newMessages
         messagesByGroup.value[groupId] = [...newMessages]
+        // Reset new message count when loading first page (user is viewing messages)
+        await resetNewMessageCount(groupId)
       } else {
         // Load more - prepend to existing messages
         messages.value = [...newMessages, ...messages.value]
@@ -825,7 +827,7 @@ const sendMessage = async () => {
 
   // Check if user/client is still an active member before sending
   await checkMembership()
-  
+
   if (!isActiveMember.value) {
     alert(t('chat.youHaveLeftThisGroup') || 'You have left this group and cannot send messages.')
     // Clear message input
@@ -1301,6 +1303,12 @@ const updateUserActivity = () => {
   resetInactivityTimer()
 }
 
+const handleVisibilityChange = () => {
+  if (document.visibilityState === 'visible') {
+    updateUserActivity()
+  }
+}
+
 const resetInactivityTimer = () => {
   if (inactivityTimer) {
     clearTimeout(inactivityTimer)
@@ -1350,11 +1358,7 @@ const setupActivityListeners = () => {
   })
 
   // Also track visibility changes
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-      updateUserActivity()
-    }
-  })
+  document.addEventListener('visibilitychange', handleVisibilityChange)
 }
 
 // Clean up activity listeners
@@ -1363,7 +1367,7 @@ const cleanupActivityListeners = () => {
   events.forEach((event) => {
     document.removeEventListener(event, updateUserActivity)
   })
-  document.removeEventListener('visibilitychange', updateUserActivity)
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
 }
 
 onMounted(async () => {
@@ -1407,60 +1411,101 @@ const cleanup = () => {
 }
 
 // Function to reset new message count for a specific group
+// This function properly handles both user messages and client messages:
+// - When a USER views messages (including client messages), it fetches MAX(id) which includes ALL messages
+// - The MAX(id) query returns the highest message ID regardless of sender type (user or client)
+// - This ensures client messages are properly marked as read when a user views them
 const resetNewMessageCount = async (groupId) => {
-  // Removed: console.log(`Resetting new message count for group ${groupId}`)
-  // Removed: console.log(`Before reset - newMessagesCountByGroup for group ${groupId}:`, newMessagesCountByGroup.value[groupId])
+  // Get the highest message ID from ALL messages in the group, not just loaded ones
+  // This ensures we mark all messages as read, even if pagination is used
+  // NOTE: MAX(id) includes both user messages (message_from_user_id) and client messages (message_from_client_id)
+  let lastReadMessageId = 0
 
-  // Get the highest message ID for this group before resetting
-  const currentMessages = messagesByGroup.value[groupId] || []
-  const lastReadMessageId =
-    currentMessages.length > 0 ? Math.max(...currentMessages.map((msg) => msg.id)) : 0
-
-  // Removed: console.log(`Last read message ID for group ${groupId}: ${lastReadMessageId}`)
-
-  // Save the last read message ID to database
-  if (currentUser.value && lastReadMessageId > 0) {
+  if (currentUser.value && !isClientMode.value) {
     try {
-      const result = await callApi({
+      // Fetch the highest message ID directly from database for this group
+      // This query returns the MAX(id) regardless of whether the message is from a user or client
+      const maxIdResult = await callApi({
         query: `
-          INSERT INTO chat_last_read_message (id_group, id_user, id_last_read_message) 
-          VALUES (?, ?, ?) 
-          ON DUPLICATE KEY UPDATE id_last_read_message = VALUES(id_last_read_message)
+          SELECT MAX(id) as max_id
+          FROM chat_messages
+          WHERE id_chat_group = ?
         `,
-        params: [groupId, currentUser.value.id, lastReadMessageId],
+        params: [groupId],
         requiresAuth: true,
       })
 
-      if (result.success) {
-        // Removed: console.log(`Saved last read message ID ${lastReadMessageId} for group ${groupId}`)
-      } else {
-        console.error(`Failed to save last read message ID for group ${groupId}`)
+      if (maxIdResult.success && maxIdResult.data && maxIdResult.data.length > 0) {
+        lastReadMessageId = maxIdResult.data[0].max_id || 0
+      }
+    } catch (err) {
+      // Fallback to using loaded messages if database query fails
+      const currentMessages =
+        groupId === props.groupId && messages.value.length > 0
+          ? messages.value
+          : messagesByGroup.value[groupId] || []
+      lastReadMessageId =
+        currentMessages.length > 0 ? Math.max(...currentMessages.map((msg) => msg.id)) : 0
+    }
+  } else {
+    // For clients or if no user, use loaded messages
+    const currentMessages =
+      groupId === props.groupId && messages.value.length > 0
+        ? messages.value
+        : messagesByGroup.value[groupId] || []
+    lastReadMessageId =
+      currentMessages.length > 0 ? Math.max(...currentMessages.map((msg) => msg.id)) : 0
+  }
+
+  // Save the last read message ID to database (only for users, not clients)
+  // This saves the highest message ID (which may be from a client) as the last read position
+  // When counting unread messages later, messages with id > lastReadMessageId will be considered unread
+  if (currentUser.value && !isClientMode.value && lastReadMessageId > 0) {
+    try {
+      // First try to UPDATE existing record
+      const updateResult = await callApi({
+        query: `
+          UPDATE chat_last_read_message 
+          SET id_last_read_message = ? 
+          WHERE id_group = ? AND id_user = ? AND id_client IS NULL
+        `,
+        params: [lastReadMessageId, groupId, currentUser.value.id],
+        requiresAuth: true,
+      })
+
+      // If no rows were updated, INSERT a new record
+      if (updateResult.success && updateResult.data && updateResult.data.affectedRows === 0) {
+        const insertResult = await callApi({
+          query: `
+            INSERT INTO chat_last_read_message (id_group, id_user, id_last_read_message, id_client) 
+            VALUES (?, ?, ?, NULL)
+          `,
+          params: [groupId, currentUser.value.id, lastReadMessageId],
+          requiresAuth: true,
+        })
+
+        if (!insertResult.success) {
+          console.error(`Failed to insert last read message ID for group ${groupId}`, insertResult)
+        }
       }
     } catch (err) {
       console.error('Error saving last read message ID:', err)
     }
   }
 
+  // Capture previous count before resetting
+  const previousCount = newMessagesCountByGroup.value[groupId] || 0
+
   // Reset the count - FORCE IT TO 0
   newMessagesCountByGroup.value[groupId] = 0
-  // Removed: console.log(`After reset - newMessagesCountByGroup for group ${groupId}:`, newMessagesCountByGroup.value[groupId])
 
   // Also reset current count if this is the active group
   if (groupId === props.groupId) {
     currentNewMessagesCount.value = 0
-    // Removed: console.log(`Reset currentNewMessagesCount to 0 for active group ${groupId}`)
   }
 
   // Force reactive update by triggering a change
   newMessagesCountByGroup.value = { ...newMessagesCountByGroup.value }
-  // Removed: console.log(`Final newMessagesCountByGroup after force update:`, newMessagesCountByGroup.value)
-
-  // Update debug info if debug section is open and this is the current group
-  if (showDebugSection.value && groupId === props.groupId) {
-    updateDebugInfo()
-  }
-
-  // Removed: console.log(`✓ Reset completed for group ${groupId}`)
 
   // Emit reset event to trigger parent update
   emit('reset-triggered', groupId)
@@ -1468,8 +1513,6 @@ const resetNewMessageCount = async (groupId) => {
   // Also force an immediate update of the hidden component's counts
   // by calling fetchAllGroupsMessages to recalculate unread counts
   if (props.groupId === 0) {
-    // This is the hidden component, so we need to recalculate all counts
-    // Removed: console.log('Hidden component: Recalculating all unread counts after reset')
     await fetchAllGroupsMessages()
   }
 }
@@ -1510,22 +1553,18 @@ const fetchAllGroupsMessages = async () => {
     })
 
     if (!groupsResult.success || !groupsResult.data) {
-      // Removed: console.log('No groups found or API failed:', groupsResult)
       return
     }
 
-    // Removed: console.log(`Found ${groupsResult.data.length} groups for user`)
-
     // Fetch messages and count unread messages for each group
     for (const group of groupsResult.data) {
-      // Removed: console.log(`Fetching messages for group: ${group.name} (ID: ${group.id})`)
-
       // Get the last read message ID for this group and user
+      // Filter by id_client IS NULL to ensure we get the user's record, not a client's
       const lastReadResult = await callApi({
         query: `
           SELECT id_last_read_message 
           FROM chat_last_read_message 
-          WHERE id_group = ? AND id_user = ?
+          WHERE id_group = ? AND id_user = ? AND id_client IS NULL
         `,
         params: [group.id, currentUser.value.id],
         requiresAuth: true,
@@ -1535,8 +1574,6 @@ const fetchAllGroupsMessages = async () => {
         lastReadResult.success && lastReadResult.data && lastReadResult.data.length > 0
           ? lastReadResult.data[0].id_last_read_message
           : 0
-
-      // Removed: console.log(`Last read message ID for group ${group.name}: ${lastReadMessageId}`)
 
       // Count unread messages (messages with ID > last_read_message_id and not from current user)
       // Include both user messages (from other users) and client messages
@@ -1556,8 +1593,6 @@ const fetchAllGroupsMessages = async () => {
         unreadCountResult.success && unreadCountResult.data && unreadCountResult.data.length > 0
           ? parseInt(unreadCountResult.data[0].unread_count)
           : 0
-
-      // Removed: console.log(`Unread messages count for group ${group.name}: ${unreadCount}`)
 
       // Fetch all messages for this group
       const messagesResult = await callApi({
@@ -1587,22 +1622,14 @@ const fetchAllGroupsMessages = async () => {
       if (messagesResult.success && messagesResult.data) {
         // Store messages in group cache
         messagesByGroup.value[group.id] = messagesResult.data
-        // Removed: console.log(`Loaded ${messagesResult.data.length} messages for group ${group.name}`)
 
         // Set unread count for this group
         newMessagesCountByGroup.value[group.id] = unreadCount
-        // Removed: console.log(`Set unread count for group ${group.name}: ${unreadCount}`)
       } else {
-        // Removed: console.log(`No messages found for group ${group.name}`)
         messagesByGroup.value[group.id] = []
         newMessagesCountByGroup.value[group.id] = 0
       }
     }
-
-    // Removed: console.log('All groups messages loaded successfully')
-    // Removed: console.log('Groups loaded:', Object.keys(messagesByGroup.value))
-    // Removed: console.log('Total groups with messages:', Object.keys(messagesByGroup.value).length)
-    // Removed: console.log('Unread counts by group:', newMessagesCountByGroup.value)
 
     // If there's a selected group, set its messages as current
     if (props.groupId && messagesByGroup.value[props.groupId]) {
@@ -1775,7 +1802,7 @@ const uploadFileToChat = async () => {
 
   // Check if user/client is still an active member before uploading
   await checkMembership()
-  
+
   if (!isActiveMember.value) {
     alert(t('chat.youHaveLeftThisGroup') || 'You have left this group and cannot send messages.')
     selectedFile.value = null
@@ -1804,20 +1831,28 @@ const uploadFileToChat = async () => {
     if (uploadResult.success) {
       // Create a file message with special prefix
       let query, params, requiresAuth
-      
+
       if (isClientMode.value) {
         query = `
           INSERT INTO chat_messages (id_chat_group, message_from_client_id, message, time) 
           VALUES (?, ?, ?, UTC_TIMESTAMP())
         `
-        params = [props.groupId, currentClient.value.id, `[FILE]${uploadResult.relativePath}|${selectedFile.value.name}|${selectedFile.value.size}|${selectedFile.value.type}`]
+        params = [
+          props.groupId,
+          currentClient.value.id,
+          `[FILE]${uploadResult.relativePath}|${selectedFile.value.name}|${selectedFile.value.size}|${selectedFile.value.type}`,
+        ]
         requiresAuth = false
       } else {
         query = `
           INSERT INTO chat_messages (id_chat_group, message_from_user_id, message, time) 
           VALUES (?, ?, ?, UTC_TIMESTAMP())
         `
-        params = [props.groupId, currentUser.value.id, `[FILE]${uploadResult.relativePath}|${selectedFile.value.name}|${selectedFile.value.size}|${selectedFile.value.type}`]
+        params = [
+          props.groupId,
+          currentUser.value.id,
+          `[FILE]${uploadResult.relativePath}|${selectedFile.value.name}|${selectedFile.value.size}|${selectedFile.value.type}`,
+        ]
         requiresAuth = true
       }
 
@@ -2078,7 +2113,7 @@ const sendVoiceMessage = async () => {
 
   // Check if user/client is still an active member before sending voice message
   await checkMembership()
-  
+
   if (!isActiveMember.value) {
     alert(t('chat.youHaveLeftThisGroup') || 'You have left this group and cannot send messages.')
     cancelRecording()
@@ -2109,7 +2144,7 @@ const sendVoiceMessage = async () => {
     if (uploadResult.success) {
       // Create a voice message with special prefix
       let query, params, requiresAuth
-      
+
       if (isClientMode.value) {
         const voiceMessage = {
           id_chat_group: props.groupId,
@@ -2155,7 +2190,7 @@ const sendVoiceMessage = async () => {
         // Add the new message to both current list and group cache
         let newMsg
         const voiceMessageText = `[VOICE]${uploadResult.relativePath}|voice_message.wav|${audioFile.size}|audio/wav|${recordingTime.value}`
-        
+
         if (isClientMode.value) {
           newMsg = {
             id: result.lastInsertId,
@@ -2317,12 +2352,16 @@ watch(
       hasMoreMessages.value = true
       // Check membership when group changes
       await checkMembership()
+      // fetchMessages will call resetNewMessageCount when loading the first page
+      // This ensures client messages are properly marked as read when a user views them
       await fetchMessages(newGroupId)
       // Clear search when switching groups
       messageSearch.value = ''
       // Scroll to bottom for new group
       await nextTick()
       await scrollToBottom()
+      // Note: resetNewMessageCount is already called inside fetchMessages (line 782) when currentPage === 1
+      // No need to call it again here to avoid redundant database operations
     } else {
       addDebugInfo('groupCleared', { reason: 'No group selected or invalid group ID' })
       messages.value = []
@@ -2341,17 +2380,17 @@ const filteredMessages = computed(() => {
   }
 
   const searchTerm = messageSearch.value.trim().toLowerCase()
-  
+
   return messages.value.filter((message) => {
     // Search in message content
     const messageContent = message.message?.toLowerCase() || ''
-    
+
     // Search in sender username
     const senderName = message.sender_username?.toLowerCase() || ''
-    
+
     // Search in sender role
     const senderRole = message.sender_role?.toLowerCase() || ''
-    
+
     return (
       messageContent.includes(searchTerm) ||
       senderName.includes(searchTerm) ||
@@ -2428,7 +2467,10 @@ const clearMessageSearch = () => {
       <div v-if="messageSearch && filteredMessages.length > 0" class="search-results-info">
         {{ filteredMessages.length }} / {{ messages.length }} messages
       </div>
-      <div v-if="messageSearch && filteredMessages.length === 0 && messages.length > 0" class="no-search-results">
+      <div
+        v-if="messageSearch && filteredMessages.length === 0 && messages.length > 0"
+        class="no-search-results"
+      >
         No messages found matching "{{ messageSearch }}"
       </div>
     </div>
@@ -2456,12 +2498,13 @@ const clearMessageSearch = () => {
         <p class="sub-text">{{ t('chat.startConversation') }}</p>
       </div>
 
-      <div v-else-if="messageSearch && filteredMessages.length === 0" class="no-search-results-in-list">
+      <div
+        v-else-if="messageSearch && filteredMessages.length === 0"
+        class="no-search-results-in-list"
+      >
         <i class="fas fa-search"></i>
         <p>{{ t('chat.noMessagesFound', { search: messageSearch }) }}</p>
-        <button @click="clearMessageSearch" class="clear-search-link-btn">
-          Clear search
-        </button>
+        <button @click="clearMessageSearch" class="clear-search-link-btn">Clear search</button>
       </div>
 
       <div v-else class="messages-list">
@@ -2479,11 +2522,17 @@ const clearMessageSearch = () => {
           v-for="(message, index) in filteredMessages"
           :key="message.id"
           class="message-wrapper"
-          :class="{ 'own-message': isOwnMessage(message), 'selected': selectedMessages.has(message.id) }"
+          :class="{
+            'own-message': isOwnMessage(message),
+            selected: selectedMessages.has(message.id),
+          }"
         >
           <!-- Date separator -->
           <div
-            v-if="index === 0 || formatDate(message.time) !== formatDate(filteredMessages[index - 1].time)"
+            v-if="
+              index === 0 ||
+              formatDate(message.time) !== formatDate(filteredMessages[index - 1].time)
+            "
             class="date-separator"
           >
             {{ formatDate(message.time) }}
@@ -2686,10 +2735,10 @@ const clearMessageSearch = () => {
 
     <div class="message-input-container">
       <div class="input-wrapper">
-        <button 
-          @click="toggleEmojiPicker" 
-          class="emoji-button" 
-          :title="t('chat.addEmoji')" 
+        <button
+          @click="toggleEmojiPicker"
+          class="emoji-button"
+          :title="t('chat.addEmoji')"
           type="button"
           :disabled="!isActiveMember"
         >
@@ -2767,7 +2816,11 @@ const clearMessageSearch = () => {
         <div class="voice-preview-content">
           <audio :src="audioUrl" controls class="voice-audio"></audio>
           <div class="voice-actions">
-            <button @click="sendVoiceMessage" class="send-voice-btn" :title="t('chat.sendVoiceMessage')">
+            <button
+              @click="sendVoiceMessage"
+              class="send-voice-btn"
+              :title="t('chat.sendVoiceMessage')"
+            >
               <i class="fas fa-paper-plane"></i>
             </button>
             <button @click="cancelRecording" class="cancel-voice-btn" :title="t('chat.cancel')">
@@ -2856,12 +2909,7 @@ const clearMessageSearch = () => {
         </div>
         <div class="date-picker-body">
           <label for="bulk-date-input">Select Date (Time will be preserved):</label>
-          <input
-            id="bulk-date-input"
-            type="date"
-            v-model="bulkEditDate"
-            class="date-input"
-          />
+          <input id="bulk-date-input" type="date" v-model="bulkEditDate" class="date-input" />
           <p class="bulk-edit-info">
             This will update the date (month and day) for all {{ selectedMessages.size }} selected
             message(s). The original time of each message will be preserved.

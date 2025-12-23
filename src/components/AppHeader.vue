@@ -88,6 +88,12 @@ const updateUserActivity = () => {
   resetInactivityTimer()
 }
 
+const handleVisibilityChange = () => {
+  if (document.visibilityState === 'visible') {
+    updateUserActivity()
+  }
+}
+
 const resetInactivityTimer = () => {
   if (inactivityTimer) {
     clearTimeout(inactivityTimer)
@@ -123,11 +129,7 @@ const setupActivityListeners = () => {
   })
 
   // Also track visibility changes
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-      updateUserActivity()
-    }
-  })
+  document.addEventListener('visibilitychange', handleVisibilityChange)
 }
 
 // Clean up activity listeners
@@ -136,7 +138,7 @@ const cleanupActivityListeners = () => {
   events.forEach((event) => {
     document.removeEventListener(event, updateUserActivity)
   })
-  document.removeEventListener('visibilitychange', updateUserInterval)
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
 }
 
 // Watch for localStorage changes (when user logs in/out)
@@ -213,10 +215,10 @@ const pendingGroupSelection = ref(null)
 // Handle event to open chat with specific group
 const handleOpenChatWithGroup = async (event) => {
   const { groupId, groupName } = event.detail
-  
+
   // Store the group to select
   pendingGroupSelection.value = { id: groupId, name: groupName }
-  
+
   // Open the chat modal
   showChatModal.value = true
   unreadMessageCount.value = 0
@@ -226,10 +228,10 @@ const handleOpenChatWithGroup = async (event) => {
 watch(showChatModal, async (isOpen) => {
   if (isOpen && pendingGroupSelection.value) {
     const { id: groupId } = pendingGroupSelection.value
-    
+
     // Wait for modal to be ready and select the group
     await nextTick()
-    
+
     // Give modal more time to mount and groups to load
     setTimeout(async () => {
       if (chatModalRef.value && chatModalRef.value.selectGroupById) {
@@ -264,7 +266,9 @@ const updateUnreadCount = async () => {
       const totalUnread = Object.values(counts).reduce((sum, count) => sum + (count || 0), 0)
       unreadMessageCount.value = totalUnread
     }
-  } catch (error) {}
+  } catch (error) {
+    console.error('Error updating unread count:', error)
+  }
 }
 
 // Set up periodic updates for unread count
@@ -285,17 +289,17 @@ const getBasePath = () => {
 // Load logo from assets
 const loadLogo = async () => {
   const basePath = getBasePath()
-  
+
   // Get assets version from localStorage
   const STORAGE_KEY = 'assets_version'
   let assetsVersion = localStorage.getItem(STORAGE_KEY)
-  
+
   // If no version exists, initialize with current timestamp
   if (!assetsVersion) {
     assetsVersion = Date.now().toString()
     localStorage.setItem(STORAGE_KEY, assetsVersion)
   }
-  
+
   // Add cache-busting with both version and timestamp for maximum cache invalidation
   const timestamp = Date.now()
   const random = Math.random().toString(36).substring(7) // Add random string for extra cache busting
@@ -307,12 +311,12 @@ const loadLogo = async () => {
     if (assets && assets.logo) {
       // Add additional timestamp and random string to force reload
       const logoWithCacheBuster = `${assets.logo}&t=${timestamp}&r=${random}`
-      
+
       // Force reload by setting to empty first, then to new URL
       logoUrl.value = ''
       await nextTick()
       logoUrl.value = logoWithCacheBuster
-      
+
       // Also try to reload the image element directly
       await nextTick()
       const imgElement = document.querySelector('.company-logo')
@@ -338,7 +342,7 @@ onMounted(async () => {
   await getUser()
   loadLogo() // Load logo asynchronously
   watchUserChanges()
-  
+
   // Listen for assets update event (when new logo/letterhead/stamp is uploaded)
   window.addEventListener('assetsUpdated', loadLogo)
 
@@ -353,7 +357,7 @@ onMounted(async () => {
   // Listen for global events to force update badge
   window.addEventListener('forceUpdateBadge', updateUnreadCount)
   window.addEventListener('forceUpdateTasks', fetchPendingTasksCount)
-  
+
   // Listen for event to open chat with specific group
   window.addEventListener('open-chat-with-group', handleOpenChatWithGroup)
 })
@@ -422,7 +426,7 @@ onUnmounted(() => {
                 if (retryCount >= 3) {
                   return
                 }
-                
+
                 // Clean URL and add fresh cache-buster (remove old retry params)
                 try {
                   const currentSrc = e.target.src
@@ -436,7 +440,8 @@ onUnmounted(() => {
                 } catch (urlError) {
                   // Fallback: just add timestamp
                   const separator = e.target.src.includes('?') ? '&' : '?'
-                  e.target.src = e.target.src.split('&retry=')[0] + separator + 'retry=' + Date.now()
+                  e.target.src =
+                    e.target.src.split('&retry=')[0] + separator + 'retry=' + Date.now()
                   e.target.dataset.retryCount = (retryCount + 1).toString()
                 }
               }
@@ -465,10 +470,10 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <button 
-          v-if="user && user.id && user.role_id" 
-          @click="openChat" 
-          class="chat-btn" 
+        <button
+          v-if="user && user.id && user.role_id"
+          @click="openChat"
+          class="chat-btn"
           :title="t('app.openChat')"
         >
           <i class="fas fa-comments"></i>
@@ -478,10 +483,10 @@ onUnmounted(() => {
           </span>
         </button>
 
-        <button 
-          v-if="user && user.id && user.role_id" 
-          @click="router.push('/tasks')" 
-          class="tasks-btn" 
+        <button
+          v-if="user && user.id && user.role_id"
+          @click="router.push('/tasks')"
+          class="tasks-btn"
           :title="t('app.viewTasks')"
         >
           <i class="fas fa-tasks"></i>

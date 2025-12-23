@@ -56,10 +56,9 @@ const getCurrentUser = () => {
     const userStr = localStorage.getItem('user')
     if (userStr) {
       currentUser.value = JSON.parse(userStr)
-      console.log('Current user loaded for sidebar:', currentUser.value)
     }
   } catch (err) {
-    console.error('Error getting current user:', err)
+    // Error getting current user - silently fail
   }
 }
 
@@ -67,12 +66,10 @@ const fetchChatGroups = async () => {
   try {
     if (isClientMode.value) {
       if (!currentClient.value) {
-        console.log('No current client available')
         return
       }
     } else {
       if (!currentUser.value) {
-        console.log('No current user available')
         return
       }
     }
@@ -155,19 +152,14 @@ const fetchChatGroups = async () => {
       requiresAuth,
     })
 
-    console.log('Chat groups result:', result)
-
     if (result.success && result.data) {
       allChatGroups.value = result.data
       applyFilter()
-      console.log('Chat groups loaded:', allChatGroups.value)
     } else {
-      console.log('No groups found or API failed:', result)
       allChatGroups.value = []
       chatGroups.value = []
     }
   } catch (err) {
-    console.error('Error fetching chat groups:', err)
     chatGroups.value = []
   }
 }
@@ -179,15 +171,8 @@ const selectGroup = async (group) => {
 
 const showUsers = (group, event) => {
   event.stopPropagation() // Prevent group selection
-  console.log('Show users clicked for group:', group)
   selectedGroupForPopup.value = group
   showUsersPopup.value = true
-  console.log(
-    'Popup state set - selectedGroupForPopup:',
-    selectedGroupForPopup.value,
-    'showUsersPopup:',
-    showUsersPopup.value,
-  )
 }
 
 const closeUsersPopup = () => {
@@ -196,14 +181,10 @@ const closeUsersPopup = () => {
 }
 
 const showAddGroup = () => {
-  console.log('showAddGroup called')
-  console.log('showAddGroupModal before:', showAddGroupModal.value)
   showAddGroupModal.value = true
-  console.log('showAddGroupModal after:', showAddGroupModal.value)
 }
 
 const closeAddGroupModal = () => {
-  console.log('closeAddGroupModal called')
   showAddGroupModal.value = false
 }
 
@@ -213,35 +194,27 @@ const handleGroupAdded = () => {
 }
 
 const selectGroupById = async (groupId) => {
-  console.log('ChatSidebar: selectGroupById called with:', groupId)
-
   // Find the group in the current list
   const group = chatGroups.value.find((g) => g.id == groupId)
 
   if (group) {
-    console.log('Found group:', group)
     selectGroup(group)
     return group
   } else {
-    console.log('Group not found in current list, refreshing groups...')
     // If group not found, refresh the list and try again
     await fetchChatGroups()
     const refreshedGroup = chatGroups.value.find((g) => g.id == groupId)
     if (refreshedGroup) {
-      console.log('Found group after refresh:', refreshedGroup)
       selectGroup(refreshedGroup)
       return refreshedGroup
     }
   }
 
-  console.log('Group not found with ID:', groupId)
   return null
 }
 
 const getNewMessageCount = (groupId) => {
   const count = props.newMessagesCounts[groupId] || 0
-  console.log(`Getting new message count for group ${groupId}:`, count)
-  console.log('All newMessagesCounts:', props.newMessagesCounts)
   return count
 }
 
@@ -333,7 +306,6 @@ const leaveGroup = async (group, event) => {
       alert(t('chat.failedToLeaveGroup') || 'Failed to leave group')
     }
   } catch (err) {
-    console.error('Error leaving group:', err)
     alert(t('chat.errorLeavingGroup') || 'Error leaving group')
   }
 }
