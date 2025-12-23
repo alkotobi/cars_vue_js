@@ -875,6 +875,9 @@
     "status": "الحالة",
     "warehouse": "المستودع",
     "bl": "BL",
+    "documents": "المستندات",
+    "no_documents": "لا توجد مستندات",
+    "documents_count": "{count} مستند(ات)",
     "notes": "ملاحظات",
     "task": "مهمة",
     "vin": "رقم الشاصي",
@@ -974,6 +977,10 @@
     "failed_to_remove_selection": "فشل إزالة التحديد",
     "error_deleting_selection": "خطأ في حذف التحديد",
     "error_removing_selection": "خطأ في إزالة التحديد",
+    "chat": "المحادثة",
+    "open_selection_chat": "فتح محادثة التحديد",
+    "failed_to_open_chat": "فشل فتح المحادثة. يرجى المحاولة مرة أخرى.",
+    "error_opening_chat": "خطأ في فتح المحادثة. يرجى المحاولة مرة أخرى.",
     "no_buy_bill": "لا يوجد فاتورة شراء",
     "no_container_ref": "لا يوجد مرجع حاوية",
     "container_ref": "مرجع الحاوية",
@@ -2182,6 +2189,13 @@
     "failedToRemoveUser": "فشل إزالة المستخدم من المجموعة",
     "failedToRemoveClient": "فشل إزالة العميل من المجموعة",
     "errorRemovingUser": "خطأ في إزالة المستخدم من المجموعة",
-    "errorRemovingClient": "خطأ في إزالة العميل من المجموعة"
+    "errorRemovingClient": "خطأ في إزالة العميل من المجموعة",
+    "leaveGroup": "مغادرة المجموعة",
+    "confirmLeaveGroup": "هل أنت متأكد من مغادرة \"{groupName}\"؟",
+    "confirmLeaveAsOwner": "أنت مالك هذه المجموعة. هل أنت متأكد من المغادرة؟ ستظل المجموعة نشطة لكنك لن تكون عضواً فيها.",
+    "leftGroupSuccess": "لقد غادرت \"{groupName}\"",
+    "failedToLeaveGroup": "فشل في مغادرة المجموعة",
+    "errorLeavingGroup": "خطأ في مغادرة المجموعة",
+    "youHaveLeftThisGroup": "لقد غادرت هذه المجموعة ولا يمكنك إرسال الرسائل."
   }
 }

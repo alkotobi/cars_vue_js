@@ -397,12 +397,8 @@ const formatTimestamp = (timestamp) => {
 const formatContainerRef = (containerRef) => {
   if (!containerRef || containerRef === 'Not provided') return 'Not provided'
 
-  // Show only first 4 characters, replace the rest with asterisks
-  if (containerRef.length <= 4) {
-    return containerRef
-  }
-
-  return containerRef.substring(0, 4) + '*'.repeat(containerRef.length - 4)
+  // Show full container reference
+  return containerRef
 }
 
 // Create chat groups for each car

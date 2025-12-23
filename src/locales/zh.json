@@ -338,6 +338,9 @@
     "status": "状态",
     "warehouse": "仓库",
     "bl": "BL",
+    "documents": "文档",
+    "no_documents": "无文档",
+    "documents_count": "{count} 个文档",
     "notes": "备注",
     "task": "任务",
     "vin": "车架号",
@@ -480,6 +483,10 @@
     "selection_deleted_successfully": "选择删除成功",
     "failed_to_delete_selection": "删除选择失败",
     "error_deleting_selection": "删除选择时出错",
+    "chat": "聊天",
+    "open_selection_chat": "打开选择聊天",
+    "failed_to_open_chat": "打开聊天失败。请重试。",
+    "error_opening_chat": "打开聊天时出错。请重试。",
     "no_cars_selected_for_transfer": "未选择汽车进行转移",
     "no_cars_selected_for_checkout": "未选择汽车进行结账",
     "batch_transfer_documents": "批量转移文档",
@@ -1931,6 +1938,13 @@
     "failedToRemoveUser": "从组中移除用户失败",
     "failedToRemoveClient": "从组中移除客户失败",
     "errorRemovingUser": "移除用户时出错",
-    "errorRemovingClient": "移除客户时出错"
+    "errorRemovingClient": "移除客户时出错",
+    "leaveGroup": "离开群组",
+    "confirmLeaveGroup": "您确定要离开 \"{groupName}\" 吗？",
+    "confirmLeaveAsOwner": "您是此群组的所有者。您确定要离开吗？群组将保持活跃，但您将不再是成员。",
+    "leftGroupSuccess": "您已离开 \"{groupName}\"",
+    "failedToLeaveGroup": "离开群组失败",
+    "errorLeavingGroup": "离开群组时出错",
+    "youHaveLeftThisGroup": "您已离开此群组，无法发送消息。"
   }
 }

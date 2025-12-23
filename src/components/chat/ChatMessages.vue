@@ -94,6 +94,9 @@ const bulkEditDate = ref(null)
 // Message search state
 const messageSearch = ref('')
 
+// Track if current user/client is an active member of the current group
+const isActiveMember = ref(true)
+
 // Common emojis for the picker
 const emojis = [
   '😀',
@@ -589,24 +592,62 @@ const resetPagination = () => {
   isLoadingMore.value = false
 }
 
-// Watch for group changes
-watch(
-  () => props.groupId,
-  async (newGroupId, oldGroupId) => {
-    if (newGroupId && newGroupId !== oldGroupId) {
-      // Reset pagination for new group
-      resetPagination()
+// Check if user/client is an active member of the group
+const checkMembership = async () => {
+  if (!props.groupId || props.groupId === 0) {
+    isActiveMember.value = false
+    return
+  }
 
-      // Load messages for the new group
-      await fetchMessages(newGroupId)
+  try {
+    let query, params, requiresAuth
 
-      // Scroll to bottom for new group
-      await nextTick()
-      await scrollToBottom()
+    if (isClientMode.value) {
+      if (!currentClient.value) {
+        isActiveMember.value = false
+        return
+      }
+      query = `
+        SELECT COUNT(*) as count
+        FROM chat_users
+        WHERE id_chat_group = ? 
+          AND id_client = ? 
+          AND is_active = 1
+      `
+      params = [props.groupId, currentClient.value.id]
+      requiresAuth = false
+    } else {
+      if (!currentUser.value) {
+        isActiveMember.value = false
+        return
+      }
+      query = `
+        SELECT COUNT(*) as count
+        FROM chat_users
+        WHERE id_chat_group = ? 
+          AND id_user = ? 
+          AND is_active = 1
+      `
+      params = [props.groupId, currentUser.value.id]
+      requiresAuth = true
     }
-  },
-  { immediate: true },
-)
+
+    const result = await callApi({
+      query,
+      params,
+      requiresAuth,
+    })
+
+    if (result.success && result.data && result.data.length > 0) {
+      isActiveMember.value = result.data[0].count > 0
+    } else {
+      isActiveMember.value = false
+    }
+  } catch (err) {
+    console.error('Error checking membership:', err)
+    isActiveMember.value = false
+  }
+}
 
 const switchToGroup = async (groupId) => {
   // Check if we already have messages for this group
@@ -780,6 +821,18 @@ const sendMessage = async () => {
     if (!newMessage.value.trim() || !currentUser.value) {
       return
     }
+  }
+
+  // Check if user/client is still an active member before sending
+  await checkMembership()
+  
+  if (!isActiveMember.value) {
+    alert(t('chat.youHaveLeftThisGroup') || 'You have left this group and cannot send messages.')
+    // Clear message input
+    newMessage.value = ''
+    // Trigger reset to deselect group
+    emit('reset-triggered')
+    return
   }
 
   try {
@@ -1317,8 +1370,9 @@ onMounted(async () => {
   // Fetch current user and initial messages
   getCurrentUser()
 
-  // If we have a groupId, load the first page of messages
+  // If we have a groupId, check membership and load the first page of messages
   if (props.groupId && props.groupId > 0) {
+    await checkMembership()
     await fetchMessages(props.groupId)
   }
 
@@ -1719,6 +1773,16 @@ const handleFileSelect = (event) => {
 const uploadFileToChat = async () => {
   if (!selectedFile.value) return
 
+  // Check if user/client is still an active member before uploading
+  await checkMembership()
+  
+  if (!isActiveMember.value) {
+    alert(t('chat.youHaveLeftThisGroup') || 'You have left this group and cannot send messages.')
+    selectedFile.value = null
+    fileInputRef.value.value = ''
+    return
+  }
+
   isUploading.value = true
   uploadProgress.value = 0
   fileError.value = ''
@@ -2012,6 +2076,15 @@ const stopRecording = () => {
 const sendVoiceMessage = async () => {
   if (!audioBlob.value) return
 
+  // Check if user/client is still an active member before sending voice message
+  await checkMembership()
+  
+  if (!isActiveMember.value) {
+    alert(t('chat.youHaveLeftThisGroup') || 'You have left this group and cannot send messages.')
+    cancelRecording()
+    return
+  }
+
   isUploading.value = true
   fileError.value = ''
 
@@ -2236,20 +2309,26 @@ const fetchNewMessages = async (groupId) => {
 // Watch for changes in selected group
 watch(
   () => props.groupId,
-  (newGroupId) => {
+  async (newGroupId) => {
     addDebugInfo('groupChanged', { newGroupId })
 
     if (newGroupId && newGroupId > 0) {
       currentPage.value = 1
       hasMoreMessages.value = true
-      fetchMessages(newGroupId)
+      // Check membership when group changes
+      await checkMembership()
+      await fetchMessages(newGroupId)
       // Clear search when switching groups
       messageSearch.value = ''
+      // Scroll to bottom for new group
+      await nextTick()
+      await scrollToBottom()
     } else {
       addDebugInfo('groupCleared', { reason: 'No group selected or invalid group ID' })
       messages.value = []
       hasMoreMessages.value = false
       messageSearch.value = ''
+      isActiveMember.value = false
     }
   },
   { immediate: true },
@@ -2607,7 +2686,13 @@ const clearMessageSearch = () => {
 
     <div class="message-input-container">
       <div class="input-wrapper">
-        <button @click="toggleEmojiPicker" class="emoji-button" :title="t('chat.addEmoji')" type="button">
+        <button 
+          @click="toggleEmojiPicker" 
+          class="emoji-button" 
+          :title="t('chat.addEmoji')" 
+          type="button"
+          :disabled="!isActiveMember"
+        >
           <i class="fas fa-smile"></i>
         </button>
         <button
@@ -2615,7 +2700,7 @@ const clearMessageSearch = () => {
           class="file-button"
           :title="t('chat.attachFile')"
           type="button"
-          :disabled="isUploading"
+          :disabled="isUploading || !isActiveMember"
         >
           <i :class="isUploading ? 'fas fa-spinner fa-spin' : 'fas fa-paperclip'"></i>
         </button>
@@ -2625,7 +2710,7 @@ const clearMessageSearch = () => {
           :class="{ recording: isRecording }"
           :title="t('chat.recordVoiceMessage')"
           type="button"
-          :disabled="isUploading"
+          :disabled="isUploading || !isActiveMember"
         >
           <i :class="isRecording ? 'fas fa-stop' : 'fas fa-microphone'"></i>
         </button>
@@ -2633,9 +2718,9 @@ const clearMessageSearch = () => {
           v-model="newMessage"
           @keypress="handleKeyPress"
           @click="handleInputClick"
-          :placeholder="t('chat.typeYourMessage')"
+          :placeholder="isActiveMember ? t('chat.typeYourMessage') : t('chat.youHaveLeftThisGroup')"
           class="message-input"
-          :disabled="isSending"
+          :disabled="isSending || !isActiveMember"
           rows="1"
           maxlength="1000"
           ref="messageInputRef"
@@ -2647,8 +2732,9 @@ const clearMessageSearch = () => {
               sendMessage()
             }
           "
-          :disabled="!newMessage.trim() || isSending"
+          :disabled="!newMessage.trim() || isSending || !isActiveMember"
           class="send-button"
+          :title="!isActiveMember ? t('chat.youHaveLeftThisGroup') : ''"
         >
           <i :class="isSending ? 'fas fa-spinner fa-spin' : 'fas fa-paper-plane'"></i>
         </button>

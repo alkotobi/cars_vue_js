@@ -337,10 +337,27 @@ export const useApi = () => {
         throw new Error(result.message || 'Upload failed')
       }
 
+      // Extract the actual file path from the server response
+      // Server returns: '/api/upload.php?path=documents/file.pdf&base_directory=mig_files'
+      // We need to extract just the path part for storage
+      let relativePath = result.file_path
+      
+      // If the server returned a full URL path, extract just the relative path
+      if (result.file_path && result.file_path.includes('?path=')) {
+        const urlParams = new URLSearchParams(result.file_path.split('?')[1])
+        const pathParam = urlParams.get('path')
+        if (pathParam) {
+          relativePath = pathParam
+        }
+      } else {
+        // Fallback: construct relative path from destination folder and filename
+        relativePath = `${destinationFolder}/${customFilename || result.file_path.split('/').pop()}`
+      }
+
       // Return both the server response and the relative path
       return {
         ...result,
-        relativePath: `${destinationFolder}/${customFilename || result.file_path.split('/').pop()}`,
+        relativePath: relativePath,
       }
     } catch (err) {
       // Removed: console.error('Upload error details:', err)
@@ -364,39 +381,53 @@ export const useApi = () => {
   // Get file URL helper
   // Uses current_upload_path (from loadConfig) as base_directory
   const getFileUrl = (path) => {
+    // If path is null, undefined, or empty, return empty string
+    if (!path || typeof path !== 'string' || path.trim() === '') {
+      return ''
+    }
+
     // If path is already a full URL, return it as is
-    if (path.startsWith('http')) {
+    if (path.startsWith('http://') || path.startsWith('https://')) {
       return path
     }
 
-    // Remove any leading slashes from the path and store in a new variable
-    let processedPath = path.replace(/^\/+/, '')
-
     // If the path already contains 'upload.php?path=' or 'upload_simple.php?path=', extract parameters
+    // This handles paths stored as '/api/upload.php?path=...&base_directory=...' or 'upload.php?path=...'
     if (
-      processedPath.includes('upload.php?path=') ||
-      processedPath.includes('upload_simple.php?path=')
+      path.includes('upload.php?path=') ||
+      path.includes('upload_simple.php?path=')
     ) {
       // Extract the query string part (everything after '?')
-      const queryString = processedPath.includes('?')
-        ? processedPath.split('?').slice(1).join('?')
+      const queryString = path.includes('?')
+        ? path.split('?').slice(1).join('?')
         : ''
 
       // Parse the query parameters to extract path and base_directory separately
-      const urlParams = new URLSearchParams(queryString)
-      const filePath = urlParams.get('path')
-      const baseDirectory = urlParams.get('base_directory')
+      try {
+        const urlParams = new URLSearchParams(queryString)
+        const filePath = urlParams.get('path')
+        const baseDirectory = urlParams.get('base_directory')
 
-      if (filePath) {
-        // Build the URL with proper query parameters
-        const url = new URL(UPLOAD_URL)
-        url.searchParams.set('path', filePath)
-        if (baseDirectory) {
-          url.searchParams.set('base_directory', baseDirectory)
+        if (filePath) {
+          // Build the URL with proper query parameters using the UPLOAD_URL
+          const url = new URL(UPLOAD_URL)
+          url.searchParams.set('path', filePath)
+          if (baseDirectory) {
+            url.searchParams.set('base_directory', baseDirectory)
+          }
+          return url.toString()
         }
-        return url.toString()
+      } catch (err) {
+        console.error('Error parsing file path URL:', err, 'Path:', path)
+        // Fall through to handle as regular path
       }
     }
+
+    // If path starts with '/api/', remove it (it's a relative path to the API)
+    // This handles paths like '/api/documents/file.pdf' -> 'documents/file.pdf'
+    let processedPath = path.startsWith('/api/') 
+      ? path.substring(5) // Remove '/api/'
+      : path.replace(/^\/+/, '') // Remove leading slashes
 
     // Use current_upload_path (from database) as base_directory
     // This is updated whenever loadConfig() is called

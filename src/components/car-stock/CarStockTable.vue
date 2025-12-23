@@ -142,6 +142,7 @@ const letterHeadUrl = ref(null)
 const cars = ref([])
 const loading = ref(true)
 const error = ref(null)
+const carFilesCountMap = ref({}) // Map of car_id -> { count: number, hasMissingRequired: boolean }
 const isProcessing = ref({
   edit: false,
   vin: false,
@@ -834,6 +835,152 @@ const getFreightValue = (car) => {
   return 0
 }
 
+// Fetch file counts and missing required status for all cars (efficient single query)
+const fetchCarFilesCounts = async (carIds) => {
+  if (!carIds || carIds.length === 0) return
+  
+  try {
+    // First, get all required category IDs
+    const requiredCategoriesResult = await callApi({
+      query: `SELECT id FROM car_file_categories WHERE is_required = 1`,
+      requiresAuth: true,
+    })
+    
+    const requiredCategoryIds = requiredCategoriesResult.success && requiredCategoriesResult.data
+      ? requiredCategoriesResult.data.map((cat) => cat.id)
+      : []
+    
+    if (requiredCategoryIds.length === 0) {
+      // No required categories, just count files
+      const result = await callApi({
+        query: `
+          SELECT 
+            car_id,
+            COUNT(*) as file_count
+          FROM car_files
+          WHERE car_id IN (${carIds.map(() => '?').join(',')}) AND is_active = 1
+          GROUP BY car_id
+        `,
+        params: carIds,
+        requiresAuth: true,
+      })
+      
+      if (result.success && result.data) {
+        result.data.forEach((row) => {
+          carFilesCountMap.value[row.car_id] = {
+            count: parseInt(row.file_count) || 0,
+            hasMissingRequired: false,
+          }
+        })
+        // Set 0 for cars with no files
+        carIds.forEach((carId) => {
+          if (!carFilesCountMap.value[carId]) {
+            carFilesCountMap.value[carId] = { count: 0, hasMissingRequired: false }
+          }
+        })
+      }
+      return
+    }
+    
+    // Get file counts and existing category IDs per car
+    const result = await callApi({
+      query: `
+        SELECT 
+          cf.car_id,
+          COUNT(DISTINCT cf.id) as file_count,
+          GROUP_CONCAT(DISTINCT cf.category_id) as existing_category_ids
+        FROM car_files cf
+        WHERE cf.car_id IN (${carIds.map(() => '?').join(',')}) AND cf.is_active = 1
+        GROUP BY cf.car_id
+      `,
+      params: carIds,
+      requiresAuth: true,
+    })
+    
+    // Process results
+    const countsByCar = {}
+    if (result.success && result.data) {
+      result.data.forEach((row) => {
+        countsByCar[row.car_id] = {
+          count: parseInt(row.file_count) || 0,
+          existingCategoryIds: row.existing_category_ids 
+            ? row.existing_category_ids.split(',').map(Number).filter(Boolean)
+            : [],
+        }
+      })
+    }
+    
+    // Check for missing required files for each car
+    carIds.forEach((carId) => {
+      const carData = countsByCar[carId] || { count: 0, existingCategoryIds: [] }
+      const hasAllRequired = requiredCategoryIds.every((reqId) =>
+        carData.existingCategoryIds.includes(reqId)
+      )
+      
+      carFilesCountMap.value[carId] = {
+        count: carData.count,
+        hasMissingRequired: !hasAllRequired,
+      }
+    })
+  } catch (err) {
+    console.error('Error fetching car file counts:', err)
+    // Set defaults on error
+    carIds.forEach((carId) => {
+      carFilesCountMap.value[carId] = { count: 0, hasMissingRequired: false }
+    })
+  }
+}
+
+// Get document count for a car
+const getDocumentCount = (car) => {
+  const fileData = carFilesCountMap.value[car.id]
+  return fileData ? fileData.count : 0
+}
+
+// Check if car has missing required documents
+const hasMissingRequiredDocuments = (car) => {
+  const fileData = carFilesCountMap.value[car.id]
+  return fileData ? fileData.hasMissingRequired : false
+}
+
+// Handle document link clicks to show better error messages
+const handleDocumentClick = async (event, path, documentName) => {
+  // Check if the path is valid
+  if (!path || path.trim() === '') {
+    event.preventDefault()
+    alert(t('carStock.document_path_invalid') || `Invalid document path for ${documentName}`)
+    return
+  }
+  
+  // Log the path for debugging
+  console.log(`Opening document: ${documentName}`, {
+    originalPath: path,
+    generatedUrl: getFileUrl(path)
+  })
+  
+  // Try to fetch the file first to check if it exists (only in development)
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    try {
+      const fileUrl = getFileUrl(path)
+      const response = await fetch(fileUrl, { method: 'HEAD' })
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }))
+        console.error('Document not found:', {
+          documentName,
+          path,
+          fileUrl,
+          error: errorData
+        })
+        // Don't prevent default - let user see the error page
+      }
+    } catch (err) {
+      // If fetch fails (CORS or network error), let the link open normally
+      console.warn('Could not verify document existence:', err)
+    }
+  }
+}
+
 // Add CFR DZA value calculation function
 const getCfrDzaValue = (car) => {
   // Use cfr_da field if available, otherwise calculate from price_cell
@@ -1369,6 +1516,12 @@ const fetchCarsStock = async () => {
     }
 
     cars.value = filteredCars
+    
+    // Fetch file counts for visible cars
+    const carIds = filteredCars.map((car) => car.id)
+    if (carIds.length > 0) {
+      fetchCarFilesCounts(carIds)
+    }
   } catch (err) {
     error.value = err.message || 'An error occurred'
   } finally {
@@ -1540,7 +1693,12 @@ const handleFilesAction = (car) => {
   showFilesUploadForm.value = true
 }
 
-const handleFilesSave = (updatedCar) => {
+const handleFilesSave = async (updatedCar) => {
+  // Refresh file count for this car
+  if (updatedCar && updatedCar.id) {
+    await fetchCarFilesCounts([updatedCar.id])
+  }
+  
   // Update the car in the local array
   const index = cars.value.findIndex((c) => c.id === updatedCar.id)
   if (index !== -1) {
@@ -2047,6 +2205,13 @@ const loadInitialCarsData = async () => {
       }))
       allCars.value = carsData
       cars.value = carsData
+      
+      // Fetch file counts for all cars
+      const carIds = carsData.map((car) => car.id)
+      if (carIds.length > 0) {
+        fetchCarFilesCounts(carIds)
+      }
+      
       // Temporary debug - remove after fixing
       if (!result.data || result.data.length === 0) {
         console.warn(
@@ -3455,7 +3620,7 @@ const closeBatchCheckoutModal = () => {
                 </span>
               </th>
               <th>{{ t('carStock.payment_confirmed') }}</th>
-              <th>{{ t('carStock.bl') }}</th>
+              <th>{{ t('carStock.documents') }}</th>
               <th @click="toggleSort('notes')" class="sortable">
                 {{ t('carStock.notes') }}
                 <span v-if="sortConfig.key === 'notes'" class="sort-indicator">
@@ -3722,51 +3887,19 @@ const closeBatchCheckoutModal = () => {
 
               <td class="documents-cell">
                 <div class="document-links">
-                  <a
-                    v-if="car.path_documents"
-                    :href="getFileUrl(car.path_documents)"
-                    target="_blank"
-                    class="document-link"
-                  >
-                    <i class="fas fa-file-pdf"></i>
-                    BL
-                  </a>
-                  <a
-                    v-if="car.sell_pi_path"
-                    :href="getFileUrl(car.sell_pi_path)"
-                    target="_blank"
-                    class="document-link"
-                  >
-                    <i class="fas fa-file-invoice-dollar"></i>
-                    {{ t('carStock.invoice') }}
-                  </a>
-                  <a
-                    v-if="car.buy_pi_path"
-                    :href="getFileUrl(car.buy_pi_path)"
-                    target="_blank"
-                    class="document-link"
-                  >
-                    <i class="fas fa-file-contract"></i>
-                    {{ t('carStock.packing_list') }}
-                  </a>
-                  <a
-                    v-if="car.path_coo"
-                    :href="getFileUrl(car.path_coo)"
-                    target="_blank"
-                    class="document-link"
-                  >
-                    <i class="fas fa-certificate"></i>
-                    COO
-                  </a>
-                  <a
-                    v-if="car.path_coc"
-                    :href="getFileUrl(car.path_coc)"
-                    target="_blank"
-                    class="document-link"
-                  >
-                    <i class="fas fa-award"></i>
-                    COC
-                  </a>
+                  <div class="documents-summary">
+                    <div class="document-count-badge" :title="t('carStock.documents_count', { count: getDocumentCount(car) }) || `${getDocumentCount(car)} document(s)`">
+                      <i class="fas fa-folder-open"></i>
+                      {{ getDocumentCount(car) }}
+                    </div>
+                    <div 
+                      v-if="hasMissingRequiredDocuments(car)" 
+                      class="missing-required-indicator" 
+                      :title="t('carStock.missing_required_documents') || 'Missing required documents'"
+                    >
+                      <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                  </div>
                 </div>
               </td>
               <td class="notes-cell" :title="car.notes">{{ car.notes || '-' }}</td>
@@ -4865,29 +4998,85 @@ const closeBatchCheckoutModal = () => {
 
 .document-links {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
-.document-link {
+.documents-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.document-count-badge {
   display: inline-flex;
   align-items: center;
+  gap: 4px;
+  background-color: #10b981;
+  color: white;
+  font-size: 0.75em;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 12px;
+}
+
+.document-count-badge i {
+  color: white;
+  font-size: 0.85em;
+}
+
+.missing-required-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #fef2f2;
+  color: #dc2626;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  font-size: 0.9em;
+  box-shadow: 0 2px 4px rgba(220, 38, 38, 0.2);
+  animation: pulse-warning 2s infinite;
+  cursor: help;
+}
+
+@keyframes pulse-warning {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
+.missing-required-indicator:hover {
+  background-color: #fee2e2;
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.3);
+}
+
+.file-version {
+  display: inline-block;
+  margin-left: 4px;
+  font-size: 0.7em;
+  color: #6b7280;
+  font-weight: normal;
+}
+
+.no-documents {
+  display: flex;
+  align-items: center;
   gap: 6px;
-  color: #3b82f6;
-  text-decoration: none;
+  color: #9ca3af;
   font-size: 0.85em;
   padding: 4px 8px;
-  border-radius: 4px;
-  transition: all 0.2s ease;
+  font-style: italic;
 }
 
-.document-link:hover {
-  background-color: #f3f4f6;
-  text-decoration: underline;
-}
-
-.document-link i {
-  color: #ef4444;
+.no-documents i {
+  color: #d1d5db;
 }
 
 /* Button styles */

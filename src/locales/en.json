@@ -336,6 +336,9 @@
     "status": "Status",
     "warehouse": "Warehouse",
     "bl": "BL",
+    "documents": "Documents",
+    "no_documents": "No documents",
+    "documents_count": "{count} document(s)",
     "notes": "Notes",
     "task": "Task",
     "vin": "VIN",
@@ -544,6 +547,10 @@
     "failed_to_remove_selection": "Failed to remove selection",
     "error_deleting_selection": "Error deleting selection",
     "error_removing_selection": "Error removing selection",
+    "chat": "Chat",
+    "open_selection_chat": "Open Selection Chat",
+    "failed_to_open_chat": "Failed to open chat. Please try again.",
+    "error_opening_chat": "Error opening chat. Please try again.",
     "no_buy_bill": "No Buy Bill",
     "no_container_ref": "No Container Ref",
     "container_ref": "Container Ref",
@@ -2223,6 +2230,13 @@
     "failedToRemoveUser": "Failed to remove user from group",
     "failedToRemoveClient": "Failed to remove client from group",
     "errorRemovingUser": "Error removing user from group",
-    "errorRemovingClient": "Error removing client from group"
+    "errorRemovingClient": "Error removing client from group",
+    "leaveGroup": "Leave Group",
+    "confirmLeaveGroup": "Are you sure you want to leave \"{groupName}\"?",
+    "confirmLeaveAsOwner": "You are the owner of this group. Are you sure you want to leave? The group will remain active but you will no longer be a member.",
+    "leftGroupSuccess": "You have left \"{groupName}\"",
+    "failedToLeaveGroup": "Failed to leave group",
+    "errorLeavingGroup": "Error leaving group",
+    "youHaveLeftThisGroup": "You have left this group and cannot send messages."
   }
 }

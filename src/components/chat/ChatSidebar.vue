@@ -287,6 +287,66 @@ const clearFilter = () => {
   applyFilter()
 }
 
+// Leave a group
+const leaveGroup = async (group, event) => {
+  event.stopPropagation() // Prevent group selection
+  
+  if (!currentUser.value || !currentUser.value.id) {
+    alert(t('chat.noCurrentUser') || 'No current user available')
+    return
+  }
+
+  // Check if user is the owner
+  if (group.id_user_owner === currentUser.value.id) {
+    if (!confirm(t('chat.confirmLeaveAsOwner') || `You are the owner of this group. Are you sure you want to leave? The group will remain active but you will no longer be a member.`)) {
+      return
+    }
+  } else {
+    if (!confirm(t('chat.confirmLeaveGroup', { groupName: group.name }) || `Are you sure you want to leave "${group.name}"?`)) {
+      return
+    }
+  }
+
+  try {
+    const result = await callApi({
+      query: `
+        UPDATE chat_users 
+        SET is_active = 0 
+        WHERE id_chat_group = ? AND id_user = ? AND is_active = 1
+      `,
+      params: [group.id, currentUser.value.id],
+      requiresAuth: true,
+    })
+
+    if (result.success) {
+      // If the user left the currently selected group, deselect it
+      if (selectedGroup.value && selectedGroup.value.id === group.id) {
+        selectedGroup.value = null
+        emit('group-selected', null)
+      }
+      
+      // Refresh groups to remove it from the list
+      await fetchChatGroups()
+      
+      alert(t('chat.leftGroupSuccess', { groupName: group.name }) || `You have left "${group.name}"`)
+    } else {
+      alert(t('chat.failedToLeaveGroup') || 'Failed to leave group')
+    }
+  } catch (err) {
+    console.error('Error leaving group:', err)
+    alert(t('chat.errorLeavingGroup') || 'Error leaving group')
+  }
+}
+
+// Check if user can leave a group (not for clients)
+const canLeaveGroup = (group) => {
+  if (isClientMode.value) {
+    return false // Clients cannot leave groups
+  }
+  // Users can always leave groups they're members of
+  return true
+}
+
 // Expose methods to parent
 defineExpose({
   cleanup: () => {
@@ -295,6 +355,7 @@ defineExpose({
   selectGroupById,
   refreshGroups,
   fetchChatGroups,
+  getChatGroups: () => chatGroups.value,
 })
 </script>
 
@@ -361,9 +422,19 @@ defineExpose({
             </td>
             <td>{{ group.description || (t('cars.description') || 'No description') }}</td>
             <td>
-              <button @click="showUsers(group, $event)" class="users-btn" :title="t('chat.members')">
-                <i class="fas fa-users"></i>
-              </button>
+              <div class="action-buttons">
+                <button @click="showUsers(group, $event)" class="users-btn" :title="t('chat.members')">
+                  <i class="fas fa-users"></i>
+                </button>
+                <button 
+                  v-if="!isClientMode && canLeaveGroup(group)" 
+                  @click="leaveGroup(group, $event)" 
+                  class="leave-btn" 
+                  :title="t('chat.leaveGroup')"
+                >
+                  <i class="fas fa-sign-out-alt"></i>
+                </button>
+              </div>
             </td>
           </tr>
         </tbody>
@@ -621,6 +692,12 @@ defineExpose({
   }
 }
 
+.action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .users-btn {
   background-color: #06b6d4;
   color: white;
@@ -634,6 +711,21 @@ defineExpose({
 
 .users-btn:hover {
   background-color: #0891b2;
+}
+
+.leave-btn {
+  background-color: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: background-color 0.2s;
+}
+
+.leave-btn:hover {
+  background-color: #dc2626;
 }
 
 .loading,
