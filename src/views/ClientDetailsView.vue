@@ -19,6 +19,7 @@ const isDev = ref(process.env.NODE_ENV === 'development')
 const user = ref(JSON.parse(localStorage.getItem('user')))
 const isAdmin = computed(() => user.value?.role_id === 1)
 const showChatModal = ref(false)
+const carFilesMap = ref({}) // Map of car_id -> array of files
 
 // Create computed property for available locales with proper format
 const availableLanguages = computed(() => [
@@ -358,6 +359,9 @@ const fetchClientDetails = async () => {
       await loadGoogleMapsAPI()
       await fetchCarLocations()
 
+      // Fetch car files for all cars
+      await fetchCarFiles()
+
       // Create chat groups for each car
       await createChatGroupsForCars()
     }
@@ -399,6 +403,71 @@ const formatContainerRef = (containerRef) => {
 
   // Show full container reference
   return containerRef
+}
+
+// Fetch car files from car_files table
+const fetchCarFiles = async () => {
+  if (!clientCars.value || clientCars.value.length === 0) return
+
+  try {
+    const carIds = clientCars.value.map((car) => car.id)
+    if (carIds.length === 0) return
+
+    const result = await callApi({
+      query: `
+        SELECT 
+          cf.id,
+          cf.car_id,
+          cf.category_id,
+          cf.file_path,
+          cf.file_name,
+          cf.file_size,
+          cf.file_type,
+          cf.uploaded_at,
+          cfc.category_name,
+          cfc.display_order
+        FROM car_files cf
+        INNER JOIN car_file_categories cfc ON cf.category_id = cfc.id
+        WHERE cf.car_id IN (${carIds.map(() => '?').join(',')}) 
+          AND cf.is_active = 1
+        ORDER BY cf.car_id, cfc.display_order, cf.uploaded_at DESC
+      `,
+      params: carIds,
+      requiresAuth: false,
+    })
+
+    if (result.success && result.data) {
+      // Group files by car_id
+      const filesByCar = {}
+      result.data.forEach((file) => {
+        if (!filesByCar[file.car_id]) {
+          filesByCar[file.car_id] = []
+        }
+        filesByCar[file.car_id].push(file)
+      })
+      carFilesMap.value = filesByCar
+    }
+  } catch (err) {
+    console.error('Error fetching car files:', err)
+  }
+}
+
+// Get files for a specific car
+const getCarFiles = (carId) => {
+  return carFilesMap.value[carId] || []
+}
+
+// Get files grouped by category for a car
+const getCarFilesByCategory = (carId) => {
+  const files = getCarFiles(carId)
+  const grouped = {}
+  files.forEach((file) => {
+    if (!grouped[file.category_name]) {
+      grouped[file.category_name] = []
+    }
+    grouped[file.category_name].push(file)
+  })
+  return grouped
 }
 
 // Create chat groups for each car
@@ -742,39 +811,68 @@ onMounted(() => {
                 </div>
               </div>
 
+              <!-- Car Files from car_files table -->
               <div
-                v-if="car.path_documents || car.sell_pi_path || car.buy_pi_path"
+                v-if="getCarFiles(car.id).length > 0 || car.path_documents || car.sell_pi_path || car.buy_pi_path"
                 class="car-documents"
               >
                 <h5>{{ t('clientDetails.documents') }}</h5>
-                <div class="document-links">
-                  <a
-                    v-if="car.path_documents"
-                    :href="getFileUrl(car.path_documents)"
-                    target="_blank"
-                    class="document-link"
+                
+                <!-- Uploaded Documents (from car_files table) -->
+                <div v-if="getCarFiles(car.id).length > 0" class="uploaded-documents">
+                  <div
+                    v-for="(files, categoryName) in getCarFilesByCategory(car.id)"
+                    :key="categoryName"
+                    class="document-category"
                   >
-                    <i class="fas fa-file-alt"></i>
-                    {{ t('clientDetails.carDocuments') }}
-                  </a>
-                  <a
-                    v-if="car.sell_pi_path"
-                    :href="getFileUrl(car.sell_pi_path)"
-                    target="_blank"
-                    class="document-link"
-                  >
-                    <i class="fas fa-file-invoice-dollar"></i>
-                    {{ t('clientDetails.sellPI') }}
-                  </a>
-                  <a
-                    v-if="car.buy_pi_path && isAdmin"
-                    :href="getFileUrl(car.buy_pi_path)"
-                    target="_blank"
-                    class="document-link"
-                  >
-                    <i class="fas fa-file-invoice"></i>
-                    {{ t('clientDetails.buyPI') }}
-                  </a>
+                    <div class="category-name">{{ categoryName }}</div>
+                    <div class="document-links">
+                      <a
+                        v-for="file in files"
+                        :key="file.id"
+                        :href="getFileUrl(file.file_path)"
+                        target="_blank"
+                        class="document-link"
+                        :title="file.file_name"
+                      >
+                        <i class="fas fa-file-pdf"></i>
+                        {{ file.file_name }}
+                      </a>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Legacy Documents (from car_stock columns) -->
+                <div v-if="car.path_documents || car.sell_pi_path || car.buy_pi_path" class="legacy-documents">
+                  <div class="document-links">
+                    <a
+                      v-if="car.path_documents"
+                      :href="getFileUrl(car.path_documents)"
+                      target="_blank"
+                      class="document-link"
+                    >
+                      <i class="fas fa-file-alt"></i>
+                      {{ t('clientDetails.carDocuments') }}
+                    </a>
+                    <a
+                      v-if="car.sell_pi_path"
+                      :href="getFileUrl(car.sell_pi_path)"
+                      target="_blank"
+                      class="document-link"
+                    >
+                      <i class="fas fa-file-invoice-dollar"></i>
+                      {{ t('clientDetails.sellPI') }}
+                    </a>
+                    <a
+                      v-if="car.buy_pi_path && isAdmin"
+                      :href="getFileUrl(car.buy_pi_path)"
+                      target="_blank"
+                      class="document-link"
+                    >
+                      <i class="fas fa-file-invoice"></i>
+                      {{ t('clientDetails.buyPI') }}
+                    </a>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1257,9 +1355,36 @@ onMounted(() => {
 }
 
 .car-documents h5 {
-  margin: 0 0 8px 0;
+  margin: 0 0 12px 0;
   font-size: 0.95em;
   color: #666;
+}
+
+.uploaded-documents {
+  margin-bottom: 16px;
+}
+
+.document-category {
+  margin-bottom: 12px;
+}
+
+.document-category:last-child {
+  margin-bottom: 0;
+}
+
+.category-name {
+  font-weight: 600;
+  font-size: 0.85em;
+  color: #555;
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.legacy-documents {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e0e0e0;
 }
 
 .document-links {
@@ -1271,18 +1396,29 @@ onMounted(() => {
 .document-link {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
+  gap: 6px;
+  padding: 6px 12px;
   background-color: #f5f5f5;
   color: #333;
   text-decoration: none;
   border-radius: 4px;
   font-size: 0.9em;
-  transition: background-color 0.2s;
+  transition: all 0.2s;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .document-link:hover {
   background-color: #e0e0e0;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.document-link i {
+  color: #ef4444;
+  flex-shrink: 0;
 }
 
 .status-field {
