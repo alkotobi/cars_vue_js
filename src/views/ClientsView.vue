@@ -774,24 +774,47 @@ const addClient = async () => {
         }
       }
 
-      // Create the new client object to add to memory
-      const newClientObject = {
-        id: clientId,
-        name: newClient.value.name,
-        address: newClient.value.address,
-        email: newClient.value.email,
-        mobiles: newClient.value.mobiles,
-        id_no: newClient.value.id_no,
-        nin: newClient.value.nin,
-        is_broker: newClient.value.is_broker ? 1 : 0,
-        is_client: 1,
-        notes: newClient.value.notes,
-        cars_count: 0, // New client has no cars initially
-        id_copy_path: filePath,
-      }
+      // Fetch the complete client data including share_token from the database
+      const fetchNewClientResult = await callApi({
+        query: `
+          SELECT 
+            c.id, c.share_token, c.name, c.address, c.email, c.mobiles, c.id_no, c.nin, c.is_broker, c.is_client, c.notes, c.id_copy_path,
+            COUNT(cs.id) as cars_count
+          FROM clients c
+          LEFT JOIN cars_stock cs ON c.id = cs.id_client
+          WHERE c.id = ?
+          GROUP BY c.id
+        `,
+        params: [clientId],
+      })
 
-      // Add the new client to in-memory data
-      allClients.value.push(newClientObject)
+      if (fetchNewClientResult.success && fetchNewClientResult.data && fetchNewClientResult.data.length > 0) {
+        const newClientData = fetchNewClientResult.data[0]
+        // Update id_copy_path if file was uploaded
+        if (filePath) {
+          newClientData.id_copy_path = filePath
+        }
+        
+        // Add the new client to in-memory data with complete information including share_token
+        allClients.value.push(newClientData)
+      } else {
+        // Fallback: Create the new client object without share_token (shouldn't happen, but just in case)
+        const newClientObject = {
+          id: clientId,
+          name: newClient.value.name,
+          address: newClient.value.address,
+          email: newClient.value.email,
+          mobiles: newClient.value.mobiles,
+          id_no: newClient.value.id_no,
+          nin: newClient.value.nin,
+          is_broker: newClient.value.is_broker ? 1 : 0,
+          is_client: 1,
+          notes: newClient.value.notes,
+          cars_count: 0,
+          id_copy_path: filePath,
+        }
+        allClients.value.push(newClientObject)
+      }
 
       // Apply current filters to update the display
       await fetchClients()
