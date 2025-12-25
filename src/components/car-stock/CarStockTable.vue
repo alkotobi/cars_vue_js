@@ -4616,7 +4616,7 @@ const closeBatchCheckoutModal = () => {
           <div class="files-list">
             <div v-for="(file, index) in batchTransferFiles" :key="index" class="file-item">
               <i class="fas fa-file"></i>
-              <span>{{ file.file_name }}</span>
+              <span>{{ file.category_name || 'Unknown Category' }}</span>
               <span class="car-name">({{ file.car_name }})</span>
             </div>
           </div>

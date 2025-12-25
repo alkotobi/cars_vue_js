@@ -374,7 +374,7 @@ const getExistingFileForCategory = (categoryId) => {
 }
 
 // Handle file selection
-const handleFileSelect = (event, categoryId) => {
+const handleFileSelect = async (event, categoryId) => {
   const file = event.target.files?.[0]
   if (!file) return
 
@@ -404,8 +404,12 @@ const handleFileSelect = (event, categoryId) => {
     return
   }
 
+  // Store file and automatically upload
   selectedFiles.value[categoryId] = file
   error.value = null
+  
+  // Automatically trigger upload
+  await uploadFile(categoryId)
 }
 
 // Handle drag and drop
@@ -427,7 +431,7 @@ const handleDragLeave = (event, categoryId) => {
   }
 }
 
-const handleDrop = (event, categoryId) => {
+const handleDrop = async (event, categoryId) => {
   event.preventDefault()
   event.stopPropagation()
   dragOverCategory.value = null
@@ -438,15 +442,36 @@ const handleDrop = (event, categoryId) => {
   // Only handle the first file
   const file = files[0]
   
-  // Create a synthetic event object to reuse handleFileSelect logic
-  const syntheticEvent = {
-    target: {
-      files: [file],
-      value: ''
-    }
+  // Validate file type
+  const validTypes = [
+    'application/pdf',
+    'image/jpeg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  ]
+
+  if (!validTypes.includes(file.type)) {
+    error.value = 'Invalid file type. Please upload PDF, images, or Office documents.'
+    return
   }
+
+  // Check file size (10MB limit)
+  if (file.size > 10 * 1024 * 1024) {
+    error.value = 'File size must be less than 10MB'
+    return
+  }
+
+  // Store file and automatically upload
+  selectedFiles.value[categoryId] = file
+  error.value = null
   
-  handleFileSelect(syntheticEvent, categoryId)
+  // Automatically trigger upload
+  await uploadFile(categoryId)
 }
 
 // Upload file
@@ -1804,21 +1829,7 @@ onMounted(() => {
                   accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx,.xls,.xlsx"
                 />
               </div>
-              <button
-                @click="uploadFile(categoryId)"
-                :disabled="!selectedFiles[categoryId] || isProcessing"
-                class="btn-upload"
-                :class="{ 'btn-replace': categoryHasFile(categoryId) && selectedFiles[categoryId] }"
-              >
-                <i class="fas" :class="categoryHasFile(categoryId) && selectedFiles[categoryId] ? 'fa-exchange-alt' : 'fa-upload'"></i>
-                {{
-                  selectedFiles[categoryId]
-                    ? categoryHasFile(categoryId)
-                      ? `Replace with ${selectedFiles[categoryId].name}`
-                      : `Upload ${selectedFiles[categoryId].name}`
-                    : 'Select File'
-                }}
-              </button>
+              <!-- Upload button removed - files upload automatically on selection/drop -->
               <div v-if="categoryHasFile(categoryId) && !selectedFiles[categoryId]" class="upload-info-message">
                 <i class="fas fa-info-circle"></i>
                 <span>This category has a file. Drag & drop or select a new file to replace it.</span>

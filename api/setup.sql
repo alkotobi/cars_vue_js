@@ -1013,6 +1013,28 @@ END$$
 DELIMITER ;
 
 -- ============================================
+-- Trigger to auto-generate share_token for new clients
+-- ============================================
+DELIMITER $$
+
+DROP TRIGGER IF EXISTS `generate_client_share_token`$$
+
+CREATE TRIGGER `generate_client_share_token` 
+BEFORE INSERT ON `clients`
+FOR EACH ROW
+BEGIN
+  IF NEW.share_token IS NULL OR NEW.share_token = '' THEN
+    SET NEW.share_token = SUBSTRING(
+      SHA2(CONCAT(NEW.id, NEW.name, COALESCE(NEW.id_no, ''), NOW(), RAND()), 256), 
+      1, 
+      64
+    );
+  END IF;
+END$$
+
+DELIMITER ;
+
+-- ============================================
 -- Add more CREATE TABLE statements below
 -- ============================================
 
