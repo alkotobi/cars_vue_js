@@ -21,6 +21,22 @@ const getRouterBasePath = () => {
   // If base is relative, convert to absolute path
   if (baseUrl === './' || baseUrl.startsWith('./')) {
     const pathname = window.location.pathname
+    
+    // Known route patterns that should NOT be treated as base paths
+    const knownRoutes = [
+      '/login', '/dashboard', '/users', '/roles', '/transfers', '/send', '/receive',
+      '/sell-bills', '/buy-payments', '/params', '/advanced-sql', '/transfers-list',
+      '/cars', '/warehouses', '/containers', '/print', '/clients', '/cashier',
+      '/rates', '/tasks', '/statistics', '/chat', '/invitations', '/containers-ref',
+      '/db-manager'
+    ]
+    
+    // Check if pathname starts with a known route - if so, base path is '/'
+    const startsWithKnownRoute = knownRoutes.some(route => pathname.startsWith(route))
+    if (startsWithKnownRoute) {
+      return '/'
+    }
+    
     // If pathname is like '/mig/login', extract '/mig/'
     // If pathname is like '/login', use '/'
     const match = pathname.match(/^(\/[^/]+\/)/)

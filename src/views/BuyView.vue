@@ -762,10 +762,24 @@ const handleUpdateDetail = async (updatedDetail) => {
   }
 }
 
+// Get base path helper (same logic as router and useApi)
+const getBasePath = () => {
+  let baseUrl = import.meta.env.BASE_URL || './'
+  if (baseUrl === './' || baseUrl.startsWith('./')) {
+    const pathname = window.location.pathname
+    // If pathname is like '/mig_26/login', extract '/mig_26/'
+    // If pathname is like '/login', use '/'
+    const match = pathname.match(/^(\/[^/]+\/)/)
+    return match ? match[1] : '/'
+  }
+  return baseUrl
+}
+
 // Replace handlePaymentClick with new method to open in new tab
 const openPayments = (bill) => {
   // No double-click prevention needed for opening new tab
-  window.open(`/buy-payments/${bill.id}`, '_blank')
+  const basePath = getBasePath()
+  window.open(`${basePath}buy-payments/${bill.id}`, '_blank')
 }
 
 // Add task handling methods
