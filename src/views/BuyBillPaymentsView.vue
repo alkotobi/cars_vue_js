@@ -125,6 +125,12 @@ const fetchPayments = async () => {
 }
 
 const handleAddPayment = () => {
+  // Prevent double-click by checking if dialog is already showing
+  if (showAddDialog.value || showEditDialog.value) {
+    return
+  }
+  
+  error.value = null // Clear any previous errors
   paymentForm.value = {
     amount: '',
     date_payment: new Date().toISOString().slice(0, 16),
@@ -313,7 +319,13 @@ const validateForm = () => {
           <span class="value">{{ formatNumber(remainingBalance) }}</span>
         </div>
       </div>
-      <button @click="handleAddPayment" class="add-btn">Add Payment</button>
+      <button 
+        @click="handleAddPayment" 
+        class="add-btn"
+        :disabled="showAddDialog || showEditDialog"
+      >
+        Add Payment
+      </button>
     </div>
 
     <!-- Payments Table -->
@@ -511,8 +523,14 @@ const validateForm = () => {
   transition: background-color 0.2s;
 }
 
-.add-btn:hover {
+.add-btn:hover:not(:disabled) {
   background-color: #059669;
+}
+
+.add-btn:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .payments-table {
@@ -588,6 +606,16 @@ th {
   justify-content: center;
   align-items: center;
   z-index: 1000;
+  animation: fadeIn 0.2s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .dialog {
@@ -597,6 +625,19 @@ th {
   max-width: 500px;
   max-height: 90vh;
   overflow-y: auto;
+  animation: slideUp 0.2s ease-out;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 .dialog-header {
