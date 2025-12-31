@@ -29,12 +29,26 @@ const props = defineProps({
 
 const emit = defineEmits(['close', 'proceed'])
 
+// Load font sizes from localStorage or use defaults
+const loadFontSizesFromStorage = () => {
+  const savedTermsFontSize = localStorage.getItem('printTermsFontSize')
+  const savedTableFontSize = localStorage.getItem('printTableFontSize')
+  return {
+    termsFontSize: savedTermsFontSize ? parseFloat(savedTermsFontSize) : 11,
+    tableFontSize: savedTableFontSize ? parseFloat(savedTableFontSize) : 12,
+  }
+}
+
+const fontSizes = loadFontSizesFromStorage()
+
 const formData = ref({
   documentType: 'contract',
   paymentTerms: 'FOB',
   paymentMode: 'TT',
   currency: 'USD',
   bankId: null,
+  termsFontSize: fontSizes.termsFontSize,
+  tableFontSize: fontSizes.tableFontSize,
 })
 
 const banks = ref([])
@@ -86,6 +100,21 @@ const fetchBanks = async () => {
     isLoadingBanks.value = false
   }
 }
+
+// Watch for font size changes and save to localStorage
+watch(
+  () => formData.value.termsFontSize,
+  (newValue) => {
+    localStorage.setItem('printTermsFontSize', newValue.toString())
+  },
+)
+
+watch(
+  () => formData.value.tableFontSize,
+  (newValue) => {
+    localStorage.setItem('printTableFontSize', newValue.toString())
+  },
+)
 
 // Watch for dialog visibility
 watch(
@@ -212,6 +241,44 @@ const handleCancel = () => {
                 {{ bank.company_name }}
               </option>
             </select>
+          </div>
+        </div>
+
+        <div class="form-section" v-if="formData.documentType === 'contract'">
+          <h4><i class="fas fa-font"></i> Terms and Conditions Font Size</h4>
+          <div class="form-group">
+            <label>Font Size (pt): {{ formData.termsFontSize }}pt</label>
+            <input
+              type="range"
+              v-model.number="formData.termsFontSize"
+              min="8"
+              max="16"
+              step="0.5"
+              class="font-size-slider"
+            />
+            <div class="font-size-info">
+              <span class="font-size-min">8pt</span>
+              <span class="font-size-max">16pt</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h4><i class="fas fa-table"></i> Table Content Font Size</h4>
+          <div class="form-group">
+            <label>Font Size (pt): {{ formData.tableFontSize }}pt</label>
+            <input
+              type="range"
+              v-model.number="formData.tableFontSize"
+              min="8"
+              max="16"
+              step="0.5"
+              class="font-size-slider"
+            />
+            <div class="font-size-info">
+              <span class="font-size-min">8pt</span>
+              <span class="font-size-max">16pt</span>
+            </div>
           </div>
         </div>
       </div>
@@ -573,5 +640,61 @@ h3 i {
     font-size: 0.9rem;
     min-width: 100px;
   }
+}
+
+/* Font Size Slider Styles */
+.font-size-slider {
+  width: 100%;
+  height: 8px;
+  border-radius: 5px;
+  background: #e2e8f0;
+  outline: none;
+  -webkit-appearance: none;
+  margin: 16px 0 8px 0;
+}
+
+.font-size-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #3498db;
+  cursor: pointer;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: background 0.2s ease;
+}
+
+.font-size-slider::-webkit-slider-thumb:hover {
+  background: #2980b9;
+}
+
+.font-size-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #3498db;
+  cursor: pointer;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: background 0.2s ease;
+}
+
+.font-size-slider::-moz-range-thumb:hover {
+  background: #2980b9;
+}
+
+.font-size-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+.font-size-min,
+.font-size-max {
+  font-weight: 500;
 }
 </style>

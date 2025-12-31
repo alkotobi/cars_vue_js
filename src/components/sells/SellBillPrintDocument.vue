@@ -400,7 +400,7 @@ onMounted(async () => {
     <!-- Vehicle Details Table -->
     <div class="section vehicles-section">
       <div class="table-container">
-        <table class="report-table">
+        <table class="report-table" :style="{ fontSize: (options.tableFontSize || 12) + 'pt' }">
           <thead>
             <tr>
               <th>No.</th>
@@ -500,6 +500,7 @@ onMounted(async () => {
               <p 
                 v-if="key !== 'id' && enabledLanguages[key] === true" 
                 :class="key"
+                :style="{ fontSize: (options.termsFontSize || 11) + 'pt' }"
               >
                 {{ term.id }}. {{ value }}
             </p>
@@ -721,7 +722,6 @@ onMounted(async () => {
 .term-item p {
   margin: 0 0 10px 0;
   line-height: 1.8;
-  font-size: 11pt;
   color: #000;
   text-align: justify;
 }
@@ -734,14 +734,12 @@ onMounted(async () => {
 .term-item p[class*="english"] {
   font-weight: normal;
   color: #000;
-  font-size: 11pt;
 }
 
 .term-item p.chinese,
 .term-item p[class*="chinese"] {
   font-weight: normal;
   color: #000;
-  font-size: 11pt;
   margin-top: 8px;
 }
 
@@ -749,7 +747,6 @@ onMounted(async () => {
 .term-item p:not(.english):not([class*="english"]):not(.chinese):not([class*="chinese"]) {
   font-weight: normal;
   color: #000;
-  font-size: 11pt;
   margin-top: 8px;
 }
 
