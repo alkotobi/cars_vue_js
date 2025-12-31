@@ -1935,6 +1935,82 @@ if (isset($postData['action'])) {
             $result = executeQuery($query, [$agentId]);
             echo json_encode($result);
             exit;
+
+        case 'save_contract_terms':
+            // Save contract terms to public/contract_terms.json (admin only)
+            if (!isset($postData['is_admin']) || !$postData['is_admin']) {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'error' => 'Admin access required']);
+                exit;
+            }
+
+            if (!isset($postData['content'])) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Content is required']);
+                exit;
+            }
+
+            try {
+                $jsonContent = $postData['content'];
+                
+                // Validate JSON content
+                if (!is_array($jsonContent)) {
+                    throw new Exception('Content must be a valid JSON object');
+                }
+                
+                // Ensure required structure
+                if (!isset($jsonContent['enabledLanguages']) || !isset($jsonContent['terms'])) {
+                    throw new Exception('Content must include enabledLanguages and terms');
+                }
+                
+                // Get the real path for security check
+                $realBasePath = realpath(__DIR__ . '/../');
+                if ($realBasePath === false) {
+                    throw new Exception('Invalid base directory');
+                }
+                $realBasePath = rtrim($realBasePath, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+                
+                // Construct the file path to public/contract_terms.json
+                $filePath = __DIR__ . '/../public/contract_terms.json';
+                
+                // Verify the file path is within the base directory
+                $resolvedFilePath = realpath(dirname($filePath));
+                if ($resolvedFilePath === false) {
+                    // Directory doesn't exist, create it
+                    if (!mkdir(dirname($filePath), 0755, true)) {
+                        throw new Exception('Failed to create directory');
+                    }
+                    $resolvedFilePath = realpath(dirname($filePath));
+                    if ($resolvedFilePath === false) {
+                        throw new Exception('Failed to resolve directory path');
+                    }
+                }
+                $resolvedFilePath = rtrim($resolvedFilePath, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+                if (strpos($resolvedFilePath, $realBasePath) !== 0) {
+                    throw new Exception('Directory traversal attempt detected');
+                }
+                
+                // Encode JSON with pretty printing
+                $jsonString = json_encode($jsonContent, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                
+                if ($jsonString === false) {
+                    throw new Exception('Failed to encode JSON: ' . json_last_error_msg());
+                }
+                
+                // Write file
+                if (file_put_contents($filePath, $jsonString) === false) {
+                    throw new Exception('Failed to write file');
+                }
+                
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'Contract terms saved successfully'
+                ]);
+            } catch (Exception $e) {
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => 'Error saving file: ' . $e->getMessage()]);
+            }
+            exit;
     
         default:
             http_response_code(400);

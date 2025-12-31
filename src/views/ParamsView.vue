@@ -5,6 +5,7 @@ import BanksTable from '../components/params/BanksTable.vue'
 import DefaultsForm from '../components/params/DefaultsForm.vue'
 import AlertSettingsForm from '../components/params/AlertSettingsForm.vue'
 import GeneralSettingsForm from '../components/params/GeneralSettingsForm.vue'
+import ContractTermsForm from '../components/params/ContractTermsForm.vue'
 
 const router = useRouter()
 const loading = ref(false)
@@ -189,7 +190,10 @@ const navigateToAdvancedSql = () => {
           <BanksTable />
         </div>
         <div v-else-if="activeSection === 'billing'">
-          <DefaultsForm />
+          <div class="billing-section">
+            <DefaultsForm />
+            <ContractTermsForm />
+          </div>
         </div>
         <div v-else-if="activeSection === 'alerts'">
           <AlertSettingsForm />
@@ -393,6 +397,12 @@ const navigateToAdvancedSql = () => {
   line-height: 1.6;
 }
 
+.billing-section {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
 @media (max-width: 768px) {
   .params-view {
     flex-direction: column;
@@ -413,6 +423,10 @@ const navigateToAdvancedSql = () => {
 
   .sidebar-btn {
     padding: 12px;
+  }
+
+  .billing-section {
+    gap: 24px;
   }
 }
 </style>
