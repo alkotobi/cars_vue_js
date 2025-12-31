@@ -63,6 +63,10 @@ const filteredPorts = ref([])
 // Add CFR DA calculation functions
 const cfrDaInput = ref(null)
 
+// Add currency selector
+const selectedCurrency = ref('DZD') // 'USD' or 'DZD'
+const priceInput = ref(null) // Single price input value
+
 const calculatePriceFromCFRDA = (cfrDa, rate, freight) => {
   if (!cfrDa || !rate) return null
   const parsedCfrDa = parseFloat(cfrDa)
@@ -79,26 +83,85 @@ const calculateCFRDAFromPrice = (price, rate, freight) => {
   return ((parsedPrice + parsedFreight) * parsedRate).toFixed(2)
 }
 
-const handlePriceChange = (event) => {
-  const newPrice = event.target.value
-  if (newPrice && editFormData.value.rate) {
+// Handle currency change
+const handleCurrencyChange = () => {
+  // Recalculate the other currency when currency changes
+  if (priceInput.value && editFormData.value.rate) {
+    if (selectedCurrency.value === 'USD') {
+      // If switching to USD, convert current DZD to USD
+      if (cfrDaInput.value) {
+        priceInput.value = calculatePriceFromCFRDA(
+          cfrDaInput.value,
+          editFormData.value.rate,
+          editFormData.value.freight,
+        )
+        editFormData.value.price_cell = priceInput.value
+      }
+    } else {
+      // If switching to DZD, convert current USD to DZD
+      if (editFormData.value.price_cell) {
+        priceInput.value = calculateCFRDAFromPrice(
+          editFormData.value.price_cell,
+          editFormData.value.rate,
+          editFormData.value.freight,
+        )
+        cfrDaInput.value = priceInput.value
+      }
+    }
+  }
+}
+
+// Handle price input change based on selected currency
+const handlePriceInputChange = () => {
+  if (!priceInput.value || !editFormData.value.rate) return
+
+  if (selectedCurrency.value === 'USD') {
+    // User entered USD, calculate DZD (CFR DA)
+    editFormData.value.price_cell = priceInput.value
     cfrDaInput.value = calculateCFRDAFromPrice(
-      newPrice,
+      priceInput.value,
+      editFormData.value.rate,
+      editFormData.value.freight,
+    )
+  } else {
+    // User entered DZD, calculate USD (price_cell)
+    cfrDaInput.value = priceInput.value
+    editFormData.value.price_cell = calculatePriceFromCFRDA(
+      priceInput.value,
       editFormData.value.rate,
       editFormData.value.freight,
     )
   }
 }
 
-const handleCFRDAChange = (event) => {
-  const newCFRDA = event.target.value
-  if (newCFRDA && editFormData.value.rate) {
+// Handle rate or freight change - recalculate based on selected currency
+const handleRateOrFreightChange = () => {
+  if (!priceInput.value || !editFormData.value.rate) return
+
+  if (selectedCurrency.value === 'USD') {
+    // Recalculate DZD from USD
+    cfrDaInput.value = calculateCFRDAFromPrice(
+      priceInput.value,
+      editFormData.value.rate,
+      editFormData.value.freight,
+    )
+  } else {
+    // Recalculate USD from DZD
     editFormData.value.price_cell = calculatePriceFromCFRDA(
-      newCFRDA,
+      priceInput.value,
       editFormData.value.rate,
       editFormData.value.freight,
     )
   }
+}
+
+// Legacy handlers for backwards compatibility
+const handlePriceChange = (event) => {
+  // This is now handled by handlePriceInputChange
+}
+
+const handleCFRDAChange = (event) => {
+  // This is now handled by handlePriceInputChange
 }
 
 // Function to unassign a car from the sell bill
@@ -250,16 +313,38 @@ const handleEdit = async (car) => {
         is_tmp_client: carData.is_tmp_client,
       }
 
-      // Use CFR DA from database if available, otherwise calculate it
+      // Set the price input value based on existing data
       if (carData.cfr_da) {
+        // If car has CFR DA, set currency to DZD and use that value
+        selectedCurrency.value = 'DZD'
+        priceInput.value = carData.cfr_da
         cfrDaInput.value = carData.cfr_da
-      } else if (carData.price_cell && carData.rate) {
-        // Fallback calculation for cars without cfr_da field
-        cfrDaInput.value = calculateCFRDAFromPrice(
-          carData.price_cell,
-          carData.rate,
-          carData.freight,
-        )
+        // Calculate price_cell from CFR DA
+        if (editFormData.value.rate) {
+          editFormData.value.price_cell = calculatePriceFromCFRDA(
+            carData.cfr_da,
+            editFormData.value.rate,
+            editFormData.value.freight,
+          )
+        }
+      } else if (carData.price_cell) {
+        // If car has price_cell, set currency to USD and use that value
+        selectedCurrency.value = 'USD'
+        priceInput.value = carData.price_cell
+        editFormData.value.price_cell = carData.price_cell
+        // Calculate CFR DA from price_cell
+        if (editFormData.value.rate) {
+          cfrDaInput.value = calculateCFRDAFromPrice(
+            carData.price_cell,
+            editFormData.value.rate,
+            editFormData.value.freight,
+          )
+        }
+      } else {
+        // No existing data, default to DZD
+        selectedCurrency.value = 'DZD'
+        priceInput.value = null
+        cfrDaInput.value = null
       }
 
       // Fetch necessary data for dropdowns
@@ -282,6 +367,25 @@ const handleSaveEdit = async () => {
   error.value = null
 
   try {
+    // Ensure both values are set based on currency selection
+    if (selectedCurrency.value === 'USD') {
+      // User entered USD, ensure CFR DA is calculated
+      editFormData.value.price_cell = priceInput.value
+      cfrDaInput.value = calculateCFRDAFromPrice(
+        priceInput.value,
+        editFormData.value.rate,
+        editFormData.value.freight,
+      )
+    } else {
+      // User entered DZD, ensure price_cell is calculated
+      cfrDaInput.value = priceInput.value
+      editFormData.value.price_cell = calculatePriceFromCFRDA(
+        priceInput.value,
+        editFormData.value.rate,
+        editFormData.value.freight,
+      )
+    }
+
     const result = await callApi({
       query: `
         UPDATE cars_stock 
@@ -890,20 +994,37 @@ const formatDate = (dateString) => {
 
           <div class="form-group">
             <label>
-              <i class="fas fa-dollar-sign"></i>
-              {{ t('sellBills.price') }}: <span class="required">*</span>
+              <i class="fas fa-money-bill-wave"></i>
+              {{ t('sellBills.currency') }}: <span class="required">*</span>
+            </label>
+            <select v-model="selectedCurrency" @change="handleCurrencyChange">
+              <option value="USD">USD</option>
+              <option value="DZD">DZD (DA)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>
+              <i class="fas fa-calculator"></i>
+              {{ selectedCurrency === 'USD' ? t('sellBills.price') : t('sellBills.cfr_da') }}: <span class="required">*</span>
             </label>
             <div class="input-with-info">
               <input
                 type="number"
-                v-model="editFormData.price_cell"
+                v-model="priceInput"
                 step="0.01"
                 min="0"
                 required
-                @input="handlePriceChange"
-                :class="{ 'default-value': editFormData.price_cell === editingCar?.price_cell }"
+                @input="handlePriceInputChange"
+                :placeholder="selectedCurrency === 'USD' ? 'Enter price in USD' : 'Enter price in DZD'"
               />
             </div>
+            <span class="info-text" v-if="selectedCurrency === 'USD' && editFormData.rate && priceInput">
+              Calculated DZD: {{ cfrDaInput ? parseFloat(cfrDaInput).toLocaleString() : 'N/A' }} DA
+            </span>
+            <span class="info-text" v-else-if="selectedCurrency === 'DZD' && editFormData.rate && priceInput">
+              Calculated USD: {{ editFormData.price_cell ? '$' + parseFloat(editFormData.price_cell).toLocaleString() : 'N/A' }}
+            </span>
           </div>
 
           <div class="form-group">
@@ -917,6 +1038,7 @@ const formatDate = (dateString) => {
                 v-model="editFormData.freight"
                 step="0.01"
                 min="0"
+                @input="handleRateOrFreightChange"
                 :class="{ 'default-value': editFormData.freight === editingCar?.freight }"
               />
             </div>
@@ -930,6 +1052,7 @@ const formatDate = (dateString) => {
               v-model="editFormData.rate"
               step="0.01"
               min="0"
+              @input="handleRateOrFreightChange"
               :disabled="isProcessing"
             />
           </div>
@@ -961,19 +1084,6 @@ const formatDate = (dateString) => {
             <small class="help-text">{{ t('sellBills.help_text_temporary_client') }}</small>
           </div>
 
-          <div class="form-group">
-            <label>{{ t('sellBills.cfr_da') }}:</label>
-            <div class="input-with-info">
-              <input
-                type="number"
-                v-model="cfrDaInput"
-                step="0.01"
-                min="0"
-                @input="handleCFRDAChange"
-                :class="{ 'calculated-value': true }"
-              />
-            </div>
-          </div>
 
           <div class="form-actions">
             <button

@@ -55,6 +55,10 @@ const formData = ref({
 // Add ref for CFR DA input
 const cfrDaInput = ref(null)
 
+// Add currency selector
+const selectedCurrency = ref('DZD') // 'USD' or 'DZD'
+const priceInput = ref(null) // Single price input value
+
 // New client functionality
 const showAddDialog = ref(false)
 const selectedFile = ref(null)
@@ -88,34 +92,85 @@ const calculateCFRDAFromPrice = (price, rate, freight) => {
   return ((parsedPrice + parsedFreight) * parsedRate).toFixed(2)
 }
 
-// Add handlers for input changes
-const handlePriceChange = (event) => {
-  const newPrice = event.target.value
-  if (newPrice && formData.value.rate) {
-    // Only calculate CFR DA if it's not manually set by user
-    if (!cfrDaInput.value || cfrDaInput.value === '') {
-      const calculatedCfrDa = calculateCFRDAFromPrice(
-        newPrice,
-        formData.value.rate,
-        formData.value.freight,
-      )
-      cfrDaInput.value = calculatedCfrDa
+// Handle currency change
+const handleCurrencyChange = () => {
+  // Recalculate the other currency when currency changes
+  if (priceInput.value && formData.value.rate) {
+    if (selectedCurrency.value === 'USD') {
+      // If switching to USD, convert current DZD to USD
+      if (cfrDaInput.value) {
+        priceInput.value = calculatePriceFromCFRDA(
+          cfrDaInput.value,
+          formData.value.rate,
+          formData.value.freight,
+        )
+        formData.value.price_cell = priceInput.value
+      }
+    } else {
+      // If switching to DZD, convert current USD to DZD
+      if (formData.value.price_cell) {
+        priceInput.value = calculateCFRDAFromPrice(
+          formData.value.price_cell,
+          formData.value.rate,
+          formData.value.freight,
+        )
+        cfrDaInput.value = priceInput.value
+      }
     }
   }
 }
 
-const handleCFRDAChange = (event) => {
-  const newCFRDA = event.target.value
-  if (newCFRDA && formData.value.rate) {
-    // Always calculate price from CFR DA when user changes it
-    const calculatedPrice = calculatePriceFromCFRDA(
-      newCFRDA,
+// Handle price input change based on selected currency
+const handlePriceInputChange = () => {
+  if (!priceInput.value || !formData.value.rate) return
+
+  if (selectedCurrency.value === 'USD') {
+    // User entered USD, calculate DZD (CFR DA)
+    formData.value.price_cell = priceInput.value
+    cfrDaInput.value = calculateCFRDAFromPrice(
+      priceInput.value,
       formData.value.rate,
       formData.value.freight,
     )
-
-    formData.value.price_cell = calculatedPrice
+  } else {
+    // User entered DZD, calculate USD (price_cell)
+    cfrDaInput.value = priceInput.value
+    formData.value.price_cell = calculatePriceFromCFRDA(
+      priceInput.value,
+      formData.value.rate,
+      formData.value.freight,
+    )
   }
+}
+
+// Handle rate or freight change - recalculate based on selected currency
+const handleRateOrFreightChange = () => {
+  if (!priceInput.value || !formData.value.rate) return
+
+  if (selectedCurrency.value === 'USD') {
+    // Recalculate DZD from USD
+    cfrDaInput.value = calculateCFRDAFromPrice(
+      priceInput.value,
+      formData.value.rate,
+      formData.value.freight,
+    )
+  } else {
+    // Recalculate USD from DZD
+    formData.value.price_cell = calculatePriceFromCFRDA(
+      priceInput.value,
+      formData.value.rate,
+      formData.value.freight,
+    )
+  }
+}
+
+// Legacy handlers for backwards compatibility (kept for now but may not be needed)
+const handlePriceChange = (event) => {
+  // This is now handled by handlePriceInputChange
+}
+
+const handleCFRDAChange = (event) => {
+  // This is now handled by handlePriceInputChange
 }
 
 // Fetch clients for dropdown
@@ -249,13 +304,37 @@ const fetchCarDetails = async () => {
       await fetchDefaultFreight(!carDetails.value.is_big_car)
       await fetchDefaultRate()
 
-      // Set the CFR DA value properly
+      // Set the price input value based on existing data
       if (carDetails.value.cfr_da) {
-        // If car already has CFR DA, use it
+        // If car has CFR DA, set currency to DZD and use that value
+        selectedCurrency.value = 'DZD'
+        priceInput.value = carDetails.value.cfr_da
         cfrDaInput.value = carDetails.value.cfr_da
+        // Calculate price_cell from CFR DA
+        if (formData.value.rate) {
+          formData.value.price_cell = calculatePriceFromCFRDA(
+            carDetails.value.cfr_da,
+            formData.value.rate,
+            formData.value.freight,
+          )
+        }
+      } else if (carDetails.value.price_cell) {
+        // If car has price_cell, set currency to USD and use that value
+        selectedCurrency.value = 'USD'
+        priceInput.value = carDetails.value.price_cell
+        formData.value.price_cell = carDetails.value.price_cell
+        // Calculate CFR DA from price_cell
+        if (formData.value.rate) {
+          cfrDaInput.value = calculateCFRDAFromPrice(
+            carDetails.value.price_cell,
+            formData.value.rate,
+            formData.value.freight,
+          )
+        }
       } else {
-        // For new assignments or cars without CFR DA, leave it empty
-        // The calculated value will be shown in the display but not in the input
+        // No existing data, default to DZD
+        selectedCurrency.value = 'DZD'
+        priceInput.value = null
         cfrDaInput.value = null
       }
     } else {
@@ -370,15 +449,27 @@ const assignCar = async () => {
       return
     }
 
-    // Store the exact CFR DA value that user entered
-    const cfrDaValue = cfrDaInput.value
+    // Ensure both values are set based on currency selection
+    if (selectedCurrency.value === 'USD') {
+      // User entered USD, ensure CFR DA is calculated
+      formData.value.price_cell = priceInput.value
+      cfrDaInput.value = calculateCFRDAFromPrice(
+        priceInput.value,
+        formData.value.rate,
+        formData.value.freight,
+      )
+    } else {
+      // User entered DZD, ensure price_cell is calculated
+      cfrDaInput.value = priceInput.value
+      formData.value.price_cell = calculatePriceFromCFRDA(
+        priceInput.value,
+        formData.value.rate,
+        formData.value.freight,
+      )
+    }
 
-    // Calculate what price_cell would be for debugging
-    const calculatedPriceCell = calculatePriceFromCFRDA(
-      cfrDaValue,
-      formData.value.rate,
-      formData.value.freight,
-    )
+    const cfrDaValue = cfrDaInput.value
+    const calculatedPriceCell = formData.value.price_cell
 
     const result = await callApi({
       query: `
@@ -444,8 +535,8 @@ const validateForm = () => {
     return false
   }
 
-  if (!cfrDaInput.value) {
-    error.value = 'Please enter a CFR DA amount'
+  if (!priceInput.value) {
+    error.value = `Please enter a price in ${selectedCurrency.value}`
     return false
   }
 
@@ -469,6 +560,8 @@ const resetForm = () => {
     notes: '',
     is_tmp_client: 0,
   }
+  selectedCurrency.value = 'DZD' // Reset to default currency
+  priceInput.value = null // Reset price input
   cfrDaInput.value = null // Reset CFR DA input
   error.value = null
 }
@@ -695,59 +788,38 @@ onMounted(() => {
           </select>
         </div>
         <div class="form-group">
-          <label for="cfr-da">
-            <i class="fas fa-calculator"></i>
-            {{ t('sellBills.cfr_da') }} (Base Value): <span class="required">*</span>
+          <label for="currency">
+            <i class="fas fa-money-bill-wave"></i>
+            {{ t('sellBills.currency') }}: <span class="required">*</span>
           </label>
-          <div class="input-with-info">
-            <input
-              type="number"
-              id="cfr-da"
-              v-model="cfrDaInput"
-              step="0.01"
-              min="0"
-              required
-              @input="handleCFRDAChange"
-              :class="{ 'base-value': true }"
-              placeholder="Enter CFR DA amount"
-            />
-            <!-- Show calculated CFR DA for display purposes -->
-            <div v-if="calculatedCfrDaForDisplay && !cfrDaInput" class="calculated-display">
-              <i class="fas fa-info-circle"></i>
-              <span>Calculated from existing data: {{ calculatedCfrDaForDisplay }} DA</span>
-            </div>
-          </div>
-          <span class="info-text">This value will be used to calculate the sell price</span>
+          <select id="currency" v-model="selectedCurrency" @change="handleCurrencyChange">
+            <option value="USD">USD</option>
+            <option value="DZD">DZD (DA)</option>
+          </select>
         </div>
         <div class="form-group">
-          <label for="sell-price">
-            <i class="fas fa-dollar-sign"></i>
-            {{ t('sellBills.sell_price_required') }} (Calculated):
+          <label for="price-input">
+            <i class="fas fa-calculator"></i>
+            {{ selectedCurrency === 'USD' ? t('sellBills.price') : t('sellBills.cfr_da') }}: <span class="required">*</span>
           </label>
           <div class="input-with-info">
             <input
               type="number"
-              id="sell-price"
-              v-model="formData.price_cell"
+              id="price-input"
+              v-model="priceInput"
               step="0.01"
               min="0"
               required
-              @input="handlePriceChange"
-              :class="{
-                'calculated-value': true,
-                'default-value':
-                  carDetails?.price_cell && formData.price_cell === carDetails.price_cell,
-              }"
-              readonly
+              @input="handlePriceInputChange"
+              :placeholder="selectedCurrency === 'USD' ? 'Enter price in USD' : 'Enter price in DZD'"
             />
-            <span
-              v-if="carDetails?.price_cell && formData.price_cell === carDetails.price_cell"
-              class="default-badge"
-            >
-              {{ t('sellBills.default') }}
-            </span>
           </div>
-          <span class="info-text">Calculated from CFR DA</span>
+          <span class="info-text" v-if="selectedCurrency === 'USD' && formData.rate && priceInput">
+            Calculated DZD: {{ cfrDaInput ? parseFloat(cfrDaInput).toLocaleString() : 'N/A' }} DA
+          </span>
+          <span class="info-text" v-else-if="selectedCurrency === 'DZD' && formData.rate && priceInput">
+            Calculated USD: {{ formData.price_cell ? '$' + parseFloat(formData.price_cell).toLocaleString() : 'N/A' }}
+          </span>
         </div>
 
         <div class="form-group">
@@ -762,6 +834,7 @@ onMounted(() => {
               v-model="formData.freight"
               step="0.01"
               min="0"
+              @input="handleRateOrFreightChange"
               :class="{ 'default-value': formData.freight !== null }"
             />
             <span v-if="formData.freight !== null" class="default-badge">
@@ -787,6 +860,7 @@ onMounted(() => {
               step="0.01"
               min="0"
               required
+              @input="handleRateOrFreightChange"
               :class="{ 'default-value': formData.rate !== null }"
             />
             <span v-if="formData.rate !== null" class="default-badge">{{

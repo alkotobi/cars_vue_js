@@ -280,6 +280,9 @@ const saveBill = async () => {
           can_confirm_payment.value && formData.value.payment_confirmed ? 1 : 0,
           formData.value.id,
         ],
+        user_id: user.value?.id || null,
+        is_admin: isAdmin.value,
+        requiresAuth: true,
       })
 
       if (result.success) {
