@@ -29,6 +29,8 @@ const stampUrl = ref(null)
 const letterHeadUrl = ref(null)
 const contractTerms = ref([])
 const enabledLanguages = ref({})
+const banks = ref([])
+const selectedBank = ref(null)
 
 // Helper function to get base path (same as in useApi.js)
 const getBasePath = () => {
@@ -167,6 +169,28 @@ const formatPrice = (price) => {
   return price
 }
 
+const fetchBanks = async () => {
+  try {
+    const result = await callApi({
+      query: 'SELECT * FROM banks ORDER BY company_name ASC',
+      params: [],
+    })
+    if (result.success && result.data.length > 0) {
+      banks.value = result.data
+      // Set the selected bank based on options
+      if (props.options.bankId) {
+        selectedBank.value = banks.value.find((bank) => bank.id === props.options.bankId)
+      }
+      // Fallback to first bank if no bank is selected
+      if (!selectedBank.value) {
+        selectedBank.value = result.data[0]
+      }
+    }
+  } catch (err) {
+    console.error('Error fetching banks:', err)
+  }
+}
+
 // Load assets (logo, stamp, letter head)
 const loadAssets = async () => {
   try {
@@ -194,6 +218,7 @@ onMounted(async () => {
   await loadAssets()
   await loadContractTerms()
   fetchCarData()
+  fetchBanks()
 })
 </script>
 
@@ -292,7 +317,7 @@ onMounted(async () => {
       </div>
 
       <!-- Payment & Bank Information -->
-      <div class="section payment-bank-section">
+      <div class="section payment-bank-section" :style="{ fontSize: (options.tableFontSize || 12) + 'pt' }">
         <div class="payment-bank-details">
           <div class="payment-info">
             <div class="info-row">
@@ -303,6 +328,48 @@ onMounted(async () => {
               <span class="info-label bold-label">{{ t('sellBills.mode') }}:</span>
               <span class="info-value">{{ options.paymentMode }}</span>
             </div>
+          </div>
+          <div class="bank-info" v-if="selectedBank">
+            <div class="info-row" v-if="selectedBank.company_name">
+              <span class="info-label bold-label">Company Name:</span>
+              <span class="info-value">{{ selectedBank.company_name }}</span>
+            </div>
+            <div class="info-row" v-if="selectedBank.bank_name">
+              <span class="info-label bold-label">Bank Name:</span>
+              <span class="info-value">{{ selectedBank.bank_name }}</span>
+            </div>
+            <div class="info-row" v-if="selectedBank.bank_address">
+              <span class="info-label bold-label">Bank Address:</span>
+              <span class="info-value">{{ selectedBank.bank_address }}</span>
+            </div>
+            <div class="info-row" v-if="selectedBank.bank_account">
+              <span class="info-label bold-label">Account:</span>
+              <span class="info-value">{{ selectedBank.bank_account }}</span>
+            </div>
+            <div class="info-row" v-if="selectedBank.swift_code">
+              <span class="info-label bold-label">SWIFT:</span>
+              <span class="info-value">{{ selectedBank.swift_code }}</span>
+            </div>
+            <div class="info-row" v-if="selectedBank.notes">
+              <span class="info-label bold-label">Notes:</span>
+              <span class="info-value">{{ selectedBank.notes }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Notes Section -->
+      <div class="section notes-section" v-if="billData?.notes || carData?.notes" :style="{ fontSize: (options.tableFontSize || 12) + 'pt' }">
+        <div v-if="billData?.notes" class="notes-item">
+          <h3 class="section-title">Bill Notes</h3>
+          <div class="notes-content">
+            <p>{{ billData.notes }}</p>
+          </div>
+        </div>
+        <div v-if="carData?.notes" class="notes-item">
+          <h3 class="section-title">Car Notes</h3>
+          <div class="notes-content">
+            <p>{{ carData.notes }}</p>
           </div>
         </div>
       </div>
@@ -491,8 +558,31 @@ onMounted(async () => {
   font-size: 16px;
 }
 
+.notes-section {
+  margin-top: 30px;
+}
+
+.notes-item {
+  margin-bottom: 20px;
+}
+
+.notes-item:last-child {
+  margin-bottom: 0;
+}
+
+.section-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #2c3e50;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #e0e0e0;
+}
+
 .notes-content {
   padding: 15px;
+  background-color: #f9fafb;
+  border-radius: 6px;
 }
 
 .notes-content p {

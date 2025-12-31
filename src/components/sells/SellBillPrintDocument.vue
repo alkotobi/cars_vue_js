@@ -413,6 +413,7 @@ onMounted(async () => {
                 {{ t('sellBills.price') }} {{ options.paymentTerms.toUpperCase() }}
                 {{ options.currency.toUpperCase() }}
               </th>
+              <th>Notes</th>
             </tr>
           </thead>
           <tbody>
@@ -424,11 +425,12 @@ onMounted(async () => {
               <td>{{ car.client_name }}</td>
               <td>{{ car.discharge_port }}</td>
               <td>{{ formatPrice(calculateCarPrice(car)) }}</td>
+              <td>{{ car.notes || '-' }}</td>
             </tr>
           </tbody>
           <tfoot>
             <tr>
-              <td colspan="6" class="total-label">
+              <td colspan="7" class="total-label">
                 <strong>{{ t('sellBills.total') }}:</strong>
               </td>
               <td class="total-value">
@@ -438,7 +440,7 @@ onMounted(async () => {
           </tfoot>
         </table>
       </div>
-      <div class="amount-in-words">
+      <div class="amount-in-words" :style="{ fontSize: (options.tableFontSize || 12) + 'pt' }">
         <span class="words-label">{{ t('sellBills.total') }} in words:</span>
         <span class="words-value">
           <strong
@@ -449,7 +451,7 @@ onMounted(async () => {
     </div>
 
     <!-- Payment & Bank Information -->
-    <div class="section payment-bank-section">
+    <div class="section payment-bank-section" :style="{ fontSize: (options.tableFontSize || 12) + 'pt' }">
       <div class="payment-bank-details">
         <div class="payment-info">
           <div class="info-row">
@@ -462,24 +464,37 @@ onMounted(async () => {
           </div>
         </div>
         <div class="bank-info" v-if="selectedBank">
-          <div class="info-row">
-            <span class="info-label bold-label">{{ t('sellBills.bank_information') }}:</span>
+          <div class="info-row" v-if="selectedBank.company_name">
+            <span class="info-label bold-label">Company Name:</span>
+            <span class="info-value">{{ selectedBank.company_name }}</span>
+          </div>
+          <div class="info-row" v-if="selectedBank.bank_name">
+            <span class="info-label bold-label">Bank Name:</span>
             <span class="info-value">{{ selectedBank.bank_name }}</span>
           </div>
-          <div class="info-row">
+          <div class="info-row" v-if="selectedBank.bank_address">
+            <span class="info-label bold-label">Bank Address:</span>
+            <span class="info-value">{{ selectedBank.bank_address }}</span>
+          </div>
+          <div class="info-row" v-if="selectedBank.bank_account">
             <span class="info-label bold-label">Account:</span>
             <span class="info-value">{{ selectedBank.bank_account }}</span>
           </div>
-          <div class="info-row">
+          <div class="info-row" v-if="selectedBank.swift_code">
             <span class="info-label bold-label">SWIFT:</span>
             <span class="info-value">{{ selectedBank.swift_code }}</span>
+          </div>
+          <div class="info-row" v-if="selectedBank.notes">
+            <span class="info-label bold-label">Notes:</span>
+            <span class="info-value">{{ selectedBank.notes }}</span>
           </div>
         </div>
       </div>
     </div>
 
     <!-- Notes Section -->
-    <div class="section notes-section" v-if="billData?.notes">
+    <div class="section notes-section" v-if="billData?.notes" :style="{ fontSize: (options.tableFontSize || 12) + 'pt' }">
+      <h3 class="section-title">Bill Notes</h3>
       <div class="notes-content">
         <p>{{ billData.notes }}</p>
       </div>
@@ -651,6 +666,31 @@ onMounted(async () => {
   font-weight: bold;
   color: #2c3e50;
   font-size: 16px;
+}
+
+.notes-section {
+  margin-top: 30px;
+}
+
+.section-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #2c3e50;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.notes-content {
+  padding: 15px;
+  background-color: #f9fafb;
+  border-radius: 6px;
+}
+
+.notes-content p {
+  margin: 0;
+  color: #2c3e50;
+  line-height: 1.6;
 }
 
 .footer {
