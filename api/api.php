@@ -2012,6 +2012,68 @@ if (isset($postData['action'])) {
             }
             exit;
     
+        case 'check_api_files_exist':
+            // Check if files exist in the api folder
+            if (!isset($postData['file_names']) || !is_array($postData['file_names'])) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'file_names array is required']);
+                exit;
+            }
+
+            try {
+                $fileNames = $postData['file_names'];
+                $apiDir = __DIR__; // Current directory is the api folder
+                
+                // Get the real path for security check
+                $realBasePath = realpath(__DIR__ . '/../');
+                if ($realBasePath === false) {
+                    throw new Exception('Invalid base directory');
+                }
+                $realBasePath = rtrim($realBasePath, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+                
+                // Verify api directory is within base path
+                $resolvedApiDir = realpath($apiDir);
+                if ($resolvedApiDir === false) {
+                    throw new Exception('Invalid api directory');
+                }
+                $resolvedApiDir = rtrim($resolvedApiDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+                if (strpos($resolvedApiDir, $realBasePath) !== 0) {
+                    throw new Exception('Directory traversal attempt detected');
+                }
+                
+                $results = [];
+                foreach ($fileNames as $fileName) {
+                    // Sanitize filename
+                    $sanitizedFileName = basename($fileName);
+                    $sanitizedFileName = str_replace('..', '', $sanitizedFileName);
+                    
+                    // Construct file path
+                    $filePath = $apiDir . '/' . $sanitizedFileName;
+                    
+                    // Verify file path is within api directory
+                    $resolvedFilePath = realpath($filePath);
+                    $exists = false;
+                    if ($resolvedFilePath !== false) {
+                        $resolvedFileDir = dirname($resolvedFilePath);
+                        $resolvedFileDir = rtrim($resolvedFileDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+                        if (strpos($resolvedFileDir, $resolvedApiDir) === 0) {
+                            $exists = file_exists($filePath);
+                        }
+                    }
+                    
+                    $results[$fileName] = $exists;
+                }
+                
+                echo json_encode([
+                    'success' => true,
+                    'data' => $results
+                ]);
+            } catch (Exception $e) {
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => 'Error checking files: ' . $e->getMessage()]);
+            }
+            exit;
+    
         default:
             http_response_code(400);
             echo json_encode(['success' => false, 'error' => 'Invalid action']);

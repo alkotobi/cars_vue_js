@@ -1318,6 +1318,92 @@ const confirmUpdatePhp = async () => {
     return
   }
   
+  // Files that require confirmation before replacement
+  const protectedFiles = ['config.php', 'db_manager_config.php']
+  
+  // Check if any protected files are being uploaded
+  const protectedFilesToUpload = selectedPhpFiles.value.filter(file => 
+    protectedFiles.includes(file.name)
+  )
+  
+  // If protected files are being uploaded, check if they exist and ask for confirmation
+  if (protectedFilesToUpload.length > 0) {
+    try {
+      // Check which files actually exist on the server
+      const fileNames = protectedFilesToUpload.map(f => f.name)
+      const checkResponse = await fetch(`${getApiBaseUrl()}/api.php`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'check_api_files_exist',
+          file_names: fileNames
+        })
+      })
+      
+      const checkResult = await checkResponse.json()
+      
+      if (checkResult.success && checkResult.data) {
+        // Filter to only files that actually exist
+        const existingFiles = protectedFilesToUpload.filter(file => 
+          checkResult.data[file.name] === true
+        )
+        
+        // Only show confirmation if files actually exist
+        if (existingFiles.length > 0) {
+          const existingFileNames = existingFiles.map(f => f.name).join(', ')
+          const confirmMessage = `The following file(s) will replace existing files:\n\n${existingFileNames}\n\nDo you want to continue?`
+          
+          if (!confirm(confirmMessage)) {
+            // User cancelled - remove protected files from upload list
+            selectedPhpFiles.value = selectedPhpFiles.value.filter(file => 
+              !protectedFiles.includes(file.name)
+            )
+            
+            // If no files left, show error and return
+            if (selectedPhpFiles.value.length === 0) {
+              error.value = 'Upload cancelled - no files to upload'
+              return
+            }
+            
+            // Update file input if it exists
+            if (phpFileInput.value) {
+              const dataTransfer = new DataTransfer()
+              selectedPhpFiles.value.forEach(file => dataTransfer.items.add(file))
+              phpFileInput.value.files = dataTransfer.files
+            }
+          }
+        }
+      }
+    } catch (err) {
+      // If check fails, show confirmation anyway for safety
+      console.error('Error checking file existence:', err)
+      const fileNames = protectedFilesToUpload.map(f => f.name).join(', ')
+      const confirmMessage = `The following file(s) will replace existing files:\n\n${fileNames}\n\nDo you want to continue?`
+      
+      if (!confirm(confirmMessage)) {
+        // User cancelled - remove protected files from upload list
+        selectedPhpFiles.value = selectedPhpFiles.value.filter(file => 
+          !protectedFiles.includes(file.name)
+        )
+        
+        // If no files left, show error and return
+        if (selectedPhpFiles.value.length === 0) {
+          error.value = 'Upload cancelled - no files to upload'
+          return
+        }
+        
+        // Update file input if it exists
+        if (phpFileInput.value) {
+          const dataTransfer = new DataTransfer()
+          selectedPhpFiles.value.forEach(file => dataTransfer.items.add(file))
+          phpFileInput.value.files = dataTransfer.files
+        }
+      }
+    }
+  }
+  
   uploadingPhp.value = true
   updatePhpResults.value = []
   error.value = ''
