@@ -334,11 +334,11 @@ const handleEdit = async (car) => {
         editFormData.value.price_cell = carData.price_cell
         // Calculate CFR DA from price_cell
         if (editFormData.value.rate) {
-          cfrDaInput.value = calculateCFRDAFromPrice(
-            carData.price_cell,
+        cfrDaInput.value = calculateCFRDAFromPrice(
+          carData.price_cell,
             editFormData.value.rate,
             editFormData.value.freight,
-          )
+        )
         }
       } else {
         // No existing data, default to DZD

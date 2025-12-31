@@ -28,7 +28,7 @@ const getRouterBasePath = () => {
       '/sell-bills', '/buy-payments', '/params', '/advanced-sql', '/transfers-list',
       '/cars', '/warehouses', '/containers', '/print', '/clients', '/cashier',
       '/rates', '/tasks', '/statistics', '/chat', '/invitations', '/containers-ref',
-      '/db-manager'
+      '/db-manager', '/alert-cars'
     ]
     
     // Check if pathname starts with a known route - if so, base path is '/'

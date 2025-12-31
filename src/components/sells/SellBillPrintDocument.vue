@@ -26,6 +26,41 @@ const selectedBank = ref(null)
 const logoUrl = ref(null)
 const stampUrl = ref(null)
 const letterHeadUrl = ref(null)
+const contractTerms = ref([])
+const enabledLanguages = ref({})
+
+// Helper function to get base path (same as in useApi.js)
+const getBasePath = () => {
+  let baseUrl = import.meta.env.BASE_URL || './'
+  if (baseUrl === './' || baseUrl.startsWith('./')) {
+    const pathname = window.location.pathname
+    const match = pathname.match(/^(\/[^/]+\/)/)
+    return match ? match[1] : '/'
+  }
+  return baseUrl
+}
+
+// Load contract terms from JSON file
+const loadContractTerms = async () => {
+  try {
+    const basePath = getBasePath()
+    const termsUrl = `${basePath}contract_terms.json`
+    const response = await fetch(termsUrl)
+    if (!response.ok) {
+      console.warn('Failed to load contract_terms.json, using empty array')
+      contractTerms.value = []
+      enabledLanguages.value = { english: true, chinese: true } // Default fallback
+      return
+    }
+    const data = await response.json()
+    contractTerms.value = data.terms || []
+    enabledLanguages.value = data.enabledLanguages || { english: true, chinese: true } // Default fallback
+  } catch (err) {
+    console.error('Error loading contract terms:', err)
+    contractTerms.value = []
+    enabledLanguages.value = { english: true, chinese: true } // Default fallback
+  }
+}
 
 const company = ref({
   name: 'GROUP MERHAB LIMITED',
@@ -307,6 +342,7 @@ const loadAssets = async () => {
 
 onMounted(async () => {
   await loadAssets()
+  await loadContractTerms()
   fetchBillData()
   fetchBanks()
 })
@@ -459,111 +495,15 @@ onMounted(async () => {
       <div class="section contract-terms">
         <h3>Terms and Conditions</h3>
         <div class="terms-list">
-          <!-- Payment Terms -->
-          <div class="term-item">
-            <p class="english">1. Payment must be made in full before vehicle delivery.</p>
-            <p class="chinese">1. 车辆交付前必须全额付款。</p>
-          </div>
-
-          <!-- Delivery Terms -->
-          <div class="term-item">
-            <p class="english">
-              2. Delivery will be made within the agreed timeframe after receipt of full payment.
+          <div v-for="term in contractTerms" :key="term.id" class="term-item">
+            <template v-for="(value, key) in term" :key="key">
+              <p 
+                v-if="key !== 'id' && enabledLanguages[key] === true" 
+                :class="key"
+              >
+                {{ term.id }}. {{ value }}
             </p>
-            <p class="chinese">2. 收到全额付款后，将在约定的时间范围内交付。</p>
-          </div>
-
-          <!-- Document Responsibility -->
-          <div class="term-item">
-            <p class="english">
-              3. All vehicle documentation will be provided as per export requirements.
-            </p>
-            <p class="chinese">3. 将按照出口要求提供所有车辆文件。</p>
-          </div>
-
-          <!-- Customs Clause -->
-          <div class="term-item">
-            <p class="english">
-              4. In case of any customs issues related to modified export license usage, while we
-              will assist in resolving the matter with customs authorities, we bear no legal
-              responsibility for such complications.
-            </p>
-            <p class="chinese">
-              4.
-              如因改装出口许可证使用而产生任何海关问题，虽然我们会协助处理海关事务，但我们不承担任何法律责任。
-            </p>
-          </div>
-
-          <!-- Inspection Terms -->
-          <div class="term-item">
-            <p class="english">
-              5. The buyer acknowledges having inspected the vehicle and accepts its condition at
-              the time of purchase.
-            </p>
-            <p class="chinese">5. 买方确认已检查车辆并接受其购买时的状况。</p>
-          </div>
-
-          <!-- Dispute Resolution -->
-          <div class="term-item">
-            <p class="english">
-              6. Any disputes arising from this contract shall be resolved through mutual
-              negotiation or applicable legal channels.
-            </p>
-            <p class="chinese">6. 本合同引起的任何争议应通过双方协商或适用的法律途径解决。</p>
-          </div>
-
-          <!-- Freight Increase Clause -->
-          <div class="term-item">
-            <p class="english">
-              7. If freight costs increase by more than USD 200 on the loading day, the client is
-              responsible for paying the difference.
-            </p>
-            <p class="chinese">7. 如果装运当天的运费增加超过200美元，客户需要支付差额。</p>
-          </div>
-
-          <!-- Chinese Tax/Policy Changes -->
-          <div class="term-item">
-            <p class="english">
-              8. The client is responsible for any additional costs resulting from new Chinese taxes
-              or policy changes implemented after the contract date.
-            </p>
-            <p class="chinese">
-              8. 合同日期之后实施的任何新的中国税收或政策变化所产生的额外费用由客户承担。
-            </p>
-          </div>
-
-          <!-- Price Agreement and Changes -->
-          <div class="term-item">
-            <p class="english">
-              9. The agreed price is valid as of the agreement date. Any price changes due to
-              shipping companies or Chinese government regulations on the loading day will be the
-              client's responsibility.
-            </p>
-            <p class="chinese">
-              9.
-              约定价格自协议日期起有效。装运当天因航运公司或中国政府法规造成的任何价格变化由客户承担。
-            </p>
-          </div>
-
-          <!-- Shipping Time Disclaimer -->
-          <div class="term-item">
-            <p class="english">
-              10. The parties hereto expressly acknowledge and agree that shipping and delivery
-              timelines, schedules, and estimated arrival dates are provided for informational
-              purposes only and are subject to modification, delay, or cancellation due to
-              circumstances beyond the seller's reasonable control. Such circumstances include,
-              without limitation, customs clearance delays, adverse weather conditions, port
-              congestion, shipping line schedule modifications, force majeure events, governmental
-              actions, labor disputes, equipment failures, or other unforeseeable events. The seller
-              shall not be liable for any direct, indirect, incidental, consequential, or punitive
-              damages arising from such delays, and the buyer hereby expressly waives, releases, and
-              discharges any and all claims, demands, actions, causes of action, damages, costs,
-              expenses, or compensation of any nature whatsoever arising therefrom.
-            </p>
-            <p class="chinese">
-              10.
-              本协议双方明确确认并同意，运输和交付时间、日程安排及预计到达日期仅供参考，可能因超出卖方合理控制范围的情况而修改、延迟或取消。此类情况包括但不限于海关清关延迟、恶劣天气条件、港口拥堵、航运公司时刻表变更、不可抗力事件、政府行为、劳资纠纷、设备故障或其他不可预见事件。卖方对此类延迟造成的任何直接、间接、偶然、后果性或惩罚性损害不承担责任，买方特此明确放弃、免除和解除由此产生的任何性质的所有索赔、要求、诉讼、诉因、损害、费用、开支或补偿。
-            </p>
+            </template>
           </div>
         </div>
       </div>
@@ -734,5 +674,128 @@ onMounted(async () => {
 
 .bold-label {
   font-weight: bold !important;
+}
+
+/* Terms and Conditions Page */
+.a4-page {
+  page-break-before: always;
+  padding-top: 20px;
+}
+
+.terms-page {
+  margin-top: 20mm;
+}
+
+.contract-terms {
+  padding: 25mm 20mm;
+  font-family: 'Arial', 'Helvetica', sans-serif;
+}
+
+.contract-terms h3 {
+  font-size: 18pt;
+  font-weight: bold;
+  color: #000;
+  margin-bottom: 25px;
+  text-align: center;
+  border-bottom: 2px solid #000;
+  padding-bottom: 10px;
+  letter-spacing: 0.5px;
+}
+
+.terms-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-bottom: 30px;
+}
+
+.term-item {
+  padding: 12px 0;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.term-item:last-child {
+  border-bottom: none;
+}
+
+.term-item p {
+  margin: 0 0 10px 0;
+  line-height: 1.8;
+  font-size: 11pt;
+  color: #000;
+  text-align: justify;
+}
+
+.term-item p:last-child {
+  margin-bottom: 0;
+}
+
+.term-item p.english,
+.term-item p[class*="english"] {
+  font-weight: normal;
+  color: #000;
+  font-size: 11pt;
+}
+
+.term-item p.chinese,
+.term-item p[class*="chinese"] {
+  font-weight: normal;
+  color: #000;
+  font-size: 11pt;
+  margin-top: 8px;
+}
+
+/* Support for any other language classes */
+.term-item p:not(.english):not([class*="english"]):not(.chinese):not([class*="chinese"]) {
+  font-weight: normal;
+  color: #000;
+  font-size: 11pt;
+  margin-top: 8px;
+}
+
+.signatures {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 50px;
+  padding-top: 30px;
+  border-top: 1px solid #000;
+}
+
+.signature-box {
+  text-align: center;
+  flex: 1;
+  margin: 0 30px;
+}
+
+.signature-box p {
+  margin: 0 0 50px 0;
+  font-weight: bold;
+  color: #000;
+  font-size: 11pt;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.signature-line {
+  height: 1px;
+  background: #000;
+  margin-top: 0;
+  border-top: 1px solid #000;
+}
+
+@media print {
+  .contract-terms {
+    padding: 20mm 15mm;
+  }
+  
+  .term-item {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  
+  .term-item p {
+    orphans: 3;
+    widows: 3;
+  }
 }
 </style>

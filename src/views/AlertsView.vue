@@ -62,7 +62,7 @@
 <script setup>
 import { ref, onMounted, computed, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useApi } from '../composables/useApi'
+import { useApi, BASE_PATH } from '../composables/useApi'
 
 const { t } = useI18n()
 const { callApi } = useApi()
@@ -306,22 +306,22 @@ onUnmounted(() => {
 
 // Click handlers for alert badges
 const handleUnloadedClick = () => {
-  const url = `/alert-cars/unloaded/${defaults.value?.alert_unloaded_after_days || 0}`
+  const url = `${BASE_PATH}alert-cars/unloaded/${defaults.value?.alert_unloaded_after_days || 0}`
   window.open(url, '_blank')
 }
 
 const handleNotArrivedClick = () => {
-  const url = `/alert-cars/not_arrived/${defaults.value?.alert_not_arrived_after_days || 0}`
+  const url = `${BASE_PATH}alert-cars/not_arrived/${defaults.value?.alert_not_arrived_after_days || 0}`
   window.open(url, '_blank')
 }
 
 const handleNoLicenseClick = () => {
-  const url = `/alert-cars/no_licence/${defaults.value?.alert_no_licence_after_days || 0}`
+  const url = `${BASE_PATH}alert-cars/no_licence/${defaults.value?.alert_no_licence_after_days || 0}`
   window.open(url, '_blank')
 }
 
 const handleNoDocsClick = () => {
-  const url = `/alert-cars/no_docs_sent/${defaults.value?.alert_no_docs_sent_after_days || 0}`
+  const url = `${BASE_PATH}alert-cars/no_docs_sent/${defaults.value?.alert_no_docs_sent_after_days || 0}`
   window.open(url, '_blank')
 }
 </script>

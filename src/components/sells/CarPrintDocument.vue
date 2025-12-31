@@ -27,6 +27,41 @@ const billData = ref(null)
 const logoUrl = ref(null)
 const stampUrl = ref(null)
 const letterHeadUrl = ref(null)
+const contractTerms = ref([])
+const enabledLanguages = ref({})
+
+// Helper function to get base path (same as in useApi.js)
+const getBasePath = () => {
+  let baseUrl = import.meta.env.BASE_URL || './'
+  if (baseUrl === './' || baseUrl.startsWith('./')) {
+    const pathname = window.location.pathname
+    const match = pathname.match(/^(\/[^/]+\/)/)
+    return match ? match[1] : '/'
+  }
+  return baseUrl
+}
+
+// Load contract terms from JSON file
+const loadContractTerms = async () => {
+  try {
+    const basePath = getBasePath()
+    const termsUrl = `${basePath}contract_terms.json`
+    const response = await fetch(termsUrl)
+    if (!response.ok) {
+      console.warn('Failed to load contract_terms.json, using empty array')
+      contractTerms.value = []
+      enabledLanguages.value = { english: true, chinese: true } // Default fallback
+      return
+    }
+    const data = await response.json()
+    contractTerms.value = data.terms || []
+    enabledLanguages.value = data.enabledLanguages || { english: true, chinese: true } // Default fallback
+  } catch (err) {
+    console.error('Error loading contract terms:', err)
+    contractTerms.value = []
+    enabledLanguages.value = { english: true, chinese: true } // Default fallback
+  }
+}
 
 const company = ref({
   name: 'GROUP MERHAB LIMITED',
@@ -157,6 +192,7 @@ const loadAssets = async () => {
 
 onMounted(async () => {
   await loadAssets()
+  await loadContractTerms()
   fetchCarData()
 })
 </script>
@@ -274,6 +310,35 @@ onMounted(async () => {
       <!-- Footer -->
       <div class="footer">
         <div class="footer-content"></div>
+      </div>
+
+      <!-- Second Page (Terms and Conditions) -->
+      <div v-if="options.documentType === 'contract'" class="a4-page terms-page">
+        <div class="section contract-terms">
+          <h3>Terms and Conditions</h3>
+          <div class="terms-list">
+            <div v-for="term in contractTerms" :key="term.id" class="term-item">
+              <template v-for="(value, key) in term" :key="key">
+                <p 
+                  v-if="key !== 'id' && enabledLanguages[key] === true" 
+                  :class="key"
+                >
+                  {{ term.id }}. {{ value }}
+                </p>
+              </template>
+            </div>
+          </div>
+        </div>
+        <div class="signatures">
+          <div class="signature-box">
+            <p>Seller's Signature</p>
+            <div class="signature-line"></div>
+          </div>
+          <div class="signature-box">
+            <p>Buyer's Signature</p>
+            <div class="signature-line"></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -475,75 +540,125 @@ onMounted(async () => {
 }
 
 /* Terms and Conditions Page */
+.a4-page {
+  page-break-before: always;
+  padding-top: 20px;
+}
+
 .terms-page {
   margin-top: 20mm;
 }
 
 .contract-terms {
-  padding: 20px;
+  padding: 25mm 20mm;
+  font-family: 'Arial', 'Helvetica', sans-serif;
 }
 
 .contract-terms h3 {
-  font-size: 1.5rem;
-  color: #2c3e50;
-  margin-bottom: 20px;
+  font-size: 18pt;
+  font-weight: bold;
+  color: #000;
+  margin-bottom: 25px;
   text-align: center;
-  border-bottom: 2px solid #3498db;
+  border-bottom: 2px solid #000;
   padding-bottom: 10px;
+  letter-spacing: 0.5px;
 }
 
 .terms-list {
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  gap: 18px;
+  margin-bottom: 30px;
 }
 
 .term-item {
-  border-left: 3px solid #3498db;
-  padding-left: 15px;
-  background: #f8f9fa;
-  padding: 15px;
-  border-radius: 0 6px 6px 0;
+  padding: 12px 0;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.term-item:last-child {
+  border-bottom: none;
 }
 
 .term-item p {
-  margin: 0 0 8px 0;
-  line-height: 1.6;
+  margin: 0 0 10px 0;
+  line-height: 1.8;
+  font-size: 11pt;
+  color: #000;
+  text-align: justify;
 }
 
-.term-item .english {
-  color: #2c3e50;
-  font-weight: 500;
+.term-item p:last-child {
+  margin-bottom: 0;
 }
 
-.term-item .chinese {
-  color: #7f8c8d;
-  font-size: 0.9em;
+.term-item p.english,
+.term-item p[class*="english"] {
+  font-weight: normal;
+  color: #000;
+  font-size: 11pt;
+}
+
+.term-item p.chinese,
+.term-item p[class*="chinese"] {
+  font-weight: normal;
+  color: #000;
+  font-size: 11pt;
+  margin-top: 8px;
+}
+
+/* Support for any other language classes */
+.term-item p:not(.english):not([class*="english"]):not(.chinese):not([class*="chinese"]) {
+  font-weight: normal;
+  color: #000;
+  font-size: 11pt;
+  margin-top: 8px;
 }
 
 .signatures {
   display: flex;
   justify-content: space-between;
-  margin-top: 40px;
-  padding-top: 20px;
-  border-top: 1px solid #e9ecef;
+  margin-top: 50px;
+  padding-top: 30px;
+  border-top: 1px solid #000;
 }
 
 .signature-box {
   text-align: center;
   flex: 1;
-  margin: 0 20px;
+  margin: 0 30px;
 }
 
 .signature-box p {
-  margin: 0 0 10px 0;
+  margin: 0 0 50px 0;
   font-weight: bold;
-  color: #2c3e50;
+  color: #000;
+  font-size: 11pt;
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
 .signature-line {
-  height: 2px;
-  background: #2c3e50;
-  margin-top: 20px;
+  height: 1px;
+  background: #000;
+  margin-top: 0;
+  border-top: 1px solid #000;
+}
+
+@media print {
+  .contract-terms {
+    padding: 20mm 15mm;
+  }
+  
+  .term-item {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  
+  .term-item p {
+    orphans: 3;
+    widows: 3;
+  }
 }
 </style>

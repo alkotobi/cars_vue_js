@@ -101,9 +101,9 @@ const handleCurrencyChange = () => {
       if (cfrDaInput.value) {
         priceInput.value = calculatePriceFromCFRDA(
           cfrDaInput.value,
-          formData.value.rate,
-          formData.value.freight,
-        )
+        formData.value.rate,
+        formData.value.freight,
+      )
         formData.value.price_cell = priceInput.value
       }
     } else {
@@ -115,9 +115,9 @@ const handleCurrencyChange = () => {
           formData.value.freight,
         )
         cfrDaInput.value = priceInput.value
-      }
     }
   }
+}
 }
 
 // Handle price input change based on selected currency
@@ -455,9 +455,9 @@ const assignCar = async () => {
       formData.value.price_cell = priceInput.value
       cfrDaInput.value = calculateCFRDAFromPrice(
         priceInput.value,
-        formData.value.rate,
-        formData.value.freight,
-      )
+      formData.value.rate,
+      formData.value.freight,
+    )
     } else {
       // User entered DZD, ensure price_cell is calculated
       cfrDaInput.value = priceInput.value
@@ -819,7 +819,7 @@ onMounted(() => {
           </span>
           <span class="info-text" v-else-if="selectedCurrency === 'DZD' && formData.rate && priceInput">
             Calculated USD: {{ formData.price_cell ? '$' + parseFloat(formData.price_cell).toLocaleString() : 'N/A' }}
-          </span>
+            </span>
         </div>
 
         <div class="form-group">

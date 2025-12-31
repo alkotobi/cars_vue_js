@@ -5,8 +5,9 @@ const hostname = window.location.hostname
 const protocol = window.location.protocol
 const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1'
 
-// Detect base path from current location (e.g., '/mig/' or '/')
-// This allows the app to work from any subdirectory
+// Detect base path from current location (e.g., '/mig_26/' or '/')
+// This allows the app to work from any subdirectory or root
+// Uses the same logic as getRouterBasePath() in router/index.js for consistency
 const getBasePath = () => {
   // Use Vite's BASE_URL if available (set in vite.config.js)
   // If it's relative (./), convert to absolute based on current pathname
@@ -15,7 +16,23 @@ const getBasePath = () => {
   // If base is relative, convert to absolute path
   if (baseUrl === './' || baseUrl.startsWith('./')) {
     const pathname = window.location.pathname
-    // If pathname is like '/mig/login', extract '/mig/'
+    
+    // Known route patterns that should NOT be treated as base paths
+    const knownRoutes = [
+      '/login', '/dashboard', '/users', '/roles', '/transfers', '/send', '/receive',
+      '/sell-bills', '/buy-payments', '/params', '/advanced-sql', '/transfers-list',
+      '/cars', '/warehouses', '/containers', '/print', '/clients', '/cashier',
+      '/rates', '/tasks', '/statistics', '/chat', '/invitations', '/containers-ref',
+      '/db-manager', '/alert-cars'
+    ]
+    
+    // Check if pathname starts with a known route - if so, base path is '/'
+    const startsWithKnownRoute = knownRoutes.some(route => pathname.startsWith(route))
+    if (startsWithKnownRoute) {
+      return '/'
+    }
+    
+    // If pathname is like '/mig_26/login', extract '/mig_26/'
     // If pathname is like '/login', use '/'
     const match = pathname.match(/^(\/[^/]+\/)/)
     const detectedBase = match ? match[1] : '/'
@@ -173,6 +190,8 @@ async function loadUploadPath() {
 // })
 
 // const UPLOAD_URL = `${API_BASE_URL}/upload_simple.php`  // Use this if main upload fails
+
+export { BASE_PATH }
 
 export const useApi = () => {
   const error = ref(null)
