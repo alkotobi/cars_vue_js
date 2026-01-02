@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useEnhancedI18n } from '../../composables/useI18n'
 import { useApi } from '../../composables/useApi'
 
@@ -28,6 +28,11 @@ const stampUrl = ref(null)
 const letterHeadUrl = ref(null)
 const contractTerms = ref([])
 const enabledLanguages = ref({})
+
+// Computed property to filter visible terms
+const visibleTerms = computed(() => {
+  return contractTerms.value.filter(term => term.visible !== false)
+})
 
 // Helper function to get base path (same as in useApi.js)
 const getBasePath = () => {
@@ -340,6 +345,60 @@ const loadAssets = async () => {
   }
 }
 
+// Get freight and rate values for placeholder replacement
+const getFreightAndRateValues = () => {
+  if (!carsData.value || carsData.value.length === 0) {
+    return { freightText: 'N/A', rateText: 'N/A' }
+  }
+
+  // Get unique freight and rate values
+  const freightValues = [...new Set(carsData.value.map(car => parseFloat(car.freight) || 0).filter(f => f > 0))]
+  const rateValues = [...new Set(carsData.value.map(car => parseFloat(car.rate) || 0).filter(r => r > 0))]
+
+  // Format freight values
+  let freightText = 'N/A'
+  if (freightValues.length > 0) {
+    const minFreight = Math.min(...freightValues)
+    const maxFreight = Math.max(...freightValues)
+    if (minFreight === maxFreight) {
+      freightText = `USD ${minFreight.toFixed(2)}`
+    } else {
+      freightText = `USD ${minFreight.toFixed(2)} - ${maxFreight.toFixed(2)}`
+    }
+  }
+
+  // Format rate values
+  let rateText = 'N/A'
+  if (rateValues.length > 0) {
+    const minRate = Math.min(...rateValues)
+    const maxRate = Math.max(...rateValues)
+    if (minRate === maxRate) {
+      rateText = minRate.toFixed(2)
+    } else {
+      rateText = `${minRate.toFixed(2)} - ${maxRate.toFixed(2)}`
+    }
+  }
+
+  return { freightText, rateText }
+}
+
+// Replace placeholders in term text with proper RTL handling
+const replaceTermPlaceholders = (text) => {
+  if (!text) return text
+  const { freightText, rateText } = getFreightAndRateValues()
+  
+  // Wrap numeric values with LTR markers to preserve direction in RTL text
+  // Using Left-to-Right Mark (LRM) and Right-to-Left Mark (RLM) for proper bidirectional text
+  const ltrIsolate = '\u2066' // Left-to-Right Isolate
+  const popIsolate = '\u2069'  // Pop Directional Isolate
+  
+  // Wrap freight and rate values to preserve LTR direction
+  const wrappedFreight = freightText !== 'N/A' ? `${ltrIsolate}${freightText}${popIsolate}` : freightText
+  const wrappedRate = rateText !== 'N/A' ? `${ltrIsolate}${rateText}${popIsolate}` : rateText
+  
+  return text.replace(/{FREIGHT}/g, wrappedFreight).replace(/{RATE}/g, wrappedRate)
+}
+
 onMounted(async () => {
   await loadAssets()
   await loadContractTerms()
@@ -510,14 +569,14 @@ onMounted(async () => {
       <div class="section contract-terms">
         <h3>Terms and Conditions</h3>
         <div class="terms-list">
-          <div v-for="term in contractTerms" :key="term.id" class="term-item">
+          <div v-for="(term, index) in visibleTerms" :key="term.id" class="term-item">
             <template v-for="(value, key) in term" :key="key">
               <p 
-                v-if="key !== 'id' && enabledLanguages[key] === true" 
+                v-if="key !== 'id' && key !== 'visible' && enabledLanguages[key] === true" 
                 :class="key"
                 :style="{ fontSize: (options.termsFontSize || 11) + 'pt' }"
               >
-                {{ term.id }}. {{ value }}
+                {{ index + 1 }}. {{ replaceTermPlaceholders(value) }}
             </p>
             </template>
           </div>

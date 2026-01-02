@@ -58,6 +58,7 @@ const loadContractTerms = async () => {
 
 // Form data for new/edit term
 const formData = ref({
+  visible: true,
   english: '',
   chinese: '',
   french: '',
@@ -66,6 +67,7 @@ const formData = ref({
 
 const resetForm = () => {
   formData.value = {
+    visible: true,
     english: '',
     chinese: '',
     french: '',
@@ -84,6 +86,7 @@ const handleAdd = () => {
 const handleEdit = (term) => {
   editingTerm.value = term
   formData.value = {
+    visible: term.visible !== false,
     english: term.english || '',
     chinese: term.chinese || '',
     french: term.french || '',
@@ -153,6 +156,23 @@ const handleSave = async () => {
 
 const handleLanguageToggle = () => {
   hasChanges.value = true
+}
+
+const toggleTermVisibility = async (term) => {
+  const index = contractTerms.value.findIndex(t => t.id === term.id)
+  if (index !== -1) {
+    contractTerms.value[index].visible = !contractTerms.value[index].visible
+    hasChanges.value = true
+    // Auto-save on toggle
+    await saveContractTerms()
+  }
+}
+
+// Get display number for visible terms (sequential numbering)
+const getDisplayNumber = (termId) => {
+  const visibleTerms = contractTerms.value.filter(t => t.visible !== false)
+  const termIndex = visibleTerms.findIndex(t => t.id === termId)
+  return termIndex !== -1 ? termIndex + 1 : '-'
 }
 
 const saveContractTerms = async () => {
@@ -288,6 +308,15 @@ onMounted(() => {
         <!-- Add/Edit Form -->
         <div v-if="showAddForm || showEditForm" class="form-container">
           <h4>{{ showEditForm ? 'Edit Term' : 'Add New Term' }}</h4>
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input
+                type="checkbox"
+                v-model="formData.visible"
+              />
+              <span>Visible (show this term in contracts)</span>
+            </label>
+          </div>
           <div class="form-grid">
             <div class="form-group" v-if="enabledLanguages.english">
               <label>English</label>
@@ -337,13 +366,33 @@ onMounted(() => {
         <!-- Terms List -->
         <div class="terms-list">
           <div
-            v-for="term in contractTerms"
+            v-for="(term, index) in contractTerms"
             :key="term.id"
             class="term-item"
+            :class="{ 'term-hidden': term.visible === false }"
           >
             <div class="term-header">
-              <span class="term-id">#{{ term.id }}</span>
+              <div class="term-id-section">
+                <span class="term-id">ID: {{ term.id }}</span>
+                <span v-if="term.visible !== false" class="term-display-number">
+                  Display: #{{ getDisplayNumber(term.id) }}
+                </span>
+                <span v-else class="term-display-number hidden-badge">
+                  Hidden
+                </span>
+              </div>
               <div class="term-actions">
+                <label class="visibility-toggle">
+                  <input
+                    type="checkbox"
+                    :checked="term.visible !== false"
+                    @change="toggleTermVisibility(term)"
+                    :disabled="isProcessing || showAddForm || showEditForm"
+                  />
+                  <span :class="{ 'hidden': term.visible === false }">
+                    <i :class="term.visible !== false ? 'fas fa-eye' : 'fas fa-eye-slash'"></i>
+                  </span>
+                </label>
                 <button @click="handleEdit(term)" class="edit-btn" :disabled="showAddForm || showEditForm">
                   <i class="fas fa-edit"></i>
                 </button>
@@ -616,6 +665,75 @@ onMounted(() => {
   margin-bottom: 12px;
   padding-bottom: 12px;
   border-bottom: 1px solid #e5e7eb;
+}
+
+.term-id-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.term-id {
+  font-weight: 600;
+  color: #6366f1;
+  font-size: 0.875rem;
+}
+
+.term-display-number {
+  font-size: 0.75rem;
+  color: #10b981;
+  font-weight: 500;
+}
+
+.term-display-number.hidden-badge {
+  color: #ef4444;
+  font-style: italic;
+}
+
+.term-item.term-hidden {
+  opacity: 0.6;
+  background-color: #f9fafb;
+}
+
+.term-item.term-hidden .term-content {
+  text-decoration: line-through;
+}
+
+.visibility-toggle {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  margin-right: 8px;
+}
+
+.visibility-toggle input[type="checkbox"] {
+  margin-right: 4px;
+  cursor: pointer;
+}
+
+.visibility-toggle span.hidden {
+  opacity: 0.5;
+}
+
+.visibility-toggle i {
+  font-size: 1rem;
+  color: #6b7280;
+}
+
+.visibility-toggle:hover i {
+  color: #3b82f6;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  margin-bottom: 16px;
+}
+
+.checkbox-label input[type="checkbox"] {
+  cursor: pointer;
 }
 
 .term-id {

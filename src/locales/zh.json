@@ -1017,6 +1017,8 @@
     "no_permission_to_confirm_payment": "您没有确认付款的权限",
     "failed_to_update_payment_confirmed": "更新付款确认状态失败",
     "error_updating_payment_confirmed": "更新付款确认状态时出错",
+    "payment_confirmed_success": "付款已确认。此销售账单中的所有汽车也已确认。",
+    "payment_unconfirmed_success": "付款未确认。此销售账单中的所有汽车也已取消确认。",
     "containerRef": "集装箱参考",
     "container_ref": "集装箱参考",
     "buy_price": "购买价格",

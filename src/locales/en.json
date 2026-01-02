@@ -903,6 +903,8 @@
     "no_permission_to_confirm_payment": "You do not have permission to confirm payments",
     "failed_to_update_payment_confirmed": "Failed to update payment confirmed status",
     "error_updating_payment_confirmed": "Error updating payment confirmed status",
+    "payment_confirmed_success": "Payment confirmed. All cars in this sell bill have also been confirmed.",
+    "payment_unconfirmed_success": "Payment unconfirmed. All cars in this sell bill have also been unconfirmed.",
     "loading_status": "Loading Status",
     "edit_bill": "Edit Bill",
     "delete_bill": "Delete Bill",

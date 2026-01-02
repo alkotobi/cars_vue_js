@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useEnhancedI18n } from '../../composables/useI18n'
 import { useApi } from '../../composables/useApi'
 
@@ -29,6 +29,11 @@ const stampUrl = ref(null)
 const letterHeadUrl = ref(null)
 const contractTerms = ref([])
 const enabledLanguages = ref({})
+
+// Computed property to filter visible terms
+const visibleTerms = computed(() => {
+  return contractTerms.value.filter(term => term.visible !== false)
+})
 const banks = ref([])
 const selectedBank = ref(null)
 
@@ -214,6 +219,41 @@ const loadAssets = async () => {
   }
 }
 
+// Get freight and rate values for placeholder replacement
+const getFreightAndRateValues = () => {
+  if (!carData.value) {
+    return { freightText: 'N/A', rateText: 'N/A' }
+  }
+
+  const freight = parseFloat(carData.value.freight) || 0
+  const rate = parseFloat(carData.value.rate) || 0
+
+  // Format freight value
+  const freightText = freight > 0 ? `USD ${freight.toFixed(2)}` : 'N/A'
+
+  // Format rate value
+  const rateText = rate > 0 ? rate.toFixed(2) : 'N/A'
+
+  return { freightText, rateText }
+}
+
+// Replace placeholders in term text with proper RTL handling
+const replaceTermPlaceholders = (text) => {
+  if (!text) return text
+  const { freightText, rateText } = getFreightAndRateValues()
+  
+  // Wrap numeric values with LTR markers to preserve direction in RTL text
+  // Using Left-to-Right Mark (LRM) and Right-to-Left Mark (RLM) for proper bidirectional text
+  const ltrIsolate = '\u2066' // Left-to-Right Isolate
+  const popIsolate = '\u2069'  // Pop Directional Isolate
+  
+  // Wrap freight and rate values to preserve LTR direction
+  const wrappedFreight = freightText !== 'N/A' ? `${ltrIsolate}${freightText}${popIsolate}` : freightText
+  const wrappedRate = rateText !== 'N/A' ? `${ltrIsolate}${rateText}${popIsolate}` : rateText
+  
+  return text.replace(/{FREIGHT}/g, wrappedFreight).replace(/{RATE}/g, wrappedRate)
+}
+
 onMounted(async () => {
   await loadAssets()
   await loadContractTerms()
@@ -384,14 +424,14 @@ onMounted(async () => {
         <div class="section contract-terms">
           <h3>Terms and Conditions</h3>
           <div class="terms-list">
-            <div v-for="term in contractTerms" :key="term.id" class="term-item">
+            <div v-for="(term, index) in visibleTerms" :key="term.id" class="term-item">
               <template v-for="(value, key) in term" :key="key">
                 <p 
-                  v-if="key !== 'id' && enabledLanguages[key] === true" 
+                  v-if="key !== 'id' && key !== 'visible' && enabledLanguages[key] === true" 
                   :class="key"
                   :style="{ fontSize: (options.termsFontSize || 11) + 'pt' }"
                 >
-                  {{ term.id }}. {{ value }}
+                  {{ index + 1 }}. {{ replaceTermPlaceholders(value) }}
                 </p>
               </template>
             </div>

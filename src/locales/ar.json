@@ -993,6 +993,8 @@
     "no_permission_to_confirm_payment": "ليس لديك إذن لتأكيد المدفوعات",
     "failed_to_update_payment_confirmed": "فشل تحديث حالة تأكيد الدفع",
     "error_updating_payment_confirmed": "خطأ في تحديث حالة تأكيد الدفع",
+    "payment_confirmed_success": "تم تأكيد الدفع. تم تأكيد جميع السيارات في فاتورة البيع هذه أيضًا.",
+    "payment_unconfirmed_success": "لم يتم تأكيد الدفع. تم إلغاء تأكيد جميع السيارات في فاتورة البيع هذه أيضًا.",
     "view_cars": "عرض السيارات",
     "hide_cars": "إخفاء السيارات",
     "loading_cars": "جاري تحميل السيارات...",

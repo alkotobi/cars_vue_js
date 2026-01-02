@@ -318,18 +318,19 @@ watch(
             <p v-else>{{ t('switchBuyBill.noOtherCarsSameModel') }}</p>
           </div>
 
-          <div v-else class="results-info">
-            <p>
-              {{
-                t('switchBuyBill.foundCars', {
-                  count: filteredCars.length,
-                  bills: groupedCars.length,
-                })
-              }}
-            </p>
-          </div>
+          <div v-else>
+            <div class="results-info">
+              <p>
+                {{
+                  t('switchBuyBill.foundCars', {
+                    count: filteredCars.length,
+                    bills: groupedCars.length,
+                  })
+                }}
+              </p>
+            </div>
 
-          <div v-else class="cars-list">
+            <div class="cars-list">
             <div v-for="group in groupedCars" :key="group.buy_bill_ref" class="purchase-bill-group">
               <div class="group-header">
                 <h5>
@@ -391,6 +392,7 @@ watch(
                 </div>
               </div>
             </div>
+          </div>
           </div>
         </div>
 

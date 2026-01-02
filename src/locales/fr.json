@@ -1131,7 +1131,9 @@
     "not_confirmed": "Non Confirmé",
     "no_permission_to_confirm_payment": "Vous n'avez pas la permission de confirmer les paiements",
     "failed_to_update_payment_confirmed": "Échec de la mise à jour du statut de confirmation de paiement",
-    "error_updating_payment_confirmed": "Erreur lors de la mise à jour du statut de confirmation de paiement"
+    "error_updating_payment_confirmed": "Erreur lors de la mise à jour du statut de confirmation de paiement",
+    "payment_confirmed_success": "Paiement confirmé. Toutes les voitures de cette facture de vente ont également été confirmées.",
+    "payment_unconfirmed_success": "Paiement non confirmé. Toutes les voitures de cette facture de vente ont également été non confirmées."
   },
   "containersRef": {
     "title": "Références de Conteneurs",
