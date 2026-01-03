@@ -7,7 +7,7 @@ import CarStockPrintOptions from './CarStockPrintOptions.vue'
 import SelectionChatButton from './SelectionChatButton.vue'
 
 const { t } = useEnhancedI18n()
-const { callApi, getFileUrl, getAssets } = useApi()
+const { callApi, getFileUrl, getAssets, loadLetterhead } = useApi()
 const letterHeadUrl = ref(null)
 const user = ref(null)
 
@@ -567,10 +567,7 @@ const handlePrintWithOptions = async (printData) => {
     // Load assets if not already loaded
     if (!letterHeadUrl.value) {
       try {
-        const assets = await getAssets()
-        if (assets && assets.letter_head) {
-          letterHeadUrl.value = assets.letter_head
-        }
+        letterHeadUrl.value = await loadLetterhead()
       } catch (err) {
         console.error('Failed to load assets:', err)
       }

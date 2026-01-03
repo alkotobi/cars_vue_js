@@ -9,7 +9,7 @@ const props = defineProps({
   },
 })
 
-const { callApi, getAssets } = useApi()
+const { callApi, getAssets, loadLetterhead } = useApi()
 const letterHeadUrl = ref(null)
 const sellPayments = ref([])
 const receivedTransfers = ref([])
@@ -328,7 +328,7 @@ const printTransactionsList = async () => {
   if (!letterHeadUrl.value) {
     try {
       const assets = await getAssets()
-      letterHeadUrl.value = assets?.letter_head || ''
+      letterHeadUrl.value = await loadLetterhead() || ''
     } catch (err) {
       console.error('Failed to load assets, using default:', err)
     }
@@ -599,7 +599,7 @@ const printTransactionReceipt = async (transaction) => {
   if (!letterHeadUrl.value) {
     try {
       const assets = await getAssets()
-      letterHeadUrl.value = assets?.letter_head || ''
+      letterHeadUrl.value = await loadLetterhead() || ''
     } catch (err) {
       console.error('Failed to load assets, using default:', err)
     }

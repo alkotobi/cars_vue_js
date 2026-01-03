@@ -2,7 +2,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useApi } from '../../composables/useApi'
 
-const { callApi, getAssets } = useApi()
+const { callApi, getAssets, loadLetterhead } = useApi()
 const letterHeadUrl = ref(null)
 const expenses = ref([])
 const filteredExpenses = ref([])
@@ -197,7 +197,7 @@ const printExpensesList = async () => {
   if (!letterHeadUrl.value) {
     try {
       const assets = await getAssets()
-      letterHeadUrl.value = assets?.letter_head || ''
+      letterHeadUrl.value = await loadLetterhead() || ''
     } catch (err) {
       console.error('Failed to load assets, using default:', err)
     }
@@ -438,7 +438,7 @@ const printReceipt = async (expense) => {
   if (!letterHeadUrl.value) {
     try {
       const assets = await getAssets()
-      letterHeadUrl.value = assets?.letter_head || ''
+      letterHeadUrl.value = await loadLetterhead() || ''
     } catch (err) {
       console.error('Failed to load assets, using default:', err)
     }

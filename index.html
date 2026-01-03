@@ -18,10 +18,111 @@
         document.head.insertBefore(baseTag, document.head.firstChild)
       })()
     </script>
-    <link rel="icon" href="./logo.png" type="image/png">
-    <link rel="apple-touch-icon" href="./logo.png">
+    <link rel="icon" href="./logo_default.png" type="image/png" id="favicon-link">
+    <link rel="apple-touch-icon" href="./logo_default.png" id="apple-touch-link">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cars Management System</title>
+    <script>
+      // Update favicon based on logged-in user
+      (function() {
+        function updateFavicon(iconUrl) {
+          const faviconLink = document.getElementById('favicon-link')
+          const appleTouchLink = document.getElementById('apple-touch-link')
+          if (faviconLink) faviconLink.href = iconUrl
+          if (appleTouchLink) appleTouchLink.href = iconUrl
+        }
+
+        function getBasePath() {
+          const pathname = window.location.pathname
+          const match = pathname.match(/^(\/[^/]+\/)/)
+          return match ? match[1] : '/'
+        }
+
+        function getFileUrl(path, baseDirectory) {
+          if (!path || typeof path !== 'string' || path.trim() === '') {
+            return ''
+          }
+          if (path.startsWith('http://') || path.startsWith('https://')) {
+            return path
+          }
+          // Construct upload.php URL
+          const basePath = getBasePath()
+          const apiBase = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+            ? 'http://localhost:8000/api'
+            : 'https://www.merhab.com/api'
+          const uploadUrl = `${apiBase}/upload.php`
+          const url = new URL(uploadUrl)
+          url.searchParams.set('path', path.replace(/^\/+/, ''))
+          if (baseDirectory) {
+            url.searchParams.set('base_directory', baseDirectory)
+          }
+          return url.toString()
+        }
+
+        async function loadFavicon() {
+          const basePath = getBasePath()
+          const userStr = localStorage.getItem('user')
+          
+          if (userStr) {
+            try {
+              const user = JSON.parse(userStr)
+              
+              // Check if user is a different company user - handle 0/1 from database
+              const isDifferentCompany = user && (
+                user.is_diffrent_company === 1 || 
+                user.is_diffrent_company === true || 
+                user.is_diffrent_company === '1'
+              )
+              
+              // Check if user is a different company user and has a custom logo
+              if (isDifferentCompany && user.path_logo) {
+                try {
+                  // Need to get files_dir from db_code.json
+                  const res = await fetch(`${basePath}db_code.json`)
+                  const data = await res.json()
+                  
+                  if (data && data.files_dir) {
+                    const customLogoUrl = getFileUrl(user.path_logo, data.files_dir)
+                    if (customLogoUrl) {
+                      updateFavicon(customLogoUrl)
+                      return
+                    }
+                  }
+                } catch (e) {
+                  // Error fetching config, fall through to default
+                }
+                // Fallback to logo_default.png
+                updateFavicon(`${basePath}logo_default.png`)
+                return
+              }
+
+              // If user is different company but no logo, use logo_default.png
+              if (isDifferentCompany) {
+                updateFavicon(`${basePath}logo_default.png`)
+                return
+              }
+            } catch (e) {
+              // Invalid user data, fall through to default
+            }
+          }
+
+          // For regular users or no user, use default logo.png
+          updateFavicon(`${basePath}logo.png`)
+        }
+
+        // Update favicon on page load
+        loadFavicon()
+
+        // Listen for user login/logout events
+        window.addEventListener('storage', (e) => {
+          if (e.key === 'user') {
+            loadFavicon()
+          }
+        })
+        window.addEventListener('userLogin', loadFavicon)
+        window.addEventListener('userLogout', loadFavicon)
+      })()
+    </script>
   </head>
   <body>
     <div id="app"></div>

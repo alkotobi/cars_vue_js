@@ -3,7 +3,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useApi } from '../../composables/useApi'
 import TransferForm from './TransferForm.vue'
 
-const { callApi, getAssets } = useApi()
+const { callApi, getAssets, loadLetterhead } = useApi()
 const letterHeadUrl = ref(null)
 const transfers = ref([])
 const users = ref([])
@@ -239,7 +239,7 @@ const printTransferReceipt = async (transfer) => {
   if (!letterHeadUrl.value) {
     try {
       const assets = await getAssets()
-      letterHeadUrl.value = assets?.letter_head || ''
+      letterHeadUrl.value = await loadLetterhead() || ''
     } catch (err) {
       console.error('Failed to load assets, using default:', err)
     }

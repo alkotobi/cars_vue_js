@@ -133,6 +133,7 @@ const {
   callApi,
   getFileUrl,
   getAssets,
+  loadLetterhead,
   getCarFiles,
   transferPhysicalCopy,
   getUsersForTransfer,
@@ -630,10 +631,7 @@ const printReport = async (reportData) => {
   // Load assets if not already loaded
   if (!letterHeadUrl.value) {
     try {
-      const assets = await getAssets()
-      if (assets && assets.letter_head) {
-        letterHeadUrl.value = assets.letter_head
-      }
+      letterHeadUrl.value = await loadLetterhead()
     } catch (err) {
       // Failed to load assets, using default
     }

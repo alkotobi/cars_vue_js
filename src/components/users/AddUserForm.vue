@@ -69,7 +69,8 @@ const uploadImageFile = async (file, type) => {
     const timestamp = Date.now()
     const fileExtension = file.name.split('.').pop()
     const filename = `${type}_${timestamp}.${fileExtension}`
-    const result = await uploadFile(file, `company_assets/${type}`, filename)
+    // Upload to files_dir directly (files_dir is used as base_directory in uploadFile)
+    const result = await uploadFile(file, type, filename)
 
     if (result.success) {
       return result.relativePath
@@ -88,21 +89,43 @@ const handleSubmit = async () => {
     return
   }
 
+  // Validate that logo and letterhead are required for different company users
+  if (formData.value.is_diffrent_company) {
+    if (!logoFile.value) {
+      error.value = 'Logo is required for different company users'
+      return
+    }
+    if (!letterHeadFile.value) {
+      error.value = 'Letterhead is required for different company users'
+      return
+    }
+  }
+
   loading.value = true
   error.value = null
 
   try {
     // Upload image files if is_diffrent_company is true
     if (formData.value.is_diffrent_company) {
+      // Logo is mandatory for different company users
       if (logoFile.value) {
         uploadingLogo.value = true
         formData.value.path_logo = await uploadImageFile(logoFile.value, 'logo')
         uploadingLogo.value = false
+      } else {
+        error.value = 'Logo is required for different company users'
+        loading.value = false
+        return
       }
+      // Letterhead is mandatory for different company users
       if (letterHeadFile.value) {
         uploadingLetterHead.value = true
         formData.value.path_letter_head = await uploadImageFile(letterHeadFile.value, 'letter_head')
         uploadingLetterHead.value = false
+      } else {
+        error.value = 'Letterhead is required for different company users'
+        loading.value = false
+        return
       }
       if (stampFile.value) {
         uploadingStamp.value = true
@@ -249,12 +272,7 @@ onMounted(() => {
           <i class="fas fa-shield-alt"></i>
           Role
         </label>
-        <select
-          id="role_id"
-          v-model="formData.role_id"
-          class="form-select"
-          :disabled="loading"
-        >
+        <select id="role_id" v-model="formData.role_id" class="form-select" :disabled="loading">
           <option value="">Select a role (optional)</option>
           <option v-for="role in roles" :key="role.id" :value="role.id">
             {{ role.role_name }}
@@ -292,7 +310,9 @@ onMounted(() => {
             Different Company User
           </span>
         </label>
-        <p class="form-hint">Enable this to add company-specific assets (logo, letterhead, stamp)</p>
+        <p class="form-hint">
+          Enable this to add company-specific assets (logo, letterhead, stamp)
+        </p>
       </div>
 
       <div v-if="formData.is_diffrent_company" class="company-assets-section">
@@ -304,7 +324,7 @@ onMounted(() => {
         <div class="form-group">
           <label for="path_logo">
             <i class="fas fa-image"></i>
-            Logo
+            Logo <span class="required">*</span>
           </label>
           <div class="file-upload-wrapper">
             <input
@@ -329,7 +349,7 @@ onMounted(() => {
         <div class="form-group">
           <label for="path_letter_head">
             <i class="fas fa-file-image"></i>
-            Letterhead
+            Letterhead <span class="required">*</span>
           </label>
           <div class="file-upload-wrapper">
             <input
@@ -650,4 +670,3 @@ onMounted(() => {
   gap: 8px;
 }
 </style>
-

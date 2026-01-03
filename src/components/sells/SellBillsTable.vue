@@ -29,7 +29,7 @@ const emit = defineEmits(['refresh', 'select-bill', 'update-selected-bills'])
 const selectedBills = ref([])
 
 const router = useRouter()
-const { callApi, getAssets } = useApi()
+const { callApi, getAssets, loadLetterhead } = useApi()
 const letterHeadUrl = ref(null)
 const sellBills = ref([])
 const loading = ref(true)
@@ -720,7 +720,7 @@ const generateBatchPrintReport = async (billsData) => {
   if (!letterHeadUrl.value) {
     try {
       const assets = await getAssets()
-      letterHeadUrl.value = assets?.letter_head || ''
+      letterHeadUrl.value = await loadLetterhead() || ''
     } catch (err) {
       console.error('Failed to load assets, using default:', err)
     }
@@ -794,7 +794,7 @@ const generateBatchPrintReport = async (billsData) => {
   if (!letterHeadUrl.value) {
     try {
       const assets = await getAssets()
-      letterHeadUrl.value = assets?.letter_head || ''
+      letterHeadUrl.value = await loadLetterhead() || ''
     } catch (err) {
       console.error('Failed to load assets, using default:', err)
     }

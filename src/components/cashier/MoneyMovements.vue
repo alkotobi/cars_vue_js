@@ -3,7 +3,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useApi } from '../../composables/useApi'
 import UserTransactionsTable from './UserTransactionsTable.vue'
 
-const { callApi, getAssets } = useApi()
+const { callApi, getAssets, loadLetterhead } = useApi()
 const letterHeadUrl = ref(null)
 const users = ref([])
 const loading = ref(false)
@@ -219,7 +219,7 @@ const printUsersList = async () => {
   if (!letterHeadUrl.value) {
     try {
       const assets = await getAssets()
-      letterHeadUrl.value = assets?.letter_head || ''
+      letterHeadUrl.value = await loadLetterhead() || ''
     } catch (err) {
       console.error('Failed to load assets, using default:', err)
     }

@@ -533,6 +533,46 @@ export const useApi = () => {
     return result
   }
 
+  // Load letterhead URL - checks for user-specific letterhead first, then falls back to default
+  async function loadLetterhead(user = null) {
+    // Get user from localStorage if not provided
+    if (!user) {
+      const userStr = localStorage.getItem('user')
+      user = userStr ? JSON.parse(userStr) : null
+    }
+
+    // Get current base path for fallback URLs
+    const currentBasePath = getBasePath()
+    const STORAGE_KEY = 'assets_version'
+    let assetsVersion = localStorage.getItem(STORAGE_KEY) || Date.now().toString()
+    const cacheBuster = `?v=${assetsVersion}`
+
+    // Check if user is a different company user - handle 0/1 from database
+    const isDifferentCompany =
+      user &&
+      (user.is_diffrent_company === 1 ||
+        user.is_diffrent_company === true ||
+        user.is_diffrent_company === '1')
+
+    // Check if user is a different company user and has a custom letterhead
+    if (isDifferentCompany && user.path_letter_head && user.path_letter_head.trim() !== '') {
+      // Use user's custom letterhead from files_dir
+      const customLetterheadUrl = getFileUrl(user.path_letter_head)
+      if (customLetterheadUrl) {
+        return customLetterheadUrl
+      }
+    }
+
+    // If user is different company but no custom letterhead, use letter_head_default.png
+    if (isDifferentCompany) {
+      return `${currentBasePath}letter_head_default.png${cacheBuster}`
+    }
+
+    // For regular users, use default letter_head.png
+    const assets = await getAssets()
+    return assets?.letter_head || `${currentBasePath}letter_head.png${cacheBuster}`
+  }
+
   // Function to update assets version (call this after uploading new assets)
   function updateAssetsVersion() {
     const STORAGE_KEY = 'assets_version'
@@ -1020,6 +1060,7 @@ export const useApi = () => {
     getFileUrl,
     handleCookieVerification,
     getAssets,
+    loadLetterhead,
     updateAssetsVersion,
     // Car Files Management
     getCarFileCategories,

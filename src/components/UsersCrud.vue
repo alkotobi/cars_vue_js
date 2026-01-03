@@ -1,18 +1,12 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useApi } from '../composables/useApi'
+import EditUserForm from './users/EditUserForm.vue'
 
 const { callApi, error, loading } = useApi()
 const users = ref([])
 const roles = ref([])
 const editingUser = ref(null)
-const editUserData = ref({
-  username: '',
-  email: '',
-  password: '',
-  role_id: '',
-  max_unpayed_created_bills: 0,
-})
 
 const fetchUsers = async () => {
   const result = await callApi({
@@ -20,10 +14,12 @@ const fetchUsers = async () => {
       SELECT users.*, roles.role_name 
       FROM users 
       LEFT JOIN roles ON users.role_id = roles.id
+      ORDER BY users.username
     `,
   })
   if (result.success) {
     users.value = result.data
+    console.log('Fetched users:', users.value.map(u => ({ id: u.id, username: u.username, is_diffrent_company: u.is_diffrent_company })))
   }
 }
 
@@ -42,67 +38,16 @@ defineExpose({
 })
 
 const startEditUser = (user) => {
-  editingUser.value = user.id
-  editUserData.value = {
-    username: user.username,
-    email: user.email,
-    password: '', // Don't populate password for security
-    role_id: user.role_id,
-    max_unpayed_created_bills: user.max_unpayed_created_bills || 0,
-  }
+  editingUser.value = user
 }
 
-const updateUser = async (user) => {
-  // Validate required fields
-  if (!editUserData.value.username || !editUserData.value.email) {
-    error.value = 'Username and email are required'
-    return
-  }
-
-  try {
-    // First update user info without password
-    let result = await callApi({
-      query:
-        'UPDATE users SET username = ?, email = ?, role_id = ?, max_unpayed_created_bills = ? WHERE id = ?',
-      params: [
-        editUserData.value.username,
-        editUserData.value.email,
-        editUserData.value.role_id,
-        editUserData.value.max_unpayed_created_bills,
-        user.id,
-      ],
-    })
-
-    // If there's a password to update, do it in a separate call
-    if (editUserData.value.password && editUserData.value.password.trim()) {
-      result = await callApi({
-        query: 'UPDATE users SET password = ? WHERE id = ?',
-        params: [editUserData.value.password, user.id],
-        action: 'hash_password',
-      })
-    }
-
-    if (result.success) {
-      await fetchUsers()
-      cancelEdit()
-    } else {
-      error.value = result.error || 'Failed to update user'
-    }
-  } catch (err) {
-    error.value = err.message || 'An error occurred while updating user'
-    console.error('Update error:', err)
-  }
-}
-
-const cancelEdit = () => {
+const handleUserUpdated = async () => {
+  await fetchUsers()
   editingUser.value = null
-  editUserData.value = {
-    username: '',
-    email: '',
-    password: '',
-    role_id: '',
-    max_unpayed_created_bills: 0,
-  }
+}
+
+const handleCloseEdit = () => {
+  editingUser.value = null
 }
 
 const deleteUser = async (user) => {
@@ -145,119 +90,47 @@ onMounted(() => {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="user in users" :key="user.id" :class="{ editing: editingUser === user.id }">
-            <template v-if="editingUser === user.id">
-              <td>
-                <div class="input-wrapper">
-                  <i class="fas fa-user input-icon"></i>
-                  <input
-                    v-model="editUserData.username"
-                    placeholder="Username"
-                    class="input-field with-icon"
-                    :disabled="loading"
-                  />
-                </div>
-              </td>
-              <td>
-                <div class="input-wrapper">
-                  <i class="fas fa-envelope input-icon"></i>
-                  <input
-                    v-model="editUserData.email"
-                    placeholder="Email"
-                    class="input-field with-icon"
-                    :disabled="loading"
-                  />
-                </div>
-              </td>
-              <td>
-                <div class="input-wrapper">
-                  <i class="fas fa-shield-alt input-icon"></i>
-                  <select
-                    v-model="editUserData.role_id"
-                    class="input-field with-icon"
-                    :disabled="loading"
-                  >
-                    <option disabled value="">Select Role</option>
-                    <option v-for="role in roles" :key="role.id" :value="role.id">
-                      {{ role.role_name }}
-                    </option>
-                  </select>
-                </div>
-              </td>
-              <td>
-                <div class="input-wrapper">
-                  <i class="fas fa-receipt input-icon"></i>
-                  <input
-                    v-model.number="editUserData.max_unpayed_created_bills"
-                    type="number"
-                    min="0"
-                    placeholder="Max Unpaid Bills"
-                    class="input-field with-icon"
-                    :disabled="loading"
-                  />
-                </div>
-              </td>
-              <td class="actions-cell">
-                <div class="input-wrapper">
-                  <i class="fas fa-key input-icon"></i>
-                  <input
-                    v-model="editUserData.password"
-                    type="password"
-                    placeholder="New Password (optional)"
-                    class="input-field with-icon"
-                    :disabled="loading"
-                  />
-                </div>
-                <div class="button-group">
-                  <button @click="updateUser(user)" :disabled="loading" class="btn save-btn">
-                    <i class="fas" :class="loading ? 'fa-spinner fa-spin' : 'fa-save'"></i>
-                    {{ loading ? 'Saving...' : 'Save' }}
-                  </button>
-                  <button @click="cancelEdit" class="btn cancel-btn" :disabled="loading">
-                    <i class="fas fa-times"></i>
-                    Cancel
-                  </button>
-                </div>
-              </td>
-            </template>
-            <template v-else>
-              <td>
-                <i class="fas fa-user text-gray"></i>
-                {{ user.username }}
-              </td>
-              <td>
-                <i class="fas fa-envelope text-gray"></i>
-                {{ user.email }}
-              </td>
-              <td>
-                <i class="fas fa-shield-alt text-gray"></i>
-                {{ user.role_name || 'No Role' }}
-              </td>
-              <td>
-                <i class="fas fa-receipt text-gray"></i>
-                {{ user.max_unpayed_created_bills || 0 }}
-              </td>
-              <td class="actions-cell">
-                <div class="button-group">
-                  <button
-                    @click="startEditUser(user)"
-                    class="btn edit-btn"
-                    :disabled="loading || editingUser !== null"
-                  >
-                    <i class="fas fa-edit"></i>
-                    Edit
-                  </button>
-                  <button
-                    @click="deleteUser(user)"
-                    :disabled="loading || editingUser !== null"
-                    class="btn delete-btn"
-                  >
-                    <i class="fas fa-trash-alt"></i>
-                    Delete
-                  </button>
-                </div>
-              </td>
-            </template>
+          <tr v-for="user in users" :key="user.id">
+            <td>
+              <i class="fas fa-user text-gray"></i>
+              {{ user.username }}
+              <span v-if="user.is_diffrent_company" class="badge badge-company">
+                <i class="fas fa-building"></i>
+                Company
+              </span>
+            </td>
+            <td>
+              <i class="fas fa-envelope text-gray"></i>
+              {{ user.email }}
+            </td>
+            <td>
+              <i class="fas fa-shield-alt text-gray"></i>
+              {{ user.role_name || 'No Role' }}
+            </td>
+            <td>
+              <i class="fas fa-receipt text-gray"></i>
+              {{ user.max_unpayed_created_bills || 0 }}
+            </td>
+            <td class="actions-cell">
+              <div class="button-group">
+                <button
+                  @click="startEditUser(user)"
+                  class="btn edit-btn"
+                  :disabled="loading || editingUser !== null"
+                >
+                  <i class="fas fa-edit"></i>
+                  Edit
+                </button>
+                <button
+                  @click="deleteUser(user)"
+                  :disabled="loading || editingUser !== null"
+                  class="btn delete-btn"
+                >
+                  <i class="fas fa-trash-alt"></i>
+                  Delete
+                </button>
+              </div>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -267,6 +140,14 @@ onMounted(() => {
         {{ error }}
       </div>
     </div>
+
+    <!-- Edit User Modal -->
+    <EditUserForm
+      v-if="editingUser"
+      :user="editingUser"
+      @user-updated="handleUserUpdated"
+      @close="handleCloseEdit"
+    />
   </div>
 </template>
 
@@ -343,13 +224,28 @@ onMounted(() => {
   transition: all 0.2s ease;
 }
 
-.users-table tr:hover:not(.editing) {
+.users-table tr:hover {
   background-color: #f8fafc;
 }
 
-.users-table tr.editing {
-  background-color: #f0f9ff;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-left: 8px;
+}
+
+.badge-company {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
+.badge-company i {
+  font-size: 10px;
 }
 
 .actions-cell {

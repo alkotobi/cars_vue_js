@@ -9,7 +9,7 @@ import ChatMessages from './chat/ChatMessages.vue'
 
 const router = useRouter()
 const { t } = useEnhancedI18n()
-const { callApi, getAssets } = useApi()
+const { callApi, getAssets, getFileUrl } = useApi()
 const user = ref(null)
 const logoUrl = ref(null)
 const showChatModal = ref(false)
@@ -143,10 +143,22 @@ const cleanupActivityListeners = () => {
 
 // Watch for localStorage changes (when user logs in/out)
 const watchUserChanges = () => {
-  window.addEventListener('storage', () => getUser())
+  window.addEventListener('storage', async () => {
+    await getUser()
+    await nextTick()
+    loadLogo()
+  })
   // Also watch for custom events
-  window.addEventListener('userLogin', () => getUser())
-  window.addEventListener('userLogout', () => getUser())
+  window.addEventListener('userLogin', async () => {
+    await getUser()
+    await nextTick()
+    loadLogo()
+  })
+  window.addEventListener('userLogout', async () => {
+    await getUser()
+    await nextTick()
+    loadLogo()
+  })
 }
 
 // Check if we're on the login page
@@ -286,9 +298,53 @@ const getBasePath = () => {
   return baseUrl
 }
 
+// Update favicon function
+const updateFavicon = (url) => {
+  const faviconLink = document.getElementById('favicon-link')
+  const appleTouchLink = document.getElementById('apple-touch-link')
+
+  if (faviconLink) {
+    faviconLink.href = url
+  }
+  if (appleTouchLink) {
+    appleTouchLink.href = url
+  }
+}
+
+// Clear logo cache helper
+const clearLogoCache = () => {
+  // Clear the logo URL to force reload
+  logoUrl.value = ''
+
+  // Clear browser image cache if available
+  if ('caches' in window) {
+    caches.keys().then((names) => {
+      names.forEach((name) => {
+        if (name.includes('logo') || name.includes('assets')) {
+          caches.delete(name)
+        }
+      })
+    })
+  }
+
+  // Force clear any cached logo images in the DOM
+  const logoImages = document.querySelectorAll(
+    '.company-logo, img[alt*="logo" i], img[src*="logo"]',
+  )
+  logoImages.forEach((img) => {
+    if (img.src) {
+      img.src = ''
+    }
+  })
+}
+
 // Load logo from assets
 const loadLogo = async () => {
   const basePath = getBasePath()
+
+  // Clear logo cache first to ensure fresh load
+  clearLogoCache()
+  await nextTick()
 
   // Get assets version from localStorage
   const STORAGE_KEY = 'assets_version'
@@ -303,11 +359,67 @@ const loadLogo = async () => {
   // Add cache-busting with both version and timestamp for maximum cache invalidation
   const timestamp = Date.now()
   const random = Math.random().toString(36).substring(7) // Add random string for extra cache busting
-  const fallbackLogo = `${basePath}logo.png?v=${assetsVersion}&t=${timestamp}&r=${random}`
 
   try {
-    const assets = await getAssets()
+    // Wait for user data to be available
+    if (!user.value) {
+      // If no user, use default logo
+      const defaultLogo = `${basePath}logo.png?v=${assetsVersion}&t=${timestamp}&r=${random}`
+      logoUrl.value = ''
+      await nextTick()
+      logoUrl.value = defaultLogo
+      updateFavicon(defaultLogo)
+      return
+    }
 
+    // Check if user is a different company user - handle 0/1 from database
+    const isDifferentCompany =
+      user.value.is_diffrent_company === 1 ||
+      user.value.is_diffrent_company === true ||
+      user.value.is_diffrent_company === '1'
+
+    console.log(
+      'loadLogo - user:',
+      user.value?.id,
+      'is_diffrent_company:',
+      user.value?.is_diffrent_company,
+      'type:',
+      typeof user.value?.is_diffrent_company,
+      'converted:',
+      isDifferentCompany,
+      'path_logo:',
+      user.value?.path_logo,
+    )
+
+    // Check if user is a different company user and has a custom logo
+    // Make sure path_logo is not empty/null/undefined
+    if (isDifferentCompany && user.value.path_logo && user.value.path_logo.trim() !== '') {
+      // Use user's custom logo from files_dir
+      const customLogoUrl = getFileUrl(user.value.path_logo)
+      if (customLogoUrl) {
+        const logoWithCacheBuster = `${customLogoUrl}&t=${timestamp}&r=${random}`
+        console.log('Using custom logo:', logoWithCacheBuster)
+        logoUrl.value = ''
+        await nextTick()
+        logoUrl.value = logoWithCacheBuster
+        updateFavicon(logoWithCacheBuster)
+        return
+      }
+    }
+
+    // If user is different company but no logo or empty logo, use logo_default.png
+    if (isDifferentCompany) {
+      const defaultLogo = `${basePath}logo_default.png?v=${assetsVersion}&t=${timestamp}&r=${random}`
+      console.log('Using default logo for different company (no custom logo):', defaultLogo)
+      logoUrl.value = ''
+      await nextTick()
+      logoUrl.value = defaultLogo
+      updateFavicon(defaultLogo)
+      return
+    }
+
+    // For regular users, use default logo.png
+    const assets = await getAssets()
     if (assets && assets.logo) {
       // Add additional timestamp and random string to force reload
       const logoWithCacheBuster = `${assets.logo}&t=${timestamp}&r=${random}`
@@ -325,12 +437,14 @@ const loadLogo = async () => {
       }
     } else {
       // Fallback to default logo path if getAssets doesn't return logo
+      const fallbackLogo = `${basePath}logo.png?v=${assetsVersion}&t=${timestamp}&r=${random}`
       logoUrl.value = ''
       await nextTick()
       logoUrl.value = fallbackLogo
     }
   } catch (err) {
     // Fallback to default logo path
+    const fallbackLogo = `${basePath}logo.png?v=${assetsVersion}&t=${timestamp}&r=${random}`
     logoUrl.value = ''
     await nextTick()
     logoUrl.value = fallbackLogo
@@ -340,8 +454,20 @@ const loadLogo = async () => {
 // Initialize user on component mount
 onMounted(async () => {
   await getUser()
+  // Wait a bit to ensure user data is fully loaded
+  await nextTick()
   loadLogo() // Load logo asynchronously
   watchUserChanges()
+
+  // Watch for user changes to reload logo
+  watch(
+    user,
+    async () => {
+      await nextTick()
+      loadLogo()
+    },
+    { deep: true },
+  )
 
   // Listen for assets update event (when new logo/letterhead/stamp is uploaded)
   window.addEventListener('assetsUpdated', loadLogo)
@@ -414,7 +540,7 @@ onUnmounted(() => {
         <div class="logo-section">
           <img
             :key="logoUrl"
-            :src="logoUrl || `${getBasePath()}logo.png`"
+            :src="logoUrl || `${getBasePath()}logo_default.png`"
             alt="Company Logo"
             class="company-logo"
             crossorigin="anonymous"

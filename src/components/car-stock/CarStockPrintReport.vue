@@ -5,7 +5,7 @@ import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
 
-const { getFileUrl, getAssets } = useApi()
+const { getFileUrl, getAssets, loadLetterhead } = useApi()
 const letterHeadUrl = ref(null)
 
 const props = defineProps({
@@ -90,10 +90,8 @@ const generateRef = computed(() => {
 // Load assets (logo, stamp, letter head)
 const loadAssets = async () => {
   try {
-    const assets = await getAssets()
-    if (assets && assets.letter_head) {
-      letterHeadUrl.value = assets.letter_head
-    } else {
+    letterHeadUrl.value = await loadLetterhead()
+    if (!letterHeadUrl.value) {
       // Fallback to default
       console.error('Failed to load assets, using default:', err)
     }

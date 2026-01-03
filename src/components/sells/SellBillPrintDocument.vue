@@ -16,7 +16,7 @@ const props = defineProps({
   },
 })
 
-const { callApi, getAssets } = useApi()
+const { callApi, getAssets, loadLetterhead } = useApi()
 const loading = ref(true)
 const error = ref(null)
 const billData = ref(null)
@@ -330,7 +330,7 @@ const loadAssets = async () => {
     if (assets) {
       logoUrl.value = assets.logo || null
       stampUrl.value = assets.gml2 || null
-      letterHeadUrl.value = assets.letter_head || null
+      letterHeadUrl.value = await loadLetterhead()
 
       // Update company logo
       if (logoUrl.value) {

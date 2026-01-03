@@ -55,7 +55,7 @@ const login = async () => {
 
     // Get user and verify credentials
     const result = await callApi({
-      query: `SELECT u.id, u.username, u.role_id, u.password, r.role_name 
+      query: `SELECT u.id, u.username, u.role_id, u.password, u.is_diffrent_company, u.path_logo, u.path_letter_head, u.path_stamp, r.role_name 
               FROM users u 
               JOIN roles r ON u.role_id = r.id 
               WHERE u.username = ?`,
@@ -94,6 +94,10 @@ const login = async () => {
         }
 
         localStorage.setItem('user', JSON.stringify(userInfo))
+
+        // Clear logo cache by updating assets version to force reload
+        const STORAGE_KEY = 'assets_version'
+        localStorage.setItem(STORAGE_KEY, Date.now().toString())
 
         // Dispatch custom events for header to update
         window.dispatchEvent(new CustomEvent('userLogin'))
