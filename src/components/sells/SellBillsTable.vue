@@ -195,6 +195,7 @@ const fetchSellBills = async () => {
         sb.*,
         c.name as broker_name,
         u.username as created_by,
+        u_confirmed.username as confirmed_by_username,
         (
           SELECT GROUP_CONCAT(DISTINCT cl.name SEPARATOR ', ')
           FROM cars_stock cs
@@ -224,6 +225,7 @@ const fetchSellBills = async () => {
       FROM sell_bill sb
       LEFT JOIN clients c ON sb.id_broker = c.id
       LEFT JOIN users u ON sb.id_user = u.id
+      LEFT JOIN users u_confirmed ON sb.payment_confirmed_by_user_id = u_confirmed.id
       ORDER BY sb.date_sell DESC
     `
       : `
@@ -231,6 +233,7 @@ const fetchSellBills = async () => {
         sb.*,
         c.name as broker_name,
         u.username as created_by,
+        u_confirmed.username as confirmed_by_username,
         (
           SELECT GROUP_CONCAT(DISTINCT cl.name SEPARATOR ', ')
           FROM cars_stock cs
@@ -260,6 +263,7 @@ const fetchSellBills = async () => {
       FROM sell_bill sb
       LEFT JOIN clients c ON sb.id_broker = c.id
       LEFT JOIN users u ON sb.id_user = u.id
+      LEFT JOIN users u_confirmed ON sb.payment_confirmed_by_user_id = u_confirmed.id
       WHERE sb.id_user = ?
       ORDER BY sb.date_sell DESC
     `
@@ -647,10 +651,12 @@ const handleBatchPrint = async () => {
             c.name as broker_name,
             c.address as broker_address,
             c.mobiles as broker_mobile,
-            u.username as created_by
+            u.username as created_by,
+            u_confirmed.username as confirmed_by_username
           FROM sell_bill sb
           LEFT JOIN clients c ON sb.id_broker = c.id
           LEFT JOIN users u ON sb.id_user = u.id
+          LEFT JOIN users u_confirmed ON sb.payment_confirmed_by_user_id = u_confirmed.id
           WHERE sb.id = ?
         `,
         params: [billId],
@@ -1196,6 +1202,30 @@ const generateBatchPrintReport = async (billsData) => {
 defineExpose({ fetchSellBills, unpaidBillsCount, clearAllSelections })
 
 // Add computed properties for payment status
+// Check if bill is fully paid
+const isBillFullyPaid = (bill) => {
+  const total = bill.total_cfr || 0
+  const paid = bill.total_paid || 0
+  return total > 0 && paid >= total
+}
+
+// Get payment confirmation button title/tooltip
+const getPaymentConfirmButtonTitle = (bill) => {
+  if (!can_confirm_payment.value) {
+    return t('sellBills.no_permission_to_confirm_payment')
+  }
+  if (!isBillFullyPaid(bill)) {
+    const total = bill.total_cfr || 0
+    const paid = bill.total_paid || 0
+    const remaining = (total - paid).toFixed(2)
+    return t('sellBills.cannot_confirm_unpaid') || `Cannot confirm payment. Bill is not fully paid. Remaining: $${remaining}`
+  }
+  if (bill.payment_confirmed) {
+    return t('sellBills.payment_confirmed_yes')
+  }
+  return t('sellBills.payment_confirmed_no')
+}
+
 const getPaymentStatus = (bill) => {
   const total = bill.total_cfr || 0
   const paid = bill.total_paid || 0
@@ -1269,14 +1299,62 @@ const togglePaymentConfirmed = async (bill) => {
     })
 
     if (result.success) {
-      // Update local state
-      const billIndex = sellBills.value.findIndex((b) => b.id === bill.id)
-      if (billIndex !== -1) {
-        sellBills.value[billIndex].payment_confirmed = newStatus
-      }
-      const allBillIndex = allSellBills.value.findIndex((b) => b.id === bill.id)
-      if (allBillIndex !== -1) {
-        allSellBills.value[allBillIndex].payment_confirmed = newStatus
+      // Refresh the bill data to get the confirmed_by_username
+      const billResult = await callApi({
+        query: `
+          SELECT 
+            sb.*,
+            c.name as broker_name,
+            u.username as created_by,
+            u_confirmed.username as confirmed_by_username
+          FROM sell_bill sb
+          LEFT JOIN clients c ON sb.id_broker = c.id
+          LEFT JOIN users u ON sb.id_user = u.id
+          LEFT JOIN users u_confirmed ON sb.payment_confirmed_by_user_id = u_confirmed.id
+          WHERE sb.id = ?
+        `,
+        params: [bill.id],
+        requiresAuth: true,
+      })
+
+      if (billResult.success && billResult.data.length > 0) {
+        const updatedBill = billResult.data[0]
+        
+        // Update local state with fresh data
+        const billIndex = sellBills.value.findIndex((b) => b.id === bill.id)
+        if (billIndex !== -1) {
+          Object.assign(sellBills.value[billIndex], {
+            payment_confirmed: updatedBill.payment_confirmed,
+            confirmed_by_username: updatedBill.confirmed_by_username,
+          })
+        }
+        const allBillIndex = allSellBills.value.findIndex((b) => b.id === bill.id)
+        if (allBillIndex !== -1) {
+          Object.assign(allSellBills.value[allBillIndex], {
+            payment_confirmed: updatedBill.payment_confirmed,
+            confirmed_by_username: updatedBill.confirmed_by_username,
+          })
+        }
+      } else {
+        // Fallback: update local state without confirmed_by_username
+        const billIndex = sellBills.value.findIndex((b) => b.id === bill.id)
+        if (billIndex !== -1) {
+          sellBills.value[billIndex].payment_confirmed = newStatus
+          if (newStatus === 1 && user.value?.username) {
+            sellBills.value[billIndex].confirmed_by_username = user.value.username
+          } else {
+            sellBills.value[billIndex].confirmed_by_username = null
+          }
+        }
+        const allBillIndex = allSellBills.value.findIndex((b) => b.id === bill.id)
+        if (allBillIndex !== -1) {
+          allSellBills.value[allBillIndex].payment_confirmed = newStatus
+          if (newStatus === 1 && user.value?.username) {
+            allSellBills.value[allBillIndex].confirmed_by_username = user.value.username
+          } else {
+            allSellBills.value[allBillIndex].confirmed_by_username = null
+          }
+        }
       }
       
       // Emit refresh event to parent component
@@ -1591,15 +1669,21 @@ const togglePaymentConfirmed = async (bill) => {
               </span>
             </td>
             <td>
-              <button
-                @click.stop="can_confirm_payment ? togglePaymentConfirmed(bill) : null"
-                :disabled="isProcessing || !can_confirm_payment"
-                :class="['payment-confirmed-btn', bill.payment_confirmed ? 'confirmed' : 'not-confirmed', !can_confirm_payment ? 'read-only' : '']"
-                :title="can_confirm_payment ? (bill.payment_confirmed ? t('sellBills.payment_confirmed_yes') : t('sellBills.payment_confirmed_no')) : t('sellBills.no_permission_to_confirm_payment')"
-              >
-                <i :class="bill.payment_confirmed ? 'fas fa-check-circle' : 'far fa-circle'"></i>
-                {{ bill.payment_confirmed ? t('sellBills.confirmed') : t('sellBills.not_confirmed') }}
-              </button>
+              <div class="payment-confirmed-container">
+                <button
+                  @click.stop="can_confirm_payment && isBillFullyPaid(bill) ? togglePaymentConfirmed(bill) : null"
+                  :disabled="isProcessing || !can_confirm_payment || !isBillFullyPaid(bill)"
+                  :class="['payment-confirmed-btn', bill.payment_confirmed ? 'confirmed' : 'not-confirmed', !can_confirm_payment || !isBillFullyPaid(bill) ? 'read-only' : '']"
+                  :title="getPaymentConfirmButtonTitle(bill)"
+                >
+                  <i :class="bill.payment_confirmed ? 'fas fa-check-circle' : 'far fa-circle'"></i>
+                  {{ bill.payment_confirmed ? t('sellBills.confirmed') : t('sellBills.not_confirmed') }}
+                </button>
+                <div v-if="bill.payment_confirmed" class="confirmed-by">
+                  <i class="fas fa-user"></i>
+                  {{ bill.confirmed_by_username || (user?.username || 'Unknown') }}
+                </div>
+              </div>
             </td>
             <td>
               <span
@@ -2503,5 +2587,26 @@ const togglePaymentConfirmed = async (bill) => {
 .payment-confirmed-btn.read-only:hover {
   transform: none;
   box-shadow: none;
+}
+
+.payment-confirmed-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.confirmed-by {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: #6b7280;
+  font-style: italic;
+}
+
+.confirmed-by i {
+  font-size: 0.7rem;
+  color: #9ca3af;
 }
 </style>

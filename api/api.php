@@ -2133,13 +2133,23 @@ if ($isPaymentConfirmedUpdate) {
                 
                 // Execute the sell_bill update using the existing connection
                 try {
-                    $stmt = $conn->prepare($query);
-                    $stmt->execute($params);
+                    // Update both payment_confirmed and payment_confirmed_by_user_id in a single query
+                    // Set payment_confirmed_by_user_id to userId if confirming (1), NULL if unconfirming (0)
+                    $confirmedByUserId = $newStatus == 1 ? $userId : null;
+                    
+                    // Modify the query to also update payment_confirmed_by_user_id
+                    $updatedQuery = "UPDATE sell_bill SET payment_confirmed = ?, payment_confirmed_by_user_id = ? WHERE id = ?";
+                    $updatedParams = [$newStatus, $confirmedByUserId, $billId];
+                    
+                    $stmt = $conn->prepare($updatedQuery);
+                    $stmt->execute($updatedParams);
                     $affectedRows = $stmt->rowCount();
                     $result = ['success' => true, 'affectedRows' => $affectedRows];
                     
-                    // If update was successful, update all related cars
+                    // If update was successful, update related cars
                     if ($affectedRows > 0) {
+                        
+                        // Update all related cars
                         $updateCarsQuery = "UPDATE cars_stock SET payment_confirmed = ? WHERE id_sell = ?";
                         $carsStmt = $conn->prepare($updateCarsQuery);
                         $carsStmt->execute([$newStatus, $billId]);
@@ -2147,7 +2157,7 @@ if ($isPaymentConfirmedUpdate) {
                         
                         // Log the update (optional, for debugging)
                         if ($carsAffected > 0) {
-                            error_log("Updated payment_confirmed for $carsAffected cars related to sell_bill ID $billId to status $newStatus");
+                            error_log("Updated payment_confirmed for $carsAffected cars related to sell_bill ID $billId to status $newStatus by user $userId");
                         }
                     }
                     

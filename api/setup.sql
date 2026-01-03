@@ -549,9 +549,12 @@ CREATE TABLE IF NOT EXISTS `sell_bill` (
   `bill_ref` varchar(255) DEFAULT NULL,
   `is_batch_sell` tinyint(1) DEFAULT '0',
   `payment_confirmed` tinyint(1) DEFAULT 0 COMMENT 'Payment confirmed status - only admins or users with can_confirm_payment permission can set to true',
+  `payment_confirmed_by_user_id` int(11) DEFAULT NULL COMMENT 'ID of user who confirmed the payment',
   `time_created` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
-  KEY `idx_payment_confirmed` (`payment_confirmed`)
+  KEY `idx_payment_confirmed` (`payment_confirmed`),
+  KEY `idx_payment_confirmed_by_user_id` (`payment_confirmed_by_user_id`),
+  CONSTRAINT `fk_sell_bill_payment_confirmed_by_user` FOREIGN KEY (`payment_confirmed_by_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 -- Sell payments table
