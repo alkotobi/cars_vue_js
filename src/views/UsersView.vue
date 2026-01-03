@@ -1,66 +1,70 @@
 <script setup>
-import { useRouter } from 'vue-router'
+import { ref } from 'vue'
+import UsersToolbar from '../components/users/UsersToolbar.vue'
 import UsersCrud from '../components/UsersCrud.vue'
+import AddUserForm from '../components/users/AddUserForm.vue'
+import RolesViewPanel from '../components/users/RolesViewPanel.vue'
 
-const router = useRouter()
-const goToRoles = () => {
-  router.push('/roles')
+const showAddForm = ref(false)
+const showRoles = ref(false)
+const usersCrudRef = ref(null)
+
+const handleAddUser = () => {
+  showAddForm.value = !showAddForm.value
+  if (showAddForm.value) {
+    showRoles.value = false
+  }
 }
-const goToDashboard = () => {
-  router.push('/')
+
+const handleShowRoles = () => {
+  showRoles.value = !showRoles.value
+  if (showRoles.value) {
+    showAddForm.value = false
+  }
+}
+
+const handleUserAdded = () => {
+  // Refresh users list
+  if (usersCrudRef.value && usersCrudRef.value.fetchUsers) {
+    usersCrudRef.value.fetchUsers()
+  }
+  showAddForm.value = false
+}
+
+const handleCloseAddForm = () => {
+  showAddForm.value = false
+}
+
+const handleCloseRoles = () => {
+  showRoles.value = false
 }
 </script>
 
 <template>
-  <div class="users-page">
-    <div class="header-buttons">
-      <button @click="goToDashboard" class="dashboard-btn">← Return to Dashboard</button>
-    </div>
-    <UsersCrud />
-    <button @click="goToRoles" class="roles-btn">Manage Roles</button>
+  <div class="users-view">
+    <UsersToolbar
+      :show-add-form="showAddForm"
+      :show-roles="showRoles"
+      @add-user="handleAddUser"
+      @show-roles="handleShowRoles"
+    />
+
+    <AddUserForm
+      v-if="showAddForm"
+      @user-added="handleUserAdded"
+      @close="handleCloseAddForm"
+    />
+
+    <RolesViewPanel v-if="showRoles" @close="handleCloseRoles" />
+
+    <UsersCrud ref="usersCrudRef" />
   </div>
 </template>
 
 <style scoped>
-.users-page {
+.users-view {
   padding: 20px;
-}
-
-.header-buttons {
-  margin-bottom: 20px;
-}
-
-.dashboard-btn {
-  padding: 10px 20px;
-  background-color: #3b82f6;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 1em;
-  transition: background-color 0.3s;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.dashboard-btn:hover {
-  background-color: #2563eb;
-}
-
-.roles-btn {
-  margin-top: 20px;
-  padding: 10px 20px;
-  background-color: #4caf50;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 1em;
-  transition: background-color 0.3s;
-}
-
-.roles-btn:hover {
-  background-color: #388e3c;
+  max-width: 1400px;
+  margin: 0 auto;
 }
 </style>

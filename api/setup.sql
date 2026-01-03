@@ -64,6 +64,7 @@ CREATE TABLE IF NOT EXISTS `banks` (
   `swift_code` varchar(255) COLLATE latin1_general_ci DEFAULT NULL,
   `bank_account` varchar(255) COLLATE latin1_general_ci DEFAULT NULL,
   `bank_address` varchar(255) COLLATE latin1_general_ci DEFAULT NULL,
+  `company_address` text COLLATE latin1_general_ci DEFAULT NULL COMMENT 'Company address for bank account',
   `notes` text COLLATE latin1_general_ci,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_general_ci;
@@ -653,9 +654,17 @@ CREATE TABLE IF NOT EXISTS `users` (
   `password` varchar(255) NOT NULL,
   `role_id` int(11) NOT NULL,
   `max_unpayed_created_bills` int(11) DEFAULT '0',
+  `is_diffrent_company` tinyint(1) DEFAULT 0 COMMENT 'Flag to indicate if user has different company assets',
+  `path_logo` varchar(500) DEFAULT NULL COMMENT 'Path to company logo file',
+  `path_letter_head` varchar(500) DEFAULT NULL COMMENT 'Path to letterhead file',
+  `path_stamp` varchar(500) DEFAULT NULL COMMENT 'Path to stamp/gml2 file',
+  `path_contract_terms` varchar(500) DEFAULT NULL COMMENT 'Path to contract terms JSON file',
+  `id_bank_account` int unsigned DEFAULT NULL COMMENT 'Foreign key to banks table for user''s bank account',
   PRIMARY KEY (`id`),
   UNIQUE KEY `username` (`username`),
-  UNIQUE KEY `email` (`email`)
+  UNIQUE KEY `email` (`email`),
+  KEY `idx_id_bank_account` (`id_bank_account`),
+  CONSTRAINT `fk_users_bank_account` FOREIGN KEY (`id_bank_account`) REFERENCES `banks` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 -- Insert default admin user

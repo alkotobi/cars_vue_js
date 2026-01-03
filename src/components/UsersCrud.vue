@@ -5,13 +5,6 @@ import { useApi } from '../composables/useApi'
 const { callApi, error, loading } = useApi()
 const users = ref([])
 const roles = ref([])
-const newUser = ref({
-  username: '',
-  email: '',
-  password: '',
-  role_id: '',
-  max_unpayed_created_bills: 0,
-})
 const editingUser = ref(null)
 const editUserData = ref({
   username: '',
@@ -43,35 +36,10 @@ const fetchRoles = async () => {
   }
 }
 
-const addUser = async () => {
-  if (!newUser.value.username || !newUser.value.password || !newUser.value.email) return
-
-  const result = await callApi({
-    query:
-      'INSERT INTO users (username, email, password, role_id, max_unpayed_created_bills) VALUES (?, ?, ?, ?, ?)',
-    params: [
-      newUser.value.username,
-      newUser.value.email,
-      newUser.value.password,
-      newUser.value.role_id,
-      newUser.value.max_unpayed_created_bills,
-    ],
-    action: 'insert_user', // Tell API to hash the password before inserting
-  })
-  if (result.success) {
-    fetchUsers()
-    newUser.value = {
-      username: '',
-      email: '',
-      password: '',
-      role_id: '',
-      max_unpayed_created_bills: 0,
-    }
-  } else {
-    error.value = result.error
-    console.error(result.error)
-  }
-}
+// Expose fetchUsers so parent can refresh the list
+defineExpose({
+  fetchUsers,
+})
 
 const startEditUser = (user) => {
   editingUser.value = user.id
@@ -159,11 +127,6 @@ onMounted(() => {
 
 <template>
   <div class="users-container">
-    <h2 class="title">
-      <i class="fas fa-users"></i>
-      Users Management
-    </h2>
-
     <div class="content-container">
       <!-- Loading Overlay -->
       <div v-if="loading" class="loading-overlay">
@@ -299,66 +262,6 @@ onMounted(() => {
         </tbody>
       </table>
 
-      <div class="add-form">
-        <h3>
-          <i class="fas fa-user-plus"></i>
-          Add New User
-        </h3>
-        <div class="input-wrapper">
-          <i class="fas fa-user input-icon"></i>
-          <input
-            v-model="newUser.username"
-            placeholder="Username"
-            class="input-field with-icon"
-            :disabled="loading"
-          />
-        </div>
-        <div class="input-wrapper">
-          <i class="fas fa-envelope input-icon"></i>
-          <input
-            v-model="newUser.email"
-            type="email"
-            placeholder="Email"
-            class="input-field with-icon"
-            :disabled="loading"
-          />
-        </div>
-        <div class="input-wrapper">
-          <i class="fas fa-key input-icon"></i>
-          <input
-            v-model="newUser.password"
-            type="password"
-            placeholder="Password"
-            class="input-field with-icon"
-            :disabled="loading"
-          />
-        </div>
-        <div class="input-wrapper">
-          <i class="fas fa-shield-alt input-icon"></i>
-          <select v-model="newUser.role_id" class="input-field with-icon" :disabled="loading">
-            <option disabled value="">Select Role</option>
-            <option v-for="role in roles" :key="role.id" :value="role.id">
-              {{ role.role_name }}
-            </option>
-          </select>
-        </div>
-        <div class="input-wrapper">
-          <i class="fas fa-receipt input-icon"></i>
-          <input
-            v-model.number="newUser.max_unpayed_created_bills"
-            type="number"
-            min="0"
-            placeholder="Max Unpaid Bills"
-            class="input-field with-icon"
-            :disabled="loading"
-          />
-        </div>
-        <button @click="addUser" :disabled="loading" class="btn add-btn">
-          <i class="fas" :class="loading ? 'fa-spinner fa-spin' : 'fa-plus'"></i>
-          {{ loading ? 'Adding...' : 'Add User' }}
-        </button>
-      </div>
-
       <div v-if="error" class="error-message">
         <i class="fas fa-exclamation-circle"></i>
         {{ error }}
@@ -374,20 +277,6 @@ onMounted(() => {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   padding: 24px;
   position: relative;
-}
-
-.title {
-  color: #2c3e50;
-  font-size: 24px;
-  margin-bottom: 20px;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.title i {
-  color: #3b82f6;
 }
 
 .content-container {
