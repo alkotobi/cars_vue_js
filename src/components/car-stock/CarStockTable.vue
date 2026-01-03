@@ -211,6 +211,12 @@ const can_confirm_payment = computed(() => {
   return user.value.permissions?.some((p) => p.permission_name === 'can_confirm_payment')
 })
 
+const can_see_other_users_sells = computed(() => {
+  if (!user.value) return false
+  if (user.value.role_id === 1) return true
+  return user.value.permissions?.some((p) => p.permission_name === 'can_c_other_users_sells')
+})
+
 // Add to the data/refs section
 const showDocumentsForm = ref(false)
 const selectedCarForDocuments = ref(null)
@@ -2108,19 +2114,37 @@ const loadInitialCarsData = async () => {
   loading.value = true
   error.value = null
   try {
-    // Build the WHERE clause conditionally based on admin status
+    // Build the WHERE clause conditionally based on admin status and permissions
     let whereClause = '1=1' // Default: show all cars
     const currentUserId = user.value?.id
     const isUserAdmin = user.value?.role_id === 1
+    const canSeeOtherSells = can_see_other_users_sells.value
 
+    // Build conditions array
+    const conditions = []
+
+    // Hidden cars filter
     if (!isUserAdmin && currentUserId) {
       // Non-admin users can only see:
       // 1. Non-hidden cars (hidden = 0)
       // 2. Cars they hid themselves (hidden = 1 AND hidden_by_user_id = current_user_id)
-      whereClause = `(cs.hidden = 0 OR (cs.hidden = 1 AND cs.hidden_by_user_id = ${currentUserId}))`
+      conditions.push(`(cs.hidden = 0 OR (cs.hidden = 1 AND cs.hidden_by_user_id = ${currentUserId}))`)
     } else if (!isUserAdmin && !currentUserId) {
       // If user is not admin and no user ID, show only non-hidden cars
-      whereClause = 'cs.hidden = 0'
+      conditions.push('cs.hidden = 0')
+    }
+
+    // Sell bill visibility filter
+    if (!isUserAdmin && !canSeeOtherSells && currentUserId) {
+      // Non-admin users without permission can only see:
+      // 1. Unsold cars (cs.id_sell IS NULL)
+      // 2. Cars they sold themselves (sb.id_user = currentUserId)
+      conditions.push(`(cs.id_sell IS NULL OR sb.id_user = ${currentUserId})`)
+    }
+
+    // Combine all conditions
+    if (conditions.length > 0) {
+      whereClause = conditions.join(' AND ')
     }
 
     const result = await callApi({

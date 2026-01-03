@@ -8,7 +8,7 @@
     "terms": [
         {
             "id": 1,
-            "visible": true,
+            "visible": false,
             "english": "Payment must be made in full before vehicle delivery.",
             "chinese": "车辆交付前必须全额付款。",
             "french": "Le paiement doit être effectué intégralement avant la livraison du véhicule.",
