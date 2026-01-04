@@ -15,7 +15,10 @@
     "databaseVersion": "إصدار قاعدة البيانات",
     "applicationVersion": "إصدار التطبيق",
     "refreshMessage": "يرجى تحديث الصفحة لاستخدام أحدث إصدار.",
-    "refreshNow": "تحديث الآن"
+    "refreshNow": "تحديث الآن",
+    "adminInfo": "معلومات المسؤول",
+    "databaseName": "اسم قاعدة البيانات",
+    "directoryPath": "مسار المجلد"
   },
   "auth": {
     "login": "تسجيل الدخول",
@@ -173,7 +176,10 @@
     "daysFromBuyDate": "أيام من تاريخ الشراء",
     "refreshing": "جاري التحديث...",
     "refreshAlerts": "تحديث التنبيهات",
-    "refresh": "تحديث"
+    "refresh": "تحديث",
+    "unconfirmedPayment": "فواتير دفع غير مؤكدة",
+    "notPaidBills": "فواتير غير مدفوعة",
+    "notFullyPaidBills": "فواتير غير مدفوعة بالكامل"
   },
   "language": {
     "english": "English",

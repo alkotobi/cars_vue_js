@@ -31,14 +31,20 @@ const getRouterBasePath = () => {
       '/db-manager', '/alert-cars'
     ]
     
-    // Check if pathname starts with a known route - if so, base path is '/'
-    const startsWithKnownRoute = knownRoutes.some(route => pathname.startsWith(route))
-    if (startsWithKnownRoute) {
+    // Check if pathname starts with a known route at root level (e.g., '/login' or '/db-manager')
+    // But NOT if it's in a subdirectory (e.g., '/mig_26/db-manager' should extract '/mig_26/')
+    const startsWithKnownRouteAtRoot = knownRoutes.some(route => {
+      // Check if pathname exactly matches the route or starts with route followed by / or end of string
+      return pathname === route || pathname.startsWith(route + '/') || pathname.startsWith(route + '?')
+    })
+    
+    // If it starts with a known route at root level (not in subdirectory), base path is '/'
+    if (startsWithKnownRouteAtRoot && !pathname.match(/^\/[^/]+\//)) {
       return '/'
     }
     
-    // If pathname is like '/mig/login', extract '/mig/'
-    // If pathname is like '/login', use '/'
+    // If pathname is like '/mig_26/db-manager', extract '/mig_26/'
+    // If pathname is like '/db-manager', use '/'
     const match = pathname.match(/^(\/[^/]+\/)/)
     const detectedBase = match ? match[1] : '/'
     return detectedBase

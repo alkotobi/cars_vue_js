@@ -2,7 +2,7 @@
 import { ref, onMounted, computed, watch } from 'vue'
 import { useEnhancedI18n } from '../../composables/useI18n'
 import { useApi } from '../../composables/useApi'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import SellBillPrintOption from './SellBillPrintOption.vue'
 
 const { t } = useEnhancedI18n()
@@ -29,6 +29,7 @@ const emit = defineEmits(['refresh', 'select-bill', 'update-selected-bills'])
 const selectedBills = ref([])
 
 const router = useRouter()
+const route = useRoute()
 const { callApi, getAssets, loadLetterhead } = useApi()
 const letterHeadUrl = ref(null)
 const sellBills = ref([])
@@ -48,6 +49,7 @@ const filters = ref({
   isBatchSell: null,
   createdBy: '',
   paymentStatus: '',
+  paymentConfirmed: null,
   loadingStatus: '',
 })
 
@@ -180,6 +182,15 @@ onMounted(() => {
   if (userStr) {
     user.value = JSON.parse(userStr)
   }
+  
+  // Read query parameters from URL
+  if (route.query.paymentStatus) {
+    filters.value.paymentStatus = route.query.paymentStatus
+  }
+  if (route.query.paymentConfirmed !== undefined) {
+    filters.value.paymentConfirmed = route.query.paymentConfirmed === '0' ? 0 : route.query.paymentConfirmed === '1' ? 1 : null
+  }
+  
   fetchSellBills()
 })
 
@@ -353,6 +364,13 @@ const applyFilters = () => {
       if (filters.value.paymentStatus === 'unpaid' && !isUnpaid) return false
     }
 
+    // Payment confirmed filter
+    if (filters.value.paymentConfirmed !== null) {
+      const isConfirmed = bill.payment_confirmed === 1 || bill.payment_confirmed === true
+      if (filters.value.paymentConfirmed === 1 && !isConfirmed) return false
+      if (filters.value.paymentConfirmed === 0 && isConfirmed) return false
+    }
+
     // Loading status filter
     if (filters.value.loadingStatus) {
       const isFullyLoaded = bill.loaded_cars === bill.total_cars && bill.total_cars > 0
@@ -386,6 +404,7 @@ const resetFilters = () => {
     isBatchSell: null,
     createdBy: '',
     paymentStatus: '',
+    paymentConfirmed: null,
     loadingStatus: '',
   }
 }

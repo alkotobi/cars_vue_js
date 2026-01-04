@@ -20,6 +20,22 @@
           </div>
         </div>
 
+        <!-- Admin-only information -->
+        <div v-if="isAdmin" class="admin-info">
+          <div class="admin-info-header">
+            <i class="fas fa-shield-alt"></i>
+            <span>{{ t('app.adminInfo') || 'Admin Information' }}</span>
+          </div>
+          <div class="admin-info-item">
+            <span class="admin-label">{{ t('app.databaseName') || 'Database Name' }}:</span>
+            <span class="admin-value">{{ dbName || 'N/A' }}</span>
+          </div>
+          <div class="admin-info-item">
+            <span class="admin-label">{{ t('app.directoryPath') || 'Directory Path' }}:</span>
+            <span class="admin-value">{{ directoryPath || 'N/A' }}</span>
+          </div>
+        </div>
+
         <div class="version-warning">
           <i class="fas fa-info-circle"></i>
           <span>{{ t('app.refreshMessage') }}</span>
@@ -37,16 +53,86 @@
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
+import { onMounted, ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useVersionCheck } from '@/composables/useVersionCheck'
+import { useApi } from '@/composables/useApi'
 
 const { t } = useI18n()
 const { currentAppVersion, dbVersion, isLoading, hasVersionMismatch, checkVersion, forceRefresh } =
   useVersionCheck()
+const { loadDbName } = useApi()
+
+const user = ref(null)
+const dbName = ref('')
+const directoryPath = ref('')
+
+const isAdmin = computed(() => {
+  return user.value?.role_id === 1
+})
+
+// Get base path where index.html exists (same logic as useApi.js)
+const getBasePath = () => {
+  let baseUrl = import.meta.env.BASE_URL || './'
+  
+  // If base is relative, convert to absolute path
+  if (baseUrl === './' || baseUrl.startsWith('./')) {
+    const pathname = window.location.pathname
+    
+    // Known route patterns that should NOT be treated as base paths
+    const knownRoutes = [
+      '/login', '/dashboard', '/users', '/roles', '/transfers', '/send', '/receive',
+      '/sell-bills', '/buy-payments', '/params', '/advanced-sql', '/transfers-list',
+      '/cars', '/warehouses', '/containers', '/print', '/clients', '/cashier',
+      '/rates', '/tasks', '/statistics', '/chat', '/invitations', '/containers-ref',
+      '/db-manager', '/alert-cars'
+    ]
+    
+    // Check if pathname starts with a known route at root level (e.g., '/login' or '/db-manager')
+    // But NOT if it's in a subdirectory (e.g., '/mig_26/db-manager' should extract '/mig_26/')
+    const startsWithKnownRouteAtRoot = knownRoutes.some(route => {
+      // Check if pathname exactly matches the route or starts with route followed by / or end of string
+      return pathname === route || pathname.startsWith(route + '/') || pathname.startsWith(route + '?')
+    })
+    
+    // If it starts with a known route at root level (not in subdirectory), base path is '/'
+    if (startsWithKnownRouteAtRoot && !pathname.match(/^\/[^/]+\//)) {
+      return '/'
+    }
+    
+    // If pathname is like '/mig_26/login', extract '/mig_26/'
+    // If pathname is like '/login', use '/'
+    const match = pathname.match(/^(\/[^/]+\/)/)
+    return match ? match[1] : '/'
+  }
+  
+  // If base is already absolute, use it as is
+  return baseUrl
+}
 
 onMounted(async () => {
+  // Get user from localStorage
+  const userStr = localStorage.getItem('user')
+  if (userStr) {
+    user.value = JSON.parse(userStr)
+  }
+
   await checkVersion()
+
+  // Load database info only for admin users
+  if (isAdmin.value) {
+    try {
+      const name = await loadDbName()
+      if (name) {
+        dbName.value = name || 'N/A'
+        directoryPath.value = getBasePath() || '/'
+      }
+    } catch (error) {
+      console.error('Failed to load database config:', error)
+      dbName.value = 'Error loading'
+      directoryPath.value = getBasePath() || '/'
+    }
+  }
 })
 </script>
 
@@ -176,5 +262,54 @@ onMounted(async () => {
 
 .btn-refresh:active {
   transform: translateY(0);
+}
+
+.admin-info {
+  background: #eff6ff;
+  border: 1px solid #3b82f6;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 20px 0;
+  text-align: left;
+}
+
+.admin-info-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-weight: 600;
+  color: #1e40af;
+  font-size: 14px;
+}
+
+.admin-info-header i {
+  color: #3b82f6;
+  font-size: 16px;
+}
+
+.admin-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 8px 0;
+  padding: 8px 0;
+}
+
+.admin-label {
+  font-weight: 600;
+  color: #374151;
+  font-size: 13px;
+}
+
+.admin-value {
+  font-weight: 500;
+  color: #1f2937;
+  background: #dbeafe;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-family: monospace;
+  font-size: 12px;
+  word-break: break-all;
 }
 </style>

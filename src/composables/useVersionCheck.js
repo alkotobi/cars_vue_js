@@ -22,7 +22,13 @@ export const useVersionCheck = () => {
         dbVersion.value = result.data[0].version
 
         // Compare versions
+        console.log(
+          `[Version Check] Database Version: ${dbVersion.value}, Application Version: ${currentAppVersion.value}`,
+        )
         if (dbVersion.value !== currentAppVersion.value) {
+          console.warn(
+            `[Version Check] Version mismatch detected! DB: ${dbVersion.value}, App: ${currentAppVersion.value}`,
+          )
           hasVersionMismatch.value = true
           return false
         }

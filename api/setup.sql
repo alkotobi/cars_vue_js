@@ -490,7 +490,10 @@ INSERT IGNORE INTO `permissions` (`permission_name`, `description`) VALUES
 ('can_c_other_users_sells', 'Can create other users sells'),
 ('can_unassign_cars', 'Can unassign cars'),
 ('can_hide_car', 'Can hide cars'),
-('can_confirm_payment', 'Can confirm payment for sell bills and cars');
+('can_confirm_payment', 'Can confirm payment for sell bills and cars'),
+('can_c_alerts', 'Can view alerts banner'),
+('can_c_cars_alerts', 'Can view car-related alerts (unloaded, not arrived, no license, no docs sent)'),
+('can_c_sell_bill_payemts_alert', 'Can view sell bill payment alerts (unconfirmed, not paid, not fully paid)');
 
 -- Priorities table
 CREATE TABLE IF NOT EXISTS `priorities` (

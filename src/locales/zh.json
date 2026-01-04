@@ -15,7 +15,10 @@
     "databaseVersion": "数据库版本",
     "applicationVersion": "应用程序版本",
     "refreshMessage": "请刷新页面以使用最新版本。",
-    "refreshNow": "立即刷新"
+    "refreshNow": "立即刷新",
+    "adminInfo": "管理员信息",
+    "databaseName": "数据库名称",
+    "directoryPath": "目录路径"
   },
   "auth": {
     "login": "登录",
@@ -173,7 +176,10 @@
     "daysFromBuyDate": "天未到达",
     "refreshing": "刷新中...",
     "refreshAlerts": "刷新警报",
-    "refresh": "刷新"
+    "refresh": "刷新",
+    "unconfirmedPayment": "未确认付款账单",
+    "notPaidBills": "未付款账单",
+    "notFullyPaidBills": "未全额付款账单"
   },
   "language": {
     "english": "English",

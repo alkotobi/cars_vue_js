@@ -15,7 +15,10 @@
     "databaseVersion": "Database Version",
     "applicationVersion": "Application Version",
     "refreshMessage": "Please refresh the page to use the latest version.",
-    "refreshNow": "Refresh Now"
+    "refreshNow": "Refresh Now",
+    "adminInfo": "Admin Information",
+    "databaseName": "Database Name",
+    "directoryPath": "Directory Path"
   },
   "auth": {
     "login": "Login",
@@ -173,7 +176,10 @@
     "daysFromBuyDate": "days from buy date",
     "refreshing": "Refreshing...",
     "refreshAlerts": "Refresh alerts",
-    "refresh": "Refresh"
+    "refresh": "Refresh",
+    "unconfirmedPayment": "unconfirmed payment bills",
+    "notPaidBills": "not paid bills",
+    "notFullyPaidBills": "not fully paid bills"
   },
   "language": {
     "english": "English",

@@ -15,7 +15,10 @@
     "databaseVersion": "Version de la Base de Données",
     "applicationVersion": "Version de l'Application",
     "refreshMessage": "Veuillez rafraîchir la page pour utiliser la dernière version.",
-    "refreshNow": "Rafraîchir Maintenant"
+    "refreshNow": "Rafraîchir Maintenant",
+    "adminInfo": "Informations Administrateur",
+    "databaseName": "Nom de la Base de Données",
+    "directoryPath": "Chemin du Répertoire"
   },
   "auth": {
     "login": "Connexion",
@@ -173,7 +176,10 @@
     "daysFromBuyDate": "jours depuis la date d'achat",
     "refreshing": "Actualisation...",
     "refreshAlerts": "Actualiser les alertes",
-    "refresh": "Actualiser"
+    "refresh": "Actualiser",
+    "unconfirmedPayment": "factures de paiement non confirmées",
+    "notPaidBills": "factures non payées",
+    "notFullyPaidBills": "factures non entièrement payées"
   },
   "language": {
     "english": "English",

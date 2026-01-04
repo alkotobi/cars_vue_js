@@ -30,10 +30,17 @@ const isAdmin = computed(() => {
   return user.value?.role_id === 1
 })
 
+// Computed property to check if user can view alerts
+const canViewAlerts = computed(() => {
+  if (!user.value) return false
+  if (isAdmin.value) return true
+  return user.value.permissions?.some((p) => p.permission_name === 'can_c_alerts')
+})
+
 // Computed property to determine if alerts should be shown
 const showAlerts = computed(() => {
-  // Only show alerts if user is admin and not on hidden routes
-  return isAdmin.value && !hideAlertsRoutes.some((hideRoute) => route.path.startsWith(hideRoute))
+  // Show alerts if user has permission and not on hidden routes
+  return canViewAlerts.value && !hideAlertsRoutes.some((hideRoute) => route.path.startsWith(hideRoute))
 })
 
 onMounted(async () => {
@@ -78,7 +85,7 @@ onMounted(async () => {
 }
 
 .app-main.with-alerts {
-  padding-top: 130px; /* Account for fixed header (70px) + alerts view (~60px) */
+  padding-top: calc(70px + var(--alerts-banner-height, 100px)); /* Account for fixed header (70px) + dynamic alerts view height */
 }
 
 @media (max-width: 768px) {

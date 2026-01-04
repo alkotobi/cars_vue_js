@@ -1,9 +1,9 @@
 <template>
-  <div class="alerts-view" v-if="hasAlerts" :class="{ refreshing: isRefreshing }">
+  <div ref="alertsViewRef" class="alerts-view" v-if="hasAlerts" :class="{ refreshing: isRefreshing }">
     <div class="alerts-container">
       <div class="alerts-badges">
         <!-- Not Loaded Cars Alert -->
-        <div v-if="unloadedCount > 0" class="alert-badge unloaded" @click="handleUnloadedClick">
+        <div v-if="canViewCarsAlerts && unloadedCount > 0" class="alert-badge unloaded" @click="handleUnloadedClick">
           <i class="fas fa-truck"></i>
           <span class="badge-text"
             >{{ unloadedCount }} {{ t('alerts.carsNotLoaded') }}
@@ -13,7 +13,7 @@
 
         <!-- Not Arrived Cars Alert -->
         <div
-          v-if="notArrivedCount > 0"
+          v-if="canViewCarsAlerts && notArrivedCount > 0"
           class="alert-badge not-arrived"
           @click="handleNotArrivedClick"
         >
@@ -26,7 +26,7 @@
         </div>
 
         <!-- No License Cars Alert -->
-        <div v-if="noLicenseCount > 0" class="alert-badge no-license" @click="handleNoLicenseClick">
+        <div v-if="canViewCarsAlerts && noLicenseCount > 0" class="alert-badge no-license" @click="handleNoLicenseClick">
           <i class="fas fa-passport"></i>
           <span class="badge-text"
             >{{ noLicenseCount }} {{ t('alerts.carsNoLicense') }}
@@ -35,13 +35,31 @@
         </div>
 
         <!-- No Docs Sent Cars Alert -->
-        <div v-if="noDocsSentCount > 0" class="alert-badge no-docs" @click="handleNoDocsClick">
+        <div v-if="canViewCarsAlerts && noDocsSentCount > 0" class="alert-badge no-docs" @click="handleNoDocsClick">
           <i class="fas fa-file-alt"></i>
           <span class="badge-text"
             >{{ noDocsSentCount }} {{ t('alerts.carsNoDocsSent') }}
             {{ defaults?.alert_no_docs_sent_after_days || 0 }}
             {{ t('alerts.daysFromSellDate') }}</span
           >
+        </div>
+
+        <!-- Unconfirmed Payment Alert -->
+        <div v-if="canViewPaymentAlerts && unconfirmedPaymentCount > 0" class="alert-badge unconfirmed-payment" @click="handleUnconfirmedPaymentClick">
+          <i class="fas fa-exclamation-circle"></i>
+          <span class="badge-text">{{ unconfirmedPaymentCount }} {{ t('alerts.unconfirmedPayment') }}</span>
+        </div>
+
+        <!-- Not Paid Bills Alert -->
+        <div v-if="canViewPaymentAlerts && notPaidCount > 0" class="alert-badge not-paid" @click="handleNotPaidClick">
+          <i class="fas fa-exclamation-triangle"></i>
+          <span class="badge-text">{{ notPaidCount }} {{ t('alerts.notPaidBills') }}</span>
+        </div>
+
+        <!-- Not Fully Paid Bills Alert -->
+        <div v-if="canViewPaymentAlerts && notFullyPaidCount > 0" class="alert-badge not-fully-paid" @click="handleNotFullyPaidClick">
+          <i class="fas fa-dollar-sign"></i>
+          <span class="badge-text">{{ notFullyPaidCount }} {{ t('alerts.notFullyPaidBills') }}</span>
         </div>
       </div>
 
@@ -60,18 +78,39 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, onUnmounted } from 'vue'
+import { ref, onMounted, computed, onUnmounted, nextTick, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useApi, BASE_PATH } from '../composables/useApi'
 
 const { t } = useI18n()
 const { callApi } = useApi()
+const alertsViewRef = ref(null)
+
+// Get user from localStorage
+const user = ref(null)
+const isAdmin = computed(() => user.value?.role_id === 1)
+
+// Check permissions
+const canViewCarsAlerts = computed(() => {
+  if (!user.value) return false
+  if (isAdmin.value) return true
+  return user.value.permissions?.some((p) => p.permission_name === 'can_c_cars_alerts')
+})
+
+const canViewPaymentAlerts = computed(() => {
+  if (!user.value) return false
+  if (isAdmin.value) return true
+  return user.value.permissions?.some((p) => p.permission_name === 'can_c_sell_bill_payemts_alert')
+})
 
 const defaults = ref(null)
 const unloadedCount = ref(0)
 const notArrivedCount = ref(0)
 const noLicenseCount = ref(0)
 const noDocsSentCount = ref(0)
+const unconfirmedPaymentCount = ref(0)
+const notPaidCount = ref(0)
+const notFullyPaidCount = ref(0)
 const loading = ref(false)
 
 // Auto-refresh functionality
@@ -79,14 +118,20 @@ const refreshInterval = ref(null)
 const isRefreshing = ref(false)
 const lastRefreshTime = ref(null)
 
-// Computed property to check if there are any alerts
+// Computed property to check if there are any alerts (based on permissions)
 const hasAlerts = computed(() => {
-  return (
+  const carsAlerts = canViewCarsAlerts.value && (
     unloadedCount.value > 0 ||
     notArrivedCount.value > 0 ||
     noLicenseCount.value > 0 ||
     noDocsSentCount.value > 0
   )
+  const paymentAlerts = canViewPaymentAlerts.value && (
+    unconfirmedPaymentCount.value > 0 ||
+    notPaidCount.value > 0 ||
+    notFullyPaidCount.value > 0
+  )
+  return carsAlerts || paymentAlerts
 })
 
 // Format last refresh time
@@ -230,6 +275,119 @@ const fetchNoDocsSentCount = async () => {
   }
 }
 
+// Fetch unconfirmed payment count (fully paid but not confirmed)
+const fetchUnconfirmedPaymentCount = async () => {
+  try {
+    const result = await callApi({
+      query: `
+        SELECT COUNT(*) as count
+        FROM sell_bill sb
+        WHERE sb.is_batch_sell = 0
+        AND sb.payment_confirmed = 0
+        AND (
+          SELECT COALESCE(SUM(sp.amount_usd), 0)
+          FROM sell_payments sp
+          WHERE sp.id_sell_bill = sb.id
+        ) >= (
+          SELECT COALESCE(SUM(cs.price_cell + COALESCE(cs.freight, 0)), 0)
+          FROM cars_stock cs
+          WHERE cs.id_sell = sb.id
+        )
+        AND (
+          SELECT COALESCE(SUM(cs.price_cell + COALESCE(cs.freight, 0)), 0)
+          FROM cars_stock cs
+          WHERE cs.id_sell = sb.id
+        ) > 0
+      `,
+      params: [],
+    })
+    if (result.success && result.data.length > 0) {
+      unconfirmedPaymentCount.value = Number(result.data[0].count) || 0
+      console.log('Unconfirmed payment count:', unconfirmedPaymentCount.value)
+    } else {
+      unconfirmedPaymentCount.value = 0
+    }
+  } catch (error) {
+    console.error('Error fetching unconfirmed payment count:', error)
+    unconfirmedPaymentCount.value = 0
+  }
+}
+
+// Fetch not paid bills count (total_paid = 0)
+const fetchNotPaidCount = async () => {
+  try {
+    const result = await callApi({
+      query: `
+        SELECT COUNT(*) as count
+        FROM sell_bill sb
+        WHERE sb.is_batch_sell = 0
+        AND (
+          SELECT COALESCE(SUM(cs.price_cell + COALESCE(cs.freight, 0)), 0)
+          FROM cars_stock cs
+          WHERE cs.id_sell = sb.id
+        ) > 0
+        AND (
+          SELECT COALESCE(SUM(sp.amount_usd), 0)
+          FROM sell_payments sp
+          WHERE sp.id_sell_bill = sb.id
+        ) = 0
+      `,
+      params: [],
+    })
+    if (result.success && result.data.length > 0) {
+      notPaidCount.value = Number(result.data[0].count) || 0
+      console.log('Not paid count (unpaid bills):', notPaidCount.value)
+    } else {
+      notPaidCount.value = 0
+    }
+  } catch (error) {
+    console.error('Error fetching not paid count:', error)
+    notPaidCount.value = 0
+  }
+}
+
+// Fetch not fully paid bills count (partially paid only, excludes unpaid)
+const fetchNotFullyPaidCount = async () => {
+  try {
+    const result = await callApi({
+      query: `
+        SELECT COUNT(*) as count
+        FROM sell_bill sb
+        WHERE sb.is_batch_sell = 0
+        AND (
+          SELECT COALESCE(SUM(cs.price_cell + COALESCE(cs.freight, 0)), 0)
+          FROM cars_stock cs
+          WHERE cs.id_sell = sb.id
+        ) > 0
+        AND (
+          SELECT COALESCE(SUM(sp.amount_usd), 0)
+          FROM sell_payments sp
+          WHERE sp.id_sell_bill = sb.id
+        ) > 0
+        AND (
+          SELECT COALESCE(SUM(sp.amount_usd), 0)
+          FROM sell_payments sp
+          WHERE sp.id_sell_bill = sb.id
+        ) < (
+          SELECT COALESCE(SUM(cs.price_cell + COALESCE(cs.freight, 0)), 0)
+          FROM cars_stock cs
+          WHERE cs.id_sell = sb.id
+        )
+      `,
+      params: [],
+    })
+    if (result.success && result.data.length > 0) {
+      notFullyPaidCount.value = Number(result.data[0].count) || 0
+      console.log('Not fully paid count (partially paid only):', notFullyPaidCount.value)
+    } else {
+      notFullyPaidCount.value = 0
+    }
+  } catch (error) {
+    console.error('Error fetching not fully paid count:', error)
+    notFullyPaidCount.value = 0
+  }
+}
+
 // Fetch all alert data with refresh indicator
 const fetchAlertData = async (isAutoRefresh = false) => {
   if (isAutoRefresh) {
@@ -240,15 +398,33 @@ const fetchAlertData = async (isAutoRefresh = false) => {
 
   try {
     await fetchDefaults()
-    if (defaults.value) {
-      await Promise.all([
+    const promises = []
+    
+    if (defaults.value && canViewCarsAlerts.value) {
+      // Fetch car alerts only if user has permission
+      promises.push(
         fetchUnloadedCount(),
         fetchNotArrivedCount(),
         fetchNoLicenseCount(),
-        fetchNoDocsSentCount(),
-      ])
+        fetchNoDocsSentCount()
+      )
+    }
+    
+    if (canViewPaymentAlerts.value) {
+      // Fetch payment alerts only if user has permission
+      promises.push(
+        fetchUnconfirmedPaymentCount(),
+        fetchNotPaidCount(),
+        fetchNotFullyPaidCount()
+      )
+    }
+    
+    if (promises.length > 0) {
+      await Promise.all(promises)
     }
     lastRefreshTime.value = new Date()
+    // Update banner height after data is fetched
+    updateAlertsBannerHeight()
   } catch (error) {
     console.error('Error fetching alert data:', error)
   } finally {
@@ -283,6 +459,8 @@ const handleManualRefresh = () => {
           badge.classList.remove('refresh-effect')
         }, 1000)
       })
+      // Update height after refresh
+      updateAlertsBannerHeight()
     }, 100) // Small delay to ensure data is updated
   }
 }
@@ -295,13 +473,41 @@ const stopAutoRefresh = () => {
   }
 }
 
+// Update CSS variable for alerts banner height
+const updateAlertsBannerHeight = () => {
+  if (alertsViewRef.value && hasAlerts.value) {
+    nextTick(() => {
+      const height = alertsViewRef.value.offsetHeight
+      document.documentElement.style.setProperty('--alerts-banner-height', `${height}px`)
+    })
+  }
+}
+
+// Watch for changes in alerts counts and permissions to update height
+watch([unloadedCount, notArrivedCount, noLicenseCount, noDocsSentCount, unconfirmedPaymentCount, notPaidCount, notFullyPaidCount, hasAlerts, canViewCarsAlerts, canViewPaymentAlerts], () => {
+  updateAlertsBannerHeight()
+}, { deep: true })
+
 onMounted(() => {
+  // Get user from localStorage
+  const userStr = localStorage.getItem('user')
+  if (userStr) {
+    user.value = JSON.parse(userStr)
+  }
+  
   fetchAlertData()
   startAutoRefresh()
+  // Update height after initial render
+  nextTick(() => {
+    updateAlertsBannerHeight()
+    // Also update on window resize
+    window.addEventListener('resize', updateAlertsBannerHeight)
+  })
 })
 
 onUnmounted(() => {
   stopAutoRefresh()
+  window.removeEventListener('resize', updateAlertsBannerHeight)
 })
 
 // Click handlers for alert badges
@@ -322,6 +528,21 @@ const handleNoLicenseClick = () => {
 
 const handleNoDocsClick = () => {
   const url = `${BASE_PATH}alert-cars/no_docs_sent/${defaults.value?.alert_no_docs_sent_after_days || 0}`
+  window.open(url, '_blank')
+}
+
+const handleUnconfirmedPaymentClick = () => {
+  const url = `${BASE_PATH}sell-bills?paymentStatus=paid&paymentConfirmed=0`
+  window.open(url, '_blank')
+}
+
+const handleNotPaidClick = () => {
+  const url = `${BASE_PATH}sell-bills?paymentStatus=unpaid`
+  window.open(url, '_blank')
+}
+
+const handleNotFullyPaidClick = () => {
+  const url = `${BASE_PATH}sell-bills?paymentStatus=partially_paid`
   window.open(url, '_blank')
 }
 </script>
@@ -464,6 +685,24 @@ const handleNoDocsClick = () => {
   background-color: #fdf4ff;
   color: #a855f7;
   border: 1px solid #d8b4fe;
+}
+
+.alert-badge.unconfirmed-payment {
+  background-color: #fff7ed;
+  color: #ea580c;
+  border: 1px solid #fdba74;
+}
+
+.alert-badge.not-paid {
+  background-color: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #f87171;
+}
+
+.alert-badge.not-fully-paid {
+  background-color: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fca5a5;
 }
 
 .alert-badge i {
