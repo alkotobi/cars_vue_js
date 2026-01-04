@@ -493,7 +493,10 @@ INSERT IGNORE INTO `permissions` (`permission_name`, `description`) VALUES
 ('can_confirm_payment', 'Can confirm payment for sell bills and cars'),
 ('can_c_alerts', 'Can view alerts banner'),
 ('can_c_cars_alerts', 'Can view car-related alerts (unloaded, not arrived, no license, no docs sent)'),
-('can_c_sell_bill_payemts_alert', 'Can view sell bill payment alerts (unconfirmed, not paid, not fully paid)');
+('can_c_sell_bill_payemts_alert', 'Can view sell bill payment alerts (unconfirmed, not paid, not fully paid)'),
+('can_c_freight', 'Can view freight information'),
+('can_c_fob_price', 'Can view FOB price information'),
+('can_c_cfr_prices', 'Can view CFR prices information');
 
 -- Priorities table
 CREATE TABLE IF NOT EXISTS `priorities` (

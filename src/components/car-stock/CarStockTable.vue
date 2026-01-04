@@ -218,6 +218,24 @@ const can_see_other_users_sells = computed(() => {
   return user.value.permissions?.some((p) => p.permission_name === 'can_c_other_users_sells')
 })
 
+const can_see_freight = computed(() => {
+  if (!user.value) return false
+  if (user.value.role_id === 1) return true
+  return user.value.permissions?.some((p) => p.permission_name === 'can_c_freight')
+})
+
+const can_see_fob_price = computed(() => {
+  if (!user.value) return false
+  if (user.value.role_id === 1) return true
+  return user.value.permissions?.some((p) => p.permission_name === 'can_c_fob_price')
+})
+
+const can_see_cfr_prices = computed(() => {
+  if (!user.value) return false
+  if (user.value.role_id === 1) return true
+  return user.value.permissions?.some((p) => p.permission_name === 'can_c_cfr_prices')
+})
+
 // Add to the data/refs section
 const showDocumentsForm = ref(false)
 const selectedCarForDocuments = ref(null)
@@ -3616,19 +3634,19 @@ const closeBatchCheckoutModal = () => {
                   {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
                 </span>
               </th>
-              <th @click="toggleSort('freight')" class="sortable freight-column">
+              <th v-if="can_see_freight" @click="toggleSort('freight')" class="sortable freight-column">
                 {{ t('carStock.freight') }}
                 <span v-if="sortConfig.key === 'freight'" class="sort-indicator">
                   {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
                 </span>
               </th>
-              <th @click="toggleSort('price_cell')" class="sortable">
+              <th v-if="can_see_fob_price" @click="toggleSort('price_cell')" class="sortable">
                 {{ t('carStock.fob') }}
                 <span v-if="sortConfig.key === 'price_cell'" class="sort-indicator">
                   {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
                 </span>
               </th>
-              <th @click="toggleSort('rate')" class="sortable">
+              <th v-if="can_see_cfr_prices" @click="toggleSort('rate')" class="sortable">
                 {{ t('carStock.cfr') }}
                 <span v-if="sortConfig.key === 'rate'" class="sort-indicator">
                   {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
@@ -3803,9 +3821,9 @@ const closeBatchCheckoutModal = () => {
                   </div>
                 </div>
               </td>
-              <td class="freight-column">${{ getFreightValue(car) }}</td>
-              <td>${{ car.price_cell || '0' }}</td>
-              <td>
+              <td v-if="can_see_freight" class="freight-column">${{ getFreightValue(car) }}</td>
+              <td v-if="can_see_fob_price">${{ car.price_cell || '0' }}</td>
+              <td v-if="can_see_cfr_prices">
                 <div class="cfr-container">
                   <div class="info-badge badge-cfr-usd">
                     <i class="fas fa-dollar-sign"></i>
@@ -4200,17 +4218,17 @@ const closeBatchCheckoutModal = () => {
         </div>
 
         <!-- Financial Section -->
-        <div class="card-section">
+        <div v-if="can_see_freight || can_see_fob_price || can_see_cfr_prices" class="card-section">
           <div class="section-title">Financial</div>
-          <div class="card-row">
+          <div v-if="can_see_freight" class="card-row">
             <div class="card-label">Freight:</div>
             <div class="card-value">${{ getFreightValue(car) }}</div>
           </div>
-          <div class="card-row">
+          <div v-if="can_see_fob_price" class="card-row">
             <div class="card-label">FOB:</div>
             <div class="card-value">${{ car.price_cell || '0' }}</div>
           </div>
-          <div class="card-cfr">
+          <div v-if="can_see_cfr_prices" class="card-cfr">
             <div class="info-badge badge-cfr-usd">
               <i class="fas fa-dollar-sign"></i>
               USD: ${{ getCfrUsdValue(car) }}
