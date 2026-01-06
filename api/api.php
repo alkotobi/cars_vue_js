@@ -2124,10 +2124,14 @@ if ($isPaymentConfirmedUpdate) {
         $isSellBillUpdate = (stripos($queryUpper, 'UPDATE') === 0 && stripos($queryUpper, 'SELL_BILL') !== false);
         
         if ($isSellBillUpdate) {
-            // Extract bill ID from WHERE clause and new payment_confirmed value from params
-            // The query should be: UPDATE sell_bill SET payment_confirmed = ? WHERE id = ?
-            // Params should be: [newStatus, billId]
-            if (count($params) >= 2) {
+            // Check if this is a simple payment_confirmed-only update (old format)
+            // Or a full update that includes payment_confirmed (new format)
+            $isSimplePaymentUpdate = (stripos($queryUpper, 'SET') !== false && 
+                                     stripos($queryUpper, 'PAYMENT_CONFIRMED') !== false &&
+                                     substr_count($queryUpper, '?') <= 3); // Simple: SET payment_confirmed = ? WHERE id = ?
+            
+            if ($isSimplePaymentUpdate && count($params) >= 2) {
+                // Old simple format: UPDATE sell_bill SET payment_confirmed = ? WHERE id = ?
                 $newStatus = intval($params[0]);
                 $billId = intval($params[1]);
                 
@@ -2169,6 +2173,64 @@ if ($isPaymentConfirmedUpdate) {
                     http_response_code(500);
                     echo json_encode(['success' => false, 'error' => $e->getMessage()]);
                     exit;
+                }
+            } else {
+                // Full update query that includes payment_confirmed along with other fields
+                // We need to inject payment_confirmed_by_user_id into the query
+                try {
+                    // Find the payment_confirmed parameter index by counting placeholders before it
+                    $paymentConfirmedIndex = -1;
+                    
+                    // Extract the SET clause
+                    if (preg_match('/SET\s+(.+?)\s+WHERE/i', $query, $matches)) {
+                        $setClause = $matches[1];
+                        
+                        // Count question marks before payment_confirmed
+                        $beforePaymentConfirmed = substr($setClause, 0, stripos($setClause, 'payment_confirmed'));
+                        $paymentConfirmedIndex = substr_count($beforePaymentConfirmed, '?');
+                    }
+                    
+                    // Find bill ID (last parameter)
+                    $billIdIndex = count($params) - 1;
+                    $billId = intval($params[$billIdIndex]);
+                    
+                    // Get payment_confirmed value
+                    if ($paymentConfirmedIndex >= 0 && isset($params[$paymentConfirmedIndex])) {
+                        $newStatus = intval($params[$paymentConfirmedIndex]);
+                        $confirmedByUserId = $newStatus == 1 ? $userId : null;
+                        
+                        // Modify query to include payment_confirmed_by_user_id
+                        // Insert it right after payment_confirmed
+                        $modifiedQuery = preg_replace(
+                            '/(payment_confirmed\s*=\s*\?)/i',
+                            '$1, payment_confirmed_by_user_id = ?',
+                            $query
+                        );
+                        
+                        // Insert the confirmed_by_user_id parameter right after payment_confirmed
+                        $modifiedParams = $params;
+                        array_splice($modifiedParams, $paymentConfirmedIndex + 1, 0, $confirmedByUserId);
+                        
+                        // Execute the modified query
+                        $stmt = $conn->prepare($modifiedQuery);
+                        $stmt->execute($modifiedParams);
+                        $affectedRows = $stmt->rowCount();
+                        
+                        // If update was successful, update related cars
+                        if ($affectedRows > 0 && $newStatus !== null) {
+                            $updateCarsQuery = "UPDATE cars_stock SET payment_confirmed = ? WHERE id_sell = ?";
+                            $carsStmt = $conn->prepare($updateCarsQuery);
+                            $carsStmt->execute([$newStatus, $billId]);
+                        }
+                        
+                        $result = ['success' => true, 'affectedRows' => $affectedRows];
+                        http_response_code(200);
+                        echo json_encode($result);
+                        exit;
+                    }
+                } catch (Exception $e) {
+                    // If modification fails, fall through to normal execution
+                    error_log("Error modifying payment_confirmed query: " . $e->getMessage());
                 }
             }
         }

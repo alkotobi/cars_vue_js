@@ -509,10 +509,14 @@ const handleSelectedBillsUpdate = (bills) => {
 
 .dialog {
   background: white;
-  padding: 20px;
+  padding: 0;
   border-radius: 8px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
   width: 90%;
-  max-width: 500px;
+  max-width: 800px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 </style>

@@ -112,11 +112,38 @@ const fetchCarData = async () => {
 
     if (carResult.success && carResult.data.length > 0) {
       carData.value = carResult.data[0]
+      
+      // Parse notes JSON if it exists
+      let notesFormatted = carData.value.bill_notes || ''
+      let notes = carData.value.bill_notes || ''
+      if (carData.value.bill_notes) {
+        try {
+          let notesArray = []
+          if (typeof carData.value.bill_notes === 'string' && carData.value.bill_notes.trim().startsWith('[')) {
+            notesArray = JSON.parse(carData.value.bill_notes)
+          } else if (Array.isArray(carData.value.bill_notes)) {
+            notesArray = carData.value.bill_notes
+          }
+          
+          if (Array.isArray(notesArray) && notesArray.length > 0) {
+            // Format notes for printing (show all notes, each on a line, without user/date)
+            notesFormatted = notesArray.map(note => note.note || '').filter(note => note.trim() !== '').join('\n')
+            // Also keep latest note for simple display
+            notes = notesArray[notesArray.length - 1].note || ''
+          }
+        } catch (e) {
+          // If parsing fails, treat as old format (plain text)
+          notesFormatted = carData.value.bill_notes
+          notes = carData.value.bill_notes
+        }
+      }
+      
       billData.value = {
         id: carData.value.id_sell,
         bill_ref: carData.value.bill_ref,
         date_sell: carData.value.date_sell,
-        notes: carData.value.bill_notes,
+        notes: notes,
+        notesFormatted: notesFormatted,
         broker_name: carData.value.broker_name,
         broker_address: carData.value.broker_address,
         broker_phone: carData.value.broker_phone,
@@ -399,11 +426,12 @@ onMounted(async () => {
       </div>
 
       <!-- Notes Section -->
-      <div class="section notes-section" v-if="billData?.notes || carData?.notes" :style="{ fontSize: (options.tableFontSize || 12) + 'pt' }">
-        <div v-if="billData?.notes" class="notes-item">
+      <div class="section notes-section" v-if="billData?.notes || billData?.notesFormatted || carData?.notes" :style="{ fontSize: (options.tableFontSize || 12) + 'pt' }">
+        <div v-if="billData?.notes || billData?.notesFormatted" class="notes-item">
           <h3 class="section-title">Bill Notes</h3>
           <div class="notes-content">
-            <p>{{ billData.notes }}</p>
+            <p v-if="billData.notesFormatted" style="white-space: pre-line;">{{ billData.notesFormatted }}</p>
+            <p v-else>{{ billData.notes }}</p>
           </div>
         </div>
         <div v-if="carData?.notes" class="notes-item">

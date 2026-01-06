@@ -274,8 +274,7 @@ const openEditDialog = (bill) => {
   showEditDialog.value = true
 }
 
-const openAddDialog = () => {
-  editingBill.value = null
+const resetPurchaseForm = () => {
   newPurchase.value = {
     id_supplier: null,
     date_buy: new Date().toISOString().slice(0, 16),
@@ -284,6 +283,27 @@ const openAddDialog = () => {
     pi_file: null,
     is_ordered: 1,
     notes: '',
+  }
+  // Reset file input if it exists
+  const fileInput = document.querySelector('input[type="file"][accept*="pdf"]')
+  if (fileInput) {
+    fileInput.value = ''
+  }
+}
+
+const openAddDialog = () => {
+  editingBill.value = null
+  // Only reset form if it's empty (preserve values if user closed dialog without saving)
+  if (!newPurchase.value.id_supplier && !newPurchase.value.bill_ref && !newPurchase.value.pi_file && !newPurchase.value.notes) {
+    resetPurchaseForm()
+  } else {
+    // Preserve existing values, only update date if it's very old (more than 1 day)
+    const currentDate = new Date()
+    const formDate = new Date(newPurchase.value.date_buy)
+    const daysDiff = (currentDate - formDate) / (1000 * 60 * 60 * 24)
+    if (daysDiff > 1) {
+      newPurchase.value.date_buy = new Date().toISOString().slice(0, 16)
+    }
   }
   showAddDialog.value = true
 }
@@ -399,8 +419,6 @@ const addPurchase = async () => {
     })
 
     if (result.success) {
-      showAddDialog.value = false
-
       // Get the new bill ID
       const newBillId = result.lastInsertId
 
@@ -448,7 +466,7 @@ const addPurchase = async () => {
         }
       }
 
-      // Reset form
+      // Reset form only after successful save
       newPurchase.value = {
         id_supplier: null,
         date_buy: new Date().toISOString().slice(0, 16),
@@ -458,6 +476,9 @@ const addPurchase = async () => {
         is_ordered: 1,
         notes: '',
       }
+      
+      // Close dialog after successful save
+      showAddDialog.value = false
     } else {
       throw new Error(result.error || t('failed_add_purchase'))
     }
@@ -1020,6 +1041,9 @@ const saveNotes = async (newNotes) => {
             <button type="button" @click="showAddDialog = false" class="cancel-btn">
               {{ t('buyView.cancel') }}
             </button>
+            <button type="button" @click="resetPurchaseForm" class="reset-btn" v-if="newPurchase.id_supplier || newPurchase.bill_ref || newPurchase.pi_file || newPurchase.notes">
+              {{ t('buyView.resetForm') || 'Reset Form' }}
+            </button>
             <button type="submit" class="submit-btn" :disabled="isSubmittingPurchase">
               <span v-if="isSubmittingPurchase" class="spinner"></span>
               {{ isSubmittingPurchase ? t('buyView.adding') : t('buyView.addPurchase') }}
@@ -1411,6 +1435,20 @@ h3 {
 
 .cancel-btn:hover {
   background-color: #d1d5db;
+}
+
+.reset-btn {
+  padding: 8px 16px;
+  background-color: #ffc107;
+  color: #000;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.reset-btn:hover {
+  background-color: #e0a800;
 }
 
 .submit-btn {

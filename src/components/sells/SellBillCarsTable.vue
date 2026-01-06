@@ -6,6 +6,8 @@ import { useRouter } from 'vue-router'
 import { ElSelect, ElOption } from 'element-plus'
 import 'element-plus/dist/index.css'
 import SellBillPrintOption from './SellBillPrintOption.vue'
+import NotesTable from '../shared/NotesTable.vue'
+import NotesManagementModal from '../shared/NotesManagementModal.vue'
 
 const { t } = useEnhancedI18n()
 const attrs = useAttrs()
@@ -19,6 +21,7 @@ const props = defineProps({
 const emit = defineEmits(['refresh'])
 const router = useRouter()
 const user = ref(null)
+const expandedCarNotes = ref(new Set()) // Track which cars have expanded notes
 const isAdmin = computed(() => user.value?.role_id === 1)
 const can_assign_to_tmp_clients = computed(
   () =>
@@ -52,6 +55,12 @@ const editFormData = ref({
   notes: null,
   is_tmp_client: 0,
 })
+
+// Notes management for edit dialog
+const editCarNotes = ref([])
+const originalEditCarNotes = ref([]) // Store original notes to restore on cancel
+const allUsers = ref([])
+const showEditNotesModal = ref(false)
 
 // Add print options dialog state
 const showPrintOptions = ref(false)
@@ -281,6 +290,66 @@ const fetchDischargePorts = async () => {
   }
 }
 
+// Fetch all users for notes display
+const fetchAllUsers = async () => {
+  try {
+    const result = await callApi({
+      query: `
+        SELECT id, username, first_name, last_name
+        FROM users
+        ORDER BY username ASC
+      `,
+      params: [],
+    })
+
+    if (result.success) {
+      allUsers.value = result.data
+    }
+  } catch (err) {
+    console.error('Error fetching users:', err)
+  }
+}
+
+// Save car notes function for NotesManagementModal
+const saveCarNotes = async (notesJson, carId) => {
+  const result = await callApi({
+    query: 'UPDATE cars_stock SET notes = ? WHERE id = ?',
+    params: [notesJson, carId],
+    requiresAuth: true,
+  })
+  
+  if (!result.success) {
+    throw new Error(result.error || 'Failed to save notes')
+  }
+  
+  // Update local notes
+  if (notesJson) {
+    editCarNotes.value = JSON.parse(notesJson)
+  } else {
+    editCarNotes.value = []
+  }
+}
+
+// Handle notes updated from modal
+const handleEditNotesUpdated = (updatedNotes) => {
+  editCarNotes.value = updatedNotes
+}
+
+// Handle manage notes click
+const handleManageEditNotes = () => {
+  showEditNotesModal.value = true
+}
+
+// Handle close edit dialog - restore original notes if cancelled
+const handleCloseEditDialog = () => {
+  // Restore original notes (discard any changes made in the modal)
+  editCarNotes.value = JSON.parse(JSON.stringify(originalEditCarNotes.value))
+  showEditDialog.value = false
+  editingCar.value = null
+  editCarNotes.value = []
+  originalEditCarNotes.value = []
+}
+
 // Handle edit button click
 const handleEdit = async (car) => {
   isProcessing.value = true
@@ -312,6 +381,42 @@ const handleEdit = async (car) => {
         notes: carData.notes,
         is_tmp_client: carData.is_tmp_client,
       }
+
+      // Parse existing notes (JSON format)
+      if (carData.notes) {
+        try {
+          let notesArray = []
+          if (typeof carData.notes === 'string' && carData.notes.trim().startsWith('[')) {
+            notesArray = JSON.parse(carData.notes)
+          } else if (Array.isArray(carData.notes)) {
+            notesArray = carData.notes
+          } else {
+            // Old format (plain text) - convert to JSON
+            const userStr = localStorage.getItem('user')
+            const currentUser = userStr ? JSON.parse(userStr) : null
+            notesArray = [{
+              id_user: currentUser?.id || null,
+              note: carData.notes,
+              timestamp: new Date().toISOString().slice(0, 19).replace('T', ' ')
+            }]
+          }
+          editCarNotes.value = Array.isArray(notesArray) ? notesArray : []
+        } catch (e) {
+          // If parsing fails, treat as old format (plain text)
+          const userStr = localStorage.getItem('user')
+          const currentUser = userStr ? JSON.parse(userStr) : null
+          editCarNotes.value = [{
+            id_user: currentUser?.id || null,
+            note: carData.notes,
+            timestamp: new Date().toISOString().slice(0, 19).replace('T', ' ')
+          }]
+        }
+      } else {
+        editCarNotes.value = []
+      }
+      
+      // Store original notes to restore on cancel
+      originalEditCarNotes.value = JSON.parse(JSON.stringify(editCarNotes.value))
 
       // Set the price input value based on existing data
       if (carData.cfr_da) {
@@ -348,7 +453,7 @@ const handleEdit = async (car) => {
       }
 
       // Fetch necessary data for dropdowns
-      await Promise.all([fetchClients(), fetchDischargePorts()])
+      await Promise.all([fetchClients(), fetchDischargePorts(), fetchAllUsers()])
 
       showEditDialog.value = true
     }
@@ -415,6 +520,8 @@ const handleSaveEdit = async () => {
     if (result.success) {
       showEditDialog.value = false
       editingCar.value = null
+      editCarNotes.value = []
+      originalEditCarNotes.value = []
       await fetchCarsByBillId(props.sellBillId)
       emit('refresh')
     } else {
@@ -503,7 +610,40 @@ const fetchCarsByBillId = async (billId) => {
     })
 
     if (result.success) {
-      cars.value = result.data
+      // Parse notes JSON and format for display
+      const carsData = (result.data || []).map((car) => {
+        // Parse notes JSON if it exists
+        let notesDisplay = 'N/A'
+        if (car.notes) {
+          try {
+            let notesArray = []
+            if (typeof car.notes === 'string' && car.notes.trim().startsWith('[')) {
+              notesArray = JSON.parse(car.notes)
+            } else if (Array.isArray(car.notes)) {
+              notesArray = car.notes
+            } else {
+              // Old format (plain text) - use as is
+              notesDisplay = car.notes
+            }
+            
+            if (Array.isArray(notesArray) && notesArray.length > 0) {
+              // Format all notes without username or timestamp
+              notesDisplay = notesArray.map((note) => {
+                return note.note || ''
+              }).join('\n')
+            }
+          } catch (e) {
+            // If parsing fails, treat as old format (plain text)
+            notesDisplay = car.notes
+          }
+        }
+        
+        return {
+          ...car,
+          notesDisplay: notesDisplay, // Add formatted display version
+        }
+      })
+      cars.value = carsData
     } else {
       error.value = result.error || 'Failed to fetch cars'
     }
@@ -526,6 +666,27 @@ watch(
   },
   { immediate: true },
 )
+
+// Truncate notes display
+const getTruncatedCarNotes = (notesText, carId, maxLength = 100) => {
+  if (!notesText || notesText === 'N/A' || notesText === '-') return notesText
+  if (expandedCarNotes.value.has(carId)) return notesText
+  if (notesText.length <= maxLength) return notesText
+  return notesText.substring(0, maxLength) + '...'
+}
+
+const isCarNotesTruncated = (notesText, carId, maxLength = 100) => {
+  if (!notesText || notesText === 'N/A' || notesText === '-') return false
+  return notesText.length > maxLength && !expandedCarNotes.value.has(carId)
+}
+
+const toggleCarNotesExpansion = (carId) => {
+  if (expandedCarNotes.value.has(carId)) {
+    expandedCarNotes.value.delete(carId)
+  } else {
+    expandedCarNotes.value.add(carId)
+  }
+}
 
 // Calculate profit
 const calculateProfit = (sellPrice, buyPrice, freight) => {
@@ -876,7 +1037,25 @@ const formatDate = (dateString) => {
               >
             </div>
           </td>
-          <td>{{ car.notes || 'N/A' }}</td>
+          <td class="notes-cell">
+            <div class="notes-content">
+              <div style="white-space: pre-line; max-width: 300px">
+                {{ getTruncatedCarNotes(car.notesDisplay, car.id) }}
+              </div>
+              <button
+                v-if="isCarNotesTruncated(car.notesDisplay, car.id)"
+                @click.stop="toggleCarNotesExpansion(car.id)"
+                class="btn-show-full-notes"
+                type="button"
+              >
+                {{
+                  expandedCarNotes.has(car.id)
+                    ? t('sellBills.show_less') || 'Show Less'
+                    : t('sellBills.show_full') || 'Show Full'
+                }}
+              </button>
+            </div>
+          </td>
           <td class="actions">
             <button
               @click="handleEdit(car)"
@@ -916,7 +1095,7 @@ const formatDate = (dateString) => {
             <i class="fas fa-edit"></i>
             {{ t('sellBills.edit_car_details') }}
           </h3>
-          <button @click="showEditDialog = false" class="close-btn">
+          <button @click="handleCloseEditDialog" class="close-btn">
             <i class="fas fa-times"></i>
           </button>
         </div>
@@ -936,173 +1115,205 @@ const formatDate = (dateString) => {
         </div>
 
         <form @submit.prevent="handleSaveEdit" class="edit-form">
-          <div class="form-group">
-            <label>{{ t('sellBills.client') }}: <span class="required">*</span></label>
-            <el-select
-              v-model="editFormData.id_client"
-              filterable
-              remote
-              :remote-method="remoteClientSearch"
-              :loading="isProcessing"
-              :placeholder="t('sellBills.search_client')"
-              class="custom-select"
-              required
-            >
-              <el-option
-                v-for="client in filteredClients"
-                :key="client.id"
-                :label="client.name"
-                :value="client.id"
-              >
-                <div class="custom-option">
-                  <i class="fas fa-user"></i>
-                  <span>{{ client.name }}</span>
-                  <small v-if="client.mobiles">
-                    <i class="fas fa-phone"></i>
-                    {{ client.mobiles }}
-                  </small>
-                </div>
-              </el-option>
-            </el-select>
-          </div>
-
-          <div class="form-group">
-            <label>{{ t('sellBills.discharge_port') }}: <span class="required">*</span></label>
-            <el-select
-              v-model="editFormData.id_port_discharge"
-              filterable
-              remote
-              :remote-method="remotePortSearch"
-              :loading="isProcessing"
-              :placeholder="t('sellBills.search_port')"
-              class="custom-select"
-              required
-            >
-              <el-option
-                v-for="port in filteredPorts"
-                :key="port.id"
-                :label="port.discharge_port"
-                :value="port.id"
-              >
-                <div class="custom-option">
-                  <i class="fas fa-anchor"></i>
-                  <span>{{ port.discharge_port }}</span>
-                </div>
-              </el-option>
-            </el-select>
-          </div>
-
-          <div class="form-group">
-            <label>
-              <i class="fas fa-money-bill-wave"></i>
-              {{ t('sellBills.currency') }}: <span class="required">*</span>
-            </label>
-            <select v-model="selectedCurrency" @change="handleCurrencyChange">
-              <option value="USD">USD</option>
-              <option value="DZD">DZD (DA)</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label>
-              <i class="fas fa-calculator"></i>
-              {{ selectedCurrency === 'USD' ? t('sellBills.price') : t('sellBills.cfr_da') }}: <span class="required">*</span>
-            </label>
-            <div class="input-with-info">
-              <input
-                type="number"
-                v-model="priceInput"
-                step="0.01"
-                min="0"
+          <div class="form-row">
+            <div class="form-group">
+              <label>{{ t('sellBills.client') }}: <span class="required">*</span></label>
+              <el-select
+                v-model="editFormData.id_client"
+                filterable
+                remote
+                :remote-method="remoteClientSearch"
+                :loading="isProcessing"
+                :placeholder="t('sellBills.search_client')"
+                class="custom-select"
                 required
-                @input="handlePriceInputChange"
-                :placeholder="selectedCurrency === 'USD' ? 'Enter price in USD' : 'Enter price in DZD'"
-              />
+              >
+                <el-option
+                  v-for="client in filteredClients"
+                  :key="client.id"
+                  :label="client.name"
+                  :value="client.id"
+                >
+                  <div class="custom-option">
+                    <i class="fas fa-user"></i>
+                    <span>{{ client.name }}</span>
+                    <small v-if="client.mobiles">
+                      <i class="fas fa-phone"></i>
+                      {{ client.mobiles }}
+                    </small>
+                  </div>
+                </el-option>
+              </el-select>
             </div>
-            <span class="info-text" v-if="selectedCurrency === 'USD' && editFormData.rate && priceInput">
-              Calculated DZD: {{ cfrDaInput ? parseFloat(cfrDaInput).toLocaleString() : 'N/A' }} DA
-            </span>
-            <span class="info-text" v-else-if="selectedCurrency === 'DZD' && editFormData.rate && priceInput">
-              Calculated USD: {{ editFormData.price_cell ? '$' + parseFloat(editFormData.price_cell).toLocaleString() : 'N/A' }}
-            </span>
+
+            <div class="form-group">
+              <label>{{ t('sellBills.discharge_port') }}: <span class="required">*</span></label>
+              <el-select
+                v-model="editFormData.id_port_discharge"
+                filterable
+                remote
+                :remote-method="remotePortSearch"
+                :loading="isProcessing"
+                :placeholder="t('sellBills.search_port')"
+                class="custom-select"
+                required
+              >
+                <el-option
+                  v-for="port in filteredPorts"
+                  :key="port.id"
+                  :label="port.discharge_port"
+                  :value="port.id"
+                >
+                  <div class="custom-option">
+                    <i class="fas fa-anchor"></i>
+                    <span>{{ port.discharge_port }}</span>
+                  </div>
+                </el-option>
+              </el-select>
+            </div>
           </div>
 
-          <div class="form-group">
-            <label>
-              <i class="fas fa-ship"></i>
-              {{ t('sellBills.freight') }}:
-            </label>
-            <div class="input-with-info">
+          <div class="form-row">
+            <div class="form-group">
+              <label>
+                <i class="fas fa-money-bill-wave"></i>
+                {{ t('sellBills.currency') }}: <span class="required">*</span>
+              </label>
+              <select v-model="selectedCurrency" @change="handleCurrencyChange">
+                <option value="USD">USD</option>
+                <option value="DZD">DZD (DA)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label>
+                <i class="fas fa-calculator"></i>
+                {{ selectedCurrency === 'USD' ? t('sellBills.price') : t('sellBills.cfr_da') }}: <span class="required">*</span>
+              </label>
+              <div class="input-with-info">
+                <input
+                  type="number"
+                  v-model="priceInput"
+                  step="0.01"
+                  min="0"
+                  required
+                  @input="handlePriceInputChange"
+                  :placeholder="selectedCurrency === 'USD' ? 'Enter price in USD' : 'Enter price in DZD'"
+                />
+              </div>
+              <span class="info-text" v-if="selectedCurrency === 'USD' && editFormData.rate && priceInput">
+                Calculated DZD: {{ cfrDaInput ? parseFloat(cfrDaInput).toLocaleString() : 'N/A' }} DA
+              </span>
+              <span class="info-text" v-else-if="selectedCurrency === 'DZD' && editFormData.rate && priceInput">
+                Calculated USD: {{ editFormData.price_cell ? '$' + parseFloat(editFormData.price_cell).toLocaleString() : 'N/A' }}
+              </span>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>
+                <i class="fas fa-ship"></i>
+                {{ t('sellBills.freight') }}:
+              </label>
+              <div class="input-with-info">
+                <input
+                  type="number"
+                  v-model="editFormData.freight"
+                  step="0.01"
+                  min="0"
+                  @input="handleRateOrFreightChange"
+                  :class="{ 'default-value': editFormData.freight === editingCar?.freight }"
+                />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="edit-rate">{{ t('sellBills.rate') }}:</label>
               <input
                 type="number"
-                v-model="editFormData.freight"
+                id="edit-rate"
+                v-model="editFormData.rate"
                 step="0.01"
                 min="0"
                 @input="handleRateOrFreightChange"
-                :class="{ 'default-value': editFormData.freight === editingCar?.freight }"
+                :disabled="isProcessing"
               />
             </div>
           </div>
 
-          <div class="form-group">
-            <label for="edit-rate">{{ t('sellBills.rate') }}:</label>
-            <input
-              type="number"
-              id="edit-rate"
-              v-model="editFormData.rate"
-              step="0.01"
-              min="0"
-              @input="handleRateOrFreightChange"
-              :disabled="isProcessing"
-            />
+          <div class="form-row full-width">
+            <div class="form-group">
+              <label for="edit-notes">
+                <i class="fas fa-sticky-note"></i>
+                {{ t('sellBills.notes') }}:
+              </label>
+              <div class="notes-section">
+                <NotesTable v-if="editCarNotes && editCarNotes.length > 0" :notes="editCarNotes" :users="allUsers" />
+                <button
+                  type="button"
+                  @click="handleManageEditNotes"
+                  class="btn-manage-notes"
+                  :disabled="isProcessing"
+                >
+                  <i class="fas fa-edit"></i>
+                  {{ t('sellBills.manage_notes') }}
+                </button>
+              </div>
+            </div>
           </div>
 
-          <div class="form-group">
-            <label for="edit-notes">{{ t('sellBills.notes') }}:</label>
-            <textarea
-              id="edit-notes"
-              v-model="editFormData.notes"
-              :placeholder="t('sellBills.add_notes_about_car')"
-              rows="3"
-              class="textarea-field"
-              :disabled="isProcessing"
-            ></textarea>
+          <div v-if="can_assign_to_tmp_clients" class="form-row full-width">
+            <div class="form-group">
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  v-model="editFormData.is_tmp_client"
+                  :true-value="1"
+                  :false-value="0"
+                  :disabled="isProcessing"
+                />
+                <i class="fas fa-clock"></i>
+                {{ t('sellBills.temporary_client') }}
+              </label>
+              <small class="help-text">{{ t('sellBills.help_text_temporary_client') }}</small>
+            </div>
           </div>
 
-          <div v-if="can_assign_to_tmp_clients" class="form-group">
-            <label class="checkbox-label">
-              <input
-                type="checkbox"
-                v-model="editFormData.is_tmp_client"
-                :true-value="1"
-                :false-value="0"
+          <div class="form-row full-width">
+            <div class="form-actions">
+              <button
+                type="button"
+                @click="handleCloseEditDialog"
+                class="cancel-btn"
                 :disabled="isProcessing"
-              />
-              <i class="fas fa-clock"></i>
-              {{ t('sellBills.temporary_client') }}
-            </label>
-            <small class="help-text">{{ t('sellBills.help_text_temporary_client') }}</small>
-          </div>
-
-
-          <div class="form-actions">
-            <button
-              type="button"
-              @click="showEditDialog = false"
-              class="cancel-btn"
-              :disabled="isProcessing"
-            >
-              <i class="fas fa-times"></i>
-              {{ t('sellBills.cancel') }}
-            </button>
-            <button type="submit" class="save-btn" :disabled="isProcessing">
-              <i class="fas fa-save"></i>
-              {{ isProcessing ? t('sellBills.saving') : t('sellBills.save_changes') }}
-            </button>
+              >
+                <i class="fas fa-times"></i>
+                {{ t('sellBills.cancel') }}
+              </button>
+              <button type="submit" class="save-btn" :disabled="isProcessing">
+                <i class="fas fa-save"></i>
+                {{ isProcessing ? t('sellBills.saving') : t('sellBills.save_changes') }}
+              </button>
+            </div>
           </div>
         </form>
       </div>
     </div>
+
+    <!-- Notes Management Modal for Edit Dialog -->
+    <NotesManagementModal
+      :show="showEditNotesModal"
+      :notes="editCarNotes"
+      :users="allUsers"
+      :current-user-id="user?.id"
+      :is-admin="isAdmin"
+      :entity-id="editingCar?.id"
+      :save-function="saveCarNotes"
+      :save-immediately="false"
+      @close="showEditNotesModal = false"
+      @notes-updated="handleEditNotesUpdated"
+    />
   </div>
 
   <!-- Print Options Dialog -->
@@ -1331,15 +1542,15 @@ const formatDate = (dateString) => {
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1000;
+  z-index: 2000;
 }
 
 .dialog {
   background: white;
   border-radius: 8px;
-  padding: 20px;
+  padding: 24px;
   width: 90%;
-  max-width: 500px;
+  max-width: 900px;
   max-height: 90vh;
   overflow-y: auto;
 }
@@ -1379,6 +1590,22 @@ const formatDate = (dateString) => {
   gap: 15px;
 }
 
+.edit-form .form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.edit-form .form-row.full-width {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 768px) {
+  .edit-form .form-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 .form-group {
   display: flex;
   flex-direction: column;
@@ -1401,7 +1628,8 @@ const formatDate = (dateString) => {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  margin-top: 20px;
+  margin-top: 0;
+  width: 100%;
 }
 
 .cancel-btn,
@@ -1724,7 +1952,41 @@ button:disabled {
 .cfr-rate-badge {
   background-color: #fce7f3;
   color: #be185d;
-  border-radius: 8px;
+}
+
+.notes-cell {
+  max-width: 300px;
+  white-space: pre-line;
+  word-wrap: break-word;
+  vertical-align: top;
+  padding: 8px;
+}
+
+.notes-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.btn-show-full-notes {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85em;
+  align-self: flex-start;
+  margin-top: 4px;
+  transition: background-color 0.2s;
+}
+
+.btn-show-full-notes:hover {
+  background: #0056b3;
+}
+
+.btn-show-full-notes:active {
+  transform: scale(0.98);
 }
 
 .badge {
@@ -1794,5 +2056,32 @@ button:disabled {
 
 .assigned-date-badge.not-assigned i {
   color: #dc2626;
+}
+
+.notes-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.btn-manage-notes {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.2s;
+  align-self: flex-start;
+}
+
+.btn-manage-notes:hover {
+  background-color: #0056b3;
+}
+
+.btn-manage-notes:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
 }
 </style>

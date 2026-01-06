@@ -4,6 +4,8 @@ import { useEnhancedI18n } from '../../composables/useI18n'
 import { useApi } from '../../composables/useApi'
 import { ElSelect, ElOption, ElDialog, ElButton, ElInput, ElCheckbox } from 'element-plus'
 import 'element-plus/dist/index.css'
+import NotesTable from '../shared/NotesTable.vue'
+import NotesManagementModal from '../shared/NotesManagementModal.vue'
 
 const { t } = useEnhancedI18n()
 
@@ -48,9 +50,14 @@ const formData = ref({
   price_cell: null,
   freight: null,
   rate: null,
-  notes: '',
   is_tmp_client: 0,
 })
+
+// Notes management
+const carNotes = ref([])
+const originalCarNotes = ref([]) // Store original notes to restore on cancel
+const allUsers = ref([])
+const showNotesModal = ref(false)
 
 // Add ref for CFR DA input
 const cfrDaInput = ref(null)
@@ -285,6 +292,7 @@ const fetchCarDetails = async () => {
           cs.vin,
           cs.price_cell,
           cs.is_big_car,
+          cs.notes,
           cn.car_name,
           clr.color,
           bd.price_sell as buy_price
@@ -299,6 +307,38 @@ const fetchCarDetails = async () => {
 
     if (result.success && result.data.length > 0) {
       carDetails.value = result.data[0]
+
+      // Parse existing notes (JSON format)
+      if (carDetails.value.notes) {
+        try {
+          let notesArray = []
+          if (typeof carDetails.value.notes === 'string' && carDetails.value.notes.trim().startsWith('[')) {
+            notesArray = JSON.parse(carDetails.value.notes)
+          } else if (Array.isArray(carDetails.value.notes)) {
+            notesArray = carDetails.value.notes
+          } else {
+            // Old format (plain text) - convert to JSON
+            notesArray = [{
+              id_user: user.value?.id || null,
+              note: carDetails.value.notes,
+              timestamp: new Date().toISOString().slice(0, 19).replace('T', ' ')
+            }]
+          }
+          carNotes.value = Array.isArray(notesArray) ? notesArray : []
+        } catch (e) {
+          // If parsing fails, treat as old format (plain text)
+          carNotes.value = [{
+            id_user: user.value?.id || null,
+            note: carDetails.value.notes,
+            timestamp: new Date().toISOString().slice(0, 19).replace('T', ' ')
+          }]
+        }
+      } else {
+        carNotes.value = []
+      }
+      
+      // Store original notes to restore on cancel
+      originalCarNotes.value = JSON.parse(JSON.stringify(carNotes.value))
 
       // Fetch defaults first to have rate and freight available
       await fetchDefaultFreight(!carDetails.value.is_big_car)
@@ -471,6 +511,9 @@ const assignCar = async () => {
     const cfrDaValue = cfrDaInput.value
     const calculatedPriceCell = formData.value.price_cell
 
+    // Use current notes (managed separately via NotesManagementModal)
+    const notesJson = carNotes.value.length > 0 ? JSON.stringify(carNotes.value) : null
+
     const result = await callApi({
       query: `
         UPDATE cars_stock 
@@ -498,7 +541,7 @@ const assignCar = async () => {
         currentDate,
         billRef,
         formData.value.rate || null,
-        formData.value.notes || null,
+        notesJson,
         formData.value.is_tmp_client,
         props.carId,
       ],
@@ -557,13 +600,67 @@ const resetForm = () => {
     price_cell: null,
     freight: null,
     rate: currentRate, // Keep the default rate
-    notes: '',
     is_tmp_client: 0,
   }
   selectedCurrency.value = 'DZD' // Reset to default currency
   priceInput.value = null // Reset price input
   cfrDaInput.value = null // Reset CFR DA input
   error.value = null
+  carNotes.value = []
+  originalCarNotes.value = []
+}
+
+// Fetch all users for notes display
+const fetchAllUsers = async () => {
+  try {
+    const result = await callApi({
+      query: 'SELECT id, username FROM users ORDER BY username ASC',
+      params: [],
+    })
+    if (result.success) {
+      allUsers.value = result.data
+    }
+  } catch (err) {
+    console.error('Error fetching users:', err)
+  }
+}
+
+// Save car notes function for NotesManagementModal
+const saveCarNotes = async (notesJson, carId) => {
+  const result = await callApi({
+    query: 'UPDATE cars_stock SET notes = ? WHERE id = ?',
+    params: [notesJson, carId],
+    requiresAuth: true,
+  })
+  
+  if (!result.success) {
+    throw new Error(result.error || 'Failed to save notes')
+  }
+  
+  // Update local notes
+  if (notesJson) {
+    carNotes.value = JSON.parse(notesJson)
+  } else {
+    carNotes.value = []
+  }
+}
+
+// Handle notes updated from modal
+const handleNotesUpdated = (updatedNotes) => {
+  carNotes.value = updatedNotes
+}
+
+// Handle manage notes click
+const handleManageNotes = () => {
+  showNotesModal.value = true
+}
+
+// Handle close - restore original notes if cancelled
+const handleClose = () => {
+  // Restore original notes (discard any changes made in the modal)
+  carNotes.value = JSON.parse(JSON.stringify(originalCarNotes.value))
+  resetForm()
+  emit('close')
 }
 
 // Calculate potential profit
@@ -681,7 +778,15 @@ onMounted(() => {
   fetchClients()
   fetchDischargePorts()
   fetchDefaultRate()
+  fetchAllUsers()
   if (props.carId) {
+    fetchCarDetails()
+  }
+})
+
+// Watch for visible prop to reload data when modal opens
+watch(() => props.visible, (newVal) => {
+  if (newVal && props.carId) {
     fetchCarDetails()
   }
 })
@@ -701,7 +806,7 @@ onMounted(() => {
           <i class="fas fa-link"></i>
           {{ t('sellBills.assign_car_to_bill') }}
         </h3>
-        <button @click="$emit('close')" class="close-btn">&times;</button>
+        <button @click="handleClose" class="close-btn">&times;</button>
       </div>
 
       <div v-if="error" class="error">{{ error }}</div>
@@ -737,188 +842,212 @@ onMounted(() => {
         </div>
       </div>
 
-      <form @submit.prevent="assignCar">
-        <div class="form-group">
-          <label for="client">
-            <i class="fas fa-user"></i>
-            {{ t('sellBills.client') }}: <span class="required">*</span>
-          </label>
-          <div class="client-select-wrapper">
-            <el-select
-              v-model="formData.id_client"
-              filterable
-              remote
-              :remote-method="remoteMethod"
-              :loading="loading"
-              :placeholder="t('sellBills.select_or_search_client')"
-              style="width: 100%"
-              @change="handleClientChange"
-            >
-              <el-option
-                v-for="client in filteredClients"
-                :key="client.id"
-                :label="client.name"
-                :value="client.id"
+      <form @submit.prevent="assignCar" class="form-content">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="client">
+              <i class="fas fa-user"></i>
+              {{ t('sellBills.client') }}: <span class="required">*</span>
+            </label>
+            <div class="client-select-wrapper">
+              <el-select
+                v-model="formData.id_client"
+                filterable
+                remote
+                :remote-method="remoteMethod"
+                :loading="loading"
+                :placeholder="t('sellBills.select_or_search_client')"
+                style="width: 100%"
+                @change="handleClientChange"
               >
-                <i class="fas fa-user"></i>
-                {{ client.name }}
-                <small v-if="client.mobiles">
-                  <i class="fas fa-phone"></i>
-                  {{ client.mobiles }}
-                </small>
-              </el-option>
-            </el-select>
-            <el-button type="primary" @click="showAddDialog = true" class="new-client-btn">
-              <i class="fas fa-plus"></i>
-              {{ t('sellBills.new') }}
-            </el-button>
+                <el-option
+                  v-for="client in filteredClients"
+                  :key="client.id"
+                  :label="client.name"
+                  :value="client.id"
+                >
+                  <i class="fas fa-user"></i>
+                  {{ client.name }}
+                  <small v-if="client.mobiles">
+                    <i class="fas fa-phone"></i>
+                    {{ client.mobiles }}
+                  </small>
+                </el-option>
+              </el-select>
+              <el-button type="primary" @click="showAddDialog = true" class="new-client-btn">
+                <i class="fas fa-plus"></i>
+                {{ t('sellBills.new') }}
+              </el-button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="discharge-port">
+              <i class="fas fa-anchor"></i>
+              {{ t('sellBills.discharge_port') }}: <span class="required">*</span>
+            </label>
+            <select id="discharge-port" v-model="formData.id_port_discharge" required>
+              <option value="">{{ t('sellBills.select_discharge_port') }}</option>
+              <option v-for="port in dischargePorts" :key="port.id" :value="port.id">
+                {{ port.discharge_port }}
+              </option>
+            </select>
           </div>
         </div>
 
-        <div class="form-group">
-          <label for="discharge-port">
-            <i class="fas fa-anchor"></i>
-            {{ t('sellBills.discharge_port') }}: <span class="required">*</span>
-          </label>
-          <select id="discharge-port" v-model="formData.id_port_discharge" required>
-            <option value="">{{ t('sellBills.select_discharge_port') }}</option>
-            <option v-for="port in dischargePorts" :key="port.id" :value="port.id">
-              {{ port.discharge_port }}
-            </option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label for="currency">
-            <i class="fas fa-money-bill-wave"></i>
-            {{ t('sellBills.currency') }}: <span class="required">*</span>
-          </label>
-          <select id="currency" v-model="selectedCurrency" @change="handleCurrencyChange">
-            <option value="USD">USD</option>
-            <option value="DZD">DZD (DA)</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label for="price-input">
-            <i class="fas fa-calculator"></i>
-            {{ selectedCurrency === 'USD' ? t('sellBills.price') : t('sellBills.cfr_da') }}: <span class="required">*</span>
-          </label>
-          <div class="input-with-info">
-            <input
-              type="number"
-              id="price-input"
-              v-model="priceInput"
-              step="0.01"
-              min="0"
-              required
-              @input="handlePriceInputChange"
-              :placeholder="selectedCurrency === 'USD' ? 'Enter price in USD' : 'Enter price in DZD'"
-            />
+        <div class="form-row">
+          <div class="form-group">
+            <label for="currency">
+              <i class="fas fa-money-bill-wave"></i>
+              {{ t('sellBills.currency') }}: <span class="required">*</span>
+            </label>
+            <select id="currency" v-model="selectedCurrency" @change="handleCurrencyChange">
+              <option value="USD">USD</option>
+              <option value="DZD">DZD (DA)</option>
+            </select>
           </div>
-          <span class="info-text" v-if="selectedCurrency === 'USD' && formData.rate && priceInput">
-            Calculated DZD: {{ cfrDaInput ? parseFloat(cfrDaInput).toLocaleString() : 'N/A' }} DA
-          </span>
-          <span class="info-text" v-else-if="selectedCurrency === 'DZD' && formData.rate && priceInput">
-            Calculated USD: {{ formData.price_cell ? '$' + parseFloat(formData.price_cell).toLocaleString() : 'N/A' }}
+
+          <div class="form-group">
+            <label for="price-input">
+              <i class="fas fa-calculator"></i>
+              {{ selectedCurrency === 'USD' ? t('sellBills.price') : t('sellBills.cfr_da') }}: <span class="required">*</span>
+            </label>
+            <div class="input-with-info">
+              <input
+                type="number"
+                id="price-input"
+                v-model="priceInput"
+                step="0.01"
+                min="0"
+                required
+                @input="handlePriceInputChange"
+                :placeholder="selectedCurrency === 'USD' ? 'Enter price in USD' : 'Enter price in DZD'"
+              />
+            </div>
+            <span class="info-text" v-if="selectedCurrency === 'USD' && formData.rate && priceInput">
+              Calculated DZD: {{ cfrDaInput ? parseFloat(cfrDaInput).toLocaleString() : 'N/A' }} DA
             </span>
-        </div>
-
-        <div class="form-group">
-          <label for="freight">
-            <i class="fas fa-ship"></i>
-            {{ t('sellBills.freight_cost') }}:
-          </label>
-          <div class="input-with-info">
-            <input
-              type="number"
-              id="freight"
-              v-model="formData.freight"
-              step="0.01"
-              min="0"
-              @input="handleRateOrFreightChange"
-              :class="{ 'default-value': formData.freight !== null }"
-            />
-            <span v-if="formData.freight !== null" class="default-badge">
-              {{ t('sellBills.default') }} ({{
-                carDetails?.is_big_car
-                  ? t('sellBills.default_big_car')
-                  : t('sellBills.default_small_car')
-              }})
+            <span class="info-text" v-else-if="selectedCurrency === 'DZD' && formData.rate && priceInput">
+              Calculated USD: {{ formData.price_cell ? '$' + parseFloat(formData.price_cell).toLocaleString() : 'N/A' }}
             </span>
           </div>
         </div>
 
-        <div class="form-group">
-          <label for="rate">
-            <i class="fas fa-exchange-alt"></i>
-            {{ t('sellBills.rate_required') }}:
-          </label>
-          <div class="input-with-info">
-            <input
-              type="number"
-              id="rate"
-              v-model="formData.rate"
-              step="0.01"
-              min="0"
-              required
-              @input="handleRateOrFreightChange"
-              :class="{ 'default-value': formData.rate !== null }"
-            />
-            <span v-if="formData.rate !== null" class="default-badge">{{
-              t('sellBills.default')
-            }}</span>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="freight">
+              <i class="fas fa-ship"></i>
+              {{ t('sellBills.freight_cost') }}:
+            </label>
+            <div class="input-with-info">
+              <input
+                type="number"
+                id="freight"
+                v-model="formData.freight"
+                step="0.01"
+                min="0"
+                @input="handleRateOrFreightChange"
+                :class="{ 'default-value': formData.freight !== null }"
+              />
+              <span v-if="formData.freight !== null" class="default-badge">
+                {{ t('sellBills.default') }} ({{
+                  carDetails?.is_big_car
+                    ? t('sellBills.default_big_car')
+                    : t('sellBills.default_small_car')
+                }})
+              </span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="rate">
+              <i class="fas fa-exchange-alt"></i>
+              {{ t('sellBills.rate_required') }}:
+            </label>
+            <div class="input-with-info">
+              <input
+                type="number"
+                id="rate"
+                v-model="formData.rate"
+                step="0.01"
+                min="0"
+                required
+                @input="handleRateOrFreightChange"
+                :class="{ 'default-value': formData.rate !== null }"
+              />
+              <span v-if="formData.rate !== null" class="default-badge">{{
+                t('sellBills.default')
+              }}</span>
+            </div>
           </div>
         </div>
 
-        <div class="form-group">
-          <label for="notes">
-            <i class="fas fa-sticky-note"></i>
-            {{ t('sellBills.notes') }}:
-          </label>
-          <textarea
-            id="notes"
-            v-model="formData.notes"
-            :placeholder="t('sellBills.add_notes_about_car')"
-            rows="3"
-            class="textarea-field"
-            :disabled="isSubmitting"
-          ></textarea>
+        <div class="form-row full-width">
+          <div class="form-group">
+            <label>
+              <i class="fas fa-sticky-note"></i>
+              {{ t('sellBills.notes') }}:
+            </label>
+            <div class="notes-section">
+              <NotesTable
+                v-if="carNotes && carNotes.length > 0"
+                :notes="carNotes"
+                :users="allUsers"
+              />
+              <button
+                type="button"
+                @click="handleManageNotes"
+                class="btn-manage-notes"
+                :disabled="isProcessing"
+              >
+                <i class="fas fa-edit"></i>
+                {{ t('sellBills.manage_notes') }}
+              </button>
+            </div>
+          </div>
         </div>
 
-        <div v-if="can_assign_to_tmp_clients" class="form-group">
-          <label class="checkbox-label">
-            <input
-              type="checkbox"
-              v-model="formData.is_tmp_client"
-              :true-value="1"
-              :false-value="0"
-              :disabled="isSubmitting"
-            />
-            <i class="fas fa-clock"></i>
-            {{ t('sellBills.temporary_client') }}
-          </label>
-          <small class="help-text">{{ t('sellBills.help_text_temporary_client') }}</small>
+        <div v-if="can_assign_to_tmp_clients" class="form-row full-width">
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input
+                type="checkbox"
+                v-model="formData.is_tmp_client"
+                :true-value="1"
+                :false-value="0"
+                :disabled="isSubmitting"
+              />
+              <i class="fas fa-clock"></i>
+              {{ t('sellBills.temporary_client') }}
+            </label>
+            <small class="help-text">{{ t('sellBills.help_text_temporary_client') }}</small>
+          </div>
         </div>
 
         <div
           v-if="formData.price_cell && carDetails?.buy_price && isAdmin"
-          class="profit-calculation"
+          class="form-row full-width"
         >
-          <span class="label">
-            <i class="fas fa-dollar-sign"></i>
-            {{ t('sellBills.estimated_profit') }}:
-          </span>
-          <span class="value profit">${{ calculateProfit() }}</span>
+          <div class="profit-calculation">
+            <span class="label">
+              <i class="fas fa-dollar-sign"></i>
+              {{ t('sellBills.estimated_profit') }}:
+            </span>
+            <span class="value profit">${{ calculateProfit() }}</span>
+          </div>
         </div>
 
-        <div class="form-actions">
-          <button type="button" @click="$emit('close')" class="cancel-btn">
-            <i class="fas fa-times"></i>
-            {{ t('sellBills.cancel') }}
-          </button>
-          <button type="submit" class="assign-btn" :disabled="isProcessing">
-            <i class="fas fa-save"></i>
-            {{ isProcessing ? t('sellBills.assigning_car') : t('sellBills.assign_car') }}
-          </button>
+        <div class="form-row full-width">
+          <div class="form-actions">
+            <button type="button" @click="handleClose" class="cancel-btn">
+              <i class="fas fa-times"></i>
+              {{ t('sellBills.cancel') }}
+            </button>
+            <button type="submit" class="assign-btn" :disabled="isProcessing">
+              <i class="fas fa-save"></i>
+              {{ isProcessing ? t('sellBills.assigning_car') : t('sellBills.assign_car') }}
+            </button>
+          </div>
         </div>
       </form>
     </div>
@@ -994,6 +1123,20 @@ onMounted(() => {
       </div>
     </template>
   </el-dialog>
+
+  <!-- Notes Management Modal -->
+  <NotesManagementModal
+    :show="showNotesModal"
+    :notes="carNotes"
+    :users="allUsers"
+    :current-user-id="user?.id"
+    :is-admin="isAdmin"
+    :entity-id="props.carId"
+    :save-function="saveCarNotes"
+    :save-immediately="false"
+    @close="showNotesModal = false"
+    @notes-updated="handleNotesUpdated"
+  />
 </template>
 
 <style scoped>
@@ -1007,15 +1150,15 @@ onMounted(() => {
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1000;
+  z-index: 2000;
 }
 
 .car-assignment-form {
   background-color: white;
   border-radius: 8px;
-  padding: 20px;
+  padding: 24px;
   width: 90%;
-  max-width: 500px;
+  max-width: 900px;
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
@@ -1104,7 +1247,8 @@ input {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  margin-top: 20px;
+  margin-top: 0;
+  width: 100%;
 }
 
 .cancel-btn {
@@ -1194,6 +1338,22 @@ input {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+}
+
+.form-content .form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.form-content .form-row.full-width {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 768px) {
+  .form-content .form-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 .form-group {
@@ -1421,6 +1581,33 @@ button:hover:not(:disabled) i {
   font-size: 0.875rem;
   margin-top: 0.25rem;
   margin-left: 24px;
+}
+
+.notes-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.btn-manage-notes {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.2s;
+  align-self: flex-start;
+}
+
+.btn-manage-notes:hover {
+  background-color: #0056b3;
+}
+
+.btn-manage-notes:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
 }
 
 .calculated-display {

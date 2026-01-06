@@ -39,6 +39,29 @@ const selectedBillId = ref(null)
 const showPrintOptions = ref(false)
 const selectedPrintBillId = ref(null)
 const isProcessing = ref(false)
+const allUsers = ref([]) // Store all users for username lookup
+const expandedNotes = ref(new Set()) // Track which bills have expanded notes
+
+// Truncate notes display
+const getTruncatedNotes = (notesText, billId, maxLength = 100) => {
+  if (!notesText || notesText === 'N/A') return notesText
+  if (expandedNotes.value.has(billId)) return notesText
+  if (notesText.length <= maxLength) return notesText
+  return notesText.substring(0, maxLength) + '...'
+}
+
+const isNotesTruncated = (notesText, billId, maxLength = 100) => {
+  if (!notesText || notesText === 'N/A') return false
+  return notesText.length > maxLength && !expandedNotes.value.has(billId)
+}
+
+const toggleNotesExpansion = (billId) => {
+  if (expandedNotes.value.has(billId)) {
+    expandedNotes.value.delete(billId)
+  } else {
+    expandedNotes.value.add(billId)
+  }
+}
 
 // Add filter states
 const filters = ref({
@@ -177,7 +200,22 @@ const unpaidBillsCount = computed(() => {
   }).length
 })
 
-onMounted(() => {
+// Fetch all users for username lookup
+const fetchAllUsers = async () => {
+  try {
+    const result = await callApi({
+      query: 'SELECT id, username FROM users ORDER BY username ASC',
+      params: [],
+    })
+    if (result.success) {
+      allUsers.value = result.data || []
+    }
+  } catch (err) {
+    console.error('Error fetching users:', err)
+  }
+}
+
+onMounted(async () => {
   const userStr = localStorage.getItem('user')
   if (userStr) {
     user.value = JSON.parse(userStr)
@@ -191,6 +229,7 @@ onMounted(() => {
     filters.value.paymentConfirmed = route.query.paymentConfirmed === '0' ? 0 : route.query.paymentConfirmed === '1' ? 1 : null
   }
   
+  await fetchAllUsers() // Fetch users before fetching bills
   fetchSellBills()
 })
 
@@ -284,13 +323,43 @@ const fetchSellBills = async () => {
 
     if (result.success) {
       console.log(result.data.length)
-      allSellBills.value = result.data.map((bill) => ({
-        ...bill,
-        total_cfr: Number(bill.total_cfr) || 0,
-        total_paid: Number(bill.total_paid) || 0,
-        total_cars: Number(bill.total_cars) || 0,
-        loaded_cars: Number(bill.loaded_cars) || 0,
-      }))
+      allSellBills.value = result.data.map((bill) => {
+        // Parse notes JSON if it exists
+        let notesDisplay = 'N/A'
+        if (bill.notes) {
+          try {
+            let notesArray = []
+            if (typeof bill.notes === 'string' && bill.notes.trim().startsWith('[')) {
+              notesArray = JSON.parse(bill.notes)
+            } else if (Array.isArray(bill.notes)) {
+              notesArray = bill.notes
+            } else {
+              // Old format (plain text) - use as is
+              notesDisplay = bill.notes
+            }
+            
+            if (Array.isArray(notesArray) && notesArray.length > 0) {
+              // Format all notes without username or timestamp
+              notesDisplay = notesArray.map((note) => {
+                return note.note || ''
+              }).join('\n')
+            }
+          } catch (e) {
+            // If parsing fails, treat as old format (plain text)
+            notesDisplay = bill.notes
+          }
+        }
+        
+        return {
+          ...bill,
+          notes: bill.notes, // Keep original JSON for form
+          notesDisplay: notesDisplay, // Add formatted display version
+          total_cfr: Number(bill.total_cfr) || 0,
+          total_paid: Number(bill.total_paid) || 0,
+          total_cars: Number(bill.total_cars) || 0,
+          loaded_cars: Number(bill.loaded_cars) || 0,
+        }
+      })
       applyFilters() // Apply filters after fetching
     } else {
       error.value = result.error || 'Failed to fetch sell bills'
@@ -1678,7 +1747,21 @@ const togglePaymentConfirmed = async (bill) => {
             </td>
             <td>{{ bill.broker_name || 'N/A' }}</td>
             <td>{{ bill.created_by || 'N/A' }}</td>
-            <td>{{ bill.notes || 'N/A' }}</td>
+            <td class="notes-cell" :title="bill.notesDisplay || 'N/A'">
+              <div class="notes-content">
+                <div style="white-space: pre-line; max-width: 300px;">
+                  {{ getTruncatedNotes(bill.notesDisplay, bill.id) }}
+                </div>
+                <button
+                  v-if="isNotesTruncated(bill.notesDisplay, bill.id)"
+                  @click.stop="toggleNotesExpansion(bill.id)"
+                  class="btn-show-full-notes"
+                  type="button"
+                >
+                  {{ expandedNotes.has(bill.id) ? t('sellBills.show_less') || 'Show Less' : t('sellBills.show_full') || 'Show Full' }}
+                </button>
+              </div>
+            </td>
             <td>
               <span
                 :class="['payment-badge', `payment-${getPaymentStatus(bill).status}`]"
@@ -2606,6 +2689,46 @@ const togglePaymentConfirmed = async (bill) => {
 .payment-confirmed-btn.read-only:hover {
   transform: none;
   box-shadow: none;
+}
+
+.notes-cell {
+  max-width: 300px;
+  white-space: pre-line;
+  word-wrap: break-word;
+  vertical-align: top;
+  padding: 8px;
+}
+
+.notes-cell div {
+  line-height: 1.4;
+  font-size: 0.9em;
+}
+
+.notes-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.btn-show-full-notes {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85em;
+  align-self: flex-start;
+  margin-top: 4px;
+  transition: background-color 0.2s;
+}
+
+.btn-show-full-notes:hover {
+  background: #0056b3;
+}
+
+.btn-show-full-notes:active {
+  transform: scale(0.98);
 }
 
 .payment-confirmed-container {

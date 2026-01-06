@@ -27,6 +27,29 @@ const filters = ref({
   buyBillRef: '',
 })
 const user = ref(null)
+const expandedCarNotes = ref(new Set()) // Track which cars have expanded notes
+
+// Truncate notes display
+const getTruncatedCarNotes = (notesText, carId, maxLength = 100) => {
+  if (!notesText || notesText === 'N/A' || notesText === '-') return notesText
+  if (expandedCarNotes.value.has(carId)) return notesText
+  if (notesText.length <= maxLength) return notesText
+  return notesText.substring(0, maxLength) + '...'
+}
+
+const isCarNotesTruncated = (notesText, carId, maxLength = 100) => {
+  if (!notesText || notesText === 'N/A' || notesText === '-') return false
+  return notesText.length > maxLength && !expandedCarNotes.value.has(carId)
+}
+
+const toggleCarNotesExpansion = (carId) => {
+  if (expandedCarNotes.value.has(carId)) {
+    expandedCarNotes.value.delete(carId)
+  } else {
+    expandedCarNotes.value.add(carId)
+  }
+}
+
 const isAdmin = computed(() => user.value?.role_id === 1)
 
 // Add sort config after the filters
@@ -121,7 +144,40 @@ const fetchUnassignedCars = async () => {
     })
 
     if (result.success) {
-      allUnassignedCars.value = result.data
+      // Parse notes JSON and format for display
+      const carsData = (result.data || []).map((car) => {
+        // Parse notes JSON if it exists
+        let notesDisplay = 'N/A'
+        if (car.notes) {
+          try {
+            let notesArray = []
+            if (typeof car.notes === 'string' && car.notes.trim().startsWith('[')) {
+              notesArray = JSON.parse(car.notes)
+            } else if (Array.isArray(car.notes)) {
+              notesArray = car.notes
+            } else {
+              // Old format (plain text) - use as is
+              notesDisplay = car.notes
+            }
+            
+            if (Array.isArray(notesArray) && notesArray.length > 0) {
+              // Format all notes without username or timestamp
+              notesDisplay = notesArray.map((note) => {
+                return note.note || ''
+              }).join('\n')
+            }
+          } catch (e) {
+            // If parsing fails, treat as old format (plain text)
+            notesDisplay = car.notes
+          }
+        }
+        
+        return {
+          ...car,
+          notesDisplay: notesDisplay, // Add formatted display version
+        }
+      })
+      allUnassignedCars.value = carsData
       applyFilters() // Apply filters to the fetched data
     } else {
       error.value = result.error || t('sellBills.failed_to_fetch_unassigned_cars')
@@ -838,7 +894,25 @@ onMounted(() => {
           <td>{{ car.price_cell ? '$' + car.price_cell.toLocaleString() : 'N/A' }}</td>
           <td v-if="isAdmin">{{ car.buy_price ? '$' + car.buy_price.toLocaleString() : 'N/A' }}</td>
           <td>{{ car.buy_bill_ref || 'N/A' }}</td>
-          <td>{{ car.notes || 'N/A' }}</td>
+          <td class="notes-cell">
+            <div class="notes-content">
+              <div style="white-space: pre-line; max-width: 300px">
+                {{ getTruncatedCarNotes(car.notesDisplay, car.id) }}
+              </div>
+              <button
+                v-if="isCarNotesTruncated(car.notesDisplay, car.id)"
+                @click.stop="toggleCarNotesExpansion(car.id)"
+                class="btn-show-full-notes"
+                type="button"
+              >
+                {{
+                  expandedCarNotes.has(car.id)
+                    ? t('sellBills.show_less') || 'Show Less'
+                    : t('sellBills.show_full') || 'Show Full'
+                }}
+              </button>
+            </div>
+          </td>
           <td class="actions">
             <button
               @click="openAssignmentForm(car.id)"
@@ -1261,6 +1335,41 @@ onMounted(() => {
 
 .sortable:hover i:last-child {
   opacity: 1;
+}
+
+.notes-cell {
+  max-width: 300px;
+  white-space: pre-line;
+  word-wrap: break-word;
+  vertical-align: top;
+  padding: 8px;
+}
+
+.notes-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.btn-show-full-notes {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85em;
+  align-self: flex-start;
+  margin-top: 4px;
+  transition: background-color 0.2s;
+}
+
+.btn-show-full-notes:hover {
+  background: #0056b3;
+}
+
+.btn-show-full-notes:active {
+  transform: scale(0.98);
 }
 
 /* Add batch pricing styles */

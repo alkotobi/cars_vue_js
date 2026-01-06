@@ -4,6 +4,8 @@ import { useEnhancedI18n } from '../../composables/useI18n'
 import { useApi } from '../../composables/useApi'
 import { ElSelect, ElOption } from 'element-plus'
 import 'element-plus/dist/index.css'
+import NotesTable from './NotesTable.vue'
+import NotesManagementModal from './NotesManagementModal.vue'
 
 const { t } = useEnhancedI18n()
 const props = defineProps({
@@ -33,6 +35,9 @@ const can_confirm_payment = computed(() => {
 
 const emit = defineEmits(['save', 'cancel'])
 
+// Notes management modal state
+const showNotesModal = ref(false)
+
 const { callApi } = useApi()
 const brokers = ref([])
 const filteredBrokers = ref([])
@@ -48,7 +53,8 @@ const formData = ref({
   id: null,
   id_broker: null,
   date_sell: new Date().toISOString().split('T')[0],
-  notes: '',
+  notes: '', // This will hold the current note being edited (latest note or new note)
+  notesArray: [], // This will hold the full JSON array of notes
   is_batch_sell: false,
   id_user: null,
   payment_confirmed: false,
@@ -59,18 +65,54 @@ watch(
   () => props.billData,
   (newData) => {
     if (newData) {
+      // Parse notes JSON if it exists
+      let notesArray = []
+      let currentNote = ''
+      
+      if (newData.notes) {
+        try {
+          // Try to parse as JSON (new format)
+          if (typeof newData.notes === 'string' && newData.notes.trim().startsWith('[')) {
+            notesArray = JSON.parse(newData.notes)
+          } else if (Array.isArray(newData.notes)) {
+            notesArray = newData.notes
+          } else {
+            // Old format (plain text) - convert to JSON array
+            notesArray = [{
+              id_user: null,
+              note: newData.notes,
+              timestamp: newData.time_created || new Date().toISOString().slice(0, 19).replace('T', ' ')
+            }]
+          }
+          
+          // Get the latest note for display
+          if (notesArray.length > 0) {
+            currentNote = notesArray[notesArray.length - 1].note || ''
+          }
+        } catch (e) {
+          // If parsing fails, treat as old format (plain text)
+          currentNote = newData.notes
+          notesArray = [{
+            id_user: null,
+            note: newData.notes,
+            timestamp: newData.time_created || new Date().toISOString().slice(0, 19).replace('T', ' ')
+          }]
+        }
+      }
+      
       formData.value = {
         ...newData,
+        notes: currentNote,
+        notesArray: notesArray,
         // Convert is_batch_sell from database format (0/1) to boolean
         is_batch_sell: Boolean(newData.is_batch_sell),
         // Convert payment_confirmed from database format (0/1) to boolean
         payment_confirmed: Boolean(newData.payment_confirmed),
       }
 
-      // For non-admin users, always set id_user to current user's ID
-      if (!isAdmin.value && user.value?.id) {
-        formData.value.id_user = user.value.id
-      }
+      // Note: id_user should not be changed when editing
+      // It represents the original creator of the sell bill
+      // For non-admin users creating a new bill, id_user will be set in onMounted
 
       // Ensure date is in the correct format for the date input
       if (formData.value.date_sell) {
@@ -84,12 +126,13 @@ watch(
   { immediate: true },
 )
 
-// Watch for changes in isAdmin to ensure id_user is set correctly
+// Watch for changes in isAdmin to ensure id_user is set correctly (only for new bills)
 watch(
   () => isAdmin.value,
   (newIsAdmin) => {
-    // For non-admin users, ensure id_user is set to current user's ID
-    if (!newIsAdmin && user.value?.id) {
+    // For non-admin users creating a new bill, ensure id_user is set to current user's ID
+    // Don't change id_user when editing existing bills
+    if (!newIsAdmin && user.value?.id && props.mode === 'add') {
       formData.value.id_user = user.value.id
     }
   },
@@ -181,7 +224,17 @@ const saveBill = async () => {
     let result
 
     if (props.mode === 'add') {
-      console.log('User data:', user.value)
+
+      // Prepare notes JSON for new bill
+      let notesJson = null
+      if (formData.value.notes && formData.value.notes.trim() !== '') {
+        const notesArray = [{
+          id_user: user.value?.id || null,
+          note: formData.value.notes.trim(),
+          timestamp: new Date().toISOString().slice(0, 19).replace('T', ' ')
+        }]
+        notesJson = JSON.stringify(notesArray)
+      }
 
       // First insert the bill to get the ID
       result = await callApi({
@@ -192,15 +245,13 @@ const saveBill = async () => {
         params: [
           formData.value.id_broker || null,
           formData.value.date_sell,
-          formData.value.notes || '',
+          notesJson,
           formData.value.id_user || null,
           formData.value.is_batch_sell ? 1 : 0,
           can_confirm_payment.value && formData.value.payment_confirmed ? 1 : 0,
         ],
       })
 
-      console.log('Insert result:', result)
-      console.log('Insert result:', result.success && result.lastInsertId)
       if (result.success && result.lastInsertId) {
         // Generate bill_ref
         const username = user.value?.username?.substring(0, 3).toUpperCase() || 'USR'
@@ -216,7 +267,6 @@ const saveBill = async () => {
         const billId = result.lastInsertId.toString().padStart(3, '0')
         const billRef = `${username}${userId}${dateStr}${billId}`
 
-        console.log('Generated bill_ref:', billRef)
 
         // Update the bill with the generated bill_ref
         const updateResult = await callApi({
@@ -228,10 +278,7 @@ const saveBill = async () => {
           params: [billRef, result.lastInsertId],
         })
 
-        console.log('Update result:', updateResult)
-
         if (!updateResult.success) {
-          console.error('Failed to update bill_ref:', updateResult.error)
           error.value = 'Failed to update bill reference'
           return
         }
@@ -253,33 +300,119 @@ const saveBill = async () => {
           params: [result.lastInsertId],
         })
 
-        console.log('Fetch result:', fetchResult)
-
         if (fetchResult.success && fetchResult.data.length > 0) {
           emit('save', fetchResult.data[0])
         } else {
           error.value = 'Failed to fetch updated bill data'
         }
       } else {
-        console.log('Insert failed:', result.error)
         error.value = result.error || 'Failed to create sell bill'
       }
     } else {
-      result = await callApi({
-        query: `
-          UPDATE sell_bill
-          SET id_broker = ?, date_sell = ?, notes = ?, is_batch_sell = ?, id_user = ?, payment_confirmed = ?
-          WHERE id = ?
-        `,
-        params: [
+      // When editing, preserve the original id_user (don't update it)
+      // id_user should represent the original creator of the sell bill
+      // Track who edited the bill in the edited_by JSON column
+      
+      // Get current edited_by and notes data
+      const currentBillResult = await callApi({
+        query: 'SELECT edited_by, notes, id_user FROM sell_bill WHERE id = ?',
+        params: [formData.value.id],
+        requiresAuth: true,
+      })
+      
+      let editedByArray = []
+      let notesArray = formData.value.notesArray || []
+      
+      if (currentBillResult.success && currentBillResult.data.length > 0) {
+        // Parse edited_by JSON
+        const currentEditedBy = currentBillResult.data[0].edited_by
+        try {
+          editedByArray = currentEditedBy ? JSON.parse(currentEditedBy) : []
+        } catch (e) {
+          editedByArray = []
+        }
+        
+        // Parse notes JSON if not already parsed
+        if (notesArray.length === 0) {
+          const currentNotes = currentBillResult.data[0].notes
+          try {
+            if (currentNotes) {
+              if (typeof currentNotes === 'string' && currentNotes.trim().startsWith('[')) {
+                notesArray = JSON.parse(currentNotes)
+              } else if (Array.isArray(currentNotes)) {
+                notesArray = currentNotes
+              }
+            }
+          } catch (e) {
+            notesArray = []
+          }
+        }
+      }
+      
+      // For edit mode, notes are managed through the modal
+      // Only add a new note if notes were changed via the form (for backward compatibility)
+      // In practice, notes should be managed through the modal
+      const currentNoteText = formData.value.notes?.trim() || ''
+      const lastNote = notesArray.length > 0 ? notesArray[notesArray.length - 1] : null
+      const lastNoteText = lastNote?.note?.trim() || ''
+      
+      // Use the notesArray from formData if it exists (updated via modal)
+      if (formData.value.notesArray && formData.value.notesArray.length > 0) {
+        notesArray = formData.value.notesArray
+      } else if (currentNoteText !== lastNoteText && currentNoteText !== '') {
+        // Only add note if it's different and not empty (for backward compatibility)
+        notesArray.push({
+          id_user: user.value?.id || null,
+          note: currentNoteText,
+          timestamp: new Date().toISOString().slice(0, 19).replace('T', ' ')
+        })
+      }
+      
+      // Add new edit entry
+      const newEditEntry = {
+        id_user: user.value?.id || null,
+        timestamp: new Date().toISOString().slice(0, 19).replace('T', ' ')
+      }
+      editedByArray.push(newEditEntry)
+      
+      // Convert to JSON strings
+      const editedByJson = JSON.stringify(editedByArray)
+      const notesJson = notesArray.length > 0 ? JSON.stringify(notesArray) : null
+      
+      // Build UPDATE query - include id_user if admin is editing
+      let updateQuery
+      let updateParams
+      
+      if (isAdmin.value) {
+        // Admin can update id_user (created by)
+        updateQuery = 'UPDATE sell_bill SET id_broker = ?, date_sell = ?, notes = ?, id_user = ?, is_batch_sell = ?, payment_confirmed = ?, edited_by = ? WHERE id = ?'
+        updateParams = [
           formData.value.id_broker || null,
           formData.value.date_sell,
-          formData.value.notes || '',
-          formData.value.is_batch_sell ? 1 : 0,
+          notesJson,
           formData.value.id_user || null,
+          formData.value.is_batch_sell ? 1 : 0,
           can_confirm_payment.value && formData.value.payment_confirmed ? 1 : 0,
+          editedByJson,
           formData.value.id,
-        ],
+        ]
+      } else {
+        // Non-admin cannot update id_user
+        updateQuery = 'UPDATE sell_bill SET id_broker = ?, date_sell = ?, notes = ?, is_batch_sell = ?, payment_confirmed = ?, edited_by = ? WHERE id = ?'
+        updateParams = [
+          formData.value.id_broker || null,
+          formData.value.date_sell,
+          notesJson,
+          formData.value.is_batch_sell ? 1 : 0,
+          can_confirm_payment.value && formData.value.payment_confirmed ? 1 : 0,
+          editedByJson,
+          formData.value.id,
+        ]
+      }
+      
+      result = await callApi({
+        query: updateQuery,
+        params: updateParams,
         user_id: user.value?.id || null,
         is_admin: isAdmin.value,
         requiresAuth: true,
@@ -292,7 +425,6 @@ const saveBill = async () => {
       }
     }
   } catch (err) {
-    console.error('Error in saveBill:', err)
     error.value = err.message || 'An error occurred'
   } finally {
     loading.value = false
@@ -300,15 +432,30 @@ const saveBill = async () => {
   }
 }
 
+// Handle notes updated from modal
+const handleNotesUpdated = (updatedNotes) => {
+  formData.value.notesArray = updatedNotes
+  // Update the latest note for display compatibility
+  if (updatedNotes.length > 0) {
+    formData.value.notes = updatedNotes[updatedNotes.length - 1].note || ''
+  } else {
+    formData.value.notes = ''
+  }
+}
+
+// Handle Created By change
+const handleCreatedByChange = (val) => {
+  // v-model automatically updates formData.value.id_user
+}
+
 onMounted(() => {
   const userStr = localStorage.getItem('user')
-  console.log('User from localStorage:', userStr) // Debug localStorage
   if (userStr) {
     user.value = JSON.parse(userStr)
-    console.log('Parsed user:', user.value) // Debug parsed user
 
-    // For non-admin users, ensure id_user is set to current user's ID
-    if (!isAdmin.value && user.value?.id) {
+    // For non-admin users creating a new bill, ensure id_user is set to current user's ID
+    // Don't change id_user when editing existing bills (it should preserve the original creator)
+    if (!isAdmin.value && user.value?.id && props.mode === 'add') {
       formData.value.id_user = user.value.id
     }
 
@@ -367,7 +514,7 @@ onMounted(() => {
         </el-select>
       </div>
 
-      <div v-if="isAdmin" class="form-group">
+      <div v-if="isAdmin && mode === 'add'" class="form-group">
         <label for="user">
           <i class="fas fa-user"></i>
           {{ t('sellBills.user') }}
@@ -396,6 +543,39 @@ onMounted(() => {
           </el-option>
         </el-select>
       </div>
+      <div v-if="isAdmin && mode === 'edit'" class="form-group">
+        <label for="created_by_user">
+          <i class="fas fa-user"></i>
+          {{ t('sellBills.created_by') || 'Created By' }}
+        </label>
+        <el-select
+          v-model="formData.id_user"
+          filterable
+          remote
+          :remote-method="remoteMethodUsers"
+          :loading="loading"
+          :placeholder="t('sellBills.select_user') || 'Select user'"
+          class="user-select"
+          :disabled="isSubmitting"
+          @change="handleCreatedByChange"
+        >
+          <el-option
+            v-for="user in filteredUsers"
+            :key="user.id"
+            :label="user.username"
+            :value="user.id"
+          >
+            <div style="display: flex; flex-direction: column">
+              <span>{{ user.username }}</span>
+              <small v-if="user.email" style="color: #6b7280; font-size: 0.75rem">
+                <i class="fas fa-envelope"></i>
+                {{ user.email }}
+              </small>
+            </div>
+          </el-option>
+        </el-select>
+        <small class="help-text">{{ t('sellBills.created_by_help') || 'Original creator (admin can change)' }}</small>
+      </div>
 
       <div class="form-group">
         <label for="date">
@@ -411,7 +591,18 @@ onMounted(() => {
         />
       </div>
 
-      <div class="form-group">
+      <!-- Notes Table (read-only) -->
+      <div v-if="mode === 'edit' && formData.notesArray && formData.notesArray.length > 0" class="form-group">
+        <NotesTable
+          :notes="formData.notesArray || []"
+          :users="filteredUsers"
+          :mode="mode"
+          @manage-notes="showNotesModal = true"
+        />
+      </div>
+      
+      <!-- Notes Textarea (for new bills only) -->
+      <div v-if="mode === 'add'" class="form-group">
         <label for="notes">
           <i class="fas fa-sticky-note"></i>
           {{ t('sellBills.notes') }}
@@ -420,9 +611,23 @@ onMounted(() => {
           id="notes"
           v-model="formData.notes"
           :disabled="isSubmitting"
-          :placeholder="t('sellBills.enter_notes_placeholder')"
+          :placeholder="t('sellBills.enter_notes_placeholder') || 'Enter notes...'"
+          rows="4"
         ></textarea>
       </div>
+      
+      <!-- Notes Management Modal -->
+      <NotesManagementModal
+        v-if="mode === 'edit' && formData.id"
+        :show="showNotesModal"
+        :notes="formData.notesArray || []"
+        :users="filteredUsers"
+        :current-user-id="user?.id"
+        :is-admin="isAdmin"
+        :bill-id="formData.id"
+        @close="showNotesModal = false"
+        @notes-updated="handleNotesUpdated"
+      />
 
       <div class="form-group">
         <div class="checkbox-wrapper">
@@ -466,6 +671,11 @@ onMounted(() => {
 .sell-bill-form {
   position: relative;
   padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-height: 90vh;
+  overflow: hidden;
 }
 
 .loading-overlay {
@@ -506,6 +716,30 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 0.5rem;
+  margin-right: -0.5rem;
+}
+
+/* Custom scrollbar styling */
+.form-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.form-content::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.form-content::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.form-content::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
 }
 
 .form-group {
@@ -560,6 +794,9 @@ textarea {
   justify-content: flex-end;
   gap: 1rem;
   margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e5e7eb;
+  flex-shrink: 0;
 }
 
 .cancel-btn,
@@ -649,5 +886,88 @@ button:hover:not(:disabled) i {
   user-select: none;
   color: #374151;
   font-size: 0.95rem;
+}
+
+.readonly-input {
+  padding: 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  font-size: 1rem;
+  background-color: #f3f4f6;
+  color: #6b7280;
+  cursor: not-allowed;
+}
+
+.help-text {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.875rem;
+  color: #6b7280;
+  font-style: italic;
+}
+
+.notes-history {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.notes-history-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.9rem;
+}
+
+.notes-history-header i {
+  color: #6b7280;
+}
+
+.notes-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.notes-history-item {
+  padding: 0.75rem;
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.375rem;
+  border-left: 3px solid #3b82f6;
+}
+
+.note-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.note-user {
+  font-weight: 500;
+  color: #3b82f6;
+}
+
+.note-timestamp {
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.note-text {
+  color: #1f2937;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-wrap: break-word;
 }
 </style>

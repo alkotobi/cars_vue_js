@@ -121,6 +121,29 @@ watch(
 )
 
 const user = ref(null)
+const expandedCarNotes = ref(new Set()) // Track which cars have expanded notes
+
+// Truncate notes display
+const getTruncatedCarNotes = (notesText, carId, maxLength = 100) => {
+  if (!notesText || notesText === '-' || notesText === 'N/A') return notesText
+  if (expandedCarNotes.value.has(carId)) return notesText
+  if (notesText.length <= maxLength) return notesText
+  return notesText.substring(0, maxLength) + '...'
+}
+
+const isCarNotesTruncated = (notesText, carId, maxLength = 100) => {
+  if (!notesText || notesText === '-' || notesText === 'N/A') return false
+  return notesText.length > maxLength && !expandedCarNotes.value.has(carId)
+}
+
+const toggleCarNotesExpansion = (carId) => {
+  if (expandedCarNotes.value.has(carId)) {
+    expandedCarNotes.value.delete(carId)
+  } else {
+    expandedCarNotes.value.add(carId)
+  }
+}
+
 const can_edit_cars_prop = computed(() => {
   if (!user.value) return false
   if (user.value.role_id === 1) return true
@@ -860,18 +883,19 @@ const getFreightValue = (car) => {
 // Fetch file counts and missing required status for all cars (efficient single query)
 const fetchCarFilesCounts = async (carIds) => {
   if (!carIds || carIds.length === 0) return
-  
+
   try {
     // First, get all required category IDs
     const requiredCategoriesResult = await callApi({
       query: `SELECT id FROM car_file_categories WHERE is_required = 1`,
       requiresAuth: true,
     })
-    
-    const requiredCategoryIds = requiredCategoriesResult.success && requiredCategoriesResult.data
-      ? requiredCategoriesResult.data.map((cat) => cat.id)
-      : []
-    
+
+    const requiredCategoryIds =
+      requiredCategoriesResult.success && requiredCategoriesResult.data
+        ? requiredCategoriesResult.data.map((cat) => cat.id)
+        : []
+
     if (requiredCategoryIds.length === 0) {
       // No required categories, just count files
       const result = await callApi({
@@ -886,7 +910,7 @@ const fetchCarFilesCounts = async (carIds) => {
         params: carIds,
         requiresAuth: true,
       })
-      
+
       if (result.success && result.data) {
         result.data.forEach((row) => {
           carFilesCountMap.value[row.car_id] = {
@@ -903,7 +927,7 @@ const fetchCarFilesCounts = async (carIds) => {
       }
       return
     }
-    
+
     // Get file counts and existing category IDs per car
     const result = await callApi({
       query: `
@@ -918,27 +942,27 @@ const fetchCarFilesCounts = async (carIds) => {
       params: carIds,
       requiresAuth: true,
     })
-    
+
     // Process results
     const countsByCar = {}
     if (result.success && result.data) {
       result.data.forEach((row) => {
         countsByCar[row.car_id] = {
           count: parseInt(row.file_count) || 0,
-          existingCategoryIds: row.existing_category_ids 
+          existingCategoryIds: row.existing_category_ids
             ? row.existing_category_ids.split(',').map(Number).filter(Boolean)
             : [],
         }
       })
     }
-    
+
     // Check for missing required files for each car
     carIds.forEach((carId) => {
       const carData = countsByCar[carId] || { count: 0, existingCategoryIds: [] }
       const hasAllRequired = requiredCategoryIds.every((reqId) =>
-        carData.existingCategoryIds.includes(reqId)
+        carData.existingCategoryIds.includes(reqId),
       )
-      
+
       carFilesCountMap.value[carId] = {
         count: carData.count,
         hasMissingRequired: !hasAllRequired,
@@ -973,26 +997,26 @@ const handleDocumentClick = async (event, path, documentName) => {
     alert(t('carStock.document_path_invalid') || `Invalid document path for ${documentName}`)
     return
   }
-  
+
   // Log the path for debugging
   console.log(`Opening document: ${documentName}`, {
     originalPath: path,
-    generatedUrl: getFileUrl(path)
+    generatedUrl: getFileUrl(path),
   })
-  
+
   // Try to fetch the file first to check if it exists (only in development)
   if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
     try {
       const fileUrl = getFileUrl(path)
       const response = await fetch(fileUrl, { method: 'HEAD' })
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: 'Unknown error' }))
         console.error('Document not found:', {
           documentName,
           path,
           fileUrl,
-          error: errorData
+          error: errorData,
         })
         // Don't prevent default - let user see the error page
       }
@@ -1538,7 +1562,7 @@ const fetchCarsStock = async () => {
     }
 
     cars.value = filteredCars
-    
+
     // Fetch file counts for visible cars
     const carIds = filteredCars.map((car) => car.id)
     if (carIds.length > 0) {
@@ -1720,7 +1744,7 @@ const handleFilesSave = async (updatedCar) => {
   if (updatedCar && updatedCar.id) {
     await fetchCarFilesCounts([updatedCar.id])
   }
-  
+
   // Update the car in the local array
   const index = cars.value.findIndex((c) => c.id === updatedCar.id)
   if (index !== -1) {
@@ -2144,7 +2168,9 @@ const loadInitialCarsData = async () => {
       // Non-admin users can only see:
       // 1. Non-hidden cars (hidden = 0)
       // 2. Cars they hid themselves (hidden = 1 AND hidden_by_user_id = current_user_id)
-      conditions.push(`(cs.hidden = 0 OR (cs.hidden = 1 AND cs.hidden_by_user_id = ${currentUserId}))`)
+      conditions.push(
+        `(cs.hidden = 0 OR (cs.hidden = 1 AND cs.hidden_by_user_id = ${currentUserId}))`,
+      )
     } else if (!isUserAdmin && !currentUserId) {
       // If user is not admin and no user ID, show only non-hidden cars
       conditions.push('cs.hidden = 0')
@@ -2239,19 +2265,51 @@ const loadInitialCarsData = async () => {
     })
     if (result.success) {
       // Set default payment_confirmed to 0 if column doesn't exist yet
-      const carsData = (result.data || []).map((car) => ({
-        ...car,
-        payment_confirmed: car.payment_confirmed !== undefined ? car.payment_confirmed : 0,
-      }))
+      // Parse notes JSON and format for display
+      const carsData = (result.data || []).map((car) => {
+        // Parse notes JSON if it exists
+        let notesDisplay = '-'
+        if (car.notes) {
+          try {
+            let notesArray = []
+            if (typeof car.notes === 'string' && car.notes.trim().startsWith('[')) {
+              notesArray = JSON.parse(car.notes)
+            } else if (Array.isArray(car.notes)) {
+              notesArray = car.notes
+            } else {
+              // Old format (plain text) - use as is
+              notesDisplay = car.notes
+            }
+
+            if (Array.isArray(notesArray) && notesArray.length > 0) {
+              // Format all notes without username or timestamp
+              notesDisplay = notesArray
+                .map((note) => {
+                  return note.note || ''
+                })
+                .join('\n')
+            }
+          } catch (e) {
+            // If parsing fails, treat as old format (plain text)
+            notesDisplay = car.notes
+          }
+        }
+
+        return {
+          ...car,
+          payment_confirmed: car.payment_confirmed !== undefined ? car.payment_confirmed : 0,
+          notesDisplay: notesDisplay, // Add formatted display version
+        }
+      })
       allCars.value = carsData
       cars.value = carsData
-      
+
       // Fetch file counts for all cars
       const carIds = carsData.map((car) => car.id)
       if (carIds.length > 0) {
         fetchCarFilesCounts(carIds)
       }
-      
+
       // Temporary debug - remove after fixing
       if (!result.data || result.data.length === 0) {
         console.warn(
@@ -3634,7 +3692,11 @@ const closeBatchCheckoutModal = () => {
                   {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
                 </span>
               </th>
-              <th v-if="can_see_freight" @click="toggleSort('freight')" class="sortable freight-column">
+              <th
+                v-if="can_see_freight"
+                @click="toggleSort('freight')"
+                class="sortable freight-column"
+              >
                 {{ t('carStock.freight') }}
                 <span v-if="sortConfig.key === 'freight'" class="sort-indicator">
                   {{ sortConfig.direction === 'asc' ? '▲' : '▼' }}
@@ -3928,21 +3990,47 @@ const closeBatchCheckoutModal = () => {
               <td class="documents-cell">
                 <div class="document-links">
                   <div class="documents-summary">
-                    <div class="document-count-badge" :title="t('carStock.documents_count', { count: getDocumentCount(car) }) || `${getDocumentCount(car)} document(s)`">
+                    <div
+                      class="document-count-badge"
+                      :title="
+                        t('carStock.documents_count', { count: getDocumentCount(car) }) ||
+                        `${getDocumentCount(car)} document(s)`
+                      "
+                    >
                       <i class="fas fa-folder-open"></i>
                       {{ getDocumentCount(car) }}
                     </div>
-                    <div 
-                      v-if="hasMissingRequiredDocuments(car)" 
-                      class="missing-required-indicator" 
-                      :title="t('carStock.missing_required_documents') || 'Missing required documents'"
+                    <div
+                      v-if="hasMissingRequiredDocuments(car)"
+                      class="missing-required-indicator"
+                      :title="
+                        t('carStock.missing_required_documents') || 'Missing required documents'
+                      "
                     >
                       <i class="fas fa-exclamation-triangle"></i>
                     </div>
                   </div>
                 </div>
               </td>
-              <td class="notes-cell" :title="car.notes">{{ car.notes || '-' }}</td>
+              <td class="notes-cell" :title="car.notesDisplay || '-'">
+                <div class="notes-content">
+                  <div style="white-space: pre-line; max-width: 300px">
+                    {{ getTruncatedCarNotes(car.notesDisplay, car.id) }}
+                  </div>
+                  <button
+                    v-if="isCarNotesTruncated(car.notesDisplay, car.id)"
+                    @click.stop="toggleCarNotesExpansion(car.id)"
+                    class="btn-show-full-notes"
+                    type="button"
+                  >
+                    {{
+                      expandedCarNotes.has(car.id)
+                        ? t('carStock.show_less') || 'Show Less'
+                        : t('carStock.show_full') || 'Show Full'
+                    }}
+                  </button>
+                </div>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -4332,7 +4420,25 @@ const closeBatchCheckoutModal = () => {
         <!-- Notes Section -->
         <div class="card-section">
           <div class="section-title">Notes</div>
-          <div class="card-notes">{{ car.notes || '-' }}</div>
+          <div class="card-notes">
+            <div class="notes-content">
+              <div style="white-space: pre-line">
+                {{ getTruncatedCarNotes(car.notesDisplay, car.id) }}
+              </div>
+              <button
+                v-if="isCarNotesTruncated(car.notesDisplay, car.id)"
+                @click.stop="toggleCarNotesExpansion(car.id)"
+                class="btn-show-full-notes"
+                type="button"
+              >
+                {{
+                  expandedCarNotes.has(car.id)
+                    ? t('carStock.show_less') || 'Show Less'
+                    : t('carStock.show_full') || 'Show Full'
+                }}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -5082,7 +5188,8 @@ const closeBatchCheckoutModal = () => {
 }
 
 @keyframes pulse-warning {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
     transform: scale(1);
   }
@@ -5323,23 +5430,42 @@ const closeBatchCheckoutModal = () => {
 
 /* Notes cell styling */
 .notes-cell {
-  max-width: 200px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  position: relative;
+  max-width: 300px;
+  white-space: pre-line;
+  word-wrap: break-word;
+  vertical-align: top;
+  padding: 8px;
 }
 
 .notes-cell:hover {
-  white-space: normal;
-  overflow: visible;
-  background-color: #f8fafc;
-  z-index: 1;
-  position: relative;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background-color: #f5f5f5;
+}
+
+.notes-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.btn-show-full-notes {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 4px 8px;
   border-radius: 4px;
-  padding: 8px;
-  margin: -8px;
+  cursor: pointer;
+  font-size: 0.85em;
+  align-self: flex-start;
+  margin-top: 4px;
+  transition: background-color 0.2s;
+}
+
+.btn-show-full-notes:hover {
+  background: #0056b3;
+}
+
+.btn-show-full-notes:active {
+  transform: scale(0.98);
 }
 
 .sortable {
