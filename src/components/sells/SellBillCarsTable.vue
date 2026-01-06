@@ -354,16 +354,20 @@ const handleCloseEditDialog = () => {
 const handleEdit = async (car) => {
   isProcessing.value = true
   try {
-    // Fetch full car details including client and port
+    // Fetch full car details including client, port, car name, and VIN
     const result = await callApi({
       query: `
         SELECT 
           cs.*,
           c.name as client_name,
-          dp.discharge_port
+          dp.discharge_port,
+          cn.car_name,
+          cs.vin
         FROM cars_stock cs
         LEFT JOIN clients c ON cs.id_client = c.id
         LEFT JOIN discharge_ports dp ON cs.id_port_discharge = dp.id
+        LEFT JOIN buy_details bd ON cs.id_buy_details = bd.id
+        LEFT JOIN cars_names cn ON bd.id_car_name = cn.id
         WHERE cs.id = ?
       `,
       params: [car.id],

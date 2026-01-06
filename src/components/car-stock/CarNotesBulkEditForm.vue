@@ -1,5 +1,5 @@
 <script setup>
-import { ref,   computed } from 'vue'
+import { ref, watch } from 'vue'
 import { useApi } from '../../composables/useApi'
 import { useEnhancedI18n } from '@/composables/useI18n'
 
@@ -27,22 +27,59 @@ const error = ref(null)
 const success = ref(null)
 const isProcessing = ref(false)
 
-// Notes data
-const newNotes = ref('')
+// Notes data - new note to add to all cars
+const newNote = ref('')
+
+// Store existing notes for each car (to append new notes to)
+const carsNotesMap = ref({})
 
 // Add user data
 const user = ref(JSON.parse(localStorage.getItem('user') || 'null'))
 
-// Add permission check
-const can_edit_car_notes = computed(() => {
-  if (!user.value) return false
-  if (user.value.role_id === 1) return true // Admin
-  return user.value.permissions?.some((p) => p.permission_name === 'can_edit_car_notes')
+// Parse notes for a car
+const parseCarNotes = (notes) => {
+  if (!notes) return []
+  try {
+    if (typeof notes === 'string' && notes.trim().startsWith('[')) {
+      return JSON.parse(notes)
+    } else if (Array.isArray(notes)) {
+      return notes
+    } else {
+      // Old format (plain text) - convert to JSON
+      return [{
+        id_user: user.value?.id || null,
+        note: notes,
+        timestamp: new Date().toISOString().slice(0, 19).replace('T', ' ')
+      }]
+    }
+  } catch (e) {
+    // If parsing fails, treat as old format
+    return [{
+      id_user: user.value?.id || null,
+      note: notes,
+      timestamp: new Date().toISOString().slice(0, 19).replace('T', ' ')
+    }]
+  }
+}
+
+// Load notes for all selected cars
+const loadCarsNotes = () => {
+  carsNotesMap.value = {}
+  props.selectedCars.forEach((car) => {
+    carsNotesMap.value[car.id] = parseCarNotes(car.notes)
+  })
+}
+
+// Watch for modal opening to load notes
+watch(() => props.show, (isOpen) => {
+  if (isOpen) {
+    loadCarsNotes()
+  }
 })
 
 const handleNotesChange = async () => {
   if (isProcessing.value || loading.value) return
-  if (!newNotes.value.trim()) {
+  if (!newNote.value.trim()) {
     error.value = t('carNotesBulkEditForm.pleaseEnterNotes')
     return
   }
@@ -62,73 +99,50 @@ const handleNotesChange = async () => {
 
   try {
     const carIds = props.selectedCars.map((car) => car.id)
-    const result = await callApi({
-      query:
-        'UPDATE cars_stock SET notes = ? WHERE id IN (' + carIds.map(() => '?').join(',') + ')',
-      params: [newNotes.value.trim(), ...carIds],
+    const userId = user.value?.id || null
+    const timestamp = new Date().toISOString().slice(0, 19).replace('T', ' ')
+    const newNoteEntry = {
+      id_user: userId,
+      note: newNote.value.trim(),
+      timestamp: timestamp
+    }
+
+    // Update each car's notes by appending the new note
+    const updatePromises = carIds.map(async (carId) => {
+      const existingNotes = carsNotesMap.value[carId] || []
+      const updatedNotes = [...existingNotes, newNoteEntry]
+      const notesJson = JSON.stringify(updatedNotes)
+
+      return callApi({
+        query: 'UPDATE cars_stock SET notes = ? WHERE id = ?',
+        params: [notesJson, carId],
+      })
     })
 
-    if (result.success) {
+    const results = await Promise.all(updatePromises)
+    const allSuccess = results.every((result) => result.success)
+
+    if (allSuccess) {
       success.value = t('carNotesBulkEditForm.successfullyUpdatedNotesForCars', {
         count: props.selectedCars.length,
       })
 
       // Update the cars data
-      const updatedCars = props.selectedCars.map((car) => ({
-        ...car,
-        notes: newNotes.value.trim(),
-      }))
-
-      emit('save', updatedCars)
-    } else {
-      throw new Error(result.error || t('carNotesBulkEditForm.failedToUpdateNotes'))
-    }
-  } catch (err) {
-    error.value = err.message || t('carNotesBulkEditForm.anErrorOccurred')
-  } finally {
-    loading.value = false
-    isProcessing.value = false
-  }
-}
-
-const handleRevertNotes = async () => {
-  if (!props.isAdmin) return
-
-  if (
-    !confirm(
-      t('carNotesBulkEditForm.confirmRevertNotesForCars', { count: props.selectedCars.length }),
-    )
-  ) {
-    return
-  }
-
-  loading.value = true
-  isProcessing.value = true
-  error.value = null
-  success.value = null
-
-  try {
-    const carIds = props.selectedCars.map((car) => car.id)
-    const result = await callApi({
-      query:
-        'UPDATE cars_stock SET notes = NULL WHERE id IN (' + carIds.map(() => '?').join(',') + ')',
-      params: carIds,
-    })
-
-    if (result.success) {
-      success.value = t('carNotesBulkEditForm.successfullyRevertedNotesForCars', {
-        count: props.selectedCars.length,
+      const updatedCars = props.selectedCars.map((car) => {
+        const existingNotes = carsNotesMap.value[car.id] || []
+        const updatedNotes = [...existingNotes, newNoteEntry]
+        return {
+          ...car,
+          notes: JSON.stringify(updatedNotes),
+        }
       })
 
-      // Update the cars data
-      const updatedCars = props.selectedCars.map((car) => ({
-        ...car,
-        notes: null,
-      }))
-
       emit('save', updatedCars)
+      newNote.value = '' // Clear the input
+      loadCarsNotes() // Reload notes for next addition
     } else {
-      throw new Error(result.error || t('carNotesBulkEditForm.failedToRevertNotes'))
+      const failedResult = results.find((r) => !r.success)
+      throw new Error(failedResult?.error || t('carNotesBulkEditForm.failedToUpdateNotes'))
     }
   } catch (err) {
     error.value = err.message || t('carNotesBulkEditForm.anErrorOccurred')
@@ -137,13 +151,16 @@ const handleRevertNotes = async () => {
     isProcessing.value = false
   }
 }
+
 
 const closeModal = () => {
   error.value = null
   success.value = null
-  newNotes.value = ''
+  newNote.value = ''
+  carsNotesMap.value = {}
   emit('close')
 }
+
 </script>
 
 <template>
@@ -177,39 +194,34 @@ const closeModal = () => {
         <div class="form-group">
           <label for="notes">
             <i class="fas fa-edit"></i>
-            {{ t('carNotesBulkEditForm.notes') }}:
+            {{ t('carNotesBulkEditForm.addNewNote') || 'Add New Note' }}:
           </label>
           <div class="textarea-wrapper">
             <textarea
               id="notes"
-              v-model="newNotes"
+              v-model="newNote"
               :placeholder="t('carNotesBulkEditForm.enterNotesForSelectedCars')"
               class="notes-textarea"
               :disabled="isProcessing"
               rows="4"
             ></textarea>
           </div>
+          <small class="help-text">
+            {{ t('carNotesBulkEditForm.noteWillBeAddedToAllCars') || 'This note will be added to all selected cars' }}
+          </small>
           <button
             class="update-notes-btn"
             @click="handleNotesChange"
-            :disabled="isProcessing || !newNotes.trim()"
+            :disabled="isProcessing || !newNote.trim()"
             :class="{ 'is-processing': isProcessing }"
           >
             <i class="fas fa-save"></i>
             <span>{{
               isProcessing
                 ? t('carNotesBulkEditForm.updating')
-                : t('carNotesBulkEditForm.updateNotes')
+                : t('carNotesBulkEditForm.addNoteToAllCars') || 'Add Note to All Cars'
             }}</span>
             <i v-if="isProcessing" class="fas fa-spinner fa-spin loading-indicator"></i>
-          </button>
-        </div>
-
-        <!-- Revert Button for Admin -->
-        <div v-if="isAdmin" class="form-group">
-          <button class="revert-btn" @click="handleRevertNotes" :disabled="isProcessing">
-            <i class="fas fa-undo"></i>
-            {{ t('carNotesBulkEditForm.revertNotesToNull') }}
           </button>
         </div>
 
@@ -244,15 +256,17 @@ const closeModal = () => {
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1000;
+  z-index: 2000;
 }
 
 .modal-content {
   background-color: white;
   border-radius: 8px;
-  padding: 20px;
+  padding: 24px;
   width: 90%;
-  max-width: 500px;
+  max-width: 800px;
+  max-height: 90vh;
+  overflow-y: auto;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
@@ -356,8 +370,7 @@ const closeModal = () => {
   cursor: not-allowed;
 }
 
-.update-notes-btn,
-.revert-btn {
+.update-notes-btn {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -369,15 +382,7 @@ const closeModal = () => {
   cursor: pointer;
   transition: all 0.2s ease;
   width: 100%;
-}
-
-.update-notes-btn {
   background-color: #f59e0b;
-  color: white;
-}
-
-.revert-btn {
-  background-color: #dc2626;
   color: white;
 }
 
@@ -386,13 +391,7 @@ const closeModal = () => {
   transform: translateY(-1px);
 }
 
-.revert-btn:hover:not(:disabled) {
-  background-color: #b91c1c;
-  transform: translateY(-1px);
-}
-
-.update-notes-btn:disabled,
-.revert-btn:disabled {
+.update-notes-btn:disabled {
   opacity: 0.7;
   cursor: not-allowed;
 }
@@ -450,6 +449,15 @@ const closeModal = () => {
 
 .loading-indicator {
   margin-left: 4px;
+}
+
+.help-text {
+  display: block;
+  margin-top: 8px;
+  margin-bottom: 12px;
+  color: #6b7280;
+  font-size: 0.875rem;
+  font-style: italic;
 }
 
 @keyframes spin {

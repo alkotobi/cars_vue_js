@@ -23,6 +23,8 @@ import CarExportLicenseBulkEditForm from './CarExportLicenseBulkEditForm.vue'
 import SaveSelectionForm from './SaveSelectionForm.vue'
 import SendSelectionForm from './SendSelectionForm.vue'
 import ShowSelectionsModal from './ShowSelectionsModal.vue'
+import NotesTable from '../shared/NotesTable.vue'
+import NotesManagementModal from '../shared/NotesManagementModal.vue'
 
 import { useRouter } from 'vue-router'
 
@@ -553,26 +555,26 @@ const handlePrintWithOptions = async (printData) => {
   let contentAfterTable = ''
 
   if (printOptionsActionType.value === 'print') {
-    title = subject || 'Car Stock Report'
+    title = subject || t('carStock.car_stock_report')
     contentBeforeTable = `
       ${coreContent ? `<div style="margin: 20px 0; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #3b82f6; border-radius: 4px; white-space: pre-wrap;">${coreContent}</div>` : ''}
     `
     contentAfterTable = `
-      <p><strong>Total Cars:</strong> ${cars.length}</p>
-      <p><strong>Report Type:</strong> Stock Inventory</p>
+      <p><strong>${t('carStock.total_cars')}</strong> ${cars.length}</p>
+      <p><strong>${t('carStock.report_type')}</strong> ${t('carStock.stock_inventory')}</p>
     `
   } else if (printOptionsActionType.value === 'loading-order') {
-    title = subject || 'Loading Order Report'
+    title = subject || t('carStock.loading_order_report')
     contentBeforeTable = `
-      <p>This loading order contains ${cars.length} car${cars.length === 1 ? '' : 's'} to be loaded.</p>
-      <p>Loading order generated on ${new Date().toLocaleDateString()}.</p>
+      <p>${t('carStock.loading_order_contains_cars', { count: cars.length })}</p>
+      <p>${t('carStock.loading_order_generated_on', { date: new Date().toLocaleDateString() })}</p>
       <div style="margin: 20px 0; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #059669; border-radius: 4px;">
-        Core Content: ${coreContent || 'NO CORE CONTENT FOUND'}
+        ${t('carStock.core_content')} ${coreContent || t('carStock.no_core_content_found')}
       </div>
     `
     contentAfterTable = `
-      <p><strong>Total Cars for Loading:</strong> ${cars.length}</p>
-      <p><strong>Instructions:</strong> Please ensure all vehicles are properly Loaded as soon as possible.</p>
+      <p><strong>${t('carStock.total_cars_for_loading')}</strong> ${cars.length}</p>
+      <p><strong>${t('carStock.instructions')}</strong> ${t('carStock.ensure_vehicles_loaded')}</p>
       <div style="margin-top: 40px; border-top: 1px solid #333; padding-top: 20px;">
         <div style="display: flex; justify-content: space-between; align-items: flex-end;">
           <div style="text-align: center;">
@@ -994,7 +996,7 @@ const handleDocumentClick = async (event, path, documentName) => {
   // Check if the path is valid
   if (!path || path.trim() === '') {
     event.preventDefault()
-    alert(t('carStock.document_path_invalid') || `Invalid document path for ${documentName}`)
+    alert(t('carStock.invalid_document_path_for', { documentName }))
     return
   }
 
@@ -1608,13 +1610,16 @@ const handleEdit = async (car) => {
 }
 
 const editCfrDa = async (carId, currentValue) => {
-  const newValue = prompt(`Enter new CFR DA value for car #${carId}:`, currentValue || '')
+  const newValue = prompt(
+    t('carStock.enter_new_cfr_da_value_for_car', { carId }),
+    currentValue || '',
+  )
 
   if (newValue === null) return // User cancelled
 
   const numericValue = parseFloat(newValue)
   if (isNaN(numericValue) || numericValue < 0) {
-    alert('Please enter a valid positive number')
+    alert(t('carStock.please_enter_valid_positive_number'))
     return
   }
 
@@ -1633,10 +1638,10 @@ const editCfrDa = async (carId, currentValue) => {
       // Refresh the display
       fetchCarsStock()
     } else {
-      alert('Failed to update CFR DA value')
+      alert(t('carStock.failed_to_update_cfr_da_value'))
     }
   } catch (error) {
-    alert('Error updating CFR DA value: ' + error.message)
+    alert(t('carStock.error_updating_cfr_da_value', { error: error.message }))
   }
 }
 
@@ -1942,35 +1947,200 @@ const handleTaskAction = (car) => {
 
 const showNotesModal = ref(false)
 const notesEditCar = ref(null)
-const notesEditValue = ref('')
+const carNotes = ref([])
+const originalCarNotes = ref([]) // Store original notes to restore on cancel
+const allUsers = ref([])
 
-const handleNotesAction = (car) => {
+const handleNotesAction = async (car) => {
   closeTeleportDropdown()
   notesEditCar.value = car
-  notesEditValue.value = car.notes || ''
+
+  // Parse existing notes (JSON format)
+  if (car.notes) {
+    try {
+      let notesArray = []
+      if (typeof car.notes === 'string' && car.notes.trim().startsWith('[')) {
+        notesArray = JSON.parse(car.notes)
+      } else if (Array.isArray(car.notes)) {
+        notesArray = car.notes
+      } else {
+        // Old format (plain text) - convert to JSON
+        const userStr = localStorage.getItem('user')
+        const currentUser = userStr ? JSON.parse(userStr) : null
+        notesArray = [
+          {
+            id_user: currentUser?.id || null,
+            note: car.notes,
+            timestamp: new Date().toISOString().slice(0, 19).replace('T', ' '),
+          },
+        ]
+      }
+      carNotes.value = Array.isArray(notesArray) ? notesArray : []
+    } catch (e) {
+      // If parsing fails, treat as old format (plain text)
+      const userStr = localStorage.getItem('user')
+      const currentUser = userStr ? JSON.parse(userStr) : null
+      carNotes.value = [
+        {
+          id_user: currentUser?.id || null,
+          note: car.notes,
+          timestamp: new Date().toISOString().slice(0, 19).replace('T', ' '),
+        },
+      ]
+    }
+  } else {
+    carNotes.value = []
+  }
+
+  // Store original notes to restore on cancel
+  originalCarNotes.value = JSON.parse(JSON.stringify(carNotes.value))
+
+  // Fetch users if not already loaded
+  if (allUsers.value.length === 0) {
+    await fetchAllUsers()
+  }
+
   showNotesModal.value = true
 }
 
-const handleNotesSave = async (result) => {
+// Fetch all users for notes display
+const fetchAllUsers = async () => {
   try {
-    const response = await callApi({
-      query: 'UPDATE cars_stock SET notes = ? WHERE id = ?',
-      params: [result.notes, result.carId],
+    const result = await callApi({
+      query: `
+        SELECT id, username, first_name, last_name
+        FROM users
+        ORDER BY username ASC
+      `,
+      params: [],
     })
 
-    if (response.success) {
-      alert(t('carStock.notes_updated_successfully'))
-      fetchCarsStock()
-    } else {
-      alert(result.error || t('carStock.failed_to_update_notes'))
+    if (result.success) {
+      allUsers.value = result.data
     }
   } catch (err) {
-    alert(err.message || t('carStock.error_updating_notes'))
+    console.error('Error fetching users:', err)
   }
 }
 
+// Helper function to parse notes (car or sell bill)
+const parseNotes = (notes) => {
+  if (!notes) return []
+  try {
+    if (typeof notes === 'string' && notes.trim().startsWith('[')) {
+      return JSON.parse(notes)
+    } else if (Array.isArray(notes)) {
+      return notes
+    } else {
+      // Old format (plain text) - convert to array format
+      return [
+        {
+          id_user: null,
+          note: notes,
+          timestamp: null,
+        },
+      ]
+    }
+  } catch (e) {
+    // If parsing fails, treat as old format (plain text)
+    return [
+      {
+        id_user: null,
+        note: notes,
+        timestamp: null,
+      },
+    ]
+  }
+}
+
+// Helper function to format notes for display (merges car notes with sell bill notes if available)
+const formatNotesDisplay = (carNotesJson, sellBillNotesJson = null) => {
+  // Parse car notes
+  const carNotesArray = parseNotes(carNotesJson)
+
+  // Parse sell bill notes if provided
+  const sellBillNotesArray = sellBillNotesJson ? parseNotes(sellBillNotesJson) : []
+
+  // Merge car notes and sell bill notes
+  const allNotesArray = [...carNotesArray, ...sellBillNotesArray]
+
+  // Format all notes for display
+  let notesDisplay = '-'
+  if (allNotesArray.length > 0) {
+    notesDisplay = allNotesArray
+      .map((note) => note.note || '')
+      .filter((note) => note.trim() !== '') // Remove empty notes
+      .join('\n')
+
+    // If all notes were empty, set to '-'
+    if (!notesDisplay || notesDisplay.trim() === '') {
+      notesDisplay = '-'
+    }
+  }
+
+  return notesDisplay
+}
+
+// Save car notes function for NotesManagementModal
+const saveCarNotes = async (notesJson, carId) => {
+  const result = await callApi({
+    query: 'UPDATE cars_stock SET notes = ? WHERE id = ?',
+    params: [notesJson, carId],
+    requiresAuth: true,
+  })
+
+  if (!result.success) {
+    throw new Error(result.error || 'Failed to save notes')
+  }
+
+  // Update local notes
+  if (notesJson) {
+    carNotes.value = JSON.parse(notesJson)
+  } else {
+    carNotes.value = []
+  }
+
+  // Update the car object in the local arrays immediately for instant UI update
+  // Get the existing car to access sell bill notes
+  const existingCar = allCars.value.find((car) => car.id === carId)
+  const sellBillNotes = existingCar?.sell_bill_notes || null
+  const notesDisplay = formatNotesDisplay(notesJson, sellBillNotes)
+
+  // Update the car in allCars and cars arrays
+  const carIndex = allCars.value.findIndex((car) => car.id === carId)
+  if (carIndex !== -1) {
+    allCars.value[carIndex].notes = notesJson || null
+    allCars.value[carIndex].notesDisplay = notesDisplay
+  }
+
+  const carIndexInFiltered = cars.value.findIndex((car) => car.id === carId)
+  if (carIndexInFiltered !== -1) {
+    cars.value[carIndexInFiltered].notes = notesJson || null
+    cars.value[carIndexInFiltered].notesDisplay = notesDisplay
+  }
+
+  // Refresh the cars list to ensure everything is in sync
+  await fetchCarsStock()
+}
+
+// Handle notes updated from modal
+const handleNotesUpdated = (updatedNotes) => {
+  carNotes.value = updatedNotes
+}
+
+// Handle manage notes click
+const handleManageNotes = () => {
+  showNotesModal.value = true
+}
+
+// Handle close notes modal - restore original notes if cancelled
 const cancelNotes = () => {
+  // Restore original notes (discard any changes made in the modal)
+  carNotes.value = JSON.parse(JSON.stringify(originalCarNotes.value))
   showNotesModal.value = false
+  notesEditCar.value = null
+  carNotes.value = []
+  originalCarNotes.value = []
 }
 
 const handleVinsAssigned = (assignments) => {
@@ -2029,9 +2199,31 @@ const handleTaskFromToolbar = () => {
   showTaskForm.value = true
 }
 
-const handleNotesBulkSave = (updatedCars) => {
-  showNotesBulkEditForm.value = false
-  fetchCarsStock()
+const handleNotesBulkSave = async (updatedCars) => {
+  // Update local car objects immediately for instant UI update
+  updatedCars.forEach((updatedCar) => {
+    // Get the existing car to access sell bill notes
+    const existingCar = allCars.value.find((car) => car.id === updatedCar.id)
+    const sellBillNotes = existingCar?.sell_bill_notes || null
+    const notesDisplay = formatNotesDisplay(updatedCar.notes, sellBillNotes)
+
+    // Update the car in allCars array
+    const carIndex = allCars.value.findIndex((car) => car.id === updatedCar.id)
+    if (carIndex !== -1) {
+      allCars.value[carIndex].notes = updatedCar.notes || null
+      allCars.value[carIndex].notesDisplay = notesDisplay
+    }
+
+    // Update the car in cars array
+    const carIndexInFiltered = cars.value.findIndex((car) => car.id === updatedCar.id)
+    if (carIndexInFiltered !== -1) {
+      cars.value[carIndexInFiltered].notes = updatedCar.notes || null
+      cars.value[carIndexInFiltered].notesDisplay = notesDisplay
+    }
+  })
+
+  // Refresh the cars list to ensure everything is in sync
+  await fetchCarsStock()
 }
 
 const handleColorFromToolbar = () => {
@@ -2089,13 +2281,15 @@ const handleCfrDaFromToolbar = () => {
     return
   }
 
-  const newValue = prompt(`Enter new CFR DA value for ${selectedCars.value.size} selected cars:`)
+  const newValue = prompt(
+    t('carStock.enter_new_cfr_da_value_for_cars', { count: selectedCars.value.size }),
+  )
 
   if (newValue === null) return // User cancelled
 
   const numericValue = parseFloat(newValue)
   if (isNaN(numericValue) || numericValue < 0) {
-    alert('Please enter a valid positive number')
+    alert(t('carStock.please_enter_valid_positive_number'))
     return
   }
 
@@ -2130,12 +2324,12 @@ const updateCarsCfrDa = async (selectedCarIds, numericValue) => {
       // Clear selection
       selectedCars.value.clear()
 
-      alert(`Successfully updated CFR DA value for ${selectedCarIds.length} cars`)
+      alert(t('carStock.successfully_updated_cfr_da_value', { count: selectedCarIds.length }))
     } else {
-      alert('Failed to update CFR DA values')
+      alert(t('carStock.failed_to_update_cfr_da_values'))
     }
   } catch (error) {
-    alert('Error updating CFR DA values: ' + error.message)
+    alert(t('carStock.error_updating_cfr_da_values', { error: error.message }))
   }
 }
 
@@ -2200,6 +2394,7 @@ const loadInitialCarsData = async () => {
           sb.date_sell,
           sb.date_sell as sell_bill_date,
           cs.notes,
+          sb.notes as sell_bill_notes,
           cs.freight,
           cs.path_documents,
           cs.sell_pi_path,
@@ -2267,33 +2462,8 @@ const loadInitialCarsData = async () => {
       // Set default payment_confirmed to 0 if column doesn't exist yet
       // Parse notes JSON and format for display
       const carsData = (result.data || []).map((car) => {
-        // Parse notes JSON if it exists
-        let notesDisplay = '-'
-        if (car.notes) {
-          try {
-            let notesArray = []
-            if (typeof car.notes === 'string' && car.notes.trim().startsWith('[')) {
-              notesArray = JSON.parse(car.notes)
-            } else if (Array.isArray(car.notes)) {
-              notesArray = car.notes
-            } else {
-              // Old format (plain text) - use as is
-              notesDisplay = car.notes
-            }
-
-            if (Array.isArray(notesArray) && notesArray.length > 0) {
-              // Format all notes without username or timestamp
-              notesDisplay = notesArray
-                .map((note) => {
-                  return note.note || ''
-                })
-                .join('\n')
-            }
-          } catch (e) {
-            // If parsing fails, treat as old format (plain text)
-            notesDisplay = car.notes
-          }
-        }
+        // Use formatNotesDisplay helper to merge car notes with sell bill notes
+        const notesDisplay = formatNotesDisplay(car.notes, car.sell_bill_notes || null)
 
         return {
           ...car,
@@ -2679,7 +2849,7 @@ const togglePaymentConfirmed = async (car) => {
 
     // Get current user info for permission check
     if (!user.value || !user.value.id) {
-      alert('User authentication required')
+      alert(t('carStock.user_authentication_required'))
       return
     }
 
@@ -2702,24 +2872,19 @@ const togglePaymentConfirmed = async (car) => {
         cars.value[carIndex].payment_confirmed = newStatus
       }
     } else {
-      const errorMsg = result.error || 'Unknown error'
+      const errorMsg = result.error || t('carStock.unknown_error')
       // Check if it's a missing column error
       if (
         errorMsg.includes("Unknown column 'payment_confirmed'") ||
         errorMsg.includes("doesn't exist")
       ) {
-        alert(
-          'Payment confirmed column does not exist. Please run migration 009_add_payment_confirmed_to_cars_stock.sql',
-        )
+        alert(t('carStock.payment_confirmed_column_not_exists'))
       } else {
-        alert('Failed to update payment confirmed status: ' + errorMsg)
+        alert(t('carStock.failed_to_update_payment_confirmed_status', { error: errorMsg }))
       }
     }
   } catch (err) {
-    alert(
-      t('carStock.error_updating_payment_confirmed') ||
-        'Error updating payment confirmed status: ' + err.message,
-    )
+    alert(t('carStock.error_updating_payment_confirmed', { error: err.message }))
   } finally {
     isProcessing.value.payment = false
   }
@@ -4597,26 +4762,19 @@ const closeBatchCheckoutModal = () => {
     </div>
   </teleport>
 
-  <!-- Notes Edit Modal -->
-  <div v-if="showNotesModal" class="modal-overlay">
-    <div class="modal-content">
-      <h3>Edit Notes</h3>
-      <textarea
-        v-model="notesEditValue"
-        rows="6"
-        class="notes-textarea"
-        placeholder="Enter notes..."
-      ></textarea>
-      <div class="modal-actions">
-        <button @click="saveNotes" :disabled="isProcessing.notes" class="btn save-btn">
-          <i class="fas fa-save"></i> Save
-        </button>
-        <button @click="cancelNotes" :disabled="isProcessing.notes" class="btn cancel-btn">
-          <i class="fas fa-times"></i> Cancel
-        </button>
-      </div>
-    </div>
-  </div>
+  <!-- Notes Management Modal -->
+  <NotesManagementModal
+    :show="showNotesModal"
+    :notes="carNotes"
+    :users="allUsers"
+    :current-user-id="user?.id"
+    :is-admin="isAdmin"
+    :entity-id="notesEditCar?.id"
+    :save-function="saveCarNotes"
+    :save-immediately="true"
+    @close="cancelNotes"
+    @notes-updated="handleNotesUpdated"
+  />
 
   <!-- VIN Assignment Modal -->
   <VinAssignmentModal
