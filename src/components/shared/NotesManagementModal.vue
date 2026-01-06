@@ -194,8 +194,12 @@ watch(() => props.notes, (newNotes) => {
 
 const getUserName = (userId) => {
   if (!userId) return t('sellBills.unknown') || 'Unknown'
-  const user = props.users.find(u => u.id === userId)
-  return user ? user.username : `User ${userId}`
+  // Handle both string and number ID comparisons
+  const user = props.users.find(u => u.id == userId || u.id === userId)
+  if (!user) return `User ${userId}`
+  
+  // Return username if available, otherwise show User ID
+  return user.username || `User ${userId}`
 }
 
 const formatTimestamp = (timestamp) => {

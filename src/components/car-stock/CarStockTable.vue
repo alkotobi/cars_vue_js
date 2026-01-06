@@ -2008,7 +2008,7 @@ const fetchAllUsers = async () => {
   try {
     const result = await callApi({
       query: `
-        SELECT id, username, first_name, last_name
+        SELECT id, username
         FROM users
         ORDER BY username ASC
       `,

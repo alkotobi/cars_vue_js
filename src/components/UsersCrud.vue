@@ -42,7 +42,7 @@ const startEditUser = (user) => {
 }
 
 const handleUserUpdated = async () => {
-  await fetchUsers()
+      await fetchUsers()
   editingUser.value = null
 }
 
@@ -91,46 +91,46 @@ onMounted(() => {
         </thead>
         <tbody>
           <tr v-for="user in users" :key="user.id">
-            <td>
-              <i class="fas fa-user text-gray"></i>
-              {{ user.username }}
+              <td>
+                <i class="fas fa-user text-gray"></i>
+                {{ user.username }}
               <span v-if="user.is_diffrent_company" class="badge badge-company">
                 <i class="fas fa-building"></i>
                 Company
               </span>
-            </td>
-            <td>
-              <i class="fas fa-envelope text-gray"></i>
-              {{ user.email }}
-            </td>
-            <td>
-              <i class="fas fa-shield-alt text-gray"></i>
-              {{ user.role_name || 'No Role' }}
-            </td>
-            <td>
-              <i class="fas fa-receipt text-gray"></i>
-              {{ user.max_unpayed_created_bills || 0 }}
-            </td>
-            <td class="actions-cell">
-              <div class="button-group">
-                <button
-                  @click="startEditUser(user)"
-                  class="btn edit-btn"
-                  :disabled="loading || editingUser !== null"
-                >
-                  <i class="fas fa-edit"></i>
-                  Edit
-                </button>
-                <button
-                  @click="deleteUser(user)"
-                  :disabled="loading || editingUser !== null"
-                  class="btn delete-btn"
-                >
-                  <i class="fas fa-trash-alt"></i>
-                  Delete
-                </button>
-              </div>
-            </td>
+              </td>
+              <td>
+                <i class="fas fa-envelope text-gray"></i>
+                {{ user.email }}
+              </td>
+              <td>
+                <i class="fas fa-shield-alt text-gray"></i>
+                {{ user.role_name || 'No Role' }}
+              </td>
+              <td>
+                <i class="fas fa-receipt text-gray"></i>
+                {{ user.max_unpayed_created_bills || 0 }}
+              </td>
+              <td class="actions-cell">
+                <div class="button-group">
+                  <button
+                    @click="startEditUser(user)"
+                    class="btn edit-btn"
+                    :disabled="loading || editingUser !== null"
+                  >
+                    <i class="fas fa-edit"></i>
+                    Edit
+                  </button>
+                  <button
+                    @click="deleteUser(user)"
+                    :disabled="loading || editingUser !== null"
+                    class="btn delete-btn"
+                  >
+                    <i class="fas fa-trash-alt"></i>
+                    Delete
+                  </button>
+                </div>
+              </td>
           </tr>
         </tbody>
       </table>
