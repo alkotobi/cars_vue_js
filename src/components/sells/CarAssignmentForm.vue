@@ -445,6 +445,31 @@ const assignCar = async () => {
 
   if (!validateForm()) return
 
+  // Validate client has passport uploaded
+  if (formData.value.id_client && !formData.value.is_tmp_client) {
+    try {
+      const clientCheck = await callApi({
+        query: `
+          SELECT id_copy_path
+          FROM clients
+          WHERE id = ?
+        `,
+        params: [formData.value.id_client],
+      })
+
+      if (clientCheck.success && clientCheck.data.length > 0) {
+        if (!clientCheck.data[0].id_copy_path) {
+          error.value = t('sellBills.cannot_assign_client_no_id') || 'Cannot assign to this client because passport/ID card is not uploaded'
+          return
+        }
+      }
+    } catch (err) {
+      console.error('Error checking client passport:', err)
+      error.value = t('sellBills.failed_to_verify_client_id') || 'Failed to verify client passport'
+      return
+    }
+  }
+
   try {
     isSubmitting.value = true
     loading.value = true

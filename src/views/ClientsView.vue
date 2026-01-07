@@ -725,11 +725,12 @@ const addClient = async () => {
 
   try {
     isSubmitting.value = true
-    // First insert the client to get the ID
+    
+    // First insert the client to get the ID (with null id_copy_path initially)
     const result = await callApi({
       query: `
-        INSERT INTO clients (name, address, email, mobiles, id_no, nin, is_broker, is_client, notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)
+        INSERT INTO clients (name, address, email, mobiles, id_no, nin, is_broker, is_client, notes, id_copy_path)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, NULL)
     `,
       params: [
         newClient.value.name,
@@ -748,31 +749,75 @@ const addClient = async () => {
     console.log('Full result object:', JSON.stringify(result, null, 2))
     console.log('NIN being saved:', newClient.value.nin)
 
-    if (result.success) {
-      const clientId = result.lastInsertId
-      console.log('Client ID ***************:', clientId)
+    if (!result.success) {
+      error.value = result.error || 'Failed to create client'
+      isSubmitting.value = false
+      return
+    }
 
-      let filePath = null
-      // If there's a file selected, upload it
-      if (selectedFile.value) {
-        try {
-          const uploadResult = await debugFileUpload(selectedFile.value, clientId)
+    const clientId = result.lastInsertId
+    console.log('Client ID ***************:', clientId)
 
-          if (uploadResult.success) {
-            // Use the relativePath returned from uploadFile
-            console.log('Updating client with file path:', uploadResult.relativePath)
-            const updateResult = await callApi({
-              query: 'UPDATE clients SET id_copy_path = ? WHERE id = ?',
-              params: [uploadResult.relativePath, clientId],
-            })
-            console.log('Update result:', updateResult)
-            filePath = uploadResult.relativePath
-          }
-        } catch (err) {
-          console.error('Error uploading file:', err)
-          error.value = 'Client created but failed to upload ID document'
+    let filePath = null
+    // Upload file AFTER client is created, but delete client if upload fails
+    if (selectedFile.value) {
+      try {
+        const uploadResult = await debugFileUpload(selectedFile.value, clientId)
+
+        if (!uploadResult.success) {
+          // Upload failed - delete the client record
+          await callApi({
+            query: 'DELETE FROM clients WHERE id = ?',
+            params: [clientId],
+          })
+          error.value = t('clients.failed_to_upload_id_document') || 'Failed to upload ID document. Client was not created. Please check your internet connection and try again.'
+          isSubmitting.value = false
+          return
         }
+        
+        // Update client with file path
+        filePath = uploadResult.relativePath
+        console.log('Updating client with file path:', filePath)
+        const updateResult = await callApi({
+          query: 'UPDATE clients SET id_copy_path = ? WHERE id = ?',
+          params: [filePath, clientId],
+        })
+        
+        if (!updateResult.success) {
+          // File uploaded but database update failed - delete client
+          await callApi({
+            query: 'DELETE FROM clients WHERE id = ?',
+            params: [clientId],
+          })
+          error.value = t('clients.failed_to_save_id_document_path') || 'Failed to save ID document path. Client was not created.'
+          isSubmitting.value = false
+          return
+        }
+      } catch (err) {
+        console.error('Error uploading file:', err)
+        // Upload failed - delete the client record
+        try {
+          await callApi({
+            query: 'DELETE FROM clients WHERE id = ?',
+            params: [clientId],
+          })
+        } catch (deleteErr) {
+          console.error('Error deleting client after upload failure:', deleteErr)
+        }
+        error.value = t('clients.failed_to_upload_id_document') || 'Failed to upload ID document. Client was not created. Please check your internet connection and try again.'
+        isSubmitting.value = false
+        return
       }
+    } else {
+      // No file selected, but file is required - delete the client
+      await callApi({
+        query: 'DELETE FROM clients WHERE id = ?',
+        params: [clientId],
+      })
+      error.value = 'ID Document is required'
+      isSubmitting.value = false
+      return
+    }
 
       // Fetch the complete client data including share_token from the database
       const fetchNewClientResult = await callApi({
@@ -833,10 +878,6 @@ const addClient = async () => {
         is_broker: false,
         notes: '',
       }
-    } else {
-      error.value = result.error
-      console.error('Error adding client:', result.error)
-    }
   } catch (err) {
     error.value = err.message
     console.error('Error in add client process:', err)
@@ -919,56 +960,77 @@ const updateClient = async () => {
   try {
     isSubmitting.value = true
 
-    // Update client basic info first
+    let newFilePath = null
+    // If there's a new file selected, upload it FIRST before updating client
+    if (editSelectedFile.value) {
+      try {
+        const uploadResult = await debugFileUpload(editSelectedFile.value, editingClient.value.id)
+
+        if (!uploadResult.success) {
+          console.error('File upload failed:', uploadResult.error)
+          error.value = t('clients.failed_to_upload_id_document') || 'Failed to upload ID document. Client was not updated. Please check your internet connection and try again.'
+          isSubmitting.value = false
+          return
+        }
+        
+        newFilePath = uploadResult.relativePath
+        console.log('File uploaded successfully with path:', newFilePath)
+      } catch (err) {
+        console.error('Error uploading file:', err)
+        error.value = t('clients.failed_to_upload_id_document') || 'Failed to upload ID document. Client was not updated. Please check your internet connection and try again.'
+        isSubmitting.value = false
+        return
+      }
+    }
+
+    // Only update client if file upload succeeded (or no new file selected)
+    const updateQuery = newFilePath
+      ? `
+        UPDATE clients 
+        SET name = ?, address = ?, email = ?, mobiles = ?, id_no = ?, nin = ?, is_broker = ?, is_client = 1, notes = ?, id_copy_path = ?
+        WHERE id = ?
+      `
+      : `
+        UPDATE clients 
+        SET name = ?, address = ?, email = ?, mobiles = ?, id_no = ?, nin = ?, is_broker = ?, is_client = 1, notes = ?
+        WHERE id = ?
+      `
+    
+    const updateParams = newFilePath
+      ? [
+          editingClient.value.name,
+          editingClient.value.address,
+          editingClient.value.email,
+          editingClient.value.mobiles,
+          editingClient.value.id_no,
+          editingClient.value.nin,
+          editingClient.value.is_broker ? 1 : 0,
+          editingClient.value.notes,
+          newFilePath,
+          editingClient.value.id,
+        ]
+      : [
+          editingClient.value.name,
+          editingClient.value.address,
+          editingClient.value.email,
+          editingClient.value.mobiles,
+          editingClient.value.id_no,
+          editingClient.value.nin,
+          editingClient.value.is_broker ? 1 : 0,
+          editingClient.value.notes,
+          editingClient.value.id,
+        ]
+    
     const result = await callApi({
-      query: `
-      UPDATE clients 
-      SET name = ?, address = ?, email = ?, mobiles = ?, id_no = ?, nin = ?, is_broker = ?, is_client = 1, notes = ?
-      WHERE id = ?
-    `,
-      params: [
-        editingClient.value.name,
-        editingClient.value.address,
-        editingClient.value.email,
-        editingClient.value.mobiles,
-        editingClient.value.id_no,
-        editingClient.value.nin,
-        editingClient.value.is_broker ? 1 : 0,
-        editingClient.value.notes,
-        editingClient.value.id,
-      ],
+      query: updateQuery,
+      params: updateParams,
     })
 
-    if (result.success) {
-      let newFilePath = null
-      // If there's a new file selected, upload it and update the path
-      if (editSelectedFile.value) {
-        try {
-          const uploadResult = await debugFileUpload(editSelectedFile.value, editingClient.value.id)
-
-          if (uploadResult.success) {
-            console.log('File uploaded successfully, updating client record')
-            // Update the client record with the new file path
-            const updateFileResult = await debugDatabaseUpdate(
-              uploadResult.relativePath,
-              editingClient.value.id,
-            )
-
-            if (!updateFileResult.success) {
-              console.error('Failed to update client with new file path:', updateFileResult.error)
-              error.value = 'Client updated but failed to save new ID document path'
-            } else {
-              newFilePath = uploadResult.relativePath
-            }
-          } else {
-            console.error('File upload failed:', uploadResult.error)
-            error.value = 'Client updated but failed to upload new ID document'
-          }
-        } catch (err) {
-          console.error('Error uploading file:', err)
-          error.value = 'Client updated but failed to upload new ID document'
-        }
-      }
+    if (!result.success) {
+      error.value = result.error || 'Failed to update client'
+      isSubmitting.value = false
+      return
+    }
 
       // Update the client in in-memory data
       const clientIndex = allClients.value.findIndex((c) => c.id === editingClient.value.id)
@@ -997,10 +1059,6 @@ const updateClient = async () => {
       editingClient.value = null
       editSelectedFile.value = null
       validationError.value = ''
-    } else {
-      error.value = result.error
-      console.error('Error updating client:', result.error)
-    }
   } catch (err) {
     error.value = err.message
     console.error('Error in update client process:', err)

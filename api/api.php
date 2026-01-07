@@ -300,7 +300,7 @@ if (isset($postData['action'])) {
             exit;
 
             case 'insert_user':
-                if (!isset($postData['query']) ||!isset($postData['params']) || count($postData['params'])!== 5) {
+                if (!isset($postData['query']) ||!isset($postData['params']) || count($postData['params'])!== 9) {
                     http_response_code(400);
                     echo json_encode(['success' => false, 'error' => 'Invalid parameters for user creation']);
                     exit;

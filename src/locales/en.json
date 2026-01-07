@@ -2304,5 +2304,9 @@
     "failedToLeaveGroup": "Failed to leave group",
     "errorLeavingGroup": "Error leaving group",
     "youHaveLeftThisGroup": "You have left this group and cannot send messages."
+  },
+  "clients": {
+    "failed_to_upload_id_document": "Failed to upload ID document. Client was not created. Please check your internet connection and try again.",
+    "failed_to_save_id_document_path": "Failed to save ID document path. Client was not created."
   }
 }

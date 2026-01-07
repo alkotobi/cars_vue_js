@@ -340,6 +340,35 @@ const handleManageEditNotes = () => {
   showEditNotesModal.value = true
 }
 
+// Handle client change in edit form - validate passport
+const handleEditClientChange = async (clientId) => {
+  if (!clientId || editFormData.value.is_tmp_client) return
+
+  try {
+    const result = await callApi({
+      query: `
+        SELECT id_copy_path
+        FROM clients
+        WHERE id = ?
+      `,
+      params: [clientId],
+    })
+
+    if (result.success && result.data.length > 0) {
+      if (!result.data[0].id_copy_path) {
+        error.value = t('sellBills.cannot_assign_client_no_id') || 'Cannot assign to this client because passport/ID card is not uploaded'
+        editFormData.value.id_client = null
+      } else {
+        error.value = null
+      }
+    }
+  } catch (err) {
+    console.error('Error checking client passport:', err)
+    error.value = t('sellBills.failed_to_verify_client_id') || 'Failed to verify client passport'
+    editFormData.value.id_client = null
+  }
+}
+
 // Handle close edit dialog - restore original notes if cancelled
 const handleCloseEditDialog = () => {
   // Restore original notes (discard any changes made in the modal)
@@ -474,6 +503,33 @@ const handleSaveEdit = async () => {
 
   isProcessing.value = true
   error.value = null
+
+  // Validate client has passport uploaded (if client changed and not temporary)
+  if (editFormData.value.id_client && !editFormData.value.is_tmp_client) {
+    try {
+      const clientCheck = await callApi({
+        query: `
+          SELECT id_copy_path
+          FROM clients
+          WHERE id = ?
+        `,
+        params: [editFormData.value.id_client],
+      })
+
+      if (clientCheck.success && clientCheck.data.length > 0) {
+        if (!clientCheck.data[0].id_copy_path) {
+          error.value = t('sellBills.cannot_assign_client_no_id') || 'Cannot assign to this client because passport/ID card is not uploaded'
+          isProcessing.value = false
+          return
+        }
+      }
+    } catch (err) {
+      console.error('Error checking client passport:', err)
+      error.value = t('sellBills.failed_to_verify_client_id') || 'Failed to verify client passport'
+      isProcessing.value = false
+      return
+    }
+  }
 
   try {
     // Ensure both values are set based on currency selection
@@ -1131,6 +1187,7 @@ const formatDate = (dateString) => {
                 :placeholder="t('sellBills.search_client')"
                 class="custom-select"
                 required
+                @change="handleEditClientChange"
               >
                 <el-option
                   v-for="client in filteredClients"
