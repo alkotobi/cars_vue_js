@@ -259,6 +259,38 @@ CREATE TABLE IF NOT EXISTS `cars_stock` (
   KEY `idx_payment_confirmed` (`payment_confirmed`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
+-- Upgrades table
+CREATE TABLE IF NOT EXISTS `upgrades` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `description` varchar(255) DEFAULT NULL,
+  `notes` text,
+  `id_user_owner` int DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_id_user_owner` (`id_user_owner`),
+  CONSTRAINT `fk_upgrades_user_owner` FOREIGN KEY (`id_user_owner`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Car upgrades table
+CREATE TABLE IF NOT EXISTS `car_apgrades` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `id_car` int DEFAULT NULL,
+  `id_upgrade` int DEFAULT NULL,
+  `value` float NOT NULL,
+  `date_done` datetime DEFAULT NULL,
+  `id_uder_done` int DEFAULT NULL,
+  `id_user_create` int DEFAULT NULL,
+  `time_creation` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_id_car` (`id_car`),
+  KEY `idx_id_upgrade` (`id_upgrade`),
+  KEY `idx_id_uder_done` (`id_uder_done`),
+  KEY `idx_id_user_create` (`id_user_create`),
+  CONSTRAINT `fk_car_apgrades_car` FOREIGN KEY (`id_car`) REFERENCES `cars_stock` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_car_apgrades_upgrade` FOREIGN KEY (`id_upgrade`) REFERENCES `upgrades` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_car_apgrades_user` FOREIGN KEY (`id_uder_done`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_car_apgrades_user_create` FOREIGN KEY (`id_user_create`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 -- Chat groups table
 CREATE TABLE IF NOT EXISTS `chat_groups` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,

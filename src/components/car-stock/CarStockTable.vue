@@ -20,11 +20,13 @@ import CarPortsBulkEditForm from './CarPortsBulkEditForm.vue'
 import CarNotesBulkEditForm from './CarNotesBulkEditForm.vue'
 import CarColorBulkEditForm from './CarColorBulkEditForm.vue'
 import CarExportLicenseBulkEditForm from './CarExportLicenseBulkEditForm.vue'
+import CarUpgradesBulkAddForm from './CarUpgradesBulkAddForm.vue'
 import SaveSelectionForm from './SaveSelectionForm.vue'
 import SendSelectionForm from './SendSelectionForm.vue'
 import ShowSelectionsModal from './ShowSelectionsModal.vue'
 import NotesTable from '../shared/NotesTable.vue'
 import NotesManagementModal from '../shared/NotesManagementModal.vue'
+import CarUpgradesModal from '../shared/CarUpgradesModal.vue'
 
 import { useRouter } from 'vue-router'
 
@@ -320,6 +322,7 @@ const isBatchCheckouting = ref(false)
 
 // Add new refs for ports bulk edit form
 const showPortsBulkEditForm = ref(false)
+const showUpgradesBulkAddForm = ref(false)
 
 // Add new refs for warehouse bulk edit form
 
@@ -1951,6 +1954,10 @@ const carNotes = ref([])
 const originalCarNotes = ref([]) // Store original notes to restore on cancel
 const allUsers = ref([])
 
+// Upgrades modal state
+const showUpgradesModal = ref(false)
+const selectedCarForUpgrades = ref(null)
+
 const handleNotesAction = async (car) => {
   closeTeleportDropdown()
   notesEditCar.value = car
@@ -2021,6 +2028,25 @@ const fetchAllUsers = async () => {
   } catch (err) {
     console.error('Error fetching users:', err)
   }
+}
+
+// Handle upgrades action
+const handleUpgradesAction = async (car) => {
+  closeTeleportDropdown()
+  selectedCarForUpgrades.value = car
+
+  // Fetch users if not already loaded
+  if (allUsers.value.length === 0) {
+    await fetchAllUsers()
+  }
+
+  showUpgradesModal.value = true
+}
+
+// Close upgrades modal
+const closeUpgradesModal = () => {
+  showUpgradesModal.value = false
+  selectedCarForUpgrades.value = null
 }
 
 // Helper function to parse notes (car or sell bill)
@@ -2197,6 +2223,57 @@ const handleTaskFromToolbar = () => {
   const selectedCarsForTask = sortedCars.value.filter((car) => selectedCars.value.has(car.id))
   selectedCarForTask.value = selectedCarsForTask[0]
   showTaskForm.value = true
+}
+
+const handleAddUpgradesFromToolbar = () => {
+  if (selectedCars.value.size === 0) {
+    alert(t('carStockToolbar.no_cars_selected') || 'No cars selected')
+    return
+  }
+  showUpgradesBulkAddForm.value = true
+}
+
+const handleMarkUpgradesDoneFromToolbar = async () => {
+  if (selectedCars.value.size === 0) {
+    alert(t('carStockToolbar.no_cars_selected') || 'No cars selected')
+    return
+  }
+
+  if (!confirm(t('carUpgradesBulkAdd.confirm_mark_all_done') || `Mark all pending upgrades as done for ${selectedCars.value.size} selected car(s)?`)) {
+    return
+  }
+
+  try {
+    const selectedCarIds = Array.from(selectedCars.value)
+    const now = new Date()
+    const dateDone = now.toISOString().slice(0, 19).replace('T', ' ')
+    const currentUserId = user.value?.id || null
+
+    // Update all pending upgrades (date_done is NULL) for selected cars
+    const result = await callApi({
+      query: `UPDATE car_apgrades 
+              SET date_done = ?, id_uder_done = ? 
+              WHERE id_car IN (${selectedCarIds.map(() => '?').join(',')}) 
+              AND date_done IS NULL`,
+      params: [dateDone, currentUserId, ...selectedCarIds],
+    })
+
+    if (result.success) {
+      alert(t('carUpgradesBulkAdd.upgrades_marked_done') || 'Upgrades marked as done successfully')
+      // Refresh the cars list
+      await fetchCarsStock()
+    } else {
+      alert(result.error || t('carUpgradesBulkAdd.failed_to_mark_done') || 'Failed to mark upgrades as done')
+    }
+  } catch (err) {
+    console.error('Error marking upgrades as done:', err)
+    alert(err.message || t('carUpgradesBulkAdd.error_marking_done') || 'Error marking upgrades as done')
+  }
+}
+
+const handleUpgradesBulkAddSave = () => {
+  // Refresh the cars list after adding upgrades
+  fetchCarsStock()
 }
 
 const handleNotesBulkSave = async (updatedCars) => {
@@ -3801,6 +3878,8 @@ const closeBatchCheckoutModal = () => {
         @show-selections="handleShowSelections"
         @transfer="handleTransfer"
         @checkout="handleCheckout"
+        @add-upgrades="handleAddUpgradesFromToolbar"
+        @mark-upgrades-done="handleMarkUpgradesDoneFromToolbar"
       />
 
       <div class="table-container" :class="{ 'processing-combine': isProcessing.combine }">
@@ -4353,6 +4432,14 @@ const closeBatchCheckoutModal = () => {
                 </li>
                 <li>
                   <button
+                    @click="handleUpgradesAction(car)"
+                  >
+                    <i class="fas fa-wrench"></i>
+                    <span>{{ t('carStock.upgrades') || 'Upgrades' }}</span>
+                  </button>
+                </li>
+                <li>
+                  <button
                     @click="handleSwitchPurchaseBill(car)"
                     :disabled="!isAdmin"
                     :title="
@@ -4746,6 +4833,14 @@ const closeBatchCheckoutModal = () => {
         </li>
         <li>
           <button
+            @click="handleUpgradesAction(getCarById(teleportDropdown.carId))"
+          >
+            <i class="fas fa-wrench"></i>
+            <span>{{ t('carStock.upgrades') || 'Upgrades' }}</span>
+          </button>
+        </li>
+        <li>
+          <button
             @click="handleSwitchPurchaseBill(getCarById(teleportDropdown.carId))"
             :disabled="!isAdmin"
             :title="
@@ -4774,6 +4869,15 @@ const closeBatchCheckoutModal = () => {
     :save-immediately="true"
     @close="cancelNotes"
     @notes-updated="handleNotesUpdated"
+  />
+
+  <!-- Car Upgrades Modal -->
+  <CarUpgradesModal
+    :show="showUpgradesModal"
+    :carId="selectedCarForUpgrades?.id"
+    :title="selectedCarForUpgrades ? `${t('carStock.upgrades') || 'Upgrades'} - Car #${selectedCarForUpgrades.id}` : ''"
+    :users="allUsers"
+    @close="closeUpgradesModal"
   />
 
   <!-- VIN Assignment Modal -->
@@ -4817,6 +4921,15 @@ const closeBatchCheckoutModal = () => {
     :is-admin="isAdmin"
     @close="showExportLicenseBulkEditForm = false"
     @save="handleExportLicenseBulkSave"
+  />
+
+  <!-- Upgrades Bulk Add Modal -->
+  <CarUpgradesBulkAddForm
+    :show="showUpgradesBulkAddForm"
+    :selected-cars="sortedCars.filter((car) => selectedCars.has(car.id))"
+    :is-admin="isAdmin"
+    @close="showUpgradesBulkAddForm = false"
+    @save="handleUpgradesBulkAddSave"
   />
 
   <!-- Selections Components -->

@@ -82,6 +82,12 @@ const router = createRouter({
       component: () => import('../views/RolesView.vue'),
     },
     {
+      path: '/upgrades',
+      name: 'upgrades',
+      component: () => import('../views/UpgradesView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/transfers',
       name: 'transfers',
       component: () => import('../views/TransfersView.vue'),

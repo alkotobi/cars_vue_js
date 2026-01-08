@@ -8,6 +8,7 @@ const { t } = useEnhancedI18n()
 const isCombineDropdownOpen = ref(false)
 const isSelectionsDropdownOpen = ref(false)
 const isDocumentsDropdownOpen = ref(false)
+const isUpgradesDropdownOpen = ref(false)
 
 const toggleCombineDropdown = () => {
   isCombineDropdownOpen.value = !isCombineDropdownOpen.value
@@ -38,11 +39,25 @@ const toggleDocumentsDropdown = () => {
   if (isDocumentsDropdownOpen.value) {
     isCombineDropdownOpen.value = false
     isSelectionsDropdownOpen.value = false
+    isUpgradesDropdownOpen.value = false
   }
 }
 
 const closeDocumentsDropdown = () => {
   isDocumentsDropdownOpen.value = false
+}
+
+const toggleUpgradesDropdown = () => {
+  isUpgradesDropdownOpen.value = !isUpgradesDropdownOpen.value
+  if (isUpgradesDropdownOpen.value) {
+    isCombineDropdownOpen.value = false
+    isSelectionsDropdownOpen.value = false
+    isDocumentsDropdownOpen.value = false
+  }
+}
+
+const closeUpgradesDropdown = () => {
+  isUpgradesDropdownOpen.value = false
 }
 
 const handleCombineByBuyRef = () => {
@@ -70,6 +85,9 @@ const handleClickOutside = (event) => {
   }
   if (!event.target.closest('.documents-dropdown')) {
     closeDocumentsDropdown()
+  }
+  if (!event.target.closest('.upgrades-dropdown')) {
+    closeUpgradesDropdown()
   }
 }
 
@@ -129,6 +147,8 @@ const emit = defineEmits([
   'show-selections',
   'transfer',
   'checkout',
+  'add-upgrades',
+  'mark-upgrades-done',
 ])
 </script>
 
@@ -419,6 +439,39 @@ const emit = defineEmits([
           >
             <i class="fas fa-shopping-cart"></i>
             <span>{{ t('carStockToolbar.checkout') || 'Checkout' }}</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="upgrades-dropdown">
+        <button
+          @click="toggleUpgradesDropdown"
+          class="upgrades-dropdown-toggle"
+          :title="t('carStockToolbar.upgrades')"
+        >
+          <i class="fas fa-wrench"></i>
+          <span>{{ t('carStockToolbar.upgrades') || 'Upgrades' }}</span>
+          <i class="fas fa-chevron-down dropdown-arrow" :class="{ rotated: isUpgradesDropdownOpen }"></i>
+        </button>
+
+        <div v-if="isUpgradesDropdownOpen" class="upgrades-dropdown-menu">
+          <button
+            @click="$emit('add-upgrades'); closeUpgradesDropdown()"
+            class="upgrades-dropdown-item"
+            :disabled="selectedCars.size === 0"
+            :title="t('carStockToolbar.add_upgrades_to_selected_cars')"
+          >
+            <i class="fas fa-plus"></i>
+            <span>{{ t('carStockToolbar.add_upgrade') || 'Add Upgrade' }}</span>
+          </button>
+          <button
+            @click="$emit('mark-upgrades-done'); closeUpgradesDropdown()"
+            class="upgrades-dropdown-item"
+            :disabled="selectedCars.size === 0"
+            :title="t('carStockToolbar.mark_upgrades_done')"
+          >
+            <i class="fas fa-check"></i>
+            <span>{{ t('carStockToolbar.make_upgrade_done') || 'Make Upgrade Done' }}</span>
           </button>
         </div>
       </div>
@@ -1198,5 +1251,125 @@ const emit = defineEmits([
 
 .documents-dropdown-item:disabled i {
   color: #d1d5db;
+}
+
+/* Upgrades Dropdown Styles */
+.upgrades-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.upgrades-dropdown-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background-color: #f59e0b;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  min-width: 100px;
+  justify-content: center;
+}
+
+.upgrades-dropdown-toggle:hover:not(:disabled) {
+  background-color: #d97706;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.upgrades-dropdown-toggle:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.upgrades-dropdown .dropdown-arrow {
+  font-size: 12px;
+  transition: transform 0.2s ease;
+}
+
+.upgrades-dropdown .dropdown-arrow.rotated {
+  transform: rotate(180deg);
+}
+
+.upgrades-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 1000;
+  min-width: 200px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  margin-top: 4px;
+  overflow: hidden;
+}
+
+.upgrades-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 16px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  color: #374151;
+  transition: background-color 0.2s ease;
+  text-align: left;
+}
+
+.upgrades-dropdown-item:hover:not(:disabled) {
+  background-color: #f3f4f6;
+  color: #1f2937;
+}
+
+.upgrades-dropdown-item:disabled {
+  color: #9ca3af;
+  cursor: not-allowed;
+  background-color: #f9fafb;
+}
+
+.upgrades-dropdown-item i {
+  width: 16px;
+  text-align: center;
+  color: #6b7280;
+}
+
+.upgrades-dropdown-item:hover:not(:disabled) i {
+  color: #374151;
+}
+
+.upgrades-dropdown-item:disabled i {
+  color: #d1d5db;
+}
+
+@media (max-width: 768px) {
+  .upgrades-dropdown-menu {
+    right: auto;
+    left: 0;
+    min-width: 180px;
+  }
+
+  .upgrades-dropdown-toggle {
+    min-width: 80px;
+    padding: 10px 12px;
+  }
+
+  .upgrades-dropdown-toggle span {
+    display: none;
+  }
+
+  .upgrades-dropdown-toggle i:first-child {
+    margin-right: 0;
+  }
 }
 </style>
