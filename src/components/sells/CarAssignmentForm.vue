@@ -6,6 +6,7 @@ import { ElSelect, ElOption, ElDialog, ElButton, ElInput, ElCheckbox } from 'ele
 import 'element-plus/dist/index.css'
 import NotesTable from '../shared/NotesTable.vue'
 import NotesManagementModal from '../shared/NotesManagementModal.vue'
+import CarUpgradesModal from '../shared/CarUpgradesModal.vue'
 
 const { t } = useEnhancedI18n()
 
@@ -59,6 +60,11 @@ const originalCarNotes = ref([]) // Store original notes to restore on cancel
 const allUsers = ref([])
 const showNotesModal = ref(false)
 
+// Upgrades management
+const showUpgradesModal = ref(false)
+const carUpgrades = ref([])
+const carUpgradesTotal = ref(0)
+
 // Add ref for CFR DA input
 const cfrDaInput = ref(null)
 
@@ -82,27 +88,33 @@ const newClient = ref({
 })
 
 // Add function to calculate price from CFR DA
-const calculatePriceFromCFRDA = (cfrDa, rate, freight) => {
+const calculatePriceFromCFRDA = (cfrDa, rate, freight, upgrades = 0) => {
   if (!cfrDa || !rate) return null
   const parsedCfrDa = parseFloat(cfrDa)
   const parsedRate = parseFloat(rate)
   const parsedFreight = parseFloat(freight) || 0
-  return (parsedCfrDa / parsedRate - parsedFreight).toFixed(2)
+  const parsedUpgrades = parseFloat(upgrades) || 0
+  // FOB USD = (CFR_DA / rate) - freight - upgrades
+  return (parsedCfrDa / parsedRate - parsedFreight - parsedUpgrades).toFixed(2)
 }
 
 // Add function to calculate CFR DA from price
-const calculateCFRDAFromPrice = (price, rate, freight) => {
+const calculateCFRDAFromPrice = (price, rate, freight, upgrades = 0) => {
   if (!price || !rate) return null
   const parsedPrice = parseFloat(price)
   const parsedRate = parseFloat(rate)
   const parsedFreight = parseFloat(freight) || 0
-  return ((parsedPrice + parsedFreight) * parsedRate).toFixed(2)
+  const parsedUpgrades = parseFloat(upgrades) || 0
+  // CFR DA = (price + upgrades + freight) × rate
+  return ((parsedPrice + parsedUpgrades + parsedFreight) * parsedRate).toFixed(2)
 }
 
 // Handle currency change
 const handleCurrencyChange = () => {
   // Recalculate the other currency when currency changes
   if (priceInput.value && formData.value.rate) {
+    const upgrades = carUpgradesTotal.value || 0
+    
     if (selectedCurrency.value === 'USD') {
       // If switching to USD, convert current DZD to USD
       if (cfrDaInput.value) {
@@ -110,6 +122,7 @@ const handleCurrencyChange = () => {
           cfrDaInput.value,
         formData.value.rate,
         formData.value.freight,
+        upgrades,
       )
         formData.value.price_cell = priceInput.value
       }
@@ -120,6 +133,7 @@ const handleCurrencyChange = () => {
           formData.value.price_cell,
           formData.value.rate,
           formData.value.freight,
+          upgrades,
         )
         cfrDaInput.value = priceInput.value
     }
@@ -131,21 +145,25 @@ const handleCurrencyChange = () => {
 const handlePriceInputChange = () => {
   if (!priceInput.value || !formData.value.rate) return
 
+  const upgrades = carUpgradesTotal.value || 0
+
   if (selectedCurrency.value === 'USD') {
-    // User entered USD, calculate DZD (CFR DA)
+    // User entered USD (FOB), calculate DZD (CFR DA)
     formData.value.price_cell = priceInput.value
     cfrDaInput.value = calculateCFRDAFromPrice(
       priceInput.value,
       formData.value.rate,
       formData.value.freight,
+      upgrades,
     )
   } else {
-    // User entered DZD, calculate USD (price_cell)
+    // User entered DZD (CFR DA), calculate USD (FOB)
     cfrDaInput.value = priceInput.value
     formData.value.price_cell = calculatePriceFromCFRDA(
       priceInput.value,
       formData.value.rate,
       formData.value.freight,
+      upgrades,
     )
   }
 }
@@ -154,12 +172,15 @@ const handlePriceInputChange = () => {
 const handleRateOrFreightChange = () => {
   if (!priceInput.value || !formData.value.rate) return
 
+  const upgrades = carUpgradesTotal.value || 0
+
   if (selectedCurrency.value === 'USD') {
     // Recalculate DZD from USD
     cfrDaInput.value = calculateCFRDAFromPrice(
       priceInput.value,
       formData.value.rate,
       formData.value.freight,
+      upgrades,
     )
   } else {
     // Recalculate USD from DZD
@@ -167,6 +188,7 @@ const handleRateOrFreightChange = () => {
       priceInput.value,
       formData.value.rate,
       formData.value.freight,
+      upgrades,
     )
   }
 }
@@ -343,8 +365,13 @@ const fetchCarDetails = async () => {
       // Fetch defaults first to have rate and freight available
       await fetchDefaultFreight(!carDetails.value.is_big_car)
       await fetchDefaultRate()
+      
+      // Fetch car upgrades
+      await fetchCarUpgrades()
 
       // Set the price input value based on existing data
+      const upgrades = carUpgradesTotal.value || 0
+      
       if (carDetails.value.cfr_da) {
         // If car has CFR DA, set currency to DZD and use that value
         selectedCurrency.value = 'DZD'
@@ -356,6 +383,7 @@ const fetchCarDetails = async () => {
             carDetails.value.cfr_da,
             formData.value.rate,
             formData.value.freight,
+            upgrades,
           )
         }
       } else if (carDetails.value.price_cell) {
@@ -369,6 +397,7 @@ const fetchCarDetails = async () => {
             carDetails.value.price_cell,
             formData.value.rate,
             formData.value.freight,
+            upgrades,
           )
         }
       } else {
@@ -515,21 +544,25 @@ const assignCar = async () => {
     }
 
     // Ensure both values are set based on currency selection
+    const upgrades = carUpgradesTotal.value || 0
+    
     if (selectedCurrency.value === 'USD') {
-      // User entered USD, ensure CFR DA is calculated
+      // User entered USD (FOB), ensure CFR DA is calculated
       formData.value.price_cell = priceInput.value
       cfrDaInput.value = calculateCFRDAFromPrice(
         priceInput.value,
       formData.value.rate,
       formData.value.freight,
+      upgrades,
     )
     } else {
-      // User entered DZD, ensure price_cell is calculated
+      // User entered DZD (CFR DA), ensure price_cell (FOB) is calculated
       cfrDaInput.value = priceInput.value
       formData.value.price_cell = calculatePriceFromCFRDA(
         priceInput.value,
         formData.value.rate,
         formData.value.freight,
+        upgrades,
       )
     }
 
@@ -680,11 +713,72 @@ const handleManageNotes = () => {
   showNotesModal.value = true
 }
 
+// Handle upgrades click
+const handleUpgrades = () => {
+  showUpgradesModal.value = true
+}
+
+// Close upgrades modal
+const closeUpgradesModal = () => {
+  showUpgradesModal.value = false
+  // Refresh upgrades total when modal closes (in case upgrades were modified)
+  if (props.carId) {
+    fetchCarUpgrades()
+  }
+}
+
+// Fetch upgrades for the car
+const fetchCarUpgrades = async () => {
+  if (!props.carId) {
+    carUpgrades.value = []
+    carUpgradesTotal.value = 0
+    return
+  }
+
+  try {
+    const result = await callApi({
+      query: `
+        SELECT 
+          ca.id,
+          ca.value
+        FROM car_apgrades ca
+        WHERE ca.id_car = ?
+      `,
+      params: [props.carId],
+    })
+
+    if (result.success) {
+      carUpgrades.value = result.data || []
+      // Calculate total
+      carUpgradesTotal.value = carUpgrades.value.reduce((sum, upgrade) => {
+        const value = parseFloat(upgrade.value) || 0
+        return sum + value
+      }, 0)
+    } else {
+      carUpgrades.value = []
+      carUpgradesTotal.value = 0
+    }
+  } catch (err) {
+    console.error('Error fetching car upgrades:', err)
+    carUpgrades.value = []
+    carUpgradesTotal.value = 0
+  }
+}
+
+// Format value for display
+const formatUpgradeValue = (value) => {
+  if (value === null || value === undefined || value === 0) return '0.00'
+  return parseFloat(value).toFixed(2)
+}
+
 // Handle close - restore original notes if cancelled
 const handleClose = () => {
   // Restore original notes (discard any changes made in the modal)
   carNotes.value = JSON.parse(JSON.stringify(originalCarNotes.value))
   resetForm()
+  // Reset upgrades data
+  carUpgrades.value = []
+  carUpgradesTotal.value = 0
   emit('close')
 }
 
@@ -1032,6 +1126,38 @@ watch(() => props.visible, (newVal) => {
           </div>
         </div>
 
+        <div class="form-row full-width">
+          <div class="form-group">
+            <label>
+              <i class="fas fa-wrench"></i>
+              {{ t('carStock.upgrades') || 'Upgrades' }}:
+            </label>
+            <div class="upgrades-section">
+              <div class="upgrades-info">
+                <button
+                  type="button"
+                  @click="handleUpgrades"
+                  class="btn-manage-upgrades"
+                  :disabled="isProcessing || !carId"
+                >
+                  <i class="fas fa-wrench"></i>
+                  {{ t('carStock.upgrades') || 'Manage Upgrades' }}
+                </button>
+                <div v-if="carUpgrades.length > 0" class="upgrades-total-display">
+                  <span class="upgrades-count">
+                    <i class="fas fa-list"></i>
+                    {{ carUpgrades.length }} {{ t('carUpgrades.total_upgrades') || 'upgrades' }}
+                  </span>
+                  <span class="upgrades-total">
+                    <i class="fas fa-calculator"></i>
+                    {{ t('carUpgrades.total_amount') || 'Total' }}: {{ formatUpgradeValue(carUpgradesTotal) }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div v-if="can_assign_to_tmp_clients" class="form-row full-width">
           <div class="form-group">
             <label class="checkbox-label">
@@ -1161,6 +1287,15 @@ watch(() => props.visible, (newVal) => {
     :save-immediately="false"
     @close="showNotesModal = false"
     @notes-updated="handleNotesUpdated"
+  />
+
+  <!-- Car Upgrades Modal -->
+  <CarUpgradesModal
+    :show="showUpgradesModal"
+    :carId="props.carId"
+    :title="carDetails ? `${t('carStock.upgrades') || 'Upgrades'} - ${carDetails.car_name}` : ''"
+    :users="allUsers"
+    @close="closeUpgradesModal"
   />
 </template>
 
@@ -1631,6 +1766,71 @@ button:hover:not(:disabled) i {
 }
 
 .btn-manage-notes:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.upgrades-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.upgrades-info {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.upgrades-total-display {
+  display: flex;
+  gap: 1.5rem;
+  padding: 0.75rem;
+  background-color: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 6px;
+  flex-wrap: wrap;
+}
+
+.upgrades-count,
+.upgrades-total {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: #1e40af;
+}
+
+.upgrades-count i,
+.upgrades-total i {
+  color: #3b82f6;
+}
+
+.upgrades-total {
+  font-weight: 600;
+  font-family: monospace;
+}
+
+.btn-manage-upgrades {
+  background-color: #f59e0b;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.2s;
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-manage-upgrades:hover:not(:disabled) {
+  background-color: #d97706;
+}
+
+.btn-manage-upgrades:disabled {
   background-color: #ccc;
   cursor: not-allowed;
 }

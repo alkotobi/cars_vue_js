@@ -37,6 +37,7 @@ const changingStatusId = ref(null) // Track which selection is having its status
 const showingCars = ref({}) // Object mapping selection_id to show/hide cars table
 const selectionCars = ref({}) // Object mapping selection_id to array of cars
 const loadingCars = ref({}) // Object mapping selection_id to loading state
+const carUpgradesTotals = ref(new Map()) // Store upgrades totals for each car (carId -> total)
 const allSelections = ref([]) // Store all selections for filtering
 const filters = ref({
   search: '',
@@ -433,6 +434,9 @@ const loadSelectionCars = async (selection) => {
 
     if (result.success) {
       selectionCars.value[selectionId] = result.data || []
+      
+      // Fetch upgrades for all cars in this selection
+      await fetchCarsUpgrades(result.data || [])
     } else {
       console.error('Failed to load selection cars:', result.error)
       selectionCars.value[selectionId] = []
@@ -443,6 +447,41 @@ const loadSelectionCars = async (selection) => {
   } finally {
     loadingCars.value[selectionId] = false
   }
+}
+
+// Fetch upgrades for cars
+const fetchCarsUpgrades = async (cars) => {
+  if (!cars || cars.length === 0) return
+
+  try {
+    const carIds = cars.map(car => car.id)
+    if (carIds.length === 0) return
+
+    const result = await callApi({
+      query: `
+        SELECT 
+          ca.id_car,
+          SUM(ca.value) as total_upgrades
+        FROM car_apgrades ca
+        WHERE ca.id_car IN (${carIds.map(() => '?').join(',')})
+        GROUP BY ca.id_car
+      `,
+      params: carIds,
+    })
+
+    if (result.success) {
+      result.data.forEach((row) => {
+        carUpgradesTotals.value.set(row.id_car, parseFloat(row.total_upgrades) || 0)
+      })
+    }
+  } catch (err) {
+    console.error('Error fetching cars upgrades:', err)
+  }
+}
+
+// Get upgrades total for a car
+const getCarUpgradesTotal = (carId) => {
+  return carUpgradesTotals.value.get(carId) || 0
 }
 
 const toggleShowCars = async (selection) => {
@@ -782,8 +821,10 @@ const handlePrintWithOptions = async (printData) => {
                                     displayValue = '$' + parseFloat(value).toLocaleString()
                                   } else if (car.price_cell && car.freight) {
                                     const fob = parseFloat(car.price_cell) || 0
+                                    const upgrades = getCarUpgradesTotal(car.id) || 0
                                     const freight = parseFloat(car.freight) || 0
-                                    displayValue = '$' + (fob + freight).toLocaleString()
+                                    // CFR USD = price_cell + upgrades + freight
+                                    displayValue = '$' + (fob + upgrades + freight).toLocaleString()
                                   }
                                 } else if (col.key === 'cfr_dza') {
                                   if (value) {
@@ -792,9 +833,12 @@ const handlePrintWithOptions = async (printData) => {
                                     displayValue = parseFloat(car.cfr_da).toLocaleString()
                                   } else if (car.price_cell && car.freight && car.rate) {
                                     const fob = parseFloat(car.price_cell) || 0
+                                    const upgrades = getCarUpgradesTotal(car.id) || 0
                                     const freight = parseFloat(car.freight) || 0
                                     const rate = parseFloat(car.rate) || 0
-                                    const cfrUsd = fob + freight
+                                    // CFR USD = price_cell + upgrades + freight
+                                    const cfrUsd = fob + upgrades + freight
+                                    // CFR DA = CFR USD × rate
                                     const cfrDza = cfrUsd * rate
                                     displayValue = cfrDza.toLocaleString()
                                   }

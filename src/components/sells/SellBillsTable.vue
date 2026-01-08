@@ -797,6 +797,9 @@ const handleBatchPrint = async () => {
       return
     }
 
+    // Fetch upgrades for all cars
+    await fetchBatchPrintUpgrades(billsData)
+
     // Generate and print the report
     generateBatchPrintReport(billsData)
   } catch (err) {
@@ -804,6 +807,98 @@ const handleBatchPrint = async () => {
     alert(t('sellBills.batch_print_error', { error: err.message }))
   } finally {
     isPrintingBatch.value = false
+  }
+}
+
+// Fetch upgrades details for batch print
+const fetchBatchPrintUpgrades = async (billsData) => {
+  try {
+    // Collect all car IDs
+    const allCarIds = []
+    billsData.forEach(({ cars }) => {
+      cars.forEach(car => {
+        if (car.id) allCarIds.push(car.id)
+      })
+    })
+
+    if (allCarIds.length === 0) return
+
+    // Fetch upgrades details
+    const result = await callApi({
+      query: `
+        SELECT 
+          ca.id_car,
+          u.description,
+          ca.value
+        FROM car_apgrades ca
+        LEFT JOIN upgrades u ON ca.id_upgrade = u.id
+        WHERE ca.id_car IN (${allCarIds.map(() => '?').join(',')})
+        ORDER BY ca.id_car, ca.id
+      `,
+      params: allCarIds,
+    })
+
+    if (result.success) {
+      // Store upgrades in a map: carId -> [{description, value}]
+      const upgradesMap = new Map()
+      result.data.forEach((row) => {
+        const carId = row.id_car
+        if (!upgradesMap.has(carId)) {
+          upgradesMap.set(carId, [])
+        }
+        upgradesMap.get(carId).push({
+          description: row.description || 'N/A',
+          value: parseFloat(row.value) || 0
+        })
+      })
+
+      // Attach upgrades to each car
+      billsData.forEach(({ cars }) => {
+        cars.forEach(car => {
+          car.upgrades = upgradesMap.get(car.id) || []
+        })
+      })
+    }
+  } catch (err) {
+    console.error('Error fetching batch print upgrades:', err)
+  }
+}
+
+// Format upgrades for display
+const formatCarUpgradesForBatch = (upgrades) => {
+  if (!upgrades || upgrades.length === 0) return ''
+  
+  return upgrades.map(upgrade => {
+    const desc = upgrade.description || 'N/A'
+    const value = upgrade.value || 0
+    return `${desc}: $${value.toFixed(2)}`
+  }).join(', ')
+}
+
+// Format JSON notes - extract only note text without user/date
+const formatNotesForBatch = (notes) => {
+  if (!notes) return 'N/A'
+  
+  try {
+    let notesArray = []
+    if (typeof notes === 'string' && notes.trim().startsWith('[')) {
+      notesArray = JSON.parse(notes)
+    } else if (Array.isArray(notes)) {
+      notesArray = notes
+    } else {
+      // Old format (plain text) - use as is
+      return notes
+    }
+    
+    if (Array.isArray(notesArray) && notesArray.length > 0) {
+      // Extract only the note text, filter empty notes, join with newlines
+      return notesArray.map(note => note.note || '').filter(note => note.trim() !== '').join('\n')
+    }
+    
+    return 'N/A'
+  } catch (e) {
+    // If parsing fails, treat as old format (plain text)
+    return notes
   }
 }
 
@@ -1078,6 +1173,13 @@ const generateBatchPrintReport = async (billsData) => {
           font-weight: bold;
         }
         
+        .upgrades-line {
+          font-size: 0.75em;
+          color: #6c757d;
+          margin-top: 4px;
+          font-style: italic;
+        }
+        
         @media print {
           body {
             print-color-adjust: exact;
@@ -1193,7 +1295,10 @@ const generateBatchPrintReport = async (billsData) => {
         html += `
           <tr>
             <td class="text-center col-num">${carIndex + 1}</td>
-            <td class="col-car">${car.car_name || 'N/A'}</td>
+            <td class="col-car">
+              <div>${car.car_name || 'N/A'}</div>
+              ${car.upgrades && car.upgrades.length > 0 ? `<div class="upgrades-line">${formatCarUpgradesForBatch(car.upgrades)}</div>` : ''}
+            </td>
             <td class="col-color">${car.color_name || 'N/A'}</td>
             <td class="col-vin">${car.vin || 'N/A'}</td>
             <td class="col-client">${car.client_name || 'N/A'}</td>

@@ -235,6 +235,24 @@
 
           <!-- Upgrades Table -->
           <div v-else-if="!showAddForm" class="upgrades-table-container">
+            <!-- Total Amount Summary -->
+            <div v-if="upgrades.length > 0" class="total-amount-summary">
+              <div class="total-amount-item">
+                <span class="total-label">
+                  <i class="fas fa-calculator"></i>
+                  {{ t('carUpgrades.total_amount') || 'Total Amount' }}:
+                </span>
+                <span class="total-value">{{ formatValue(totalUpgradesAmount) }}</span>
+              </div>
+              <div class="total-amount-item">
+                <span class="total-label">
+                  <i class="fas fa-list"></i>
+                  {{ t('carUpgrades.total_upgrades') || 'Total Upgrades' }}:
+                </span>
+                <span class="total-value">{{ upgrades.length }}</span>
+              </div>
+            </div>
+
             <table class="upgrades-table">
               <thead>
                 <tr>
@@ -566,6 +584,15 @@ const canMarkAsDone = (upgrade) => {
   if (isAdmin.value) return true
   return upgrade.id_user_create === currentUser.value.id
 }
+
+// Calculate total amount of upgrades
+const totalUpgradesAmount = computed(() => {
+  if (!upgrades.value || upgrades.value.length === 0) return 0
+  return upgrades.value.reduce((sum, upgrade) => {
+    const value = parseFloat(upgrade.value) || 0
+    return sum + value
+  }, 0)
+})
 
 // Get current user
 const currentUser = computed(() => {
@@ -1225,6 +1252,42 @@ const saveCarUpgrade = async () => {
 
 .error-state p {
   color: #ef4444;
+}
+
+.total-amount-summary {
+  display: flex;
+  gap: 2rem;
+  padding: 1rem;
+  background-color: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.total-amount-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.total-label {
+  font-weight: 600;
+  color: #1e40af;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.total-label i {
+  color: #3b82f6;
+}
+
+.total-value {
+  font-weight: 700;
+  font-size: 1.125rem;
+  color: #1e40af;
+  font-family: monospace;
 }
 
 .upgrades-table-container {

@@ -23,6 +23,8 @@ const billData = ref(null)
 const carsData = ref([])
 const banks = ref([])
 const selectedBank = ref(null)
+const carUpgradesTotals = ref(new Map()) // Store upgrades totals for each car
+const carUpgradesDetails = ref(new Map()) // Store upgrades details for each car (carId -> [{description, value}])
 const logoUrl = ref(null)
 const stampUrl = ref(null)
 const letterHeadUrl = ref(null)
@@ -129,9 +131,16 @@ const fetchBillData = async () => {
           
           if (Array.isArray(notesArray) && notesArray.length > 0) {
             // Format notes for printing (show all notes, each on a line, without user/date)
-            bill.notesFormatted = notesArray.map(note => note.note || '').filter(note => note.trim() !== '').join('\n')
-            // Also keep latest note for simple display
-            bill.notes = notesArray[notesArray.length - 1].note || ''
+            const formatted = notesArray.map(note => note.note || '').filter(note => note.trim() !== '').join('\n')
+            if (formatted && formatted.trim() !== '') {
+              bill.notesFormatted = formatted
+              // Also keep latest note for simple display
+              bill.notes = notesArray[notesArray.length - 1].note || ''
+            } else {
+              // No valid notes found, clear both
+              bill.notesFormatted = ''
+              bill.notes = ''
+            }
           }
         } catch (e) {
           // If parsing fails, treat as old format (plain text)
@@ -182,6 +191,9 @@ const fetchBillData = async () => {
       if (carsResult.success) {
         carsData.value = carsResult.data
         console.log('Cars data with rates:', carsData.value)
+        
+        // Fetch upgrades for all cars
+        await fetchCarsUpgrades()
       }
     }
   } catch (err) {
@@ -190,6 +202,122 @@ const fetchBillData = async () => {
   } finally {
     loading.value = false
   }
+}
+
+// Fetch upgrades for all cars
+const fetchCarsUpgrades = async () => {
+  if (!carsData.value || carsData.value.length === 0) {
+    carUpgradesTotals.value.clear()
+    carUpgradesDetails.value.clear()
+    return
+  }
+
+  try {
+    const carIds = carsData.value.map(car => car.id)
+    if (carIds.length === 0) return
+
+    // Fetch totals
+    const totalsResult = await callApi({
+      query: `
+        SELECT 
+          ca.id_car,
+          SUM(ca.value) as total_upgrades
+        FROM car_apgrades ca
+        WHERE ca.id_car IN (${carIds.map(() => '?').join(',')})
+        GROUP BY ca.id_car
+      `,
+      params: carIds,
+    })
+
+    // Fetch details (description and value for each upgrade)
+    const detailsResult = await callApi({
+      query: `
+        SELECT 
+          ca.id_car,
+          u.description,
+          ca.value
+        FROM car_apgrades ca
+        LEFT JOIN upgrades u ON ca.id_upgrade = u.id
+        WHERE ca.id_car IN (${carIds.map(() => '?').join(',')})
+        ORDER BY ca.id_car, ca.id
+      `,
+      params: carIds,
+    })
+
+    if (totalsResult.success) {
+      carUpgradesTotals.value.clear()
+      totalsResult.data.forEach((row) => {
+        carUpgradesTotals.value.set(row.id_car, parseFloat(row.total_upgrades) || 0)
+      })
+    }
+
+    if (detailsResult.success) {
+      carUpgradesDetails.value.clear()
+      detailsResult.data.forEach((row) => {
+        const carId = row.id_car
+        if (!carUpgradesDetails.value.has(carId)) {
+          carUpgradesDetails.value.set(carId, [])
+        }
+        carUpgradesDetails.value.get(carId).push({
+          description: row.description || 'N/A',
+          value: parseFloat(row.value) || 0
+        })
+      })
+    }
+  } catch (err) {
+    console.error('Error fetching cars upgrades:', err)
+  }
+}
+
+// Get upgrades total for a car
+const getCarUpgradesTotal = (carId) => {
+  return carUpgradesTotals.value.get(carId) || 0
+}
+
+// Format upgrades details as string for display
+const formatCarUpgrades = (carId) => {
+  const upgrades = carUpgradesDetails.value.get(carId) || []
+  if (upgrades.length === 0) return ''
+  
+  return upgrades.map(upgrade => {
+    const desc = upgrade.description || 'N/A'
+    const value = upgrade.value || 0
+    return `${desc}: $${value.toFixed(2)}`
+  }).join(', ')
+}
+
+// Format JSON notes - extract only note text without user/date
+const formatNotes = (notes) => {
+  if (!notes) return ''
+  
+  try {
+    let notesArray = []
+    if (typeof notes === 'string' && notes.trim().startsWith('[')) {
+      notesArray = JSON.parse(notes)
+    } else if (Array.isArray(notes)) {
+      notesArray = notes
+    } else {
+      // Old format (plain text) - use as is if not empty
+      return notes.trim() || ''
+    }
+    
+    if (Array.isArray(notesArray) && notesArray.length > 0) {
+      // Extract only the note text, filter empty notes, join with newlines
+      const formatted = notesArray.map(note => note.note || '').filter(note => note.trim() !== '').join('\n')
+      return formatted || ''
+    }
+    
+    return ''
+  } catch (e) {
+    // If parsing fails, treat as old format (plain text)
+    return notes.trim() || ''
+  }
+}
+
+// Check if notes have content
+const hasNotes = (notes) => {
+  const formatted = formatNotes(notes)
+  return formatted && formatted.trim() !== '' && formatted !== '-'
 }
 
 const formatDate = (date) => {
@@ -203,11 +331,14 @@ const formatDate = (date) => {
 const calculateTotal = () => {
   return carsData.value
     .reduce((total, car) => {
+      const upgrades = getCarUpgradesTotal(car.id) || 0
       let myPrice
       if (props.options.paymentTerms.toLowerCase() === 'cfr') {
-        myPrice = (parseFloat(car.price_cell) || 0) + (parseFloat(car.freight) || 0)
+        // CFR USD = price_cell + upgrades + freight
+        myPrice = (parseFloat(car.price_cell) || 0) + upgrades + (parseFloat(car.freight) || 0)
       } else {
-        myPrice = parseFloat(car.price_cell) || 0
+        // FOB USD = price_cell + upgrades
+        myPrice = (parseFloat(car.price_cell) || 0) + upgrades
       }
 
       // Convert to selected currency
@@ -221,6 +352,7 @@ const calculateTotal = () => {
           console.warn(`No rate found for car ID ${car.id}`)
           return total
         }
+        // CFR DA = (price_cell + upgrades + freight) × rate or FOB DA = (price_cell + upgrades) × rate
         return total + myPrice * rate
       }
       return total + myPrice
@@ -229,11 +361,14 @@ const calculateTotal = () => {
 }
 
 const calculateCarPrice = (car) => {
+  const upgrades = getCarUpgradesTotal(car.id) || 0
   let myPrice
   if (props.options.paymentTerms.toLowerCase() === 'cfr') {
-    myPrice = (parseFloat(car.price_cell) || 0) + (parseFloat(car.freight) || 0)
+    // CFR USD = price_cell + upgrades + freight
+    myPrice = (parseFloat(car.price_cell) || 0) + upgrades + (parseFloat(car.freight) || 0)
   } else {
-    myPrice = parseFloat(car.price_cell) || 0
+    // FOB USD = price_cell + upgrades
+    myPrice = (parseFloat(car.price_cell) || 0) + upgrades
   }
 
   // Convert to selected currency
@@ -247,6 +382,7 @@ const calculateCarPrice = (car) => {
       console.warn(`No rate found for car ID ${car.id}`)
       return 'Rate not set'
     }
+    // CFR DA = (price_cell + upgrades + freight) × rate or FOB DA = (price_cell + upgrades) × rate
     return (myPrice * rate).toFixed(2)
   }
   return myPrice.toFixed(2)
@@ -502,13 +638,18 @@ onMounted(async () => {
           <tbody>
             <tr v-for="(car, index) in carsData" :key="car.id">
               <td>{{ index + 1 }}</td>
-              <td>{{ car.car_name }}</td>
+              <td>
+                <div>{{ car.car_name }}</div>
+                <div v-if="formatCarUpgrades(car.id)" class="upgrades-line">
+                  {{ formatCarUpgrades(car.id) }}
+                </div>
+              </td>
               <td>{{ car.color }}</td>
               <td>{{ car.vin }}</td>
               <td>{{ car.client_name }}</td>
               <td>{{ car.discharge_port }}</td>
               <td>{{ formatPrice(calculateCarPrice(car)) }}</td>
-              <td>{{ car.notes || '-' }}</td>
+              <td style="white-space: pre-line;">{{ formatNotes(car.notes) || '-' }}</td>
             </tr>
           </tbody>
           <tfoot>
@@ -576,11 +717,11 @@ onMounted(async () => {
     </div>
 
     <!-- Notes Section -->
-    <div class="section notes-section" v-if="billData?.notes || billData?.notesFormatted" :style="{ fontSize: (options.tableFontSize || 12) + 'pt' }">
+    <div class="section notes-section" v-if="(billData?.notesFormatted && billData.notesFormatted.trim() !== '') || (billData?.notes && billData.notes.trim() !== '' && billData.notes !== '-')" :style="{ fontSize: (options.tableFontSize || 12) + 'pt' }">
       <h3 class="section-title">Bill Notes</h3>
       <div class="notes-content">
-        <p v-if="billData.notesFormatted" style="white-space: pre-line;">{{ billData.notesFormatted }}</p>
-        <p v-else>{{ billData.notes }}</p>
+        <p v-if="billData.notesFormatted && billData.notesFormatted.trim() !== ''" style="white-space: pre-line;">{{ billData.notesFormatted }}</p>
+        <p v-else-if="billData.notes && billData.notes.trim() !== '' && billData.notes !== '-'">{{ billData.notes }}</p>
       </div>
     </div>
 
@@ -795,6 +936,13 @@ onMounted(async () => {
   color: #6c757d !important;
   font-style: italic;
   margin-top: 8px !important;
+}
+
+.upgrades-line {
+  font-size: 0.75em;
+  color: #6c757d;
+  margin-top: 4px;
+  font-style: italic;
 }
 
 .bold-label {

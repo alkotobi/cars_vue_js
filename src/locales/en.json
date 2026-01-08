@@ -2367,7 +2367,9 @@
     "please_select_upgrade_type": "Please select an upgrade type",
     "please_enter_valid_value": "Please enter a valid value",
     "failed_to_load_upgrade_types": "Failed to load upgrade types",
-    "enter_value": "Enter value"
+    "enter_value": "Enter value",
+    "total_amount": "Total Amount",
+    "total_upgrades": "Total Upgrades"
   },
   "carUpgradesBulkAdd": {
     "add_upgrade_to_cars": "Add Upgrade to {count} Car(s)",

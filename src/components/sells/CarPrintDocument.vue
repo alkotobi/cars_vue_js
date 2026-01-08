@@ -29,6 +29,8 @@ const stampUrl = ref(null)
 const letterHeadUrl = ref(null)
 const contractTerms = ref([])
 const enabledLanguages = ref({})
+const carUpgradesTotal = ref(0)
+const carUpgradesDetails = ref([]) // Store upgrades details for the car
 
 // Computed property to filter visible terms
 const visibleTerms = computed(() => {
@@ -113,6 +115,9 @@ const fetchCarData = async () => {
     if (carResult.success && carResult.data.length > 0) {
       carData.value = carResult.data[0]
       
+      // Fetch upgrades for the car
+      await fetchCarUpgrades()
+      
       // Parse notes JSON if it exists
       let notesFormatted = carData.value.bill_notes || ''
       let notes = carData.value.bill_notes || ''
@@ -127,9 +132,16 @@ const fetchCarData = async () => {
           
           if (Array.isArray(notesArray) && notesArray.length > 0) {
             // Format notes for printing (show all notes, each on a line, without user/date)
-            notesFormatted = notesArray.map(note => note.note || '').filter(note => note.trim() !== '').join('\n')
-            // Also keep latest note for simple display
-            notes = notesArray[notesArray.length - 1].note || ''
+            const formatted = notesArray.map(note => note.note || '').filter(note => note.trim() !== '').join('\n')
+            if (formatted && formatted.trim() !== '') {
+              notesFormatted = formatted
+              // Also keep latest note for simple display
+              notes = notesArray[notesArray.length - 1].note || ''
+            } else {
+              // No valid notes found, clear both
+              notesFormatted = ''
+              notes = ''
+            }
           }
         } catch (e) {
           // If parsing fails, treat as old format (plain text)
@@ -159,6 +171,129 @@ const fetchCarData = async () => {
   }
 }
 
+// Fetch upgrades for the car
+const fetchCarUpgrades = async () => {
+  if (!props.carId) {
+    carUpgradesTotal.value = 0
+    carUpgradesDetails.value = []
+    return
+  }
+
+  try {
+    // Fetch total
+    const totalResult = await callApi({
+      query: `
+        SELECT 
+          SUM(ca.value) as total_upgrades
+        FROM car_apgrades ca
+        WHERE ca.id_car = ?
+      `,
+      params: [props.carId],
+    })
+
+    // Fetch details
+    const detailsResult = await callApi({
+      query: `
+        SELECT 
+          u.description,
+          ca.value
+        FROM car_apgrades ca
+        LEFT JOIN upgrades u ON ca.id_upgrade = u.id
+        WHERE ca.id_car = ?
+        ORDER BY ca.id
+      `,
+      params: [props.carId],
+    })
+
+    if (totalResult.success && totalResult.data.length > 0) {
+      carUpgradesTotal.value = parseFloat(totalResult.data[0].total_upgrades) || 0
+    } else {
+      carUpgradesTotal.value = 0
+    }
+
+    if (detailsResult.success) {
+      carUpgradesDetails.value = detailsResult.data.map(row => ({
+        description: row.description || 'N/A',
+        value: parseFloat(row.value) || 0
+      }))
+    } else {
+      carUpgradesDetails.value = []
+    }
+  } catch (err) {
+    console.error('Error fetching car upgrades:', err)
+    carUpgradesTotal.value = 0
+    carUpgradesDetails.value = []
+  }
+}
+
+// Format upgrades details as string for display
+const formatCarUpgrades = () => {
+  if (carUpgradesDetails.value.length === 0) return ''
+  
+  return carUpgradesDetails.value.map(upgrade => {
+    const desc = upgrade.description || 'N/A'
+    const value = upgrade.value || 0
+    return `${desc}: $${value.toFixed(2)}`
+  }).join(', ')
+}
+
+// Format JSON notes - extract only note text without user/date
+const formatCarNotes = (notes) => {
+  if (!notes) return ''
+  
+  try {
+    let notesArray = []
+    if (typeof notes === 'string' && notes.trim().startsWith('[')) {
+      notesArray = JSON.parse(notes)
+    } else if (Array.isArray(notes)) {
+      notesArray = notes
+    } else {
+      // Old format (plain text) - use as is if not empty
+      return notes.trim() || ''
+    }
+    
+    if (Array.isArray(notesArray) && notesArray.length > 0) {
+      // Extract only the note text, filter empty notes, join with newlines
+      const formatted = notesArray.map(note => note.note || '').filter(note => note.trim() !== '').join('\n')
+      return formatted || ''
+    }
+    
+    return ''
+  } catch (e) {
+    // If parsing fails, treat as old format (plain text)
+    return notes.trim() || ''
+  }
+}
+
+// Check if notes have content
+const hasCarNotes = (notes) => {
+  const formatted = formatCarNotes(notes)
+  return formatted && formatted.trim() !== '' && formatted !== '-'
+}
+
+// Get merged notes (bill notes + car notes)
+const getMergedNotes = () => {
+  const billNotes = billData.value?.notesFormatted && billData.value.notesFormatted.trim() !== ''
+    ? billData.value.notesFormatted
+    : (billData.value?.notes && billData.value.notes.trim() !== '' && billData.value.notes !== '-'
+      ? billData.value.notes
+      : '')
+  
+  const carNotes = hasCarNotes(carData.value?.notes) ? formatCarNotes(carData.value.notes) : ''
+  
+  const notes = []
+  if (billNotes) notes.push(billNotes)
+  if (carNotes) notes.push(carNotes)
+  
+  return notes.join('\n\n')
+}
+
+// Check if there are any notes to display
+const hasAnyNotes = () => {
+  const merged = getMergedNotes()
+  return merged && merged.trim() !== ''
+}
+
 const formatDate = (date) => {
   return new Date(date).toLocaleDateString('en-US', {
     year: 'numeric',
@@ -170,11 +305,14 @@ const formatDate = (date) => {
 const calculateCarPrice = () => {
   if (!carData.value) return '0.00'
 
+  const upgrades = carUpgradesTotal.value || 0
   let myPrice
   if (props.options.paymentTerms.toLowerCase() === 'cfr') {
-    myPrice = (parseFloat(carData.value.price_cell) || 0) + (parseFloat(carData.value.freight) || 0)
+    // CFR USD = price_cell + upgrades + freight
+    myPrice = (parseFloat(carData.value.price_cell) || 0) + upgrades + (parseFloat(carData.value.freight) || 0)
   } else {
-    myPrice = parseFloat(carData.value.price_cell) || 0
+    // FOB USD = price_cell + upgrades
+    myPrice = (parseFloat(carData.value.price_cell) || 0) + upgrades
   }
 
   // Convert to selected currency
@@ -188,6 +326,7 @@ const calculateCarPrice = () => {
       console.warn(`No rate found for car ID ${carData.value.id}`)
       return 'Rate not set'
     }
+    // CFR DA = (price_cell + upgrades + freight) × rate or FOB DA = (price_cell + upgrades) × rate
     return (myPrice * rate).toFixed(2)
   }
   return myPrice.toFixed(2)
@@ -362,7 +501,12 @@ onMounted(async () => {
             <tbody>
               <tr>
                 <td>1</td>
-                <td>{{ carData.car_name }}</td>
+                <td>
+                  <div>{{ carData.car_name }}</div>
+                  <div v-if="formatCarUpgrades()" class="upgrades-line">
+                    {{ formatCarUpgrades() }}
+                  </div>
+                </td>
                 <td>{{ carData.color }}</td>
                 <td>{{ carData.vin }}</td>
                 <td>{{ carData.discharge_port }}</td>
@@ -426,19 +570,10 @@ onMounted(async () => {
       </div>
 
       <!-- Notes Section -->
-      <div class="section notes-section" v-if="billData?.notes || billData?.notesFormatted || carData?.notes" :style="{ fontSize: (options.tableFontSize || 12) + 'pt' }">
-        <div v-if="billData?.notes || billData?.notesFormatted" class="notes-item">
-          <h3 class="section-title">Bill Notes</h3>
-          <div class="notes-content">
-            <p v-if="billData.notesFormatted" style="white-space: pre-line;">{{ billData.notesFormatted }}</p>
-            <p v-else>{{ billData.notes }}</p>
-          </div>
-        </div>
-        <div v-if="carData?.notes" class="notes-item">
-          <h3 class="section-title">Car Notes</h3>
-          <div class="notes-content">
-            <p>{{ carData.notes }}</p>
-          </div>
+      <div class="section notes-section" v-if="hasAnyNotes()" :style="{ fontSize: (options.tableFontSize || 12) + 'pt' }">
+        <h3 class="section-title">Notes</h3>
+        <div class="notes-content">
+          <p style="white-space: pre-line;">{{ getMergedNotes() }}</p>
         </div>
       </div>
 
@@ -677,6 +812,13 @@ onMounted(async () => {
   color: #6c757d !important;
   font-style: italic;
   margin-top: 8px !important;
+}
+
+.upgrades-line {
+  font-size: 0.75em;
+  color: #6c757d;
+  margin-top: 4px;
+  font-style: italic;
 }
 
 .bold-label {
