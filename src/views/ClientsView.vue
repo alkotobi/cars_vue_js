@@ -4,6 +4,7 @@ import { useApi } from '../composables/useApi'
 import { useI18n } from 'vue-i18n'
 import TaskForm from '../components/car-stock/TaskForm.vue'
 import CarStockTable from '../components/car-stock/CarStockTable.vue'
+import AddClientDialog from '../components/car-stock/AddClientDialog.vue'
 
 const clients = ref([])
 const allClients = ref([]) // Backup for in-memory filtering
@@ -14,7 +15,6 @@ const showEditDialog = ref(false)
 const editingClient = ref(null)
 const user = ref(null)
 const validationError = ref('')
-const selectedFile = ref(null)
 const editSelectedFile = ref(null)
 const isSubmitting = ref(false)
 const isLoading = ref(false)
@@ -216,28 +216,16 @@ const closeTaskDropdown = () => {
 const isAdmin = computed(() => user.value?.role_id === 1)
 
 // Computed properties for mobile validation status
-const isNewClientMobileValid = computed(() => {
-  return newClient.value.mobiles && validateAlgerianMobile(newClient.value.mobiles)
-})
-
 const isEditClientMobileValid = computed(() => {
   return editingClient.value?.mobiles && validateAlgerianMobile(editingClient.value.mobiles)
 })
 
 // Computed properties for NIN validation status
-const isNewClientNINValid = computed(() => {
-  return newClient.value.nin && validateNIN(newClient.value.nin)
-})
-
 const isEditClientNINValid = computed(() => {
   return editingClient.value?.nin && validateNIN(editingClient.value.nin)
 })
 
 // Computed properties for ID Number validation status
-const isNewClientIDValid = computed(() => {
-  return newClient.value.id_no && validateIDNumber(newClient.value.id_no)
-})
-
 const isEditClientIDValid = computed(() => {
   return editingClient.value?.id_no && validateIDNumber(editingClient.value.id_no)
 })
@@ -303,8 +291,6 @@ const handleMobileInput = (event, isEdit = false) => {
   // Update the appropriate reactive object
   if (isEdit) {
     editingClient.value.mobiles = value
-  } else {
-    newClient.value.mobiles = value
   }
 
   // Update the input value
@@ -326,8 +312,6 @@ const handleNINInput = (event, isEdit = false) => {
   // Update the appropriate reactive object
   if (isEdit) {
     editingClient.value.nin = value
-  } else {
-    newClient.value.nin = value
   }
 
   // Update the input value
@@ -349,25 +333,11 @@ const handleIDNumberInput = (event, isEdit = false) => {
   // Update the appropriate reactive object
   if (isEdit) {
     editingClient.value.id_no = value
-  } else {
-    newClient.value.id_no = value
   }
 
   // Update the input value
   event.target.value = value
 }
-
-const newClient = ref({
-  name: '',
-  address: '',
-  email: '',
-  mobiles: '',
-  id_no: '',
-  nin: '',
-  is_client: true,
-  is_broker: false,
-  notes: '',
-})
 
 // Add filter and sort refs
 const filters = ref({
@@ -581,9 +551,6 @@ const handleFileChange = (event, isEdit = false) => {
   if (isEdit) {
     editSelectedFile.value = file
     console.log('Edit file set to:', editSelectedFile.value ? editSelectedFile.value.name : 'null')
-  } else {
-    selectedFile.value = file
-    console.log('Add file set to:', selectedFile.value ? selectedFile.value.name : 'null')
   }
 }
 
@@ -672,218 +639,49 @@ const testFileUpload = async () => {
   }
 }
 
-const addClient = async () => {
-  if (isSubmitting.value) return // Prevent double submission
-
-  // Clear previous validation errors
-  validationError.value = ''
-
-  // Required field validation
-  if (!newClient.value.mobiles) {
-    validationError.value = `⚠️ ${t('mobileValidation.critical')}: ${t('mobileValidation.mobileRequired')}`
-    return
-  }
-
-  // Mobile number format validation
-  if (!validateAlgerianMobile(newClient.value.mobiles)) {
-    validationError.value = `⚠️ ${t('mobileValidation.critical')}: ${t('mobileValidation.invalidAlgerianMobile')}`
-    return
-  }
-
-  if (!newClient.value.id_no) {
-    validationError.value = `⚠️ ${t('mobileValidation.critical')}: ${t('idValidation.idRequired')}`
-    return
-  }
-
-  // ID number format validation
-  if (!validateIDNumber(newClient.value.id_no)) {
-    validationError.value = `⚠️ ${t('mobileValidation.critical')}: ${t('idValidation.invalidFormat')}`
-    return
-  }
-
-  if (!newClient.value.nin) {
-    validationError.value = `⚠️ ${t('mobileValidation.critical')}: ${t('ninValidation.ninRequired')}`
-    return
-  }
-
-  // NIN format validation
-  if (!validateNIN(newClient.value.nin)) {
-    validationError.value = `⚠️ ${t('mobileValidation.critical')}: ${t('ninValidation.invalidFormat')}`
-    return
-  }
-
-  if (!selectedFile.value) {
-    validationError.value = 'ID Document is required'
-    return
-  }
-
-  // Email validation only if provided
-  if (newClient.value.email && !validateEmail(newClient.value.email)) {
-    validationError.value = 'Please enter a valid email address'
-    return
-  }
-
-  try {
-    isSubmitting.value = true
-    
-    // First insert the client to get the ID (with null id_copy_path initially)
-    const result = await callApi({
-      query: `
-        INSERT INTO clients (name, address, email, mobiles, id_no, nin, is_broker, is_client, notes, id_copy_path)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, NULL)
+const handleClientSaved = async (savedClient) => {
+  // Fetch the complete client data including share_token from the database
+  const fetchNewClientResult = await callApi({
+    query: `
+      SELECT 
+        c.id, c.share_token, c.name, c.address, c.email, c.mobiles, c.id_no, c.nin, c.is_broker, c.is_client, c.notes, c.id_copy_path,
+        COUNT(cs.id) as cars_count
+      FROM clients c
+      LEFT JOIN cars_stock cs ON c.id = cs.id_client
+      WHERE c.id = ?
+      GROUP BY c.id
     `,
-      params: [
-        newClient.value.name,
-        newClient.value.address,
-        newClient.value.email,
-        newClient.value.mobiles,
-        newClient.value.id_no,
-        newClient.value.nin,
-        newClient.value.is_broker ? 1 : 0,
-        newClient.value.notes,
-      ],
-    })
+    params: [savedClient.id],
+  })
 
-    console.log('Insert result:', result)
-    console.log('Insert result type:', typeof result)
-    console.log('Full result object:', JSON.stringify(result, null, 2))
-    console.log('NIN being saved:', newClient.value.nin)
-
-    if (!result.success) {
-      error.value = result.error || 'Failed to create client'
-      isSubmitting.value = false
-      return
+  if (fetchNewClientResult.success && fetchNewClientResult.data && fetchNewClientResult.data.length > 0) {
+    const newClientData = fetchNewClientResult.data[0]
+    // Add the new client to in-memory data with complete information including share_token
+    allClients.value.push(newClientData)
+  } else {
+    // Fallback: Create the new client object without share_token (shouldn't happen, but just in case)
+    const newClientObject = {
+      id: savedClient.id,
+      name: savedClient.name,
+      address: savedClient.address,
+      email: savedClient.email,
+      mobiles: savedClient.mobiles,
+      id_no: savedClient.id_no,
+      nin: savedClient.nin,
+      is_broker: savedClient.is_broker,
+      is_client: 1,
+      notes: savedClient.notes,
+      cars_count: 0,
+      id_copy_path: savedClient.id_copy_path,
     }
-
-    const clientId = result.lastInsertId
-    console.log('Client ID ***************:', clientId)
-
-    let filePath = null
-    // Upload file AFTER client is created, but delete client if upload fails
-    if (selectedFile.value) {
-      try {
-        const uploadResult = await debugFileUpload(selectedFile.value, clientId)
-
-        if (!uploadResult.success) {
-          // Upload failed - delete the client record
-          await callApi({
-            query: 'DELETE FROM clients WHERE id = ?',
-            params: [clientId],
-          })
-          error.value = t('clients.failed_to_upload_id_document') || 'Failed to upload ID document. Client was not created. Please check your internet connection and try again.'
-          isSubmitting.value = false
-          return
-        }
-        
-        // Update client with file path
-        filePath = uploadResult.relativePath
-        console.log('Updating client with file path:', filePath)
-        const updateResult = await callApi({
-          query: 'UPDATE clients SET id_copy_path = ? WHERE id = ?',
-          params: [filePath, clientId],
-        })
-        
-        if (!updateResult.success) {
-          // File uploaded but database update failed - delete client
-          await callApi({
-            query: 'DELETE FROM clients WHERE id = ?',
-            params: [clientId],
-          })
-          error.value = t('clients.failed_to_save_id_document_path') || 'Failed to save ID document path. Client was not created.'
-          isSubmitting.value = false
-          return
-        }
-      } catch (err) {
-        console.error('Error uploading file:', err)
-        // Upload failed - delete the client record
-        try {
-          await callApi({
-            query: 'DELETE FROM clients WHERE id = ?',
-            params: [clientId],
-          })
-        } catch (deleteErr) {
-          console.error('Error deleting client after upload failure:', deleteErr)
-        }
-        error.value = t('clients.failed_to_upload_id_document') || 'Failed to upload ID document. Client was not created. Please check your internet connection and try again.'
-        isSubmitting.value = false
-        return
-      }
-    } else {
-      // No file selected, but file is required - delete the client
-      await callApi({
-        query: 'DELETE FROM clients WHERE id = ?',
-        params: [clientId],
-      })
-      error.value = 'ID Document is required'
-      isSubmitting.value = false
-      return
-    }
-
-      // Fetch the complete client data including share_token from the database
-      const fetchNewClientResult = await callApi({
-        query: `
-          SELECT 
-            c.id, c.share_token, c.name, c.address, c.email, c.mobiles, c.id_no, c.nin, c.is_broker, c.is_client, c.notes, c.id_copy_path,
-            COUNT(cs.id) as cars_count
-          FROM clients c
-          LEFT JOIN cars_stock cs ON c.id = cs.id_client
-          WHERE c.id = ?
-          GROUP BY c.id
-        `,
-        params: [clientId],
-      })
-
-      if (fetchNewClientResult.success && fetchNewClientResult.data && fetchNewClientResult.data.length > 0) {
-        const newClientData = fetchNewClientResult.data[0]
-        // Update id_copy_path if file was uploaded
-        if (filePath) {
-          newClientData.id_copy_path = filePath
-        }
-        
-        // Add the new client to in-memory data with complete information including share_token
-        allClients.value.push(newClientData)
-      } else {
-        // Fallback: Create the new client object without share_token (shouldn't happen, but just in case)
-        const newClientObject = {
-          id: clientId,
-          name: newClient.value.name,
-          address: newClient.value.address,
-          email: newClient.value.email,
-          mobiles: newClient.value.mobiles,
-          id_no: newClient.value.id_no,
-          nin: newClient.value.nin,
-          is_broker: newClient.value.is_broker ? 1 : 0,
-          is_client: 1,
-          notes: newClient.value.notes,
-          cars_count: 0,
-          id_copy_path: filePath,
-        }
-        allClients.value.push(newClientObject)
-      }
-
-      // Apply current filters to update the display
-      await fetchClients()
-
-      // Reset form and close dialog
-      showAddDialog.value = false
-      validationError.value = ''
-      selectedFile.value = null
-      newClient.value = {
-        name: '',
-        address: '',
-        email: '',
-        mobiles: '',
-        id_no: '',
-        is_client: true,
-        is_broker: false,
-        notes: '',
-      }
-  } catch (err) {
-    error.value = err.message
-    console.error('Error in add client process:', err)
-  } finally {
-    isSubmitting.value = false
+    allClients.value.push(newClientObject)
   }
+
+  // Apply current filters to update the display
+  await fetchClients()
+
+  // Close dialog
+  showAddDialog.value = false
 }
 
 const editClient = (client) => {
@@ -1667,261 +1465,7 @@ const handleRefresh = async () => {
     </div>
 
     <!-- Add Client Dialog -->
-    <div v-if="showAddDialog" class="modal-overlay" @click="showAddDialog = false">
-      <div class="modal-content" @click.stop>
-        <div class="modal-header">
-          <h3>
-            <i class="fas fa-user-plus"></i>
-            Add New Client
-          </h3>
-          <button @click="showAddDialog = false" class="close-btn" :disabled="isSubmitting">
-            <i class="fas fa-times"></i>
-          </button>
-        </div>
-
-        <div v-if="error" class="error-message">
-          <i class="fas fa-exclamation-circle"></i>
-          {{ error }}
-        </div>
-
-        <form @submit.prevent="addClient" class="modal-form">
-          <div class="form-grid">
-            <div class="form-group">
-              <label for="name">
-                <i class="fas fa-user"></i>
-                Full Name *
-              </label>
-              <input
-                id="name"
-                v-model="newClient.name"
-                type="text"
-                placeholder="Enter client's full name"
-                class="form-input"
-                :class="{ error: validationError && !newClient.name }"
-                :disabled="isSubmitting"
-                required
-              />
-            </div>
-
-            <div class="form-group">
-              <label for="mobile">
-                <i class="fas fa-phone"></i>
-                {{ t('mobileValidation.mobileLabel') }}
-                <span v-if="!isNewClientMobileValid" class="critical-field"
-                  >⚠️ {{ t('mobileValidation.critical') }}</span
-                >
-                <span v-else class="success-field">✅ {{ t('mobileValidation.valid') }}</span>
-              </label>
-              <input
-                id="mobile"
-                v-model="newClient.mobiles"
-                type="tel"
-                :placeholder="t('mobileValidation.mobilePlaceholder')"
-                class="form-input"
-                :class="{
-                  'critical-input': !isNewClientMobileValid,
-                  'success-input': isNewClientMobileValid,
-                  error: validationError && !newClient.mobiles,
-                }"
-                :disabled="isSubmitting"
-                @input="handleMobileInput($event, false)"
-                maxlength="10"
-                required
-              />
-              <div v-if="!isNewClientMobileValid" class="field-help">
-                <i class="fas fa-exclamation-triangle"></i>
-                {{ t('mobileValidation.helpText') }}
-              </div>
-              <div v-else class="field-success">
-                <i class="fas fa-check-circle"></i>
-                {{ t('mobileValidation.validFormat') }}
-              </div>
-            </div>
-
-            <div class="form-group">
-              <label for="id_no">
-                <i class="fas fa-id-card"></i>
-                {{ t('idValidation.idLabel') }}
-                <span v-if="!isNewClientIDValid" class="critical-field"
-                  >⚠️ {{ t('mobileValidation.critical') }}</span
-                >
-                <span v-else class="success-field">✅ {{ t('idValidation.valid') }}</span>
-              </label>
-              <input
-                id="id_no"
-                v-model="newClient.id_no"
-                type="text"
-                :placeholder="t('idValidation.idPlaceholder')"
-                class="form-input"
-                :class="{
-                  'critical-input': !isNewClientIDValid,
-                  'success-input': isNewClientIDValid,
-                  error: validationError && !newClient.id_no,
-                }"
-                :disabled="isSubmitting"
-                @input="handleIDNumberInput($event, false)"
-                maxlength="9"
-                required
-              />
-              <div v-if="!isNewClientIDValid" class="field-help">
-                <i class="fas fa-exclamation-triangle"></i>
-                {{ t('idValidation.helpText') }}
-              </div>
-              <div v-else class="field-success">
-                <i class="fas fa-check-circle"></i>
-                {{ t('idValidation.validFormat') }}
-              </div>
-            </div>
-
-            <div class="form-group">
-              <label for="nin">
-                <i class="fas fa-passport"></i>
-                {{ t('ninValidation.ninLabel') }}
-                <span v-if="!isNewClientNINValid" class="critical-field"
-                  >⚠️ {{ t('mobileValidation.critical') }}</span
-                >
-                <span v-else class="success-field">✅ {{ t('ninValidation.valid') }}</span>
-              </label>
-              <input
-                id="nin"
-                v-model="newClient.nin"
-                type="text"
-                :placeholder="t('ninValidation.ninPlaceholder')"
-                class="form-input"
-                :class="{
-                  'critical-input': !isNewClientNINValid,
-                  'success-input': isNewClientNINValid,
-                  error: validationError && !newClient.nin,
-                }"
-                :disabled="isSubmitting"
-                @input="handleNINInput($event, false)"
-                maxlength="18"
-                required
-              />
-              <div v-if="!isNewClientNINValid" class="field-help">
-                <i class="fas fa-exclamation-triangle"></i>
-                {{ t('ninValidation.helpText') }}
-              </div>
-              <div v-else class="field-success">
-                <i class="fas fa-check-circle"></i>
-                {{ t('ninValidation.validFormat') }}
-              </div>
-            </div>
-
-            <div class="form-group">
-              <label for="email">
-                <i class="fas fa-envelope"></i>
-                Email Address
-              </label>
-              <input
-                id="email"
-                v-model="newClient.email"
-                type="email"
-                placeholder="Enter email address (optional)"
-                class="form-input"
-                :class="{ error: validationError && newClient.email }"
-                :disabled="isSubmitting"
-              />
-            </div>
-
-            <div class="form-group full-width">
-              <label for="address">
-                <i class="fas fa-map-marker-alt"></i>
-                Address
-              </label>
-              <input
-                id="address"
-                v-model="newClient.address"
-                type="text"
-                placeholder="Enter client's address"
-                class="form-input"
-                :disabled="isSubmitting"
-              />
-            </div>
-
-            <div class="form-group">
-              <label for="is_broker" class="checkbox-label">
-                <input
-                  id="is_broker"
-                  type="checkbox"
-                  v-model="newClient.is_broker"
-                  :disabled="isSubmitting"
-                  class="checkbox-input"
-                />
-                <span class="checkbox-custom"></span>
-                <i class="fas fa-user-tie"></i>
-                Is Broker
-              </label>
-            </div>
-
-            <div class="form-group full-width">
-              <label for="notes">
-                <i class="fas fa-sticky-note"></i>
-                Notes
-              </label>
-              <textarea
-                id="notes"
-                v-model="newClient.notes"
-                placeholder="Add any additional notes about this client..."
-                rows="3"
-                class="form-textarea"
-                :disabled="isSubmitting"
-              ></textarea>
-            </div>
-
-            <div class="form-group full-width">
-              <label for="id-document">
-                <i class="fas fa-file-upload"></i>
-                ID Document *
-              </label>
-              <div class="file-upload-area">
-                <input
-                  type="file"
-                  id="id-document"
-                  @change="handleFileChange($event)"
-                  accept="image/*,.pdf"
-                  class="file-input"
-                  :class="{ error: validationError && !selectedFile }"
-                  :disabled="isSubmitting"
-                  required
-                />
-                <div class="file-upload-content">
-                  <i class="fas fa-cloud-upload-alt"></i>
-                  <p>Click to upload or drag and drop</p>
-                  <span>Supports: JPG, PNG, PDF (Max 5MB)</span>
-                </div>
-              </div>
-              <div v-if="selectedFile" class="selected-file">
-                <i class="fas fa-check-circle"></i>
-                <span>{{ selectedFile.name }}</span>
-              </div>
-            </div>
-          </div>
-
-          <div v-if="validationError" class="validation-error">
-            <i class="fas fa-exclamation-triangle"></i>
-            {{ validationError }}
-          </div>
-
-          <div class="modal-actions">
-            <button
-              type="button"
-              @click="showAddDialog = false"
-              class="btn-secondary"
-              :disabled="isSubmitting"
-            >
-              <i class="fas fa-times"></i>
-              Cancel
-            </button>
-            <button type="submit" class="btn-primary" :disabled="isSubmitting">
-              <i v-if="isSubmitting" class="fas fa-spinner fa-spin"></i>
-              <i v-else class="fas fa-save"></i>
-              {{ isSubmitting ? 'Adding...' : 'Add Client' }}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+    <AddClientDialog :show="showAddDialog" @close="showAddDialog = false" @saved="handleClientSaved" />
 
     <!-- Edit Client Dialog -->
     <div v-if="showEditDialog" class="modal-overlay" @click="showEditDialog = false">

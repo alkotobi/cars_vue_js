@@ -7,6 +7,7 @@ import SelectWithAddButton from './SelectWithAddButton.vue'
 import SearchableSelectWithAddButton from './SearchableSelectWithAddButton.vue'
 import AddItemDialog from './AddItemDialog.vue'
 import AddColorDialog from './AddColorDialog.vue'
+import AddClientDialog from './AddClientDialog.vue'
 
 const { t } = useEnhancedI18n()
 
@@ -98,6 +99,7 @@ const newBrand = ref({
   brand: '',
 })
 const showAddColorDialog = ref(false)
+const showAddClientDialog = ref(false)
 
 const formData = ref({
   id: null,
@@ -517,6 +519,28 @@ const handleColorSaved = async (newColor) => {
     // Auto-select the newly created color
     formData.value.id_color = newColor.id
   }
+}
+
+const openAddClientDialog = () => {
+  showAddClientDialog.value = true
+}
+
+const closeAddClientDialog = () => {
+  showAddClientDialog.value = false
+}
+
+const handleClientSaved = async (newClient) => {
+  // Refresh clients list
+  const clientsResult = await callApi({
+    query: 'SELECT id, name FROM clients ORDER BY name ASC',
+    params: [],
+  })
+  if (clientsResult.success) {
+    clients.value = clientsResult.data
+    // Auto-select the newly created client
+    formData.value.id_client = newClient.id
+  }
+  closeAddClientDialog()
 }
 
 // Check if this is a shipping only car
@@ -1041,16 +1065,18 @@ onMounted(async () => {
         </div>
 
         <div class="form-group">
-          <input
-            type="checkbox"
-            id="is_big_car"
-            v-model="formData.is_big_car"
-            :true-value="1"
-            :false-value="0"
-          />
-          <label for="is_big_car" class="checkbox-label">{{
-            t('carStockForm.bigCar') || 'Big Car'
-          }}</label>
+          <div class="checkbox-wrapper">
+            <input
+              type="checkbox"
+              id="is_big_car"
+              v-model="formData.is_big_car"
+              :true-value="1"
+              :false-value="0"
+            />
+            <label for="is_big_car" class="checkbox-label">{{
+              t('carStockForm.bigCar') || 'Big Car'
+            }}</label>
+          </div>
         </div>
       </div>
 
@@ -1085,20 +1111,30 @@ onMounted(async () => {
         <!-- Client Name (for shipping only) -->
         <div v-if="!formData.id && isShippingOnly" class="form-group">
           <label for="id_client">{{ t('carStockForm.client') || 'Client' }}:</label>
-          <el-select
-            id="id_client"
-            v-model="formData.id_client"
-            :placeholder="t('carStockForm.selectClient') || 'Select Client'"
-            filterable
-            style="width: 100%"
-          >
-            <el-option
-              v-for="client in clients"
-              :key="client.id"
-              :label="client.name"
-              :value="client.id"
-            />
-          </el-select>
+          <div class="input-with-button">
+            <el-select
+              id="id_client"
+              v-model="formData.id_client"
+              :placeholder="t('carStockForm.selectClient') || 'Select Client'"
+              filterable
+              style="width: 100%"
+            >
+              <el-option
+                v-for="client in clients"
+                :key="client.id"
+                :label="client.name"
+                :value="client.id"
+              />
+            </el-select>
+            <button
+              type="button"
+              @click="openAddClientDialog"
+              class="btn-add-supplier"
+              title="Add New Client"
+            >
+              <i class="fas fa-plus"></i>
+            </button>
+          </div>
         </div>
 
         <!-- Loading Port (for shipping only) -->
@@ -1283,6 +1319,13 @@ onMounted(async () => {
     @close="closeAddColorDialog"
     @saved="handleColorSaved"
   />
+
+  <!-- Add Client Dialog -->
+  <AddClientDialog
+    :show="showAddClientDialog"
+    @close="closeAddClientDialog"
+    @saved="handleClientSaved"
+  />
 </template>
 
 <style scoped>
@@ -1425,6 +1468,14 @@ onMounted(async () => {
   flex: 1;
 }
 
+.input-with-button :deep(.el-select) {
+  flex: 1;
+}
+
+.input-with-button :deep(.el-input__wrapper) {
+  width: 100%;
+}
+
 .btn-add-supplier {
   background-color: #10b981;
   color: white;
@@ -1509,5 +1560,23 @@ onMounted(async () => {
   gap: 12px;
   padding: 20px;
   border-top: 1px solid #e5e7eb;
+}
+
+.checkbox-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.checkbox-wrapper input[type='checkbox'] {
+  width: auto;
+  margin: 0;
+  cursor: pointer;
+}
+
+.checkbox-label {
+  margin: 0;
+  cursor: pointer;
+  font-weight: normal;
 }
 </style>

@@ -3,7 +3,7 @@ import { useEnhancedI18n } from '@/composables/useI18n'
 
 const { t } = useEnhancedI18n()
 
-defineProps({
+const props = defineProps({
   show: {
     type: Boolean,
     required: true,
@@ -15,6 +15,14 @@ defineProps({
   loading: {
     type: Boolean,
     default: false,
+  },
+  maxWidth: {
+    type: String,
+    default: '500px',
+  },
+  minWidth: {
+    type: String,
+    default: null,
   },
 })
 
@@ -32,7 +40,7 @@ const handleSave = () => {
 <template>
   <Teleport to="body">
     <div v-if="show" class="dialog-overlay" @click.self="handleClose">
-      <div class="dialog">
+      <div class="dialog" :style="{ maxWidth: props.maxWidth, minWidth: props.minWidth }">
         <div class="dialog-header">
           <h3>{{ title }}</h3>
           <button @click="handleClose" class="dialog-close-btn" type="button">
