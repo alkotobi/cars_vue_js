@@ -101,6 +101,11 @@ const newBrand = ref({
 const showAddColorDialog = ref(false)
 const showAddClientDialog = ref(false)
 
+// Buy bill selection mode: 'new' or 'existing'
+const buyBillMode = ref('new')
+const existingBuyBills = ref([])
+const selectedBuyBillId = ref(null)
+
 const formData = ref({
   id: null,
   notes: '',
@@ -266,6 +271,22 @@ const fetchReferenceData = async () => {
     })
     if (buyDetailsResult.success) {
       buyDetails.value = buyDetailsResult.data
+    }
+
+    // Fetch existing buy bills (only for new cars)
+    if (!props.carData?.id) {
+      const buyBillsResult = await callApi({
+        query: `
+          SELECT bb.id, bb.bill_ref, bb.date_buy, s.name as supplier_name
+          FROM buy_bill bb
+          LEFT JOIN suppliers s ON bb.id_supplier = s.id
+          ORDER BY bb.date_buy DESC, bb.id DESC
+        `,
+        params: [],
+      })
+      if (buyBillsResult.success) {
+        existingBuyBills.value = buyBillsResult.data
+      }
     }
 
     // Fetch warehouses if needed
@@ -529,6 +550,17 @@ const closeAddClientDialog = () => {
   showAddClientDialog.value = false
 }
 
+const handleBuyBillModeChange = (mode) => {
+  if (mode === 'existing') {
+    formData.value.id_supplier = null
+    formData.value.bill_ref = ''
+    formData.value.buy_bill_notes = ''
+    piFile.value = null
+  } else {
+    selectedBuyBillId.value = null
+  }
+}
+
 const handleClientSaved = async (newClient) => {
   // Refresh clients list
   const clientsResult = await callApi({
@@ -666,6 +698,10 @@ watch(
       buyPiFile.value = null
       piFile.value = null
 
+      // Reset buy bill mode for new cars
+      buyBillMode.value = 'new'
+      selectedBuyBillId.value = null
+
       // Use nextTick to ensure Vue reactivity updates the input field
       nextTick(() => {
         // Force update if still empty (double-check)
@@ -745,16 +781,6 @@ const saveCar = async () => {
     let result
     if (isNewCar) {
       // Validate required fields for new car
-      if (!formData.value.id_supplier) {
-        error.value = t('carStockForm.supplierRequired') || 'Supplier is required'
-        loading.value = false
-        return
-      }
-      if (!formData.value.bill_ref || formData.value.bill_ref.trim() === '') {
-        error.value = t('carStockForm.billRefRequired') || 'Bill Reference is required'
-        loading.value = false
-        return
-      }
       if (!formData.value.id_car_name) {
         error.value = t('carStockForm.carNameRequired') || 'Car Name is required'
         loading.value = false
@@ -765,8 +791,49 @@ const saveCar = async () => {
         loading.value = false
         return
       }
-      // Skip price validation for shipping only cars
-      if (!isShippingOnly.value) {
+      // Validation for shipping only cars
+      if (isShippingOnly.value) {
+        if (!formData.value.id_client) {
+          error.value =
+            t('carStockForm.clientRequired') || 'Client is required for shipping only cars'
+          loading.value = false
+          return
+        }
+        if (
+          formData.value.freight === null ||
+          formData.value.freight === undefined ||
+          formData.value.freight === ''
+        ) {
+          error.value =
+            t('carStockForm.freightRequired') || 'Freight is required for shipping only cars'
+          loading.value = false
+          return
+        }
+        if (!formData.value.id_port_loading) {
+          error.value =
+            t('carStockForm.loadingPortRequired') ||
+            'Loading Port is required for shipping only cars'
+          loading.value = false
+          return
+        }
+        if (!formData.value.id_port_discharge) {
+          error.value =
+            t('carStockForm.dischargePortRequired') ||
+            'Discharge Port is required for shipping only cars'
+          loading.value = false
+          return
+        }
+        if (
+          formData.value.rate === null ||
+          formData.value.rate === undefined ||
+          formData.value.rate === ''
+        ) {
+          error.value = t('carStockForm.rateRequired') || 'Rate is required for shipping only cars'
+          loading.value = false
+          return
+        }
+      } else {
+        // Validation for regular cars
         if (!formData.value.purchase_price) {
           error.value = t('carStockForm.purchasePriceRequired') || 'Purchase Price is required'
           loading.value = false
@@ -779,31 +846,54 @@ const saveCar = async () => {
         }
       }
 
-      // Step 1: Upload PI file if provided
-      let piPath = null
-      if (piFile.value) {
-        piPath = await uploadPiFile()
+      // Validate buy bill selection
+      let buyBillId = null
+      if (buyBillMode.value === 'existing') {
+        if (!selectedBuyBillId.value) {
+          error.value = t('carStockForm.buyBillRequired') || 'Please select an existing buy bill'
+          loading.value = false
+          return
+        }
+        buyBillId = selectedBuyBillId.value
+      } else {
+        // New buy bill validation
+        if (!formData.value.id_supplier) {
+          error.value = t('carStockForm.supplierRequired') || 'Supplier is required'
+          loading.value = false
+          return
+        }
+        if (!formData.value.bill_ref || formData.value.bill_ref.trim() === '') {
+          error.value = t('carStockForm.billRefRequired') || 'Bill Reference is required'
+          loading.value = false
+          return
+        }
+
+        // Step 1: Upload PI file if provided
+        let piPath = null
+        if (piFile.value) {
+          piPath = await uploadPiFile()
+        }
+
+        // Step 2: Create buy_bill
+        const buyBillResult = await callApi({
+          query: `
+            INSERT INTO buy_bill (id_supplier, date_buy, bill_ref, pi_path, is_ordered, is_stock_updated, notes)
+            VALUES (?, NOW(), ?, ?, 1, 1, ?)
+          `,
+          params: [
+            formData.value.id_supplier,
+            formData.value.bill_ref.trim(),
+            piPath,
+            formData.value.buy_bill_notes || null,
+          ],
+        })
+
+        if (!buyBillResult.success) {
+          throw new Error(buyBillResult.error || t('carStockForm.failedToCreateBuyBill'))
+        }
+
+        buyBillId = buyBillResult.lastInsertId
       }
-
-      // Step 2: Create buy_bill
-      const buyBillResult = await callApi({
-        query: `
-          INSERT INTO buy_bill (id_supplier, date_buy, bill_ref, pi_path, is_ordered, is_stock_updated, notes)
-          VALUES (?, NOW(), ?, ?, 1, 1, ?)
-        `,
-        params: [
-          formData.value.id_supplier,
-          formData.value.bill_ref.trim(),
-          piPath,
-          formData.value.buy_bill_notes || null,
-        ],
-      })
-
-      if (!buyBillResult.success) {
-        throw new Error(buyBillResult.error || t('carStockForm.failedToCreateBuyBill'))
-      }
-
-      const buyBillId = buyBillResult.lastInsertId
 
       // Step 3: Create buy_detail
       const currentDate = new Date()
@@ -951,57 +1041,113 @@ onMounted(async () => {
       <div v-if="!formData.id" class="form-section">
         <h4>{{ t('carStockForm.buyBillInformation') || 'Buy Bill Information' }}</h4>
 
+        <!-- Buy Bill Mode Selection -->
         <div class="form-group">
-          <label for="id_supplier"
-            >{{ t('carStockForm.supplier') || 'Supplier' }} <span class="required">*</span>:</label
-          >
-          <SearchableSelectWithAddButton
-            id="id_supplier"
-            v-model="formData.id_supplier"
-            :options="suppliers"
-            option-value="id"
-            option-label="name"
-            :placeholder="t('carStockForm.selectSupplier') || 'Select Supplier'"
-            :required="true"
-            :add-button-title="t('carStockForm.addSupplier') || 'Add New Supplier'"
-            @add="openAddSupplierDialog"
-          />
+          <label>{{ t('carStockForm.buyBillMode') || 'Buy Bill' }}:</label>
+          <div class="radio-group">
+            <label class="radio-label">
+              <input
+                type="radio"
+                v-model="buyBillMode"
+                value="new"
+                @change="handleBuyBillModeChange('new')"
+              />
+              <span>{{ t('carStockForm.createNewBuyBill') || 'Create New Buy Bill' }}</span>
+            </label>
+            <label class="radio-label">
+              <input
+                type="radio"
+                v-model="buyBillMode"
+                value="existing"
+                @change="handleBuyBillModeChange('existing')"
+              />
+              <span>{{
+                t('carStockForm.addToExistingBuyBill') || 'Add to Existing Buy Bill'
+              }}</span>
+            </label>
+          </div>
         </div>
 
-        <div class="form-group">
-          <label for="bill_ref"
-            >{{ t('carStockForm.billReference') || 'Bill Reference' }}
+        <!-- Existing Buy Bill Selection -->
+        <div v-if="buyBillMode === 'existing'" class="form-group">
+          <label for="selected_buy_bill"
+            >{{ t('carStockForm.selectBuyBill') || 'Select Buy Bill' }}
             <span class="required">*</span>:</label
           >
-          <input
-            type="text"
-            id="bill_ref"
-            v-model="formData.bill_ref"
-            required
-            :placeholder="t('carStockForm.billRefPlaceholder') || 'Bill Reference'"
-          />
+          <el-select
+            id="selected_buy_bill"
+            v-model="selectedBuyBillId"
+            :placeholder="
+              t('carStockForm.selectBuyBillPlaceholder') || 'Select an existing buy bill'
+            "
+            filterable
+            style="width: 100%"
+            :required="true"
+          >
+            <el-option
+              v-for="bill in existingBuyBills"
+              :key="bill.id"
+              :label="`${bill.bill_ref || 'N/A'} - ${bill.supplier_name || 'No Supplier'} (${new Date(bill.date_buy).toLocaleDateString()})`"
+              :value="bill.id"
+            />
+          </el-select>
         </div>
 
-        <div class="form-group">
-          <label for="pi_file"
-            >{{ t('carStockForm.piDocument') || 'PI Document' }} ({{
-              t('carStockForm.pdfOrImage') || 'PDF or Image'
-            }}):</label
-          >
-          <input
-            type="file"
-            id="pi_file"
-            @change="handleFileChange($event, 'pi')"
-            accept=".pdf,.jpg,.jpeg,.png,.gif,.webp"
-          />
-        </div>
+        <!-- New Buy Bill Fields -->
+        <template v-if="buyBillMode === 'new'">
+          <div class="form-group">
+            <label for="id_supplier"
+              >{{ t('carStockForm.supplier') || 'Supplier' }}
+              <span class="required">*</span>:</label
+            >
+            <SearchableSelectWithAddButton
+              id="id_supplier"
+              v-model="formData.id_supplier"
+              :options="suppliers"
+              option-value="id"
+              option-label="name"
+              :placeholder="t('carStockForm.selectSupplier') || 'Select Supplier'"
+              :required="true"
+              :add-button-title="t('carStockForm.addSupplier') || 'Add New Supplier'"
+              @add="openAddSupplierDialog"
+            />
+          </div>
 
-        <div class="form-group">
-          <label for="buy_bill_notes"
-            >{{ t('carStockForm.buyBillNotes') || 'Buy Bill Notes' }}:</label
-          >
-          <textarea id="buy_bill_notes" v-model="formData.buy_bill_notes"></textarea>
-        </div>
+          <div class="form-group">
+            <label for="bill_ref"
+              >{{ t('carStockForm.billReference') || 'Bill Reference' }}
+              <span class="required">*</span>:</label
+            >
+            <input
+              type="text"
+              id="bill_ref"
+              v-model="formData.bill_ref"
+              required
+              :placeholder="t('carStockForm.billRefPlaceholder') || 'Bill Reference'"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="pi_file"
+              >{{ t('carStockForm.piDocument') || 'PI Document' }} ({{
+                t('carStockForm.pdfOrImage') || 'PDF or Image'
+              }}):</label
+            >
+            <input
+              type="file"
+              id="pi_file"
+              @change="handleFileChange($event, 'pi')"
+              accept=".pdf,.jpg,.jpeg,.png,.gif,.webp"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="buy_bill_notes"
+              >{{ t('carStockForm.buyBillNotes') || 'Buy Bill Notes' }}:</label
+            >
+            <textarea id="buy_bill_notes" v-model="formData.buy_bill_notes"></textarea>
+          </div>
+        </template>
       </div>
 
       <!-- Basic Information -->
@@ -1110,7 +1256,9 @@ onMounted(async () => {
 
         <!-- Client Name (for shipping only) -->
         <div v-if="!formData.id && isShippingOnly" class="form-group">
-          <label for="id_client">{{ t('carStockForm.client') || 'Client' }}:</label>
+          <label for="id_client"
+            >{{ t('carStockForm.client') || 'Client' }} <span class="required">*</span>:</label
+          >
           <div class="input-with-button">
             <el-select
               id="id_client"
@@ -1140,7 +1288,8 @@ onMounted(async () => {
         <!-- Loading Port (for shipping only) -->
         <div v-if="!formData.id && isShippingOnly" class="form-group">
           <label for="id_port_loading"
-            >{{ t('carStockForm.loadingPort') || 'Loading Port' }}:</label
+            >{{ t('carStockForm.loadingPort') || 'Loading Port' }}
+            <span class="required">*</span>:</label
           >
           <select id="id_port_loading" v-model="formData.id_port_loading">
             <option :value="null">
@@ -1155,7 +1304,8 @@ onMounted(async () => {
         <!-- Discharge Port (for shipping only) -->
         <div v-if="!formData.id && isShippingOnly" class="form-group">
           <label for="id_port_discharge"
-            >{{ t('carStockForm.dischargePort') || 'Discharge Port' }}:</label
+            >{{ t('carStockForm.dischargePort') || 'Discharge Port' }}
+            <span class="required">*</span>:</label
           >
           <select id="id_port_discharge" v-model="formData.id_port_discharge">
             <option :value="null">
@@ -1167,15 +1317,21 @@ onMounted(async () => {
           </select>
         </div>
 
-        <!-- Freight (for all new cars) -->
+        <!-- Freight (for all new cars, required for shipping only) -->
         <div v-if="!formData.id" class="form-group">
-          <label for="freight">{{ t('carStockForm.freight') || 'Freight' }}:</label>
+          <label for="freight"
+            >{{ t('carStockForm.freight') || 'Freight' }}
+            <span v-if="isShippingOnly" class="required">*</span>:</label
+          >
           <input type="number" id="freight" v-model="formData.freight" step="0.01" />
         </div>
 
-        <!-- Rate (for all new cars) -->
+        <!-- Rate (for all new cars, required for shipping only) -->
         <div v-if="!formData.id" class="form-group">
-          <label for="rate">{{ t('carStockForm.rate') || 'Rate' }}:</label>
+          <label for="rate"
+            >{{ t('carStockForm.rate') || 'Rate' }}
+            <span v-if="isShippingOnly" class="required">*</span>:</label
+          >
           <input type="number" id="rate" v-model="formData.rate" step="0.01" />
         </div>
 
@@ -1578,5 +1734,29 @@ onMounted(async () => {
   margin: 0;
   cursor: pointer;
   font-weight: normal;
+}
+
+.radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.radio-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: normal;
+}
+
+.radio-label input[type='radio'] {
+  width: auto;
+  margin: 0;
+  cursor: pointer;
+}
+
+.radio-label span {
+  user-select: none;
 }
 </style>
