@@ -135,8 +135,8 @@ const fetchCarData = async () => {
             const formatted = notesArray.map(note => note.note || '').filter(note => note.trim() !== '').join('\n')
             if (formatted && formatted.trim() !== '') {
               notesFormatted = formatted
-              // Also keep latest note for simple display
-              notes = notesArray[notesArray.length - 1].note || ''
+            // Also keep latest note for simple display
+            notes = notesArray[notesArray.length - 1].note || ''
             } else {
               // No valid notes found, clear both
               notesFormatted = ''
@@ -572,7 +572,7 @@ onMounted(async () => {
       <!-- Notes Section -->
       <div class="section notes-section" v-if="hasAnyNotes()" :style="{ fontSize: (options.tableFontSize || 12) + 'pt' }">
         <h3 class="section-title">Notes</h3>
-        <div class="notes-content">
+          <div class="notes-content">
           <p style="white-space: pre-line;">{{ getMergedNotes() }}</p>
         </div>
       </div>

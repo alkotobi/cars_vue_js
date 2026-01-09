@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, watch,   computed } from 'vue'
+import { ref, onMounted, watch, computed, nextTick } from 'vue'
 import { useApi } from '../../composables/useApi'
 import { useEnhancedI18n } from '@/composables/useI18n'
 
@@ -8,7 +8,11 @@ const { t } = useEnhancedI18n()
 const props = defineProps({
   carData: {
     type: Object,
-    required: true,
+    default: null,
+  },
+  show: {
+    type: Boolean,
+    default: false,
   },
 })
 
@@ -59,6 +63,7 @@ const error = ref(null)
 const documentsFile = ref(null)
 const sellPiFile = ref(null)
 const buyPiFile = ref(null)
+const piFile = ref(null)
 
 // Reference data
 const clients = ref([])
@@ -66,6 +71,15 @@ const loadingPorts = ref([])
 const dischargePorts = ref([])
 const buyDetails = ref([])
 const warehouses = ref([])
+const colors = ref([])
+const suppliers = ref([])
+const carNames = ref([])
+const showAddSupplierDialog = ref(false)
+const newSupplier = ref({
+  name: '',
+  contact_info: '',
+  notes: '',
+})
 
 const formData = ref({
   id: null,
@@ -92,6 +106,17 @@ const formData = ref({
   date_get_keys_from_supp: null,
   rate: null,
   payment_confirmed: false,
+  is_used_car: 0,
+  is_big_car: 0,
+  id_color: null,
+  // New fields for buy bill creation (only for new cars)
+  id_supplier: null,
+  bill_ref: '',
+  pi_path: '',
+  buy_bill_notes: '',
+  id_car_name: null,
+  purchase_price: null,
+  price_sell: null,
 })
 
 // Handle file changes
@@ -109,7 +134,25 @@ const handleFileChange = (event, fileType) => {
     case 'buyPi':
       buyPiFile.value = file
       break
+    case 'pi':
+      piFile.value = file
+      break
   }
+}
+
+// Generate bill_ref for new car
+const generateBillRef = () => {
+  const date = new Date()
+  const year = String(date.getFullYear()).slice(-2) // Last 2 digits of year
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  const seconds = String(date.getSeconds()).padStart(2, '0')
+  const userId = user.value?.id || '0'
+  const billRef = `INTERNAL-${year}${month}${day}-${hours}${minutes}${seconds}-${userId}`
+  console.log('Generated bill_ref:', billRef, 'user:', user.value?.id)
+  return billRef
 }
 
 // Upload a single file and return its path
@@ -161,43 +204,6 @@ const uploadSingleFile = async (file, folder, customFilename = '') => {
     throw err
   }
 }
-
-// Watch for changes in carData prop
-watch(
-  () => props.carData,
-  (newData) => {
-    if (newData) {
-      // Create a new object with all fields from newData
-      formData.value = {
-        ...newData,
-        // Convert rate to number if it exists, otherwise null
-        rate: newData.rate ? Number(newData.rate) : null,
-        // Convert payment_confirmed from database format (0/1) to boolean
-        payment_confirmed: Boolean(newData.payment_confirmed),
-      }
-
-      // Format dates for input fields
-      const dateFields = [
-        'date_sell',
-        'date_loding',
-        'date_send_documents',
-        'in_wharhouse_date',
-        'date_get_documents_from_supp',
-        'date_get_keys_from_supp',
-      ]
-
-      dateFields.forEach((field) => {
-        if (formData.value[field]) {
-          const date = new Date(formData.value[field])
-          if (!isNaN(date)) {
-            formData.value[field] = date.toISOString().split('T')[0]
-          }
-        }
-      })
-    }
-  },
-  { immediate: true },
-)
 
 const fetchReferenceData = async () => {
   try {
@@ -251,8 +257,262 @@ const fetchReferenceData = async () => {
     if (warehousesResult.success) {
       warehouses.value = warehousesResult.data
     }
+
+    // Fetch colors
+    const colorsResult = await callApi({
+      query: 'SELECT id, color FROM colors ORDER BY color ASC',
+      params: [],
+    })
+    if (colorsResult.success) {
+      colors.value = colorsResult.data
+    }
+
+    // Fetch suppliers and car names (only for new car creation)
+    if (!formData.value.id) {
+      const suppliersResult = await callApi({
+        query: 'SELECT id, name FROM suppliers ORDER BY name ASC',
+        params: [],
+      })
+      if (suppliersResult.success) {
+        suppliers.value = suppliersResult.data
+      }
+
+      const carNamesResult = await callApi({
+        query: 'SELECT id, car_name FROM cars_names ORDER BY car_name ASC',
+        params: [],
+      })
+      if (carNamesResult.success) {
+        carNames.value = carNamesResult.data
+      }
+    }
   } catch (err) {
     error.value = t('carStockForm.failedToFetchReferenceData')
+  }
+}
+
+const addSupplier = async () => {
+  if (!newSupplier.value.name || newSupplier.value.name.trim() === '') {
+    error.value = t('carStockForm.supplierNameRequired') || 'Supplier name is required'
+    return
+  }
+
+  const result = await callApi({
+    query: `
+      INSERT INTO suppliers (name, contact_info, notes)
+      VALUES (?, ?, ?)
+    `,
+    params: [
+      newSupplier.value.name.trim(),
+      newSupplier.value.contact_info || null,
+      newSupplier.value.notes || null,
+    ],
+  })
+
+  if (result.success) {
+    // Refresh suppliers list
+    const suppliersResult = await callApi({
+      query: 'SELECT id, name FROM suppliers ORDER BY name ASC',
+      params: [],
+    })
+    if (suppliersResult.success) {
+      suppliers.value = suppliersResult.data
+      // Auto-select the newly created supplier
+      formData.value.id_supplier = result.lastInsertId
+    }
+
+    // Reset form and close dialog
+    newSupplier.value = {
+      name: '',
+      contact_info: '',
+      notes: '',
+    }
+    showAddSupplierDialog.value = false
+    error.value = null
+  } else {
+    error.value = result.error || t('carStockForm.failedToAddSupplier') || 'Failed to add supplier'
+  }
+}
+
+const openAddSupplierDialog = () => {
+  newSupplier.value = {
+    name: '',
+    contact_info: '',
+    notes: '',
+  }
+  showAddSupplierDialog.value = true
+}
+
+const closeAddSupplierDialog = () => {
+  showAddSupplierDialog.value = false
+  newSupplier.value = {
+    name: '',
+    contact_info: '',
+    notes: '',
+  }
+}
+
+// Watch for changes in carData prop
+watch(
+  () => props.carData,
+  (newData) => {
+    console.log('Watch carData triggered:', newData, 'newData.id:', newData?.id)
+    // Only update formData if carData has an id (editing existing car)
+    if (newData && newData.id) {
+      // Create a new object with all fields from newData
+      formData.value = {
+        ...newData,
+        // Convert rate to number if it exists, otherwise null
+        rate: newData.rate ? Number(newData.rate) : null,
+        // Convert payment_confirmed from database format (0/1) to boolean
+        payment_confirmed: Boolean(newData.payment_confirmed),
+      }
+
+      // Format dates for input fields
+      const dateFields = [
+        'date_send_documents',
+        'in_wharhouse_date',
+        'date_get_documents_from_supp',
+        'date_get_keys_from_supp',
+      ]
+
+      dateFields.forEach((field) => {
+        if (formData.value[field]) {
+          const date = new Date(formData.value[field])
+          if (!isNaN(date)) {
+            formData.value[field] = date.toISOString().split('T')[0]
+          }
+        }
+      })
+    } else {
+      // If carData is null or has no id, don't overwrite formData (let the show watch handle it)
+      console.log('carData is null or has no id, not overwriting formData')
+    }
+  },
+  { immediate: true },
+)
+
+// Watch for show prop to reset form when opening for new car
+watch(
+  () => props.show,
+  (isVisible) => {
+    console.log(
+      'Watch show triggered:',
+      isVisible,
+      'carData:',
+      props.carData,
+      'carData.id:',
+      props.carData?.id,
+    )
+    // Check if carData is null OR if carData.id is null (new car)
+    if (isVisible && (!props.carData || !props.carData.id)) {
+      // Ensure user is loaded before generating bill_ref
+      if (!user.value) {
+        const userStr = localStorage.getItem('user')
+        if (userStr) {
+          user.value = JSON.parse(userStr)
+        }
+      }
+
+      // Generate bill_ref immediately with current user (or '0' if not loaded yet)
+      const billRef = generateBillRef()
+      console.log('Setting bill_ref in formData:', billRef)
+
+      // Reset form for new car
+      formData.value = {
+        id: null,
+        notes: '',
+        id_buy_details: null,
+        price_cell: null,
+        freight: null,
+        vin: '',
+        path_documents: '',
+        date_send_documents: null,
+        id_sell_pi: '',
+        sell_pi_path: '',
+        buy_pi_path: '',
+        id_sell: null,
+        export_lisence_ref: '',
+        id_warehouse: null,
+        in_wharhouse_date: null,
+        date_get_documents_from_supp: null,
+        date_get_keys_from_supp: null,
+        rate: null,
+        is_used_car: 0,
+        is_big_car: 0,
+        id_color: null,
+        // New fields for buy bill creation
+        id_supplier: null,
+        bill_ref: billRef, // Set bill_ref immediately - will be visible right away
+        pi_path: '',
+        buy_bill_notes: '',
+        id_car_name: null,
+        purchase_price: null,
+        price_sell: null,
+      }
+      console.log('formData.bill_ref after setting:', formData.value.bill_ref)
+      documentsFile.value = null
+      sellPiFile.value = null
+      buyPiFile.value = null
+      piFile.value = null
+
+      // Use nextTick to ensure Vue reactivity updates the input field
+      nextTick(() => {
+        console.log('After nextTick - formData.bill_ref:', formData.value.bill_ref)
+        // Force update if still empty (double-check)
+        if (!formData.value.bill_ref || formData.value.bill_ref === '') {
+          formData.value.bill_ref = generateBillRef()
+          console.log('Regenerated bill_ref in nextTick:', formData.value.bill_ref)
+        }
+      })
+
+      // Fetch reference data for new car (suppliers, car names, colors)
+      fetchReferenceData()
+    }
+  },
+  { immediate: true }, // Run immediately when component mounts
+)
+
+// Watch for user to be loaded and regenerate bill_ref if needed
+watch(
+  () => user.value?.id,
+  (userId) => {
+    if (
+      userId &&
+      props.show &&
+      (!props.carData || !props.carData.id) &&
+      (!formData.value.bill_ref ||
+        formData.value.bill_ref === '' ||
+        !formData.value.bill_ref.includes(`-${userId}`))
+    ) {
+      formData.value.bill_ref = generateBillRef()
+    }
+  },
+)
+
+// Upload PI file for buy bill
+const uploadPiFile = async () => {
+  if (!piFile.value) return null
+
+  try {
+    const date = new Date()
+    const timestamp = date.getTime()
+    const dateStr = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`
+    const timeStr = `${String(date.getHours()).padStart(2, '0')}-${String(date.getMinutes()).padStart(2, '0')}-${String(date.getSeconds()).padStart(2, '0')}`
+
+    const fileExtension = piFile.value.name.split('.').pop().toLowerCase()
+    const supplierName =
+      suppliers.value.find((s) => s.id === formData.value.id_supplier)?.name || 'supplier'
+    const sanitizedSupplierName = supplierName.replace(/[^a-zA-Z0-9]/g, '_')
+    const filename = `pi_purchase_${sanitizedSupplierName}_${dateStr}_${timeStr}_${timestamp}.${fileExtension}`
+
+    const result = await uploadFile(piFile.value, 'purchase_pi', filename)
+    if (result.success) {
+      return `purchase_pi/${filename}`
+    }
+    throw new Error(result.message || 'Upload failed')
+  } catch (err) {
+    console.error('Error uploading PI file:', err)
+    throw err
   }
 }
 
@@ -261,34 +521,125 @@ const saveCar = async () => {
   error.value = null
 
   try {
-    // Handle file uploads first
-    if (documentsFile.value) {
-      formData.value.path_documents = await uploadSingleFile(documentsFile.value, 'documents')
-    }
+    // Determine if this is a new car (INSERT) or existing car (UPDATE)
+    const isNewCar = !formData.value.id
 
-    if (sellPiFile.value) {
-      formData.value.sell_pi_path = await uploadSingleFile(sellPiFile.value, 'sell_pi')
-    }
+    let result
+    if (isNewCar) {
+      // Validate required fields for new car
+      if (!formData.value.id_supplier) {
+        error.value = t('carStockForm.supplierRequired') || 'Supplier is required'
+        loading.value = false
+        return
+      }
+      if (!formData.value.bill_ref || formData.value.bill_ref.trim() === '') {
+        error.value = t('carStockForm.billRefRequired') || 'Bill Reference is required'
+        loading.value = false
+        return
+      }
+      if (!formData.value.id_car_name) {
+        error.value = t('carStockForm.carNameRequired') || 'Car Name is required'
+        loading.value = false
+        return
+      }
+      if (!formData.value.id_color) {
+        error.value = t('carStockForm.colorRequired') || 'Color is required'
+        loading.value = false
+        return
+      }
+      if (!formData.value.purchase_price) {
+        error.value = t('carStockForm.purchasePriceRequired') || 'Purchase Price is required'
+        loading.value = false
+        return
+      }
+      if (!formData.value.price_sell) {
+        error.value = t('carStockForm.priceSellRequired') || 'Price Sell is required'
+        loading.value = false
+        return
+      }
 
-    if (buyPiFile.value) {
-      formData.value.buy_pi_path = await uploadSingleFile(buyPiFile.value, 'buy_pi')
-    }
+      // Step 1: Upload PI file if provided
+      let piPath = null
+      if (piFile.value) {
+        piPath = await uploadPiFile()
+      }
 
-    const result = await callApi({
-      query: `
+      // Step 2: Create buy_bill
+      const buyBillResult = await callApi({
+        query: `
+          INSERT INTO buy_bill (id_supplier, date_buy, bill_ref, pi_path, is_ordered, is_stock_updated, notes)
+          VALUES (?, NOW(), ?, ?, 1, 1, ?)
+        `,
+        params: [
+          formData.value.id_supplier,
+          formData.value.bill_ref.trim(),
+          piPath,
+          formData.value.buy_bill_notes || null,
+        ],
+      })
+
+      if (!buyBillResult.success) {
+        throw new Error(buyBillResult.error || t('carStockForm.failedToCreateBuyBill'))
+      }
+
+      const buyBillId = buyBillResult.lastInsertId
+
+      // Step 3: Create buy_detail
+      const currentDate = new Date()
+      const buyDetailResult = await callApi({
+        query: `
+          INSERT INTO buy_details 
+          (id_car_name, id_color, amount, QTY, year, month, is_used_car, id_buy_bill, price_sell, is_big_car, notes)
+          VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?)
+        `,
+        params: [
+          formData.value.id_car_name,
+          formData.value.id_color,
+          formData.value.purchase_price,
+          currentDate.getFullYear(),
+          currentDate.getMonth() + 1,
+          formData.value.is_used_car || 0,
+          buyBillId,
+          formData.value.price_sell,
+          formData.value.is_big_car || 0,
+          formData.value.notes || null,
+        ],
+      })
+
+      if (!buyDetailResult.success) {
+        throw new Error(buyDetailResult.error || t('carStockForm.failedToCreateBuyDetail'))
+      }
+
+      const buyDetailId = buyDetailResult.lastInsertId
+
+      // Step 4: Create car in cars_stock
+      result = await callApi({
+        query: `
+          INSERT INTO cars_stock
+          (id_buy_details, price_cell, notes, is_used_car, is_big_car, id_color)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `,
+        params: [
+          buyDetailId,
+          formData.value.price_sell,
+          formData.value.notes || null,
+          formData.value.is_used_car || 0,
+          formData.value.is_big_car || 0,
+          formData.value.id_color,
+        ],
+      })
+    } else {
+      // UPDATE existing car
+      result = await callApi({
+        query: `
         UPDATE cars_stock
         SET 
           notes = ?,
           id_buy_details = ?,
-          date_sell = ?,
-          id_client = ?,
           price_cell = ?,
           freight = ?,
-          id_port_loading = ?,
-          id_port_discharge = ?,
           vin = ?,
           path_documents = ?,
-          date_loding = ?,
           date_send_documents = ?,
           id_sell_pi = ?,
           sell_pi_path = ?,
@@ -299,40 +650,36 @@ const saveCar = async () => {
           in_wharhouse_date = ?,
           date_get_documents_from_supp = ?,
           date_get_keys_from_supp = ?,
-          rate = ?,
-          payment_confirmed = ?
+            rate = ?
         WHERE id = ?
       `,
-      params: [
-        formData.value.notes || null,
-        formData.value.id_buy_details || null,
-        formData.value.date_sell || null,
-        formData.value.id_client || null,
-        formData.value.price_cell || null,
-        formData.value.freight || null,
-        formData.value.id_port_loading || null,
-        formData.value.id_port_discharge || null,
-        formData.value.vin || null,
-        formData.value.path_documents || null,
-        formData.value.date_loding || null,
-        formData.value.date_send_documents || null,
-        formData.value.id_sell_pi || null,
-        formData.value.sell_pi_path || null,
-        formData.value.buy_pi_path || null,
-        formData.value.id_sell || null,
-        formData.value.export_lisence_ref || null,
-        formData.value.id_warehouse || null,
-        formData.value.in_wharhouse_date || null,
-        formData.value.date_get_documents_from_supp || null,
-        formData.value.date_get_keys_from_supp || null,
-        formData.value.rate || null,
-        can_confirm_payment.value && formData.value.payment_confirmed ? 1 : 0,
-        formData.value.id,
-      ],
-    })
+        params: [
+          formData.value.notes || null,
+          formData.value.id_buy_details || null,
+          formData.value.price_cell || null,
+          formData.value.freight || null,
+          formData.value.vin || null,
+          formData.value.path_documents || null,
+          formData.value.date_send_documents || null,
+          formData.value.id_sell_pi || null,
+          formData.value.sell_pi_path || null,
+          formData.value.buy_pi_path || null,
+          formData.value.id_sell || null,
+          formData.value.export_lisence_ref || null,
+          formData.value.id_warehouse || null,
+          formData.value.in_wharhouse_date || null,
+          formData.value.date_get_documents_from_supp || null,
+          formData.value.date_get_keys_from_supp || null,
+          formData.value.rate || null,
+          formData.value.id,
+        ],
+      })
+    }
 
     if (result.success) {
-      emit('save')
+      // Emit the car ID if it's a new car, or the existing ID for updates
+      const carId = isNewCar ? result.lastInsertId : formData.value.id
+      emit('save', carId)
     } else {
       throw new Error(result.error || t('carStockForm.failedToSaveCar'))
     }
@@ -350,6 +697,15 @@ onMounted(() => {
     user.value = JSON.parse(userStr)
   }
   fetchReferenceData()
+
+  // If form is already visible for new car, regenerate bill_ref with user ID
+  if (
+    props.show &&
+    (!props.carData || !props.carData.id) &&
+    (!formData.value.bill_ref || formData.value.bill_ref === '')
+  ) {
+    formData.value.bill_ref = generateBillRef()
+  }
 })
 </script>
 
@@ -358,16 +714,92 @@ onMounted(() => {
     <h3>{{ formData.id ? t('carStockForm.editCarStock') : t('carStockForm.addCarStock') }}</h3>
 
     <div class="form-grid">
+      <!-- Buy Bill Information (only for new cars) -->
+      <div v-if="!formData.id" class="form-section">
+        <h4>{{ t('carStockForm.buyBillInformation') || 'Buy Bill Information' }}</h4>
+
+        <div class="form-group">
+          <label for="id_supplier"
+            >{{ t('carStockForm.supplier') || 'Supplier' }} <span class="required">*</span>:</label
+          >
+          <div class="input-with-button">
+            <select id="id_supplier" v-model="formData.id_supplier" required>
+              <option value="">{{ t('carStockForm.selectSupplier') || 'Select Supplier' }}</option>
+              <option v-for="supplier in suppliers" :key="supplier.id" :value="supplier.id">
+                {{ supplier.name }}
+              </option>
+            </select>
+            <button
+              type="button"
+              @click="openAddSupplierDialog"
+              class="btn-add-supplier"
+              title="Add New Supplier"
+            >
+              <i class="fas fa-plus"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="bill_ref"
+            >{{ t('carStockForm.billReference') || 'Bill Reference' }}
+            <span class="required">*</span>:</label
+          >
+          <input
+            type="text"
+            id="bill_ref"
+            v-model="formData.bill_ref"
+            required
+            :placeholder="t('carStockForm.billRefPlaceholder') || 'Bill Reference'"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="pi_file"
+            >{{ t('carStockForm.piDocument') || 'PI Document' }} ({{
+              t('carStockForm.pdfOrImage') || 'PDF or Image'
+            }}):</label
+          >
+          <input
+            type="file"
+            id="pi_file"
+            @change="handleFileChange($event, 'pi')"
+            accept=".pdf,.jpg,.jpeg,.png,.gif,.webp"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="buy_bill_notes"
+            >{{ t('carStockForm.buyBillNotes') || 'Buy Bill Notes' }}:</label
+          >
+          <textarea id="buy_bill_notes" v-model="formData.buy_bill_notes"></textarea>
+        </div>
+      </div>
+
       <!-- Basic Information -->
       <div class="form-section">
         <h4>{{ t('carStockForm.basicInformation') }}</h4>
+
+        <!-- Car Name dropdown (only for new cars) -->
+        <div v-if="!formData.id" class="form-group">
+          <label for="id_car_name"
+            >{{ t('carStockForm.carName') || 'Car Name' }} <span class="required">*</span>:</label
+          >
+          <select id="id_car_name" v-model="formData.id_car_name" required>
+            <option value="">{{ t('carStockForm.selectCarName') || 'Select Car Name' }}</option>
+            <option v-for="carName in carNames" :key="carName.id" :value="carName.id">
+              {{ carName.car_name }}
+            </option>
+          </select>
+        </div>
 
         <div class="form-group">
           <label for="vin">{{ t('carStockForm.vin') }}:</label>
           <input :disabled="!can_edit_vin" type="text" id="vin" v-model="formData.vin" />
         </div>
 
-        <div class="form-group">
+        <!-- Buy Details dropdown (only for existing cars) -->
+        <div v-if="formData.id" class="form-group">
           <label for="id_buy_details">{{ t('carStockForm.buyDetails') }}:</label>
           <select id="id_buy_details" v-model="formData.id_buy_details">
             <option value="">{{ t('carStockForm.selectBuyDetails') }}</option>
@@ -378,8 +810,33 @@ onMounted(() => {
         </div>
 
         <div class="form-group">
+          <label for="id_color"
+            >{{ t('carStockForm.color') || 'Color' }} <span class="required">*</span>:</label
+          >
+          <select id="id_color" v-model="formData.id_color" required>
+            <option value="">{{ t('carStockForm.selectColor') || 'Select Color' }}</option>
+            <option v-for="color in colors" :key="color.id" :value="color.id">
+              {{ color.color }}
+            </option>
+          </select>
+        </div>
+
+        <div class="form-group">
           <label for="notes">{{ t('carStockForm.notes') }}:</label>
           <textarea id="notes" v-model="formData.notes"></textarea>
+        </div>
+
+        <div class="form-group">
+          <input
+            type="checkbox"
+            id="is_big_car"
+            v-model="formData.is_big_car"
+            :true-value="1"
+            :false-value="0"
+          />
+          <label for="is_big_car" class="checkbox-label">{{
+            t('carStockForm.bigCar') || 'Big Car'
+          }}</label>
         </div>
       </div>
 
@@ -387,7 +844,32 @@ onMounted(() => {
       <div class="form-section">
         <h4>{{ t('carStockForm.pricingAndClient') }}</h4>
 
-        <div class="form-group">
+        <!-- Purchase Price (only for new cars) -->
+        <div v-if="!formData.id" class="form-group">
+          <label for="purchase_price"
+            >{{ t('carStockForm.purchasePrice') || 'Purchase Price' }}
+            <span class="required">*</span>:</label
+          >
+          <input
+            type="number"
+            id="purchase_price"
+            v-model="formData.purchase_price"
+            step="0.01"
+            required
+          />
+        </div>
+
+        <!-- Price Sell (only for new cars) -->
+        <div v-if="!formData.id" class="form-group">
+          <label for="price_sell"
+            >{{ t('carStockForm.priceSell') || 'Price Sell' }}
+            <span class="required">*</span>:</label
+          >
+          <input type="number" id="price_sell" v-model="formData.price_sell" step="0.01" required />
+        </div>
+
+        <!-- Price Cell (only for existing cars) -->
+        <div v-if="formData.id" class="form-group">
           <label for="price_cell">{{ t('carStockForm.priceCell') }}:</label>
           <input
             :disabled="!can_edit_cars_sell_price"
@@ -396,148 +878,6 @@ onMounted(() => {
             v-model="formData.price_cell"
             step="0.01"
           />
-        </div>
-
-        <div class="form-group">
-          <label for="freight">{{ t('carStockForm.freight') }}:</label>
-          <input type="number" id="freight" v-model="formData.freight" step="0.01" />
-        </div>
-
-        <div class="form-group">
-          <label for="rate">{{ t('carStockForm.rate') }}:</label>
-          <input
-            :disabled="!can_edit_cars_sell_rate"
-            type="number"
-            id="rate"
-            v-model="formData.rate"
-            step="0.01"
-          />
-        </div>
-
-        <div v-if="can_confirm_payment" class="form-group">
-          <input
-            type="checkbox"
-            id="payment_confirmed"
-            v-model="formData.payment_confirmed"
-          />
-          <label for="payment_confirmed" class="checkbox-label">{{ t('carStock.payment_confirmed') }}</label>
-        </div>
-
-        <div class="form-group">
-          <label for="id_client">{{ t('carStockForm.client') }}:</label>
-          <select :disabled="!can_edit_car_client_name" id="id_client" v-model="formData.id_client">
-            <option value="">{{ t('carStockForm.selectClient') }}</option>
-            <option v-for="client in clients" :key="client.id" :value="client.id">
-              {{ client.name }}
-            </option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label for="date_sell">{{ t('carStockForm.sellDate') }}:</label>
-          <input type="date" id="date_sell" v-model="formData.date_sell" />
-        </div>
-      </div>
-
-      <!-- Ports and Shipping -->
-      <div class="form-section">
-        <h4>{{ t('carStockForm.portsAndShipping') }}</h4>
-
-        <div class="form-group">
-          <label for="id_port_loading">{{ t('carStockForm.loadingPort') }}:</label>
-          <select id="id_port_loading" v-model="formData.id_port_loading">
-            <option value="">{{ t('carStockForm.selectLoadingPort') }}</option>
-            <option v-for="port in loadingPorts" :key="port.id" :value="port.id">
-              {{ port.loading_port }}
-            </option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label for="id_port_discharge">{{ t('carStockForm.dischargePort') }}:</label>
-          <select
-            :disabled="!can_edit_cars_discharge_port"
-            id="id_port_discharge"
-            v-model="formData.id_port_discharge"
-          >
-            <option value="">{{ t('carStockForm.selectDischargePort') }}</option>
-            <option v-for="port in dischargePorts" :key="port.id" :value="port.id">
-              {{ port.discharge_port }}
-            </option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label for="date_loding">{{ t('carStockForm.operationDate') }}:</label>
-          <input type="date" id="date_loding" v-model="formData.date_loding" />
-        </div>
-
-        <div class="form-group">
-          <label for="export_lisence_ref">{{ t('carStockForm.exportLicenseRef') }}:</label>
-          <input type="text" id="export_lisence_ref" v-model="formData.export_lisence_ref" />
-        </div>
-      </div>
-
-      <!-- Documents Upload -->
-      <div class="form-group">
-        <label>{{ t('carStockForm.documents') }}:</label>
-        <div class="file-upload-container">
-          <input
-            type="file"
-            @change="handleFileChange($event, 'documents')"
-            accept=".pdf"
-            class="file-input"
-          />
-          <a
-            v-if="formData.path_documents"
-            :href="getFileUrl(formData.path_documents)"
-            target="_blank"
-            class="current-file-link"
-          >
-            {{ t('carStockForm.viewCurrentDocument') }}
-          </a>
-        </div>
-      </div>
-
-      <!-- Sell PI Upload -->
-      <div class="form-group">
-        <label>{{ t('carStockForm.sellPi') }}:</label>
-        <div class="file-upload-container">
-          <input
-            type="file"
-            @change="handleFileChange($event, 'sellPi')"
-            accept=".pdf"
-            class="file-input"
-          />
-          <a
-            v-if="formData.sell_pi_path"
-            :href="getFileUrl(formData.sell_pi_path)"
-            target="_blank"
-            class="current-file-link"
-          >
-            {{ t('carStockForm.viewSellPi') }}
-          </a>
-        </div>
-      </div>
-
-      <!-- Buy PI Upload -->
-      <div class="form-group">
-        <label>{{ t('carStockForm.buyPi') }}:</label>
-        <div class="file-upload-container">
-          <input
-            type="file"
-            @change="handleFileChange($event, 'buyPi')"
-            accept=".pdf"
-            class="file-input"
-          />
-          <a
-            v-if="formData.buy_pi_path"
-            :href="getFileUrl(formData.buy_pi_path)"
-            target="_blank"
-            class="current-file-link"
-          >
-            {{ t('carStockForm.viewBuyPi') }}
-          </a>
         </div>
       </div>
     </div>
@@ -553,6 +893,63 @@ onMounted(() => {
 
     <div v-if="error" class="error-message">{{ error }}</div>
   </div>
+
+  <!-- Add Supplier Dialog -->
+  <Teleport to="body">
+    <div v-if="showAddSupplierDialog" class="dialog-overlay" @click.self="closeAddSupplierDialog">
+      <div class="dialog">
+        <div class="dialog-header">
+          <h3>{{ t('carStockForm.addSupplier') || 'Add New Supplier' }}</h3>
+          <button @click="closeAddSupplierDialog" class="dialog-close-btn">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="dialog-body">
+          <div class="form-group">
+            <label for="supplier_name"
+              >{{ t('carStockForm.supplierName') || 'Name' }}
+              <span class="required">*</span>:</label
+            >
+            <input
+              id="supplier_name"
+              v-model="newSupplier.name"
+              type="text"
+              :placeholder="t('carStockForm.supplierNamePlaceholder') || 'Supplier Name'"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label for="supplier_contact_info"
+              >{{ t('carStockForm.contactInfo') || 'Contact Information' }}:</label
+            >
+            <textarea
+              id="supplier_contact_info"
+              v-model="newSupplier.contact_info"
+              :placeholder="t('carStockForm.contactInfoPlaceholder') || 'Contact Information'"
+              rows="3"
+            ></textarea>
+          </div>
+          <div class="form-group">
+            <label for="supplier_notes">{{ t('carStockForm.notes') || 'Notes' }}:</label>
+            <textarea
+              id="supplier_notes"
+              v-model="newSupplier.notes"
+              :placeholder="t('carStockForm.notesPlaceholder') || 'Notes'"
+              rows="3"
+            ></textarea>
+          </div>
+        </div>
+        <div class="dialog-actions">
+          <button @click="addSupplier" class="btn save-btn">
+            {{ t('carStockForm.save') || 'Save' }}
+          </button>
+          <button @click="closeAddSupplierDialog" class="btn cancel-btn">
+            {{ t('carStockForm.cancel') || 'Cancel' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 </template>
 
 <style scoped>
@@ -683,5 +1080,101 @@ onMounted(() => {
   color: #ef4444;
   margin-top: 16px;
   font-size: 0.9em;
+}
+
+.input-with-button {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.input-with-button select {
+  flex: 1;
+}
+
+.btn-add-supplier {
+  background-color: #10b981;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  height: 38px;
+}
+
+.btn-add-supplier:hover {
+  background-color: #059669;
+}
+
+.dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3000;
+}
+
+.dialog {
+  background: white;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+.dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.dialog-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.dialog-close-btn {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: #6b7280;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dialog-close-btn:hover {
+  color: #374151;
+}
+
+.dialog-body {
+  padding: 20px;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 20px;
+  border-top: 1px solid #e5e7eb;
 }
 </style>

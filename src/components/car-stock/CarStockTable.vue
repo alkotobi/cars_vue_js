@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, computed, watch, onUnmounted, nextTick } from 'vue'
+import { ref, reactive, onMounted, computed, watch, onUnmounted, nextTick } from 'vue'
 import { useEnhancedI18n } from '@/composables/useI18n'
 import { useApi } from '../../composables/useApi'
 import VinEditForm from './VinEditForm.vue'
@@ -27,6 +27,7 @@ import ShowSelectionsModal from './ShowSelectionsModal.vue'
 import NotesTable from '../shared/NotesTable.vue'
 import NotesManagementModal from '../shared/NotesManagementModal.vue'
 import CarUpgradesModal from '../shared/CarUpgradesModal.vue'
+import CarStockForm from './CarStockForm.vue'
 
 import { useRouter } from 'vue-router'
 
@@ -883,6 +884,69 @@ const getFreightValue = (car) => {
   }
 
   return 0
+}
+
+// Store upgrades status for each car (carId -> {hasUpgrades: boolean, allDone: boolean})
+// Using a reactive object instead of Map for better Vue reactivity
+const carUpgradesStatus = reactive({})
+
+// Fetch upgrades status for all cars
+const fetchCarsUpgradesStatus = async (carIds) => {
+  if (!carIds || carIds.length === 0) {
+    // Clear all properties
+    Object.keys(carUpgradesStatus).forEach((key) => delete carUpgradesStatus[key])
+    return
+  }
+
+  try {
+    const result = await callApi({
+      query: `
+        SELECT 
+          ca.id_car,
+          COUNT(*) as total_upgrades,
+          SUM(CASE WHEN ca.date_done IS NOT NULL THEN 1 ELSE 0 END) as done_upgrades
+        FROM car_apgrades ca
+        WHERE ca.id_car IN (${carIds.map(() => '?').join(',')})
+        GROUP BY ca.id_car
+      `,
+      params: carIds,
+    })
+
+    if (result.success) {
+      // Clear existing status
+      Object.keys(carUpgradesStatus).forEach((key) => delete carUpgradesStatus[key])
+
+      if (result.data && result.data.length > 0) {
+        result.data.forEach((row) => {
+          const total = parseInt(row.total_upgrades) || 0
+          const done = parseInt(row.done_upgrades) || 0
+          // Ensure car ID is stored as number for consistent comparison
+          const carId = parseInt(row.id_car) || row.id_car
+          carUpgradesStatus[carId] = {
+            hasUpgrades: total > 0,
+            allDone: total > 0 && done === total,
+          }
+        })
+      }
+      const entries = Object.entries(carUpgradesStatus)
+      console.log('Upgrades status updated:', entries)
+      console.log('Status object keys:', Object.keys(carUpgradesStatus))
+      entries.forEach(([carId, status]) => {
+        console.log(`Car ${carId}: hasUpgrades=${status.hasUpgrades}, allDone=${status.allDone}`)
+      })
+    }
+  } catch (err) {
+    console.error('Error fetching cars upgrades status:', err)
+    Object.keys(carUpgradesStatus).forEach((key) => delete carUpgradesStatus[key])
+  }
+}
+
+// Get upgrades status for a car
+const getCarUpgradesStatus = (carId) => {
+  // Ensure carId is a number for consistent comparison
+  const id = typeof carId === 'number' ? carId : parseInt(carId) || carId
+  const status = carUpgradesStatus[id] || { hasUpgrades: false, allDone: false }
+  return status
 }
 
 // Fetch file counts and missing required status for all cars (efficient single query)
@@ -2047,6 +2111,20 @@ const handleUpgradesAction = async (car) => {
 const closeUpgradesModal = () => {
   showUpgradesModal.value = false
   selectedCarForUpgrades.value = null
+  // Refresh upgrades status for all cars after closing modal
+  const carIds = cars.value.map((car) => car.id)
+  if (carIds.length > 0) {
+    fetchCarsUpgradesStatus(carIds)
+  }
+}
+
+// Handle upgrade added event
+const handleUpgradeAdded = () => {
+  // Refresh upgrades status for all cars when upgrade is added
+  const carIds = cars.value.map((car) => car.id)
+  if (carIds.length > 0) {
+    fetchCarsUpgradesStatus(carIds)
+  }
 }
 
 // Helper function to parse notes (car or sell bill)
@@ -2239,8 +2317,29 @@ const handleMarkUpgradesDoneFromToolbar = async () => {
     return
   }
 
-  if (!confirm(t('carUpgradesBulkAdd.confirm_mark_all_done') || `Mark all pending upgrades as done for ${selectedCars.value.size} selected car(s)?`)) {
+  if (
+    !confirm(
+      t('carUpgradesBulkAdd.confirm_mark_all_done') ||
+        `Mark all pending upgrades as done for ${selectedCars.value.size} selected car(s)?`,
+    )
+  ) {
     return
+  }
+
+  // Placeholder handlers for new car dropdown buttons
+  const handleNewCarShippingOnly = () => {
+    // TODO: Implement shipping only car creation
+    console.log('New Car - Shipping Only clicked')
+  }
+
+  const handleNewCarUsed = () => {
+    // TODO: Implement used car creation
+    console.log('New Car - Used Car clicked')
+  }
+
+  const handleNewCarNew = () => {
+    // TODO: Implement new car creation
+    console.log('New Car - New Car clicked')
   }
 
   try {
@@ -2263,17 +2362,188 @@ const handleMarkUpgradesDoneFromToolbar = async () => {
       // Refresh the cars list
       await fetchCarsStock()
     } else {
-      alert(result.error || t('carUpgradesBulkAdd.failed_to_mark_done') || 'Failed to mark upgrades as done')
+      alert(
+        result.error ||
+          t('carUpgradesBulkAdd.failed_to_mark_done') ||
+          'Failed to mark upgrades as done',
+      )
     }
   } catch (err) {
     console.error('Error marking upgrades as done:', err)
-    alert(err.message || t('carUpgradesBulkAdd.error_marking_done') || 'Error marking upgrades as done')
+    alert(
+      err.message || t('carUpgradesBulkAdd.error_marking_done') || 'Error marking upgrades as done',
+    )
   }
 }
 
 const handleUpgradesBulkAddSave = () => {
   // Refresh the cars list after adding upgrades
   fetchCarsStock()
+}
+
+// New car form state
+const showNewCarForm = ref(false)
+const newCarData = ref(null)
+
+// Handlers for new car dropdown buttons
+const handleNewCarShippingOnly = () => {
+  newCarData.value = {
+    id: null,
+    is_used_car: 0,
+    is_big_car: 0,
+    id_color: null,
+  }
+  showNewCarForm.value = true
+}
+
+const handleNewCarUsed = () => {
+  newCarData.value = {
+    id: null,
+    is_used_car: 1,
+    is_big_car: 0,
+    id_color: null,
+  }
+  showNewCarForm.value = true
+}
+
+const handleNewCarNew = () => {
+  newCarData.value = {
+    id: null,
+    is_used_car: 0,
+    is_big_car: 0,
+    id_color: null,
+  }
+  showNewCarForm.value = true
+}
+
+// Function to fetch a single car by ID and add it to the local state
+const fetchSingleCar = async (carId) => {
+  try {
+    const result = await callApi({
+      query: `
+        SELECT 
+          cs.id,
+          cs.vin,
+          cs.price_cell,
+          cs.cfr_da,
+          cs.date_loding,
+          sb.date_sell,
+          sb.date_sell as sell_bill_date,
+          cs.notes,
+          sb.notes as sell_bill_notes,
+          cs.freight,
+          cs.path_documents,
+          cs.sell_pi_path,
+          cs.buy_pi_path,
+          cs.path_coo,
+          cs.path_coc,
+          cs.id_client,
+          cs.id_port_loading,
+          cs.id_port_discharge,
+          cs.id_buy_details,
+          cs.date_send_documents,
+          cs.id_sell_pi,
+          cs.id_sell,
+          cs.export_lisence_ref,
+          cs.id_warehouse,
+          cs.in_wharhouse_date,
+          cs.date_get_documents_from_supp,
+          cs.date_get_keys_from_supp,
+          cs.rate,
+          cs.date_get_bl,
+          cs.date_pay_freight,
+          cs.is_batch,
+          cs.hidden,
+          cs.hidden_by_user_id,
+          cs.hidden_time_stamp,
+          hu.username as hidden_by_username,
+          c.name as client_name,
+          cn.car_name,
+          clr.color,
+          clr.hexa,
+          lp.loading_port,
+          dp.discharge_port,
+          bd.price_sell as buy_price,
+          bb.id as buy_bill_id,
+          bb.date_buy,
+          w.warhouse_name as warehouse_name,
+          bb.bill_ref as buy_bill_ref,
+          sb.bill_ref as sell_bill_ref,
+          sb.is_batch_sell,
+          cs.is_used_car,
+          cs.is_big_car,
+          c.id_no as client_id_no,
+          c.id_copy_path as client_id_picture,
+          cs.container_ref,
+          cs.id_color as car_id_color,
+          CASE 
+            WHEN cs.id_sell IS NOT NULL THEN 'Sold'
+            ELSE 'Available'
+          END as status
+        FROM cars_stock cs
+        LEFT JOIN clients c ON cs.id_client = c.id
+        LEFT JOIN buy_details bd ON cs.id_buy_details = bd.id
+        LEFT JOIN buy_bill bb ON bd.id_buy_bill = bb.id
+        LEFT JOIN sell_bill sb ON cs.id_sell = sb.id
+        LEFT JOIN cars_names cn ON bd.id_car_name = cn.id
+        LEFT JOIN colors clr ON cs.id_color = clr.id
+        LEFT JOIN loading_ports lp ON cs.id_port_loading = lp.id
+        LEFT JOIN discharge_ports dp ON cs.id_port_discharge = dp.id
+        LEFT JOIN warehouses w ON cs.id_warehouse = w.id
+        LEFT JOIN users hu ON cs.hidden_by_user_id = hu.id
+        WHERE cs.id = ?
+      `,
+      params: [carId],
+    })
+
+    if (result.success && result.data && result.data.length > 0) {
+      const car = result.data[0]
+      // Format notes display
+      const notesDisplay = formatNotesDisplay(car.notes, car.sell_bill_notes || null)
+      
+      const carData = {
+        ...car,
+        payment_confirmed: car.payment_confirmed !== undefined ? car.payment_confirmed : 0,
+        notesDisplay: notesDisplay,
+      }
+
+      // Add to allCars if not already present
+      if (allCars.value && !allCars.value.find((c) => c.id === carData.id)) {
+        allCars.value.push(carData)
+      }
+
+      // Fetch file count and upgrades status for the new car
+      fetchCarFilesCounts([carData.id])
+      fetchCarsUpgradesStatus([carData.id]).catch((err) => {
+        console.error('Error fetching upgrades status:', err)
+      })
+
+      // Trigger fetchCarsStock to update the filtered view
+      fetchCarsStock()
+    }
+  } catch (err) {
+    console.error('Error fetching single car:', err)
+    // Fallback to full refresh if single fetch fails
+    fetchCarsStock()
+  }
+}
+
+const handleNewCarFormSave = async (carId) => {
+  showNewCarForm.value = false
+  newCarData.value = null
+  
+  // If carId is provided, fetch and add the new car to local state
+  if (carId) {
+    await fetchSingleCar(carId)
+  } else {
+    // Fallback to full refresh if no carId provided
+    fetchCarsStock()
+  }
+}
+
+const handleNewCarFormCancel = () => {
+  showNewCarForm.value = false
+  newCarData.value = null
 }
 
 const handleNotesBulkSave = async (updatedCars) => {
@@ -2338,6 +2608,13 @@ const can_hide_car = computed(() => {
   if (!user.value) return false
   if (user.value.role_id === 1) return true
   return user.value.permissions?.some((p) => p.permission_name === 'can_hide_car')
+})
+
+// Add computed property for purchase cars permission
+const can_purchase_cars = computed(() => {
+  if (!user.value) return false
+  if (user.value.role_id === 1) return true
+  return user.value.permissions?.some((p) => p.permission_name === 'can_purchase_cars')
 })
 
 const showExportLicenseBulkEditForm = ref(false)
@@ -2555,6 +2832,11 @@ const loadInitialCarsData = async () => {
       const carIds = carsData.map((car) => car.id)
       if (carIds.length > 0) {
         fetchCarFilesCounts(carIds)
+        // Fetch upgrades status for all cars (non-blocking)
+        fetchCarsUpgradesStatus(carIds).catch((err) => {
+          console.error('Error fetching upgrades status:', err)
+        })
+        console.log('Fetching upgrades status for cars:', carIds)
       }
 
       // Temporary debug - remove after fixing
@@ -3854,6 +4136,7 @@ const closeBatchCheckoutModal = () => {
         :total-cars="sortedCars.length"
         :can-change-color="can_change_car_color"
         :can-hide-car="can_hide_car"
+        :can-purchase-cars="can_purchase_cars"
         :is-admin="user?.role_id === 1"
         :is-combine-mode="isCombineMode"
         @print-selected="handlePrintSelected"
@@ -3880,6 +4163,9 @@ const closeBatchCheckoutModal = () => {
         @checkout="handleCheckout"
         @add-upgrades="handleAddUpgradesFromToolbar"
         @mark-upgrades-done="handleMarkUpgradesDoneFromToolbar"
+        @new-car-shipping-only="handleNewCarShippingOnly"
+        @new-car-used="handleNewCarUsed"
+        @new-car-new="handleNewCarNew"
       />
 
       <div class="table-container" :class="{ 'processing-combine': isProcessing.combine }">
@@ -4165,6 +4451,21 @@ const closeBatchCheckoutModal = () => {
                       {{ car.id_sell ? t('carStock.sold') : t('carStock.available') }}
                       {{ car.is_used_car ? `(${t('carStock.used')})` : '' }}
                     </span>
+                    <!-- Upgrades status icon -->
+                    <i
+                      v-if="getCarUpgradesStatus(car.id)?.hasUpgrades"
+                      :class="[
+                        'fas fa-wrench upgrades-status-icon',
+                        getCarUpgradesStatus(car.id)?.allDone
+                          ? 'upgrades-all-done'
+                          : 'upgrades-pending',
+                      ]"
+                      :title="
+                        getCarUpgradesStatus(car.id)?.allDone
+                          ? t('carStock.all_upgrades_done') || 'All upgrades completed'
+                          : t('carStock.upgrades_pending') || 'Some upgrades pending'
+                      "
+                    ></i>
                     <i
                       v-if="car.hidden"
                       class="fas fa-eye-slash hidden-icon"
@@ -4431,9 +4732,7 @@ const closeBatchCheckoutModal = () => {
                   </button>
                 </li>
                 <li>
-                  <button
-                    @click="handleUpgradesAction(car)"
-                  >
+                  <button @click="handleUpgradesAction(car)">
                     <i class="fas fa-wrench"></i>
                     <span>{{ t('carStock.upgrades') || 'Upgrades' }}</span>
                   </button>
@@ -4832,9 +5131,7 @@ const closeBatchCheckoutModal = () => {
           </button>
         </li>
         <li>
-          <button
-            @click="handleUpgradesAction(getCarById(teleportDropdown.carId))"
-          >
+          <button @click="handleUpgradesAction(getCarById(teleportDropdown.carId))">
             <i class="fas fa-wrench"></i>
             <span>{{ t('carStock.upgrades') || 'Upgrades' }}</span>
           </button>
@@ -4875,10 +5172,40 @@ const closeBatchCheckoutModal = () => {
   <CarUpgradesModal
     :show="showUpgradesModal"
     :carId="selectedCarForUpgrades?.id"
-    :title="selectedCarForUpgrades ? `${t('carStock.upgrades') || 'Upgrades'} - Car #${selectedCarForUpgrades.id}` : ''"
+    :title="
+      selectedCarForUpgrades
+        ? `${t('carStock.upgrades') || 'Upgrades'} - Car #${selectedCarForUpgrades.id}`
+        : ''
+    "
     :users="allUsers"
     @close="closeUpgradesModal"
+    @upgrade-added="handleUpgradeAdded"
   />
+
+  <!-- New Car Form Modal -->
+  <teleport to="body">
+    <div v-if="showNewCarForm" class="modal-overlay" @click.self="handleNewCarFormCancel">
+      <div class="modal-container" @click.stop>
+        <div class="modal-header">
+          <h3>
+            <i class="fas fa-plus-circle"></i>
+            {{ t('carStockForm.addCarStock') || 'Add New Car' }}
+          </h3>
+          <button @click="handleNewCarFormCancel" class="close-btn" type="button">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="modal-content">
+          <CarStockForm
+            :carData="newCarData"
+            :show="showNewCarForm"
+            @save="handleNewCarFormSave"
+            @cancel="handleNewCarFormCancel"
+          />
+        </div>
+      </div>
+    </div>
+  </teleport>
 
   <!-- VIN Assignment Modal -->
   <VinAssignmentModal
@@ -6413,16 +6740,59 @@ const closeBatchCheckoutModal = () => {
   justify-content: center;
   z-index: 2000;
 }
-.modal-content {
+
+.modal-container {
   background: #fff;
   border-radius: 8px;
-  padding: 24px;
   min-width: 320px;
   max-width: 90vw;
+  max-height: 90vh;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.18);
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  overflow: hidden;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e5e7eb;
+  flex-shrink: 0;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1f2937;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modal-header .close-btn {
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.modal-header .close-btn:hover {
+  background-color: #f3f4f6;
+  color: #374151;
+}
+
+.modal-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+  min-height: 0;
 }
 .notes-textarea {
   width: 100%;
@@ -6506,6 +6876,24 @@ const closeBatchCheckoutModal = () => {
 
 .hidden-icon:hover {
   color: #dc2626;
+  transform: scale(1.1);
+}
+
+.upgrades-status-icon {
+  font-size: 14px;
+  cursor: help;
+  margin-left: 8px;
+}
+
+.upgrades-status-icon.upgrades-all-done {
+  color: #10b981;
+}
+
+.upgrades-status-icon.upgrades-pending {
+  color: #ef4444;
+}
+
+.upgrades-status-icon:hover {
   transform: scale(1.1);
 }
 

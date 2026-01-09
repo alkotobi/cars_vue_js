@@ -9,6 +9,7 @@ const isCombineDropdownOpen = ref(false)
 const isSelectionsDropdownOpen = ref(false)
 const isDocumentsDropdownOpen = ref(false)
 const isUpgradesDropdownOpen = ref(false)
+const isNewCarDropdownOpen = ref(false)
 
 const toggleCombineDropdown = () => {
   isCombineDropdownOpen.value = !isCombineDropdownOpen.value
@@ -53,11 +54,26 @@ const toggleUpgradesDropdown = () => {
     isCombineDropdownOpen.value = false
     isSelectionsDropdownOpen.value = false
     isDocumentsDropdownOpen.value = false
+    isNewCarDropdownOpen.value = false
   }
 }
 
 const closeUpgradesDropdown = () => {
   isUpgradesDropdownOpen.value = false
+}
+
+const toggleNewCarDropdown = () => {
+  isNewCarDropdownOpen.value = !isNewCarDropdownOpen.value
+  if (isNewCarDropdownOpen.value) {
+    isCombineDropdownOpen.value = false
+    isSelectionsDropdownOpen.value = false
+    isDocumentsDropdownOpen.value = false
+    isUpgradesDropdownOpen.value = false
+  }
+}
+
+const closeNewCarDropdown = () => {
+  isNewCarDropdownOpen.value = false
 }
 
 const handleCombineByBuyRef = () => {
@@ -89,6 +105,9 @@ const handleClickOutside = (event) => {
   if (!event.target.closest('.upgrades-dropdown')) {
     closeUpgradesDropdown()
   }
+  if (!event.target.closest('.new-car-dropdown')) {
+    closeNewCarDropdown()
+  }
 }
 
 onMounted(() => {
@@ -113,6 +132,10 @@ const props = defineProps({
     default: false,
   },
   canHideCar: {
+    type: Boolean,
+    default: false,
+  },
+  canPurchaseCars: {
     type: Boolean,
     default: false,
   },
@@ -149,6 +172,9 @@ const emit = defineEmits([
   'checkout',
   'add-upgrades',
   'mark-upgrades-done',
+  'new-car-shipping-only',
+  'new-car-used',
+  'new-car-new',
 ])
 </script>
 
@@ -472,6 +498,45 @@ const emit = defineEmits([
           >
             <i class="fas fa-check"></i>
             <span>{{ t('carStockToolbar.make_upgrade_done') || 'Make Upgrade Done' }}</span>
+          </button>
+        </div>
+      </div>
+
+      <div v-if="isAdmin || canPurchaseCars" class="new-car-dropdown">
+        <button
+          @click="toggleNewCarDropdown"
+          class="new-car-dropdown-toggle"
+          :title="t('carStockToolbar.new_car')"
+        >
+          <i class="fas fa-plus-circle"></i>
+          <span>{{ t('carStockToolbar.new_car') || 'New Car' }}</span>
+          <i class="fas fa-chevron-down dropdown-arrow" :class="{ rotated: isNewCarDropdownOpen }"></i>
+        </button>
+
+        <div v-if="isNewCarDropdownOpen" class="new-car-dropdown-menu">
+          <button
+            @click="$emit('new-car-shipping-only'); closeNewCarDropdown()"
+            class="new-car-dropdown-item"
+            :title="t('carStockToolbar.shipping_only')"
+          >
+            <i class="fas fa-shipping-fast"></i>
+            <span>{{ t('carStockToolbar.shipping_only') || 'Shipping Only' }}</span>
+          </button>
+          <button
+            @click="$emit('new-car-used'); closeNewCarDropdown()"
+            class="new-car-dropdown-item"
+            :title="t('carStockToolbar.used_car')"
+          >
+            <i class="fas fa-history"></i>
+            <span>{{ t('carStockToolbar.used_car') || 'Used Car' }}</span>
+          </button>
+          <button
+            @click="$emit('new-car-new'); closeNewCarDropdown()"
+            class="new-car-dropdown-item"
+            :title="t('carStockToolbar.new_car')"
+          >
+            <i class="fas fa-car"></i>
+            <span>{{ t('carStockToolbar.new_car') || 'New Car' }}</span>
           </button>
         </div>
       </div>
@@ -1371,5 +1436,123 @@ const emit = defineEmits([
   .upgrades-dropdown-toggle i:first-child {
     margin-right: 0;
   }
+
+  .new-car-dropdown-menu {
+    right: auto;
+    left: 0;
+    min-width: 180px;
+  }
+
+  .new-car-dropdown-toggle {
+    min-width: 80px;
+    padding: 10px 12px;
+  }
+
+  .new-car-dropdown-toggle span {
+    display: none;
+  }
+
+  .new-car-dropdown-toggle i:first-child {
+    margin-right: 0;
+  }
+}
+
+/* New Car Dropdown Styles */
+.new-car-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.new-car-dropdown-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background-color: #10b981;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  min-width: 100px;
+  justify-content: center;
+}
+
+.new-car-dropdown-toggle:hover:not(:disabled) {
+  background-color: #059669;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.new-car-dropdown-toggle:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.new-car-dropdown .dropdown-arrow {
+  font-size: 12px;
+  transition: transform 0.2s ease;
+}
+
+.new-car-dropdown .dropdown-arrow.rotated {
+  transform: rotate(180deg);
+}
+
+.new-car-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 1000;
+  min-width: 200px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  margin-top: 4px;
+  overflow: hidden;
+}
+
+.new-car-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 16px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  color: #374151;
+  transition: background-color 0.2s ease;
+  text-align: left;
+}
+
+.new-car-dropdown-item:hover:not(:disabled) {
+  background-color: #f3f4f6;
+  color: #1f2937;
+}
+
+.new-car-dropdown-item:disabled {
+  color: #9ca3af;
+  cursor: not-allowed;
+  background-color: #f9fafb;
+}
+
+.new-car-dropdown-item i {
+  width: 16px;
+  text-align: center;
+  color: #6b7280;
+}
+
+.new-car-dropdown-item:hover:not(:disabled) i {
+  color: #374151;
+}
+
+.new-car-dropdown-item:disabled i {
+  color: #d1d5db;
 }
 </style>

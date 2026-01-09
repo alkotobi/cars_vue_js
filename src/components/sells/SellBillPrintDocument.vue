@@ -134,8 +134,8 @@ const fetchBillData = async () => {
             const formatted = notesArray.map(note => note.note || '').filter(note => note.trim() !== '').join('\n')
             if (formatted && formatted.trim() !== '') {
               bill.notesFormatted = formatted
-              // Also keep latest note for simple display
-              bill.notes = notesArray[notesArray.length - 1].note || ''
+            // Also keep latest note for simple display
+            bill.notes = notesArray[notesArray.length - 1].note || ''
             } else {
               // No valid notes found, clear both
               bill.notesFormatted = ''
