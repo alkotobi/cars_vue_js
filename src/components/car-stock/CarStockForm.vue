@@ -2,6 +2,11 @@
 import { ref, onMounted, watch, computed, nextTick } from 'vue'
 import { useApi } from '../../composables/useApi'
 import { useEnhancedI18n } from '@/composables/useI18n'
+import { ElSelect, ElOption } from 'element-plus'
+import SelectWithAddButton from './SelectWithAddButton.vue'
+import SearchableSelectWithAddButton from './SearchableSelectWithAddButton.vue'
+import AddItemDialog from './AddItemDialog.vue'
+import AddColorDialog from './AddColorDialog.vue'
 
 const { t } = useEnhancedI18n()
 
@@ -74,12 +79,25 @@ const warehouses = ref([])
 const colors = ref([])
 const suppliers = ref([])
 const carNames = ref([])
+const brands = ref([])
+const defaults = ref(null)
 const showAddSupplierDialog = ref(false)
 const newSupplier = ref({
   name: '',
   contact_info: '',
   notes: '',
 })
+const showAddCarNameDialog = ref(false)
+const newCarName = ref({
+  car_name: '',
+  id_brand: null,
+  notes: '',
+})
+const showAddBrandDialog = ref(false)
+const newBrand = ref({
+  brand: '',
+})
+const showAddColorDialog = ref(false)
 
 const formData = ref({
   id: null,
@@ -151,7 +169,6 @@ const generateBillRef = () => {
   const seconds = String(date.getSeconds()).padStart(2, '0')
   const userId = user.value?.id || '0'
   const billRef = `INTERNAL-${year}${month}${day}-${hours}${minutes}${seconds}-${userId}`
-  console.log('Generated bill_ref:', billRef, 'user:', user.value?.id)
   return billRef
 }
 
@@ -260,7 +277,7 @@ const fetchReferenceData = async () => {
 
     // Fetch colors
     const colorsResult = await callApi({
-      query: 'SELECT id, color FROM colors ORDER BY color ASC',
+      query: 'SELECT id, color, hexa FROM colors ORDER BY color ASC',
       params: [],
     })
     if (colorsResult.success) {
@@ -284,6 +301,24 @@ const fetchReferenceData = async () => {
       if (carNamesResult.success) {
         carNames.value = carNamesResult.data
       }
+
+      // Fetch brands
+      const brandsResult = await callApi({
+        query: 'SELECT id, brand FROM brands ORDER BY brand ASC',
+        params: [],
+      })
+      if (brandsResult.success) {
+        brands.value = brandsResult.data
+      }
+    }
+
+    // Fetch defaults (for rate and freight)
+    const defaultsResult = await callApi({
+      query: 'SELECT rate, freight_small, freight_big FROM defaults LIMIT 1',
+      params: [],
+    })
+    if (defaultsResult.success && defaultsResult.data && defaultsResult.data.length > 0) {
+      defaults.value = defaultsResult.data[0]
     }
   } catch (err) {
     error.value = t('carStockForm.failedToFetchReferenceData')
@@ -351,11 +386,160 @@ const closeAddSupplierDialog = () => {
   }
 }
 
+const addCarName = async () => {
+  if (!newCarName.value.car_name || newCarName.value.car_name.trim() === '') {
+    error.value = t('carStockForm.carNameRequired') || 'Car name is required'
+    return
+  }
+
+  const result = await callApi({
+    query: `
+      INSERT INTO cars_names (car_name, id_brand, notes)
+      VALUES (?, ?, ?)
+    `,
+    params: [
+      newCarName.value.car_name.trim(),
+      newCarName.value.id_brand || null,
+      newCarName.value.notes || null,
+    ],
+  })
+
+  if (result.success) {
+    // Refresh car names list
+    const carNamesResult = await callApi({
+      query: 'SELECT id, car_name FROM cars_names ORDER BY car_name ASC',
+      params: [],
+    })
+    if (carNamesResult.success) {
+      carNames.value = carNamesResult.data
+      // Auto-select the newly created car name
+      formData.value.id_car_name = result.lastInsertId
+    }
+
+    // Reset form and close dialog
+    newCarName.value = {
+      car_name: '',
+      id_brand: null,
+      notes: '',
+    }
+    showAddCarNameDialog.value = false
+    error.value = null
+  } else {
+    error.value = result.error || t('carStockForm.failedToAddCarName') || 'Failed to add car name'
+  }
+}
+
+const openAddCarNameDialog = () => {
+  newCarName.value = {
+    car_name: '',
+    id_brand: null,
+    notes: '',
+  }
+  showAddCarNameDialog.value = true
+}
+
+const closeAddCarNameDialog = () => {
+  showAddCarNameDialog.value = false
+  newCarName.value = {
+    car_name: '',
+    id_brand: null,
+    notes: '',
+  }
+}
+
+const addBrand = async () => {
+  if (!newBrand.value.brand || newBrand.value.brand.trim() === '') {
+    error.value = t('carStockForm.brandRequired') || 'Brand name is required'
+    return
+  }
+
+  const result = await callApi({
+    query: `
+      INSERT INTO brands (brand)
+      VALUES (?)
+    `,
+    params: [newBrand.value.brand.trim()],
+  })
+
+  if (result.success) {
+    // Refresh brands list
+    const brandsResult = await callApi({
+      query: 'SELECT id, brand FROM brands ORDER BY brand ASC',
+      params: [],
+    })
+    if (brandsResult.success) {
+      brands.value = brandsResult.data
+      // Auto-select the newly created brand
+      newCarName.value.id_brand = result.lastInsertId
+    }
+
+    // Reset form and close dialog
+    newBrand.value = {
+      brand: '',
+    }
+    showAddBrandDialog.value = false
+    error.value = null
+  } else {
+    error.value = result.error || t('carStockForm.failedToAddBrand') || 'Failed to add brand'
+  }
+}
+
+const openAddBrandDialog = () => {
+  newBrand.value = {
+    brand: '',
+  }
+  showAddBrandDialog.value = true
+}
+
+const closeAddBrandDialog = () => {
+  showAddBrandDialog.value = false
+  newBrand.value = {
+    brand: '',
+  }
+}
+
+const openAddColorDialog = () => {
+  showAddColorDialog.value = true
+}
+
+const closeAddColorDialog = () => {
+  showAddColorDialog.value = false
+}
+
+const handleColorSaved = async (newColor) => {
+  // Refresh colors list
+  const colorsResult = await callApi({
+    query: 'SELECT id, color, hexa FROM colors ORDER BY color ASC',
+    params: [],
+  })
+  if (colorsResult.success) {
+    colors.value = colorsResult.data
+    // Auto-select the newly created color
+    formData.value.id_color = newColor.id
+  }
+}
+
+// Check if this is a shipping only car
+const isShippingOnly = computed(() => {
+  return props.carData?.is_shipping_only === true
+})
+
+// Watch for is_big_car changes to update freight
+watch(
+  () => formData.value.is_big_car,
+  (isBigCar) => {
+    if (defaults.value && !formData.value.id) {
+      // Only update for new cars
+      formData.value.freight =
+        isBigCar === 1 ? defaults.value.freight_big : defaults.value.freight_small
+    }
+  },
+)
+
 // Watch for changes in carData prop
 watch(
   () => props.carData,
-  (newData) => {
-    console.log('Watch carData triggered:', newData, 'newData.id:', newData?.id)
+  async (newData) => {
     // Only update formData if carData has an id (editing existing car)
     if (newData && newData.id) {
       // Create a new object with all fields from newData
@@ -385,7 +569,6 @@ watch(
       })
     } else {
       // If carData is null or has no id, don't overwrite formData (let the show watch handle it)
-      console.log('carData is null or has no id, not overwriting formData')
     }
   },
   { immediate: true },
@@ -394,15 +577,7 @@ watch(
 // Watch for show prop to reset form when opening for new car
 watch(
   () => props.show,
-  (isVisible) => {
-    console.log(
-      'Watch show triggered:',
-      isVisible,
-      'carData:',
-      props.carData,
-      'carData.id:',
-      props.carData?.id,
-    )
+  async (isVisible) => {
     // Check if carData is null OR if carData.id is null (new car)
     if (isVisible && (!props.carData || !props.carData.id)) {
       // Ensure user is loaded before generating bill_ref
@@ -415,15 +590,25 @@ watch(
 
       // Generate bill_ref immediately with current user (or '0' if not loaded yet)
       const billRef = generateBillRef()
-      console.log('Setting bill_ref in formData:', billRef)
 
       // Reset form for new car
+      const isShippingOnlyCar = props.carData?.is_shipping_only === true
+      // Default to small car (is_big_car = 0)
+      const isBigCar = props.carData?.is_big_car === 1 ? 1 : 0
+      // Get freight and rate from defaults (default to small car freight)
+      const defaultFreight = defaults.value
+        ? isBigCar === 1
+          ? defaults.value.freight_big
+          : defaults.value.freight_small
+        : null
+      const defaultRate = defaults.value ? defaults.value.rate : null
+
       formData.value = {
         id: null,
         notes: '',
         id_buy_details: null,
-        price_cell: null,
-        freight: null,
+        price_cell: isShippingOnlyCar ? 0 : null,
+        freight: defaultFreight,
         vin: '',
         path_documents: '',
         date_send_documents: null,
@@ -436,9 +621,9 @@ watch(
         in_wharhouse_date: null,
         date_get_documents_from_supp: null,
         date_get_keys_from_supp: null,
-        rate: null,
+        rate: defaultRate,
         is_used_car: 0,
-        is_big_car: 0,
+        is_big_car: isBigCar,
         id_color: null,
         // New fields for buy bill creation
         id_supplier: null,
@@ -446,10 +631,12 @@ watch(
         pi_path: '',
         buy_bill_notes: '',
         id_car_name: null,
-        purchase_price: null,
-        price_sell: null,
+        purchase_price: isShippingOnlyCar ? 0 : null,
+        price_sell: isShippingOnlyCar ? 0 : null,
+        id_client: null,
+        id_port_loading: null,
+        id_port_discharge: null,
       }
-      console.log('formData.bill_ref after setting:', formData.value.bill_ref)
       documentsFile.value = null
       sellPiFile.value = null
       buyPiFile.value = null
@@ -457,16 +644,23 @@ watch(
 
       // Use nextTick to ensure Vue reactivity updates the input field
       nextTick(() => {
-        console.log('After nextTick - formData.bill_ref:', formData.value.bill_ref)
         // Force update if still empty (double-check)
         if (!formData.value.bill_ref || formData.value.bill_ref === '') {
           formData.value.bill_ref = generateBillRef()
-          console.log('Regenerated bill_ref in nextTick:', formData.value.bill_ref)
         }
       })
 
-      // Fetch reference data for new car (suppliers, car names, colors)
-      fetchReferenceData()
+      // Fetch reference data for new car (suppliers, car names, colors, defaults)
+      await fetchReferenceData()
+
+      // After defaults are loaded, update freight and rate
+      if (defaults.value) {
+        const isBigCar = formData.value.is_big_car === 1
+        formData.value.freight = isBigCar
+          ? defaults.value.freight_big
+          : defaults.value.freight_small
+        formData.value.rate = defaults.value.rate
+      }
     }
   },
   { immediate: true }, // Run immediately when component mounts
@@ -547,15 +741,18 @@ const saveCar = async () => {
         loading.value = false
         return
       }
-      if (!formData.value.purchase_price) {
-        error.value = t('carStockForm.purchasePriceRequired') || 'Purchase Price is required'
-        loading.value = false
-        return
-      }
-      if (!formData.value.price_sell) {
-        error.value = t('carStockForm.priceSellRequired') || 'Price Sell is required'
-        loading.value = false
-        return
+      // Skip price validation for shipping only cars
+      if (!isShippingOnly.value) {
+        if (!formData.value.purchase_price) {
+          error.value = t('carStockForm.purchasePriceRequired') || 'Purchase Price is required'
+          loading.value = false
+          return
+        }
+        if (!formData.value.price_sell) {
+          error.value = t('carStockForm.priceSellRequired') || 'Price Sell is required'
+          loading.value = false
+          return
+        }
       }
 
       // Step 1: Upload PI file if provided
@@ -595,12 +792,12 @@ const saveCar = async () => {
         params: [
           formData.value.id_car_name,
           formData.value.id_color,
-          formData.value.purchase_price,
+          isShippingOnly.value ? 0 : formData.value.purchase_price,
           currentDate.getFullYear(),
           currentDate.getMonth() + 1,
           formData.value.is_used_car || 0,
           buyBillId,
-          formData.value.price_sell,
+          isShippingOnly.value ? 0 : formData.value.price_sell,
           formData.value.is_big_car || 0,
           formData.value.notes || null,
         ],
@@ -616,16 +813,21 @@ const saveCar = async () => {
       result = await callApi({
         query: `
           INSERT INTO cars_stock
-          (id_buy_details, price_cell, notes, is_used_car, is_big_car, id_color)
-          VALUES (?, ?, ?, ?, ?, ?)
+          (id_buy_details, price_cell, notes, is_used_car, is_big_car, id_color, id_client, id_port_loading, id_port_discharge, freight, rate)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `,
         params: [
           buyDetailId,
-          formData.value.price_sell,
+          isShippingOnly.value ? 0 : formData.value.price_sell,
           formData.value.notes || null,
           formData.value.is_used_car || 0,
           formData.value.is_big_car || 0,
           formData.value.id_color,
+          formData.value.id_client || null,
+          formData.value.id_port_loading || null,
+          formData.value.id_port_discharge || null,
+          formData.value.freight || null,
+          formData.value.rate || null,
         ],
       })
     } else {
@@ -691,12 +893,19 @@ const saveCar = async () => {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   const userStr = localStorage.getItem('user')
   if (userStr) {
     user.value = JSON.parse(userStr)
   }
-  fetchReferenceData()
+  await fetchReferenceData()
+
+  // If form is already visible for new car, update freight and rate from defaults
+  if (props.show && !formData.value.id && defaults.value) {
+    const isBigCar = formData.value.is_big_car === 1
+    formData.value.freight = isBigCar ? defaults.value.freight_big : defaults.value.freight_small
+    formData.value.rate = defaults.value.rate
+  }
 
   // If form is already visible for new car, regenerate bill_ref with user ID
   if (
@@ -722,22 +931,17 @@ onMounted(() => {
           <label for="id_supplier"
             >{{ t('carStockForm.supplier') || 'Supplier' }} <span class="required">*</span>:</label
           >
-          <div class="input-with-button">
-            <select id="id_supplier" v-model="formData.id_supplier" required>
-              <option value="">{{ t('carStockForm.selectSupplier') || 'Select Supplier' }}</option>
-              <option v-for="supplier in suppliers" :key="supplier.id" :value="supplier.id">
-                {{ supplier.name }}
-              </option>
-            </select>
-            <button
-              type="button"
-              @click="openAddSupplierDialog"
-              class="btn-add-supplier"
-              title="Add New Supplier"
-            >
-              <i class="fas fa-plus"></i>
-            </button>
-          </div>
+          <SearchableSelectWithAddButton
+            id="id_supplier"
+            v-model="formData.id_supplier"
+            :options="suppliers"
+            option-value="id"
+            option-label="name"
+            :placeholder="t('carStockForm.selectSupplier') || 'Select Supplier'"
+            :required="true"
+            :add-button-title="t('carStockForm.addSupplier') || 'Add New Supplier'"
+            @add="openAddSupplierDialog"
+          />
         </div>
 
         <div class="form-group">
@@ -785,12 +989,17 @@ onMounted(() => {
           <label for="id_car_name"
             >{{ t('carStockForm.carName') || 'Car Name' }} <span class="required">*</span>:</label
           >
-          <select id="id_car_name" v-model="formData.id_car_name" required>
-            <option value="">{{ t('carStockForm.selectCarName') || 'Select Car Name' }}</option>
-            <option v-for="carName in carNames" :key="carName.id" :value="carName.id">
-              {{ carName.car_name }}
-            </option>
-          </select>
+          <SearchableSelectWithAddButton
+            id="id_car_name"
+            v-model="formData.id_car_name"
+            :options="carNames"
+            option-value="id"
+            option-label="car_name"
+            :placeholder="t('carStockForm.selectCarName') || 'Select Car Name'"
+            :required="true"
+            :add-button-title="t('carStockForm.addCarName') || 'Add New Car Name'"
+            @add="openAddCarNameDialog"
+          />
         </div>
 
         <div class="form-group">
@@ -813,12 +1022,17 @@ onMounted(() => {
           <label for="id_color"
             >{{ t('carStockForm.color') || 'Color' }} <span class="required">*</span>:</label
           >
-          <select id="id_color" v-model="formData.id_color" required>
-            <option value="">{{ t('carStockForm.selectColor') || 'Select Color' }}</option>
-            <option v-for="color in colors" :key="color.id" :value="color.id">
-              {{ color.color }}
-            </option>
-          </select>
+          <SelectWithAddButton
+            id="id_color"
+            v-model="formData.id_color"
+            :options="colors"
+            option-value="id"
+            option-label="color"
+            :placeholder="t('carStockForm.selectColor') || 'Select Color'"
+            :required="true"
+            :add-button-title="t('carStockForm.addColor') || 'Add New Color'"
+            @add="openAddColorDialog"
+          />
         </div>
 
         <div class="form-group">
@@ -844,8 +1058,8 @@ onMounted(() => {
       <div class="form-section">
         <h4>{{ t('carStockForm.pricingAndClient') }}</h4>
 
-        <!-- Purchase Price (only for new cars) -->
-        <div v-if="!formData.id" class="form-group">
+        <!-- Purchase Price (only for new cars, not shipping only) -->
+        <div v-if="!formData.id && !isShippingOnly" class="form-group">
           <label for="purchase_price"
             >{{ t('carStockForm.purchasePrice') || 'Purchase Price' }}
             <span class="required">*</span>:</label
@@ -859,13 +1073,74 @@ onMounted(() => {
           />
         </div>
 
-        <!-- Price Sell (only for new cars) -->
-        <div v-if="!formData.id" class="form-group">
+        <!-- Price Sell (only for new cars, not shipping only) -->
+        <div v-if="!formData.id && !isShippingOnly" class="form-group">
           <label for="price_sell"
             >{{ t('carStockForm.priceSell') || 'Price Sell' }}
             <span class="required">*</span>:</label
           >
           <input type="number" id="price_sell" v-model="formData.price_sell" step="0.01" required />
+        </div>
+
+        <!-- Client Name (for shipping only) -->
+        <div v-if="!formData.id && isShippingOnly" class="form-group">
+          <label for="id_client">{{ t('carStockForm.client') || 'Client' }}:</label>
+          <el-select
+            id="id_client"
+            v-model="formData.id_client"
+            :placeholder="t('carStockForm.selectClient') || 'Select Client'"
+            filterable
+            style="width: 100%"
+          >
+            <el-option
+              v-for="client in clients"
+              :key="client.id"
+              :label="client.name"
+              :value="client.id"
+            />
+          </el-select>
+        </div>
+
+        <!-- Loading Port (for shipping only) -->
+        <div v-if="!formData.id && isShippingOnly" class="form-group">
+          <label for="id_port_loading"
+            >{{ t('carStockForm.loadingPort') || 'Loading Port' }}:</label
+          >
+          <select id="id_port_loading" v-model="formData.id_port_loading">
+            <option :value="null">
+              {{ t('carStockForm.selectLoadingPort') || 'Select Loading Port' }}
+            </option>
+            <option v-for="port in loadingPorts" :key="port.id" :value="port.id">
+              {{ port.loading_port }}
+            </option>
+          </select>
+        </div>
+
+        <!-- Discharge Port (for shipping only) -->
+        <div v-if="!formData.id && isShippingOnly" class="form-group">
+          <label for="id_port_discharge"
+            >{{ t('carStockForm.dischargePort') || 'Discharge Port' }}:</label
+          >
+          <select id="id_port_discharge" v-model="formData.id_port_discharge">
+            <option :value="null">
+              {{ t('carStockForm.selectDischargePort') || 'Select Discharge Port' }}
+            </option>
+            <option v-for="port in dischargePorts" :key="port.id" :value="port.id">
+              {{ port.discharge_port }}
+            </option>
+          </select>
+        </div>
+
+        <!-- Freight (for all new cars) -->
+        <div v-if="!formData.id" class="form-group">
+          <label for="freight">{{ t('carStockForm.freight') || 'Freight' }}:</label>
+          <input type="number" id="freight" v-model="formData.freight" step="0.01" />
+        </div>
+
+        <!-- Rate (for all new cars) -->
+        <div v-if="!formData.id" class="form-group">
+          <label for="rate">{{ t('carStockForm.rate') || 'Rate' }}:</label>
+          <input type="number" id="rate" v-model="formData.rate" step="0.01" />
         </div>
 
         <!-- Price Cell (only for existing cars) -->
@@ -895,61 +1170,119 @@ onMounted(() => {
   </div>
 
   <!-- Add Supplier Dialog -->
-  <Teleport to="body">
-    <div v-if="showAddSupplierDialog" class="dialog-overlay" @click.self="closeAddSupplierDialog">
-      <div class="dialog">
-        <div class="dialog-header">
-          <h3>{{ t('carStockForm.addSupplier') || 'Add New Supplier' }}</h3>
-          <button @click="closeAddSupplierDialog" class="dialog-close-btn">
-            <i class="fas fa-times"></i>
-          </button>
-        </div>
-        <div class="dialog-body">
-          <div class="form-group">
-            <label for="supplier_name"
-              >{{ t('carStockForm.supplierName') || 'Name' }}
-              <span class="required">*</span>:</label
-            >
-            <input
-              id="supplier_name"
-              v-model="newSupplier.name"
-              type="text"
-              :placeholder="t('carStockForm.supplierNamePlaceholder') || 'Supplier Name'"
-              required
-            />
-          </div>
-          <div class="form-group">
-            <label for="supplier_contact_info"
-              >{{ t('carStockForm.contactInfo') || 'Contact Information' }}:</label
-            >
-            <textarea
-              id="supplier_contact_info"
-              v-model="newSupplier.contact_info"
-              :placeholder="t('carStockForm.contactInfoPlaceholder') || 'Contact Information'"
-              rows="3"
-            ></textarea>
-          </div>
-          <div class="form-group">
-            <label for="supplier_notes">{{ t('carStockForm.notes') || 'Notes' }}:</label>
-            <textarea
-              id="supplier_notes"
-              v-model="newSupplier.notes"
-              :placeholder="t('carStockForm.notesPlaceholder') || 'Notes'"
-              rows="3"
-            ></textarea>
-          </div>
-        </div>
-        <div class="dialog-actions">
-          <button @click="addSupplier" class="btn save-btn">
-            {{ t('carStockForm.save') || 'Save' }}
-          </button>
-          <button @click="closeAddSupplierDialog" class="btn cancel-btn">
-            {{ t('carStockForm.cancel') || 'Cancel' }}
-          </button>
-        </div>
-      </div>
+  <AddItemDialog
+    :show="showAddSupplierDialog"
+    :title="t('carStockForm.addSupplier') || 'Add New Supplier'"
+    :loading="loading"
+    @close="closeAddSupplierDialog"
+    @save="addSupplier"
+  >
+    <div class="form-group">
+      <label for="supplier_name"
+        >{{ t('carStockForm.supplierName') || 'Name' }} <span class="required">*</span>:</label
+      >
+      <input
+        id="supplier_name"
+        v-model="newSupplier.name"
+        type="text"
+        :placeholder="t('carStockForm.supplierNamePlaceholder') || 'Supplier Name'"
+        required
+      />
     </div>
-  </Teleport>
+    <div class="form-group">
+      <label for="supplier_contact_info"
+        >{{ t('carStockForm.contactInfo') || 'Contact Information' }}:</label
+      >
+      <textarea
+        id="supplier_contact_info"
+        v-model="newSupplier.contact_info"
+        :placeholder="t('carStockForm.contactInfoPlaceholder') || 'Contact Information'"
+        rows="3"
+      ></textarea>
+    </div>
+    <div class="form-group">
+      <label for="supplier_notes">{{ t('carStockForm.notes') || 'Notes' }}:</label>
+      <textarea
+        id="supplier_notes"
+        v-model="newSupplier.notes"
+        :placeholder="t('carStockForm.notesPlaceholder') || 'Notes'"
+        rows="3"
+      ></textarea>
+    </div>
+  </AddItemDialog>
+
+  <!-- Add Car Name Dialog -->
+  <AddItemDialog
+    :show="showAddCarNameDialog"
+    :title="t('carStockForm.addCarName') || 'Add New Car Name'"
+    :loading="loading"
+    @close="closeAddCarNameDialog"
+    @save="addCarName"
+  >
+    <div class="form-group">
+      <label for="car_name"
+        >{{ t('carStockForm.carName') || 'Car Name' }} <span class="required">*</span>:</label
+      >
+      <input
+        id="car_name"
+        v-model="newCarName.car_name"
+        type="text"
+        :placeholder="t('carStockForm.carNamePlaceholder') || 'Car Name'"
+        required
+      />
+    </div>
+    <div class="form-group">
+      <label for="car_name_brand">{{ t('carStockForm.brand') || 'Brand' }}:</label>
+      <SelectWithAddButton
+        id="car_name_brand"
+        v-model="newCarName.id_brand"
+        :options="brands"
+        option-value="id"
+        option-label="brand"
+        :placeholder="t('carStockForm.selectBrand') || 'Select Brand'"
+        :add-button-title="t('carStockForm.addBrand') || 'Add New Brand'"
+        @add="openAddBrandDialog"
+      />
+    </div>
+    <div class="form-group">
+      <label for="car_name_notes">{{ t('carStockForm.notes') || 'Notes' }}:</label>
+      <textarea
+        id="car_name_notes"
+        v-model="newCarName.notes"
+        :placeholder="t('carStockForm.notesPlaceholder') || 'Notes'"
+        rows="3"
+      ></textarea>
+    </div>
+  </AddItemDialog>
+
+  <!-- Add Brand Dialog -->
+  <AddItemDialog
+    :show="showAddBrandDialog"
+    :title="t('carStockForm.addBrand') || 'Add New Brand'"
+    :loading="loading"
+    @close="closeAddBrandDialog"
+    @save="addBrand"
+  >
+    <div class="form-group">
+      <label for="brand_name"
+        >{{ t('carStockForm.brand') || 'Brand' }} <span class="required">*</span>:</label
+      >
+      <input
+        id="brand_name"
+        v-model="newBrand.brand"
+        type="text"
+        :placeholder="t('carStockForm.brandPlaceholder') || 'Brand Name'"
+        required
+      />
+    </div>
+  </AddItemDialog>
+
+  <!-- Add Color Dialog -->
+  <AddColorDialog
+    :show="showAddColorDialog"
+    @close="closeAddColorDialog"
+    @saved="handleColorSaved"
+  />
 </template>
 
 <style scoped>

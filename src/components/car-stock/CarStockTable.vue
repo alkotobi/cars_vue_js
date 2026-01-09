@@ -2392,6 +2392,7 @@ const handleNewCarShippingOnly = () => {
     is_used_car: 0,
     is_big_car: 0,
     id_color: null,
+    is_shipping_only: true,
   }
   showNewCarForm.value = true
 }
@@ -2500,7 +2501,7 @@ const fetchSingleCar = async (carId) => {
       const car = result.data[0]
       // Format notes display
       const notesDisplay = formatNotesDisplay(car.notes, car.sell_bill_notes || null)
-      
+
       const carData = {
         ...car,
         payment_confirmed: car.payment_confirmed !== undefined ? car.payment_confirmed : 0,
@@ -2531,7 +2532,7 @@ const fetchSingleCar = async (carId) => {
 const handleNewCarFormSave = async (carId) => {
   showNewCarForm.value = false
   newCarData.value = null
-  
+
   // If carId is provided, fetch and add the new car to local state
   if (carId) {
     await fetchSingleCar(carId)
