@@ -1,12 +1,14 @@
 <script setup>
-import { ref, onMounted, watch,   computed } from 'vue'
+import { ref, onMounted, watch, computed, nextTick } from 'vue'
 import { useEnhancedI18n } from '../../composables/useI18n'
 import { useApi } from '../../composables/useApi'
-import { ElSelect, ElOption, ElDialog, ElButton, ElInput, ElCheckbox } from 'element-plus'
+import { ElSelect, ElOption, ElButton } from 'element-plus'
 import 'element-plus/dist/index.css'
 import NotesTable from '../shared/NotesTable.vue'
 import NotesManagementModal from '../shared/NotesManagementModal.vue'
 import CarUpgradesModal from '../shared/CarUpgradesModal.vue'
+import AddClientDialog from '../car-stock/AddClientDialog.vue'
+import AddItemDialog from '../car-stock/AddItemDialog.vue'
 
 const { t } = useEnhancedI18n()
 
@@ -33,7 +35,7 @@ const can_assign_to_tmp_clients = computed(
 )
 const emit = defineEmits(['close', 'assign-success'])
 
-const { callApi, uploadFile } = useApi()
+const { callApi } = useApi()
 const loading = ref(false)
 const error = ref(null)
 const clients = ref([])
@@ -73,18 +75,12 @@ const selectedCurrency = ref('DZD') // 'USD' or 'DZD'
 const priceInput = ref(null) // Single price input value
 
 // New client functionality
-const showAddDialog = ref(false)
-const selectedFile = ref(null)
-const validationError = ref('')
-const newClient = ref({
-  name: '',
-  address: '',
-  email: '',
-  mobiles: '',
-  id_no: '',
-  is_client: true,
-  is_broker: false,
-  notes: '',
+const showAddClientDialog = ref(false)
+
+// New discharge port functionality
+const showAddDischargePortDialog = ref(false)
+const newDischargePort = ref({
+  discharge_port: '',
 })
 
 // Add function to calculate price from CFR DA
@@ -433,7 +429,7 @@ const fetchDefaultRate = async () => {
 
 // Add computed property for CFR DA calculation
 const calculateCFRDA = computed(() => {
-  if (!formData.value.price_cell || !formData.value.rate) return 'N/A'
+  if (!formData.value.price_cell || !formData.value.rate) return t('sellBills.notAvailable')
   const sellPrice = parseFloat(formData.value.price_cell) || 0
   const freight = parseFloat(formData.value.freight) || 0
   const rate = parseFloat(formData.value.rate) || 0
@@ -784,7 +780,7 @@ const handleClose = () => {
 
 // Calculate potential profit
 const calculateProfit = () => {
-  if (!carDetails.value?.buy_price || !formData.value.price_cell) return 'N/A'
+  if (!carDetails.value?.buy_price || !formData.value.price_cell) return t('sellBills.notAvailable')
 
   const buyPrice = parseFloat(carDetails.value.buy_price)
   const sellPrice = parseFloat(formData.value.price_cell)
@@ -794,100 +790,63 @@ const calculateProfit = () => {
 }
 
 // New client functionality
-const validateEmail = (email) => {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  return emailRegex.test(email)
+const openAddClientDialog = () => {
+  showAddClientDialog.value = true
 }
 
-const handleFileChange = (event) => {
-  const file = event.target.files[0]
-  selectedFile.value = file
+const closeAddClientDialog = () => {
+  showAddClientDialog.value = false
 }
 
-const addClient = async () => {
+const handleClientSaved = async (newClientData) => {
+  // Refresh clients list
+  await fetchClients()
+  // Wait for Vue to update the DOM
+  await nextTick()
+  // Auto-select the newly created client
+  formData.value.id_client = newClientData.id
+  closeAddClientDialog()
+}
+
+const openAddDischargePortDialog = () => {
+  showAddDischargePortDialog.value = true
+}
+
+const closeAddDischargePortDialog = () => {
+  showAddDischargePortDialog.value = false
+  newDischargePort.value = {
+    discharge_port: '',
+  }
+}
+
+const addDischargePort = async () => {
   if (isSubmitting.value) return
 
-  validationError.value = ''
-
-  if (!newClient.value.mobiles) {
-    validationError.value = 'Mobile number is required'
-    return
-  }
-
-  if (!newClient.value.id_no) {
-    validationError.value = 'ID number is required'
-    return
-  }
-
-  if (!selectedFile.value) {
-    validationError.value = 'ID Document is required'
-    return
-  }
-
-  if (newClient.value.email && !validateEmail(newClient.value.email)) {
-    validationError.value = 'Please enter a valid email address'
+  if (!newDischargePort.value.discharge_port || newDischargePort.value.discharge_port.trim() === '') {
+    error.value = t('sellBills.dischargePortNameRequired') || 'Discharge port name is required'
     return
   }
 
   try {
     isSubmitting.value = true
     const result = await callApi({
-      query: `
-        INSERT INTO clients (name, address, email, mobiles, id_no, is_broker, is_client, notes)
-        VALUES (?, ?, ?, ?, ?, ?, 1, ?)
-      `,
-      params: [
-        newClient.value.name,
-        newClient.value.address,
-        newClient.value.email,
-        newClient.value.mobiles,
-        newClient.value.id_no,
-        newClient.value.is_broker ? 1 : 0,
-        newClient.value.notes,
-      ],
+      query: 'INSERT INTO discharge_ports (discharge_port) VALUES (?)',
+      params: [newDischargePort.value.discharge_port.trim()],
     })
 
     if (result.success) {
-      const clientId = result.lastInsertId
-      if (selectedFile.value) {
-        try {
-          const filename = `${clientId}.${selectedFile.value.name.split('.').pop()}`
-          const uploadResult = await uploadFile(selectedFile.value, 'ids', filename)
-
-          if (uploadResult.success) {
-            const updateResult = await callApi({
-              query: 'UPDATE clients SET id_copy_path = ? WHERE id = ?',
-              params: [uploadResult.relativePath, clientId],
-            })
-
-            if (updateResult.success) {
-              formData.value.id_client = clientId
-              await fetchClients()
-            }
-          }
-        } catch (err) {
-          console.error('Error uploading file:', err)
-          error.value = 'Client created but failed to upload ID document'
-        }
-      }
-
-      showAddDialog.value = false
-      validationError.value = ''
-      selectedFile.value = null
-      newClient.value = {
-        name: '',
-        address: '',
-        email: '',
-        mobiles: '',
-        id_no: '',
-        is_client: true,
-        is_broker: false,
-        notes: '',
-      }
+      // Refresh discharge ports list
+      await fetchDischargePorts()
+      // Wait for Vue to update the DOM
+      await nextTick()
+      // Auto-select the newly created discharge port
+      formData.value.id_port_discharge = result.lastInsertId
+      closeAddDischargePortDialog()
+    } else {
+      error.value = result.error || t('sellBills.failedToAddDischargePort') || 'Failed to add discharge port'
     }
   } catch (err) {
-    console.error('Error adding client:', err)
-    error.value = 'Failed to add client'
+    error.value = err.message || t('sellBills.failedToAddDischargePort') || 'Failed to add discharge port'
   } finally {
     isSubmitting.value = false
   }
@@ -950,7 +909,7 @@ watch(() => props.visible, (newVal) => {
             <i class="fas fa-fingerprint"></i>
             {{ t('sellBills.vin') }}:
           </span>
-          <span class="value">{{ carDetails.vin || 'N/A' }}</span>
+          <span class="value">{{ carDetails.vin || t('sellBills.notAvailable') }}</span>
         </div>
         <div v-if="isAdmin" class="detail-item">
           <span class="label">
@@ -993,7 +952,7 @@ watch(() => props.visible, (newVal) => {
                   </small>
                 </el-option>
               </el-select>
-              <el-button type="primary" @click="showAddDialog = true" class="new-client-btn">
+              <el-button type="primary" @click="openAddClientDialog" class="new-client-btn">
                 <i class="fas fa-plus"></i>
                 {{ t('sellBills.new') }}
               </el-button>
@@ -1005,12 +964,22 @@ watch(() => props.visible, (newVal) => {
               <i class="fas fa-anchor"></i>
               {{ t('sellBills.discharge_port') }}: <span class="required">*</span>
             </label>
-            <select id="discharge-port" v-model="formData.id_port_discharge" required>
-              <option value="">{{ t('sellBills.select_discharge_port') }}</option>
-              <option v-for="port in dischargePorts" :key="port.id" :value="port.id">
-                {{ port.discharge_port }}
-              </option>
-            </select>
+            <div class="input-with-button">
+              <select id="discharge-port" v-model="formData.id_port_discharge" required>
+                <option value="">{{ t('sellBills.select_discharge_port') }}</option>
+                <option v-for="port in dischargePorts" :key="port.id" :value="port.id">
+                  {{ port.discharge_port }}
+                </option>
+              </select>
+              <button
+                type="button"
+                @click="openAddDischargePortDialog"
+                class="btn-add-port"
+                :title="t('sellBills.addDischargePort')"
+              >
+                <i class="fas fa-plus"></i>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -1040,14 +1009,14 @@ watch(() => props.visible, (newVal) => {
                 min="0"
                 required
                 @input="handlePriceInputChange"
-                :placeholder="selectedCurrency === 'USD' ? 'Enter price in USD' : 'Enter price in DZD'"
+                :placeholder="selectedCurrency === 'USD' ? t('sellBills.enterPriceUSD') : t('sellBills.enterPriceDZD')"
               />
             </div>
             <span class="info-text" v-if="selectedCurrency === 'USD' && formData.rate && priceInput">
-              Calculated DZD: {{ cfrDaInput ? parseFloat(cfrDaInput).toLocaleString() : 'N/A' }} DA
+              {{ t('sellBills.calculatedDZD') }}: {{ cfrDaInput ? parseFloat(cfrDaInput).toLocaleString() : t('sellBills.notAvailable') }} DA
             </span>
             <span class="info-text" v-else-if="selectedCurrency === 'DZD' && formData.rate && priceInput">
-              Calculated USD: {{ formData.price_cell ? '$' + parseFloat(formData.price_cell).toLocaleString() : 'N/A' }}
+              {{ t('sellBills.calculatedUSD') }}: {{ formData.price_cell ? '$' + parseFloat(formData.price_cell).toLocaleString() : t('sellBills.notAvailable') }}
             </span>
           </div>
         </div>
@@ -1204,76 +1173,36 @@ watch(() => props.visible, (newVal) => {
     </div>
   </div>
 
-  <!-- New Client Dialog -->
-  <el-dialog
-    v-model="showAddDialog"
-    :title="t('sellBills.add_new_client')"
-    width="60%"
-    :close-on-click-modal="false"
-    append-to-body
+  <!-- Add Client Dialog -->
+  <AddClientDialog
+    :show="showAddClientDialog"
+    @close="closeAddClientDialog"
+    @saved="handleClientSaved"
+  />
+
+  <!-- Add Discharge Port Dialog -->
+  <AddItemDialog
+    :show="showAddDischargePortDialog"
+    :title="t('sellBills.addDischargePort')"
+    :loading="isSubmitting"
+    @close="closeAddDischargePortDialog"
+    @save="addDischargePort"
   >
-    <div v-if="validationError" class="error">{{ validationError }}</div>
-
-    <div class="form-container">
-      <div class="form-group">
-        <label>{{ t('sellBills.name') }}</label>
-        <el-input v-model="newClient.name" :placeholder="t('sellBills.enter_client_name')" />
-      </div>
-
-      <div class="form-group">
-        <label>{{ t('sellBills.address') }}</label>
-        <el-input v-model="newClient.address" :placeholder="t('sellBills.enter_address')" />
-      </div>
-
-      <div class="form-group">
-        <label>{{ t('sellBills.phone') }}</label>
-        <el-input
-          v-model="newClient.email"
-          :placeholder="t('sellBills.enter_email')"
-          type="email"
-        />
-      </div>
-
-      <div class="form-group">
-        <label>{{ t('sellBills.mobile_numbers') }}</label>
-        <el-input v-model="newClient.mobiles" :placeholder="t('sellBills.enter_mobile_numbers')" />
-      </div>
-
-      <div class="form-group">
-        <label>{{ t('sellBills.id_number') }}</label>
-        <el-input v-model="newClient.id_no" :placeholder="t('sellBills.enter_id_number')" />
-      </div>
-
-      <div class="form-group">
-        <label>{{ t('sellBills.id_document_copy') }}</label>
-        <input type="file" @change="handleFileChange" accept="image/*,.pdf" class="file-input" />
-      </div>
-
-      <div class="form-group">
-        <label>{{ t('sellBills.notes') }}</label>
-        <el-input
-          v-model="newClient.notes"
-          type="textarea"
-          :placeholder="t('sellBills.enter_additional_notes')"
-          :rows="3"
-        />
-      </div>
-
-      <div class="form-group">
-        <el-checkbox v-model="newClient.is_broker">{{ t('sellBills.is_broker') }}</el-checkbox>
-      </div>
+    <div class="form-group">
+      <label for="discharge_port_name">
+        {{ t('sellBills.dischargePortName') }}
+        <span class="required">*</span>:
+      </label>
+      <input
+        id="discharge_port_name"
+        v-model="newDischargePort.discharge_port"
+        type="text"
+        :placeholder="t('sellBills.enterDischargePortName')"
+        required
+        :disabled="isSubmitting"
+      />
     </div>
-
-    <template #footer>
-      <div class="dialog-footer">
-        <el-button @click="showAddDialog = false">{{ t('sellBills.cancel') }}</el-button>
-        <el-button type="primary" @click="addClient" :loading="isSubmitting">
-          <i class="fas fa-save"></i>
-          {{ t('sellBills.add_client') }}
-        </el-button>
-      </div>
-    </template>
-  </el-dialog>
+  </AddItemDialog>
 
   <!-- Notes Management Modal -->
   <NotesManagementModal
@@ -1698,6 +1627,36 @@ button:hover:not(:disabled) i {
   white-space: nowrap;
   height: 32px;
   padding: 0 12px;
+}
+
+.input-with-button {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.input-with-button select {
+  flex: 1;
+}
+
+.btn-add-port {
+  background-color: #10b981;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  height: 38px;
+  transition: background-color 0.2s;
+}
+
+.btn-add-port:hover {
+  background-color: #059669;
 }
 
 .file-input {

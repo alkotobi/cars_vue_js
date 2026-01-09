@@ -1,11 +1,12 @@
 <script setup>
-import { ref, onMounted, watch,   computed } from 'vue'
+import { ref, onMounted, watch, computed, nextTick } from 'vue'
 import { useEnhancedI18n } from '../../composables/useI18n'
 import { useApi } from '../../composables/useApi'
 import { ElSelect, ElOption } from 'element-plus'
 import 'element-plus/dist/index.css'
 import NotesTable from './NotesTable.vue'
 import NotesManagementModal from './NotesManagementModal.vue'
+import AddBrokerDialog from './AddBrokerDialog.vue'
 
 const { t } = useEnhancedI18n()
 const props = defineProps({
@@ -45,6 +46,7 @@ const users = ref([])
 const filteredUsers = ref([])
 const loading = ref(false)
 const error = ref(null)
+const showAddBrokerDialog = ref(false)
 
 // Add loading state for form submission
 const isSubmitting = ref(false)
@@ -142,7 +144,7 @@ const fetchBrokers = async () => {
   try {
     const result = await callApi({
       query: `
-        SELECT id, name
+        SELECT id, name, mobiles
         FROM clients
         ORDER BY name ASC
       `,
@@ -208,6 +210,26 @@ const remoteMethodUsers = (query) => {
 
 const handleBrokerChange = () => {
   // Handle broker change if needed
+}
+
+const openAddBrokerDialog = () => {
+  showAddBrokerDialog.value = true
+}
+
+const closeAddBrokerDialog = () => {
+  showAddBrokerDialog.value = false
+}
+
+const handleBrokerSaved = async (newBrokerData) => {
+  // Refresh brokers list
+  await fetchBrokers()
+  // Ensure filtered list includes all brokers (in case there was a previous search)
+  filteredBrokers.value = brokers.value
+  // Wait for Vue to update the DOM with the new broker list
+  await nextTick()
+  // Auto-select the newly created broker
+  formData.value.id_broker = newBrokerData.id
+  closeAddBrokerDialog()
 }
 
 const saveBill = async () => {
@@ -489,29 +511,41 @@ onMounted(() => {
           <i class="fas fa-user-tie"></i>
           {{ t('sellBills.broker') }}
         </label>
-        <el-select
-          v-model="formData.id_broker"
-          filterable
-          remote
-          :remote-method="remoteMethod"
-          :loading="loading"
-          :placeholder="t('sellBills.select_broker')"
-          class="broker-select"
-        >
-          <el-option
-            v-for="broker in filteredBrokers"
-            :key="broker.id"
-            :label="broker.name"
-            :value="broker.id"
+        <div class="input-with-button">
+          <el-select
+            id="broker"
+            v-model="formData.id_broker"
+            filterable
+            remote
+            :remote-method="remoteMethod"
+            :loading="loading"
+            :placeholder="t('sellBills.select_broker')"
+            class="broker-select"
+            style="width: 100%"
           >
-            <i class="fas fa-user-tie"></i>
-            {{ broker.name }}
-            <small v-if="broker.mobiles">
-              <i class="fas fa-phone"></i>
-              {{ broker.mobiles }}
-            </small>
-          </el-option>
-        </el-select>
+            <el-option
+              v-for="broker in filteredBrokers"
+              :key="broker.id"
+              :label="broker.name"
+              :value="broker.id"
+            >
+              <i class="fas fa-user-tie"></i>
+              {{ broker.name }}
+              <small v-if="broker.mobiles">
+                <i class="fas fa-phone"></i>
+                {{ broker.mobiles }}
+              </small>
+            </el-option>
+          </el-select>
+          <button
+            type="button"
+            @click="openAddBrokerDialog"
+            class="btn-add-broker"
+            :title="t('sellBills.addBroker') || 'Add New Broker'"
+          >
+            <i class="fas fa-plus"></i>
+          </button>
+        </div>
       </div>
 
       <div v-if="isAdmin && mode === 'add'" class="form-group">
@@ -664,6 +698,13 @@ onMounted(() => {
         </button>
       </div>
     </form>
+
+    <!-- Add Broker Dialog -->
+    <AddBrokerDialog
+      :show="showAddBrokerDialog"
+      @close="closeAddBrokerDialog"
+      @saved="handleBrokerSaved"
+    />
   </div>
 </template>
 
@@ -762,6 +803,40 @@ onMounted(() => {
 
 .broker-select {
   width: 100%;
+}
+
+.input-with-button {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.input-with-button :deep(.el-select) {
+  flex: 1;
+}
+
+.input-with-button :deep(.el-input__wrapper) {
+  width: 100%;
+}
+
+.btn-add-broker {
+  background-color: #10b981;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  height: 38px;
+  transition: background-color 0.2s;
+}
+
+.btn-add-broker:hover {
+  background-color: #059669;
 }
 
 .user-select {
