@@ -238,6 +238,12 @@ const saveBill = async () => {
     return
   }
 
+  // Validate required fields
+  if (!formData.value.id_broker) {
+    error.value = t('sellBills.brokerRequired') || 'Broker is required'
+    return
+  }
+
   try {
     isSubmitting.value = true
     loading.value = true
@@ -509,7 +515,7 @@ onMounted(() => {
       <div class="form-group">
         <label for="broker">
           <i class="fas fa-user-tie"></i>
-          {{ t('sellBills.broker') }}
+          {{ t('sellBills.broker') }}: <span class="required">*</span>
         </label>
         <div class="input-with-button">
           <el-select

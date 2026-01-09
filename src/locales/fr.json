@@ -523,6 +523,7 @@
     "reference": "Référence",
     "date": "Date",
     "broker": "Courtier",
+    "brokerRequired": "Le courtier est requis",
     "created_by": "Créé par",
     "search_created_by": "Rechercher par créateur...",
     "notes": "Notes",

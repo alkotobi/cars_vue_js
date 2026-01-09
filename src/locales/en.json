@@ -974,6 +974,7 @@
     "unpaid_bills_count": "{count} unpaid bills",
     "reference": "Reference",
     "broker": "Broker",
+    "brokerRequired": "Broker is required",
     "name": "Name",
     "search_name": "Search by broker or client name...",
     "created_by": "Created By",

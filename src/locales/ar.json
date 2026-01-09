@@ -413,6 +413,7 @@
     "reference": "المرجع",
     "date": "التاريخ",
     "broker": "الوسيط",
+    "brokerRequired": "الوسيط مطلوب",
     "created_by": "أنشئ بواسطة",
     "search_created_by": "البحث بالمنشئ...",
     "notes": "ملاحظات",

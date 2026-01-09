@@ -932,6 +932,7 @@
     "no_bills_found": "未找到账单",
     "reference": "参考",
     "broker": "经纪人",
+    "brokerRequired": "经纪人是必需的",
     "name": "名称",
     "search_name": "按经纪人或客户名称搜索...",
     "created_by": "创建者",
