@@ -633,8 +633,15 @@ const fetchUnassignedCars = async () => {
           dp.discharge_port,
           cs.container_ref,
           cs.payment_confirmed,
-          -- Add payment calculations
-          (cs.price_cell + COALESCE(cs.freight, 0)) as total_cfr,
+          -- Add payment calculations (including upgrades)
+          (cs.price_cell + 
+           COALESCE(cs.freight, 0) + 
+           COALESCE((
+             SELECT SUM(ca.value)
+             FROM car_apgrades ca
+             WHERE ca.id_car = cs.id
+           ), 0)
+          ) as total_cfr,
           COALESCE((
             SELECT SUM(sp.amount_usd)
             FROM sell_payments sp

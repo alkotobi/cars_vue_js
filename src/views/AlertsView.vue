@@ -289,12 +289,28 @@ const fetchUnconfirmedPaymentCount = async () => {
           FROM sell_payments sp
           WHERE sp.id_sell_bill = sb.id
         ) >= (
-          SELECT COALESCE(SUM(cs.price_cell + COALESCE(cs.freight, 0)), 0)
+          SELECT COALESCE(SUM(
+            cs.price_cell + 
+            COALESCE(cs.freight, 0) + 
+            COALESCE((
+              SELECT SUM(ca.value)
+              FROM car_apgrades ca
+              WHERE ca.id_car = cs.id
+            ), 0)
+          ), 0)
           FROM cars_stock cs
           WHERE cs.id_sell = sb.id
         )
         AND (
-          SELECT COALESCE(SUM(cs.price_cell + COALESCE(cs.freight, 0)), 0)
+          SELECT COALESCE(SUM(
+            cs.price_cell + 
+            COALESCE(cs.freight, 0) + 
+            COALESCE((
+              SELECT SUM(ca.value)
+              FROM car_apgrades ca
+              WHERE ca.id_car = cs.id
+            ), 0)
+          ), 0)
           FROM cars_stock cs
           WHERE cs.id_sell = sb.id
         ) > 0
@@ -322,7 +338,15 @@ const fetchNotPaidCount = async () => {
         FROM sell_bill sb
         WHERE sb.is_batch_sell = 0
         AND (
-          SELECT COALESCE(SUM(cs.price_cell + COALESCE(cs.freight, 0)), 0)
+          SELECT COALESCE(SUM(
+            cs.price_cell + 
+            COALESCE(cs.freight, 0) + 
+            COALESCE((
+              SELECT SUM(ca.value)
+              FROM car_apgrades ca
+              WHERE ca.id_car = cs.id
+            ), 0)
+          ), 0)
           FROM cars_stock cs
           WHERE cs.id_sell = sb.id
         ) > 0
@@ -355,7 +379,15 @@ const fetchNotFullyPaidCount = async () => {
         FROM sell_bill sb
         WHERE sb.is_batch_sell = 0
         AND (
-          SELECT COALESCE(SUM(cs.price_cell + COALESCE(cs.freight, 0)), 0)
+          SELECT COALESCE(SUM(
+            cs.price_cell + 
+            COALESCE(cs.freight, 0) + 
+            COALESCE((
+              SELECT SUM(ca.value)
+              FROM car_apgrades ca
+              WHERE ca.id_car = cs.id
+            ), 0)
+          ), 0)
           FROM cars_stock cs
           WHERE cs.id_sell = sb.id
         ) > 0
@@ -369,7 +401,15 @@ const fetchNotFullyPaidCount = async () => {
           FROM sell_payments sp
           WHERE sp.id_sell_bill = sb.id
         ) < (
-          SELECT COALESCE(SUM(cs.price_cell + COALESCE(cs.freight, 0)), 0)
+          SELECT COALESCE(SUM(
+            cs.price_cell + 
+            COALESCE(cs.freight, 0) + 
+            COALESCE((
+              SELECT SUM(ca.value)
+              FROM car_apgrades ca
+              WHERE ca.id_car = cs.id
+            ), 0)
+          ), 0)
           FROM cars_stock cs
           WHERE cs.id_sell = sb.id
         )

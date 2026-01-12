@@ -63,17 +63,30 @@ const formatDate = (dateStr) => {
   return new Date(dateStr).toLocaleDateString()
 }
 
-// Computed total payments
+// Computed total payments (USD)
 const totalPayments = computed(() => {
   return payments.value.reduce((sum, payment) => {
     return sum + (payment.amount_usd || 0)
   }, 0)
 })
 
-// Computed remaining balance
+// Computed total payments (DA)
+const totalPaymentsDa = computed(() => {
+  return payments.value.reduce((sum, payment) => {
+    return sum + (payment.amount_da || 0)
+  }, 0)
+})
+
+// Computed remaining balance (USD)
 const remainingBalance = computed(() => {
   if (!billInfo.value?.total_cfr) return 'N/A'
   return billInfo.value.total_cfr - totalPayments.value
+})
+
+// Computed remaining balance (DA)
+const remainingBalanceDa = computed(() => {
+  if (!billInfo.value?.total_cfr_da) return 'N/A'
+  return billInfo.value.total_cfr_da - totalPaymentsDa.value
 })
 
 // Form validation
@@ -194,10 +207,32 @@ const fetchBillInfo = async () => {
           c.name as broker_name,
           u.username as created_by,
           (
-            SELECT SUM(cs.price_cell + COALESCE(cs.freight, 0))
+            SELECT SUM(
+              cs.price_cell + 
+              COALESCE(cs.freight, 0) + 
+              COALESCE((
+                SELECT SUM(ca.value)
+                FROM car_apgrades ca
+                WHERE ca.id_car = cs.id
+              ), 0)
+            )
             FROM cars_stock cs
             WHERE cs.id_sell = sb.id
-          ) as total_cfr
+          ) as total_cfr,
+          (
+            SELECT SUM(
+              (cs.price_cell + 
+               COALESCE(cs.freight, 0) + 
+               COALESCE((
+                 SELECT SUM(ca.value)
+                 FROM car_apgrades ca
+                 WHERE ca.id_car = cs.id
+               ), 0)
+              ) * COALESCE(cs.rate, 0)
+            )
+            FROM cars_stock cs
+            WHERE cs.id_sell = sb.id AND cs.rate IS NOT NULL
+          ) as total_cfr_da
         FROM sell_bill sb
         LEFT JOIN clients c ON sb.id_broker = c.id
         LEFT JOIN users u ON sb.id_user = u.id
@@ -210,6 +245,7 @@ const fetchBillInfo = async () => {
       billInfo.value = {
         ...result.data[0],
         total_cfr: Number(result.data[0].total_cfr) || 0,
+        total_cfr_da: Number(result.data[0].total_cfr_da) || 0,
       }
     }
   } catch (err) {
@@ -456,16 +492,28 @@ const handleDelete = async (paymentId) => {
 
         <div class="financial-summary">
           <div class="summary-item">
-            <span class="label">Total CFR:</span>
+            <span class="label">Total CFR (USD):</span>
             <span class="value amount">$ {{ formatNumber(billInfo.total_cfr) }}</span>
           </div>
           <div class="summary-item">
-            <span class="label">Total Paid:</span>
+            <span class="label">Total Paid (USD):</span>
             <span class="value amount">$ {{ formatNumber(totalPayments) }}</span>
           </div>
           <div class="summary-item">
-            <span class="label">Remaining:</span>
+            <span class="label">Remaining (USD):</span>
             <span class="value amount">$ {{ formatNumber(remainingBalance) }}</span>
+          </div>
+          <div class="summary-item">
+            <span class="label">Total CFR (DA):</span>
+            <span class="value amount">{{ formatNumber(billInfo.total_cfr_da) }} DA</span>
+          </div>
+          <div class="summary-item">
+            <span class="label">Total Paid (DA):</span>
+            <span class="value amount">{{ formatNumber(totalPaymentsDa) }} DA</span>
+          </div>
+          <div class="summary-item">
+            <span class="label">Remaining (DA):</span>
+            <span class="value amount">{{ formatNumber(remainingBalanceDa) }} DA</span>
           </div>
         </div>
       </div>

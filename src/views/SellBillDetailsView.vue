@@ -50,7 +50,17 @@ const fetchData = async () => {
     }
     // Fetch cars in this sell bill with car name, freight, price CFR DA, discharge port
     const carsResult = await callApi({
-      query: `SELECT cs.*, cn.car_name, dp.discharge_port, cl.name as client_name, cl.id_copy_path as client_id_copy
+      query: `SELECT 
+                cs.*, 
+                cn.car_name, 
+                dp.discharge_port, 
+                cl.name as client_name, 
+                cl.id_copy_path as client_id_copy,
+                COALESCE((
+                  SELECT SUM(ca.value)
+                  FROM car_apgrades ca
+                  WHERE ca.id_car = cs.id
+                ), 0) as upgrades_total
               FROM cars_stock cs
               LEFT JOIN buy_details bd ON cs.id_buy_details = bd.id
               LEFT JOIN cars_names cn ON bd.id_car_name = cn.id
@@ -78,7 +88,9 @@ const amountUsd = computed(() => {
   let sum = 0
   for (const car of cars.value) {
     if (car.price_cell != null && car.freight != null) {
-      sum += Number(car.price_cell) + Number(car.freight)
+      const upgrades = Number(car.upgrades_total) || 0
+      // FOB USD = price_cell + freight + upgrades (upgrades add value)
+      sum += Number(car.price_cell) + Number(car.freight) + upgrades
     }
   }
   return sum ? sum : 'N/A'
@@ -89,7 +101,9 @@ const amountDa = computed(() => {
   let sum = 0
   for (const car of cars.value) {
     if (car.price_cell != null && car.freight != null && car.rate != null) {
-      sum += (Number(car.price_cell) + Number(car.freight)) * Number(car.rate)
+      const upgrades = Number(car.upgrades_total) || 0
+      // CFR DA = (price_cell + freight + upgrades) × rate (upgrades add value)
+      sum += (Number(car.price_cell) + Number(car.freight) + upgrades) * Number(car.rate)
     }
   }
   return sum ? sum : 'N/A'

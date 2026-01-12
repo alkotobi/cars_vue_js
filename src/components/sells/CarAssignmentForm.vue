@@ -90,8 +90,9 @@ const calculatePriceFromCFRDA = (cfrDa, rate, freight, upgrades = 0) => {
   const parsedRate = parseFloat(rate)
   const parsedFreight = parseFloat(freight) || 0
   const parsedUpgrades = parseFloat(upgrades) || 0
-  // FOB USD = (CFR_DA / rate) - freight - upgrades
-  return (parsedCfrDa / parsedRate - parsedFreight - parsedUpgrades).toFixed(2)
+  // FOB USD = (CFR_DA / rate) - freight + upgrades
+  // Upgrades ADD value, so they increase the FOB price
+  return (parsedCfrDa / parsedRate - parsedFreight + parsedUpgrades).toFixed(2)
 }
 
 // Add function to calculate CFR DA from price
@@ -102,7 +103,12 @@ const calculateCFRDAFromPrice = (price, rate, freight, upgrades = 0) => {
   const parsedFreight = parseFloat(freight) || 0
   const parsedUpgrades = parseFloat(upgrades) || 0
   // CFR DA = (price + upgrades + freight) × rate
-  return ((parsedPrice + parsedUpgrades + parsedFreight) * parsedRate).toFixed(2)
+  // Upgrades ADD value, so they increase both FOB and CFR
+  // CFR = (FOB + upgrades + freight) × rate
+  const result = ((parsedPrice + parsedUpgrades + parsedFreight) * parsedRate).toFixed(2)
+  console.log('[DEBUG] calculateCFRDAFromPrice - Input:', { price: parsedPrice, upgrades: parsedUpgrades, freight: parsedFreight, rate: parsedRate })
+  console.log('[DEBUG] calculateCFRDAFromPrice - Calculation:', `(${parsedPrice} + ${parsedUpgrades} + ${parsedFreight}) × ${parsedRate} = ${result}`)
+  return result
 }
 
 // Handle currency change

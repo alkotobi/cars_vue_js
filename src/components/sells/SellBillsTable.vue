@@ -253,7 +253,15 @@ const fetchSellBills = async () => {
           WHERE cs.id_sell = sb.id AND cl.name IS NOT NULL
         ) as client_names,
         (
-          SELECT SUM(cs.price_cell + COALESCE(cs.freight, 0))
+          SELECT SUM(
+            cs.price_cell + 
+            COALESCE(cs.freight, 0) + 
+            COALESCE((
+              SELECT SUM(ca.value)
+              FROM car_apgrades ca
+              WHERE ca.id_car = cs.id
+            ), 0)
+          )
           FROM cars_stock cs
           WHERE cs.id_sell = sb.id
         ) as total_cfr,
@@ -291,7 +299,15 @@ const fetchSellBills = async () => {
           WHERE cs.id_sell = sb.id AND cl.name IS NOT NULL
         ) as client_names,
         (
-          SELECT SUM(cs.price_cell + COALESCE(cs.freight, 0))
+          SELECT SUM(
+            cs.price_cell + 
+            COALESCE(cs.freight, 0) + 
+            COALESCE((
+              SELECT SUM(ca.value)
+              FROM car_apgrades ca
+              WHERE ca.id_car = cs.id
+            ), 0)
+          )
           FROM cars_stock cs
           WHERE cs.id_sell = sb.id
         ) as total_cfr,
