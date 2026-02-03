@@ -631,8 +631,8 @@ onMounted(() => {
         />
       </div>
 
-      <!-- Notes Table (read-only) -->
-      <div v-if="mode === 'edit' && formData.notesArray && formData.notesArray.length > 0" class="form-group">
+      <!-- Notes Table (for edit mode - always show) -->
+      <div v-if="mode === 'edit'" class="form-group">
         <NotesTable
           :notes="formData.notesArray || []"
           :users="filteredUsers"

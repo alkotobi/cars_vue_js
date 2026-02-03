@@ -2459,6 +2459,7 @@ const fetchSingleCar = async (carId) => {
           cs.hidden_time_stamp,
           hu.username as hidden_by_username,
           c.name as client_name,
+          c.mobiles as client_mobiles,
           cn.car_name,
           clr.color,
           clr.hexa,
@@ -2777,6 +2778,7 @@ const loadInitialCarsData = async () => {
           cs.hidden_time_stamp,
           hu.username as hidden_by_username,
           c.name as client_name,
+          c.mobiles as client_mobiles,
           cn.car_name,
           clr.color,
           clr.hexa,
@@ -4378,6 +4380,10 @@ const closeBatchCheckoutModal = () => {
               <td>
                 <div class="client-info">
                   <div>{{ car.client_name || '-' }}</div>
+                  <div v-if="car.client_mobiles && car.client_mobiles !== 'please provide mobile'" class="info-badge badge-client-mobile">
+                    <i class="fas fa-phone"></i>
+                    {{ car.client_mobiles }}
+                  </div>
                   <div v-if="car.client_id_no" class="info-badge badge-client-id">
                     <i class="fas fa-id-card"></i>
                     {{ car.client_id_no }}
@@ -4814,6 +4820,10 @@ const closeBatchCheckoutModal = () => {
           <div class="card-details">
             <div class="card-value">{{ car.client_name || '-' }}</div>
             <div class="card-badges">
+              <div v-if="car.client_mobiles && car.client_mobiles !== 'please provide mobile'" class="info-badge badge-client-mobile">
+                <i class="fas fa-phone"></i>
+                {{ car.client_mobiles }}
+              </div>
               <div v-if="car.client_id_no" class="info-badge badge-client-id">
                 <i class="fas fa-id-card"></i>
                 {{ car.client_id_no }}
@@ -6257,6 +6267,12 @@ const closeBatchCheckoutModal = () => {
   width: 100%;
   text-align: center;
   justify-content: center;
+}
+
+.badge-client-mobile {
+  background-color: #eff6ff;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
 }
 
 .badge-client-id {

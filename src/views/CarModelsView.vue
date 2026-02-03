@@ -204,16 +204,42 @@ const addBrand = async () => {
     }
   }
   
-  const result = await callApi({
-    query: 'INSERT INTO brands (brand, logo_path) VALUES (?, ?)',
-    params: [newBrand.value.brand, logoPath]
-  })
+  // Build INSERT query - try with logo_path first, fallback if column doesn't exist
+  let query = 'INSERT INTO brands (brand, logo_path) VALUES (?, ?)'
+  let params = [newBrand.value.brand, logoPath]
+  
+  const result = await callApi({ query, params })
+  
+  // If the insert failed due to missing logo_path column, try without it
+  if (!result.success && result.error && result.error.includes('logo_path')) {
+    query = 'INSERT INTO brands (brand) VALUES (?)'
+    params = [newBrand.value.brand]
+    const retryResult = await callApi({ query, params })
+    if (retryResult.success) {
+      // If logo was uploaded but column doesn't exist, warn user
+      if (logoPath) {
+        console.warn('Logo uploaded but logo_path column does not exist in database. Please run migration 012_add_brand_logos.sql')
+        alert('Brand added successfully, but logo could not be saved. Please run migration 012_add_brand_logos.sql to enable logo support.')
+      }
+      showAddBrandDialog.value = false
+      newBrand.value = { brand: '', logoFile: null }
+      await fetchBrands()
+      return
+    } else {
+      // Both attempts failed
+      console.log(retryResult.error)
+      alert('Failed to add brand: ' + (retryResult.error || 'Unknown error'))
+      return
+    }
+  }
+  
   if (result.success) {
     showAddBrandDialog.value = false
     newBrand.value = { brand: '', logoFile: null }
     await fetchBrands()
-  }else{
+  } else {
     console.log(result.error)
+    alert('Failed to add brand: ' + (result.error || 'Unknown error'))
   }
 }
 
@@ -267,17 +293,42 @@ const updateBrand = async () => {
     }
   }
   
-  const result = await callApi({
-    query: 'UPDATE brands SET brand = ?, logo_path = ? WHERE id = ?',
-    params: [editingBrand.value.brand, logoPath, editingBrand.value.id]
-  })
+  // Build UPDATE query - try with logo_path first, fallback if column doesn't exist
+  let query = 'UPDATE brands SET brand = ?, logo_path = ? WHERE id = ?'
+  let params = [editingBrand.value.brand, logoPath, editingBrand.value.id]
+  
+  const result = await callApi({ query, params })
+  
+  // If the update failed due to missing logo_path column, try without it
+  if (!result.success && result.error && result.error.includes('logo_path')) {
+    query = 'UPDATE brands SET brand = ? WHERE id = ?'
+    params = [editingBrand.value.brand, editingBrand.value.id]
+    const retryResult = await callApi({ query, params })
+    if (retryResult.success) {
+      // If logo was uploaded but column doesn't exist, warn user
+      if (logoPath && editingBrandLogoFile.value) {
+        console.warn('Logo uploaded but logo_path column does not exist in database. Please run migration 012_add_brand_logos.sql')
+        alert('Brand updated successfully, but logo could not be saved. Please run migration 012_add_brand_logos.sql to enable logo support.')
+      }
+      showEditBrandDialog.value = false
+      editingBrand.value = null
+      editingBrandLogoFile.value = null
+      await fetchBrands()
+      return
+    } else {
+      // Both attempts failed
+      console.log(retryResult.error)
+      alert('Failed to update brand: ' + (retryResult.error || 'Unknown error'))
+      return
+    }
+  }
+  
   if (result.success) {
     showEditBrandDialog.value = false
     editingBrand.value = null
     editingBrandLogoFile.value = null
     await fetchBrands()
-  }
-  else{
+  } else {
     console.log(result.error)
   }
 }
