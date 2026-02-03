@@ -6,10 +6,76 @@
 ini_set('display_errors', 0);
 error_reporting(0);
 
-// Automatic backup functionality
-function createAutomaticBackup() {
+// Function to get list of available databases
+function getAvailableDatabases() {
     try {
         require_once 'config.php';
+        
+        $databases = [];
+        
+        // Add default database from config
+        $databases[] = [
+            'name' => $db_config['dbname'],
+            'host' => $db_config['host'],
+            'user' => $db_config['user'],
+            'pass' => $db_config['pass'],
+            'label' => $db_config['dbname'] . ' (Default)'
+        ];
+        
+        // Try to get databases from merhab_databases
+        if (file_exists(__DIR__ . '/db_manager_config.php')) {
+            require_once __DIR__ . '/db_manager_config.php';
+            
+            try {
+                $managerConn = new PDO(
+                    "mysql:host={$db_manager_config['host']};dbname={$db_manager_config['dbname']}",
+                    $db_manager_config['user'],
+                    $db_manager_config['pass']
+                );
+                $managerConn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+                
+                $stmt = $managerConn->query("SELECT db_name, db_code FROM dbs WHERE is_created = 1 AND db_name IS NOT NULL AND db_name != ''");
+                $dbList = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                foreach ($dbList as $db) {
+                    // Use main config credentials for all databases
+                    $databases[] = [
+                        'name' => $db['db_name'],
+                        'host' => $db_config['host'],
+                        'user' => $db_config['user'],
+                        'pass' => $db_config['pass'],
+                        'label' => $db['db_name'] . ($db['db_code'] ? ' (' . $db['db_code'] . ')' : '')
+                    ];
+                }
+            } catch (Exception $e) {
+                // If merhab_databases doesn't exist or query fails, just use default
+            }
+        }
+        
+        return $databases;
+    } catch (Exception $e) {
+        // Fallback to default database only
+        require_once 'config.php';
+        return [[
+            'name' => $db_config['dbname'],
+            'host' => $db_config['host'],
+            'user' => $db_config['user'],
+            'pass' => $db_config['pass'],
+            'label' => $db_config['dbname'] . ' (Default)'
+        ]];
+    }
+}
+
+// Automatic backup functionality
+function createAutomaticBackup($selectedDbName = null) {
+    try {
+        require_once 'config.php';
+        
+        // Determine which database to backup
+        $host = $db_config['host'];
+        $username = $db_config['user'];
+        $password = $db_config['pass'];
+        $dbname = $selectedDbName ? $selectedDbName : $db_config['dbname'];
         
         // Create backup directory
         $backup_dir = '../backups';
@@ -17,16 +83,11 @@ function createAutomaticBackup() {
             mkdir($backup_dir, 0755, true);
         }
         
-        // Generate filename with timestamp
+        // Generate filename with timestamp and database name
         $timestamp = date('Y-m-d_H-i-s');
-        $filename = "auto_backup_{$timestamp}.sql";
+        $db_safe_name = preg_replace('/[^a-zA-Z0-9_-]/', '_', $dbname);
+        $filename = "auto_backup_{$db_safe_name}_{$timestamp}.sql";
         $filepath = $backup_dir . '/' . $filename;
-        
-        // Database connection
-        $host = $db_config['host'];
-        $dbname = $db_config['dbname'];
-        $username = $db_config['user'];
-        $password = $db_config['pass'];
         
         // Try mysqldump
         $command = "mysqldump --host=$host --user=$username --password=$password $dbname > $filepath 2>&1";
@@ -54,7 +115,8 @@ function createAutomaticBackup() {
             $backup_content = "-- Merhab Cars Automatic Database Backup\n";
             $backup_content .= "-- Generated on: " . date('Y-m-d H:i:s') . "\n";
             $backup_content .= "-- Database: $dbname\n";
-            $backup_content .= "-- Backup type: Automatic (30 min interval)\n\n";
+            $backup_content .= "-- Host: $host\n";
+            $backup_content .= "-- Backup type: Automatic\n\n";
             
             foreach ($tables as $table) {
                 // Get table structure
@@ -93,12 +155,13 @@ function createAutomaticBackup() {
             $log_entry = date('Y-m-d H:i:s') . " - Automatic backup created: $filename (" . filesize($filepath) . " bytes)\n";
             file_put_contents($log_file, $log_entry, FILE_APPEND);
             
-            return [
-                'success' => true,
-                'filename' => $filename,
-                'filepath' => $filepath,
-                'size' => filesize($filepath)
-            ];
+        return [
+            'success' => true,
+            'filename' => $filename,
+            'filepath' => $filepath,
+            'size' => filesize($filepath),
+            'database' => $dbname
+        ];
         } else {
             throw new Exception('Failed to create automatic backup file');
         }
@@ -123,7 +186,8 @@ $auto_backup_interval = 30 * 60; // 30 minutes in seconds
 
 // Handle automatic backup trigger
 if (isset($_POST['trigger_auto_backup'])) {
-    $auto_backup_result = createAutomaticBackup();
+    $selectedDb = isset($_POST['database']) && !empty($_POST['database']) ? $_POST['database'] : null;
+    $auto_backup_result = createAutomaticBackup($selectedDb);
     if ($auto_backup_result['success']) {
         // Update last backup time
         file_put_contents($last_auto_backup_file, date('Y-m-d H:i:s'));
@@ -140,6 +204,7 @@ if (isset($_POST['trigger_auto_backup'])) {
                 'success' => true,
                 'filename' => $auto_backup_filename,
                 'size' => $auto_backup_size,
+                'database' => $auto_backup_result['database'],
                 'message' => 'Automatic backup created successfully'
             ]);
             exit();
@@ -150,10 +215,19 @@ if (isset($_POST['trigger_auto_backup'])) {
 // Handle interval setting
 if (isset($_POST['set_interval'])) {
     $new_interval = intval($_POST['interval_seconds']);
+    $selectedDbForAuto = isset($_POST['auto_backup_database']) ? $_POST['auto_backup_database'] : null;
+    
     if ($new_interval > 0) {
         $interval_file = '../backups/backup_interval.txt';
         file_put_contents($interval_file, $new_interval);
-        $interval_success = "Interval updated to $new_interval seconds";
+        
+        // Save selected database for auto backup
+        if ($selectedDbForAuto) {
+            $auto_backup_db_file = '../backups/auto_backup_database.txt';
+            file_put_contents($auto_backup_db_file, $selectedDbForAuto);
+        }
+        
+        $interval_success = "Interval updated to $new_interval seconds" . ($selectedDbForAuto ? " for database: $selectedDbForAuto" : "");
     } else {
         $interval_error = "Invalid interval. Please enter a positive number.";
     }
@@ -178,6 +252,10 @@ if (file_exists($interval_file)) {
     $auto_backup_interval = 30 * 60; // Default to 30 minutes
 }
 
+// Load selected database for auto backup
+$auto_backup_db_file = '../backups/auto_backup_database.txt';
+$auto_backup_database = file_exists($auto_backup_db_file) ? trim(file_get_contents($auto_backup_db_file)) : null;
+
 // Load current auto-download setting
 $auto_download_file = '../backups/auto_download.txt';
 $auto_download_enabled = file_exists($auto_download_file) ? file_get_contents($auto_download_file) === '1' : true;
@@ -198,7 +276,14 @@ if ($auto_backup_enabled) {
     }
     
     if ($should_run_auto_backup) {
-        $auto_backup_result = createAutomaticBackup();
+        // Get selected database for auto backup
+        $availableDbs = getAvailableDatabases();
+        $selectedDbForAuto = $auto_backup_database;
+        if (!$selectedDbForAuto && !empty($availableDbs)) {
+            $selectedDbForAuto = $availableDbs[0]['name'];
+        }
+        
+        $auto_backup_result = createAutomaticBackup($selectedDbForAuto);
         if ($auto_backup_result['success']) {
             // Update last backup time
             file_put_contents($last_auto_backup_file, date('Y-m-d H:i:s'));
@@ -216,20 +301,24 @@ if (isset($_POST['create_backup'])) {
     try {
         require_once 'config.php';
         
+        // Get selected database
+        $selectedDb = isset($_POST['database']) && !empty($_POST['database']) ? $_POST['database'] : $db_config['dbname'];
+        
         // Create backup directory
         $backup_dir = '../backups';
         if (!is_dir($backup_dir)) {
             mkdir($backup_dir, 0755, true);
         }
         
-        // Generate filename
+        // Generate filename with database name
         $timestamp = date('Y-m-d_H-i-s');
-        $filename = "merhab_cars_backup_{$timestamp}.sql";
+        $db_safe_name = preg_replace('/[^a-zA-Z0-9_-]/', '_', $selectedDb);
+        $filename = "merhab_cars_backup_{$db_safe_name}_{$timestamp}.sql";
         $filepath = $backup_dir . '/' . $filename;
         
         // Database connection
         $host = $db_config['host'];
-        $dbname = $db_config['dbname'];
+        $dbname = $selectedDb;
         $username = $db_config['user'];
         $password = $db_config['pass'];
         
@@ -258,7 +347,8 @@ if (isset($_POST['create_backup'])) {
             // Generate backup content
             $backup_content = "-- Merhab Cars Database Backup\n";
             $backup_content .= "-- Generated on: " . date('Y-m-d H:i:s') . "\n";
-            $backup_content .= "-- Database: $dbname\n\n";
+            $backup_content .= "-- Database: $dbname\n";
+            $backup_content .= "-- Host: $host\n\n";
             
             foreach ($tables as $table) {
                 // Get table structure
@@ -296,7 +386,7 @@ if (isset($_POST['create_backup'])) {
             $file_size_kb = round($file_size / 1024, 2);
             $download_url = "/backups/$filename";
             
-            $success_message = "✓ Backup created successfully!\n\nFile: $filename\nSize: $file_size_kb KB\n\n<a href='$download_url' download='$filename' style='background: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;'>Download Backup</a>";
+            $success_message = "✓ Backup created successfully!\n\nDatabase: $dbname\nFile: $filename\nSize: $file_size_kb KB\n\n<a href='$download_url' download='$filename' style='background: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;'>Download Backup</a>";
         } else {
             throw new Exception('Failed to create backup file');
         }
@@ -425,8 +515,25 @@ if (file_exists($last_auto_backup_file)) {
     <div class="container">
         <h1>🔄 Database Backup System</h1>
         
-        <div style="text-align: center;">
-            <form method="POST" style="display: inline;">
+        <?php
+        $availableDatabases = getAvailableDatabases();
+        $selectedDatabase = isset($_POST['database']) ? $_POST['database'] : (isset($_GET['db']) ? $_GET['db'] : $db_config['dbname']);
+        ?>
+        
+        <div style="text-align: center; margin-bottom: 20px;">
+            <form method="POST" style="display: inline-block;">
+                <div style="margin-bottom: 15px;">
+                    <label for="database" style="display: block; margin-bottom: 8px; font-weight: 600; color: #333;">
+                        Select Database to Backup:
+                    </label>
+                    <select name="database" id="database" style="padding: 10px 15px; border: 1px solid #ddd; border-radius: 5px; font-size: 16px; min-width: 300px;">
+                        <?php foreach ($availableDatabases as $db): ?>
+                            <option value="<?php echo htmlspecialchars($db['name']); ?>" <?php echo $selectedDatabase === $db['name'] ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($db['label']); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
                 <button type="submit" name="create_backup" class="btn">Create New Backup</button>
             </form>
         </div>
@@ -434,6 +541,14 @@ if (file_exists($last_auto_backup_file)) {
         <div style="margin: 20px 0; padding: 20px; background: #f8f9fa; border-radius: 5px;">
             <h3>⚙️ Automatic Backup Settings</h3>
             <form method="POST" style="display: flex; align-items: center; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                <label for="auto_backup_database">Database:</label>
+                <select name="auto_backup_database" id="auto_backup_database" style="padding: 8px; border: 1px solid #ddd; border-radius: 3px; min-width: 200px;">
+                    <?php foreach ($availableDatabases as $db): ?>
+                        <option value="<?php echo htmlspecialchars($db['name']); ?>" <?php echo $selectedDatabase === $db['name'] ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars($db['label']); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
                 <label for="interval_seconds">Backup Interval (seconds):</label>
                 <input type="number" id="interval_seconds" name="interval_seconds" value="<?php echo $auto_backup_interval; ?>" min="60" max="86400" style="padding: 8px; border: 1px solid #ddd; border-radius: 3px; width: 120px;">
                 <button type="submit" name="set_interval" class="btn" style="background: #28a745;">Update Interval</button>
@@ -487,7 +602,11 @@ if (file_exists($last_auto_backup_file)) {
         
         <div class="status info">
             <strong>🕒 Automatic Backup Status:</strong><br>
-            <?php echo nl2br($auto_backup_status); ?>
+            <?php 
+            $currentAutoDb = $auto_backup_database ? $auto_backup_database : (isset($availableDatabases[0]) ? $availableDatabases[0]['name'] : 'N/A');
+            echo "Database: $currentAutoDb\n";
+            echo nl2br($auto_backup_status); 
+            ?>
             <div id="backup-countdown" style="margin-top: 10px; font-weight: bold; color: #007bff;">
                 Calculating countdown...
             </div>
@@ -498,7 +617,21 @@ if (file_exists($last_auto_backup_file)) {
             <?php if (empty($existing_backups)): ?>
                 <p>No backups found.</p>
             <?php else: ?>
-                <?php foreach ($existing_backups as $backup): ?>
+                <?php 
+                // Sort backups by creation time (newest first)
+                usort($existing_backups, function($a, $b) {
+                    return strtotime($b['created']) - strtotime($a['created']);
+                });
+                
+                foreach ($existing_backups as $backup): 
+                    // Extract database name from filename if possible
+                    $dbNameFromFile = 'Unknown';
+                    if (preg_match('/backup_([^_]+)_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.sql/', $backup['filename'], $matches)) {
+                        $dbNameFromFile = $matches[1];
+                    } elseif (preg_match('/auto_backup_([^_]+)_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.sql/', $backup['filename'], $matches)) {
+                        $dbNameFromFile = $matches[1];
+                    }
+                ?>
                     <div class="backup-item <?php echo $backup['is_auto'] ? 'auto' : ''; ?>">
                         <h3>
                             <?php echo htmlspecialchars($backup['filename']); ?>
@@ -506,6 +639,7 @@ if (file_exists($last_auto_backup_file)) {
                                 <span class="auto-badge">AUTO</span>
                             <?php endif; ?>
                         </h3>
+                        <p><strong>Database:</strong> <?php echo htmlspecialchars($dbNameFromFile); ?></p>
                         <p><strong>Size:</strong> <?php echo round($backup['size'] / 1024, 1); ?> KB</p>
                         <p><strong>Created:</strong> <?php echo $backup['created']; ?></p>
                         <a href="<?php echo $backup['download_url']; ?>" download="<?php echo $backup['filename']; ?>" class="btn">Download</a>
@@ -552,12 +686,13 @@ if (file_exists($last_auto_backup_file)) {
                     // Trigger automatic backup via AJAX
                     console.log('🔄 Triggering automatic backup...');
                     
+                    const selectedDb = document.getElementById('auto_backup_database')?.value || document.getElementById('database')?.value || '';
                     fetch(window.location.href, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/x-www-form-urlencoded',
                         },
-                        body: 'trigger_auto_backup=1&ajax=1'
+                        body: 'trigger_auto_backup=1&ajax=1&database=' + encodeURIComponent(selectedDb)
                     })
                     .then(response => response.json())
                     .then(data => {
