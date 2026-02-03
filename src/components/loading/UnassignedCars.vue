@@ -257,6 +257,10 @@
                   />
                   <div class="client-details">
                     <span class="client-name">{{ car.client_name }}</span>
+                    <span v-if="car.client_mobiles && car.client_mobiles !== 'please provide mobile'" class="client-mobile">
+                      <i class="fas fa-phone"></i>
+                      {{ car.client_mobiles }}
+                    </span>
                     <span class="client-id-no">{{ car.client_id_no || t('loading.no_id') }}</span>
                   </div>
                 </div>
@@ -625,6 +629,7 @@ const fetchUnassignedCars = async () => {
           cs.date_sell,
           cs.id_client,
           cl.name as client_name,
+          cl.mobiles as client_mobiles,
           cl.id_copy_path,
           cl.id_no as client_id_no,
           sb.id as sell_bill_id,
@@ -1850,5 +1855,20 @@ defineExpose({
 .payment-confirmed-btn.read-only:hover {
   transform: none;
   box-shadow: none;
+}
+
+.client-mobile {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: #1e40af;
+  font-weight: 500;
+  margin-top: 2px;
+}
+
+.client-mobile i {
+  font-size: 0.7rem;
+  color: #3b82f6;
 }
 </style>

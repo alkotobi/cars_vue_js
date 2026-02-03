@@ -2204,6 +2204,7 @@ const printLoadingRecord = async () => {
           cn.car_name,
           clr.color,
           cl.name as client_name,
+          cl.mobiles as client_mobiles,
           cl.id_no as client_id_no,
           cl.nin as client_nin,
           cl.id_copy_path
@@ -2250,6 +2251,7 @@ const printLoadingRecord = async () => {
           color: row.color,
           price_cell: row.price_cell,
           client_name: row.client_name,
+          client_mobiles: row.client_mobiles,
           client_id_no: row.client_id_no,
           client_nin: row.client_nin,
           id_copy_path: row.id_copy_path,
@@ -2379,6 +2381,27 @@ const generatePrintContent = (loadingRecord, containersData) => {
         .client-id-no {
           font-size: 0.85rem;
           color: #666;
+        }
+        .client-mobile {
+          font-size: 0.8rem;
+          color: #1e40af;
+          font-weight: 500;
+          margin-top: 2px;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          background: #eff6ff;
+          padding: 4px 8px;
+          border-radius: 4px;
+          border-left: 3px solid #3b82f6;
+        }
+        .client-mobile i {
+          font-size: 0.7rem;
+          color: #3b82f6;
+        }
+        .client-mobile strong {
+          color: #1e40af;
+          font-weight: 600;
         }
         .client-nin {
           font-size: 0.75rem;
@@ -2522,6 +2545,7 @@ const generatePrintContent = (loadingRecord, containersData) => {
                         }
                         <div class="client-details">
                           <div class="client-name">${car.client_name || 'N/A'}</div>
+                          ${car.client_mobiles && car.client_mobiles !== 'please provide mobile' ? `<div class="client-mobile"><i class="fas fa-phone"></i> <strong>Mobile:</strong> ${car.client_mobiles}</div>` : ''}
                           <div class="client-id-no">${car.client_id_no || 'No ID'}</div>
                           ${car.client_nin ? `<div class="client-nin">${car.client_nin}</div>` : ''}
                         </div>

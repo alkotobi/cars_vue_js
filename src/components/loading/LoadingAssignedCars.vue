@@ -157,6 +157,10 @@
                   />
                   <div class="client-details">
                     <span class="client-name">{{ car.client_name }}</span>
+                    <span v-if="car.client_mobiles && car.client_mobiles !== 'please provide mobile'" class="client-mobile">
+                      <i class="fas fa-phone"></i>
+                      {{ car.client_mobiles }}
+                    </span>
                     <span class="client-id-no">{{ car.client_id_no || '-' }}</span>
                     <span v-if="car.client_nin" class="client-nin">{{ car.client_nin }}</span>
                   </div>
@@ -350,6 +354,7 @@ const fetchAssignedCars = async () => {
         cs.id_loaded_container,
         cs.id_client,
         cl.name as client_name,
+        cl.mobiles as client_mobiles,
         cl.id_no as client_id_no,
         cl.nin as client_nin,
         cl.id_copy_path,
@@ -1033,5 +1038,20 @@ loadUserData()
   background-color: #f3e8ff;
   color: #6b21a8;
   border: 1px solid #d9b8ff;
+}
+
+.client-mobile {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: #1e40af;
+  font-weight: 500;
+  margin-top: 2px;
+}
+
+.client-mobile i {
+  font-size: 0.7rem;
+  color: #3b82f6;
 }
 </style>

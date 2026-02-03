@@ -920,6 +920,7 @@ const fetchCarsByBillId = async (billId) => {
           cs.date_assigned,
           lp.loading_port,
           c.name as client_name,
+          c.mobiles as client_mobiles,
           dp.discharge_port,
           bd.amount as buy_price,
           cn.car_name,
@@ -1371,7 +1372,15 @@ const formatDate = (dateString) => {
               </span>
             </div>
           </td>
-          <td>{{ car.client_name || 'N/A' }}</td>
+          <td>
+            <div class="client-info">
+              <div>{{ car.client_name || 'N/A' }}</div>
+              <div v-if="car.client_mobiles && car.client_mobiles !== 'please provide mobile'" class="client-mobile">
+                <i class="fas fa-phone"></i>
+                {{ car.client_mobiles }}
+              </div>
+            </div>
+          </td>
           <td>
             <span
               :class="['container-badge', `container-badge-${getContainerStatus(car).status}`]"
@@ -2593,5 +2602,25 @@ button:disabled {
 .btn-manage-upgrades:disabled {
   background-color: #ccc;
   cursor: not-allowed;
+}
+
+.client-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.client-mobile {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: #1e40af;
+  font-weight: 500;
+}
+
+.client-mobile i {
+  font-size: 0.7rem;
+  color: #3b82f6;
 }
 </style>

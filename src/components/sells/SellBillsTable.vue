@@ -244,6 +244,7 @@ const fetchSellBills = async () => {
       SELECT 
         sb.*,
         c.name as broker_name,
+        c.mobiles as broker_mobiles,
         u.username as created_by,
         u_confirmed.username as confirmed_by_username,
         (
@@ -290,6 +291,7 @@ const fetchSellBills = async () => {
       SELECT 
         sb.*,
         c.name as broker_name,
+        c.mobiles as broker_mobiles,
         u.username as created_by,
         u_confirmed.username as confirmed_by_username,
         (
@@ -1866,7 +1868,15 @@ const togglePaymentConfirmed = async (bill) => {
                 </span>
               </div>
             </td>
-            <td>{{ bill.broker_name || 'N/A' }}</td>
+            <td>
+              <div class="broker-info">
+                <div>{{ bill.broker_name || 'N/A' }}</div>
+                <div v-if="bill.broker_mobiles && bill.broker_mobiles !== 'please provide mobile'" class="broker-mobile">
+                  <i class="fas fa-phone"></i>
+                  {{ bill.broker_mobiles }}
+                </div>
+              </div>
+            </td>
             <td>{{ bill.created_by || 'N/A' }}</td>
             <td class="notes-cell" :title="bill.notesDisplay || 'N/A'">
               <div class="notes-content">
@@ -2871,5 +2881,25 @@ const togglePaymentConfirmed = async (bill) => {
 .confirmed-by i {
   font-size: 0.7rem;
   color: #9ca3af;
+}
+
+.broker-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.broker-mobile {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: #1e40af;
+  font-weight: 500;
+}
+
+.broker-mobile i {
+  font-size: 0.7rem;
+  color: #3b82f6;
 }
 </style>
