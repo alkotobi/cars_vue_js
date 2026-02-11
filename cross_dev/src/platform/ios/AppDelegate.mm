@@ -24,7 +24,7 @@
     
     // Create the C++ window
     @try {
-        Window* window = new Window(0, 0, 0, 0, "test");
+        Window* window = new Window(nullptr, nullptr, 0, 0, 0, 0, "test");
         window->show();
         self.cppWindow = window; // Store as void*
     } @catch (NSException* e) {

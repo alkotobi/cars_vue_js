@@ -1,15 +1,17 @@
 #ifndef WEBVIEW_H
 #define WEBVIEW_H
 
+#include "control.h"
 #include <string>
 #include <functional>
 
-class Window;
-
 // Platform-agnostic WebView interface
-class WebView {
+// WebView inherits from Control, so it supports Owner and Parent
+class WebView : public Control {
 public:
-    WebView(Window* parent, int x, int y, int width, int height);
+    // Constructor: WebView(owner, parent, x, y, width, height)
+    WebView(Component* owner = nullptr, Control* parent = nullptr,
+            int x = 0, int y = 0, int width = 800, int height = 600);
     ~WebView();
     
     // Non-copyable, movable
@@ -28,11 +30,20 @@ public:
     // Platform-specific handle (opaque pointer)
     void* getNativeHandle() const { return nativeHandle_; }
     
+protected:
+    // Override Control virtual methods
+    void OnParentChanged(Control* oldParent, Control* newParent) override;
+    void OnBoundsChanged() override;
+    
 private:
-    Window* parent_;
     void* nativeHandle_;
     std::function<void(const std::string& title)> createWindowCallback_;
     std::function<void(const std::string& jsonMessage)> messageCallback_;
+    
+    // Platform-specific implementation
+    void createNativeWebView();
+    void destroyNativeWebView();
+    void updateNativeWebViewBounds();
     
     // Static callback wrappers
     static void createWindowCallbackWrapper(const std::string& title, void* userData);

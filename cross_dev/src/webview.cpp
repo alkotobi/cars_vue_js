@@ -1,51 +1,69 @@
 #include "../include/webview.h"
-#include "../include/window.h"
+#include "../include/control.h"
 #include "platform/platform_impl.h"
 #include <stdexcept>
 #include <functional>
 
-WebView::WebView(Window* parent, int x, int y, int width, int height)
-    : parent_(parent), nativeHandle_(nullptr), messageCallback_(nullptr) {
-    if (!parent || !parent->getNativeHandle()) {
-        throw std::runtime_error("Parent window must be created before creating web view");
+WebView::WebView(Component* owner, Control* parent, int x, int y, int width, int height)
+    : Control(owner, parent), nativeHandle_(nullptr) {
+    // Set bounds using Control's methods
+    SetBounds(x, y, width, height);
+    
+    if (!GetParent() || !GetParent()->getNativeHandle()) {
+        throw std::runtime_error("Parent control must be created before creating web view");
     }
-    nativeHandle_ = platform::createWebView(parent->getNativeHandle(), x, y, width, height);
-    if (!nativeHandle_) {
-        throw std::runtime_error("Failed to create web view");
-    }
+    
+    createNativeWebView();
 }
 
 WebView::~WebView() {
     if (nativeHandle_) {
-        platform::destroyWebView(nativeHandle_);
+        destroyNativeWebView();
     }
 }
 
 WebView::WebView(WebView&& other) noexcept
-    : parent_(other.parent_), nativeHandle_(other.nativeHandle_), 
+    : Control(std::move(other)),
+      nativeHandle_(other.nativeHandle_),
       createWindowCallback_(std::move(other.createWindowCallback_)),
       messageCallback_(std::move(other.messageCallback_)) {
     other.nativeHandle_ = nullptr;
-    other.createWindowCallback_ = nullptr;
-    other.messageCallback_ = nullptr;
 }
 
 WebView& WebView::operator=(WebView&& other) noexcept {
     if (this != &other) {
         if (nativeHandle_) {
-            platform::destroyWebView(nativeHandle_);
+            destroyNativeWebView();
         }
         
-        parent_ = other.parent_;
+        Control::operator=(std::move(other));
         nativeHandle_ = other.nativeHandle_;
         createWindowCallback_ = std::move(other.createWindowCallback_);
         messageCallback_ = std::move(other.messageCallback_);
         
         other.nativeHandle_ = nullptr;
-        other.createWindowCallback_ = nullptr;
-        other.messageCallback_ = nullptr;
     }
     return *this;
+}
+
+void WebView::createNativeWebView() {
+    if (!GetParent() || !GetParent()->getNativeHandle()) {
+        return;
+    }
+    
+    nativeHandle_ = platform::createWebView(GetParent()->getNativeHandle(),
+                                           GetLeft(), GetTop(),
+                                           GetWidth(), GetHeight());
+    if (!nativeHandle_) {
+        throw std::runtime_error("Failed to create web view");
+    }
+}
+
+void WebView::destroyNativeWebView() {
+    if (nativeHandle_) {
+        platform::destroyWebView(nativeHandle_);
+        nativeHandle_ = nullptr;
+    }
 }
 
 void WebView::loadHTMLFile(const std::string& filePath) {
@@ -67,6 +85,36 @@ void WebView::loadURL(const std::string& url) {
         throw std::runtime_error("Web view is not initialized");
     }
     platform::loadURL(nativeHandle_, url);
+}
+
+void WebView::OnParentChanged(Control* oldParent, Control* newParent) {
+    Control::OnParentChanged(oldParent, newParent);
+    // Recreate native web view with new parent
+    if (nativeHandle_) {
+        destroyNativeWebView();
+    }
+    if (newParent && newParent->getNativeHandle()) {
+        createNativeWebView();
+        // Re-register callbacks if they were set
+        if (createWindowCallback_) {
+            setCreateWindowCallback(createWindowCallback_);
+        }
+        if (messageCallback_) {
+            setMessageCallback(messageCallback_);
+        }
+    }
+}
+
+void WebView::OnBoundsChanged() {
+    Control::OnBoundsChanged();
+    updateNativeWebViewBounds();
+}
+
+void WebView::updateNativeWebViewBounds() {
+    if (nativeHandle_) {
+        // Use platform resize function
+        platform::resizeWebView(nativeHandle_, GetWidth(), GetHeight());
+    }
 }
 
 void WebView::setCreateWindowCallback(std::function<void(const std::string& title)> callback) {

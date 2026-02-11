@@ -1,14 +1,17 @@
 #ifndef INPUTFIELD_H
 #define INPUTFIELD_H
 
+#include "control.h"
 #include <string>
 
-class Window;
-
 // Platform-agnostic InputField interface
-class InputField {
+// InputField inherits from Control, so it supports Owner and Parent
+class InputField : public Control {
 public:
-    InputField(Window* parent, int x, int y, int width, int height, const std::string& placeholder);
+    // Constructor: InputField(owner, parent, x, y, width, height, placeholder)
+    InputField(Component* owner = nullptr, Control* parent = nullptr,
+               int x = 0, int y = 0, int width = 200, int height = 30,
+               const std::string& placeholder = "");
     ~InputField();
     
     // Non-copyable, movable
@@ -20,13 +23,24 @@ public:
     void setText(const std::string& text);
     std::string getText() const;
     void setPlaceholder(const std::string& placeholder);
+    std::string getPlaceholder() const;
     
     // Platform-specific handle (opaque pointer)
     void* getNativeHandle() const { return nativeHandle_; }
     
+protected:
+    // Override Control virtual methods
+    void OnParentChanged(Control* oldParent, Control* newParent) override;
+    void OnBoundsChanged() override;
+    
 private:
-    Window* parent_;
     void* nativeHandle_;
+    std::string placeholder_;
+    
+    // Platform-specific implementation
+    void createNativeInputField();
+    void destroyNativeInputField();
+    void updateNativeInputFieldBounds();
 };
 
 #endif // INPUTFIELD_H

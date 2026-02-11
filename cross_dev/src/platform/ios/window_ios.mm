@@ -107,6 +107,14 @@ bool isWindowVisible(void* handle) {
     }
 }
 
+void setWindowResizeCallback(void* windowHandle, void (*callback)(int width, int height, void* userData), void* userData) {
+    // iOS windows are typically full-screen and don't resize in the traditional sense
+    // This is a stub implementation
+    (void)windowHandle;
+    (void)callback;
+    (void)userData;
+}
+
 } // namespace platform
 
 #endif // PLATFORM_IOS

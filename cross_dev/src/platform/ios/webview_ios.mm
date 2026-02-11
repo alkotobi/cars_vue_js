@@ -54,16 +54,26 @@ typedef void (*MessageCallback)(const std::string& jsonMessage, void* userData);
 
 namespace platform {
 
-void* createWebView(void* windowHandle, int x, int y, int width, int height) {
+void* createWebView(void* parentHandle, int x, int y, int width, int height) {
     @autoreleasepool {
-        if (!windowHandle) {
+        if (!parentHandle) {
             return nullptr;
         }
         
-        UIWindow* window = (__bridge UIWindow*)windowHandle;
-        UIViewController* viewController = window.rootViewController;
+        UIView *parentView = nullptr;
         
-        if (!viewController) {
+        // Get parent view - could be UIWindow's root view or a UIView (from Container)
+        if ([(__bridge id)parentHandle isKindOfClass:[UIWindow class]]) {
+            UIWindow *window = (__bridge UIWindow*)parentHandle;
+            UIViewController* viewController = window.rootViewController;
+            if (viewController) {
+                parentView = viewController.view;
+            } else {
+                return nullptr;
+            }
+        } else if ([(__bridge id)parentHandle isKindOfClass:[UIView class]]) {
+            parentView = (__bridge UIView*)parentHandle;
+        } else {
             return nullptr;
         }
         
@@ -71,7 +81,7 @@ void* createWebView(void* windowHandle, int x, int y, int width, int height) {
         WKWebView* webView = [[WKWebView alloc] initWithFrame:webViewFrame];
         webView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
         
-        [viewController.view addSubview:webView];
+        [parentView addSubview:webView];
         
         return (void*)CFBridgingRetain(webView);
     }
@@ -214,6 +224,16 @@ void postMessageToJavaScript(void* webViewHandle, const std::string& jsonMessage
                 NSLog(@"Error posting message to JavaScript: %@", error);
             }
         }];
+    }
+}
+
+void resizeWebView(void* webViewHandle, int width, int height) {
+    @autoreleasepool {
+        if (webViewHandle) {
+            WKWebView* webView = (__bridge WKWebView*)webViewHandle;
+            CGRect newFrame = CGRectMake(0, 0, width, height);
+            webView.frame = newFrame;
+        }
     }
 }
 

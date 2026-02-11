@@ -8,16 +8,26 @@
 
 namespace platform {
 
-void* createInputField(void* windowHandle, int x, int y, int width, int height, const std::string& placeholder) {
+void* createInputField(void* parentHandle, int x, int y, int width, int height, const std::string& placeholder) {
     @autoreleasepool {
-        if (!windowHandle) {
+        if (!parentHandle) {
             return nullptr;
         }
         
-        UIWindow* window = (__bridge UIWindow*)windowHandle;
-        UIViewController* viewController = window.rootViewController;
+        UIView *parentView = nullptr;
         
-        if (!viewController) {
+        // Get parent view - could be UIWindow's root view or a UIView (from Container)
+        if ([(__bridge id)parentHandle isKindOfClass:[UIWindow class]]) {
+            UIWindow *window = (__bridge UIWindow*)parentHandle;
+            UIViewController* viewController = window.rootViewController;
+            if (viewController) {
+                parentView = viewController.view;
+            } else {
+                return nullptr;
+            }
+        } else if ([(__bridge id)parentHandle isKindOfClass:[UIView class]]) {
+            parentView = (__bridge UIView*)parentHandle;
+        } else {
             return nullptr;
         }
         
@@ -30,7 +40,7 @@ void* createInputField(void* windowHandle, int x, int y, int width, int height, 
         textField.autocapitalizationType = UITextAutocapitalizationTypeNone;
         textField.autocorrectionType = UITextAutocorrectionTypeNo;
         
-        [viewController.view addSubview:textField];
+        [parentView addSubview:textField];
         
         return (void*)CFBridgingRetain(textField);
     }

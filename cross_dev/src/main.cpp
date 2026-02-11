@@ -9,6 +9,7 @@
 #include "../include/handlers/appinfohandler.h"
 #include "../include/handlers/calculatorhandler.h"
 #include "../include/handlers/filedialoghandler.h"
+#include "../include/config_manager.h"
 #include "../include/platform.h"
 #include "platform/platform_impl.h"
 #include <iostream>
@@ -22,21 +23,34 @@ int main(int /*argc*/, const char* /*argv*/[]) {
     try {
         std::cout << "Running on " << PLATFORM_NAME << std::endl;
         
+        // Load application options
+        ConfigManager& config = ConfigManager::getInstance();
+        if (!config.loadOptions()) {
+            std::cerr << "Warning: Failed to load options, using defaults" << std::endl;
+        }
+        
+        std::cout << "Config directory: " << ConfigManager::getConfigDirectory() << std::endl;
+        std::cout << "Options file: " << ConfigManager::getOptionsFilePath() << std::endl;
+        
         // Create a window using the platform-agnostic interface
-        Window window(100, 100, 800, 600, "Web View Test");
+        // Window(owner, parent, x, y, width, height, title)
+        Window window(nullptr, nullptr, 100, 100, 800, 600, "Web View Test");
         
         // Create components - each component is a separate class
-        InputField inputField(&window, 10, 10, 500, 30, "Enter URL or file path");
+        // InputField(owner, parent, x, y, width, height, placeholder)
+        InputField inputField(&window, &window, 10, 10, 500, 30, "Enter URL or file path");
         
         // Create web view (positioned below input/button area)
-        WebView webView(&window, 10, 50, 780, 540);
+        // WebView(owner, parent, x, y, width, height)
+        WebView webView(&window, &window, 10, 50, 780, 540);
         
         // Create event handler to manage all HTML/webview events
         EventHandler eventHandler(&window, &inputField, &webView);
         
         // Register button click event
-        Button loadButton(&window, 520, 10, 150, 30, "Load File");
-        loadButton.setCallback([&eventHandler](Window* w) {
+        // Button(owner, parent, x, y, width, height, label)
+        Button loadButton(&window, &window, 520, 10, 150, 30, "Load File");
+        loadButton.setCallback([&eventHandler](Control* parent) {
             eventHandler.onLoadButtonClicked();
         });
         
@@ -46,7 +60,7 @@ int main(int /*argc*/, const char* /*argv*/[]) {
                 // Create a new window
                 // The Window object will be automatically deleted when the window is closed
                 // (handled in WM_DESTROY message handler on Windows)
-                Window* newWindow = new Window(150, 150, 600, 400, title);
+                Window* newWindow = new Window(nullptr, nullptr, 150, 150, 600, 400, title);
                 newWindow->show();
                 std::cout << "Created new window: " << title << std::endl;
             } catch (const std::exception& e) {
@@ -74,22 +88,66 @@ int main(int /*argc*/, const char* /*argv*/[]) {
         
         std::cout << "All handlers registered successfully!" << std::endl;
         
-        // Load the demo.html file - read it as a string to avoid path issues
-        std::ifstream htmlFile("demo.html");
-        if (!htmlFile.is_open()) {
-            // Try absolute path from project root
-            htmlFile.open("/Users/merhab/dev/native dev/cpp test/demo.html");
-        }
-        if (htmlFile.is_open()) {
-            std::stringstream buffer;
-            buffer << htmlFile.rdbuf();
-            std::string htmlContent = buffer.str();
-            htmlFile.close();
-            webView.loadHTMLString(htmlContent);
-            std::cout << "Loaded demo.html successfully" << std::endl;
+        // Load HTML based on options.json configuration
+        std::string loadingMethod = config.getHtmlLoadingMethod();
+        std::cout << "HTML loading method: " << loadingMethod << std::endl;
+        
+        if (loadingMethod == "file") {
+            // Load from file
+            std::string filePath = config.getHtmlFilePath();
+            std::ifstream htmlFile(filePath);
+            if (!htmlFile.is_open()) {
+                // Try current directory
+                htmlFile.open("demo.html");
+            }
+            if (htmlFile.is_open()) {
+                std::stringstream buffer;
+                buffer << htmlFile.rdbuf();
+                std::string htmlContent = buffer.str();
+                htmlFile.close();
+                webView.loadHTMLString(htmlContent);
+                inputField.setText(filePath);
+                std::cout << "Loaded HTML file: " << filePath << std::endl;
+            } else {
+                std::cerr << "Warning: Could not open HTML file: " << filePath << std::endl;
+                webView.loadHTMLString("<html><body><h1>Error: Could not load HTML file</h1><p>File: " + filePath + "</p><p>Please check the file path in options.json</p></body></html>");
+            }
+        } else if (loadingMethod == "url") {
+            // Load from URL
+            std::string url = config.getHtmlUrl();
+            if (!url.empty()) {
+                webView.loadURL(url);
+                inputField.setText(url);
+                std::cout << "Loading URL: " << url << std::endl;
+            } else {
+                std::cerr << "Warning: URL is empty in options.json" << std::endl;
+                webView.loadHTMLString("<html><body><h1>Error: No URL specified</h1><p>Please set the URL in options.json</p></body></html>");
+            }
+        } else if (loadingMethod == "html") {
+            // Load from HTML content in JSON
+            std::string htmlContent = config.getHtmlContent();
+            if (!htmlContent.empty()) {
+                webView.loadHTMLString(htmlContent);
+                inputField.setText("(HTML from options.json)");
+                std::cout << "Loaded HTML content from options.json" << std::endl;
+            } else {
+                std::cerr << "Warning: HTML content is empty in options.json" << std::endl;
+                webView.loadHTMLString("<html><body><h1>Error: No HTML content specified</h1><p>Please set the htmlContent in options.json</p></body></html>");
+            }
         } else {
-            std::cerr << "Warning: Could not open demo.html, loading empty page" << std::endl;
-            webView.loadHTMLString("<html><body><h1>Error: Could not load demo.html</h1><p>Please ensure demo.html is in the current directory or project root.</p></body></html>");
+            // Fallback to default behavior
+            std::cerr << "Warning: Unknown HTML loading method: " << loadingMethod << std::endl;
+            std::ifstream htmlFile("demo.html");
+            if (htmlFile.is_open()) {
+                std::stringstream buffer;
+                buffer << htmlFile.rdbuf();
+                std::string htmlContent = buffer.str();
+                htmlFile.close();
+                webView.loadHTMLString(htmlContent);
+                std::cout << "Loaded demo.html (fallback)" << std::endl;
+            } else {
+                webView.loadHTMLString("<html><body><h1>Error: Could not load HTML</h1><p>Please configure options.json</p></body></html>");
+            }
         }
         
         // Show the window

@@ -31,18 +31,25 @@ static std::string wStringToString(const std::wstring& wstr) {
 
 namespace platform {
 
-void* createInputField(void* windowHandle, int x, int y, int width, int height, const std::string& placeholder) {
-    if (!windowHandle) {
+void* createInputField(void* parentHandle, int x, int y, int width, int height, const std::string& placeholder) {
+    if (!parentHandle) {
         return nullptr;
     }
     
-    struct WindowData {
-        HWND hwnd;
-        bool visible;
-        std::string title;
-    };
+    HWND parentHwnd = nullptr;
     
-    WindowData* windowData = static_cast<WindowData*>(windowHandle);
+    // Get parent HWND - could be from WindowData or direct HWND (from Container)
+    if (IsWindow((HWND)parentHandle)) {
+        parentHwnd = (HWND)parentHandle;
+    } else {
+        // Try to get from WindowData
+        WindowData* windowData = static_cast<WindowData*>(parentHandle);
+        if (windowData && windowData->hwnd) {
+            parentHwnd = windowData->hwnd;
+        } else {
+            return nullptr;
+        }
+    }
     
     std::wstring wplaceholder = stringToWString(placeholder);
     HWND hwnd = CreateWindowW(
@@ -50,7 +57,7 @@ void* createInputField(void* windowHandle, int x, int y, int width, int height, 
         wplaceholder.c_str(),
         WS_VISIBLE | WS_CHILD | WS_BORDER | ES_LEFT | ES_AUTOHSCROLL,
         x, y, width, height,
-        windowData->hwnd,
+        parentHwnd,
         nullptr,
         getInstance(),
         nullptr

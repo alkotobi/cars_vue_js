@@ -53,20 +53,29 @@ typedef void (*MessageCallback)(const std::string& jsonMessage, void* userData);
 
 namespace platform {
 
-void* createWebView(void* windowHandle, int x, int y, int width, int height) {
+void* createWebView(void* parentHandle, int x, int y, int width, int height) {
     @autoreleasepool {
-        if (!windowHandle) {
+        if (!parentHandle) {
             return nullptr;
         }
         
-        NSWindow *window = (__bridge NSWindow*)windowHandle;
-        NSView *contentView = [window contentView];
+        NSView *parentView = nullptr;
+        
+        // Get parent view - could be NSWindow's contentView or an NSView (from Container)
+        if ([(__bridge id)parentHandle isKindOfClass:[NSWindow class]]) {
+            NSWindow *window = (__bridge NSWindow*)parentHandle;
+            parentView = [window contentView];
+        } else if ([(__bridge id)parentHandle isKindOfClass:[NSView class]]) {
+            parentView = (__bridge NSView*)parentHandle;
+        } else {
+            return nullptr;
+        }
         
         NSRect webViewRect = NSMakeRect(x, y, width, height);
         WKWebView *webView = [[WKWebView alloc] initWithFrame:webViewRect];
         [webView setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
         
-        [contentView addSubview:webView];
+        [parentView addSubview:webView];
         
         return (void*)CFBridgingRetain(webView);
     }
@@ -78,6 +87,16 @@ void destroyWebView(void* webViewHandle) {
             WKWebView *webView = (__bridge WKWebView*)webViewHandle;
             [webView removeFromSuperview];
             CFBridgingRelease(webViewHandle);
+        }
+    }
+}
+
+void resizeWebView(void* webViewHandle, int width, int height) {
+    @autoreleasepool {
+        if (webViewHandle) {
+            WKWebView *webView = (__bridge WKWebView*)webViewHandle;
+            NSRect newFrame = NSMakeRect(0, 0, width, height);
+            [webView setFrame:newFrame];
         }
     }
 }

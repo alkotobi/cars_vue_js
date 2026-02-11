@@ -1,6 +1,15 @@
-# Multi-Platform Native Window Application
+# CrossDev - Multi-Platform Native Window Application
 
-A cross-platform C++ application that creates native windows on macOS, Windows, Linux, and iOS by calling each platform's system libraries directly.
+A cross-platform C++ application framework that creates native windows on macOS, Windows, Linux, and iOS by calling each platform's system libraries directly.
+
+## Component System
+
+CrossDev implements a **Delphi-style Owner/Parent component architecture**:
+
+- **Owner**: Memory management - components are automatically cleaned up when their owner is destroyed
+- **Parent**: Visual hierarchy - controls are displayed within their parent control
+
+See [COMPONENT_SYSTEM.md](COMPONENT_SYSTEM.md) for detailed documentation and usage examples.
 
 ## Project Structure
 
@@ -66,6 +75,7 @@ The project uses a clean separation between platform-agnostic code and platform-
 - **Single Responsibility**: Each file has a clear, focused purpose
 - **Easy to Extend**: Adding new platforms only requires implementing the `platform::` namespace functions
 - **Type Safety**: Uses C++ classes and RAII for resource management
+- **Delphi-Style Ownership**: Owner/Parent pattern for automatic memory management and visual hierarchy
 
 ## Building
 
@@ -221,8 +231,12 @@ window_test.exe      # Windows
 - **File Dialog**: Native file picker for selecting HTML files
 - **Input Field**: Text input for entering URLs or file paths
 - **Button**: Native buttons with callbacks
+- **Container**: Panel-like container for grouping controls
 - **URL Loading**: Load web URLs directly in the web view
 - **File Loading**: Load HTML files from disk
+- **Component System**: Delphi-style Owner/Parent architecture with automatic cleanup
+- **Component Naming**: Name components for easy lookup
+- **Component Enumeration**: Iterate through owned components and visual children
 
 ## Usage
 

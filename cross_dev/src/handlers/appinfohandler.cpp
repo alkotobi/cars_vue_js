@@ -62,7 +62,7 @@ public:
         // Build response
         result["platform"] = platform;
         result["osVersion"] = osVersion;
-        result["appName"] = "WindowTest";
+        result["appName"] = "CrossDev";
         result["version"] = "1.0.0";
         result["timestamp"] = std::time(nullptr);
         

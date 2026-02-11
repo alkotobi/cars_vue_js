@@ -1,15 +1,20 @@
 #ifndef BUTTON_H
 #define BUTTON_H
 
+#include "control.h"
 #include <string>
 #include <functional>
 
-class Window;
+class Control;
 
 // Platform-agnostic Button interface
-class Button {
+// Button inherits from Control, so it supports Owner and Parent
+class Button : public Control {
 public:
-    Button(Window* parent, int x, int y, int width, int height, const std::string& label);
+    // Constructor: Button(owner, parent, x, y, width, height, label)
+    Button(Component* owner = nullptr, Control* parent = nullptr,
+           int x = 0, int y = 0, int width = 100, int height = 30,
+           const std::string& label = "");
     ~Button();
     
     // Non-copyable, movable
@@ -19,17 +24,28 @@ public:
     Button& operator=(Button&&) noexcept;
     
     // Use std::function to allow lambdas with captures
-    void setCallback(std::function<void(Window*)> callback);
+    // Callback receives the parent control (could be Window, Container, etc.)
+    void setCallback(std::function<void(Control*)> callback);
     void setLabel(const std::string& label);
     std::string getLabel() const;
     
     // Platform-specific handle (opaque pointer)
     void* getNativeHandle() const { return nativeHandle_; }
     
+protected:
+    // Override Control virtual methods
+    void OnParentChanged(Control* oldParent, Control* newParent) override;
+    void OnBoundsChanged() override;
+    
 private:
-    Window* parent_;
     void* nativeHandle_;
-    std::function<void(Window*)> callback_;
+    std::string label_;
+    std::function<void(Control*)> callback_;
+    
+    // Platform-specific implementation
+    void createNativeButton();
+    void destroyNativeButton();
+    void updateNativeButtonBounds();
     
     // Static callback wrapper
     static void callbackWrapper(void* userData);

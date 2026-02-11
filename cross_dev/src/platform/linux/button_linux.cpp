@@ -29,12 +29,25 @@ static void button_clicked_callback(GtkWidget* widget, gpointer userData) {
     }
 }
 
-void* createButton(void* windowHandle, int x, int y, int width, int height, const std::string& label, void* userData) {
-    if (!windowHandle) {
+void* createButton(void* parentHandle, int x, int y, int width, int height, const std::string& label, void* userData) {
+    if (!parentHandle) {
         return nullptr;
     }
     
-    WindowData* windowData = static_cast<WindowData*>(windowHandle);
+    GtkWidget* parentWidget = nullptr;
+    
+    // Get parent widget - could be GtkWidget (from Container) or WindowData
+    if (GTK_IS_WIDGET((GtkWidget*)parentHandle)) {
+        parentWidget = (GtkWidget*)parentHandle;
+    } else {
+        // Try to get from WindowData
+        WindowData* windowData = static_cast<WindowData*>(parentHandle);
+        if (windowData && windowData->gtkWindow) {
+            parentWidget = windowData->gtkWindow;
+        } else {
+            return nullptr;
+        }
+    }
     
     ButtonData* buttonData = new ButtonData;
     buttonData->userData = userData;
@@ -45,9 +58,9 @@ void* createButton(void* windowHandle, int x, int y, int width, int height, cons
     
     g_signal_connect(buttonData->button, "clicked", G_CALLBACK(button_clicked_callback), buttonData);
     
-    if (windowData->gtkWindow) {
+    if (parentWidget) {
         GtkWidget* fixed = gtk_fixed_new();
-        gtk_container_add(GTK_CONTAINER(windowData->gtkWindow), fixed);
+        gtk_container_add(GTK_CONTAINER(parentWidget), fixed);
         gtk_fixed_put(GTK_FIXED(fixed), buttonData->button, x, y);
         gtk_widget_show(buttonData->button);
     }

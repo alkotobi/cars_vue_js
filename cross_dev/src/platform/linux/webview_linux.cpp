@@ -32,17 +32,29 @@ struct WebViewData {
     void* messageUserData;
 };
 
-void* createWebView(void* windowHandle, int x, int y, int width, int height) {
-    if (!windowHandle) {
+void* createWebView(void* parentHandle, int x, int y, int width, int height) {
+    if (!parentHandle) {
         return nullptr;
     }
     
-    WindowData* windowData = static_cast<WindowData*>(windowHandle);
+    GtkWidget* parentWidget = nullptr;
     
-    // Create GTK window if not exists
-    if (!windowData->gtkWindow) {
-        windowData->gtkWindow = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-        gtk_window_set_default_size(GTK_WINDOW(windowData->gtkWindow), width + x, height + y);
+    // Get parent widget - could be GtkWidget (from Container) or WindowData
+    if (GTK_IS_WIDGET((GtkWidget*)parentHandle)) {
+        parentWidget = (GtkWidget*)parentHandle;
+    } else {
+        // Try to get from WindowData
+        WindowData* windowData = static_cast<WindowData*>(parentHandle);
+        if (windowData) {
+            // Create GTK window if not exists
+            if (!windowData->gtkWindow) {
+                windowData->gtkWindow = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+                gtk_window_set_default_size(GTK_WINDOW(windowData->gtkWindow), width + x, height + y);
+            }
+            parentWidget = windowData->gtkWindow;
+        } else {
+            return nullptr;
+        }
     }
     
     WebViewData* webViewData = new WebViewData;
@@ -54,8 +66,17 @@ void* createWebView(void* windowHandle, int x, int y, int width, int height) {
     webViewData->messageUserData = nullptr;
     
     gtk_widget_set_size_request(webViewData->container, width, height);
-    gtk_fixed_put(GTK_FIXED(gtk_window_get_child(GTK_WINDOW(windowData->gtkWindow))), 
-                  webViewData->container, x, y);
+    
+    if (GTK_IS_WINDOW(parentWidget)) {
+        // Parent is a window - use fixed layout
+        GtkWidget* fixed = gtk_fixed_new();
+        gtk_container_add(GTK_CONTAINER(parentWidget), fixed);
+        gtk_fixed_put(GTK_FIXED(fixed), webViewData->container, x, y);
+    } else {
+        // Parent is a container/widget - add directly
+        gtk_container_add(GTK_CONTAINER(parentWidget), webViewData->container);
+    }
+    
     gtk_widget_show(webViewData->container);
     
     return webViewData;
@@ -248,6 +269,17 @@ void postMessageToJavaScript(void* webViewHandle, const std::string& jsonMessage
     // Execute JavaScript to post message
     std::string script = "window.postMessage(" + jsonMessage + ", '*');";
     webkit_web_view_run_javascript(data->webView, script.c_str(), nullptr, nullptr, nullptr);
+}
+
+void resizeWebView(void* webViewHandle, int width, int height) {
+    if (!webViewHandle) {
+        return;
+    }
+    
+    WebViewData* data = static_cast<WebViewData*>(webViewHandle);
+    if (data && data->webView) {
+        gtk_widget_set_size_request(data->webView, width, height);
+    }
 }
 
 } // namespace platform

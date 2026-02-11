@@ -15,12 +15,16 @@ namespace platform {
 
 namespace platform {
 
+typedef void (*ResizeCallback)(int width, int height, void* userData);
+
 struct WindowData {
     Display* display;
     Window window;
     GtkWidget* gtkWindow;
     bool visible;
     std::string title;
+    ResizeCallback resizeCallback;
+    void* resizeUserData;
 };
 
 void* createWindow(int x, int y, int width, int height, const std::string& title, void* userData) {
@@ -35,6 +39,8 @@ void* createWindow(int x, int y, int width, int height, const std::string& title
     data->title = title;
     data->visible = false;
     data->gtkWindow = nullptr;
+    data->resizeCallback = nullptr;
+    data->resizeUserData = nullptr;
     
     Window root = RootWindow(data->display, getScreen());
     
@@ -117,6 +123,21 @@ bool isWindowVisible(void* handle) {
         }
     }
     return false;
+}
+
+void setWindowResizeCallback(void* windowHandle, void (*callback)(int width, int height, void* userData), void* userData) {
+    if (windowHandle && callback) {
+        WindowData* data = static_cast<WindowData*>(windowHandle);
+        data->resizeCallback = callback;
+        data->resizeUserData = userData;
+        
+        // Note: For X11, resize events are handled via ConfigureNotify
+        // The application's event loop should check for ConfigureNotify and call the callback
+        // For GTK, we can use size-allocate signal if gtkWindow is available
+        if (data->gtkWindow) {
+            // GTK-based resize handling would go here if needed
+        }
+    }
 }
 
 } // namespace platform

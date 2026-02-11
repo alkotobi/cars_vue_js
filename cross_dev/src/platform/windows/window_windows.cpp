@@ -37,6 +37,8 @@ void* createWindow(int x, int y, int width, int height, const std::string& title
     data->visible = false;
     data->isMainWindow = (g_mainWindow == nullptr);  // First window is the main window
     data->userData = userData;  // Store Window* pointer for cleanup
+    data->resizeCallback = nullptr;
+    data->resizeUserData = nullptr;
     
     std::wstring wtitle = stringToWString(title);
     HWND hwnd = CreateWindowExW(
@@ -112,6 +114,14 @@ bool isWindowVisible(void* handle) {
         return data->visible && IsWindowVisible(data->hwnd);
     }
     return false;
+}
+
+void setWindowResizeCallback(void* windowHandle, void (*callback)(int width, int height, void* userData), void* userData) {
+    if (windowHandle && callback) {
+        WindowData* data = static_cast<WindowData*>(windowHandle);
+        data->resizeCallback = callback;
+        data->resizeUserData = userData;
+    }
 }
 
 } // namespace platform

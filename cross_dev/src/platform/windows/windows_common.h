@@ -10,12 +10,16 @@
 
 namespace platform {
 
+typedef void (*ResizeCallback)(int width, int height, void* userData);
+
 struct WindowData {
     HWND hwnd;
     bool visible;
     std::string title;
     bool isMainWindow;  // Track if this is the main application window
     void* userData;     // Store Window* pointer for cleanup
+    ResizeCallback resizeCallback;  // Callback for window resize
+    void* resizeUserData;  // User data for resize callback
 };
 
 // Forward declarations

@@ -1,15 +1,60 @@
 #include "../include/button.h"
-#include "../include/window.h"
+#include "../include/control.h"
 #include "platform/platform_impl.h"
 #include <stdexcept>
 #include <functional>
 
-Button::Button(Window* parent, int x, int y, int width, int height, const std::string& label)
-    : parent_(parent), nativeHandle_(nullptr) {
-    if (!parent || !parent->getNativeHandle()) {
-        throw std::runtime_error("Parent window must be created before creating button");
+Button::Button(Component* owner, Control* parent, int x, int y, int width, int height, const std::string& label)
+    : Control(owner, parent), nativeHandle_(nullptr), label_(label) {
+    // Set bounds using Control's methods
+    SetBounds(x, y, width, height);
+    
+    if (!GetParent() || !GetParent()->getNativeHandle()) {
+        throw std::runtime_error("Parent control must be created before creating button");
     }
-    nativeHandle_ = platform::createButton(parent->getNativeHandle(), x, y, width, height, label, this);
+    
+    createNativeButton();
+}
+
+Button::~Button() {
+    if (nativeHandle_) {
+        destroyNativeButton();
+    }
+}
+
+Button::Button(Button&& other) noexcept
+    : Control(std::move(other)),
+      nativeHandle_(other.nativeHandle_),
+      label_(std::move(other.label_)),
+      callback_(std::move(other.callback_)) {
+    other.nativeHandle_ = nullptr;
+}
+
+Button& Button::operator=(Button&& other) noexcept {
+    if (this != &other) {
+        if (nativeHandle_) {
+            destroyNativeButton();
+        }
+        
+        Control::operator=(std::move(other));
+        nativeHandle_ = other.nativeHandle_;
+        label_ = std::move(other.label_);
+        callback_ = std::move(other.callback_);
+        
+        other.nativeHandle_ = nullptr;
+    }
+    return *this;
+}
+
+void Button::createNativeButton() {
+    if (!GetParent() || !GetParent()->getNativeHandle()) {
+        return;
+    }
+    
+    nativeHandle_ = platform::createButton(GetParent()->getNativeHandle(), 
+                                          GetLeft(), GetTop(), 
+                                          GetWidth(), GetHeight(), 
+                                          label_, this);
     if (!nativeHandle_) {
         throw std::runtime_error("Failed to create button");
     }
@@ -17,52 +62,54 @@ Button::Button(Window* parent, int x, int y, int width, int height, const std::s
     platform::setButtonCallback(nativeHandle_, callbackWrapper);
 }
 
-Button::~Button() {
+void Button::destroyNativeButton() {
     if (nativeHandle_) {
         platform::destroyButton(nativeHandle_);
+        nativeHandle_ = nullptr;
     }
 }
 
-Button::Button(Button&& other) noexcept
-    : parent_(other.parent_), nativeHandle_(other.nativeHandle_), callback_(std::move(other.callback_)) {
-    other.nativeHandle_ = nullptr;
-    other.callback_ = nullptr;
-}
-
-Button& Button::operator=(Button&& other) noexcept {
-    if (this != &other) {
-        if (nativeHandle_) {
-            platform::destroyButton(nativeHandle_);
-        }
-        
-        parent_ = other.parent_;
-        nativeHandle_ = other.nativeHandle_;
-        callback_ = std::move(other.callback_);
-        
-        other.nativeHandle_ = nullptr;
-        other.callback_ = nullptr;
-    }
-    return *this;
-}
-
-void Button::setCallback(std::function<void(Window*)> callback) {
+void Button::setCallback(std::function<void(Control*)> callback) {
     callback_ = callback;
 }
 
 void Button::setLabel(const std::string& label) {
-    // Platform-specific implementation would go here
-    // For now, this is a placeholder
+    if (label_ != label) {
+        label_ = label;
+        // Platform-specific implementation would update native button label here
+    }
 }
 
 std::string Button::getLabel() const {
-    // Platform-specific implementation would go here
-    // For now, this is a placeholder
-    return "";
+    return label_;
+}
+
+void Button::OnParentChanged(Control* oldParent, Control* newParent) {
+    Control::OnParentChanged(oldParent, newParent);
+    // Recreate native button with new parent
+    if (nativeHandle_) {
+        destroyNativeButton();
+    }
+    if (newParent && newParent->getNativeHandle()) {
+        createNativeButton();
+    }
+}
+
+void Button::OnBoundsChanged() {
+    Control::OnBoundsChanged();
+    updateNativeButtonBounds();
+}
+
+void Button::updateNativeButtonBounds() {
+    if (nativeHandle_) {
+        // Platform-specific implementation would update button position/size here
+        // For now, we rely on platform layer to handle this via resize events
+    }
 }
 
 void Button::callbackWrapper(void* userData) {
     Button* button = static_cast<Button*>(userData);
-    if (button && button->callback_ && button->parent_) {
-        button->callback_(button->parent_);
+    if (button && button->callback_ && button->GetParent()) {
+        button->callback_(button->GetParent());
     }
 }

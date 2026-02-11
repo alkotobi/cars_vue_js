@@ -33,12 +33,25 @@ struct ButtonData {
 // Global button map for callback handling
 std::map<HWND, ButtonData*> g_buttonMap;
 
-void* createButton(void* windowHandle, int x, int y, int width, int height, const std::string& label, void* userData) {
-    if (!windowHandle) {
+void* createButton(void* parentHandle, int x, int y, int width, int height, const std::string& label, void* userData) {
+    if (!parentHandle) {
         return nullptr;
     }
     
-    WindowData* windowData = static_cast<WindowData*>(windowHandle);
+    HWND parentHwnd = nullptr;
+    
+    // Get parent HWND - could be from WindowData or direct HWND (from Container)
+    if (IsWindow((HWND)parentHandle)) {
+        parentHwnd = (HWND)parentHandle;
+    } else {
+        // Try to get from WindowData
+        WindowData* windowData = static_cast<WindowData*>(parentHandle);
+        if (windowData && windowData->hwnd) {
+            parentHwnd = windowData->hwnd;
+        } else {
+            return nullptr;
+        }
+    }
     
     ButtonData* buttonData = new ButtonData;
     buttonData->userData = userData;
@@ -51,7 +64,7 @@ void* createButton(void* windowHandle, int x, int y, int width, int height, cons
         wlabel.c_str(),
         WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
         x, y, width, height,
-        windowData->hwnd,
+        parentHwnd,
         nullptr,
         getInstance(),
         nullptr
@@ -83,6 +96,19 @@ void setButtonCallback(void* buttonHandle, void (*callback)(void*)) {
 
 // Window procedure - handles button callbacks and window messages
 LRESULT CALLBACK MainWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+    if (uMsg == WM_SIZE) {
+        // Handle window resize
+        auto it = platform::g_windowMap.find(hwnd);
+        if (it != platform::g_windowMap.end()) {
+            WindowData* windowData = it->second;
+            if (windowData->resizeCallback) {
+                int width = LOWORD(lParam);
+                int height = HIWORD(lParam);
+                windowData->resizeCallback(width, height, windowData->resizeUserData);
+            }
+        }
+        return 0;
+    }
     if (uMsg == WM_COMMAND) {
         HWND buttonHwnd = (HWND)lParam;
         auto it = g_buttonMap.find(buttonHwnd);

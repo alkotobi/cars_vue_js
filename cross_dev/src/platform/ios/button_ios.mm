@@ -24,16 +24,26 @@
 
 namespace platform {
 
-void* createButton(void* windowHandle, int x, int y, int width, int height, const std::string& label, void* userData) {
+void* createButton(void* parentHandle, int x, int y, int width, int height, const std::string& label, void* userData) {
     @autoreleasepool {
-        if (!windowHandle) {
+        if (!parentHandle) {
             return nullptr;
         }
         
-        UIWindow* window = (__bridge UIWindow*)windowHandle;
-        UIViewController* viewController = window.rootViewController;
+        UIView *parentView = nullptr;
         
-        if (!viewController) {
+        // Get parent view - could be UIWindow's root view or a UIView (from Container)
+        if ([(__bridge id)parentHandle isKindOfClass:[UIWindow class]]) {
+            UIWindow *window = (__bridge UIWindow*)parentHandle;
+            UIViewController* viewController = window.rootViewController;
+            if (viewController) {
+                parentView = viewController.view;
+            } else {
+                return nullptr;
+            }
+        } else if ([(__bridge id)parentHandle isKindOfClass:[UIView class]]) {
+            parentView = (__bridge UIView*)parentHandle;
+        } else {
             return nullptr;
         }
         
@@ -51,7 +61,7 @@ void* createButton(void* windowHandle, int x, int y, int width, int height, cons
         // Retain target to keep it alive
         objc_setAssociatedObject(button, "target", target, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         
-        [viewController.view addSubview:button];
+        [parentView addSubview:button];
         
         return (void*)CFBridgingRetain(button);
     }

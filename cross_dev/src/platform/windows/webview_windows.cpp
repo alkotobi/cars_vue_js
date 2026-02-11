@@ -675,15 +675,28 @@ public:
 };
 #endif // HAVE_WEBVIEW2
 
-void* createWebView(void* windowHandle, int x, int y, int width, int height) {
-    if (!windowHandle) {
+void* createWebView(void* parentHandle, int x, int y, int width, int height) {
+    if (!parentHandle) {
         return nullptr;
     }
     
-    WindowData* windowData = static_cast<WindowData*>(windowHandle);
+    HWND parentHwnd = nullptr;
+    
+    // Get parent HWND - could be from WindowData or direct HWND (from Container)
+    if (IsWindow((HWND)parentHandle)) {
+        parentHwnd = (HWND)parentHandle;
+    } else {
+        // Try to get from WindowData
+        WindowData* windowData = static_cast<WindowData*>(parentHandle);
+        if (windowData && windowData->hwnd) {
+            parentHwnd = windowData->hwnd;
+        } else {
+            return nullptr;
+        }
+    }
     
     WebViewData* webViewData = new WebViewData;
-    webViewData->parent = windowData->hwnd;
+    webViewData->parent = parentHwnd;
     webViewData->hwnd = nullptr;
     webViewData->controller = nullptr;
     webViewData->webview = nullptr;
@@ -1151,6 +1164,28 @@ void postMessageToJavaScript(void* webViewHandle, const std::string& jsonMessage
     } else {
         std::wcout << L"postMessageToJavaScript: webview is null" << std::endl;
         OutputDebugStringW(L"postMessageToJavaScript: webview is null\n");
+    }
+#endif
+}
+
+void resizeWebView(void* webViewHandle, int width, int height) {
+    if (!webViewHandle) {
+        return;
+    }
+    
+    WebViewData* data = static_cast<WebViewData*>(webViewHandle);
+    
+#ifdef HAVE_WEBVIEW2
+    if (data->controller) {
+        RECT bounds = { 0, 0, width, height };
+        data->controller->put_Bounds(bounds);
+    } else if (data->hwnd) {
+        // Fallback for static control
+        SetWindowPos(data->hwnd, nullptr, 0, 0, width, height, SWP_NOMOVE | SWP_NOZORDER);
+    }
+#else
+    if (data->hwnd) {
+        SetWindowPos(data->hwnd, nullptr, 0, 0, width, height, SWP_NOMOVE | SWP_NOZORDER);
     }
 #endif
 }

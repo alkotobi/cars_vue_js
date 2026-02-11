@@ -8,28 +8,41 @@
 
 namespace platform {
 
-void* createInputField(void* windowHandle, int x, int y, int width, int height, const std::string& placeholder) {
-    if (!windowHandle) {
+void* createInputField(void* parentHandle, int x, int y, int width, int height, const std::string& placeholder) {
+    if (!parentHandle) {
         return nullptr;
     }
     
-    struct WindowData {
-        Display* display;
-        Window window;
-        GtkWidget* gtkWindow;
-        bool visible;
-        std::string title;
-    };
+    GtkWidget* parentWidget = nullptr;
     
-    WindowData* windowData = static_cast<WindowData*>(windowHandle);
+    // Get parent widget - could be GtkWidget (from Container) or WindowData
+    if (GTK_IS_WIDGET((GtkWidget*)parentHandle)) {
+        parentWidget = (GtkWidget*)parentHandle;
+    } else {
+        // Try to get from WindowData
+        struct WindowData {
+            Display* display;
+            Window window;
+            GtkWidget* gtkWindow;
+            bool visible;
+            std::string title;
+        };
+        
+        WindowData* windowData = static_cast<WindowData*>(parentHandle);
+        if (windowData && windowData->gtkWindow) {
+            parentWidget = windowData->gtkWindow;
+        } else {
+            return nullptr;
+        }
+    }
     
     GtkWidget* entry = gtk_entry_new();
     gtk_entry_set_placeholder_text(GTK_ENTRY(entry), placeholder.c_str());
     gtk_widget_set_size_request(entry, width, height);
     
-    if (windowData->gtkWindow) {
+    if (parentWidget) {
         GtkWidget* fixed = gtk_fixed_new();
-        gtk_container_add(GTK_CONTAINER(windowData->gtkWindow), fixed);
+        gtk_container_add(GTK_CONTAINER(parentWidget), fixed);
         gtk_fixed_put(GTK_FIXED(fixed), entry, x, y);
         gtk_widget_show(entry);
     }

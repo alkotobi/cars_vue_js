@@ -24,16 +24,27 @@
 
 namespace platform {
 
-void* createButton(void* windowHandle, int x, int y, int width, int height, const std::string& label, void* userData) {
+void* createButton(void* parentHandle, int x, int y, int width, int height, const std::string& label, void* userData) {
     @autoreleasepool {
-        if (!windowHandle) {
+        if (!parentHandle) {
             return nullptr;
         }
         
-        NSWindow *window = (__bridge NSWindow*)windowHandle;
-        NSView *contentView = [window contentView];
+        NSView *parentView = nullptr;
         
-        NSRect buttonRect = NSMakeRect(x, y, width, height);
+        // Get parent view - could be NSWindow's contentView or an NSView (from Container)
+        if ([(__bridge id)parentHandle isKindOfClass:[NSWindow class]]) {
+            NSWindow *window = (__bridge NSWindow*)parentHandle;
+            parentView = [window contentView];
+        } else if ([(__bridge id)parentHandle isKindOfClass:[NSView class]]) {
+            parentView = (__bridge NSView*)parentHandle;
+        } else {
+            return nullptr;
+        }
+        
+        // Convert coordinates: parent view uses bottom-left origin, but we receive top-left origin
+        NSRect parentBounds = [parentView bounds];
+        NSRect buttonRect = NSMakeRect(x, parentBounds.size.height - y - height, width, height);
         NSButton *button = [[NSButton alloc] initWithFrame:buttonRect];
         [button setTitle:[NSString stringWithUTF8String:label.c_str()]];
         [button setButtonType:NSButtonTypeMomentaryPushIn];
@@ -49,7 +60,7 @@ void* createButton(void* windowHandle, int x, int y, int width, int height, cons
         // Retain target to keep it alive
         objc_setAssociatedObject(button, "target", target, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         
-        [contentView addSubview:button];
+        [parentView addSubview:button];
         
         return (void*)CFBridgingRetain(button);
     }

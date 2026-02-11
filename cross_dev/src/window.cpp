@@ -2,8 +2,10 @@
 #include "platform/platform_impl.h"
 #include <stdexcept>
 
-Window::Window(int x, int y, int width, int height, const std::string& title)
-    : nativeHandle_(nullptr), x_(x), y_(y), width_(width), height_(height), title_(title), visible_(false) {
+Window::Window(Component* owner, Control* parent, int x, int y, int width, int height, const std::string& title)
+    : Control(owner, parent), nativeHandle_(nullptr), title_(title) {
+    // Set bounds using Control's methods
+    SetBounds(x, y, width, height);
     createNativeWindow();
 }
 
@@ -14,13 +16,10 @@ Window::~Window() {
 }
 
 Window::Window(Window&& other) noexcept
-    : nativeHandle_(other.nativeHandle_),
-      x_(other.x_), y_(other.y_),
-      width_(other.width_), height_(other.height_),
-      title_(std::move(other.title_)),
-      visible_(other.visible_) {
+    : Control(std::move(other)),
+      nativeHandle_(other.nativeHandle_),
+      title_(std::move(other.title_)) {
     other.nativeHandle_ = nullptr;
-    other.visible_ = false;
 }
 
 Window& Window::operator=(Window&& other) noexcept {
@@ -29,22 +28,17 @@ Window& Window::operator=(Window&& other) noexcept {
             destroyNativeWindow();
         }
         
+        Control::operator=(std::move(other));
         nativeHandle_ = other.nativeHandle_;
-        x_ = other.x_;
-        y_ = other.y_;
-        width_ = other.width_;
-        height_ = other.height_;
         title_ = std::move(other.title_);
-        visible_ = other.visible_;
         
         other.nativeHandle_ = nullptr;
-        other.visible_ = false;
     }
     return *this;
 }
 
 void Window::createNativeWindow() {
-    nativeHandle_ = platform::createWindow(x_, y_, width_, height_, title_, this);
+    nativeHandle_ = platform::createWindow(GetLeft(), GetTop(), GetWidth(), GetHeight(), title_, this);
     if (!nativeHandle_) {
         throw std::runtime_error("Failed to create native window");
     }
@@ -62,7 +56,7 @@ void Window::show() {
         return;
     }
     showNativeWindow();
-    visible_ = true;
+    SetVisible(true);
 }
 
 void Window::hide() {
@@ -70,7 +64,7 @@ void Window::hide() {
         return;
     }
     hideNativeWindow();
-    visible_ = false;
+    SetVisible(false);
 }
 
 void Window::showNativeWindow() {
@@ -96,5 +90,36 @@ bool Window::isVisible() const {
     if (!nativeHandle_) {
         return false;
     }
-    return platform::isWindowVisible(nativeHandle_);
+    return GetVisible() && platform::isWindowVisible(nativeHandle_);
+}
+
+void Window::OnParentChanged(Control* oldParent, Control* newParent) {
+    Control::OnParentChanged(oldParent, newParent);
+    // Windows typically don't have parents, but if they do, we might need to update native window
+    (void)oldParent;
+    (void)newParent;
+}
+
+void Window::OnBoundsChanged() {
+    Control::OnBoundsChanged();
+    updateNativeWindowBounds();
+}
+
+void Window::OnVisibleChanged() {
+    Control::OnVisibleChanged();
+    if (nativeHandle_) {
+        if (GetVisible()) {
+            showNativeWindow();
+        } else {
+            hideNativeWindow();
+        }
+    }
+}
+
+void Window::updateNativeWindowBounds() {
+    if (nativeHandle_) {
+        // Update native window position and size
+        // Note: Platform-specific implementations may need to be updated to support this
+        // For now, we'll just recreate if needed, or platform can handle resize events
+    }
 }

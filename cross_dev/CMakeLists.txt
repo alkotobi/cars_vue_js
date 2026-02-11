@@ -14,7 +14,7 @@ if(WIN32 AND CMAKE_GENERATOR MATCHES "Visual Studio")
     endif()
 endif()
 
-project(WindowTest CXX)
+project(CrossDev CXX)
 
 # After project() call, check if we're stuck with ARM64 on Visual Studio
 if(WIN32 AND CMAKE_GENERATOR MATCHES "Visual Studio")
@@ -75,13 +75,21 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
 
 # Core sources (main.cpp excluded for iOS - AppDelegate.mm provides main)
 set(CORE_SOURCES
+    src/component.cpp
+    src/control.cpp
     src/window.cpp
     src/webview.cpp
+    src/webview_window.cpp
     src/button.cpp
     src/inputfield.cpp
+    src/container.cpp
+    src/layout.cpp
+    src/vertical_layout.cpp
+    src/horizontal_layout.cpp
     src/application.cpp
     src/eventhandler.cpp
     src/messagerouter.cpp
+    src/config_manager.cpp
     src/handlers/createwindowhandler.cpp
     src/handlers/appinfohandler.cpp
     src/handlers/calculatorhandler.cpp
@@ -103,6 +111,7 @@ if(PLATFORM STREQUAL "macos")
         src/platform/macos/button_macos.mm
         src/platform/macos/filedialog_macos.mm
         src/platform/macos/input_macos.mm
+        src/platform/macos/container_macos.mm
     )
     
     # Enable Objective-C++ for macOS
@@ -131,6 +140,7 @@ elseif(PLATFORM STREQUAL "windows")
         src/platform/windows/button_windows.cpp
         src/platform/windows/filedialog_windows.cpp
         src/platform/windows/input_windows.cpp
+        src/platform/windows/container_windows.cpp
     )
     
     # Windows-specific flags
@@ -189,6 +199,7 @@ elseif(PLATFORM STREQUAL "linux")
         src/platform/linux/button_linux.cpp
         src/platform/linux/filedialog_linux.cpp
         src/platform/linux/input_linux.cpp
+        src/platform/linux/container_linux.cpp
     )
     
     # Find pkg-config packages
@@ -219,6 +230,7 @@ elseif(PLATFORM STREQUAL "ios")
         src/platform/ios/button_ios.mm
         src/platform/ios/filedialog_ios.mm
         src/platform/ios/input_ios.mm
+        src/platform/ios/container_ios.mm
     )
     
     # Enable Objective-C++ for iOS
@@ -431,3 +443,53 @@ else()
         RUNTIME DESTINATION bin
     )
 endif()
+
+# Testing
+enable_testing()
+
+# Test executables
+add_executable(test_component tests/test_component.cpp src/component.cpp)
+target_include_directories(test_component PRIVATE ${CMAKE_SOURCE_DIR}/include)
+add_test(NAME ComponentTests COMMAND test_component)
+
+add_executable(test_control tests/test_control.cpp src/component.cpp src/control.cpp)
+target_include_directories(test_control PRIVATE ${CMAKE_SOURCE_DIR}/include)
+add_test(NAME ControlTests COMMAND test_control)
+
+# Tests that require platform implementations (using mock platform)
+add_executable(test_button tests/test_button.cpp src/component.cpp src/control.cpp src/button.cpp src/window.cpp tests/mock_platform.cpp)
+target_include_directories(test_button PRIVATE ${CMAKE_SOURCE_DIR}/include)
+add_test(NAME ButtonTests COMMAND test_button)
+
+add_executable(test_container tests/test_container.cpp src/component.cpp src/control.cpp src/container.cpp src/button.cpp src/window.cpp src/layout.cpp src/vertical_layout.cpp src/horizontal_layout.cpp tests/mock_platform.cpp)
+target_include_directories(test_container PRIVATE ${CMAKE_SOURCE_DIR}/include)
+add_test(NAME ContainerTests COMMAND test_container)
+
+add_executable(test_ownership tests/test_ownership.cpp src/component.cpp src/control.cpp src/window.cpp src/button.cpp src/container.cpp src/layout.cpp src/vertical_layout.cpp src/horizontal_layout.cpp tests/mock_platform.cpp)
+target_include_directories(test_ownership PRIVATE ${CMAKE_SOURCE_DIR}/include)
+add_test(NAME OwnershipTests COMMAND test_ownership)
+
+add_executable(test_component_collection tests/test_component_collection.cpp src/component.cpp src/component_collection.cpp)
+target_include_directories(test_component_collection PRIVATE ${CMAKE_SOURCE_DIR}/include)
+add_test(NAME ComponentCollectionTests COMMAND test_component_collection)
+
+add_executable(test_layout tests/test_layout.cpp src/component.cpp src/control.cpp src/layout.cpp src/vertical_layout.cpp src/horizontal_layout.cpp src/container.cpp src/button.cpp src/window.cpp tests/mock_platform.cpp)
+target_include_directories(test_layout PRIVATE ${CMAKE_SOURCE_DIR}/include)
+add_test(NAME LayoutTests COMMAND test_layout)
+
+# Example: Layout and Component System Demo
+if(NOT PLATFORM STREQUAL "ios")
+    # Create a list of sources without main.cpp for the demo
+    set(LAYOUT_DEMO_SOURCES ${CORE_SOURCES})
+    list(REMOVE_ITEM LAYOUT_DEMO_SOURCES src/main.cpp)
+    
+    add_executable(layout_demo examples/layout_demo.cpp ${LAYOUT_DEMO_SOURCES} ${PLATFORM_SOURCES})
+    target_include_directories(layout_demo PRIVATE ${CMAKE_SOURCE_DIR}/include)
+    target_link_libraries(layout_demo ${PLATFORM_LIBS})
+    set_target_properties(layout_demo PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/examples
+    )
+endif()
+
+# Note: test_window requires full platform libraries, so we'll skip it in test builds
+# It will be tested when building the main application

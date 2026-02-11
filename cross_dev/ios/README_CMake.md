@@ -20,7 +20,7 @@ cmake ../.. \
     -DIOS=ON
 
 # Then open the generated project
-open WindowTest.xcodeproj
+open CrossDev.xcodeproj
 ```
 
 ### Option 2: Use the Script (May Require Permissions)

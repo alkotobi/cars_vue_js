@@ -8,22 +8,33 @@
 
 namespace platform {
 
-void* createInputField(void* windowHandle, int x, int y, int width, int height, const std::string& placeholder) {
+void* createInputField(void* parentHandle, int x, int y, int width, int height, const std::string& placeholder) {
     @autoreleasepool {
-        if (!windowHandle) {
+        if (!parentHandle) {
             return nullptr;
         }
         
-        NSWindow *window = (__bridge NSWindow*)windowHandle;
-        NSView *contentView = [window contentView];
+        NSView *parentView = nullptr;
         
-        NSRect inputRect = NSMakeRect(x, y, width, height);
+        // Get parent view - could be NSWindow's contentView or an NSView (from Container)
+        if ([(__bridge id)parentHandle isKindOfClass:[NSWindow class]]) {
+            NSWindow *window = (__bridge NSWindow*)parentHandle;
+            parentView = [window contentView];
+        } else if ([(__bridge id)parentHandle isKindOfClass:[NSView class]]) {
+            parentView = (__bridge NSView*)parentHandle;
+        } else {
+            return nullptr;
+        }
+        
+        // Convert coordinates: parent view uses bottom-left origin, but we receive top-left origin
+        NSRect parentBounds = [parentView bounds];
+        NSRect inputRect = NSMakeRect(x, parentBounds.size.height - y - height, width, height);
         NSTextField *textField = [[NSTextField alloc] initWithFrame:inputRect];
         [textField setPlaceholderString:[NSString stringWithUTF8String:placeholder.c_str()]];
         [textField setAutoresizingMask:NSViewMaxXMargin | NSViewMinYMargin];
         [textField setBezelStyle:NSTextFieldSquareBezel];
         
-        [contentView addSubview:textField];
+        [parentView addSubview:textField];
         
         return (void*)CFBridgingRetain(textField);
     }
