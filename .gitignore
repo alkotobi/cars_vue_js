@@ -32,9 +32,10 @@ coverage
 # Migration folders
 mig_files/
 mig/
-
+build/
 # Build/dist folders
 dist_old/
 
 # Backup files
 backups/
+mig*/
