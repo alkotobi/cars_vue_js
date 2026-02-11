@@ -837,6 +837,8 @@ CMakeFiles/CrossDev.dir/src/messagerouter.cpp.o: \
   /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/any \
   /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/chrono \
   /Users/merhab/dev/vu.js/cars/cross_dev/src/../include/webview.h \
+  /Users/merhab/dev/vu.js/cars/cross_dev/src/../include/control.h \
+  /Users/merhab/dev/vu.js/cars/cross_dev/src/../include/component.h \
   /Users/merhab/dev/vu.js/cars/cross_dev/src/platform/platform_impl.h \
   /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/iostream \
   /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/sstream

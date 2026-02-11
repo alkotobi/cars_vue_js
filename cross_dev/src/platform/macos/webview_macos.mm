@@ -22,6 +22,17 @@ typedef void (*MessageCallback)(const std::string& jsonMessage, void* userData);
 @property (assign) void* messageUserData;
 @end
 
+// Custom WKWebView that accepts first mouse click when window is inactive.
+// By default, the first click only activates the window; returning YES here
+// lets the click also be delivered to the WebView (one-click button activation).
+@interface ClickThroughWebView : WKWebView
+@end
+@implementation ClickThroughWebView
+- (BOOL)acceptsFirstMouse:(NSEvent *)event {
+    return YES;
+}
+@end
+
 @implementation WebViewMessageHandler
 - (void)userContentController:(WKUserContentController *)userContentController
       didReceiveScriptMessage:(WKScriptMessage *)message {
@@ -72,7 +83,7 @@ void* createWebView(void* parentHandle, int x, int y, int width, int height) {
         }
         
         NSRect webViewRect = NSMakeRect(x, y, width, height);
-        WKWebView *webView = [[WKWebView alloc] initWithFrame:webViewRect];
+        WKWebView *webView = [[ClickThroughWebView alloc] initWithFrame:webViewRect];
         [webView setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
         
         [parentView addSubview:webView];

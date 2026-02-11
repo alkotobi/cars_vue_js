@@ -1,5 +1,6 @@
 #include "../include/config_manager.h"
 #include "../include/platform.h"
+#include <cerrno>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -88,26 +89,56 @@ bool ConfigManager::ensureConfigDirectory() {
     std::string configDir = getConfigDirectory();
     
 #ifdef _WIN32
-    // Create directory on Windows
+    // Create directory and parents on Windows (e.g. %APPDATA%\CrossDev)
+    for (size_t i = 1; i < configDir.length(); ++i) {
+        if (configDir[i] == '\\' || configDir[i] == '/') {
+            std::string sub = configDir.substr(0, i);
+            DWORD attrib = GetFileAttributesA(sub.c_str());
+            if (attrib == INVALID_FILE_ATTRIBUTES) {
+                if (_mkdir(sub.c_str()) != 0) {
+                    DWORD err = GetLastError();
+                    if (err != ERROR_ALREADY_EXISTS) {
+                        std::cerr << "Failed to create config directory: " << sub << std::endl;
+                        return false;
+                    }
+                }
+            } else if (!(attrib & FILE_ATTRIBUTE_DIRECTORY)) {
+                std::cerr << "Config path component is not a directory: " << sub << std::endl;
+                return false;
+            }
+        }
+    }
     if (_mkdir(configDir.c_str()) != 0) {
-        // Check if directory already exists
-        DWORD dwAttrib = GetFileAttributesA(configDir.c_str());
-        if (dwAttrib == INVALID_FILE_ATTRIBUTES || !(dwAttrib & FILE_ATTRIBUTE_DIRECTORY)) {
+        DWORD attrib = GetFileAttributesA(configDir.c_str());
+        if (attrib == INVALID_FILE_ATTRIBUTES || !(attrib & FILE_ATTRIBUTE_DIRECTORY)) {
             std::cerr << "Failed to create config directory: " << configDir << std::endl;
             return false;
         }
     }
 #else
-    // Create directory on Unix-like systems
+    // Create directory and parents on Unix (e.g. ~/Library/Application Support/CrossDev)
+    for (size_t i = 1; i < configDir.length(); ++i) {
+        if (configDir[i] == '/') {
+            std::string sub = configDir.substr(0, i);
+            struct stat info;
+            if (stat(sub.c_str(), &info) != 0) {
+                if (mkdir(sub.c_str(), 0755) != 0 && errno != EEXIST) {
+                    std::cerr << "Failed to create config directory: " << sub << std::endl;
+                    return false;
+                }
+            } else if (!(info.st_mode & S_IFDIR)) {
+                std::cerr << "Config path component is not a directory: " << sub << std::endl;
+                return false;
+            }
+        }
+    }
     struct stat info;
     if (stat(configDir.c_str(), &info) != 0) {
-        // Directory doesn't exist, create it
         if (mkdir(configDir.c_str(), 0755) != 0) {
             std::cerr << "Failed to create config directory: " << configDir << std::endl;
             return false;
         }
     } else if (!(info.st_mode & S_IFDIR)) {
-        // Path exists but is not a directory
         std::cerr << "Config path exists but is not a directory: " << configDir << std::endl;
         return false;
     }
@@ -116,15 +147,46 @@ bool ConfigManager::ensureConfigDirectory() {
     return true;
 }
 
+static std::string tryLoadFromPaths(const std::string& filename) {
+    std::string paths[] = {filename, "./" + filename, "../" + filename, "../../" + filename};
+    for (const std::string& path : paths) {
+        std::ifstream f(path);
+        if (f.is_open()) {
+            std::stringstream buffer;
+            buffer << f.rdbuf();
+            std::string content = buffer.str();
+            f.close();
+            if (!content.empty()) {
+                return content;
+            }
+        }
+    }
+    return "";
+}
+
+static std::string readDemoHtmlContent() {
+    std::string content = tryLoadFromPaths("demo.html");
+    if (!content.empty()) {
+        std::cout << "Loaded demo.html for options.json" << std::endl;
+    } else {
+        std::cerr << "Warning: Could not find demo.html to copy into options.json" << std::endl;
+    }
+    return content;
+}
+
+std::string ConfigManager::tryLoadFileContent(const std::string& filename) {
+    return tryLoadFromPaths(filename);
+}
+
 nlohmann::json ConfigManager::createDefaultOptions() {
     nlohmann::json defaultOptions;
     
-    // HTML loading configuration
+    // HTML loading configuration - default to loading from embedded JSON content
     defaultOptions["htmlLoading"] = nlohmann::json::object();
-    defaultOptions["htmlLoading"]["method"] = "file";  // "file", "url", or "html"
-    defaultOptions["htmlLoading"]["filePath"] = "demo.html";  // Path to HTML file
-    defaultOptions["htmlLoading"]["url"] = "";  // URL to load
-    defaultOptions["htmlLoading"]["htmlContent"] = "";  // HTML content as string
+    defaultOptions["htmlLoading"]["method"] = "html";  // "file", "url", or "html"
+    defaultOptions["htmlLoading"]["filePath"] = "demo.html";  // Path to HTML file (when method is "file")
+    defaultOptions["htmlLoading"]["url"] = "";  // URL to load (when method is "url")
+    defaultOptions["htmlLoading"]["htmlContent"] = readDemoHtmlContent();  // Copy from demo.html on first run
     
     return defaultOptions;
 }

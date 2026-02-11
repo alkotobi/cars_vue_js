@@ -780,7 +780,6 @@ CMakeFiles/CrossDev.dir/src/eventhandler.cpp.o: \
   /Users/merhab/dev/vu.js/cars/cross_dev/src/../include/window.h \
   /Users/merhab/dev/vu.js/cars/cross_dev/src/../include/control.h \
   /Users/merhab/dev/vu.js/cars/cross_dev/src/../include/component.h \
-  /Users/merhab/dev/vu.js/cars/cross_dev/src/../include/inputfield.h \
   /Users/merhab/dev/vu.js/cars/cross_dev/src/../include/webview.h \
   /Users/merhab/dev/vu.js/cars/cross_dev/src/../include/messagerouter.h \
   /Users/merhab/dev/vu.js/cars/cross_dev/src/../include/messagehandler.h \
@@ -844,5 +843,4 @@ CMakeFiles/CrossDev.dir/src/eventhandler.cpp.o: \
   /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/chrono \
   /Users/merhab/dev/vu.js/cars/cross_dev/src/../include/handlers/createwindowhandler.h \
   /Users/merhab/dev/vu.js/cars/cross_dev/src/../include/handlers/../messagehandler.h \
-  /Users/merhab/dev/vu.js/cars/cross_dev/src/platform/platform_impl.h \
   /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/iostream

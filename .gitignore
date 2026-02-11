@@ -39,3 +39,4 @@ dist_old/
 # Backup files
 backups/
 mig*/
+build/

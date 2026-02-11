@@ -25,8 +25,8 @@ public:
     Component* GetOwner() const { return owner_; }
     void SetOwner(Component* owner);
     
-    // Component naming
-    const std::string& GetName() const { return name_; }
+    // Component naming (returns ClassName+serial if no name assigned, e.g. Button1, WebViewWindow2)
+    const std::string& GetName() const;
     void SetName(const std::string& name);
     
     // Component lookup
@@ -48,9 +48,15 @@ protected:
     virtual void Inserted();
     virtual void Removed();
     
+    // Debug lifecycle logging (NDEBUG: no-op). Call from each constructor; use resetDefaultNameCache
+    // at start of derived ctors so GetName() reflects actual type.
+    static void debugLogLifecycleCreation(Component* self, Component* owner, Component* parent);
+    void resetDefaultNameCache() { defaultNameCache_.clear(); }
+    
 private:
     Component* owner_;
     std::string name_;
+    mutable std::string defaultNameCache_;  // Lazy-generated default name (when name_ empty)
     std::vector<Component*> ownedComponents_;
     bool destroying_;
     

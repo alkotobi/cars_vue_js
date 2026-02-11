@@ -14,6 +14,8 @@ WebView::WebView(Component* owner, Control* parent, int x, int y, int width, int
     }
     
     createNativeWebView();
+    resetDefaultNameCache();
+    debugLogLifecycleCreation(this, GetOwner(), GetParent());
 }
 
 WebView::~WebView() {

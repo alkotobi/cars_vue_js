@@ -9,6 +9,7 @@ Layout::Layout(Component* owner)
       spacing_(5),
       marginLeft_(0), marginTop_(0), marginRight_(0), marginBottom_(0),
       needsUpdate_(true) {
+    resetDefaultNameCache();
 }
 
 Layout::~Layout() {

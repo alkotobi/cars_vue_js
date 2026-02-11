@@ -30,6 +30,10 @@ namespace platform {
     // Window resize callback management
     void setWindowResizeCallback(void* windowHandle, void (*callback)(int width, int height, void* userData), void* userData);
     
+    // Window close callback - called when user closes the window (X button).
+    // Pass callback that deletes the WebViewWindow. userData is the WebViewWindow* to delete.
+    void setWindowCloseCallback(void* windowHandle, void (*callback)(void* userData), void* userData);
+    
     // Button management
     // parentHandle can be a Window or Container native handle
     void* createButton(void* parentHandle, int x, int y, int width, int height, const std::string& label, void* userData);

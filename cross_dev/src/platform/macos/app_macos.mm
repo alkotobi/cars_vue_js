@@ -29,7 +29,9 @@ void runApplication() {
 void quitApplication() {
     @autoreleasepool {
         if (g_app) {
-            [g_app terminate:nil];
+            // Use stop: (not terminate:) so [app run] returns and C++ destructors run.
+            // terminate: bypasses destructors and exits abruptly (no DESTROYED logs).
+            [g_app stop:nil];
         }
     }
 }

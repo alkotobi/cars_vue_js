@@ -81,6 +81,10 @@ void setWindowResizeCallback(void* windowHandle, void (*callback)(int width, int
     // Mock implementation - do nothing
 }
 
+void setWindowCloseCallback(void*, void (*)(void*), void*) {
+    // Mock implementation - do nothing
+}
+
 // WebView functions
 void* createWebView(void* parentHandle, int x, int y, int width, int height) {
     return (void*)g_nextHandleValue++;

@@ -5,6 +5,8 @@
 
 VerticalLayout::VerticalLayout(Component* owner)
     : Layout(owner) {
+    resetDefaultNameCache();
+    debugLogLifecycleCreation(this, GetOwner(), nullptr);
 }
 
 SizeHint VerticalLayout::calculatePreferredSize() const {

@@ -210,12 +210,115 @@ test_control/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_control.dir/build.make CMakeFiles/test_control.dir/build
 .PHONY : test_control/fast
 
+#=============================================================================
+# Target rules for targets named test_button
+
+# Build rule for target.
+test_button: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_button
+.PHONY : test_button
+
+# fast build rule for target.
+test_button/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_button.dir/build.make CMakeFiles/test_button.dir/build
+.PHONY : test_button/fast
+
+#=============================================================================
+# Target rules for targets named test_container
+
+# Build rule for target.
+test_container: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_container
+.PHONY : test_container
+
+# fast build rule for target.
+test_container/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_container.dir/build.make CMakeFiles/test_container.dir/build
+.PHONY : test_container/fast
+
+#=============================================================================
+# Target rules for targets named test_ownership
+
+# Build rule for target.
+test_ownership: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_ownership
+.PHONY : test_ownership
+
+# fast build rule for target.
+test_ownership/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_ownership.dir/build.make CMakeFiles/test_ownership.dir/build
+.PHONY : test_ownership/fast
+
+#=============================================================================
+# Target rules for targets named test_component_collection
+
+# Build rule for target.
+test_component_collection: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_component_collection
+.PHONY : test_component_collection
+
+# fast build rule for target.
+test_component_collection/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_component_collection.dir/build.make CMakeFiles/test_component_collection.dir/build
+.PHONY : test_component_collection/fast
+
+#=============================================================================
+# Target rules for targets named test_layout
+
+# Build rule for target.
+test_layout: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_layout
+.PHONY : test_layout
+
+# fast build rule for target.
+test_layout/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_layout.dir/build.make CMakeFiles/test_layout.dir/build
+.PHONY : test_layout/fast
+
+#=============================================================================
+# Target rules for targets named layout_demo
+
+# Build rule for target.
+layout_demo: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 layout_demo
+.PHONY : layout_demo
+
+# fast build rule for target.
+layout_demo/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/build
+.PHONY : layout_demo/fast
+
+examples/layout_demo.o: examples/layout_demo.cpp.o
+.PHONY : examples/layout_demo.o
+
+# target to build an object file
+examples/layout_demo.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/examples/layout_demo.cpp.o
+.PHONY : examples/layout_demo.cpp.o
+
+examples/layout_demo.i: examples/layout_demo.cpp.i
+.PHONY : examples/layout_demo.i
+
+# target to preprocess a source file
+examples/layout_demo.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/examples/layout_demo.cpp.i
+.PHONY : examples/layout_demo.cpp.i
+
+examples/layout_demo.s: examples/layout_demo.cpp.s
+.PHONY : examples/layout_demo.s
+
+# target to generate assembly for a file
+examples/layout_demo.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/examples/layout_demo.cpp.s
+.PHONY : examples/layout_demo.cpp.s
+
 src/application.o: src/application.cpp.o
 .PHONY : src/application.o
 
 # target to build an object file
 src/application.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/application.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/application.cpp.o
 .PHONY : src/application.cpp.o
 
 src/application.i: src/application.cpp.i
@@ -224,6 +327,7 @@ src/application.i: src/application.cpp.i
 # target to preprocess a source file
 src/application.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/application.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/application.cpp.i
 .PHONY : src/application.cpp.i
 
 src/application.s: src/application.cpp.s
@@ -232,6 +336,7 @@ src/application.s: src/application.cpp.s
 # target to generate assembly for a file
 src/application.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/application.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/application.cpp.s
 .PHONY : src/application.cpp.s
 
 src/button.o: src/button.cpp.o
@@ -240,6 +345,11 @@ src/button.o: src/button.cpp.o
 # target to build an object file
 src/button.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/button.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_button.dir/build.make CMakeFiles/test_button.dir/src/button.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_container.dir/build.make CMakeFiles/test_container.dir/src/button.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_ownership.dir/build.make CMakeFiles/test_ownership.dir/src/button.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_layout.dir/build.make CMakeFiles/test_layout.dir/src/button.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/button.cpp.o
 .PHONY : src/button.cpp.o
 
 src/button.i: src/button.cpp.i
@@ -248,6 +358,11 @@ src/button.i: src/button.cpp.i
 # target to preprocess a source file
 src/button.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/button.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_button.dir/build.make CMakeFiles/test_button.dir/src/button.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_container.dir/build.make CMakeFiles/test_container.dir/src/button.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_ownership.dir/build.make CMakeFiles/test_ownership.dir/src/button.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_layout.dir/build.make CMakeFiles/test_layout.dir/src/button.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/button.cpp.i
 .PHONY : src/button.cpp.i
 
 src/button.s: src/button.cpp.s
@@ -256,6 +371,11 @@ src/button.s: src/button.cpp.s
 # target to generate assembly for a file
 src/button.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/button.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_button.dir/build.make CMakeFiles/test_button.dir/src/button.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_container.dir/build.make CMakeFiles/test_container.dir/src/button.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_ownership.dir/build.make CMakeFiles/test_ownership.dir/src/button.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_layout.dir/build.make CMakeFiles/test_layout.dir/src/button.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/button.cpp.s
 .PHONY : src/button.cpp.s
 
 src/component.o: src/component.cpp.o
@@ -266,6 +386,12 @@ src/component.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/component.cpp.o
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_component.dir/build.make CMakeFiles/test_component.dir/src/component.cpp.o
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_control.dir/build.make CMakeFiles/test_control.dir/src/component.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_button.dir/build.make CMakeFiles/test_button.dir/src/component.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_container.dir/build.make CMakeFiles/test_container.dir/src/component.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_ownership.dir/build.make CMakeFiles/test_ownership.dir/src/component.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_component_collection.dir/build.make CMakeFiles/test_component_collection.dir/src/component.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_layout.dir/build.make CMakeFiles/test_layout.dir/src/component.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/component.cpp.o
 .PHONY : src/component.cpp.o
 
 src/component.i: src/component.cpp.i
@@ -276,6 +402,12 @@ src/component.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/component.cpp.i
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_component.dir/build.make CMakeFiles/test_component.dir/src/component.cpp.i
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_control.dir/build.make CMakeFiles/test_control.dir/src/component.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_button.dir/build.make CMakeFiles/test_button.dir/src/component.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_container.dir/build.make CMakeFiles/test_container.dir/src/component.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_ownership.dir/build.make CMakeFiles/test_ownership.dir/src/component.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_component_collection.dir/build.make CMakeFiles/test_component_collection.dir/src/component.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_layout.dir/build.make CMakeFiles/test_layout.dir/src/component.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/component.cpp.i
 .PHONY : src/component.cpp.i
 
 src/component.s: src/component.cpp.s
@@ -286,7 +418,37 @@ src/component.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/component.cpp.s
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_component.dir/build.make CMakeFiles/test_component.dir/src/component.cpp.s
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_control.dir/build.make CMakeFiles/test_control.dir/src/component.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_button.dir/build.make CMakeFiles/test_button.dir/src/component.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_container.dir/build.make CMakeFiles/test_container.dir/src/component.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_ownership.dir/build.make CMakeFiles/test_ownership.dir/src/component.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_component_collection.dir/build.make CMakeFiles/test_component_collection.dir/src/component.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_layout.dir/build.make CMakeFiles/test_layout.dir/src/component.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/component.cpp.s
 .PHONY : src/component.cpp.s
+
+src/component_collection.o: src/component_collection.cpp.o
+.PHONY : src/component_collection.o
+
+# target to build an object file
+src/component_collection.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_component_collection.dir/build.make CMakeFiles/test_component_collection.dir/src/component_collection.cpp.o
+.PHONY : src/component_collection.cpp.o
+
+src/component_collection.i: src/component_collection.cpp.i
+.PHONY : src/component_collection.i
+
+# target to preprocess a source file
+src/component_collection.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_component_collection.dir/build.make CMakeFiles/test_component_collection.dir/src/component_collection.cpp.i
+.PHONY : src/component_collection.cpp.i
+
+src/component_collection.s: src/component_collection.cpp.s
+.PHONY : src/component_collection.s
+
+# target to generate assembly for a file
+src/component_collection.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_component_collection.dir/build.make CMakeFiles/test_component_collection.dir/src/component_collection.cpp.s
+.PHONY : src/component_collection.cpp.s
 
 src/config_manager.o: src/config_manager.cpp.o
 .PHONY : src/config_manager.o
@@ -294,6 +456,7 @@ src/config_manager.o: src/config_manager.cpp.o
 # target to build an object file
 src/config_manager.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/config_manager.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/config_manager.cpp.o
 .PHONY : src/config_manager.cpp.o
 
 src/config_manager.i: src/config_manager.cpp.i
@@ -302,6 +465,7 @@ src/config_manager.i: src/config_manager.cpp.i
 # target to preprocess a source file
 src/config_manager.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/config_manager.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/config_manager.cpp.i
 .PHONY : src/config_manager.cpp.i
 
 src/config_manager.s: src/config_manager.cpp.s
@@ -310,14 +474,57 @@ src/config_manager.s: src/config_manager.cpp.s
 # target to generate assembly for a file
 src/config_manager.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/config_manager.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/config_manager.cpp.s
 .PHONY : src/config_manager.cpp.s
+
+src/container.o: src/container.cpp.o
+.PHONY : src/container.o
+
+# target to build an object file
+src/container.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/container.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_container.dir/build.make CMakeFiles/test_container.dir/src/container.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_ownership.dir/build.make CMakeFiles/test_ownership.dir/src/container.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_layout.dir/build.make CMakeFiles/test_layout.dir/src/container.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/container.cpp.o
+.PHONY : src/container.cpp.o
+
+src/container.i: src/container.cpp.i
+.PHONY : src/container.i
+
+# target to preprocess a source file
+src/container.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/container.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_container.dir/build.make CMakeFiles/test_container.dir/src/container.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_ownership.dir/build.make CMakeFiles/test_ownership.dir/src/container.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_layout.dir/build.make CMakeFiles/test_layout.dir/src/container.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/container.cpp.i
+.PHONY : src/container.cpp.i
+
+src/container.s: src/container.cpp.s
+.PHONY : src/container.s
+
+# target to generate assembly for a file
+src/container.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/container.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_container.dir/build.make CMakeFiles/test_container.dir/src/container.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_ownership.dir/build.make CMakeFiles/test_ownership.dir/src/container.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_layout.dir/build.make CMakeFiles/test_layout.dir/src/container.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/container.cpp.s
+.PHONY : src/container.cpp.s
 
 src/control.o: src/control.cpp.o
 .PHONY : src/control.o
 
 # target to build an object file
 src/control.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/control.cpp.o
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_control.dir/build.make CMakeFiles/test_control.dir/src/control.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_button.dir/build.make CMakeFiles/test_button.dir/src/control.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_container.dir/build.make CMakeFiles/test_container.dir/src/control.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_ownership.dir/build.make CMakeFiles/test_ownership.dir/src/control.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_layout.dir/build.make CMakeFiles/test_layout.dir/src/control.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/control.cpp.o
 .PHONY : src/control.cpp.o
 
 src/control.i: src/control.cpp.i
@@ -325,7 +532,13 @@ src/control.i: src/control.cpp.i
 
 # target to preprocess a source file
 src/control.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/control.cpp.i
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_control.dir/build.make CMakeFiles/test_control.dir/src/control.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_button.dir/build.make CMakeFiles/test_button.dir/src/control.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_container.dir/build.make CMakeFiles/test_container.dir/src/control.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_ownership.dir/build.make CMakeFiles/test_ownership.dir/src/control.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_layout.dir/build.make CMakeFiles/test_layout.dir/src/control.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/control.cpp.i
 .PHONY : src/control.cpp.i
 
 src/control.s: src/control.cpp.s
@@ -333,7 +546,13 @@ src/control.s: src/control.cpp.s
 
 # target to generate assembly for a file
 src/control.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/control.cpp.s
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_control.dir/build.make CMakeFiles/test_control.dir/src/control.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_button.dir/build.make CMakeFiles/test_button.dir/src/control.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_container.dir/build.make CMakeFiles/test_container.dir/src/control.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_ownership.dir/build.make CMakeFiles/test_ownership.dir/src/control.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_layout.dir/build.make CMakeFiles/test_layout.dir/src/control.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/control.cpp.s
 .PHONY : src/control.cpp.s
 
 src/eventhandler.o: src/eventhandler.cpp.o
@@ -342,6 +561,7 @@ src/eventhandler.o: src/eventhandler.cpp.o
 # target to build an object file
 src/eventhandler.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/eventhandler.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/eventhandler.cpp.o
 .PHONY : src/eventhandler.cpp.o
 
 src/eventhandler.i: src/eventhandler.cpp.i
@@ -350,6 +570,7 @@ src/eventhandler.i: src/eventhandler.cpp.i
 # target to preprocess a source file
 src/eventhandler.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/eventhandler.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/eventhandler.cpp.i
 .PHONY : src/eventhandler.cpp.i
 
 src/eventhandler.s: src/eventhandler.cpp.s
@@ -358,6 +579,7 @@ src/eventhandler.s: src/eventhandler.cpp.s
 # target to generate assembly for a file
 src/eventhandler.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/eventhandler.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/eventhandler.cpp.s
 .PHONY : src/eventhandler.cpp.s
 
 src/handlers/appinfohandler.o: src/handlers/appinfohandler.cpp.o
@@ -366,6 +588,7 @@ src/handlers/appinfohandler.o: src/handlers/appinfohandler.cpp.o
 # target to build an object file
 src/handlers/appinfohandler.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/handlers/appinfohandler.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/handlers/appinfohandler.cpp.o
 .PHONY : src/handlers/appinfohandler.cpp.o
 
 src/handlers/appinfohandler.i: src/handlers/appinfohandler.cpp.i
@@ -374,6 +597,7 @@ src/handlers/appinfohandler.i: src/handlers/appinfohandler.cpp.i
 # target to preprocess a source file
 src/handlers/appinfohandler.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/handlers/appinfohandler.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/handlers/appinfohandler.cpp.i
 .PHONY : src/handlers/appinfohandler.cpp.i
 
 src/handlers/appinfohandler.s: src/handlers/appinfohandler.cpp.s
@@ -382,6 +606,7 @@ src/handlers/appinfohandler.s: src/handlers/appinfohandler.cpp.s
 # target to generate assembly for a file
 src/handlers/appinfohandler.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/handlers/appinfohandler.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/handlers/appinfohandler.cpp.s
 .PHONY : src/handlers/appinfohandler.cpp.s
 
 src/handlers/calculatorhandler.o: src/handlers/calculatorhandler.cpp.o
@@ -390,6 +615,7 @@ src/handlers/calculatorhandler.o: src/handlers/calculatorhandler.cpp.o
 # target to build an object file
 src/handlers/calculatorhandler.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/handlers/calculatorhandler.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/handlers/calculatorhandler.cpp.o
 .PHONY : src/handlers/calculatorhandler.cpp.o
 
 src/handlers/calculatorhandler.i: src/handlers/calculatorhandler.cpp.i
@@ -398,6 +624,7 @@ src/handlers/calculatorhandler.i: src/handlers/calculatorhandler.cpp.i
 # target to preprocess a source file
 src/handlers/calculatorhandler.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/handlers/calculatorhandler.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/handlers/calculatorhandler.cpp.i
 .PHONY : src/handlers/calculatorhandler.cpp.i
 
 src/handlers/calculatorhandler.s: src/handlers/calculatorhandler.cpp.s
@@ -406,6 +633,7 @@ src/handlers/calculatorhandler.s: src/handlers/calculatorhandler.cpp.s
 # target to generate assembly for a file
 src/handlers/calculatorhandler.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/handlers/calculatorhandler.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/handlers/calculatorhandler.cpp.s
 .PHONY : src/handlers/calculatorhandler.cpp.s
 
 src/handlers/createwindowhandler.o: src/handlers/createwindowhandler.cpp.o
@@ -414,6 +642,7 @@ src/handlers/createwindowhandler.o: src/handlers/createwindowhandler.cpp.o
 # target to build an object file
 src/handlers/createwindowhandler.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/handlers/createwindowhandler.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/handlers/createwindowhandler.cpp.o
 .PHONY : src/handlers/createwindowhandler.cpp.o
 
 src/handlers/createwindowhandler.i: src/handlers/createwindowhandler.cpp.i
@@ -422,6 +651,7 @@ src/handlers/createwindowhandler.i: src/handlers/createwindowhandler.cpp.i
 # target to preprocess a source file
 src/handlers/createwindowhandler.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/handlers/createwindowhandler.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/handlers/createwindowhandler.cpp.i
 .PHONY : src/handlers/createwindowhandler.cpp.i
 
 src/handlers/createwindowhandler.s: src/handlers/createwindowhandler.cpp.s
@@ -430,6 +660,7 @@ src/handlers/createwindowhandler.s: src/handlers/createwindowhandler.cpp.s
 # target to generate assembly for a file
 src/handlers/createwindowhandler.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/handlers/createwindowhandler.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/handlers/createwindowhandler.cpp.s
 .PHONY : src/handlers/createwindowhandler.cpp.s
 
 src/handlers/filedialoghandler.o: src/handlers/filedialoghandler.cpp.o
@@ -438,6 +669,7 @@ src/handlers/filedialoghandler.o: src/handlers/filedialoghandler.cpp.o
 # target to build an object file
 src/handlers/filedialoghandler.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/handlers/filedialoghandler.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/handlers/filedialoghandler.cpp.o
 .PHONY : src/handlers/filedialoghandler.cpp.o
 
 src/handlers/filedialoghandler.i: src/handlers/filedialoghandler.cpp.i
@@ -446,6 +678,7 @@ src/handlers/filedialoghandler.i: src/handlers/filedialoghandler.cpp.i
 # target to preprocess a source file
 src/handlers/filedialoghandler.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/handlers/filedialoghandler.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/handlers/filedialoghandler.cpp.i
 .PHONY : src/handlers/filedialoghandler.cpp.i
 
 src/handlers/filedialoghandler.s: src/handlers/filedialoghandler.cpp.s
@@ -454,7 +687,44 @@ src/handlers/filedialoghandler.s: src/handlers/filedialoghandler.cpp.s
 # target to generate assembly for a file
 src/handlers/filedialoghandler.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/handlers/filedialoghandler.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/handlers/filedialoghandler.cpp.s
 .PHONY : src/handlers/filedialoghandler.cpp.s
+
+src/horizontal_layout.o: src/horizontal_layout.cpp.o
+.PHONY : src/horizontal_layout.o
+
+# target to build an object file
+src/horizontal_layout.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/horizontal_layout.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_container.dir/build.make CMakeFiles/test_container.dir/src/horizontal_layout.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_ownership.dir/build.make CMakeFiles/test_ownership.dir/src/horizontal_layout.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_layout.dir/build.make CMakeFiles/test_layout.dir/src/horizontal_layout.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/horizontal_layout.cpp.o
+.PHONY : src/horizontal_layout.cpp.o
+
+src/horizontal_layout.i: src/horizontal_layout.cpp.i
+.PHONY : src/horizontal_layout.i
+
+# target to preprocess a source file
+src/horizontal_layout.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/horizontal_layout.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_container.dir/build.make CMakeFiles/test_container.dir/src/horizontal_layout.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_ownership.dir/build.make CMakeFiles/test_ownership.dir/src/horizontal_layout.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_layout.dir/build.make CMakeFiles/test_layout.dir/src/horizontal_layout.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/horizontal_layout.cpp.i
+.PHONY : src/horizontal_layout.cpp.i
+
+src/horizontal_layout.s: src/horizontal_layout.cpp.s
+.PHONY : src/horizontal_layout.s
+
+# target to generate assembly for a file
+src/horizontal_layout.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/horizontal_layout.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_container.dir/build.make CMakeFiles/test_container.dir/src/horizontal_layout.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_ownership.dir/build.make CMakeFiles/test_ownership.dir/src/horizontal_layout.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_layout.dir/build.make CMakeFiles/test_layout.dir/src/horizontal_layout.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/horizontal_layout.cpp.s
+.PHONY : src/horizontal_layout.cpp.s
 
 src/inputfield.o: src/inputfield.cpp.o
 .PHONY : src/inputfield.o
@@ -462,6 +732,7 @@ src/inputfield.o: src/inputfield.cpp.o
 # target to build an object file
 src/inputfield.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/inputfield.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/inputfield.cpp.o
 .PHONY : src/inputfield.cpp.o
 
 src/inputfield.i: src/inputfield.cpp.i
@@ -470,6 +741,7 @@ src/inputfield.i: src/inputfield.cpp.i
 # target to preprocess a source file
 src/inputfield.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/inputfield.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/inputfield.cpp.i
 .PHONY : src/inputfield.cpp.i
 
 src/inputfield.s: src/inputfield.cpp.s
@@ -478,7 +750,44 @@ src/inputfield.s: src/inputfield.cpp.s
 # target to generate assembly for a file
 src/inputfield.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/inputfield.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/inputfield.cpp.s
 .PHONY : src/inputfield.cpp.s
+
+src/layout.o: src/layout.cpp.o
+.PHONY : src/layout.o
+
+# target to build an object file
+src/layout.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/layout.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_container.dir/build.make CMakeFiles/test_container.dir/src/layout.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_ownership.dir/build.make CMakeFiles/test_ownership.dir/src/layout.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_layout.dir/build.make CMakeFiles/test_layout.dir/src/layout.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/layout.cpp.o
+.PHONY : src/layout.cpp.o
+
+src/layout.i: src/layout.cpp.i
+.PHONY : src/layout.i
+
+# target to preprocess a source file
+src/layout.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/layout.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_container.dir/build.make CMakeFiles/test_container.dir/src/layout.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_ownership.dir/build.make CMakeFiles/test_ownership.dir/src/layout.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_layout.dir/build.make CMakeFiles/test_layout.dir/src/layout.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/layout.cpp.i
+.PHONY : src/layout.cpp.i
+
+src/layout.s: src/layout.cpp.s
+.PHONY : src/layout.s
+
+# target to generate assembly for a file
+src/layout.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/layout.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_container.dir/build.make CMakeFiles/test_container.dir/src/layout.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_ownership.dir/build.make CMakeFiles/test_ownership.dir/src/layout.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_layout.dir/build.make CMakeFiles/test_layout.dir/src/layout.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/layout.cpp.s
+.PHONY : src/layout.cpp.s
 
 src/main.o: src/main.cpp.o
 .PHONY : src/main.o
@@ -510,6 +819,7 @@ src/messagerouter.o: src/messagerouter.cpp.o
 # target to build an object file
 src/messagerouter.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/messagerouter.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/messagerouter.cpp.o
 .PHONY : src/messagerouter.cpp.o
 
 src/messagerouter.i: src/messagerouter.cpp.i
@@ -518,6 +828,7 @@ src/messagerouter.i: src/messagerouter.cpp.i
 # target to preprocess a source file
 src/messagerouter.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/messagerouter.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/messagerouter.cpp.i
 .PHONY : src/messagerouter.cpp.i
 
 src/messagerouter.s: src/messagerouter.cpp.s
@@ -526,6 +837,7 @@ src/messagerouter.s: src/messagerouter.cpp.s
 # target to generate assembly for a file
 src/messagerouter.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/messagerouter.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/messagerouter.cpp.s
 .PHONY : src/messagerouter.cpp.s
 
 src/platform/macos/app_macos.o: src/platform/macos/app_macos.mm.o
@@ -534,6 +846,7 @@ src/platform/macos/app_macos.o: src/platform/macos/app_macos.mm.o
 # target to build an object file
 src/platform/macos/app_macos.mm.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/platform/macos/app_macos.mm.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/platform/macos/app_macos.mm.o
 .PHONY : src/platform/macos/app_macos.mm.o
 
 src/platform/macos/app_macos.i: src/platform/macos/app_macos.mm.i
@@ -542,6 +855,7 @@ src/platform/macos/app_macos.i: src/platform/macos/app_macos.mm.i
 # target to preprocess a source file
 src/platform/macos/app_macos.mm.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/platform/macos/app_macos.mm.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/platform/macos/app_macos.mm.i
 .PHONY : src/platform/macos/app_macos.mm.i
 
 src/platform/macos/app_macos.s: src/platform/macos/app_macos.mm.s
@@ -550,6 +864,7 @@ src/platform/macos/app_macos.s: src/platform/macos/app_macos.mm.s
 # target to generate assembly for a file
 src/platform/macos/app_macos.mm.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/platform/macos/app_macos.mm.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/platform/macos/app_macos.mm.s
 .PHONY : src/platform/macos/app_macos.mm.s
 
 src/platform/macos/button_macos.o: src/platform/macos/button_macos.mm.o
@@ -558,6 +873,7 @@ src/platform/macos/button_macos.o: src/platform/macos/button_macos.mm.o
 # target to build an object file
 src/platform/macos/button_macos.mm.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/platform/macos/button_macos.mm.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/platform/macos/button_macos.mm.o
 .PHONY : src/platform/macos/button_macos.mm.o
 
 src/platform/macos/button_macos.i: src/platform/macos/button_macos.mm.i
@@ -566,6 +882,7 @@ src/platform/macos/button_macos.i: src/platform/macos/button_macos.mm.i
 # target to preprocess a source file
 src/platform/macos/button_macos.mm.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/platform/macos/button_macos.mm.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/platform/macos/button_macos.mm.i
 .PHONY : src/platform/macos/button_macos.mm.i
 
 src/platform/macos/button_macos.s: src/platform/macos/button_macos.mm.s
@@ -574,7 +891,35 @@ src/platform/macos/button_macos.s: src/platform/macos/button_macos.mm.s
 # target to generate assembly for a file
 src/platform/macos/button_macos.mm.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/platform/macos/button_macos.mm.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/platform/macos/button_macos.mm.s
 .PHONY : src/platform/macos/button_macos.mm.s
+
+src/platform/macos/container_macos.o: src/platform/macos/container_macos.mm.o
+.PHONY : src/platform/macos/container_macos.o
+
+# target to build an object file
+src/platform/macos/container_macos.mm.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/platform/macos/container_macos.mm.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/platform/macos/container_macos.mm.o
+.PHONY : src/platform/macos/container_macos.mm.o
+
+src/platform/macos/container_macos.i: src/platform/macos/container_macos.mm.i
+.PHONY : src/platform/macos/container_macos.i
+
+# target to preprocess a source file
+src/platform/macos/container_macos.mm.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/platform/macos/container_macos.mm.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/platform/macos/container_macos.mm.i
+.PHONY : src/platform/macos/container_macos.mm.i
+
+src/platform/macos/container_macos.s: src/platform/macos/container_macos.mm.s
+.PHONY : src/platform/macos/container_macos.s
+
+# target to generate assembly for a file
+src/platform/macos/container_macos.mm.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/platform/macos/container_macos.mm.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/platform/macos/container_macos.mm.s
+.PHONY : src/platform/macos/container_macos.mm.s
 
 src/platform/macos/filedialog_macos.o: src/platform/macos/filedialog_macos.mm.o
 .PHONY : src/platform/macos/filedialog_macos.o
@@ -582,6 +927,7 @@ src/platform/macos/filedialog_macos.o: src/platform/macos/filedialog_macos.mm.o
 # target to build an object file
 src/platform/macos/filedialog_macos.mm.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/platform/macos/filedialog_macos.mm.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/platform/macos/filedialog_macos.mm.o
 .PHONY : src/platform/macos/filedialog_macos.mm.o
 
 src/platform/macos/filedialog_macos.i: src/platform/macos/filedialog_macos.mm.i
@@ -590,6 +936,7 @@ src/platform/macos/filedialog_macos.i: src/platform/macos/filedialog_macos.mm.i
 # target to preprocess a source file
 src/platform/macos/filedialog_macos.mm.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/platform/macos/filedialog_macos.mm.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/platform/macos/filedialog_macos.mm.i
 .PHONY : src/platform/macos/filedialog_macos.mm.i
 
 src/platform/macos/filedialog_macos.s: src/platform/macos/filedialog_macos.mm.s
@@ -598,6 +945,7 @@ src/platform/macos/filedialog_macos.s: src/platform/macos/filedialog_macos.mm.s
 # target to generate assembly for a file
 src/platform/macos/filedialog_macos.mm.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/platform/macos/filedialog_macos.mm.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/platform/macos/filedialog_macos.mm.s
 .PHONY : src/platform/macos/filedialog_macos.mm.s
 
 src/platform/macos/input_macos.o: src/platform/macos/input_macos.mm.o
@@ -606,6 +954,7 @@ src/platform/macos/input_macos.o: src/platform/macos/input_macos.mm.o
 # target to build an object file
 src/platform/macos/input_macos.mm.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/platform/macos/input_macos.mm.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/platform/macos/input_macos.mm.o
 .PHONY : src/platform/macos/input_macos.mm.o
 
 src/platform/macos/input_macos.i: src/platform/macos/input_macos.mm.i
@@ -614,6 +963,7 @@ src/platform/macos/input_macos.i: src/platform/macos/input_macos.mm.i
 # target to preprocess a source file
 src/platform/macos/input_macos.mm.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/platform/macos/input_macos.mm.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/platform/macos/input_macos.mm.i
 .PHONY : src/platform/macos/input_macos.mm.i
 
 src/platform/macos/input_macos.s: src/platform/macos/input_macos.mm.s
@@ -622,6 +972,7 @@ src/platform/macos/input_macos.s: src/platform/macos/input_macos.mm.s
 # target to generate assembly for a file
 src/platform/macos/input_macos.mm.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/platform/macos/input_macos.mm.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/platform/macos/input_macos.mm.s
 .PHONY : src/platform/macos/input_macos.mm.s
 
 src/platform/macos/webview_macos.o: src/platform/macos/webview_macos.mm.o
@@ -630,6 +981,7 @@ src/platform/macos/webview_macos.o: src/platform/macos/webview_macos.mm.o
 # target to build an object file
 src/platform/macos/webview_macos.mm.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/platform/macos/webview_macos.mm.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/platform/macos/webview_macos.mm.o
 .PHONY : src/platform/macos/webview_macos.mm.o
 
 src/platform/macos/webview_macos.i: src/platform/macos/webview_macos.mm.i
@@ -638,6 +990,7 @@ src/platform/macos/webview_macos.i: src/platform/macos/webview_macos.mm.i
 # target to preprocess a source file
 src/platform/macos/webview_macos.mm.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/platform/macos/webview_macos.mm.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/platform/macos/webview_macos.mm.i
 .PHONY : src/platform/macos/webview_macos.mm.i
 
 src/platform/macos/webview_macos.s: src/platform/macos/webview_macos.mm.s
@@ -646,6 +999,7 @@ src/platform/macos/webview_macos.s: src/platform/macos/webview_macos.mm.s
 # target to generate assembly for a file
 src/platform/macos/webview_macos.mm.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/platform/macos/webview_macos.mm.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/platform/macos/webview_macos.mm.s
 .PHONY : src/platform/macos/webview_macos.mm.s
 
 src/platform/macos/window_macos.o: src/platform/macos/window_macos.mm.o
@@ -654,6 +1008,7 @@ src/platform/macos/window_macos.o: src/platform/macos/window_macos.mm.o
 # target to build an object file
 src/platform/macos/window_macos.mm.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/platform/macos/window_macos.mm.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/platform/macos/window_macos.mm.o
 .PHONY : src/platform/macos/window_macos.mm.o
 
 src/platform/macos/window_macos.i: src/platform/macos/window_macos.mm.i
@@ -662,6 +1017,7 @@ src/platform/macos/window_macos.i: src/platform/macos/window_macos.mm.i
 # target to preprocess a source file
 src/platform/macos/window_macos.mm.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/platform/macos/window_macos.mm.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/platform/macos/window_macos.mm.i
 .PHONY : src/platform/macos/window_macos.mm.i
 
 src/platform/macos/window_macos.s: src/platform/macos/window_macos.mm.s
@@ -670,7 +1026,44 @@ src/platform/macos/window_macos.s: src/platform/macos/window_macos.mm.s
 # target to generate assembly for a file
 src/platform/macos/window_macos.mm.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/platform/macos/window_macos.mm.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/platform/macos/window_macos.mm.s
 .PHONY : src/platform/macos/window_macos.mm.s
+
+src/vertical_layout.o: src/vertical_layout.cpp.o
+.PHONY : src/vertical_layout.o
+
+# target to build an object file
+src/vertical_layout.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/vertical_layout.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_container.dir/build.make CMakeFiles/test_container.dir/src/vertical_layout.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_ownership.dir/build.make CMakeFiles/test_ownership.dir/src/vertical_layout.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_layout.dir/build.make CMakeFiles/test_layout.dir/src/vertical_layout.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/vertical_layout.cpp.o
+.PHONY : src/vertical_layout.cpp.o
+
+src/vertical_layout.i: src/vertical_layout.cpp.i
+.PHONY : src/vertical_layout.i
+
+# target to preprocess a source file
+src/vertical_layout.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/vertical_layout.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_container.dir/build.make CMakeFiles/test_container.dir/src/vertical_layout.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_ownership.dir/build.make CMakeFiles/test_ownership.dir/src/vertical_layout.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_layout.dir/build.make CMakeFiles/test_layout.dir/src/vertical_layout.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/vertical_layout.cpp.i
+.PHONY : src/vertical_layout.cpp.i
+
+src/vertical_layout.s: src/vertical_layout.cpp.s
+.PHONY : src/vertical_layout.s
+
+# target to generate assembly for a file
+src/vertical_layout.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/vertical_layout.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_container.dir/build.make CMakeFiles/test_container.dir/src/vertical_layout.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_ownership.dir/build.make CMakeFiles/test_ownership.dir/src/vertical_layout.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_layout.dir/build.make CMakeFiles/test_layout.dir/src/vertical_layout.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/vertical_layout.cpp.s
+.PHONY : src/vertical_layout.cpp.s
 
 src/webview.o: src/webview.cpp.o
 .PHONY : src/webview.o
@@ -678,6 +1071,7 @@ src/webview.o: src/webview.cpp.o
 # target to build an object file
 src/webview.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/webview.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/webview.cpp.o
 .PHONY : src/webview.cpp.o
 
 src/webview.i: src/webview.cpp.i
@@ -686,6 +1080,7 @@ src/webview.i: src/webview.cpp.i
 # target to preprocess a source file
 src/webview.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/webview.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/webview.cpp.i
 .PHONY : src/webview.cpp.i
 
 src/webview.s: src/webview.cpp.s
@@ -694,6 +1089,7 @@ src/webview.s: src/webview.cpp.s
 # target to generate assembly for a file
 src/webview.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/webview.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/webview.cpp.s
 .PHONY : src/webview.cpp.s
 
 src/webview_window.o: src/webview_window.cpp.o
@@ -702,6 +1098,7 @@ src/webview_window.o: src/webview_window.cpp.o
 # target to build an object file
 src/webview_window.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/webview_window.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/webview_window.cpp.o
 .PHONY : src/webview_window.cpp.o
 
 src/webview_window.i: src/webview_window.cpp.i
@@ -710,6 +1107,7 @@ src/webview_window.i: src/webview_window.cpp.i
 # target to preprocess a source file
 src/webview_window.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/webview_window.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/webview_window.cpp.i
 .PHONY : src/webview_window.cpp.i
 
 src/webview_window.s: src/webview_window.cpp.s
@@ -718,6 +1116,7 @@ src/webview_window.s: src/webview_window.cpp.s
 # target to generate assembly for a file
 src/webview_window.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/webview_window.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/webview_window.cpp.s
 .PHONY : src/webview_window.cpp.s
 
 src/window.o: src/window.cpp.o
@@ -726,6 +1125,11 @@ src/window.o: src/window.cpp.o
 # target to build an object file
 src/window.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/window.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_button.dir/build.make CMakeFiles/test_button.dir/src/window.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_container.dir/build.make CMakeFiles/test_container.dir/src/window.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_ownership.dir/build.make CMakeFiles/test_ownership.dir/src/window.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_layout.dir/build.make CMakeFiles/test_layout.dir/src/window.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/window.cpp.o
 .PHONY : src/window.cpp.o
 
 src/window.i: src/window.cpp.i
@@ -734,6 +1138,11 @@ src/window.i: src/window.cpp.i
 # target to preprocess a source file
 src/window.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/window.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_button.dir/build.make CMakeFiles/test_button.dir/src/window.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_container.dir/build.make CMakeFiles/test_container.dir/src/window.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_ownership.dir/build.make CMakeFiles/test_ownership.dir/src/window.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_layout.dir/build.make CMakeFiles/test_layout.dir/src/window.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/window.cpp.i
 .PHONY : src/window.cpp.i
 
 src/window.s: src/window.cpp.s
@@ -742,7 +1151,69 @@ src/window.s: src/window.cpp.s
 # target to generate assembly for a file
 src/window.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/window.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_button.dir/build.make CMakeFiles/test_button.dir/src/window.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_container.dir/build.make CMakeFiles/test_container.dir/src/window.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_ownership.dir/build.make CMakeFiles/test_ownership.dir/src/window.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_layout.dir/build.make CMakeFiles/test_layout.dir/src/window.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/window.cpp.s
 .PHONY : src/window.cpp.s
+
+tests/mock_platform.o: tests/mock_platform.cpp.o
+.PHONY : tests/mock_platform.o
+
+# target to build an object file
+tests/mock_platform.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_button.dir/build.make CMakeFiles/test_button.dir/tests/mock_platform.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_container.dir/build.make CMakeFiles/test_container.dir/tests/mock_platform.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_ownership.dir/build.make CMakeFiles/test_ownership.dir/tests/mock_platform.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_layout.dir/build.make CMakeFiles/test_layout.dir/tests/mock_platform.cpp.o
+.PHONY : tests/mock_platform.cpp.o
+
+tests/mock_platform.i: tests/mock_platform.cpp.i
+.PHONY : tests/mock_platform.i
+
+# target to preprocess a source file
+tests/mock_platform.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_button.dir/build.make CMakeFiles/test_button.dir/tests/mock_platform.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_container.dir/build.make CMakeFiles/test_container.dir/tests/mock_platform.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_ownership.dir/build.make CMakeFiles/test_ownership.dir/tests/mock_platform.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_layout.dir/build.make CMakeFiles/test_layout.dir/tests/mock_platform.cpp.i
+.PHONY : tests/mock_platform.cpp.i
+
+tests/mock_platform.s: tests/mock_platform.cpp.s
+.PHONY : tests/mock_platform.s
+
+# target to generate assembly for a file
+tests/mock_platform.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_button.dir/build.make CMakeFiles/test_button.dir/tests/mock_platform.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_container.dir/build.make CMakeFiles/test_container.dir/tests/mock_platform.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_ownership.dir/build.make CMakeFiles/test_ownership.dir/tests/mock_platform.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_layout.dir/build.make CMakeFiles/test_layout.dir/tests/mock_platform.cpp.s
+.PHONY : tests/mock_platform.cpp.s
+
+tests/test_button.o: tests/test_button.cpp.o
+.PHONY : tests/test_button.o
+
+# target to build an object file
+tests/test_button.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_button.dir/build.make CMakeFiles/test_button.dir/tests/test_button.cpp.o
+.PHONY : tests/test_button.cpp.o
+
+tests/test_button.i: tests/test_button.cpp.i
+.PHONY : tests/test_button.i
+
+# target to preprocess a source file
+tests/test_button.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_button.dir/build.make CMakeFiles/test_button.dir/tests/test_button.cpp.i
+.PHONY : tests/test_button.cpp.i
+
+tests/test_button.s: tests/test_button.cpp.s
+.PHONY : tests/test_button.s
+
+# target to generate assembly for a file
+tests/test_button.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_button.dir/build.make CMakeFiles/test_button.dir/tests/test_button.cpp.s
+.PHONY : tests/test_button.cpp.s
 
 tests/test_component.o: tests/test_component.cpp.o
 .PHONY : tests/test_component.o
@@ -768,6 +1239,54 @@ tests/test_component.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_component.dir/build.make CMakeFiles/test_component.dir/tests/test_component.cpp.s
 .PHONY : tests/test_component.cpp.s
 
+tests/test_component_collection.o: tests/test_component_collection.cpp.o
+.PHONY : tests/test_component_collection.o
+
+# target to build an object file
+tests/test_component_collection.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_component_collection.dir/build.make CMakeFiles/test_component_collection.dir/tests/test_component_collection.cpp.o
+.PHONY : tests/test_component_collection.cpp.o
+
+tests/test_component_collection.i: tests/test_component_collection.cpp.i
+.PHONY : tests/test_component_collection.i
+
+# target to preprocess a source file
+tests/test_component_collection.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_component_collection.dir/build.make CMakeFiles/test_component_collection.dir/tests/test_component_collection.cpp.i
+.PHONY : tests/test_component_collection.cpp.i
+
+tests/test_component_collection.s: tests/test_component_collection.cpp.s
+.PHONY : tests/test_component_collection.s
+
+# target to generate assembly for a file
+tests/test_component_collection.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_component_collection.dir/build.make CMakeFiles/test_component_collection.dir/tests/test_component_collection.cpp.s
+.PHONY : tests/test_component_collection.cpp.s
+
+tests/test_container.o: tests/test_container.cpp.o
+.PHONY : tests/test_container.o
+
+# target to build an object file
+tests/test_container.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_container.dir/build.make CMakeFiles/test_container.dir/tests/test_container.cpp.o
+.PHONY : tests/test_container.cpp.o
+
+tests/test_container.i: tests/test_container.cpp.i
+.PHONY : tests/test_container.i
+
+# target to preprocess a source file
+tests/test_container.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_container.dir/build.make CMakeFiles/test_container.dir/tests/test_container.cpp.i
+.PHONY : tests/test_container.cpp.i
+
+tests/test_container.s: tests/test_container.cpp.s
+.PHONY : tests/test_container.s
+
+# target to generate assembly for a file
+tests/test_container.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_container.dir/build.make CMakeFiles/test_container.dir/tests/test_container.cpp.s
+.PHONY : tests/test_container.cpp.s
+
 tests/test_control.o: tests/test_control.cpp.o
 .PHONY : tests/test_control.o
 
@@ -792,6 +1311,54 @@ tests/test_control.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_control.dir/build.make CMakeFiles/test_control.dir/tests/test_control.cpp.s
 .PHONY : tests/test_control.cpp.s
 
+tests/test_layout.o: tests/test_layout.cpp.o
+.PHONY : tests/test_layout.o
+
+# target to build an object file
+tests/test_layout.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_layout.dir/build.make CMakeFiles/test_layout.dir/tests/test_layout.cpp.o
+.PHONY : tests/test_layout.cpp.o
+
+tests/test_layout.i: tests/test_layout.cpp.i
+.PHONY : tests/test_layout.i
+
+# target to preprocess a source file
+tests/test_layout.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_layout.dir/build.make CMakeFiles/test_layout.dir/tests/test_layout.cpp.i
+.PHONY : tests/test_layout.cpp.i
+
+tests/test_layout.s: tests/test_layout.cpp.s
+.PHONY : tests/test_layout.s
+
+# target to generate assembly for a file
+tests/test_layout.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_layout.dir/build.make CMakeFiles/test_layout.dir/tests/test_layout.cpp.s
+.PHONY : tests/test_layout.cpp.s
+
+tests/test_ownership.o: tests/test_ownership.cpp.o
+.PHONY : tests/test_ownership.o
+
+# target to build an object file
+tests/test_ownership.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_ownership.dir/build.make CMakeFiles/test_ownership.dir/tests/test_ownership.cpp.o
+.PHONY : tests/test_ownership.cpp.o
+
+tests/test_ownership.i: tests/test_ownership.cpp.i
+.PHONY : tests/test_ownership.i
+
+# target to preprocess a source file
+tests/test_ownership.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_ownership.dir/build.make CMakeFiles/test_ownership.dir/tests/test_ownership.cpp.i
+.PHONY : tests/test_ownership.cpp.i
+
+tests/test_ownership.s: tests/test_ownership.cpp.s
+.PHONY : tests/test_ownership.s
+
+# target to generate assembly for a file
+tests/test_ownership.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_ownership.dir/build.make CMakeFiles/test_ownership.dir/tests/test_ownership.cpp.s
+.PHONY : tests/test_ownership.cpp.s
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -806,8 +1373,17 @@ help:
 	@echo "... rebuild_cache"
 	@echo "... test"
 	@echo "... CrossDev"
+	@echo "... layout_demo"
+	@echo "... test_button"
 	@echo "... test_component"
+	@echo "... test_component_collection"
+	@echo "... test_container"
 	@echo "... test_control"
+	@echo "... test_layout"
+	@echo "... test_ownership"
+	@echo "... examples/layout_demo.o"
+	@echo "... examples/layout_demo.i"
+	@echo "... examples/layout_demo.s"
 	@echo "... src/application.o"
 	@echo "... src/application.i"
 	@echo "... src/application.s"
@@ -817,9 +1393,15 @@ help:
 	@echo "... src/component.o"
 	@echo "... src/component.i"
 	@echo "... src/component.s"
+	@echo "... src/component_collection.o"
+	@echo "... src/component_collection.i"
+	@echo "... src/component_collection.s"
 	@echo "... src/config_manager.o"
 	@echo "... src/config_manager.i"
 	@echo "... src/config_manager.s"
+	@echo "... src/container.o"
+	@echo "... src/container.i"
+	@echo "... src/container.s"
 	@echo "... src/control.o"
 	@echo "... src/control.i"
 	@echo "... src/control.s"
@@ -838,9 +1420,15 @@ help:
 	@echo "... src/handlers/filedialoghandler.o"
 	@echo "... src/handlers/filedialoghandler.i"
 	@echo "... src/handlers/filedialoghandler.s"
+	@echo "... src/horizontal_layout.o"
+	@echo "... src/horizontal_layout.i"
+	@echo "... src/horizontal_layout.s"
 	@echo "... src/inputfield.o"
 	@echo "... src/inputfield.i"
 	@echo "... src/inputfield.s"
+	@echo "... src/layout.o"
+	@echo "... src/layout.i"
+	@echo "... src/layout.s"
 	@echo "... src/main.o"
 	@echo "... src/main.i"
 	@echo "... src/main.s"
@@ -853,6 +1441,9 @@ help:
 	@echo "... src/platform/macos/button_macos.o"
 	@echo "... src/platform/macos/button_macos.i"
 	@echo "... src/platform/macos/button_macos.s"
+	@echo "... src/platform/macos/container_macos.o"
+	@echo "... src/platform/macos/container_macos.i"
+	@echo "... src/platform/macos/container_macos.s"
 	@echo "... src/platform/macos/filedialog_macos.o"
 	@echo "... src/platform/macos/filedialog_macos.i"
 	@echo "... src/platform/macos/filedialog_macos.s"
@@ -865,6 +1456,9 @@ help:
 	@echo "... src/platform/macos/window_macos.o"
 	@echo "... src/platform/macos/window_macos.i"
 	@echo "... src/platform/macos/window_macos.s"
+	@echo "... src/vertical_layout.o"
+	@echo "... src/vertical_layout.i"
+	@echo "... src/vertical_layout.s"
 	@echo "... src/webview.o"
 	@echo "... src/webview.i"
 	@echo "... src/webview.s"
@@ -874,12 +1468,30 @@ help:
 	@echo "... src/window.o"
 	@echo "... src/window.i"
 	@echo "... src/window.s"
+	@echo "... tests/mock_platform.o"
+	@echo "... tests/mock_platform.i"
+	@echo "... tests/mock_platform.s"
+	@echo "... tests/test_button.o"
+	@echo "... tests/test_button.i"
+	@echo "... tests/test_button.s"
 	@echo "... tests/test_component.o"
 	@echo "... tests/test_component.i"
 	@echo "... tests/test_component.s"
+	@echo "... tests/test_component_collection.o"
+	@echo "... tests/test_component_collection.i"
+	@echo "... tests/test_component_collection.s"
+	@echo "... tests/test_container.o"
+	@echo "... tests/test_container.i"
+	@echo "... tests/test_container.s"
 	@echo "... tests/test_control.o"
 	@echo "... tests/test_control.i"
 	@echo "... tests/test_control.s"
+	@echo "... tests/test_layout.o"
+	@echo "... tests/test_layout.i"
+	@echo "... tests/test_layout.s"
+	@echo "... tests/test_ownership.o"
+	@echo "... tests/test_ownership.i"
+	@echo "... tests/test_ownership.s"
 .PHONY : help
 
 

@@ -57,6 +57,9 @@ public:
     // Get HTML content (if method is "html")
     std::string getHtmlContent() const;
     
+    // Try to load file content from standard locations (cwd, ., .., ../..)
+    static std::string tryLoadFileContent(const std::string& filename);
+    
 private:
     ConfigManager() = default;
     ~ConfigManager() = default;

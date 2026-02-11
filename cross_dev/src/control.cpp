@@ -9,6 +9,7 @@ Control::Control(Component* owner, Control* parent)
       left_(0), top_(0), width_(100), height_(100),
       visible_(true) {
     SetParent(parent);
+    resetDefaultNameCache();
 }
 
 Control::~Control() {

@@ -1,9 +1,37 @@
 #include "../include/component.h"
 #include <algorithm>
+#include <iostream>
+#include <map>
 #include <sstream>
 #include <stdexcept>
 #include <typeinfo>
 #include <cstring>
+
+#ifndef NDEBUG
+#define COMPONENT_DEBUG_LIFECYCLE 1
+#endif
+
+static const char* demangleTypeName(const char* mangled) {
+#ifdef __GNUC__
+    while (*mangled >= '0' && *mangled <= '9') ++mangled;
+#elif defined(_MSC_VER)
+    if (strncmp(mangled, "class ", 6) == 0) mangled += 6;
+#endif
+    return mangled;
+}
+
+void Component::debugLogLifecycleCreation(Component* self, Component* owner, Component* parent) {
+#ifdef COMPONENT_DEBUG_LIFECYCLE
+    std::cout << "[LIFECYCLE] CREATED name=\"" << self->GetName()
+              << "\" owner=" << (owner ? ("\"" + owner->GetName() + "\"") : "(none)")
+              << " parent=" << (parent ? ("\"" + parent->GetName() + "\"") : "(none)")
+              << std::endl;
+#else
+    (void)self;
+    (void)owner;
+    (void)parent;
+#endif
+}
 
 Component::Component(Component* owner)
     : owner_(nullptr), name_(""), destroying_(false) {
@@ -12,15 +40,32 @@ Component::Component(Component* owner)
 
 Component::~Component() {
     destroying_ = true;
-    
+
+#ifdef COMPONENT_DEBUG_LIFECYCLE
+    static int s_destructOrder = 0;
+    int order = ++s_destructOrder;
+    std::string ownerName = owner_ ? owner_->GetName() : "(none)";
+    std::cout << "[LIFECYCLE] DESTROYED #" << order << " name=\"" << GetName()
+              << "\" ordered_by=\"" << ownerName
+              << "\" (owner destroying " << ownedComponents_.size() << " owned)" << std::endl;
+    std::cout.flush();
+#endif
+
     // Destroy all owned components (in reverse order)
     // This ensures dependencies are cleaned up properly
     while (!ownedComponents_.empty()) {
         Component* comp = ownedComponents_.back();
         ownedComponents_.pop_back();
+#ifdef COMPONENT_DEBUG_LIFECYCLE
+        std::string compName = comp->GetName();
+        std::string triggerName = GetName();
+        std::cout << "  -> DESTROYED #" << (++s_destructOrder) << " name=\"" << compName
+                  << "\" ordered_by=\"" << triggerName << "\" (owner destructor)" << std::endl;
+        std::cout.flush();
+#endif
         delete comp;
     }
-    
+
     // Remove self from owner's list
     if (owner_) {
         owner_->removeOwnedComponent(this);
@@ -30,6 +75,7 @@ Component::~Component() {
 Component::Component(Component&& other) noexcept
     : owner_(other.owner_),
       name_(std::move(other.name_)),
+      defaultNameCache_(std::move(other.defaultNameCache_)),
       ownedComponents_(std::move(other.ownedComponents_)),
       destroying_(other.destroying_) {
     // Update owner's list
@@ -45,6 +91,7 @@ Component::Component(Component&& other) noexcept
     
     other.owner_ = nullptr;
     other.ownedComponents_.clear();
+    other.defaultNameCache_.clear();
     other.destroying_ = false;
 }
 
@@ -64,6 +111,7 @@ Component& Component::operator=(Component&& other) noexcept {
         // Move from other
         owner_ = other.owner_;
         name_ = std::move(other.name_);
+        defaultNameCache_ = std::move(other.defaultNameCache_);
         ownedComponents_ = std::move(other.ownedComponents_);
         destroying_ = other.destroying_;
         
@@ -80,6 +128,7 @@ Component& Component::operator=(Component&& other) noexcept {
         
         other.owner_ = nullptr;
         other.ownedComponents_.clear();
+        other.defaultNameCache_.clear();
         other.destroying_ = false;
     }
     return *this;
@@ -118,6 +167,16 @@ void Component::SetOwner(Component* owner) {
     }
 }
 
+const std::string& Component::GetName() const {
+    if (!name_.empty()) {
+        return name_;
+    }
+    if (defaultNameCache_.empty()) {
+        defaultNameCache_ = generateDefaultName();
+    }
+    return defaultNameCache_;
+}
+
 void Component::SetName(const std::string& name) {
     if (name_ == name) {
         return;
@@ -134,6 +193,7 @@ void Component::SetName(const std::string& name) {
     }
     
     name_ = name;
+    defaultNameCache_.clear();
 }
 
 Component* Component::FindComponent(const std::string& name) const {
@@ -141,9 +201,9 @@ Component* Component::FindComponent(const std::string& name) const {
         return nullptr;
     }
     
-    // Search in owned components
+    // Search in owned components (use GetName so default names are found)
     for (Component* comp : ownedComponents_) {
-        if (comp->name_ == name) {
+        if (comp->GetName() == name) {
             return comp;
         }
         // Recursive search
@@ -227,46 +287,22 @@ void Component::validateName(const std::string& name) const {
 }
 
 std::string Component::generateDefaultName() const {
-    // Generate default name based on class name
-    // Use typeid to get class name (requires RTTI)
+    // Generate default name: ClassName + serial number (e.g. Button1, WebViewWindow2)
+    // Uses per-type static counter so it works during base-class construction
+    // and produces human-readable names for debugging/logging
     const char* typeName = typeid(*this).name();
-    
-    // Demangle name (platform-specific)
-    #ifdef __GNUC__
-        // GCC/Clang: typeid returns mangled name like "6Button"
-        // Skip numbers at the start
-        while (*typeName >= '0' && *typeName <= '9') {
-            typeName++;
-        }
-    #elif defined(_MSC_VER)
-        // MSVC: typeid returns class name like "class Button"
-        // Skip "class " prefix if present
-        if (strncmp(typeName, "class ", 6) == 0) {
-            typeName += 6;
-        }
-    #endif
-    
-    // Find next available number for this type
+
+#ifdef __GNUC__
+    while (*typeName >= '0' && *typeName <= '9') ++typeName;
+#elif defined(_MSC_VER)
+    if (strncmp(typeName, "class ", 6) == 0) typeName += 6;
+#endif
+
+    static std::map<std::string, int> s_typeCounters;
     std::string baseName = typeName;
-    int counter = 1;
-    std::string candidateName;
-    
-    do {
-        std::ostringstream oss;
-        oss << baseName << counter;
-        candidateName = oss.str();
-        counter++;
-        
-        // Check if name already exists (only check up to reasonable limit)
-        if (owner_) {
-            Component* existing = owner_->FindComponent(candidateName);
-            if (!existing) {
-                break; // Found available name
-            }
-        } else {
-            break; // No owner, use first available
-        }
-    } while (counter < 10000); // Safety limit
-    
-    return candidateName;
+    int n = ++s_typeCounters[baseName];
+
+    std::ostringstream oss;
+    oss << baseName << n;
+    return oss.str();
 }

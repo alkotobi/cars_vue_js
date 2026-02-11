@@ -115,6 +115,10 @@ void setWindowResizeCallback(void* windowHandle, void (*callback)(int width, int
     (void)userData;
 }
 
+void setWindowCloseCallback(void*, void (*)(void*), void*) {
+    // iOS: Stub - windows typically don't have close buttons
+}
+
 } // namespace platform
 
 #endif // PLATFORM_IOS

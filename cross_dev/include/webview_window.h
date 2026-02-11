@@ -1,24 +1,46 @@
 #ifndef WEBVIEW_WINDOW_H
 #define WEBVIEW_WINDOW_H
 
+#include "component.h"
 #include "window.h"
 #include "webview.h"
 #include <string>
 #include <functional>
 #include <memory>
 
-// A window that contains a WebView that fills the entire window
-// The WebView automatically resizes when the window is resized
-class WebViewWindow {
+// Content type for WebViewWindow initial load
+enum class WebViewContentType {
+    Default,  // Use simple default HTML (when none supplied)
+    Html,     // content is HTML code
+    Url,      // content is URL to load
+    File      // content is path to HTML file
+};
+
+// A window that contains a WebView that fills the entire window.
+// Inherits from Component for owner-based automatic cleanup.
+// The first WebViewWindow created with owner=nullptr becomes the "main" window.
+// All other WebViewWindows should use the main (or another WebViewWindow) as owner
+// so they are automatically freed when the owner is destroyed.
+//
+// Circular ownership prevention: Component::SetOwner (and the constructor) validate
+// that setting an owner cannot create a cycle (A owns B owns A). A cycle will throw
+// std::runtime_error("Circular ownership detected"). Same for self-ownership.
+class WebViewWindow : public Component {
 public:
-    WebViewWindow(int x, int y, int width, int height, const std::string& title);
+    // Get the main WebViewWindow (first created with owner=nullptr). Returns nullptr if none.
+    static WebViewWindow* GetMainWebViewWindow();
+
+    // Constructor: owner=nullptr for the main window; use GetMainWebViewWindow() or another
+    // WebViewWindow as owner for child windows (they will be auto-freed when owner is destroyed).
+    // Owner can also be assigned manually via SetOwner().
+    WebViewWindow(Component* owner, int x, int y, int width, int height, const std::string& title,
+                  WebViewContentType type = WebViewContentType::Default,
+                  const std::string& content = "");
     ~WebViewWindow();
-    
-    // Non-copyable, movable
+
+    // Non-copyable
     WebViewWindow(const WebViewWindow&) = delete;
     WebViewWindow& operator=(const WebViewWindow&) = delete;
-    WebViewWindow(WebViewWindow&&) noexcept;
-    WebViewWindow& operator=(WebViewWindow&&) noexcept;
     
     // Window operations
     void show();
@@ -36,9 +58,14 @@ public:
     void setMessageCallback(std::function<void(const std::string& jsonMessage)> callback);
     void postMessageToJavaScript(const std::string& jsonMessage);
     
+    // Close all owned child WebViewWindows (used before quit to tear down while run loop is active)
+    void closeAllOwnedWebViewWindows();
+
     // Get underlying window and webview (for advanced usage)
     Window* getWindow() { return window_.get(); }
     WebView* getWebView() { return webView_.get(); }
+    const Window* getWindow() const { return window_.get(); }
+    const WebView* getWebView() const { return webView_.get(); }
     
 private:
     std::unique_ptr<Window> window_;
@@ -47,8 +74,9 @@ private:
     // Handle window resize to update WebView size
     void onWindowResize(int newWidth, int newHeight);
     
-    // Platform-specific resize callback registration
     void registerResizeCallback();
+    void registerCloseCallback();
+    void registerMainWindowCloseCallback();
 };
 
 #endif // WEBVIEW_WINDOW_H

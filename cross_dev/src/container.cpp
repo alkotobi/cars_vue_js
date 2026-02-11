@@ -18,6 +18,8 @@ Container::Container(Component* owner, Control* parent, int x, int y, int width,
     }
     
     createNativeContainer();
+    resetDefaultNameCache();
+    debugLogLifecycleCreation(this, GetOwner(), GetParent());
 }
 
 Container::~Container() {

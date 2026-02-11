@@ -14,6 +14,8 @@ Button::Button(Component* owner, Control* parent, int x, int y, int width, int h
     }
     
     createNativeButton();
+    resetDefaultNameCache();
+    debugLogLifecycleCreation(this, GetOwner(), GetParent());
 }
 
 Button::~Button() {

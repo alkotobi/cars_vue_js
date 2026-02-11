@@ -118,25 +118,19 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
         }
     }
     if (uMsg == WM_DESTROY) {
-        // Look up the window in the map
         auto it = platform::g_windowMap.find(hwnd);
         if (it != platform::g_windowMap.end()) {
             WindowData* windowData = it->second;
             
-            // If this is not the main window and has userData (Window*), delete it
-            if (windowData != platform::g_mainWindow && windowData->userData) {
-                // This is a dynamically created window - delete the Window object
-                Window* window = static_cast<Window*>(windowData->userData);
-                delete window;
-            }
-            
-            // Only quit the application if the main window is being destroyed
             if (windowData == platform::g_mainWindow) {
-                // Main window is being destroyed - quit the application
+                // Main window - quit the application
                 PostQuitMessage(0);
+            } else if (windowData->closeCallback && windowData->closeUserData) {
+                // Child WebViewWindow - use close callback to delete it properly
+                windowData->beingDestroyed = true;
+                windowData->closeCallback(windowData->closeUserData);
             }
         }
-        // For other windows, just destroy them (no PostQuitMessage)
         return 0;
     }
     return DefWindowProc(hwnd, uMsg, wParam, lParam);

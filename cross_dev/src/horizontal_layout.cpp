@@ -5,6 +5,8 @@
 
 HorizontalLayout::HorizontalLayout(Component* owner)
     : Layout(owner) {
+    resetDefaultNameCache();
+    debugLogLifecycleCreation(this, GetOwner(), nullptr);
 }
 
 SizeHint HorizontalLayout::calculatePreferredSize() const {

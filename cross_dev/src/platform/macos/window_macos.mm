@@ -17,9 +17,13 @@ namespace platform {
 typedef void (*ResizeCallback)(int width, int height, void* userData);
 
 // Objective-C declarations must be at global scope, not inside C++ namespace
+typedef void (*CloseCallback)(void* userData);
+
 @interface WindowResizeDelegate : NSObject <NSWindowDelegate>
 @property (assign) ResizeCallback resizeCallback;
 @property (assign) void* resizeUserData;
+@property (assign) CloseCallback closeCallback;
+@property (assign) void* closeUserData;
 @end
 
 @implementation WindowResizeDelegate
@@ -28,6 +32,20 @@ typedef void (*ResizeCallback)(int width, int height, void* userData);
         NSWindow *window = notification.object;
         NSRect frame = [window contentRectForFrameRect:[window frame]];
         self.resizeCallback((int)frame.size.width, (int)frame.size.height, self.resizeUserData);
+    }
+}
+- (void)windowWillClose:(NSNotification *)notification {
+    if (self.closeCallback) {
+        void (*callback)(void*) = self.closeCallback;
+        void* userData = self.closeUserData;
+        self.closeCallback = nullptr;
+        self.closeUserData = nullptr;
+        // Defer to avoid deallocating window while in its delegate callback
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (callback) {
+                callback(userData);  // userData may be nullptr (main window quit)
+            }
+        });
     }
 }
 @end
@@ -131,6 +149,28 @@ void setWindowResizeCallback(void* windowHandle, ResizeCallback callback, void* 
         
         delegate.resizeCallback = callback;
         delegate.resizeUserData = userData;
+    }
+}
+
+void setWindowCloseCallback(void* windowHandle, void (*callback)(void* userData), void* userData) {
+    @autoreleasepool {
+        if (!windowHandle) {
+            return;
+        }
+        
+        NSWindow *window = (__bridge NSWindow*)windowHandle;
+        
+        // Get or create delegate (same as resize)
+        WindowResizeDelegate *delegate = objc_getAssociatedObject(window, @"resizeDelegate");
+        if (!delegate) {
+            if (!callback) return;  // Nothing to clear
+            delegate = [[WindowResizeDelegate alloc] init];
+            objc_setAssociatedObject(window, @"resizeDelegate", delegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            [window setDelegate:delegate];
+        }
+        
+        delegate.closeCallback = callback;
+        delegate.closeUserData = userData;
     }
 }
 

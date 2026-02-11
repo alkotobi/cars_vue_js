@@ -19,8 +19,9 @@ project(CrossDev CXX)
 # After project() call, check if we're stuck with ARM64 on Visual Studio
 if(WIN32 AND CMAKE_GENERATOR MATCHES "Visual Studio")
     if(CMAKE_VS_PLATFORM_NAME STREQUAL "ARM64" OR CMAKE_GENERATOR_PLATFORM STREQUAL "ARM64")
-        if(NOT CMAKE_GENERATOR_PLATFORM STREQUAL "ARM64")
-            # This means CMake auto-detected ARM64
+        # CMAKE_VS_PLATFORM_NAME can remain ARM64 (native) on ARM64 hardware even with -A x64.
+        # Only error when ARM64 was auto-detected (user did not explicitly pass -A x64 or -A ARM64).
+        if(NOT CMAKE_GENERATOR_PLATFORM STREQUAL "x64" AND NOT CMAKE_GENERATOR_PLATFORM STREQUAL "ARM64")
             message(FATAL_ERROR "\n"
                 "ERROR: CMake auto-detected ARM64 architecture, which may cause build failures.\n"
                 "SOLUTION: Re-run CMake with explicit architecture:\n"
@@ -36,6 +37,15 @@ endif()
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+
+# Component lifecycle debug logging (CREATED/DESTROYED by name) - visible in console
+option(COMPONENT_DEBUG_LIFECYCLE "Enable component lifecycle debug output (default: ON for Debug)" ON)
+if(COMPONENT_DEBUG_LIFECYCLE OR CMAKE_BUILD_TYPE STREQUAL "Debug")
+    add_compile_definitions(COMPONENT_DEBUG_LIFECYCLE=1)
+    message(STATUS "Component lifecycle debug: ENABLED")
+else()
+    message(STATUS "Component lifecycle debug: disabled")
+endif()
 
 # Platform detection
 if(APPLE)
@@ -178,14 +188,11 @@ elseif(PLATFORM STREQUAL "windows")
         message(WARNING "WebView2 SDK download may have failed - WebView2 features disabled")
     endif()
     
-    # For MSVC, set subsystem to Windows and use main() as entry point
-    # In Debug mode, use CONSOLE subsystem to see debug output
+    # For MSVC: use CONSOLE when Debug or lifecycle logging enabled (so output is visible)
     if(MSVC)
-        if(CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_CONFIGURATION_TYPES)
-            # Debug: Use console for easier debugging
+        if(CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_CONFIGURATION_TYPES OR COMPONENT_DEBUG_LIFECYCLE)
             set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:CONSOLE")
         else()
-            # Release: Use Windows subsystem (no console)
             set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")
         endif()
     endif()

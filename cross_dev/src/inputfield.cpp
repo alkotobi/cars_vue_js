@@ -13,6 +13,8 @@ InputField::InputField(Component* owner, Control* parent, int x, int y, int widt
     }
     
     createNativeInputField();
+    resetDefaultNameCache();
+    debugLogLifecycleCreation(this, GetOwner(), GetParent());
 }
 
 InputField::~InputField() {

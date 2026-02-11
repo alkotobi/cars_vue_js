@@ -39,6 +39,9 @@ void* createWindow(int x, int y, int width, int height, const std::string& title
     data->userData = userData;  // Store Window* pointer for cleanup
     data->resizeCallback = nullptr;
     data->resizeUserData = nullptr;
+    data->closeCallback = nullptr;
+    data->closeUserData = nullptr;
+    data->beingDestroyed = false;
     
     std::wstring wtitle = stringToWString(title);
     HWND hwnd = CreateWindowExW(
@@ -76,7 +79,9 @@ void destroyWindow(void* handle) {
             if (g_mainWindow == data) {
                 g_mainWindow = nullptr;
             }
-            DestroyWindow(data->hwnd);
+            if (!data->beingDestroyed) {
+                DestroyWindow(data->hwnd);
+            }
         }
         delete data;
     }
@@ -121,6 +126,14 @@ void setWindowResizeCallback(void* windowHandle, void (*callback)(int width, int
         WindowData* data = static_cast<WindowData*>(windowHandle);
         data->resizeCallback = callback;
         data->resizeUserData = userData;
+    }
+}
+
+void setWindowCloseCallback(void* windowHandle, void (*callback)(void* userData), void* userData) {
+    if (windowHandle) {
+        WindowData* data = static_cast<WindowData*>(windowHandle);
+        data->closeCallback = callback;
+        data->closeUserData = userData;
     }
 }
 

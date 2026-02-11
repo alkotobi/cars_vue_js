@@ -140,6 +140,10 @@ void setWindowResizeCallback(void* windowHandle, void (*callback)(int width, int
     }
 }
 
+void setWindowCloseCallback(void*, void (*)(void*), void*) {
+    // Linux: Close handling would need WM_DELETE_WINDOW - stub for now
+}
+
 } // namespace platform
 
 #endif // PLATFORM_LINUX

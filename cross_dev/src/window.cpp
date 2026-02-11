@@ -7,6 +7,8 @@ Window::Window(Component* owner, Control* parent, int x, int y, int width, int h
     // Set bounds using Control's methods
     SetBounds(x, y, width, height);
     createNativeWindow();
+    resetDefaultNameCache();
+    debugLogLifecycleCreation(this, GetOwner(), GetParent());
 }
 
 Window::~Window() {
