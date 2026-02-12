@@ -219,6 +219,9 @@ CrossDev_SOURCE_DIR:STATIC=/Users/merhab/dev/vu.js/cars/cross_dev
 //Path to a library.
 FOUNDATION_FRAMEWORK:FILEPATH=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/Foundation.framework
 
+//No help, variable specified on the command line.
+PLATFORM:UNINITIALIZED=macos
+
 //Path to a library.
 UNIFORMTYPEIDENTIFIERS_FRAMEWORK:FILEPATH=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/UniformTypeIdentifiers.framework
 

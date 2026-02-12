@@ -842,5 +842,7 @@ CMakeFiles/CrossDev.dir/src/webview_window.cpp.o: \
   /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/any \
   /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/chrono \
   /Users/merhab/dev/vu.js/cars/cross_dev/src/../include/native_event_bus.h \
+  /Users/merhab/dev/vu.js/cars/cross_dev/src/../include/platform.h \
+  /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/TargetConditionals.h \
   /Users/merhab/dev/vu.js/cars/cross_dev/src/platform/platform_impl.h \
   /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/iostream

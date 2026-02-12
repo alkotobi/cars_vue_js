@@ -202,11 +202,22 @@ const handleReturnToMain = () => {
   showFinishedOrders.value = false
 }
 
-const openCarsStockInNewTab = () => {
+const openCarsStockInNewTab = async () => {
   const route = router.resolve({ name: 'cars-stock' })
-  // Use full URL to ensure correct base path for assets
   const fullUrl = window.location.origin + route.href
-  window.open(fullUrl, '_blank')
+  if (window.CrossDev && window.CrossDev.invoke) {
+    try {
+      await window.CrossDev.invoke('createWindow', {
+        title: 'Car Stock',
+        url: fullUrl,
+      })
+    } catch (e) {
+      console.error('createWindow failed, falling back to window.open:', e)
+      window.open(fullUrl, '_blank')
+    }
+  } else {
+    window.open(fullUrl, '_blank')
+  }
 }
 
 const handleLoadClick = async () => {

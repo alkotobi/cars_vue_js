@@ -102,6 +102,7 @@ set(CORE_SOURCES
     src/eventhandler.cpp
     src/messagerouter.cpp
     src/config_manager.cpp
+    src/app_runner.cpp
     src/handlers/createwindowhandler.cpp
     src/handlers/appinfohandler.cpp
     src/handlers/calculatorhandler.cpp

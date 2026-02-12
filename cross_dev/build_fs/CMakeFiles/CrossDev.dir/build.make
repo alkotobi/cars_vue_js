@@ -310,10 +310,24 @@ CMakeFiles/CrossDev.dir/src/config_manager.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/CrossDev.dir/src/config_manager.cpp.s"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/merhab/dev/vu.js/cars/cross_dev/src/config_manager.cpp -o CMakeFiles/CrossDev.dir/src/config_manager.cpp.s
 
+CMakeFiles/CrossDev.dir/src/app_runner.cpp.o: CMakeFiles/CrossDev.dir/flags.make
+CMakeFiles/CrossDev.dir/src/app_runner.cpp.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/app_runner.cpp
+CMakeFiles/CrossDev.dir/src/app_runner.cpp.o: CMakeFiles/CrossDev.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles --progress-num=$(CMAKE_PROGRESS_18) "Building CXX object CMakeFiles/CrossDev.dir/src/app_runner.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CrossDev.dir/src/app_runner.cpp.o -MF CMakeFiles/CrossDev.dir/src/app_runner.cpp.o.d -o CMakeFiles/CrossDev.dir/src/app_runner.cpp.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/app_runner.cpp
+
+CMakeFiles/CrossDev.dir/src/app_runner.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/CrossDev.dir/src/app_runner.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/merhab/dev/vu.js/cars/cross_dev/src/app_runner.cpp > CMakeFiles/CrossDev.dir/src/app_runner.cpp.i
+
+CMakeFiles/CrossDev.dir/src/app_runner.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/CrossDev.dir/src/app_runner.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/merhab/dev/vu.js/cars/cross_dev/src/app_runner.cpp -o CMakeFiles/CrossDev.dir/src/app_runner.cpp.s
+
 CMakeFiles/CrossDev.dir/src/handlers/createwindowhandler.cpp.o: CMakeFiles/CrossDev.dir/flags.make
 CMakeFiles/CrossDev.dir/src/handlers/createwindowhandler.cpp.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/createwindowhandler.cpp
 CMakeFiles/CrossDev.dir/src/handlers/createwindowhandler.cpp.o: CMakeFiles/CrossDev.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles --progress-num=$(CMAKE_PROGRESS_18) "Building CXX object CMakeFiles/CrossDev.dir/src/handlers/createwindowhandler.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles --progress-num=$(CMAKE_PROGRESS_19) "Building CXX object CMakeFiles/CrossDev.dir/src/handlers/createwindowhandler.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CrossDev.dir/src/handlers/createwindowhandler.cpp.o -MF CMakeFiles/CrossDev.dir/src/handlers/createwindowhandler.cpp.o.d -o CMakeFiles/CrossDev.dir/src/handlers/createwindowhandler.cpp.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/createwindowhandler.cpp
 
 CMakeFiles/CrossDev.dir/src/handlers/createwindowhandler.cpp.i: cmake_force
@@ -327,7 +341,7 @@ CMakeFiles/CrossDev.dir/src/handlers/createwindowhandler.cpp.s: cmake_force
 CMakeFiles/CrossDev.dir/src/handlers/appinfohandler.cpp.o: CMakeFiles/CrossDev.dir/flags.make
 CMakeFiles/CrossDev.dir/src/handlers/appinfohandler.cpp.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/appinfohandler.cpp
 CMakeFiles/CrossDev.dir/src/handlers/appinfohandler.cpp.o: CMakeFiles/CrossDev.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles --progress-num=$(CMAKE_PROGRESS_19) "Building CXX object CMakeFiles/CrossDev.dir/src/handlers/appinfohandler.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles --progress-num=$(CMAKE_PROGRESS_20) "Building CXX object CMakeFiles/CrossDev.dir/src/handlers/appinfohandler.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CrossDev.dir/src/handlers/appinfohandler.cpp.o -MF CMakeFiles/CrossDev.dir/src/handlers/appinfohandler.cpp.o.d -o CMakeFiles/CrossDev.dir/src/handlers/appinfohandler.cpp.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/appinfohandler.cpp
 
 CMakeFiles/CrossDev.dir/src/handlers/appinfohandler.cpp.i: cmake_force
@@ -341,7 +355,7 @@ CMakeFiles/CrossDev.dir/src/handlers/appinfohandler.cpp.s: cmake_force
 CMakeFiles/CrossDev.dir/src/handlers/calculatorhandler.cpp.o: CMakeFiles/CrossDev.dir/flags.make
 CMakeFiles/CrossDev.dir/src/handlers/calculatorhandler.cpp.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/calculatorhandler.cpp
 CMakeFiles/CrossDev.dir/src/handlers/calculatorhandler.cpp.o: CMakeFiles/CrossDev.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles --progress-num=$(CMAKE_PROGRESS_20) "Building CXX object CMakeFiles/CrossDev.dir/src/handlers/calculatorhandler.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles --progress-num=$(CMAKE_PROGRESS_21) "Building CXX object CMakeFiles/CrossDev.dir/src/handlers/calculatorhandler.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CrossDev.dir/src/handlers/calculatorhandler.cpp.o -MF CMakeFiles/CrossDev.dir/src/handlers/calculatorhandler.cpp.o.d -o CMakeFiles/CrossDev.dir/src/handlers/calculatorhandler.cpp.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/calculatorhandler.cpp
 
 CMakeFiles/CrossDev.dir/src/handlers/calculatorhandler.cpp.i: cmake_force
@@ -355,7 +369,7 @@ CMakeFiles/CrossDev.dir/src/handlers/calculatorhandler.cpp.s: cmake_force
 CMakeFiles/CrossDev.dir/src/handlers/filedialoghandler.cpp.o: CMakeFiles/CrossDev.dir/flags.make
 CMakeFiles/CrossDev.dir/src/handlers/filedialoghandler.cpp.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/filedialoghandler.cpp
 CMakeFiles/CrossDev.dir/src/handlers/filedialoghandler.cpp.o: CMakeFiles/CrossDev.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles --progress-num=$(CMAKE_PROGRESS_21) "Building CXX object CMakeFiles/CrossDev.dir/src/handlers/filedialoghandler.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles --progress-num=$(CMAKE_PROGRESS_22) "Building CXX object CMakeFiles/CrossDev.dir/src/handlers/filedialoghandler.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CrossDev.dir/src/handlers/filedialoghandler.cpp.o -MF CMakeFiles/CrossDev.dir/src/handlers/filedialoghandler.cpp.o.d -o CMakeFiles/CrossDev.dir/src/handlers/filedialoghandler.cpp.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/filedialoghandler.cpp
 
 CMakeFiles/CrossDev.dir/src/handlers/filedialoghandler.cpp.i: cmake_force
@@ -369,7 +383,7 @@ CMakeFiles/CrossDev.dir/src/handlers/filedialoghandler.cpp.s: cmake_force
 CMakeFiles/CrossDev.dir/src/handlers/readfilehandler.cpp.o: CMakeFiles/CrossDev.dir/flags.make
 CMakeFiles/CrossDev.dir/src/handlers/readfilehandler.cpp.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/readfilehandler.cpp
 CMakeFiles/CrossDev.dir/src/handlers/readfilehandler.cpp.o: CMakeFiles/CrossDev.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles --progress-num=$(CMAKE_PROGRESS_22) "Building CXX object CMakeFiles/CrossDev.dir/src/handlers/readfilehandler.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles --progress-num=$(CMAKE_PROGRESS_23) "Building CXX object CMakeFiles/CrossDev.dir/src/handlers/readfilehandler.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CrossDev.dir/src/handlers/readfilehandler.cpp.o -MF CMakeFiles/CrossDev.dir/src/handlers/readfilehandler.cpp.o.d -o CMakeFiles/CrossDev.dir/src/handlers/readfilehandler.cpp.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/readfilehandler.cpp
 
 CMakeFiles/CrossDev.dir/src/handlers/readfilehandler.cpp.i: cmake_force
@@ -383,7 +397,7 @@ CMakeFiles/CrossDev.dir/src/handlers/readfilehandler.cpp.s: cmake_force
 CMakeFiles/CrossDev.dir/src/handlers/writefilehandler.cpp.o: CMakeFiles/CrossDev.dir/flags.make
 CMakeFiles/CrossDev.dir/src/handlers/writefilehandler.cpp.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/writefilehandler.cpp
 CMakeFiles/CrossDev.dir/src/handlers/writefilehandler.cpp.o: CMakeFiles/CrossDev.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles --progress-num=$(CMAKE_PROGRESS_23) "Building CXX object CMakeFiles/CrossDev.dir/src/handlers/writefilehandler.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles --progress-num=$(CMAKE_PROGRESS_24) "Building CXX object CMakeFiles/CrossDev.dir/src/handlers/writefilehandler.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CrossDev.dir/src/handlers/writefilehandler.cpp.o -MF CMakeFiles/CrossDev.dir/src/handlers/writefilehandler.cpp.o.d -o CMakeFiles/CrossDev.dir/src/handlers/writefilehandler.cpp.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/writefilehandler.cpp
 
 CMakeFiles/CrossDev.dir/src/handlers/writefilehandler.cpp.i: cmake_force
@@ -397,7 +411,7 @@ CMakeFiles/CrossDev.dir/src/handlers/writefilehandler.cpp.s: cmake_force
 CMakeFiles/CrossDev.dir/src/handlers/filesystemhandler.cpp.o: CMakeFiles/CrossDev.dir/flags.make
 CMakeFiles/CrossDev.dir/src/handlers/filesystemhandler.cpp.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/filesystemhandler.cpp
 CMakeFiles/CrossDev.dir/src/handlers/filesystemhandler.cpp.o: CMakeFiles/CrossDev.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles --progress-num=$(CMAKE_PROGRESS_24) "Building CXX object CMakeFiles/CrossDev.dir/src/handlers/filesystemhandler.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles --progress-num=$(CMAKE_PROGRESS_25) "Building CXX object CMakeFiles/CrossDev.dir/src/handlers/filesystemhandler.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CrossDev.dir/src/handlers/filesystemhandler.cpp.o -MF CMakeFiles/CrossDev.dir/src/handlers/filesystemhandler.cpp.o.d -o CMakeFiles/CrossDev.dir/src/handlers/filesystemhandler.cpp.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/filesystemhandler.cpp
 
 CMakeFiles/CrossDev.dir/src/handlers/filesystemhandler.cpp.i: cmake_force
@@ -408,10 +422,24 @@ CMakeFiles/CrossDev.dir/src/handlers/filesystemhandler.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/CrossDev.dir/src/handlers/filesystemhandler.cpp.s"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/filesystemhandler.cpp -o CMakeFiles/CrossDev.dir/src/handlers/filesystemhandler.cpp.s
 
+CMakeFiles/CrossDev.dir/src/handlers/contextmenuhandler.cpp.o: CMakeFiles/CrossDev.dir/flags.make
+CMakeFiles/CrossDev.dir/src/handlers/contextmenuhandler.cpp.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/contextmenuhandler.cpp
+CMakeFiles/CrossDev.dir/src/handlers/contextmenuhandler.cpp.o: CMakeFiles/CrossDev.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles --progress-num=$(CMAKE_PROGRESS_26) "Building CXX object CMakeFiles/CrossDev.dir/src/handlers/contextmenuhandler.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CrossDev.dir/src/handlers/contextmenuhandler.cpp.o -MF CMakeFiles/CrossDev.dir/src/handlers/contextmenuhandler.cpp.o.d -o CMakeFiles/CrossDev.dir/src/handlers/contextmenuhandler.cpp.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/contextmenuhandler.cpp
+
+CMakeFiles/CrossDev.dir/src/handlers/contextmenuhandler.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/CrossDev.dir/src/handlers/contextmenuhandler.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/contextmenuhandler.cpp > CMakeFiles/CrossDev.dir/src/handlers/contextmenuhandler.cpp.i
+
+CMakeFiles/CrossDev.dir/src/handlers/contextmenuhandler.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/CrossDev.dir/src/handlers/contextmenuhandler.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/contextmenuhandler.cpp -o CMakeFiles/CrossDev.dir/src/handlers/contextmenuhandler.cpp.s
+
 CMakeFiles/CrossDev.dir/src/main.cpp.o: CMakeFiles/CrossDev.dir/flags.make
 CMakeFiles/CrossDev.dir/src/main.cpp.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/main.cpp
 CMakeFiles/CrossDev.dir/src/main.cpp.o: CMakeFiles/CrossDev.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles --progress-num=$(CMAKE_PROGRESS_25) "Building CXX object CMakeFiles/CrossDev.dir/src/main.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles --progress-num=$(CMAKE_PROGRESS_27) "Building CXX object CMakeFiles/CrossDev.dir/src/main.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CrossDev.dir/src/main.cpp.o -MF CMakeFiles/CrossDev.dir/src/main.cpp.o.d -o CMakeFiles/CrossDev.dir/src/main.cpp.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/main.cpp
 
 CMakeFiles/CrossDev.dir/src/main.cpp.i: cmake_force
@@ -425,7 +453,7 @@ CMakeFiles/CrossDev.dir/src/main.cpp.s: cmake_force
 CMakeFiles/CrossDev.dir/src/platform/macos/app_macos.mm.o: CMakeFiles/CrossDev.dir/flags.make
 CMakeFiles/CrossDev.dir/src/platform/macos/app_macos.mm.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/platform/macos/app_macos.mm
 CMakeFiles/CrossDev.dir/src/platform/macos/app_macos.mm.o: CMakeFiles/CrossDev.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles --progress-num=$(CMAKE_PROGRESS_26) "Building CXX object CMakeFiles/CrossDev.dir/src/platform/macos/app_macos.mm.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles --progress-num=$(CMAKE_PROGRESS_28) "Building CXX object CMakeFiles/CrossDev.dir/src/platform/macos/app_macos.mm.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CrossDev.dir/src/platform/macos/app_macos.mm.o -MF CMakeFiles/CrossDev.dir/src/platform/macos/app_macos.mm.o.d -o CMakeFiles/CrossDev.dir/src/platform/macos/app_macos.mm.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/platform/macos/app_macos.mm
 
 CMakeFiles/CrossDev.dir/src/platform/macos/app_macos.mm.i: cmake_force
@@ -439,7 +467,7 @@ CMakeFiles/CrossDev.dir/src/platform/macos/app_macos.mm.s: cmake_force
 CMakeFiles/CrossDev.dir/src/platform/macos/window_macos.mm.o: CMakeFiles/CrossDev.dir/flags.make
 CMakeFiles/CrossDev.dir/src/platform/macos/window_macos.mm.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/platform/macos/window_macos.mm
 CMakeFiles/CrossDev.dir/src/platform/macos/window_macos.mm.o: CMakeFiles/CrossDev.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles --progress-num=$(CMAKE_PROGRESS_27) "Building CXX object CMakeFiles/CrossDev.dir/src/platform/macos/window_macos.mm.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles --progress-num=$(CMAKE_PROGRESS_29) "Building CXX object CMakeFiles/CrossDev.dir/src/platform/macos/window_macos.mm.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CrossDev.dir/src/platform/macos/window_macos.mm.o -MF CMakeFiles/CrossDev.dir/src/platform/macos/window_macos.mm.o.d -o CMakeFiles/CrossDev.dir/src/platform/macos/window_macos.mm.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/platform/macos/window_macos.mm
 
 CMakeFiles/CrossDev.dir/src/platform/macos/window_macos.mm.i: cmake_force
@@ -453,7 +481,7 @@ CMakeFiles/CrossDev.dir/src/platform/macos/window_macos.mm.s: cmake_force
 CMakeFiles/CrossDev.dir/src/platform/macos/webview_macos.mm.o: CMakeFiles/CrossDev.dir/flags.make
 CMakeFiles/CrossDev.dir/src/platform/macos/webview_macos.mm.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/platform/macos/webview_macos.mm
 CMakeFiles/CrossDev.dir/src/platform/macos/webview_macos.mm.o: CMakeFiles/CrossDev.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles --progress-num=$(CMAKE_PROGRESS_28) "Building CXX object CMakeFiles/CrossDev.dir/src/platform/macos/webview_macos.mm.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles --progress-num=$(CMAKE_PROGRESS_30) "Building CXX object CMakeFiles/CrossDev.dir/src/platform/macos/webview_macos.mm.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CrossDev.dir/src/platform/macos/webview_macos.mm.o -MF CMakeFiles/CrossDev.dir/src/platform/macos/webview_macos.mm.o.d -o CMakeFiles/CrossDev.dir/src/platform/macos/webview_macos.mm.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/platform/macos/webview_macos.mm
 
 CMakeFiles/CrossDev.dir/src/platform/macos/webview_macos.mm.i: cmake_force
@@ -467,7 +495,7 @@ CMakeFiles/CrossDev.dir/src/platform/macos/webview_macos.mm.s: cmake_force
 CMakeFiles/CrossDev.dir/src/platform/macos/button_macos.mm.o: CMakeFiles/CrossDev.dir/flags.make
 CMakeFiles/CrossDev.dir/src/platform/macos/button_macos.mm.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/platform/macos/button_macos.mm
 CMakeFiles/CrossDev.dir/src/platform/macos/button_macos.mm.o: CMakeFiles/CrossDev.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles --progress-num=$(CMAKE_PROGRESS_29) "Building CXX object CMakeFiles/CrossDev.dir/src/platform/macos/button_macos.mm.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles --progress-num=$(CMAKE_PROGRESS_31) "Building CXX object CMakeFiles/CrossDev.dir/src/platform/macos/button_macos.mm.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CrossDev.dir/src/platform/macos/button_macos.mm.o -MF CMakeFiles/CrossDev.dir/src/platform/macos/button_macos.mm.o.d -o CMakeFiles/CrossDev.dir/src/platform/macos/button_macos.mm.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/platform/macos/button_macos.mm
 
 CMakeFiles/CrossDev.dir/src/platform/macos/button_macos.mm.i: cmake_force
@@ -481,7 +509,7 @@ CMakeFiles/CrossDev.dir/src/platform/macos/button_macos.mm.s: cmake_force
 CMakeFiles/CrossDev.dir/src/platform/macos/filedialog_macos.mm.o: CMakeFiles/CrossDev.dir/flags.make
 CMakeFiles/CrossDev.dir/src/platform/macos/filedialog_macos.mm.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/platform/macos/filedialog_macos.mm
 CMakeFiles/CrossDev.dir/src/platform/macos/filedialog_macos.mm.o: CMakeFiles/CrossDev.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles --progress-num=$(CMAKE_PROGRESS_30) "Building CXX object CMakeFiles/CrossDev.dir/src/platform/macos/filedialog_macos.mm.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles --progress-num=$(CMAKE_PROGRESS_32) "Building CXX object CMakeFiles/CrossDev.dir/src/platform/macos/filedialog_macos.mm.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CrossDev.dir/src/platform/macos/filedialog_macos.mm.o -MF CMakeFiles/CrossDev.dir/src/platform/macos/filedialog_macos.mm.o.d -o CMakeFiles/CrossDev.dir/src/platform/macos/filedialog_macos.mm.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/platform/macos/filedialog_macos.mm
 
 CMakeFiles/CrossDev.dir/src/platform/macos/filedialog_macos.mm.i: cmake_force
@@ -495,7 +523,7 @@ CMakeFiles/CrossDev.dir/src/platform/macos/filedialog_macos.mm.s: cmake_force
 CMakeFiles/CrossDev.dir/src/platform/macos/input_macos.mm.o: CMakeFiles/CrossDev.dir/flags.make
 CMakeFiles/CrossDev.dir/src/platform/macos/input_macos.mm.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/platform/macos/input_macos.mm
 CMakeFiles/CrossDev.dir/src/platform/macos/input_macos.mm.o: CMakeFiles/CrossDev.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles --progress-num=$(CMAKE_PROGRESS_31) "Building CXX object CMakeFiles/CrossDev.dir/src/platform/macos/input_macos.mm.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles --progress-num=$(CMAKE_PROGRESS_33) "Building CXX object CMakeFiles/CrossDev.dir/src/platform/macos/input_macos.mm.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CrossDev.dir/src/platform/macos/input_macos.mm.o -MF CMakeFiles/CrossDev.dir/src/platform/macos/input_macos.mm.o.d -o CMakeFiles/CrossDev.dir/src/platform/macos/input_macos.mm.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/platform/macos/input_macos.mm
 
 CMakeFiles/CrossDev.dir/src/platform/macos/input_macos.mm.i: cmake_force
@@ -509,7 +537,7 @@ CMakeFiles/CrossDev.dir/src/platform/macos/input_macos.mm.s: cmake_force
 CMakeFiles/CrossDev.dir/src/platform/macos/container_macos.mm.o: CMakeFiles/CrossDev.dir/flags.make
 CMakeFiles/CrossDev.dir/src/platform/macos/container_macos.mm.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/platform/macos/container_macos.mm
 CMakeFiles/CrossDev.dir/src/platform/macos/container_macos.mm.o: CMakeFiles/CrossDev.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles --progress-num=$(CMAKE_PROGRESS_32) "Building CXX object CMakeFiles/CrossDev.dir/src/platform/macos/container_macos.mm.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles --progress-num=$(CMAKE_PROGRESS_34) "Building CXX object CMakeFiles/CrossDev.dir/src/platform/macos/container_macos.mm.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CrossDev.dir/src/platform/macos/container_macos.mm.o -MF CMakeFiles/CrossDev.dir/src/platform/macos/container_macos.mm.o.d -o CMakeFiles/CrossDev.dir/src/platform/macos/container_macos.mm.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/platform/macos/container_macos.mm
 
 CMakeFiles/CrossDev.dir/src/platform/macos/container_macos.mm.i: cmake_force
@@ -519,6 +547,20 @@ CMakeFiles/CrossDev.dir/src/platform/macos/container_macos.mm.i: cmake_force
 CMakeFiles/CrossDev.dir/src/platform/macos/container_macos.mm.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/CrossDev.dir/src/platform/macos/container_macos.mm.s"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/merhab/dev/vu.js/cars/cross_dev/src/platform/macos/container_macos.mm -o CMakeFiles/CrossDev.dir/src/platform/macos/container_macos.mm.s
+
+CMakeFiles/CrossDev.dir/src/platform/macos/menu_macos.mm.o: CMakeFiles/CrossDev.dir/flags.make
+CMakeFiles/CrossDev.dir/src/platform/macos/menu_macos.mm.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/platform/macos/menu_macos.mm
+CMakeFiles/CrossDev.dir/src/platform/macos/menu_macos.mm.o: CMakeFiles/CrossDev.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles --progress-num=$(CMAKE_PROGRESS_35) "Building CXX object CMakeFiles/CrossDev.dir/src/platform/macos/menu_macos.mm.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CrossDev.dir/src/platform/macos/menu_macos.mm.o -MF CMakeFiles/CrossDev.dir/src/platform/macos/menu_macos.mm.o.d -o CMakeFiles/CrossDev.dir/src/platform/macos/menu_macos.mm.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/platform/macos/menu_macos.mm
+
+CMakeFiles/CrossDev.dir/src/platform/macos/menu_macos.mm.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/CrossDev.dir/src/platform/macos/menu_macos.mm.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/merhab/dev/vu.js/cars/cross_dev/src/platform/macos/menu_macos.mm > CMakeFiles/CrossDev.dir/src/platform/macos/menu_macos.mm.i
+
+CMakeFiles/CrossDev.dir/src/platform/macos/menu_macos.mm.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/CrossDev.dir/src/platform/macos/menu_macos.mm.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/merhab/dev/vu.js/cars/cross_dev/src/platform/macos/menu_macos.mm -o CMakeFiles/CrossDev.dir/src/platform/macos/menu_macos.mm.s
 
 # Object files for target CrossDev
 CrossDev_OBJECTS = \
@@ -539,6 +581,7 @@ CrossDev_OBJECTS = \
 "CMakeFiles/CrossDev.dir/src/eventhandler.cpp.o" \
 "CMakeFiles/CrossDev.dir/src/messagerouter.cpp.o" \
 "CMakeFiles/CrossDev.dir/src/config_manager.cpp.o" \
+"CMakeFiles/CrossDev.dir/src/app_runner.cpp.o" \
 "CMakeFiles/CrossDev.dir/src/handlers/createwindowhandler.cpp.o" \
 "CMakeFiles/CrossDev.dir/src/handlers/appinfohandler.cpp.o" \
 "CMakeFiles/CrossDev.dir/src/handlers/calculatorhandler.cpp.o" \
@@ -546,6 +589,7 @@ CrossDev_OBJECTS = \
 "CMakeFiles/CrossDev.dir/src/handlers/readfilehandler.cpp.o" \
 "CMakeFiles/CrossDev.dir/src/handlers/writefilehandler.cpp.o" \
 "CMakeFiles/CrossDev.dir/src/handlers/filesystemhandler.cpp.o" \
+"CMakeFiles/CrossDev.dir/src/handlers/contextmenuhandler.cpp.o" \
 "CMakeFiles/CrossDev.dir/src/main.cpp.o" \
 "CMakeFiles/CrossDev.dir/src/platform/macos/app_macos.mm.o" \
 "CMakeFiles/CrossDev.dir/src/platform/macos/window_macos.mm.o" \
@@ -553,7 +597,8 @@ CrossDev_OBJECTS = \
 "CMakeFiles/CrossDev.dir/src/platform/macos/button_macos.mm.o" \
 "CMakeFiles/CrossDev.dir/src/platform/macos/filedialog_macos.mm.o" \
 "CMakeFiles/CrossDev.dir/src/platform/macos/input_macos.mm.o" \
-"CMakeFiles/CrossDev.dir/src/platform/macos/container_macos.mm.o"
+"CMakeFiles/CrossDev.dir/src/platform/macos/container_macos.mm.o" \
+"CMakeFiles/CrossDev.dir/src/platform/macos/menu_macos.mm.o"
 
 # External object files for target CrossDev
 CrossDev_EXTERNAL_OBJECTS =
@@ -575,6 +620,7 @@ CrossDev: CMakeFiles/CrossDev.dir/src/application.cpp.o
 CrossDev: CMakeFiles/CrossDev.dir/src/eventhandler.cpp.o
 CrossDev: CMakeFiles/CrossDev.dir/src/messagerouter.cpp.o
 CrossDev: CMakeFiles/CrossDev.dir/src/config_manager.cpp.o
+CrossDev: CMakeFiles/CrossDev.dir/src/app_runner.cpp.o
 CrossDev: CMakeFiles/CrossDev.dir/src/handlers/createwindowhandler.cpp.o
 CrossDev: CMakeFiles/CrossDev.dir/src/handlers/appinfohandler.cpp.o
 CrossDev: CMakeFiles/CrossDev.dir/src/handlers/calculatorhandler.cpp.o
@@ -582,6 +628,7 @@ CrossDev: CMakeFiles/CrossDev.dir/src/handlers/filedialoghandler.cpp.o
 CrossDev: CMakeFiles/CrossDev.dir/src/handlers/readfilehandler.cpp.o
 CrossDev: CMakeFiles/CrossDev.dir/src/handlers/writefilehandler.cpp.o
 CrossDev: CMakeFiles/CrossDev.dir/src/handlers/filesystemhandler.cpp.o
+CrossDev: CMakeFiles/CrossDev.dir/src/handlers/contextmenuhandler.cpp.o
 CrossDev: CMakeFiles/CrossDev.dir/src/main.cpp.o
 CrossDev: CMakeFiles/CrossDev.dir/src/platform/macos/app_macos.mm.o
 CrossDev: CMakeFiles/CrossDev.dir/src/platform/macos/window_macos.mm.o
@@ -590,9 +637,10 @@ CrossDev: CMakeFiles/CrossDev.dir/src/platform/macos/button_macos.mm.o
 CrossDev: CMakeFiles/CrossDev.dir/src/platform/macos/filedialog_macos.mm.o
 CrossDev: CMakeFiles/CrossDev.dir/src/platform/macos/input_macos.mm.o
 CrossDev: CMakeFiles/CrossDev.dir/src/platform/macos/container_macos.mm.o
+CrossDev: CMakeFiles/CrossDev.dir/src/platform/macos/menu_macos.mm.o
 CrossDev: CMakeFiles/CrossDev.dir/build.make
 CrossDev: CMakeFiles/CrossDev.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles --progress-num=$(CMAKE_PROGRESS_33) "Linking CXX executable CrossDev"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles --progress-num=$(CMAKE_PROGRESS_36) "Linking CXX executable CrossDev"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/CrossDev.dir/link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.

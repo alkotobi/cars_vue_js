@@ -34,10 +34,25 @@ EventHandler::~EventHandler() {
     // MessageRouter will be automatically destroyed
 }
 
-void EventHandler::onWebViewCreateWindow(std::function<void(const std::string& title)> callback) {
-    if (messageRouter_ && callback) {
-        // Register CreateWindowHandler with the router
-        auto handler = createCreateWindowHandler(callback);
+void EventHandler::onWebViewCreateWindow(std::function<void(const std::string& title, WebViewContentType contentType, const std::string& content)> callback) {
+    createWindowCallback_ = std::move(callback);
+    if (messageRouter_ && createWindowCallback_) {
+        auto handler = createCreateWindowHandler(createWindowCallback_);
         messageRouter_->registerHandler(handler);
     }
+}
+
+void EventHandler::attachWebView(WebView* webView) {
+    if (!webView || !createWindowCallback_) {
+        return;
+    }
+    auto router = std::make_unique<MessageRouter>(webView);
+    router->registerHandler(createCreateWindowHandler(createWindowCallback_));
+    MessageRouter* routerPtr = router.get();
+    attachedRouters_.push_back(std::move(router));
+    webView->setMessageCallback([routerPtr](const std::string& jsonMessage) {
+        if (routerPtr) {
+            routerPtr->routeMessage(jsonMessage);
+        }
+    });
 }

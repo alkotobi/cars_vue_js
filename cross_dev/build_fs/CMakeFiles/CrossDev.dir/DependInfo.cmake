@@ -8,6 +8,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
+  "/Users/merhab/dev/vu.js/cars/cross_dev/src/app_runner.cpp" "CMakeFiles/CrossDev.dir/src/app_runner.cpp.o" "gcc" "CMakeFiles/CrossDev.dir/src/app_runner.cpp.o.d"
   "/Users/merhab/dev/vu.js/cars/cross_dev/src/application.cpp" "CMakeFiles/CrossDev.dir/src/application.cpp.o" "gcc" "CMakeFiles/CrossDev.dir/src/application.cpp.o.d"
   "/Users/merhab/dev/vu.js/cars/cross_dev/src/base64.cpp" "CMakeFiles/CrossDev.dir/src/base64.cpp.o" "gcc" "CMakeFiles/CrossDev.dir/src/base64.cpp.o.d"
   "/Users/merhab/dev/vu.js/cars/cross_dev/src/button.cpp" "CMakeFiles/CrossDev.dir/src/button.cpp.o" "gcc" "CMakeFiles/CrossDev.dir/src/button.cpp.o.d"
@@ -18,6 +19,7 @@ set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "/Users/merhab/dev/vu.js/cars/cross_dev/src/eventhandler.cpp" "CMakeFiles/CrossDev.dir/src/eventhandler.cpp.o" "gcc" "CMakeFiles/CrossDev.dir/src/eventhandler.cpp.o.d"
   "/Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/appinfohandler.cpp" "CMakeFiles/CrossDev.dir/src/handlers/appinfohandler.cpp.o" "gcc" "CMakeFiles/CrossDev.dir/src/handlers/appinfohandler.cpp.o.d"
   "/Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/calculatorhandler.cpp" "CMakeFiles/CrossDev.dir/src/handlers/calculatorhandler.cpp.o" "gcc" "CMakeFiles/CrossDev.dir/src/handlers/calculatorhandler.cpp.o.d"
+  "/Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/contextmenuhandler.cpp" "CMakeFiles/CrossDev.dir/src/handlers/contextmenuhandler.cpp.o" "gcc" "CMakeFiles/CrossDev.dir/src/handlers/contextmenuhandler.cpp.o.d"
   "/Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/createwindowhandler.cpp" "CMakeFiles/CrossDev.dir/src/handlers/createwindowhandler.cpp.o" "gcc" "CMakeFiles/CrossDev.dir/src/handlers/createwindowhandler.cpp.o.d"
   "/Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/filedialoghandler.cpp" "CMakeFiles/CrossDev.dir/src/handlers/filedialoghandler.cpp.o" "gcc" "CMakeFiles/CrossDev.dir/src/handlers/filedialoghandler.cpp.o.d"
   "/Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/filesystemhandler.cpp" "CMakeFiles/CrossDev.dir/src/handlers/filesystemhandler.cpp.o" "gcc" "CMakeFiles/CrossDev.dir/src/handlers/filesystemhandler.cpp.o.d"
@@ -34,6 +36,7 @@ set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "/Users/merhab/dev/vu.js/cars/cross_dev/src/platform/macos/container_macos.mm" "CMakeFiles/CrossDev.dir/src/platform/macos/container_macos.mm.o" "gcc" "CMakeFiles/CrossDev.dir/src/platform/macos/container_macos.mm.o.d"
   "/Users/merhab/dev/vu.js/cars/cross_dev/src/platform/macos/filedialog_macos.mm" "CMakeFiles/CrossDev.dir/src/platform/macos/filedialog_macos.mm.o" "gcc" "CMakeFiles/CrossDev.dir/src/platform/macos/filedialog_macos.mm.o.d"
   "/Users/merhab/dev/vu.js/cars/cross_dev/src/platform/macos/input_macos.mm" "CMakeFiles/CrossDev.dir/src/platform/macos/input_macos.mm.o" "gcc" "CMakeFiles/CrossDev.dir/src/platform/macos/input_macos.mm.o.d"
+  "/Users/merhab/dev/vu.js/cars/cross_dev/src/platform/macos/menu_macos.mm" "CMakeFiles/CrossDev.dir/src/platform/macos/menu_macos.mm.o" "gcc" "CMakeFiles/CrossDev.dir/src/platform/macos/menu_macos.mm.o.d"
   "/Users/merhab/dev/vu.js/cars/cross_dev/src/platform/macos/webview_macos.mm" "CMakeFiles/CrossDev.dir/src/platform/macos/webview_macos.mm.o" "gcc" "CMakeFiles/CrossDev.dir/src/platform/macos/webview_macos.mm.o.d"
   "/Users/merhab/dev/vu.js/cars/cross_dev/src/platform/macos/window_macos.mm" "CMakeFiles/CrossDev.dir/src/platform/macos/window_macos.mm.o" "gcc" "CMakeFiles/CrossDev.dir/src/platform/macos/window_macos.mm.o.d"
   "/Users/merhab/dev/vu.js/cars/cross_dev/src/vertical_layout.cpp" "CMakeFiles/CrossDev.dir/src/vertical_layout.cpp.o" "gcc" "CMakeFiles/CrossDev.dir/src/vertical_layout.cpp.o.d"

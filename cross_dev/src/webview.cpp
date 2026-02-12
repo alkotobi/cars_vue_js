@@ -86,7 +86,12 @@ void WebView::loadURL(const std::string& url) {
     if (!nativeHandle_) {
         throw std::runtime_error("Web view is not initialized");
     }
-    platform::loadURL(nativeHandle_, url);
+    // URLs like "localhost:5173" lack a scheme; WebViews misparse them. Prepend http:// when absent.
+    std::string urlToLoad = url;
+    if (!url.empty() && url.find("://") == std::string::npos) {
+        urlToLoad = "http://" + url;
+    }
+    platform::loadURL(nativeHandle_, urlToLoad);
 }
 
 void WebView::OnParentChanged(Control* oldParent, Control* newParent) {

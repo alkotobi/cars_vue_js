@@ -10,6 +10,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "/Users/merhab/dev/vu.js/cars/cross_dev/src/component.cpp" "CMakeFiles/test_control.dir/src/component.cpp.o" "gcc" "CMakeFiles/test_control.dir/src/component.cpp.o.d"
   "/Users/merhab/dev/vu.js/cars/cross_dev/src/control.cpp" "CMakeFiles/test_control.dir/src/control.cpp.o" "gcc" "CMakeFiles/test_control.dir/src/control.cpp.o.d"
+  "/Users/merhab/dev/vu.js/cars/cross_dev/tests/mock_platform.cpp" "CMakeFiles/test_control.dir/tests/mock_platform.cpp.o" "gcc" "CMakeFiles/test_control.dir/tests/mock_platform.cpp.o.d"
   "/Users/merhab/dev/vu.js/cars/cross_dev/tests/test_control.cpp" "CMakeFiles/test_control.dir/tests/test_control.cpp.o" "gcc" "CMakeFiles/test_control.dir/tests/test_control.cpp.o.d"
   )
 

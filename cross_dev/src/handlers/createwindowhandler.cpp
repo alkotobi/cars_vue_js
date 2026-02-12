@@ -9,7 +9,7 @@
 // Handler for creating new windows from JavaScript
 class CreateWindowHandler : public MessageHandler {
 public:
-    CreateWindowHandler(std::function<void(const std::string& title)> onCreateWindow)
+    CreateWindowHandler(std::function<void(const std::string& title, WebViewContentType contentType, const std::string& content)> onCreateWindow)
         : onCreateWindow_(onCreateWindow) {}
     
     bool canHandle(const std::string& messageType) const override {
@@ -17,24 +17,48 @@ public:
     }
     
     nlohmann::json handle(const nlohmann::json& payload, const std::string& requestId) override {
-        // Extract title from payload
         std::string title = "New Window";
         if (payload.contains("title") && payload["title"].is_string()) {
             title = payload["title"].get<std::string>();
         }
         
-        // Call the callback to create the window
+        // Determine content type and content. Priority: url > html > file > default
+        WebViewContentType contentType = WebViewContentType::Default;
+        std::string content;
+        
+        if (payload.contains("url") && payload["url"].is_string()) {
+            content = payload["url"].get<std::string>();
+            if (!content.empty()) {
+                contentType = WebViewContentType::Url;
+            }
+        }
+        if (contentType == WebViewContentType::Default && payload.contains("html") && payload["html"].is_string()) {
+            content = payload["html"].get<std::string>();
+            if (!content.empty()) {
+                contentType = WebViewContentType::Html;
+            }
+        }
+        if (contentType == WebViewContentType::Default && payload.contains("file") && payload["file"].is_string()) {
+            content = payload["file"].get<std::string>();
+            if (!content.empty()) {
+                contentType = WebViewContentType::File;
+            }
+        }
+        if (contentType == WebViewContentType::Default && payload.contains("filePath") && payload["filePath"].is_string()) {
+            content = payload["filePath"].get<std::string>();
+            if (!content.empty()) {
+                contentType = WebViewContentType::File;
+            }
+        }
+        
         if (onCreateWindow_) {
             try {
-                onCreateWindow_(title);
-                
-                // Return success response
+                onCreateWindow_(title, contentType, content);
                 nlohmann::json result;
                 result["success"] = true;
                 result["title"] = title;
                 return result;
             } catch (const std::exception& e) {
-                // Return error response
                 nlohmann::json result;
                 result["success"] = false;
                 result["error"] = e.what();
@@ -42,7 +66,6 @@ public:
             }
         }
         
-        // No callback registered
         nlohmann::json result;
         result["success"] = false;
         result["error"] = "No create window callback registered";
@@ -54,11 +77,10 @@ public:
     }
     
 private:
-    std::function<void(const std::string& title)> onCreateWindow_;
+    std::function<void(const std::string& title, WebViewContentType contentType, const std::string& content)> onCreateWindow_;
 };
 
-// Factory function to create handler
 std::shared_ptr<MessageHandler> createCreateWindowHandler(
-    std::function<void(const std::string& title)> onCreateWindow) {
+    std::function<void(const std::string& title, WebViewContentType contentType, const std::string& content)> onCreateWindow) {
     return std::make_shared<CreateWindowHandler>(onCreateWindow);
 }
