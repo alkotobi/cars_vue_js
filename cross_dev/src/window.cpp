@@ -125,3 +125,11 @@ void Window::updateNativeWindowBounds() {
         // For now, we'll just recreate if needed, or platform can handle resize events
     }
 }
+
+void Window::setMainMenu(const std::string& menuJson,
+                        void (*itemCallback)(const std::string& itemId, void* userData),
+                        void* userData) {
+    if (nativeHandle_ && itemCallback) {
+        platform::setWindowMainMenu(nativeHandle_, menuJson, itemCallback, userData);
+    }
+}

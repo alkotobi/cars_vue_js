@@ -31,7 +31,7 @@ void* createContainer(void* parentHandle, int x, int y, int width, int height) {
         NSRect containerRect = NSMakeRect(x, parentBounds.size.height - y - height, width, height);
         NSView *containerView = [[NSView alloc] initWithFrame:containerRect];
         [containerView setWantsLayer:YES];
-        [containerView setBackgroundColor:[NSColor whiteColor]];
+        containerView.layer.backgroundColor = [NSColor whiteColor].CGColor;
         
         [parentView addSubview:containerView];
         
@@ -85,7 +85,8 @@ void setContainerBackgroundColor(void* containerHandle, int red, int green, int 
                                                        green:green/255.0
                                                         blue:blue/255.0
                                                        alpha:1.0];
-            [containerView setBackgroundColor:color];
+            CALayer *layer = containerView.layer;
+            if (layer) layer.backgroundColor = color.CGColor;
         }
     }
 }

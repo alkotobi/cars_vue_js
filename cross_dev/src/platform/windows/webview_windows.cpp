@@ -110,6 +110,7 @@ struct WebViewData {
     std::string pendingURL;  // Queue URL to load once initialized
     std::string pendingHTML; // Queue HTML to load once initialized
     std::string pendingFile; // Queue file to load once initialized
+    std::string customPreloadScript; // Custom preload (replaces default CrossDev bridge if set)
     CreateWindowCallback createWindowCallback; // Callback to create new windows
     void* createWindowUserData; // User data for window creation callback
     MessageCallback messageCallback; // Callback for all messages (routed through MessageRouter)
@@ -414,93 +415,70 @@ public:
             webview->ExecuteScript(setupScript, nullptr);
         };
         
-        // Inject script on document creation (for future documents)
+        // Inject script on document creation: CrossDev bridge + message listener (WebView2)
         const wchar_t* setupScriptForFutureDocs = L""
-            L"(function() {"
-            L"  if (window.__webview2ReceiveMessage) return;"
-            L"  window.__webview2Messages = [];"
-            L"  window.__webview2MessageListeners = [];"
-            L"  window.__webview2ReceiveMessage = function(messageJson) {"
-            L"    const data = typeof messageJson === 'string' ? JSON.parse(messageJson) : messageJson;"
-            L"    window.__webview2Messages.push(data);"
-            L"    window.__webview2MessageListeners.forEach(function(listener) {"
-            L"      try { listener({ data: data }); } catch(e) { console.error('Error:', e); }"
-            L"    });"
-            L"  };"
-            L"  "
-            L"  // CRITICAL: NEVER create window.chrome.webview = {} if it doesn't exist!"
-            L"  // WebView2 creates this object natively with postMessage"
-            L"  // Creating {} will destroy the native object!"
-            L"  if (!window.chrome) {"
-            L"    window.chrome = {};"
-            L"  }"
-            L"  "
-            L"  // DO NOT create window.chrome.webview if it doesn't exist!"
-            L"  // WebView2 will create it with the native postMessage function"
-            L"  if (window.chrome.webview) {"
-            L"    console.log('window.chrome.webview exists - good!');"
-            L"  } else {"
-            L"    console.warn('window.chrome.webview does not exist yet - WebView2 will create it');"
-            L"    // DO NOT create it ourselves - wait for WebView2"
-            L"  }"
-            L"  "
-            L"  // Only override addEventListener if window.chrome.webview exists"
-            L"  // We need to preserve the native postMessage function"
-            L"  if (window.chrome.webview) {"
-            L"    // Store reference to native addEventListener if it exists"
-            L"    const nativeAddEventListener = window.chrome.webview.addEventListener;"
-            L"    "
-            L"    // Override addEventListener to use our listener system for native-to-JS messages"
-            L"    window.chrome.webview.addEventListener = function(type, listener) {"
-            L"      if (type === 'message') {"
-            L"        window.__webview2MessageListeners.push(listener);"
-            L"        console.log('Message listener added, total:', window.__webview2MessageListeners.length);"
-            L"        window.__webview2Messages.forEach(function(msg) {"
-            L"          try { listener({ data: msg }); } catch(e) { console.error('Error:', e); }"
-            L"        });"
-            L"        // Also register with native listener if available (for PostWebMessageAsJson)"
-            L"        if (nativeAddEventListener && typeof nativeAddEventListener === 'function') {"
-            L"          nativeAddEventListener.call(window.chrome.webview, type, function(event) {"
-            L"            try {"
-            L"              const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;"
-            L"              window.__webview2Messages.push(data);"
-            L"              window.__webview2MessageListeners.forEach(function(listener) {"
-            L"                try { listener({ data: data }); } catch(e) { console.error('Error in listener:', e); }"
-            L"              });"
-            L"            } catch(e) { console.error('Error handling native message:', e); }"
-            L"          });"
-            L"        }"
-            L"      } else if (nativeAddEventListener && typeof nativeAddEventListener === 'function') {"
-            L"        // For non-message events, use native handler"
-            L"        nativeAddEventListener.call(window.chrome.webview, type, listener);"
-            L"      }"
-            L"    };"
-            L"    "
-            L"    const nativeRemoveEventListener = window.chrome.webview.removeEventListener;"
-            L"    window.chrome.webview.removeEventListener = function(type, listener) {"
-            L"      if (type === 'message') {"
-            L"        const index = window.__webview2MessageListeners.indexOf(listener);"
-            L"        if (index > -1) window.__webview2MessageListeners.splice(index, 1);"
-            L"      } else if (nativeRemoveEventListener && typeof nativeRemoveEventListener === 'function') {"
-            L"        nativeRemoveEventListener.call(window.chrome.webview, type, listener);"
-            L"      }"
-            L"    };"
-            L"  }"
+            L"(function(){"
+            L"  if(window.CrossDev)return;"
+            L"  var _pending=new Map(),_eventListeners={};"
+            L"  function _ab2b64(ab){var u8=new Uint8Array(ab);var b='';for(var i=0;i<u8.length;i++)b+=String.fromCharCode(u8[i]);return btoa(b);}"
+            L"  function _b642ab(s){var b=atob(s);var u8=new Uint8Array(b.length);for(var i=0;i<b.length;i++)u8[i]=b.charCodeAt(i);return u8.buffer;}"
+            L"  function _toWire(o){if(o===null||typeof o!=='object')return o;"
+            L"    if(o instanceof ArrayBuffer)return {__base64:_ab2b64(o)};"
+            L"    if(ArrayBuffer.isView&&ArrayBuffer.isView(o))return {__base64:_ab2b64(o.buffer.slice(o.byteOffset,o.byteOffset+o.byteLength))};"
+            L"    if(Array.isArray(o))return o.map(_toWire);"
+            L"    var out={};for(var k in o)if(o.hasOwnProperty(k))out[k]=_toWire(o[k]);return out;}"
+            L"  function _onMsg(evt){var d=typeof evt.data==='string'?JSON.parse(evt.data):evt.data;if(!d)return;"
+            L"    if(window.__webview2Messages){window.__webview2Messages.push(d);"
+            L"      if(window.__webview2MessageListeners)window.__webview2MessageListeners.forEach(function(l){try{l({data:d});}catch(e){};});}"
+            L"    if(d.type==='crossdev:event'){var l=_eventListeners[d.name];if(l)l.forEach(function(f){try{f(d.payload||{})}catch(e){}});return;}"
+            L"    if(d.requestId){var h=_pending.get(d.requestId);if(h){_pending.delete(d.requestId);"
+            L"      var r=d.result;if(h.binary&&r&&typeof r.data==='string'){r=Object.assign({},r);r.data=_b642ab(r.data);}"
+            L"      d.error?h.reject(new Error(d.error)):h.resolve(r);}}};"
+            L"  function _init(){if(!window.chrome||!window.chrome.webview)return;"
+            L"    window.chrome.webview.addEventListener('message',_onMsg);"
+            L"    var CrossDev={invoke:function(t,p,o){var op=o||{};return new Promise(function(r,j){"
+            L"      var id=Date.now()+'-'+Math.random();_pending.set(id,{resolve:r,reject:j,binary:!!op.binaryResponse});"
+            L"      setTimeout(function(){if(_pending.has(id)){_pending.delete(id);j(new Error('Request timeout'));}},10000);"
+            L"      window.chrome.webview.postMessage({type:t,payload:_toWire(p||{}),requestId:id});});},"
+            L"    events:{on:function(n,f){if(!_eventListeners[n])_eventListeners[n]=[];_eventListeners[n].push(f);"
+            L"      return function(){var i=_eventListeners[n].indexOf(f);if(i>=0)_eventListeners[n].splice(i,1);};}}};"
+            L"    Object.freeze(CrossDev.events);Object.freeze(CrossDev);"
+            L"    try{Object.defineProperty(window,'CrossDev',{value:CrossDev,configurable:false,writable:false});}catch(_){window.CrossDev=CrossDev;}"
+            L"    window.__webview2CrossDevReady=true;}"
+            L"  window.__webview2Messages=[];window.__webview2MessageListeners=[];"
+            L"  if(window.chrome&&window.chrome.webview)_init();else var _t=setInterval(function(){if(window.chrome&&window.chrome.webview){clearInterval(_t);_init();}},50);"
+            L"  if(!window.chrome)window.chrome={};"
+            L"  if(window.chrome.webview){"
+            L"    var _na=window.chrome.webview.addEventListener;"
+            L"    window.chrome.webview.addEventListener=function(t,l){if(t==='message'){"
+            L"      window.__webview2MessageListeners.push(l);"
+            L"      window.__webview2Messages.forEach(function(m){try{l({data:m});}catch(e){};});"
+            L"      if(_na)_na.call(window.chrome.webview,t,function(e){var d=typeof e.data==='string'?JSON.parse(e.data):e.data;"
+            L"        window.__webview2Messages.push(d);"
+            L"        window.__webview2MessageListeners.forEach(function(ln){try{ln({data:d});}catch(x){};});});}"
+            L"    else if(_na)_na.call(window.chrome.webview,t,l);};"
+            L"    var _nr=window.chrome.webview.removeEventListener;"
+            L"    window.chrome.webview.removeEventListener=function(t,l){if(t==='message'){var i=window.__webview2MessageListeners.indexOf(l);if(i>=0)window.__webview2MessageListeners.splice(i,1);}"
+            L"    else if(_nr)_nr.call(window.chrome.webview,t,l);};}"
             L"})();";
         
-        webview->AddScriptToExecuteOnDocumentCreated(setupScriptForFutureDocs, nullptr);
+        const wchar_t* scriptToInject = setupScriptForFutureDocs;
+        std::wstring customWScript;
+        if (!webViewData->customPreloadScript.empty()) {
+            customWScript = stringToWString(webViewData->customPreloadScript);
+            scriptToInject = customWScript.c_str();
+        }
+        webview->AddScriptToExecuteOnDocumentCreated(scriptToInject, nullptr);
         
         // Set up NavigationCompleted handler to inject script after navigation
         EventRegistrationToken navToken;
         class NavigationCompletedHandler : public ICoreWebView2NavigationCompletedEventHandler {
         public:
             std::function<void()> injectScript;
-            
-            NavigationCompletedHandler(std::function<void()> inject) : injectScript(inject) {}
-            
+            bool skipInjection;
+            NavigationCompletedHandler(std::function<void()> inject, bool skip) : injectScript(inject), skipInjection(skip) {}
             HRESULT STDMETHODCALLTYPE Invoke(ICoreWebView2* /*sender*/, ICoreWebView2NavigationCompletedEventArgs* /*args*/) override {
-                // Inject script after navigation completes
-                injectScript();
+                if (!skipInjection) injectScript();
                 return S_OK;
             }
             
@@ -515,7 +493,8 @@ public:
             }
         };
         
-        webview->add_NavigationCompleted(new NavigationCompletedHandler(injectMessageBridge), &navToken);
+        bool useCustomPreload = !webViewData->customPreloadScript.empty();
+        webview->add_NavigationCompleted(new NavigationCompletedHandler(injectMessageBridge, useCustomPreload), &navToken);
         
         // Verify callback is set
         if (webViewData->messageCallback) {
@@ -1039,6 +1018,14 @@ void setWebViewMessageCallback(void* webViewHandle, MessageCallback callback, vo
 #endif
 }
 
+void setWebViewPreloadScript(void* webViewHandle, const std::string& scriptContent) {
+#ifdef HAVE_WEBVIEW2
+    if (!webViewHandle) return;
+    WebViewData* data = static_cast<WebViewData*>(webViewHandle);
+    data->customPreloadScript = scriptContent;
+#endif
+}
+
 void postMessageToJavaScript(void* webViewHandle, const std::string& jsonMessage) {
     if (!webViewHandle) {
         std::wcout << L"postMessageToJavaScript: webViewHandle is null" << std::endl;
@@ -1164,6 +1151,17 @@ void postMessageToJavaScript(void* webViewHandle, const std::string& jsonMessage
     } else {
         std::wcout << L"postMessageToJavaScript: webview is null" << std::endl;
         OutputDebugStringW(L"postMessageToJavaScript: webview is null\n");
+    }
+#endif
+}
+
+void executeWebViewScript(void* webViewHandle, const std::string& script) {
+    if (!webViewHandle || script.empty()) return;
+    WebViewData* data = static_cast<WebViewData*>(webViewHandle);
+#ifdef HAVE_WEBVIEW2
+    if (data->webview) {
+        std::wstring wscript = stringToWString(script);
+        data->webview->ExecuteScript(wscript.c_str(), nullptr);
     }
 #endif
 }

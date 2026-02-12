@@ -70,8 +70,15 @@
             </div>
             
             <div style="margin: 15px 0;">
+                <h3 style="font-size: 1.2em; margin-bottom: 10px;">1b. Native Events</h3>
+                <p style="font-size: 0.9em; opacity: 0.85;">window:focus, window:blur, window:resize, window:move, window:close, window:minimize, window:maximize, window:restore, file:dropped, menu:item, menu:context, app:activate, app:deactivate, app:quit, theme:changed</p>
+                <div id="eventLog" style="margin-top: 10px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 5px; min-height: 40px; font-family: monospace; font-size: 12px; color: #90EE90;">Listening for native events...</div>
+            </div>
+            
+            <div style="margin: 15px 0;">
                 <h3 style="font-size: 1.2em; margin-bottom: 10px;">2. App Info Handler (Returns Data)</h3>
                 <button id="getAppInfoBtn" style="padding: 10px 20px; font-size: 14px; margin-right: 10px;">Get App Info</button>
+                <button id="invokeTestBtn" style="padding: 10px 20px; font-size: 14px; background: #2196F3;">Test CrossDev.invoke()</button>
                 <button id="getPlatformBtn" style="padding: 10px 20px; font-size: 14px;">Get Platform Only</button>
                 <div id="appInfoResult" style="margin-top: 10px; color: rgba(255,255,255,0.9); font-family: monospace; white-space: pre-wrap; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 5px; max-height: 200px; overflow-y: auto;"></div>
             </div>
@@ -98,6 +105,27 @@
                 <button id="openHTMLFileBtn" style="padding: 10px 20px; font-size: 14px;">Open HTML File</button>
                 <div id="fileDialogResult" style="margin-top: 10px; color: rgba(255,255,255,0.9); font-family: monospace; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 5px; min-height: 30px;">
                     <div style="color: rgba(255,255,255,0.6);">No file selected yet</div>
+                </div>
+            </div>
+
+            <div style="margin: 15px 0;">
+                <h3 style="font-size: 1.2em; margin-bottom: 10px;">5. Context Menu (right-click anywhere)</h3>
+                <p style="color: rgba(255,255,255,0.8); margin-bottom: 10px;">Right-click on the page to show the native context menu.</p>
+                <div id="contextMenuResult" style="margin-top: 10px; color: rgba(255,255,255,0.9); font-family: monospace; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 5px; min-height: 30px;">
+                    <span style="color: rgba(255,255,255,0.6);">Last selected: (none)</span>
+                </div>
+            </div>
+
+            <div style="margin: 15px 0;">
+                <h3 style="font-size: 1.2em; margin-bottom: 10px;">6. Binary File (readFile / writeFile)</h3>
+                <div style="margin: 10px 0; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
+                    <input type="text" id="readFilePath" placeholder="Path to read" value="demo.html" style="width: 200px; padding: 5px; border-radius: 5px; border: none;">
+                    <button id="readFileBtn" style="padding: 10px 20px; font-size: 14px;">Read File</button>
+                    <input type="text" id="writeFilePath" placeholder="Path to write" value="demo_out.txt" style="width: 200px; padding: 5px; border-radius: 5px; border: none;">
+                    <button id="writeFileBtn" style="padding: 10px 20px; font-size: 14px;">Write Test File</button>
+                </div>
+                <div id="binaryFileResult" style="margin-top: 10px; color: rgba(255,255,255,0.9); font-family: monospace; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 5px; min-height: 30px; max-height: 120px; overflow-y: auto;">
+                    <div style="color: rgba(255,255,255,0.6);">Use readFile/writeFile with base64</div>
                 </div>
             </div>
         </div>
@@ -310,6 +338,24 @@
             }
         });
         
+        // Test CrossDev.invoke() Promise API (injected by bridge)
+        document.getElementById('invokeTestBtn').addEventListener('click', async function() {
+            const resultDiv = document.getElementById('appInfoResult');
+            if (!window.CrossDev || !window.CrossDev.invoke) {
+                resultDiv.textContent = 'CrossDev.invoke not available';
+                return;
+            }
+            resultDiv.textContent = 'Calling CrossDev.invoke(\'getAppInfo\')...';
+            try {
+                const result = await window.CrossDev.invoke('getAppInfo', {});
+                resultDiv.textContent = '[CrossDev.invoke] ' + JSON.stringify(result, null, 2);
+                resultDiv.style.color = '#90EE90';
+            } catch (e) {
+                resultDiv.textContent = 'Error: ' + e.message;
+                resultDiv.style.color = '#FFB6C1';
+            }
+        });
+        
         // Demo 2: App Info Handler - Get all info
         document.getElementById('getAppInfoBtn').addEventListener('click', async function() {
             const resultDiv = document.getElementById('appInfoResult');
@@ -445,6 +491,117 @@
                 resultDiv.innerHTML = `<div style="color: #FFB6C1;">✗ Error: ${error.message}</div>`;
             }
         });
+        
+        // Demo 5: Binary file (readFile / writeFile) - uses CrossDev.invoke with binaryResponse
+        async function doReadFile() {
+            var path = document.getElementById('readFilePath').value.trim();
+            var resultDiv = document.getElementById('binaryFileResult');
+            if (!path) { resultDiv.textContent = 'Enter a path'; return; }
+            if (!window.CrossDev || !window.CrossDev.invoke) {
+                resultDiv.textContent = 'CrossDev.invoke not available';
+                return;
+            }
+            resultDiv.textContent = 'Reading...';
+            resultDiv.style.color = 'rgba(255,255,255,0.7)';
+            try {
+                var r = await window.CrossDev.invoke('readFile', { path: path }, { binaryResponse: true });
+                if (r.success && r.data instanceof ArrayBuffer) {
+                    var dec = new TextDecoder().decode(r.data);
+                    resultDiv.textContent = 'Read ' + r.size + ' bytes. First 200 chars: ' + dec.substring(0, 200) + (dec.length > 200 ? '...' : '');
+                } else if (r.success) {
+                    resultDiv.textContent = 'Read ' + (r.size || 0) + ' bytes (base64)';
+                } else {
+                    resultDiv.textContent = 'Error: ' + (r.error || 'Unknown');
+                    resultDiv.style.color = '#FFB6C1';
+                    return;
+                }
+                resultDiv.style.color = '#90EE90';
+            } catch (e) {
+                resultDiv.textContent = 'Error: ' + e.message;
+                resultDiv.style.color = '#FFB6C1';
+            }
+        }
+        async function doWriteFile() {
+            var path = document.getElementById('writeFilePath').value.trim();
+            var resultDiv = document.getElementById('binaryFileResult');
+            if (!path) { resultDiv.textContent = 'Enter a path'; return; }
+            if (!window.CrossDev || !window.CrossDev.invoke) {
+                resultDiv.textContent = 'CrossDev.invoke not available';
+                return;
+            }
+            resultDiv.textContent = 'Writing...';
+            resultDiv.style.color = 'rgba(255,255,255,0.7)';
+            try {
+                var text = 'Hello from CrossDev binary write at ' + new Date().toISOString();
+                var enc = new TextEncoder().encode(text);
+                var r = await window.CrossDev.invoke('writeFile', { path: path, data: enc.buffer });
+                if (r.success) {
+                    resultDiv.textContent = 'Wrote ' + r.bytesWritten + ' bytes to ' + path;
+                    resultDiv.style.color = '#90EE90';
+                } else {
+                    resultDiv.textContent = 'Error: ' + (r.error || 'Unknown');
+                    resultDiv.style.color = '#FFB6C1';
+                }
+            } catch (e) {
+                resultDiv.textContent = 'Error: ' + e.message;
+                resultDiv.style.color = '#FFB6C1';
+            }
+        }
+        var readFileBtn = document.getElementById('readFileBtn');
+        var writeFileBtn = document.getElementById('writeFileBtn');
+        if (readFileBtn) readFileBtn.addEventListener('click', doReadFile);
+        if (writeFileBtn) writeFileBtn.addEventListener('click', doWriteFile);
+
+        // Context menu: right-click shows native context menu
+        document.addEventListener('contextmenu', async function(e) {
+            e.preventDefault();
+            var resultDiv = document.getElementById('contextMenuResult');
+            if (resultDiv) resultDiv.innerHTML = '<span style="color: rgba(255,255,255,0.7);">Showing menu...</span>';
+            try {
+                var result = await sendNativeMessage('showContextMenu', { x: e.clientX, y: e.clientY });
+                if (result && result.itemId) {
+                    if (resultDiv) resultDiv.innerHTML = 'Last selected: <b>' + result.itemId + '</b>';
+                    console.log('Context menu selected:', result.itemId);
+                } else if (resultDiv) {
+                    resultDiv.innerHTML = '<span style="color: rgba(255,255,255,0.6);">Cancelled</span>';
+                }
+            } catch (err) {
+                if (resultDiv) resultDiv.innerHTML = '<span style="color: #FFB6C1;">Error: ' + err.message + '</span>';
+                console.error('Context menu error:', err);
+            }
+        });
+
+        // Event streams: listen for all native events
+        (function setupEventListeners() {
+            var log = document.getElementById('eventLog');
+            function addEvent(name, payload) {
+                if (!log) return;
+                var line = document.createElement('div');
+                line.textContent = '[' + new Date().toLocaleTimeString() + '] ' + name + (payload && Object.keys(payload).length ? ' ' + JSON.stringify(payload) : '');
+                line.style.marginBottom = '4px';
+                log.appendChild(line);
+                while (log.children.length > 12) log.removeChild(log.firstChild);
+            }
+            if (window.CrossDev && window.CrossDev.events) {
+                window.CrossDev.events.on('window:focus', function() { addEvent('window:focus'); });
+                window.CrossDev.events.on('window:blur', function() { addEvent('window:blur'); });
+                window.CrossDev.events.on('window:resize', function(p) { addEvent('window:resize', p); });
+                window.CrossDev.events.on('window:move', function(p) { addEvent('window:move', p); });
+                window.CrossDev.events.on('window:close', function() { addEvent('window:close'); });
+                window.CrossDev.events.on('window:minimize', function(p) { addEvent('window:minimize', p); });
+                window.CrossDev.events.on('window:maximize', function(p) { addEvent('window:maximize', p); });
+                window.CrossDev.events.on('window:restore', function(p) { addEvent('window:restore', p); });
+                window.CrossDev.events.on('file:dropped', function(p) { addEvent('file:dropped', p); });
+                window.CrossDev.events.on('menu:item', function(p) { addEvent('menu:item', p); });
+                window.CrossDev.events.on('menu:context', function(p) { addEvent('menu:context', p); });
+                window.CrossDev.events.on('app:activate', function() { addEvent('app:activate'); });
+                window.CrossDev.events.on('app:deactivate', function() { addEvent('app:deactivate'); });
+                window.CrossDev.events.on('app:quit', function() { addEvent('app:quit'); });
+                window.CrossDev.events.on('theme:changed', function(p) { addEvent('theme:changed', p); });
+            } else {
+                setTimeout(setupEventListeners, 100);
+            }
+        })();
         
         // Check if messaging is available
         if ((window.chrome && window.chrome.webview && window.chrome.webview.postMessage) ||

@@ -339,6 +339,33 @@ src/application.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/application.cpp.s
 .PHONY : src/application.cpp.s
 
+src/base64.o: src/base64.cpp.o
+.PHONY : src/base64.o
+
+# target to build an object file
+src/base64.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/base64.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/base64.cpp.o
+.PHONY : src/base64.cpp.o
+
+src/base64.i: src/base64.cpp.i
+.PHONY : src/base64.i
+
+# target to preprocess a source file
+src/base64.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/base64.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/base64.cpp.i
+.PHONY : src/base64.cpp.i
+
+src/base64.s: src/base64.cpp.s
+.PHONY : src/base64.s
+
+# target to generate assembly for a file
+src/base64.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/base64.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/base64.cpp.s
+.PHONY : src/base64.cpp.s
+
 src/button.o: src/button.cpp.o
 .PHONY : src/button.o
 
@@ -636,6 +663,33 @@ src/handlers/calculatorhandler.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/handlers/calculatorhandler.cpp.s
 .PHONY : src/handlers/calculatorhandler.cpp.s
 
+src/handlers/contextmenuhandler.o: src/handlers/contextmenuhandler.cpp.o
+.PHONY : src/handlers/contextmenuhandler.o
+
+# target to build an object file
+src/handlers/contextmenuhandler.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/handlers/contextmenuhandler.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/handlers/contextmenuhandler.cpp.o
+.PHONY : src/handlers/contextmenuhandler.cpp.o
+
+src/handlers/contextmenuhandler.i: src/handlers/contextmenuhandler.cpp.i
+.PHONY : src/handlers/contextmenuhandler.i
+
+# target to preprocess a source file
+src/handlers/contextmenuhandler.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/handlers/contextmenuhandler.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/handlers/contextmenuhandler.cpp.i
+.PHONY : src/handlers/contextmenuhandler.cpp.i
+
+src/handlers/contextmenuhandler.s: src/handlers/contextmenuhandler.cpp.s
+.PHONY : src/handlers/contextmenuhandler.s
+
+# target to generate assembly for a file
+src/handlers/contextmenuhandler.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/handlers/contextmenuhandler.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/handlers/contextmenuhandler.cpp.s
+.PHONY : src/handlers/contextmenuhandler.cpp.s
+
 src/handlers/createwindowhandler.o: src/handlers/createwindowhandler.cpp.o
 .PHONY : src/handlers/createwindowhandler.o
 
@@ -689,6 +743,87 @@ src/handlers/filedialoghandler.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/handlers/filedialoghandler.cpp.s
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/handlers/filedialoghandler.cpp.s
 .PHONY : src/handlers/filedialoghandler.cpp.s
+
+src/handlers/filesystemhandler.o: src/handlers/filesystemhandler.cpp.o
+.PHONY : src/handlers/filesystemhandler.o
+
+# target to build an object file
+src/handlers/filesystemhandler.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/handlers/filesystemhandler.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/handlers/filesystemhandler.cpp.o
+.PHONY : src/handlers/filesystemhandler.cpp.o
+
+src/handlers/filesystemhandler.i: src/handlers/filesystemhandler.cpp.i
+.PHONY : src/handlers/filesystemhandler.i
+
+# target to preprocess a source file
+src/handlers/filesystemhandler.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/handlers/filesystemhandler.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/handlers/filesystemhandler.cpp.i
+.PHONY : src/handlers/filesystemhandler.cpp.i
+
+src/handlers/filesystemhandler.s: src/handlers/filesystemhandler.cpp.s
+.PHONY : src/handlers/filesystemhandler.s
+
+# target to generate assembly for a file
+src/handlers/filesystemhandler.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/handlers/filesystemhandler.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/handlers/filesystemhandler.cpp.s
+.PHONY : src/handlers/filesystemhandler.cpp.s
+
+src/handlers/readfilehandler.o: src/handlers/readfilehandler.cpp.o
+.PHONY : src/handlers/readfilehandler.o
+
+# target to build an object file
+src/handlers/readfilehandler.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/handlers/readfilehandler.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/handlers/readfilehandler.cpp.o
+.PHONY : src/handlers/readfilehandler.cpp.o
+
+src/handlers/readfilehandler.i: src/handlers/readfilehandler.cpp.i
+.PHONY : src/handlers/readfilehandler.i
+
+# target to preprocess a source file
+src/handlers/readfilehandler.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/handlers/readfilehandler.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/handlers/readfilehandler.cpp.i
+.PHONY : src/handlers/readfilehandler.cpp.i
+
+src/handlers/readfilehandler.s: src/handlers/readfilehandler.cpp.s
+.PHONY : src/handlers/readfilehandler.s
+
+# target to generate assembly for a file
+src/handlers/readfilehandler.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/handlers/readfilehandler.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/handlers/readfilehandler.cpp.s
+.PHONY : src/handlers/readfilehandler.cpp.s
+
+src/handlers/writefilehandler.o: src/handlers/writefilehandler.cpp.o
+.PHONY : src/handlers/writefilehandler.o
+
+# target to build an object file
+src/handlers/writefilehandler.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/handlers/writefilehandler.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/handlers/writefilehandler.cpp.o
+.PHONY : src/handlers/writefilehandler.cpp.o
+
+src/handlers/writefilehandler.i: src/handlers/writefilehandler.cpp.i
+.PHONY : src/handlers/writefilehandler.i
+
+# target to preprocess a source file
+src/handlers/writefilehandler.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/handlers/writefilehandler.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/handlers/writefilehandler.cpp.i
+.PHONY : src/handlers/writefilehandler.cpp.i
+
+src/handlers/writefilehandler.s: src/handlers/writefilehandler.cpp.s
+.PHONY : src/handlers/writefilehandler.s
+
+# target to generate assembly for a file
+src/handlers/writefilehandler.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/handlers/writefilehandler.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/handlers/writefilehandler.cpp.s
+.PHONY : src/handlers/writefilehandler.cpp.s
 
 src/horizontal_layout.o: src/horizontal_layout.cpp.o
 .PHONY : src/horizontal_layout.o
@@ -840,6 +975,33 @@ src/messagerouter.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/messagerouter.cpp.s
 .PHONY : src/messagerouter.cpp.s
 
+src/native_event_bus.o: src/native_event_bus.cpp.o
+.PHONY : src/native_event_bus.o
+
+# target to build an object file
+src/native_event_bus.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/native_event_bus.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/native_event_bus.cpp.o
+.PHONY : src/native_event_bus.cpp.o
+
+src/native_event_bus.i: src/native_event_bus.cpp.i
+.PHONY : src/native_event_bus.i
+
+# target to preprocess a source file
+src/native_event_bus.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/native_event_bus.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/native_event_bus.cpp.i
+.PHONY : src/native_event_bus.cpp.i
+
+src/native_event_bus.s: src/native_event_bus.cpp.s
+.PHONY : src/native_event_bus.s
+
+# target to generate assembly for a file
+src/native_event_bus.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/native_event_bus.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/native_event_bus.cpp.s
+.PHONY : src/native_event_bus.cpp.s
+
 src/platform/macos/app_macos.o: src/platform/macos/app_macos.mm.o
 .PHONY : src/platform/macos/app_macos.o
 
@@ -974,6 +1136,33 @@ src/platform/macos/input_macos.mm.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/platform/macos/input_macos.mm.s
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/platform/macos/input_macos.mm.s
 .PHONY : src/platform/macos/input_macos.mm.s
+
+src/platform/macos/menu_macos.o: src/platform/macos/menu_macos.mm.o
+.PHONY : src/platform/macos/menu_macos.o
+
+# target to build an object file
+src/platform/macos/menu_macos.mm.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/platform/macos/menu_macos.mm.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/platform/macos/menu_macos.mm.o
+.PHONY : src/platform/macos/menu_macos.mm.o
+
+src/platform/macos/menu_macos.i: src/platform/macos/menu_macos.mm.i
+.PHONY : src/platform/macos/menu_macos.i
+
+# target to preprocess a source file
+src/platform/macos/menu_macos.mm.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/platform/macos/menu_macos.mm.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/platform/macos/menu_macos.mm.i
+.PHONY : src/platform/macos/menu_macos.mm.i
+
+src/platform/macos/menu_macos.s: src/platform/macos/menu_macos.mm.s
+.PHONY : src/platform/macos/menu_macos.s
+
+# target to generate assembly for a file
+src/platform/macos/menu_macos.mm.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CrossDev.dir/build.make CMakeFiles/CrossDev.dir/src/platform/macos/menu_macos.mm.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layout_demo.dir/build.make CMakeFiles/layout_demo.dir/src/platform/macos/menu_macos.mm.s
+.PHONY : src/platform/macos/menu_macos.mm.s
 
 src/platform/macos/webview_macos.o: src/platform/macos/webview_macos.mm.o
 .PHONY : src/platform/macos/webview_macos.o
@@ -1163,6 +1352,7 @@ tests/mock_platform.o: tests/mock_platform.cpp.o
 
 # target to build an object file
 tests/mock_platform.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_control.dir/build.make CMakeFiles/test_control.dir/tests/mock_platform.cpp.o
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_button.dir/build.make CMakeFiles/test_button.dir/tests/mock_platform.cpp.o
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_container.dir/build.make CMakeFiles/test_container.dir/tests/mock_platform.cpp.o
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_ownership.dir/build.make CMakeFiles/test_ownership.dir/tests/mock_platform.cpp.o
@@ -1174,6 +1364,7 @@ tests/mock_platform.i: tests/mock_platform.cpp.i
 
 # target to preprocess a source file
 tests/mock_platform.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_control.dir/build.make CMakeFiles/test_control.dir/tests/mock_platform.cpp.i
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_button.dir/build.make CMakeFiles/test_button.dir/tests/mock_platform.cpp.i
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_container.dir/build.make CMakeFiles/test_container.dir/tests/mock_platform.cpp.i
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_ownership.dir/build.make CMakeFiles/test_ownership.dir/tests/mock_platform.cpp.i
@@ -1185,6 +1376,7 @@ tests/mock_platform.s: tests/mock_platform.cpp.s
 
 # target to generate assembly for a file
 tests/mock_platform.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_control.dir/build.make CMakeFiles/test_control.dir/tests/mock_platform.cpp.s
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_button.dir/build.make CMakeFiles/test_button.dir/tests/mock_platform.cpp.s
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_container.dir/build.make CMakeFiles/test_container.dir/tests/mock_platform.cpp.s
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_ownership.dir/build.make CMakeFiles/test_ownership.dir/tests/mock_platform.cpp.s
@@ -1387,6 +1579,9 @@ help:
 	@echo "... src/application.o"
 	@echo "... src/application.i"
 	@echo "... src/application.s"
+	@echo "... src/base64.o"
+	@echo "... src/base64.i"
+	@echo "... src/base64.s"
 	@echo "... src/button.o"
 	@echo "... src/button.i"
 	@echo "... src/button.s"
@@ -1414,12 +1609,24 @@ help:
 	@echo "... src/handlers/calculatorhandler.o"
 	@echo "... src/handlers/calculatorhandler.i"
 	@echo "... src/handlers/calculatorhandler.s"
+	@echo "... src/handlers/contextmenuhandler.o"
+	@echo "... src/handlers/contextmenuhandler.i"
+	@echo "... src/handlers/contextmenuhandler.s"
 	@echo "... src/handlers/createwindowhandler.o"
 	@echo "... src/handlers/createwindowhandler.i"
 	@echo "... src/handlers/createwindowhandler.s"
 	@echo "... src/handlers/filedialoghandler.o"
 	@echo "... src/handlers/filedialoghandler.i"
 	@echo "... src/handlers/filedialoghandler.s"
+	@echo "... src/handlers/filesystemhandler.o"
+	@echo "... src/handlers/filesystemhandler.i"
+	@echo "... src/handlers/filesystemhandler.s"
+	@echo "... src/handlers/readfilehandler.o"
+	@echo "... src/handlers/readfilehandler.i"
+	@echo "... src/handlers/readfilehandler.s"
+	@echo "... src/handlers/writefilehandler.o"
+	@echo "... src/handlers/writefilehandler.i"
+	@echo "... src/handlers/writefilehandler.s"
 	@echo "... src/horizontal_layout.o"
 	@echo "... src/horizontal_layout.i"
 	@echo "... src/horizontal_layout.s"
@@ -1435,6 +1642,9 @@ help:
 	@echo "... src/messagerouter.o"
 	@echo "... src/messagerouter.i"
 	@echo "... src/messagerouter.s"
+	@echo "... src/native_event_bus.o"
+	@echo "... src/native_event_bus.i"
+	@echo "... src/native_event_bus.s"
 	@echo "... src/platform/macos/app_macos.o"
 	@echo "... src/platform/macos/app_macos.i"
 	@echo "... src/platform/macos/app_macos.s"
@@ -1450,6 +1660,9 @@ help:
 	@echo "... src/platform/macos/input_macos.o"
 	@echo "... src/platform/macos/input_macos.i"
 	@echo "... src/platform/macos/input_macos.s"
+	@echo "... src/platform/macos/menu_macos.o"
+	@echo "... src/platform/macos/menu_macos.i"
+	@echo "... src/platform/macos/menu_macos.s"
 	@echo "... src/platform/macos/webview_macos.o"
 	@echo "... src/platform/macos/webview_macos.i"
 	@echo "... src/platform/macos/webview_macos.s"

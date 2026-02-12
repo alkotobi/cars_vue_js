@@ -41,7 +41,7 @@ public:
     Layout* getLayout() const { return layout_; }
     
     // Platform-specific handle (opaque pointer)
-    void* getNativeHandle() const { return nativeHandle_; }
+    void* getNativeHandle() const override { return nativeHandle_; }
     
 protected:
     // Override Control virtual methods

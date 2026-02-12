@@ -30,7 +30,7 @@ public:
     std::string getLabel() const;
     
     // Platform-specific handle (opaque pointer)
-    void* getNativeHandle() const { return nativeHandle_; }
+    void* getNativeHandle() const override { return nativeHandle_; }
     
 protected:
     // Override Control virtual methods

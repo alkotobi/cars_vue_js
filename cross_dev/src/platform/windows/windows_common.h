@@ -11,8 +11,13 @@
 namespace platform {
 
 typedef void (*ResizeCallback)(int width, int height, void* userData);
+typedef void (*MoveCallback)(int x, int y, void* userData);
+typedef void (*FileDropCallback)(const std::string& pathsJson, void* userData);
 
 typedef void (*CloseCallback)(void* userData);
+typedef void (*FocusCallback)(void* userData);
+typedef void (*StateCallback)(const char* state, void* userData);
+typedef void (*MenuItemCallback)(const std::string& itemId, void* userData);
 
 struct WindowData {
     HWND hwnd;
@@ -22,14 +27,35 @@ struct WindowData {
     void* userData;     // Store Window* pointer for cleanup
     ResizeCallback resizeCallback;  // Callback for window resize
     void* resizeUserData;  // User data for resize callback
+    MoveCallback moveCallback;  // Callback when window moves
+    void* moveUserData;
+    FileDropCallback fileDropCallback;
+    void* fileDropUserData;
     CloseCallback closeCallback;    // Callback when user closes window (X button)
     void* closeUserData;            // WebViewWindow* to delete when closed
     bool beingDestroyed;            // True when in WM_DESTROY - skip DestroyWindow in destroyWindow
+    FocusCallback focusCallback;
+    FocusCallback blurCallback;
+    void* focusUserData;
+    void* blurUserData;
+    StateCallback stateCallback;
+    void* stateUserData;
+    MenuItemCallback menuItemCallback;
+    void* menuUserData;
+    std::map<UINT, std::string> menuIdToItemId;
+    MenuItemCallback contextMenuCallback;
+    void* contextMenuUserData;
+    std::map<UINT, std::string> contextMenuIdToItemId;
 };
 
 // Forward declarations
 extern std::map<HWND, WindowData*> g_windowMap;
 extern WindowData* g_mainWindow;
+
+// Called from MainWindowProc on WM_ACTIVATEAPP
+void notifyAppActivate(bool activated);
+// Called from MainWindowProc on WM_SETTINGCHANGE (theme change)
+void notifyThemeChange();
 
 } // namespace platform
 

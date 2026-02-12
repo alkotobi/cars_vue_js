@@ -28,7 +28,7 @@ public:
     void postMessageToJavaScript(const std::string& jsonMessage);
     
     // Platform-specific handle (opaque pointer)
-    void* getNativeHandle() const { return nativeHandle_; }
+    void* getNativeHandle() const override { return nativeHandle_; }
     
 protected:
     // Override Control virtual methods

@@ -85,8 +85,10 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
 
 # Core sources (main.cpp excluded for iOS - AppDelegate.mm provides main)
 set(CORE_SOURCES
+    src/base64.cpp
     src/component.cpp
     src/control.cpp
+    src/native_event_bus.cpp
     src/window.cpp
     src/webview.cpp
     src/webview_window.cpp
@@ -104,6 +106,10 @@ set(CORE_SOURCES
     src/handlers/appinfohandler.cpp
     src/handlers/calculatorhandler.cpp
     src/handlers/filedialoghandler.cpp
+    src/handlers/readfilehandler.cpp
+    src/handlers/writefilehandler.cpp
+    src/handlers/filesystemhandler.cpp
+    src/handlers/contextmenuhandler.cpp
 )
 
 # Add main.cpp for non-iOS platforms
@@ -122,6 +128,7 @@ if(PLATFORM STREQUAL "macos")
         src/platform/macos/filedialog_macos.mm
         src/platform/macos/input_macos.mm
         src/platform/macos/container_macos.mm
+        src/platform/macos/menu_macos.mm
     )
     
     # Enable Objective-C++ for macOS
@@ -151,6 +158,7 @@ elseif(PLATFORM STREQUAL "windows")
         src/platform/windows/filedialog_windows.cpp
         src/platform/windows/input_windows.cpp
         src/platform/windows/container_windows.cpp
+        src/platform/windows/menu_windows.cpp
     )
     
     # Windows-specific flags
@@ -238,6 +246,7 @@ elseif(PLATFORM STREQUAL "ios")
         src/platform/ios/filedialog_ios.mm
         src/platform/ios/input_ios.mm
         src/platform/ios/container_ios.mm
+        src/platform/ios/menu_ios.mm
     )
     
     # Enable Objective-C++ for iOS
@@ -459,7 +468,7 @@ add_executable(test_component tests/test_component.cpp src/component.cpp)
 target_include_directories(test_component PRIVATE ${CMAKE_SOURCE_DIR}/include)
 add_test(NAME ComponentTests COMMAND test_component)
 
-add_executable(test_control tests/test_control.cpp src/component.cpp src/control.cpp)
+add_executable(test_control tests/test_control.cpp src/component.cpp src/control.cpp tests/mock_platform.cpp)
 target_include_directories(test_control PRIVATE ${CMAKE_SOURCE_DIR}/include)
 add_test(NAME ControlTests COMMAND test_control)
 

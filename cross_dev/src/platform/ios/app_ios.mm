@@ -39,6 +39,13 @@ void quitApplication() {
     }
 }
 
+void setAppActivateCallback(void (*)(void*), void*) {}
+void setAppDeactivateCallback(void (*)(void*), void*) {}
+void setThemeChangeCallback(void (*)(const char*, void*), void*) {}
+void setKeyShortcutCallback(void (*)(const std::string&, void*), void*) {}
+void setAppOpenFileCallback(void (*)(const std::string&, void*), void*) {}
+void deliverOpenFilePaths(int, const char**) {}
+
 UIApplication* getApplication() {
     return g_app;
 }

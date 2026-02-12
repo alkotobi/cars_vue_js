@@ -69,6 +69,7 @@ void MessageRouter::routeMessage(const std::string& jsonMessage) {
         if (!payload.empty()) {
             payloadJson = nlohmann::json::parse(payload);
         }
+        payloadJson["_type"] = type;  // Inject message type so handlers can use it
     } catch (const nlohmann::json::exception& e) {
         std::cerr << "Failed to parse payload JSON: " << e.what() << std::endl;
         if (!requestId.empty()) {

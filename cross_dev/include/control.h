@@ -56,6 +56,12 @@ public:
     
     // Platform-specific handle (opaque pointer) - overridden by derived classes
     virtual void* getNativeHandle() const { return nullptr; }
+
+    // Context menu (right-click). Shows at (x,y) in parent coordinates.
+    // itemsJson: [{"id":"copy","label":"Copy"},{"id":"-"},{"id":"paste","label":"Paste"}]
+    void showContextMenu(int x, int y, const std::string& itemsJson,
+                        void (*itemCallback)(const std::string& itemId, void* userData),
+                        void* userData = nullptr);
     
     // Size hints for layout managers
     virtual SizeHint GetSizeHint() const;

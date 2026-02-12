@@ -1,7 +1,10 @@
 #include "../include/webview_window.h"
 #include "../include/application.h"
 #include "../include/config_manager.h"
+#include "../include/native_event_bus.h"
+#include "../include/platform.h"
 #include "platform/platform_impl.h"
+#include <nlohmann/json.hpp>
 #include <stdexcept>
 #include <iostream>
 
@@ -11,6 +14,45 @@ namespace {
 <body style="font-family:sans-serif;padding:2em;margin:0;">
 <h1>CrossDev</h1>
 <p>Welcome. Configure content via options.json or pass HTML, URL, or file path to WebViewWindow.</p>
+<p style="color:#666;font-size:0.9em;">Right-click for context menu. Main menu: File, Edit, View, Help — at the <b>top of the screen</b> (macOS) or below the title bar (Windows/Linux).</p>
+<div id="events" style="margin-top:1em;padding:0.5em;background:#f5f5f5;border-radius:4px;font-size:0.85em;"></div>
+<script>
+var eventsDiv=document.getElementById('events');
+function logEvent(name,payload){
+  var p=document.createElement('p');
+  p.textContent=new Date().toLocaleTimeString()+' '+name+(payload&&Object.keys(payload).length?' '+JSON.stringify(payload):'');
+  eventsDiv.insertBefore(p,eventsDiv.firstChild);
+}
+if(window.CrossDev&&window.CrossDev.events){
+  CrossDev.events.on('window:focus',function(){logEvent('window:focus');});
+  CrossDev.events.on('window:blur',function(){logEvent('window:blur');});
+  CrossDev.events.on('window:resize',function(p){logEvent('window:resize',p);});
+  CrossDev.events.on('window:move',function(p){logEvent('window:move',p);});
+  CrossDev.events.on('window:close',function(){logEvent('window:close');});
+  CrossDev.events.on('window:close-request',function(){logEvent('window:close-request');});
+  CrossDev.events.on('window:minimize',function(p){logEvent('window:minimize',p);});
+  CrossDev.events.on('window:maximize',function(p){logEvent('window:maximize',p);});
+  CrossDev.events.on('window:restore',function(p){logEvent('window:restore',p);});
+  CrossDev.events.on('file:dropped',function(p){logEvent('file:dropped',p);});
+  CrossDev.events.on('menu:item',function(p){logEvent('menu:item',p);});
+  CrossDev.events.on('menu:context',function(p){logEvent('menu:context',p);});
+  CrossDev.events.on('app:activate',function(){logEvent('app:activate');});
+  CrossDev.events.on('app:deactivate',function(){logEvent('app:deactivate');});
+  CrossDev.events.on('app:quit',function(){logEvent('app:quit');});
+  CrossDev.events.on('theme:changed',function(p){logEvent('theme:changed',p);});
+  CrossDev.events.on('key:shortcut',function(p){logEvent('key:shortcut',p);});
+  CrossDev.events.on('app:open-file',function(p){logEvent('app:open-file',p);});
+  logEvent('Events registered');
+}
+document.addEventListener('contextmenu',function(e){
+  e.preventDefault();
+  if(window.CrossDev&&window.CrossDev.invoke){
+    window.CrossDev.invoke('showContextMenu',{x:e.clientX,y:e.clientY}).then(function(r){
+      if(r&&r.itemId)logEvent('Context menu selected',r);
+    }).catch(function(){});
+  }
+});
+</script>
 </body></html>)";
 }
 
@@ -59,10 +101,15 @@ WebViewWindow::WebViewWindow(Component* owner, int x, int y, int width, int heig
     }
     
     registerResizeCallback();
+    registerMoveCallback();
+    registerFileDropCallback();
+    registerStateCallback();
+    registerEventCallbacks();
     if (owner) {
         registerCloseCallback();  // Child: delete self when user closes window
     } else {
         registerMainWindowCloseCallback();  // Main: quit app when user closes window
+        registerMainMenu();  // Main window: File/Edit menu
     }
     resetDefaultNameCache();
     debugLogLifecycleCreation(this, GetOwner(), nullptr);
@@ -84,6 +131,9 @@ WebViewWindow::~WebViewWindow() {
 #endif
     if (g_mainWebViewWindow == this) {
         g_mainWebViewWindow = nullptr;
+    }
+    if (webView_) {
+        NativeEventBus::getInstance().unsubscribe(webView_.get());
     }
     // Unique pointers and Component will clean up owned components
 }
@@ -155,6 +205,9 @@ void WebViewWindow::onWindowResize(int newWidth, int newHeight) {
         // This demonstrates the component system - bounds are managed by Control
         webView_->SetBounds(0, 0, newWidth, newHeight);
         // The OnBoundsChanged() will call updateNativeWebViewBounds() which uses platform::resizeWebView
+        // Emit window:resize event for JS listeners
+        std::string payload = "{\"width\":" + std::to_string(newWidth) + ",\"height\":" + std::to_string(newHeight) + "}";
+        NativeEventBus::getInstance().emitTo(webView_.get(), "window:resize", payload);
     }
 }
 
@@ -173,12 +226,71 @@ void WebViewWindow::registerResizeCallback() {
     }
 }
 
+void WebViewWindow::onWindowMove(int x, int y) {
+    if (webView_) {
+        std::string payload = "{\"x\":" + std::to_string(x) + ",\"y\":" + std::to_string(y) + "}";
+        NativeEventBus::getInstance().emitTo(webView_.get(), "window:move", payload);
+    }
+}
+
+void WebViewWindow::registerMoveCallback() {
+    if (window_ && window_->getNativeHandle()) {
+        platform::setWindowMoveCallback(
+            window_->getNativeHandle(),
+            [](int x, int y, void* userData) {
+                WebViewWindow* self = static_cast<WebViewWindow*>(userData);
+                if (self) {
+                    self->onWindowMove(x, y);
+                }
+            },
+            this
+        );
+    }
+}
+
+void WebViewWindow::registerFileDropCallback() {
+    if (window_ && window_->getNativeHandle()) {
+        platform::setWindowFileDropCallback(
+            window_->getNativeHandle(),
+            [](const std::string& pathsJson, void* userData) {
+                WebViewWindow* self = static_cast<WebViewWindow*>(userData);
+                if (self && self->getWebView()) {
+                    NativeEventBus::getInstance().emitTo(self->getWebView(), "file:dropped", pathsJson);
+                }
+            },
+            this
+        );
+    }
+}
+
+void WebViewWindow::registerStateCallback() {
+    if (window_ && window_->getNativeHandle()) {
+        platform::setWindowStateCallback(
+            window_->getNativeHandle(),
+            [](const char* state, void* userData) {
+                WebViewWindow* self = static_cast<WebViewWindow*>(userData);
+                if (self && self->getWebView()) {
+                    std::string eventName = "window:";
+                    eventName += state;
+                    std::string payload = "{\"state\":\"" + std::string(state) + "\"}";
+                    NativeEventBus::getInstance().emitTo(self->getWebView(), eventName, payload);
+                }
+            },
+            this
+        );
+    }
+}
+
 void WebViewWindow::registerCloseCallback() {
     if (window_ && window_->getNativeHandle() && GetOwner()) {
         platform::setWindowCloseCallback(
             window_->getNativeHandle(),
             [](void* userData) {
                 WebViewWindow* self = static_cast<WebViewWindow*>(userData);
+                if (self && self->getWebView()) {
+                    NativeEventBus::getInstance().emitTo(self->getWebView(), "window:close-request", "{}");
+                    NativeEventBus::getInstance().emitTo(self->getWebView(), "window:close", "{}");
+                }
                 if (self) {
                     self->SetOwner(nullptr);
                     delete self;
@@ -208,6 +320,166 @@ void WebViewWindow::closeAllOwnedWebViewWindows() {
     }
 }
 
+namespace {
+void onWindowFocus(void* userData) {
+    WebViewWindow* self = static_cast<WebViewWindow*>(userData);
+    if (self && self->getWebView()) {
+        NativeEventBus::getInstance().emitTo(self->getWebView(), "window:focus", "{}");
+    }
+}
+void onWindowBlur(void* userData) {
+    WebViewWindow* self = static_cast<WebViewWindow*>(userData);
+    if (self && self->getWebView()) {
+        NativeEventBus::getInstance().emitTo(self->getWebView(), "window:blur", "{}");
+    }
+}
+}
+
+namespace {
+void onAppActivate(void* userData) {
+    (void)userData;
+    NativeEventBus::getInstance().emitToAll("app:activate", "{}");
+}
+void onAppDeactivate(void* userData) {
+    (void)userData;
+    NativeEventBus::getInstance().emitToAll("app:deactivate", "{}");
+}
+void onThemeChange(const char* theme, void* userData) {
+    (void)userData;
+    std::string payload = std::string("{\"theme\":\"") + theme + "\"}";
+    NativeEventBus::getInstance().emitToAll("theme:changed", payload);
+}
+void onKeyShortcut(const std::string& payloadJson, void* userData) {
+    (void)userData;
+    NativeEventBus::getInstance().emitToAll("key:shortcut", payloadJson);
+}
+void onAppOpenFile(const std::string& path, void* userData) {
+    (void)userData;
+    nlohmann::json j;
+    j["path"] = path;
+    NativeEventBus::getInstance().emitToAll("app:open-file", j.dump());
+}
+}
+
+void WebViewWindow::registerEventCallbacks() {
+    if (!window_ || !webView_ || !window_->getNativeHandle()) return;
+    NativeEventBus::getInstance().subscribe(webView_.get());
+    platform::setWindowFocusCallback(window_->getNativeHandle(), onWindowFocus, this);
+    platform::setWindowBlurCallback(window_->getNativeHandle(), onWindowBlur, this);
+    if (!GetOwner()) {
+        platform::setAppActivateCallback(onAppActivate, nullptr);
+        platform::setAppDeactivateCallback(onAppDeactivate, nullptr);
+        platform::setThemeChangeCallback(onThemeChange, nullptr);
+        platform::setKeyShortcutCallback(onKeyShortcut, nullptr);
+        platform::setAppOpenFileCallback(onAppOpenFile, nullptr);
+    }
+}
+
+namespace {
+void onMainMenuItem(const std::string& itemId, void* userData) {
+    WebViewWindow* self = static_cast<WebViewWindow*>(userData);
+    if (!self || !self->getWebView()) return;
+    // Emit menu:item event for JS listeners (payload: id) - use JSON for proper escaping
+    nlohmann::json j;
+    j["id"] = itemId;
+    NativeEventBus::getInstance().emitTo(self->getWebView(), "menu:item", j.dump());
+    if (itemId == "quit") {
+        NativeEventBus::getInstance().emitToAll("app:quit", "{}");
+        Application::getInstance().quit();
+        return;
+    }
+    // Edit menu: execute native clipboard/selection commands in the WebView
+    if (itemId == "undo") {
+        platform::executeWebViewScript(self->getWebView()->getNativeHandle(), "document.execCommand('undo');");
+        return;
+    }
+    if (itemId == "redo") {
+        platform::executeWebViewScript(self->getWebView()->getNativeHandle(), "document.execCommand('redo');");
+        return;
+    }
+    if (itemId == "cut") {
+        platform::executeWebViewScript(self->getWebView()->getNativeHandle(), "document.execCommand('cut');");
+        return;
+    }
+    if (itemId == "copy") {
+        platform::executeWebViewScript(self->getWebView()->getNativeHandle(), "document.execCommand('copy');");
+        return;
+    }
+    if (itemId == "paste") {
+        platform::executeWebViewScript(self->getWebView()->getNativeHandle(), "document.execCommand('paste');");
+        return;
+    }
+    if (itemId == "selectAll") {
+        platform::executeWebViewScript(self->getWebView()->getNativeHandle(), "document.execCommand('selectAll');");
+        return;
+    }
+    // View menu: Reload
+    if (itemId == "reload") {
+        platform::executeWebViewScript(self->getWebView()->getNativeHandle(), "location.reload();");
+        return;
+    }
+    // Zoom (notify page; native zoom would need platform APIs)
+    if (itemId == "zoomIn" || itemId == "zoomOut" || itemId == "zoomReset") {
+        nlohmann::json zj;
+        zj["type"] = "menu";
+        zj["id"] = itemId;
+        self->postMessageToJavaScript(zj.dump());
+        return;
+    }
+    // File, Help: post to JS for app to handle
+    self->postMessageToJavaScript("{\"type\":\"menu\",\"id\":\"" + itemId + "\"}");
+}
+}
+
+void WebViewWindow::registerMainMenu() {
+    if (!window_ || !window_->getNativeHandle()) return;
+#ifdef PLATFORM_MACOS
+    // On macOS the menu appears in the screen menu bar (top of screen), not inside the window.
+    std::cout << "Main menu registered (File/Edit/View/Help) - look at the top of the screen when app is focused." << std::endl;
+#endif
+    const char* menuJson = R"([
+        {"id":"file","label":"File","items":[
+            {"id":"new","label":"New","shortcut":"Cmd+N"},
+            {"id":"-"},
+            {"id":"open","label":"Open","shortcut":"Cmd+O"},
+            {"id":"save","label":"Save","shortcut":"Cmd+S"},
+            {"id":"saveAs","label":"Save As...","shortcut":"Cmd+Shift+S"},
+            {"id":"-"},
+            {"id":"quit","label":"Quit","shortcut":"Cmd+Q"}
+        ]},
+        {"id":"edit","label":"Edit","items":[
+            {"id":"undo","label":"Undo","shortcut":"Cmd+Z"},
+            {"id":"redo","label":"Redo","shortcut":"Cmd+Shift+Z"},
+            {"id":"-"},
+            {"id":"cut","label":"Cut","shortcut":"Cmd+X"},
+            {"id":"copy","label":"Copy","shortcut":"Cmd+C"},
+            {"id":"paste","label":"Paste","shortcut":"Cmd+V"},
+            {"id":"-"},
+            {"id":"selectAll","label":"Select All","shortcut":"Cmd+A"}
+        ]},
+        {"id":"view","label":"View","items":[
+            {"id":"reload","label":"Reload","shortcut":"Cmd+R"},
+            {"id":"zoomIn","label":"Zoom In","shortcut":"Cmd++"},
+            {"id":"zoomOut","label":"Zoom Out","shortcut":"Cmd+-"},
+            {"id":"zoomReset","label":"Reset Zoom","shortcut":"Cmd+0"}
+        ]},
+        {"id":"help","label":"Help","items":[
+            {"id":"about","label":"About"},
+            {"id":"-"},
+            {"id":"docs","label":"Documentation"}
+        ]}
+    ])";
+    window_->setMainMenu(menuJson, onMainMenuItem, this);
+}
+
+void WebViewWindow::setMainMenu(const std::string& menuJson,
+                                void (*itemCallback)(const std::string& itemId, void* userData),
+                                void* userData) {
+    if (window_ && itemCallback) {
+        window_->setMainMenu(menuJson, itemCallback, userData);
+    }
+}
+
 void WebViewWindow::registerMainWindowCloseCallback() {
     if (window_ && window_->getNativeHandle() && !GetOwner()) {
         platform::setWindowCloseCallback(
@@ -215,6 +487,11 @@ void WebViewWindow::registerMainWindowCloseCallback() {
             [](void* userData) {
                 WebViewWindow* mainWin = static_cast<WebViewWindow*>(userData);
                 if (mainWin) {
+                    if (mainWin->getWebView()) {
+                        NativeEventBus::getInstance().emitTo(mainWin->getWebView(), "window:close-request", "{}");
+                        NativeEventBus::getInstance().emitTo(mainWin->getWebView(), "window:close", "{}");
+                        NativeEventBus::getInstance().emitToAll("app:quit", "{}");
+                    }
                     // Destroy children while run loop is active (faster WebKit teardown)
                     mainWin->closeAllOwnedWebViewWindows();
                 }

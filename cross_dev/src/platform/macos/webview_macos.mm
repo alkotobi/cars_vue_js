@@ -20,6 +20,7 @@ typedef void (*MessageCallback)(const std::string& jsonMessage, void* userData);
 @property (assign) void* createWindowUserData;
 @property (assign) MessageCallback messageCallback;
 @property (assign) void* messageUserData;
++ (NSString *)crossdevBridgeScript;
 @end
 
 // Custom WKWebView that accepts first mouse click when window is inactive.
@@ -34,6 +35,68 @@ typedef void (*MessageCallback)(const std::string& jsonMessage, void* userData);
 @end
 
 @implementation WebViewMessageHandler
++ (NSString *)crossdevBridgeScript {
+    return @"(function(){"
+        "var _pending=new Map();"
+        "var _eventListeners={};"
+        "function _ab2b64(ab){var u8=new Uint8Array(ab);var bin='';for(var i=0;i<u8.length;i++)bin+=String.fromCharCode(u8[i]);return btoa(bin);}"
+        "function _b642ab(s){var bin=atob(s);var u8=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)u8[i]=bin.charCodeAt(i);return u8.buffer;}"
+        "function _toWire(obj){"
+        "if(obj===null||typeof obj!=='object')return obj;"
+        "if(obj instanceof ArrayBuffer){return {__base64:_ab2b64(obj)};}"
+        "if(ArrayBuffer.isView(obj)){return {__base64:_ab2b64(obj.buffer.slice(obj.byteOffset,obj.byteOffset+obj.byteLength))};}"
+        "if(Array.isArray(obj)){return obj.map(_toWire);}"
+        "var out={};for(var k in obj)if(obj.hasOwnProperty(k))out[k]=_toWire(obj[k]);return out;"
+        "}"
+        "window.addEventListener('message',function(e){"
+        "var d=e.data;"
+        "if(!d)return;"
+        "if(d.type==='crossdev:event'){"
+        "var name=d.name,payload=d.payload||{};"
+        "var list=_eventListeners[name];"
+        "if(list)list.forEach(function(fn){try{fn(payload)}catch(err){console.error(err)}});"
+        "return;"
+        "}"
+        "if(d.requestId){"
+        "var h=_pending.get(d.requestId);"
+        "if(h){_pending.delete(d.requestId);"
+        "var res=d.result;"
+        "if(h.binary&&res&&typeof res.data==='string'){res=Object.assign({},res);res.data=_b642ab(res.data);}"
+        "d.error?h.reject(new Error(d.error)):h.resolve(res);"
+        "}"
+        "}"
+        "});"
+        "function _post(msg){"
+        "if(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.nativeMessage){"
+        "window.webkit.messageHandlers.nativeMessage.postMessage(msg);"
+        "}"
+        "}"
+        "var CrossDev={"
+        "invoke:function(type,payload,opts){"
+        "var opt=opts||{};"
+        "return new Promise(function(resolve,reject){"
+        "var rid=Date.now()+'-'+Math.random();"
+        "_pending.set(rid,{resolve:resolve,reject:reject,binary:!!opt.binaryResponse});"
+        "setTimeout(function(){if(_pending.has(rid)){_pending.delete(rid);reject(new Error('Request timeout'));}},10000);"
+        "_post({type:type,payload:_toWire(payload||{}),requestId:rid});"
+        "});"
+        "},"
+        "events:{"
+        "on:function(name,fn){"
+        "if(!_eventListeners[name])_eventListeners[name]=[];"
+        "_eventListeners[name].push(fn);"
+        "return function(){var i=_eventListeners[name].indexOf(fn);if(i>=0)_eventListeners[name].splice(i,1);};"
+        "}"
+        "}"
+        "};"
+        "Object.freeze(CrossDev.events);"
+        "Object.freeze(CrossDev);"
+        "Object.defineProperty(window,'CrossDev',{value:CrossDev,configurable:false,writable:false});"
+        "window.chrome=window.chrome||{};"
+        "window.chrome.webview=window.chrome.webview||{};"
+        "window.chrome.webview.postMessage=function(m){var msg=typeof m==='string'?JSON.parse(m):m;_post(msg);};"
+        "})();";
+}
 - (void)userContentController:(WKUserContentController *)userContentController
       didReceiveScriptMessage:(WKScriptMessage *)message {
     // Convert message to JSON string
@@ -63,6 +126,27 @@ typedef void (*MessageCallback)(const std::string& jsonMessage, void* userData);
 @end
 
 namespace platform {
+
+void setWebViewPreloadScript(void* webViewHandle, const std::string& scriptContent) {
+    @autoreleasepool {
+        if (!webViewHandle) return;
+        WKWebView *webView = (__bridge WKWebView*)webViewHandle;
+        if (scriptContent.empty()) {
+            objc_setAssociatedObject(webView, @"customPreloadScript", nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        } else {
+            NSString *script = [NSString stringWithUTF8String:scriptContent.c_str()];
+            objc_setAssociatedObject(webView, @"customPreloadScript", script, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        }
+    }
+}
+
+static NSString* getPreloadScriptForWebView(WKWebView *webView) {
+    NSString *custom = objc_getAssociatedObject(webView, @"customPreloadScript");
+    if (custom && [custom length] > 0) {
+        return custom;
+    }
+    return [WebViewMessageHandler crossdevBridgeScript];
+}
 
 void* createWebView(void* parentHandle, int x, int y, int width, int height) {
     @autoreleasepool {
@@ -151,11 +235,9 @@ void loadHTMLString(void* webViewHandle, const std::string& html) {
         // Load HTML first
         [webView loadHTMLString:htmlString baseURL:nil];
         
-        // Re-inject the bridge script after page loads to ensure it's available
-        // This ensures the script is available even if the page loads before the callback is set
-        NSString *script = @"window.chrome = window.chrome || {}; window.chrome.webview = window.chrome.webview || {}; window.chrome.webview.postMessage = function(message) { if (typeof message === 'object') { window.webkit.messageHandlers.createWindow.postMessage(message); } else if (typeof message === 'string') { try { var parsed = JSON.parse(message); window.webkit.messageHandlers.createWindow.postMessage(parsed); } catch(e) { window.webkit.messageHandlers.createWindow.postMessage({type: 'createWindow', title: message}); } } };";
-        // Use a small delay to ensure page is ready
+        // Re-inject bridge after page loads (in case WKUserScript ran before callback was set)
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            NSString *script = getPreloadScriptForWebView(webView);
             [webView evaluateJavaScript:script completionHandler:nil];
         });
     }
@@ -195,13 +277,18 @@ void setWebViewCreateWindowCallback(void* webViewHandle, void (*callback)(const 
             // Add script message handler for "nativeMessage" (generic handler)
             [userContentController addScriptMessageHandler:handler name:@"nativeMessage"];
             
-            // Inject JavaScript bridge
-            NSString *script = @"window.chrome = window.chrome || {}; window.chrome.webview = window.chrome.webview || {}; window.chrome.webview.postMessage = function(message) { var msg = typeof message === 'string' ? JSON.parse(message) : message; window.webkit.messageHandlers.nativeMessage.postMessage(msg); };";
-            WKUserScript *userScript = [[WKUserScript alloc] initWithSource:script injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly:YES];
+            // Inject JavaScript bridge (custom preload or built-in) in page world
+            NSString *script = getPreloadScriptForWebView(webView);
+            WKUserScript *userScript;
+            if (@available(macOS 11.0, *)) {
+                userScript = [[WKUserScript alloc] initWithSource:script injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly:YES inContentWorld:WKContentWorld.pageWorld];
+            } else {
+                userScript = [[WKUserScript alloc] initWithSource:script injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly:YES];
+            }
             [userContentController addUserScript:userScript];
             [webView evaluateJavaScript:script completionHandler:nil];
         }
-        
+
         handler.createWindowCallback = callback;
         handler.createWindowUserData = userData;
     }
@@ -225,13 +312,18 @@ void setWebViewMessageCallback(void* webViewHandle, void (*callback)(const std::
             // Add script message handler for "nativeMessage" (generic handler)
             [userContentController addScriptMessageHandler:handler name:@"nativeMessage"];
             
-            // Inject JavaScript bridge
-            NSString *script = @"window.chrome = window.chrome || {}; window.chrome.webview = window.chrome.webview || {}; window.chrome.webview.postMessage = function(message) { var msg = typeof message === 'string' ? JSON.parse(message) : message; window.webkit.messageHandlers.nativeMessage.postMessage(msg); };";
-            WKUserScript *userScript = [[WKUserScript alloc] initWithSource:script injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly:YES];
+            // Inject JavaScript bridge (custom preload or built-in) in page world
+            NSString *script = getPreloadScriptForWebView(webView);
+            WKUserScript *userScript;
+            if (@available(macOS 11.0, *)) {
+                userScript = [[WKUserScript alloc] initWithSource:script injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly:YES inContentWorld:WKContentWorld.pageWorld];
+            } else {
+                userScript = [[WKUserScript alloc] initWithSource:script injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly:YES];
+            }
             [userContentController addUserScript:userScript];
             [webView evaluateJavaScript:script completionHandler:nil];
         }
-        
+
         handler.messageCallback = callback;
         handler.messageUserData = userData;
     }
@@ -247,6 +339,15 @@ void postMessageToJavaScript(void* webViewHandle, const std::string& jsonMessage
         NSString *jsonString = [NSString stringWithUTF8String:jsonMessage.c_str()];
         NSString *jsCode = [NSString stringWithFormat:@"window.postMessage(%@, '*');", jsonString];
         [webView evaluateJavaScript:jsCode completionHandler:nil];
+    }
+}
+
+void executeWebViewScript(void* webViewHandle, const std::string& script) {
+    @autoreleasepool {
+        if (!webViewHandle || script.empty()) return;
+        WKWebView *webView = (__bridge WKWebView*)webViewHandle;
+        NSString *nsScript = [NSString stringWithUTF8String:script.c_str()];
+        [webView evaluateJavaScript:nsScript completionHandler:nil];
     }
 }
 

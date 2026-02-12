@@ -1,0 +1,8 @@
+ComponentTests 4 0.000652125
+ControlTests 4 0.193631
+ButtonTests 4 0.11263
+ContainerTests 4 0.128665
+OwnershipTests 4 0.131961
+ComponentCollectionTests 4 0.000713104
+LayoutTests 4 0.129892
+---

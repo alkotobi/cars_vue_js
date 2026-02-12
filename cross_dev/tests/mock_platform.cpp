@@ -81,9 +81,20 @@ void setWindowResizeCallback(void* windowHandle, void (*callback)(int width, int
     // Mock implementation - do nothing
 }
 
+void setWindowMoveCallback(void*, void (*)(int, int, void*), void*) {}
+void setWindowFileDropCallback(void*, void (*)(const std::string&, void*), void*) {}
+
 void setWindowCloseCallback(void*, void (*)(void*), void*) {
     // Mock implementation - do nothing
 }
+
+void setWindowFocusCallback(void*, void (*)(void*), void*) {}
+void setWindowBlurCallback(void*, void (*)(void*), void*) {}
+void setWindowStateCallback(void*, void (*)(const char*, void*), void*) {}
+
+void setWindowMainMenu(void*, const std::string&, void (*)(const std::string&, void*), void*) {}
+
+void showContextMenu(void*, int, int, const std::string&, void (*)(const std::string&, void*), void*) {}
 
 // WebView functions
 void* createWebView(void* parentHandle, int x, int y, int width, int height) {
@@ -118,7 +129,13 @@ void setWebViewMessageCallback(void* webViewHandle, void (*callback)(const std::
     // Mock implementation
 }
 
+void setWebViewPreloadScript(void*, const std::string&) {}
+
 void postMessageToJavaScript(void* webViewHandle, const std::string& jsonMessage) {
+    // Mock implementation
+}
+
+void executeWebViewScript(void* webViewHandle, const std::string& script) {
     // Mock implementation
 }
 
@@ -198,5 +215,12 @@ void runApplication() {
 void quitApplication() {
     // Mock implementation
 }
+
+void setAppActivateCallback(void (*)(void*), void*) {}
+void setAppDeactivateCallback(void (*)(void*), void*) {}
+void setThemeChangeCallback(void (*)(const char*, void*), void*) {}
+void setKeyShortcutCallback(void (*)(const std::string&, void*), void*) {}
+void setAppOpenFileCallback(void (*)(const std::string&, void*), void*) {}
+void deliverOpenFilePaths(int, const char**) {}
 
 } // namespace platform

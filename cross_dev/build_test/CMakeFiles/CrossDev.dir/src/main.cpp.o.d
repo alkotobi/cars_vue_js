@@ -848,6 +848,10 @@ CMakeFiles/CrossDev.dir/src/main.cpp.o: \
   /Users/merhab/dev/vu.js/cars/cross_dev/src/../include/handlers/appinfohandler.h \
   /Users/merhab/dev/vu.js/cars/cross_dev/src/../include/handlers/calculatorhandler.h \
   /Users/merhab/dev/vu.js/cars/cross_dev/src/../include/handlers/filedialoghandler.h \
+  /Users/merhab/dev/vu.js/cars/cross_dev/src/../include/handlers/readfilehandler.h \
+  /Users/merhab/dev/vu.js/cars/cross_dev/src/../include/handlers/writefilehandler.h \
+  /Users/merhab/dev/vu.js/cars/cross_dev/src/../include/handlers/filesystemhandler.h \
+  /Users/merhab/dev/vu.js/cars/cross_dev/src/../include/handlers/contextmenuhandler.h \
   /Users/merhab/dev/vu.js/cars/cross_dev/src/../include/config_manager.h \
   /Users/merhab/dev/vu.js/cars/cross_dev/src/../include/platform.h \
   /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/TargetConditionals.h \

@@ -57,6 +57,12 @@ public:
     // Get HTML content (if method is "html")
     std::string getHtmlContent() const;
     
+    // Get preload script path (empty = use built-in bridge). Path is relative to cwd or absolute.
+    std::string getPreloadPath() const;
+    
+    // Get preload script content. If preloadPath is set and file exists, returns file content; else empty (use built-in).
+    static std::string getPreloadScriptContent();
+    
     // Try to load file content from standard locations (cwd, ., .., ../..)
     static std::string tryLoadFileContent(const std::string& filename);
     

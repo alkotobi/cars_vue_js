@@ -30,6 +30,7 @@ struct WebViewData {
     void* createWindowUserData;
     MessageCallback messageCallback;
     void* messageUserData;
+    std::string customPreloadScript;
 };
 
 void* createWebView(void* parentHandle, int x, int y, int width, int height) {
@@ -237,15 +238,74 @@ void setWebViewMessageCallback(void* webViewHandle, void (*callback)(const std::
         g_signal_connect(manager, "script-message-received::nativeMessage",
                          G_CALLBACK(onScriptMessageReceived), data);
         
-        // Inject JavaScript bridge
+        const char* script = nullptr;
+        if (!data->customPreloadScript.empty()) {
+            script = data->customPreloadScript.c_str();
+        } else {
+        // Inject CrossDev bridge (invoke, events, binary) - same as macOS
         const char* script = R"(
-            window.chrome = window.chrome || {};
-            window.chrome.webview = window.chrome.webview || {};
-            window.chrome.webview.postMessage = function(message) {
-                var msg = typeof message === 'string' ? JSON.parse(message) : message;
-                window.webkit.messageHandlers.nativeMessage.postMessage(msg);
-            };
+            (function(){
+                var _pending=new Map();
+                var _eventListeners={};
+                function _ab2b64(ab){var u8=new Uint8Array(ab);var bin='';for(var i=0;i<u8.length;i++)bin+=String.fromCharCode(u8[i]);return btoa(bin);}
+                function _b642ab(s){var bin=atob(s);var u8=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)u8[i]=bin.charCodeAt(i);return u8.buffer;}
+                function _toWire(obj){
+                    if(obj===null||typeof obj!=='object')return obj;
+                    if(obj instanceof ArrayBuffer){return {__base64:_ab2b64(obj)};}
+                    if(ArrayBuffer.isView&&ArrayBuffer.isView(obj)){return {__base64:_ab2b64(obj.buffer.slice(obj.byteOffset,obj.byteOffset+obj.byteLength))};}
+                    if(Array.isArray(obj))return obj.map(_toWire);
+                    var out={};for(var k in obj)if(obj.hasOwnProperty(k))out[k]=_toWire(obj[k]);return out;
+                }
+                window.addEventListener('message',function(e){
+                    var d=e.data;
+                    if(!d)return;
+                    if(d.type==='crossdev:event'){
+                        var name=d.name,payload=d.payload||{};
+                        var list=_eventListeners[name];
+                        if(list)list.forEach(function(fn){try{fn(payload)}catch(err){console.error(err)}});
+                        return;
+                    }
+                    if(d.requestId){
+                        var h=_pending.get(d.requestId);
+                        if(h){_pending.delete(d.requestId);
+                            var res=d.result;
+                            if(h.binary&&res&&typeof res.data==='string'){res=Object.assign({},res);res.data=_b642ab(res.data);}
+                            d.error?h.reject(new Error(d.error)):h.resolve(res);
+                        }
+                    }
+                });
+                function _post(msg){
+                    if(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.nativeMessage){
+                        window.webkit.messageHandlers.nativeMessage.postMessage(msg);
+                    }
+                }
+                var CrossDev={
+                    invoke:function(type,payload,opts){
+                        var opt=opts||{};
+                        return new Promise(function(resolve,reject){
+                            var rid=Date.now()+'-'+Math.random();
+                            _pending.set(rid,{resolve:resolve,reject:reject,binary:!!opt.binaryResponse});
+                            setTimeout(function(){if(_pending.has(rid)){_pending.delete(rid);reject(new Error('Request timeout'));}},10000);
+                            _post({type:type,payload:_toWire(payload||{}),requestId:rid});
+                        });
+                    },
+                    events:{
+                        on:function(name,fn){
+                            if(!_eventListeners[name])_eventListeners[name]=[];
+                            _eventListeners[name].push(fn);
+                            return function(){var i=_eventListeners[name].indexOf(fn);if(i>=0)_eventListeners[name].splice(i,1);};
+                        }
+                    }
+                };
+                Object.freeze(CrossDev.events);
+                Object.freeze(CrossDev);
+                try{Object.defineProperty(window,'CrossDev',{value:CrossDev,configurable:false,writable:false});}catch(_){window.CrossDev=CrossDev;}
+                window.chrome=window.chrome||{};
+                window.chrome.webview=window.chrome.webview||{};
+                window.chrome.webview.postMessage=function(m){var msg=typeof m==='string'?JSON.parse(m):m;_post(msg);};
+            })();
         )";
+        }
         
         WebKitUserScript* userScript = webkit_user_script_new(script, 
             WEBKIT_USER_CONTENT_INJECT_TOP_FRAME, 
@@ -254,6 +314,12 @@ void setWebViewMessageCallback(void* webViewHandle, void (*callback)(const std::
         webkit_user_content_manager_add_script(manager, userScript);
         g_object_unref(userScript);
     }
+}
+
+void setWebViewPreloadScript(void* webViewHandle, const std::string& scriptContent) {
+    if (!webViewHandle) return;
+    WebViewData* data = static_cast<WebViewData*>(webViewHandle);
+    data->customPreloadScript = scriptContent;
 }
 
 void postMessageToJavaScript(void* webViewHandle, const std::string& jsonMessage) {
@@ -269,6 +335,14 @@ void postMessageToJavaScript(void* webViewHandle, const std::string& jsonMessage
     // Execute JavaScript to post message
     std::string script = "window.postMessage(" + jsonMessage + ", '*');";
     webkit_web_view_run_javascript(data->webView, script.c_str(), nullptr, nullptr, nullptr);
+}
+
+void executeWebViewScript(void* webViewHandle, const std::string& script) {
+    if (!webViewHandle || script.empty()) return;
+    WebViewData* data = static_cast<WebViewData*>(webViewHandle);
+    if (data && data->webView) {
+        webkit_web_view_run_javascript(data->webView, script.c_str(), nullptr, nullptr, nullptr);
+    }
 }
 
 void resizeWebView(void* webViewHandle, int width, int height) {

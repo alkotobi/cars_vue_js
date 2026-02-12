@@ -6,6 +6,10 @@
 #include "../include/handlers/appinfohandler.h"
 #include "../include/handlers/calculatorhandler.h"
 #include "../include/handlers/filedialoghandler.h"
+#include "../include/handlers/readfilehandler.h"
+#include "../include/handlers/writefilehandler.h"
+#include "../include/handlers/filesystemhandler.h"
+#include "../include/handlers/contextmenuhandler.h"
 #include "../include/config_manager.h"
 #include "../include/platform.h"
 #include "platform/platform_impl.h"
@@ -16,7 +20,7 @@
 #include <fstream>
 #include <sstream>
 
-int main(int /*argc*/, const char* /*argv*/[]) {
+int main(int argc, const char* argv[]) {
     try {
         std::cout << "Running on " << PLATFORM_NAME << std::endl;
         
@@ -85,7 +89,19 @@ int main(int /*argc*/, const char* /*argv*/[]) {
         auto fileDialogHandler = createFileDialogHandler(mainWindow.getWindow());
         router->registerHandler(fileDialogHandler);
         std::cout << "Registered FileDialog handler" << std::endl;
-        
+
+        // Register binary file handlers (readFile / writeFile with base64)
+        router->registerHandler(createReadFileHandler());
+        router->registerHandler(createWriteFileHandler());
+        std::cout << "Registered ReadFile/WriteFile handlers" << std::endl;
+
+        // Register filesystem handler (exists, listDir, mkdir, deleteFile, rename, stat)
+        router->registerHandler(createFileSystemHandler());
+        std::cout << "Registered FileSystem handler" << std::endl;
+
+        router->registerHandler(createContextMenuHandler(&mainWindow, router));
+        std::cout << "Registered ContextMenu handler" << std::endl;
+
         std::cout << "All handlers registered successfully!" << std::endl;
         std::cout << "HTML loading method: " << loadingMethod << std::endl;
 
@@ -104,6 +120,9 @@ int main(int /*argc*/, const char* /*argv*/[]) {
         }
 
         mainWindow.show();
+        
+        // Deliver any file paths from command line (e.g. open-with, drag-drop onto app icon)
+        platform::deliverOpenFilePaths(argc, argv);
         
         std::cout << "Window created with web view." << std::endl;
         

@@ -1,5 +1,6 @@
 #include "../include/control.h"
 #include "../include/layout.h"
+#include "platform/platform_impl.h"
 #include <algorithm>
 #include <stdexcept>
 
@@ -271,4 +272,15 @@ SizeHint Control::GetSizeHint() const {
     hint.maxWidth = 10000;
     hint.maxHeight = 10000;
     return hint;
+}
+
+void Control::showContextMenu(int x, int y, const std::string& itemsJson,
+                              void (*itemCallback)(const std::string& itemId, void* userData),
+                              void* userData) {
+    if (!itemCallback || itemsJson.empty()) return;
+    Control* root = GetRootControl();
+    void* parentHandle = root ? root->getNativeHandle() : nullptr;
+    if (parentHandle) {
+        platform::showContextMenu(parentHandle, x, y, itemsJson, itemCallback, userData);
+    }
 }

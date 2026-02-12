@@ -26,9 +26,16 @@ public:
     void hide();
     void setTitle(const std::string& title);
     bool isVisible() const;
-    
+
+    // Main menu bar (macOS menu bar, Windows/Linux window menu).
+    // menuJson: [{"id":"file","label":"File","items":[{"id":"new","label":"New"},{"id":"-"},{"id":"quit","label":"Quit"}]}]
+    // Use {"id":"-"} or {"label":"-"} for separators.
+    void setMainMenu(const std::string& menuJson,
+                    void (*itemCallback)(const std::string& itemId, void* userData),
+                    void* userData = nullptr);
+
     // Platform-specific handle (opaque pointer) - exposed for components
-    void* getNativeHandle() const { return nativeHandle_; }
+    void* getNativeHandle() const override { return nativeHandle_; }
     
 protected:
     // Override Control virtual methods

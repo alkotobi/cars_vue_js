@@ -86,10 +86,24 @@ CMakeFiles/layout_demo.dir/examples/layout_demo.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/layout_demo.dir/examples/layout_demo.cpp.s"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/merhab/dev/vu.js/cars/cross_dev/examples/layout_demo.cpp -o CMakeFiles/layout_demo.dir/examples/layout_demo.cpp.s
 
+CMakeFiles/layout_demo.dir/src/base64.cpp.o: CMakeFiles/layout_demo.dir/flags.make
+CMakeFiles/layout_demo.dir/src/base64.cpp.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/base64.cpp
+CMakeFiles/layout_demo.dir/src/base64.cpp.o: CMakeFiles/layout_demo.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/layout_demo.dir/src/base64.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/layout_demo.dir/src/base64.cpp.o -MF CMakeFiles/layout_demo.dir/src/base64.cpp.o.d -o CMakeFiles/layout_demo.dir/src/base64.cpp.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/base64.cpp
+
+CMakeFiles/layout_demo.dir/src/base64.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/layout_demo.dir/src/base64.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/merhab/dev/vu.js/cars/cross_dev/src/base64.cpp > CMakeFiles/layout_demo.dir/src/base64.cpp.i
+
+CMakeFiles/layout_demo.dir/src/base64.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/layout_demo.dir/src/base64.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/merhab/dev/vu.js/cars/cross_dev/src/base64.cpp -o CMakeFiles/layout_demo.dir/src/base64.cpp.s
+
 CMakeFiles/layout_demo.dir/src/component.cpp.o: CMakeFiles/layout_demo.dir/flags.make
 CMakeFiles/layout_demo.dir/src/component.cpp.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/component.cpp
 CMakeFiles/layout_demo.dir/src/component.cpp.o: CMakeFiles/layout_demo.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/layout_demo.dir/src/component.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/layout_demo.dir/src/component.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/layout_demo.dir/src/component.cpp.o -MF CMakeFiles/layout_demo.dir/src/component.cpp.o.d -o CMakeFiles/layout_demo.dir/src/component.cpp.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/component.cpp
 
 CMakeFiles/layout_demo.dir/src/component.cpp.i: cmake_force
@@ -103,7 +117,7 @@ CMakeFiles/layout_demo.dir/src/component.cpp.s: cmake_force
 CMakeFiles/layout_demo.dir/src/control.cpp.o: CMakeFiles/layout_demo.dir/flags.make
 CMakeFiles/layout_demo.dir/src/control.cpp.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/control.cpp
 CMakeFiles/layout_demo.dir/src/control.cpp.o: CMakeFiles/layout_demo.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/layout_demo.dir/src/control.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/layout_demo.dir/src/control.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/layout_demo.dir/src/control.cpp.o -MF CMakeFiles/layout_demo.dir/src/control.cpp.o.d -o CMakeFiles/layout_demo.dir/src/control.cpp.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/control.cpp
 
 CMakeFiles/layout_demo.dir/src/control.cpp.i: cmake_force
@@ -114,10 +128,24 @@ CMakeFiles/layout_demo.dir/src/control.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/layout_demo.dir/src/control.cpp.s"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/merhab/dev/vu.js/cars/cross_dev/src/control.cpp -o CMakeFiles/layout_demo.dir/src/control.cpp.s
 
+CMakeFiles/layout_demo.dir/src/native_event_bus.cpp.o: CMakeFiles/layout_demo.dir/flags.make
+CMakeFiles/layout_demo.dir/src/native_event_bus.cpp.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/native_event_bus.cpp
+CMakeFiles/layout_demo.dir/src/native_event_bus.cpp.o: CMakeFiles/layout_demo.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/layout_demo.dir/src/native_event_bus.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/layout_demo.dir/src/native_event_bus.cpp.o -MF CMakeFiles/layout_demo.dir/src/native_event_bus.cpp.o.d -o CMakeFiles/layout_demo.dir/src/native_event_bus.cpp.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/native_event_bus.cpp
+
+CMakeFiles/layout_demo.dir/src/native_event_bus.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/layout_demo.dir/src/native_event_bus.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/merhab/dev/vu.js/cars/cross_dev/src/native_event_bus.cpp > CMakeFiles/layout_demo.dir/src/native_event_bus.cpp.i
+
+CMakeFiles/layout_demo.dir/src/native_event_bus.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/layout_demo.dir/src/native_event_bus.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/merhab/dev/vu.js/cars/cross_dev/src/native_event_bus.cpp -o CMakeFiles/layout_demo.dir/src/native_event_bus.cpp.s
+
 CMakeFiles/layout_demo.dir/src/window.cpp.o: CMakeFiles/layout_demo.dir/flags.make
 CMakeFiles/layout_demo.dir/src/window.cpp.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/window.cpp
 CMakeFiles/layout_demo.dir/src/window.cpp.o: CMakeFiles/layout_demo.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/layout_demo.dir/src/window.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building CXX object CMakeFiles/layout_demo.dir/src/window.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/layout_demo.dir/src/window.cpp.o -MF CMakeFiles/layout_demo.dir/src/window.cpp.o.d -o CMakeFiles/layout_demo.dir/src/window.cpp.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/window.cpp
 
 CMakeFiles/layout_demo.dir/src/window.cpp.i: cmake_force
@@ -131,7 +159,7 @@ CMakeFiles/layout_demo.dir/src/window.cpp.s: cmake_force
 CMakeFiles/layout_demo.dir/src/webview.cpp.o: CMakeFiles/layout_demo.dir/flags.make
 CMakeFiles/layout_demo.dir/src/webview.cpp.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/webview.cpp
 CMakeFiles/layout_demo.dir/src/webview.cpp.o: CMakeFiles/layout_demo.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/layout_demo.dir/src/webview.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Building CXX object CMakeFiles/layout_demo.dir/src/webview.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/layout_demo.dir/src/webview.cpp.o -MF CMakeFiles/layout_demo.dir/src/webview.cpp.o.d -o CMakeFiles/layout_demo.dir/src/webview.cpp.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/webview.cpp
 
 CMakeFiles/layout_demo.dir/src/webview.cpp.i: cmake_force
@@ -145,7 +173,7 @@ CMakeFiles/layout_demo.dir/src/webview.cpp.s: cmake_force
 CMakeFiles/layout_demo.dir/src/webview_window.cpp.o: CMakeFiles/layout_demo.dir/flags.make
 CMakeFiles/layout_demo.dir/src/webview_window.cpp.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/webview_window.cpp
 CMakeFiles/layout_demo.dir/src/webview_window.cpp.o: CMakeFiles/layout_demo.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building CXX object CMakeFiles/layout_demo.dir/src/webview_window.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "Building CXX object CMakeFiles/layout_demo.dir/src/webview_window.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/layout_demo.dir/src/webview_window.cpp.o -MF CMakeFiles/layout_demo.dir/src/webview_window.cpp.o.d -o CMakeFiles/layout_demo.dir/src/webview_window.cpp.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/webview_window.cpp
 
 CMakeFiles/layout_demo.dir/src/webview_window.cpp.i: cmake_force
@@ -159,7 +187,7 @@ CMakeFiles/layout_demo.dir/src/webview_window.cpp.s: cmake_force
 CMakeFiles/layout_demo.dir/src/button.cpp.o: CMakeFiles/layout_demo.dir/flags.make
 CMakeFiles/layout_demo.dir/src/button.cpp.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/button.cpp
 CMakeFiles/layout_demo.dir/src/button.cpp.o: CMakeFiles/layout_demo.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Building CXX object CMakeFiles/layout_demo.dir/src/button.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_9) "Building CXX object CMakeFiles/layout_demo.dir/src/button.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/layout_demo.dir/src/button.cpp.o -MF CMakeFiles/layout_demo.dir/src/button.cpp.o.d -o CMakeFiles/layout_demo.dir/src/button.cpp.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/button.cpp
 
 CMakeFiles/layout_demo.dir/src/button.cpp.i: cmake_force
@@ -173,7 +201,7 @@ CMakeFiles/layout_demo.dir/src/button.cpp.s: cmake_force
 CMakeFiles/layout_demo.dir/src/inputfield.cpp.o: CMakeFiles/layout_demo.dir/flags.make
 CMakeFiles/layout_demo.dir/src/inputfield.cpp.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/inputfield.cpp
 CMakeFiles/layout_demo.dir/src/inputfield.cpp.o: CMakeFiles/layout_demo.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "Building CXX object CMakeFiles/layout_demo.dir/src/inputfield.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_10) "Building CXX object CMakeFiles/layout_demo.dir/src/inputfield.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/layout_demo.dir/src/inputfield.cpp.o -MF CMakeFiles/layout_demo.dir/src/inputfield.cpp.o.d -o CMakeFiles/layout_demo.dir/src/inputfield.cpp.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/inputfield.cpp
 
 CMakeFiles/layout_demo.dir/src/inputfield.cpp.i: cmake_force
@@ -187,7 +215,7 @@ CMakeFiles/layout_demo.dir/src/inputfield.cpp.s: cmake_force
 CMakeFiles/layout_demo.dir/src/container.cpp.o: CMakeFiles/layout_demo.dir/flags.make
 CMakeFiles/layout_demo.dir/src/container.cpp.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/container.cpp
 CMakeFiles/layout_demo.dir/src/container.cpp.o: CMakeFiles/layout_demo.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_9) "Building CXX object CMakeFiles/layout_demo.dir/src/container.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_11) "Building CXX object CMakeFiles/layout_demo.dir/src/container.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/layout_demo.dir/src/container.cpp.o -MF CMakeFiles/layout_demo.dir/src/container.cpp.o.d -o CMakeFiles/layout_demo.dir/src/container.cpp.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/container.cpp
 
 CMakeFiles/layout_demo.dir/src/container.cpp.i: cmake_force
@@ -201,7 +229,7 @@ CMakeFiles/layout_demo.dir/src/container.cpp.s: cmake_force
 CMakeFiles/layout_demo.dir/src/layout.cpp.o: CMakeFiles/layout_demo.dir/flags.make
 CMakeFiles/layout_demo.dir/src/layout.cpp.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/layout.cpp
 CMakeFiles/layout_demo.dir/src/layout.cpp.o: CMakeFiles/layout_demo.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_10) "Building CXX object CMakeFiles/layout_demo.dir/src/layout.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_12) "Building CXX object CMakeFiles/layout_demo.dir/src/layout.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/layout_demo.dir/src/layout.cpp.o -MF CMakeFiles/layout_demo.dir/src/layout.cpp.o.d -o CMakeFiles/layout_demo.dir/src/layout.cpp.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/layout.cpp
 
 CMakeFiles/layout_demo.dir/src/layout.cpp.i: cmake_force
@@ -215,7 +243,7 @@ CMakeFiles/layout_demo.dir/src/layout.cpp.s: cmake_force
 CMakeFiles/layout_demo.dir/src/vertical_layout.cpp.o: CMakeFiles/layout_demo.dir/flags.make
 CMakeFiles/layout_demo.dir/src/vertical_layout.cpp.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/vertical_layout.cpp
 CMakeFiles/layout_demo.dir/src/vertical_layout.cpp.o: CMakeFiles/layout_demo.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_11) "Building CXX object CMakeFiles/layout_demo.dir/src/vertical_layout.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_13) "Building CXX object CMakeFiles/layout_demo.dir/src/vertical_layout.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/layout_demo.dir/src/vertical_layout.cpp.o -MF CMakeFiles/layout_demo.dir/src/vertical_layout.cpp.o.d -o CMakeFiles/layout_demo.dir/src/vertical_layout.cpp.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/vertical_layout.cpp
 
 CMakeFiles/layout_demo.dir/src/vertical_layout.cpp.i: cmake_force
@@ -229,7 +257,7 @@ CMakeFiles/layout_demo.dir/src/vertical_layout.cpp.s: cmake_force
 CMakeFiles/layout_demo.dir/src/horizontal_layout.cpp.o: CMakeFiles/layout_demo.dir/flags.make
 CMakeFiles/layout_demo.dir/src/horizontal_layout.cpp.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/horizontal_layout.cpp
 CMakeFiles/layout_demo.dir/src/horizontal_layout.cpp.o: CMakeFiles/layout_demo.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_12) "Building CXX object CMakeFiles/layout_demo.dir/src/horizontal_layout.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_14) "Building CXX object CMakeFiles/layout_demo.dir/src/horizontal_layout.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/layout_demo.dir/src/horizontal_layout.cpp.o -MF CMakeFiles/layout_demo.dir/src/horizontal_layout.cpp.o.d -o CMakeFiles/layout_demo.dir/src/horizontal_layout.cpp.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/horizontal_layout.cpp
 
 CMakeFiles/layout_demo.dir/src/horizontal_layout.cpp.i: cmake_force
@@ -243,7 +271,7 @@ CMakeFiles/layout_demo.dir/src/horizontal_layout.cpp.s: cmake_force
 CMakeFiles/layout_demo.dir/src/application.cpp.o: CMakeFiles/layout_demo.dir/flags.make
 CMakeFiles/layout_demo.dir/src/application.cpp.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/application.cpp
 CMakeFiles/layout_demo.dir/src/application.cpp.o: CMakeFiles/layout_demo.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_13) "Building CXX object CMakeFiles/layout_demo.dir/src/application.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_15) "Building CXX object CMakeFiles/layout_demo.dir/src/application.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/layout_demo.dir/src/application.cpp.o -MF CMakeFiles/layout_demo.dir/src/application.cpp.o.d -o CMakeFiles/layout_demo.dir/src/application.cpp.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/application.cpp
 
 CMakeFiles/layout_demo.dir/src/application.cpp.i: cmake_force
@@ -257,7 +285,7 @@ CMakeFiles/layout_demo.dir/src/application.cpp.s: cmake_force
 CMakeFiles/layout_demo.dir/src/eventhandler.cpp.o: CMakeFiles/layout_demo.dir/flags.make
 CMakeFiles/layout_demo.dir/src/eventhandler.cpp.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/eventhandler.cpp
 CMakeFiles/layout_demo.dir/src/eventhandler.cpp.o: CMakeFiles/layout_demo.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_14) "Building CXX object CMakeFiles/layout_demo.dir/src/eventhandler.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_16) "Building CXX object CMakeFiles/layout_demo.dir/src/eventhandler.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/layout_demo.dir/src/eventhandler.cpp.o -MF CMakeFiles/layout_demo.dir/src/eventhandler.cpp.o.d -o CMakeFiles/layout_demo.dir/src/eventhandler.cpp.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/eventhandler.cpp
 
 CMakeFiles/layout_demo.dir/src/eventhandler.cpp.i: cmake_force
@@ -271,7 +299,7 @@ CMakeFiles/layout_demo.dir/src/eventhandler.cpp.s: cmake_force
 CMakeFiles/layout_demo.dir/src/messagerouter.cpp.o: CMakeFiles/layout_demo.dir/flags.make
 CMakeFiles/layout_demo.dir/src/messagerouter.cpp.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/messagerouter.cpp
 CMakeFiles/layout_demo.dir/src/messagerouter.cpp.o: CMakeFiles/layout_demo.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_15) "Building CXX object CMakeFiles/layout_demo.dir/src/messagerouter.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_17) "Building CXX object CMakeFiles/layout_demo.dir/src/messagerouter.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/layout_demo.dir/src/messagerouter.cpp.o -MF CMakeFiles/layout_demo.dir/src/messagerouter.cpp.o.d -o CMakeFiles/layout_demo.dir/src/messagerouter.cpp.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/messagerouter.cpp
 
 CMakeFiles/layout_demo.dir/src/messagerouter.cpp.i: cmake_force
@@ -285,7 +313,7 @@ CMakeFiles/layout_demo.dir/src/messagerouter.cpp.s: cmake_force
 CMakeFiles/layout_demo.dir/src/config_manager.cpp.o: CMakeFiles/layout_demo.dir/flags.make
 CMakeFiles/layout_demo.dir/src/config_manager.cpp.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/config_manager.cpp
 CMakeFiles/layout_demo.dir/src/config_manager.cpp.o: CMakeFiles/layout_demo.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_16) "Building CXX object CMakeFiles/layout_demo.dir/src/config_manager.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_18) "Building CXX object CMakeFiles/layout_demo.dir/src/config_manager.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/layout_demo.dir/src/config_manager.cpp.o -MF CMakeFiles/layout_demo.dir/src/config_manager.cpp.o.d -o CMakeFiles/layout_demo.dir/src/config_manager.cpp.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/config_manager.cpp
 
 CMakeFiles/layout_demo.dir/src/config_manager.cpp.i: cmake_force
@@ -299,7 +327,7 @@ CMakeFiles/layout_demo.dir/src/config_manager.cpp.s: cmake_force
 CMakeFiles/layout_demo.dir/src/handlers/createwindowhandler.cpp.o: CMakeFiles/layout_demo.dir/flags.make
 CMakeFiles/layout_demo.dir/src/handlers/createwindowhandler.cpp.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/createwindowhandler.cpp
 CMakeFiles/layout_demo.dir/src/handlers/createwindowhandler.cpp.o: CMakeFiles/layout_demo.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_17) "Building CXX object CMakeFiles/layout_demo.dir/src/handlers/createwindowhandler.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_19) "Building CXX object CMakeFiles/layout_demo.dir/src/handlers/createwindowhandler.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/layout_demo.dir/src/handlers/createwindowhandler.cpp.o -MF CMakeFiles/layout_demo.dir/src/handlers/createwindowhandler.cpp.o.d -o CMakeFiles/layout_demo.dir/src/handlers/createwindowhandler.cpp.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/createwindowhandler.cpp
 
 CMakeFiles/layout_demo.dir/src/handlers/createwindowhandler.cpp.i: cmake_force
@@ -313,7 +341,7 @@ CMakeFiles/layout_demo.dir/src/handlers/createwindowhandler.cpp.s: cmake_force
 CMakeFiles/layout_demo.dir/src/handlers/appinfohandler.cpp.o: CMakeFiles/layout_demo.dir/flags.make
 CMakeFiles/layout_demo.dir/src/handlers/appinfohandler.cpp.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/appinfohandler.cpp
 CMakeFiles/layout_demo.dir/src/handlers/appinfohandler.cpp.o: CMakeFiles/layout_demo.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_18) "Building CXX object CMakeFiles/layout_demo.dir/src/handlers/appinfohandler.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_20) "Building CXX object CMakeFiles/layout_demo.dir/src/handlers/appinfohandler.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/layout_demo.dir/src/handlers/appinfohandler.cpp.o -MF CMakeFiles/layout_demo.dir/src/handlers/appinfohandler.cpp.o.d -o CMakeFiles/layout_demo.dir/src/handlers/appinfohandler.cpp.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/appinfohandler.cpp
 
 CMakeFiles/layout_demo.dir/src/handlers/appinfohandler.cpp.i: cmake_force
@@ -327,7 +355,7 @@ CMakeFiles/layout_demo.dir/src/handlers/appinfohandler.cpp.s: cmake_force
 CMakeFiles/layout_demo.dir/src/handlers/calculatorhandler.cpp.o: CMakeFiles/layout_demo.dir/flags.make
 CMakeFiles/layout_demo.dir/src/handlers/calculatorhandler.cpp.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/calculatorhandler.cpp
 CMakeFiles/layout_demo.dir/src/handlers/calculatorhandler.cpp.o: CMakeFiles/layout_demo.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_19) "Building CXX object CMakeFiles/layout_demo.dir/src/handlers/calculatorhandler.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_21) "Building CXX object CMakeFiles/layout_demo.dir/src/handlers/calculatorhandler.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/layout_demo.dir/src/handlers/calculatorhandler.cpp.o -MF CMakeFiles/layout_demo.dir/src/handlers/calculatorhandler.cpp.o.d -o CMakeFiles/layout_demo.dir/src/handlers/calculatorhandler.cpp.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/calculatorhandler.cpp
 
 CMakeFiles/layout_demo.dir/src/handlers/calculatorhandler.cpp.i: cmake_force
@@ -341,7 +369,7 @@ CMakeFiles/layout_demo.dir/src/handlers/calculatorhandler.cpp.s: cmake_force
 CMakeFiles/layout_demo.dir/src/handlers/filedialoghandler.cpp.o: CMakeFiles/layout_demo.dir/flags.make
 CMakeFiles/layout_demo.dir/src/handlers/filedialoghandler.cpp.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/filedialoghandler.cpp
 CMakeFiles/layout_demo.dir/src/handlers/filedialoghandler.cpp.o: CMakeFiles/layout_demo.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_20) "Building CXX object CMakeFiles/layout_demo.dir/src/handlers/filedialoghandler.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_22) "Building CXX object CMakeFiles/layout_demo.dir/src/handlers/filedialoghandler.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/layout_demo.dir/src/handlers/filedialoghandler.cpp.o -MF CMakeFiles/layout_demo.dir/src/handlers/filedialoghandler.cpp.o.d -o CMakeFiles/layout_demo.dir/src/handlers/filedialoghandler.cpp.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/filedialoghandler.cpp
 
 CMakeFiles/layout_demo.dir/src/handlers/filedialoghandler.cpp.i: cmake_force
@@ -352,10 +380,66 @@ CMakeFiles/layout_demo.dir/src/handlers/filedialoghandler.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/layout_demo.dir/src/handlers/filedialoghandler.cpp.s"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/filedialoghandler.cpp -o CMakeFiles/layout_demo.dir/src/handlers/filedialoghandler.cpp.s
 
+CMakeFiles/layout_demo.dir/src/handlers/readfilehandler.cpp.o: CMakeFiles/layout_demo.dir/flags.make
+CMakeFiles/layout_demo.dir/src/handlers/readfilehandler.cpp.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/readfilehandler.cpp
+CMakeFiles/layout_demo.dir/src/handlers/readfilehandler.cpp.o: CMakeFiles/layout_demo.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_23) "Building CXX object CMakeFiles/layout_demo.dir/src/handlers/readfilehandler.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/layout_demo.dir/src/handlers/readfilehandler.cpp.o -MF CMakeFiles/layout_demo.dir/src/handlers/readfilehandler.cpp.o.d -o CMakeFiles/layout_demo.dir/src/handlers/readfilehandler.cpp.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/readfilehandler.cpp
+
+CMakeFiles/layout_demo.dir/src/handlers/readfilehandler.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/layout_demo.dir/src/handlers/readfilehandler.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/readfilehandler.cpp > CMakeFiles/layout_demo.dir/src/handlers/readfilehandler.cpp.i
+
+CMakeFiles/layout_demo.dir/src/handlers/readfilehandler.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/layout_demo.dir/src/handlers/readfilehandler.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/readfilehandler.cpp -o CMakeFiles/layout_demo.dir/src/handlers/readfilehandler.cpp.s
+
+CMakeFiles/layout_demo.dir/src/handlers/writefilehandler.cpp.o: CMakeFiles/layout_demo.dir/flags.make
+CMakeFiles/layout_demo.dir/src/handlers/writefilehandler.cpp.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/writefilehandler.cpp
+CMakeFiles/layout_demo.dir/src/handlers/writefilehandler.cpp.o: CMakeFiles/layout_demo.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_24) "Building CXX object CMakeFiles/layout_demo.dir/src/handlers/writefilehandler.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/layout_demo.dir/src/handlers/writefilehandler.cpp.o -MF CMakeFiles/layout_demo.dir/src/handlers/writefilehandler.cpp.o.d -o CMakeFiles/layout_demo.dir/src/handlers/writefilehandler.cpp.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/writefilehandler.cpp
+
+CMakeFiles/layout_demo.dir/src/handlers/writefilehandler.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/layout_demo.dir/src/handlers/writefilehandler.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/writefilehandler.cpp > CMakeFiles/layout_demo.dir/src/handlers/writefilehandler.cpp.i
+
+CMakeFiles/layout_demo.dir/src/handlers/writefilehandler.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/layout_demo.dir/src/handlers/writefilehandler.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/writefilehandler.cpp -o CMakeFiles/layout_demo.dir/src/handlers/writefilehandler.cpp.s
+
+CMakeFiles/layout_demo.dir/src/handlers/filesystemhandler.cpp.o: CMakeFiles/layout_demo.dir/flags.make
+CMakeFiles/layout_demo.dir/src/handlers/filesystemhandler.cpp.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/filesystemhandler.cpp
+CMakeFiles/layout_demo.dir/src/handlers/filesystemhandler.cpp.o: CMakeFiles/layout_demo.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_25) "Building CXX object CMakeFiles/layout_demo.dir/src/handlers/filesystemhandler.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/layout_demo.dir/src/handlers/filesystemhandler.cpp.o -MF CMakeFiles/layout_demo.dir/src/handlers/filesystemhandler.cpp.o.d -o CMakeFiles/layout_demo.dir/src/handlers/filesystemhandler.cpp.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/filesystemhandler.cpp
+
+CMakeFiles/layout_demo.dir/src/handlers/filesystemhandler.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/layout_demo.dir/src/handlers/filesystemhandler.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/filesystemhandler.cpp > CMakeFiles/layout_demo.dir/src/handlers/filesystemhandler.cpp.i
+
+CMakeFiles/layout_demo.dir/src/handlers/filesystemhandler.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/layout_demo.dir/src/handlers/filesystemhandler.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/filesystemhandler.cpp -o CMakeFiles/layout_demo.dir/src/handlers/filesystemhandler.cpp.s
+
+CMakeFiles/layout_demo.dir/src/handlers/contextmenuhandler.cpp.o: CMakeFiles/layout_demo.dir/flags.make
+CMakeFiles/layout_demo.dir/src/handlers/contextmenuhandler.cpp.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/contextmenuhandler.cpp
+CMakeFiles/layout_demo.dir/src/handlers/contextmenuhandler.cpp.o: CMakeFiles/layout_demo.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_26) "Building CXX object CMakeFiles/layout_demo.dir/src/handlers/contextmenuhandler.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/layout_demo.dir/src/handlers/contextmenuhandler.cpp.o -MF CMakeFiles/layout_demo.dir/src/handlers/contextmenuhandler.cpp.o.d -o CMakeFiles/layout_demo.dir/src/handlers/contextmenuhandler.cpp.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/contextmenuhandler.cpp
+
+CMakeFiles/layout_demo.dir/src/handlers/contextmenuhandler.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/layout_demo.dir/src/handlers/contextmenuhandler.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/contextmenuhandler.cpp > CMakeFiles/layout_demo.dir/src/handlers/contextmenuhandler.cpp.i
+
+CMakeFiles/layout_demo.dir/src/handlers/contextmenuhandler.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/layout_demo.dir/src/handlers/contextmenuhandler.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/merhab/dev/vu.js/cars/cross_dev/src/handlers/contextmenuhandler.cpp -o CMakeFiles/layout_demo.dir/src/handlers/contextmenuhandler.cpp.s
+
 CMakeFiles/layout_demo.dir/src/platform/macos/app_macos.mm.o: CMakeFiles/layout_demo.dir/flags.make
 CMakeFiles/layout_demo.dir/src/platform/macos/app_macos.mm.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/platform/macos/app_macos.mm
 CMakeFiles/layout_demo.dir/src/platform/macos/app_macos.mm.o: CMakeFiles/layout_demo.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_21) "Building CXX object CMakeFiles/layout_demo.dir/src/platform/macos/app_macos.mm.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_27) "Building CXX object CMakeFiles/layout_demo.dir/src/platform/macos/app_macos.mm.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/layout_demo.dir/src/platform/macos/app_macos.mm.o -MF CMakeFiles/layout_demo.dir/src/platform/macos/app_macos.mm.o.d -o CMakeFiles/layout_demo.dir/src/platform/macos/app_macos.mm.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/platform/macos/app_macos.mm
 
 CMakeFiles/layout_demo.dir/src/platform/macos/app_macos.mm.i: cmake_force
@@ -369,7 +453,7 @@ CMakeFiles/layout_demo.dir/src/platform/macos/app_macos.mm.s: cmake_force
 CMakeFiles/layout_demo.dir/src/platform/macos/window_macos.mm.o: CMakeFiles/layout_demo.dir/flags.make
 CMakeFiles/layout_demo.dir/src/platform/macos/window_macos.mm.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/platform/macos/window_macos.mm
 CMakeFiles/layout_demo.dir/src/platform/macos/window_macos.mm.o: CMakeFiles/layout_demo.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_22) "Building CXX object CMakeFiles/layout_demo.dir/src/platform/macos/window_macos.mm.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_28) "Building CXX object CMakeFiles/layout_demo.dir/src/platform/macos/window_macos.mm.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/layout_demo.dir/src/platform/macos/window_macos.mm.o -MF CMakeFiles/layout_demo.dir/src/platform/macos/window_macos.mm.o.d -o CMakeFiles/layout_demo.dir/src/platform/macos/window_macos.mm.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/platform/macos/window_macos.mm
 
 CMakeFiles/layout_demo.dir/src/platform/macos/window_macos.mm.i: cmake_force
@@ -383,7 +467,7 @@ CMakeFiles/layout_demo.dir/src/platform/macos/window_macos.mm.s: cmake_force
 CMakeFiles/layout_demo.dir/src/platform/macos/webview_macos.mm.o: CMakeFiles/layout_demo.dir/flags.make
 CMakeFiles/layout_demo.dir/src/platform/macos/webview_macos.mm.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/platform/macos/webview_macos.mm
 CMakeFiles/layout_demo.dir/src/platform/macos/webview_macos.mm.o: CMakeFiles/layout_demo.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_23) "Building CXX object CMakeFiles/layout_demo.dir/src/platform/macos/webview_macos.mm.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_29) "Building CXX object CMakeFiles/layout_demo.dir/src/platform/macos/webview_macos.mm.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/layout_demo.dir/src/platform/macos/webview_macos.mm.o -MF CMakeFiles/layout_demo.dir/src/platform/macos/webview_macos.mm.o.d -o CMakeFiles/layout_demo.dir/src/platform/macos/webview_macos.mm.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/platform/macos/webview_macos.mm
 
 CMakeFiles/layout_demo.dir/src/platform/macos/webview_macos.mm.i: cmake_force
@@ -397,7 +481,7 @@ CMakeFiles/layout_demo.dir/src/platform/macos/webview_macos.mm.s: cmake_force
 CMakeFiles/layout_demo.dir/src/platform/macos/button_macos.mm.o: CMakeFiles/layout_demo.dir/flags.make
 CMakeFiles/layout_demo.dir/src/platform/macos/button_macos.mm.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/platform/macos/button_macos.mm
 CMakeFiles/layout_demo.dir/src/platform/macos/button_macos.mm.o: CMakeFiles/layout_demo.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_24) "Building CXX object CMakeFiles/layout_demo.dir/src/platform/macos/button_macos.mm.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_30) "Building CXX object CMakeFiles/layout_demo.dir/src/platform/macos/button_macos.mm.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/layout_demo.dir/src/platform/macos/button_macos.mm.o -MF CMakeFiles/layout_demo.dir/src/platform/macos/button_macos.mm.o.d -o CMakeFiles/layout_demo.dir/src/platform/macos/button_macos.mm.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/platform/macos/button_macos.mm
 
 CMakeFiles/layout_demo.dir/src/platform/macos/button_macos.mm.i: cmake_force
@@ -411,7 +495,7 @@ CMakeFiles/layout_demo.dir/src/platform/macos/button_macos.mm.s: cmake_force
 CMakeFiles/layout_demo.dir/src/platform/macos/filedialog_macos.mm.o: CMakeFiles/layout_demo.dir/flags.make
 CMakeFiles/layout_demo.dir/src/platform/macos/filedialog_macos.mm.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/platform/macos/filedialog_macos.mm
 CMakeFiles/layout_demo.dir/src/platform/macos/filedialog_macos.mm.o: CMakeFiles/layout_demo.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_25) "Building CXX object CMakeFiles/layout_demo.dir/src/platform/macos/filedialog_macos.mm.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_31) "Building CXX object CMakeFiles/layout_demo.dir/src/platform/macos/filedialog_macos.mm.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/layout_demo.dir/src/platform/macos/filedialog_macos.mm.o -MF CMakeFiles/layout_demo.dir/src/platform/macos/filedialog_macos.mm.o.d -o CMakeFiles/layout_demo.dir/src/platform/macos/filedialog_macos.mm.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/platform/macos/filedialog_macos.mm
 
 CMakeFiles/layout_demo.dir/src/platform/macos/filedialog_macos.mm.i: cmake_force
@@ -425,7 +509,7 @@ CMakeFiles/layout_demo.dir/src/platform/macos/filedialog_macos.mm.s: cmake_force
 CMakeFiles/layout_demo.dir/src/platform/macos/input_macos.mm.o: CMakeFiles/layout_demo.dir/flags.make
 CMakeFiles/layout_demo.dir/src/platform/macos/input_macos.mm.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/platform/macos/input_macos.mm
 CMakeFiles/layout_demo.dir/src/platform/macos/input_macos.mm.o: CMakeFiles/layout_demo.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_26) "Building CXX object CMakeFiles/layout_demo.dir/src/platform/macos/input_macos.mm.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_32) "Building CXX object CMakeFiles/layout_demo.dir/src/platform/macos/input_macos.mm.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/layout_demo.dir/src/platform/macos/input_macos.mm.o -MF CMakeFiles/layout_demo.dir/src/platform/macos/input_macos.mm.o.d -o CMakeFiles/layout_demo.dir/src/platform/macos/input_macos.mm.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/platform/macos/input_macos.mm
 
 CMakeFiles/layout_demo.dir/src/platform/macos/input_macos.mm.i: cmake_force
@@ -439,7 +523,7 @@ CMakeFiles/layout_demo.dir/src/platform/macos/input_macos.mm.s: cmake_force
 CMakeFiles/layout_demo.dir/src/platform/macos/container_macos.mm.o: CMakeFiles/layout_demo.dir/flags.make
 CMakeFiles/layout_demo.dir/src/platform/macos/container_macos.mm.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/platform/macos/container_macos.mm
 CMakeFiles/layout_demo.dir/src/platform/macos/container_macos.mm.o: CMakeFiles/layout_demo.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_27) "Building CXX object CMakeFiles/layout_demo.dir/src/platform/macos/container_macos.mm.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_33) "Building CXX object CMakeFiles/layout_demo.dir/src/platform/macos/container_macos.mm.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/layout_demo.dir/src/platform/macos/container_macos.mm.o -MF CMakeFiles/layout_demo.dir/src/platform/macos/container_macos.mm.o.d -o CMakeFiles/layout_demo.dir/src/platform/macos/container_macos.mm.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/platform/macos/container_macos.mm
 
 CMakeFiles/layout_demo.dir/src/platform/macos/container_macos.mm.i: cmake_force
@@ -450,11 +534,27 @@ CMakeFiles/layout_demo.dir/src/platform/macos/container_macos.mm.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/layout_demo.dir/src/platform/macos/container_macos.mm.s"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/merhab/dev/vu.js/cars/cross_dev/src/platform/macos/container_macos.mm -o CMakeFiles/layout_demo.dir/src/platform/macos/container_macos.mm.s
 
+CMakeFiles/layout_demo.dir/src/platform/macos/menu_macos.mm.o: CMakeFiles/layout_demo.dir/flags.make
+CMakeFiles/layout_demo.dir/src/platform/macos/menu_macos.mm.o: /Users/merhab/dev/vu.js/cars/cross_dev/src/platform/macos/menu_macos.mm
+CMakeFiles/layout_demo.dir/src/platform/macos/menu_macos.mm.o: CMakeFiles/layout_demo.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_34) "Building CXX object CMakeFiles/layout_demo.dir/src/platform/macos/menu_macos.mm.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/layout_demo.dir/src/platform/macos/menu_macos.mm.o -MF CMakeFiles/layout_demo.dir/src/platform/macos/menu_macos.mm.o.d -o CMakeFiles/layout_demo.dir/src/platform/macos/menu_macos.mm.o -c /Users/merhab/dev/vu.js/cars/cross_dev/src/platform/macos/menu_macos.mm
+
+CMakeFiles/layout_demo.dir/src/platform/macos/menu_macos.mm.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/layout_demo.dir/src/platform/macos/menu_macos.mm.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/merhab/dev/vu.js/cars/cross_dev/src/platform/macos/menu_macos.mm > CMakeFiles/layout_demo.dir/src/platform/macos/menu_macos.mm.i
+
+CMakeFiles/layout_demo.dir/src/platform/macos/menu_macos.mm.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/layout_demo.dir/src/platform/macos/menu_macos.mm.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/merhab/dev/vu.js/cars/cross_dev/src/platform/macos/menu_macos.mm -o CMakeFiles/layout_demo.dir/src/platform/macos/menu_macos.mm.s
+
 # Object files for target layout_demo
 layout_demo_OBJECTS = \
 "CMakeFiles/layout_demo.dir/examples/layout_demo.cpp.o" \
+"CMakeFiles/layout_demo.dir/src/base64.cpp.o" \
 "CMakeFiles/layout_demo.dir/src/component.cpp.o" \
 "CMakeFiles/layout_demo.dir/src/control.cpp.o" \
+"CMakeFiles/layout_demo.dir/src/native_event_bus.cpp.o" \
 "CMakeFiles/layout_demo.dir/src/window.cpp.o" \
 "CMakeFiles/layout_demo.dir/src/webview.cpp.o" \
 "CMakeFiles/layout_demo.dir/src/webview_window.cpp.o" \
@@ -472,20 +572,27 @@ layout_demo_OBJECTS = \
 "CMakeFiles/layout_demo.dir/src/handlers/appinfohandler.cpp.o" \
 "CMakeFiles/layout_demo.dir/src/handlers/calculatorhandler.cpp.o" \
 "CMakeFiles/layout_demo.dir/src/handlers/filedialoghandler.cpp.o" \
+"CMakeFiles/layout_demo.dir/src/handlers/readfilehandler.cpp.o" \
+"CMakeFiles/layout_demo.dir/src/handlers/writefilehandler.cpp.o" \
+"CMakeFiles/layout_demo.dir/src/handlers/filesystemhandler.cpp.o" \
+"CMakeFiles/layout_demo.dir/src/handlers/contextmenuhandler.cpp.o" \
 "CMakeFiles/layout_demo.dir/src/platform/macos/app_macos.mm.o" \
 "CMakeFiles/layout_demo.dir/src/platform/macos/window_macos.mm.o" \
 "CMakeFiles/layout_demo.dir/src/platform/macos/webview_macos.mm.o" \
 "CMakeFiles/layout_demo.dir/src/platform/macos/button_macos.mm.o" \
 "CMakeFiles/layout_demo.dir/src/platform/macos/filedialog_macos.mm.o" \
 "CMakeFiles/layout_demo.dir/src/platform/macos/input_macos.mm.o" \
-"CMakeFiles/layout_demo.dir/src/platform/macos/container_macos.mm.o"
+"CMakeFiles/layout_demo.dir/src/platform/macos/container_macos.mm.o" \
+"CMakeFiles/layout_demo.dir/src/platform/macos/menu_macos.mm.o"
 
 # External object files for target layout_demo
 layout_demo_EXTERNAL_OBJECTS =
 
 examples/layout_demo: CMakeFiles/layout_demo.dir/examples/layout_demo.cpp.o
+examples/layout_demo: CMakeFiles/layout_demo.dir/src/base64.cpp.o
 examples/layout_demo: CMakeFiles/layout_demo.dir/src/component.cpp.o
 examples/layout_demo: CMakeFiles/layout_demo.dir/src/control.cpp.o
+examples/layout_demo: CMakeFiles/layout_demo.dir/src/native_event_bus.cpp.o
 examples/layout_demo: CMakeFiles/layout_demo.dir/src/window.cpp.o
 examples/layout_demo: CMakeFiles/layout_demo.dir/src/webview.cpp.o
 examples/layout_demo: CMakeFiles/layout_demo.dir/src/webview_window.cpp.o
@@ -503,6 +610,10 @@ examples/layout_demo: CMakeFiles/layout_demo.dir/src/handlers/createwindowhandle
 examples/layout_demo: CMakeFiles/layout_demo.dir/src/handlers/appinfohandler.cpp.o
 examples/layout_demo: CMakeFiles/layout_demo.dir/src/handlers/calculatorhandler.cpp.o
 examples/layout_demo: CMakeFiles/layout_demo.dir/src/handlers/filedialoghandler.cpp.o
+examples/layout_demo: CMakeFiles/layout_demo.dir/src/handlers/readfilehandler.cpp.o
+examples/layout_demo: CMakeFiles/layout_demo.dir/src/handlers/writefilehandler.cpp.o
+examples/layout_demo: CMakeFiles/layout_demo.dir/src/handlers/filesystemhandler.cpp.o
+examples/layout_demo: CMakeFiles/layout_demo.dir/src/handlers/contextmenuhandler.cpp.o
 examples/layout_demo: CMakeFiles/layout_demo.dir/src/platform/macos/app_macos.mm.o
 examples/layout_demo: CMakeFiles/layout_demo.dir/src/platform/macos/window_macos.mm.o
 examples/layout_demo: CMakeFiles/layout_demo.dir/src/platform/macos/webview_macos.mm.o
@@ -510,9 +621,10 @@ examples/layout_demo: CMakeFiles/layout_demo.dir/src/platform/macos/button_macos
 examples/layout_demo: CMakeFiles/layout_demo.dir/src/platform/macos/filedialog_macos.mm.o
 examples/layout_demo: CMakeFiles/layout_demo.dir/src/platform/macos/input_macos.mm.o
 examples/layout_demo: CMakeFiles/layout_demo.dir/src/platform/macos/container_macos.mm.o
+examples/layout_demo: CMakeFiles/layout_demo.dir/src/platform/macos/menu_macos.mm.o
 examples/layout_demo: CMakeFiles/layout_demo.dir/build.make
 examples/layout_demo: CMakeFiles/layout_demo.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_28) "Linking CXX executable examples/layout_demo"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/Users/merhab/dev/vu.js/cars/cross_dev/build_test/CMakeFiles --progress-num=$(CMAKE_PROGRESS_35) "Linking CXX executable examples/layout_demo"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/layout_demo.dir/link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.

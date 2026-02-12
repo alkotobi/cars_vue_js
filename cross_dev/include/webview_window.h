@@ -61,6 +61,11 @@ public:
     // Close all owned child WebViewWindows (used before quit to tear down while run loop is active)
     void closeAllOwnedWebViewWindows();
 
+    // Set main menu bar (macOS/Windows/Linux). Call after construction.
+    void setMainMenu(const std::string& menuJson,
+                    void (*itemCallback)(const std::string& itemId, void* userData),
+                    void* userData = nullptr);
+
     // Get underlying window and webview (for advanced usage)
     Window* getWindow() { return window_.get(); }
     WebView* getWebView() { return webView_.get(); }
@@ -73,10 +78,16 @@ private:
     
     // Handle window resize to update WebView size
     void onWindowResize(int newWidth, int newHeight);
+    void onWindowMove(int x, int y);
     
     void registerResizeCallback();
+    void registerMoveCallback();
+    void registerFileDropCallback();
+    void registerStateCallback();
     void registerCloseCallback();
     void registerMainWindowCloseCallback();
+    void registerMainMenu();
+    void registerEventCallbacks();
 };
 
 #endif // WEBVIEW_WINDOW_H

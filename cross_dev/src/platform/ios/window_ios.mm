@@ -1,5 +1,6 @@
 // iOS window implementation
 #import <UIKit/UIKit.h>
+#import <objc/runtime.h>
 #include "../../../include/platform.h"
 #include "../platform_impl.h"
 #include <string>
@@ -8,6 +9,27 @@ namespace platform {
     void initApplication();
     void setMainWindow(UIWindow* window);
 }
+
+typedef void (*FocusCallback)(void* userData);
+
+@interface WindowFocusObserver : NSObject
+@property (weak) UIWindow* window;
+@property (assign) FocusCallback focusCallback;
+@property (assign) FocusCallback blurCallback;
+@property (assign) void* focusUserData;
+@property (assign) void* blurUserData;
+@end
+@implementation WindowFocusObserver
+- (void)windowDidBecomeKey:(NSNotification*)note {
+    if (self.focusCallback) self.focusCallback(self.focusUserData);
+}
+- (void)windowDidResignKey:(NSNotification*)note {
+    if (self.blurCallback) self.blurCallback(self.blurUserData);
+}
+- (void)dealloc {
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
+}
+@end
 
 #ifdef PLATFORM_IOS
 
@@ -109,14 +131,64 @@ bool isWindowVisible(void* handle) {
 
 void setWindowResizeCallback(void* windowHandle, void (*callback)(int width, int height, void* userData), void* userData) {
     // iOS windows are typically full-screen and don't resize in the traditional sense
-    // This is a stub implementation
     (void)windowHandle;
     (void)callback;
     (void)userData;
 }
 
+void setWindowMoveCallback(void*, void (*)(int, int, void*), void*) {
+    // iOS: stub - windows don't move in the traditional sense
+}
+
+void setWindowFileDropCallback(void*, void (*)(const std::string&, void*), void*) {
+    // iOS: stub - file drop would need custom implementation
+}
+
 void setWindowCloseCallback(void*, void (*)(void*), void*) {
     // iOS: Stub - windows typically don't have close buttons
+}
+
+void setWindowFocusCallback(void* windowHandle, void (*callback)(void*), void* userData) {
+    @autoreleasepool {
+        if (!windowHandle || !callback) return;
+        UIWindow* window = (__bridge UIWindow*)windowHandle;
+        WindowFocusObserver* obs = objc_getAssociatedObject(window, (__bridge const void*)@"focusObserver");
+        if (!obs) {
+            obs = [[WindowFocusObserver alloc] init];
+            obs.window = window;
+            objc_setAssociatedObject(window, (__bridge const void*)@"focusObserver", obs, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            NSNotificationCenter* nc = [NSNotificationCenter defaultCenter];
+            [nc addObserver:obs selector:@selector(windowDidBecomeKey:) name:UIWindowDidBecomeKeyNotification object:window];
+            [nc addObserver:obs selector:@selector(windowDidResignKey:) name:UIWindowDidResignKeyNotification object:window];
+        }
+        obs.focusCallback = callback;
+        obs.focusUserData = userData;
+    }
+}
+
+void setWindowBlurCallback(void* windowHandle, void (*callback)(void*), void* userData) {
+    @autoreleasepool {
+        if (!windowHandle || !callback) return;
+        UIWindow* window = (__bridge UIWindow*)windowHandle;
+        WindowFocusObserver* obs = objc_getAssociatedObject(window, (__bridge const void*)@"focusObserver");
+        if (!obs) {
+            obs = [[WindowFocusObserver alloc] init];
+            obs.window = window;
+            objc_setAssociatedObject(window, (__bridge const void*)@"focusObserver", obs, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            NSNotificationCenter* nc = [NSNotificationCenter defaultCenter];
+            [nc addObserver:obs selector:@selector(windowDidBecomeKey:) name:UIWindowDidBecomeKeyNotification object:window];
+            [nc addObserver:obs selector:@selector(windowDidResignKey:) name:UIWindowDidResignKeyNotification object:window];
+        }
+        obs.blurCallback = callback;
+        obs.blurUserData = userData;
+    }
+}
+
+void setWindowStateCallback(void* windowHandle, void (*callback)(const char*, void*), void* userData) {
+    (void)windowHandle;
+    (void)callback;
+    (void)userData;
+    // Stub: iOS uses different window model
 }
 
 } // namespace platform

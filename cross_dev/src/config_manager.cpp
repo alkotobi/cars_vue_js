@@ -187,6 +187,7 @@ nlohmann::json ConfigManager::createDefaultOptions() {
     defaultOptions["htmlLoading"]["filePath"] = "demo.html";  // Path to HTML file (when method is "file")
     defaultOptions["htmlLoading"]["url"] = "";  // URL to load (when method is "url")
     defaultOptions["htmlLoading"]["htmlContent"] = readDemoHtmlContent();  // Copy from demo.html on first run
+    defaultOptions["htmlLoading"]["preloadPath"] = "";  // Custom preload script path; empty = use built-in bridge
     
     return defaultOptions;
 }
@@ -309,4 +310,19 @@ std::string ConfigManager::getHtmlContent() const {
         return options_["htmlLoading"]["htmlContent"].get<std::string>();
     }
     return "";  // Default
+}
+
+std::string ConfigManager::getPreloadPath() const {
+    if (options_.contains("htmlLoading") && 
+        options_["htmlLoading"].contains("preloadPath") &&
+        options_["htmlLoading"]["preloadPath"].is_string()) {
+        return options_["htmlLoading"]["preloadPath"].get<std::string>();
+    }
+    return "";  // Default: use built-in
+}
+
+std::string ConfigManager::getPreloadScriptContent() {
+    std::string path = getInstance().getPreloadPath();
+    if (path.empty()) return "";
+    return tryLoadFileContent(path);
 }

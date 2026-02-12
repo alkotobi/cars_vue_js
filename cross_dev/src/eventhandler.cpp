@@ -2,13 +2,21 @@
 #include "../include/window.h"
 #include "../include/webview.h"
 #include "../include/messagerouter.h"
+#include "../include/config_manager.h"
 #include "../include/handlers/createwindowhandler.h"
+#include "platform/platform_impl.h"
 #include <iostream>
 
 EventHandler::EventHandler(Window* window, WebView* webView)
     : window_(window), webView_(webView) {
     if (!window_ || !webView_) {
         throw std::runtime_error("EventHandler requires valid window and webView");
+    }
+    
+    // Set custom preload script if configured (must be before message callback)
+    std::string preload = ConfigManager::getPreloadScriptContent();
+    if (!preload.empty() && webView_->getNativeHandle()) {
+        platform::setWebViewPreloadScript(webView_->getNativeHandle(), preload);
     }
     
     // Create message router

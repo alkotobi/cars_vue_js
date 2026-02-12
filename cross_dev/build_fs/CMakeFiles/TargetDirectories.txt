@@ -1,0 +1,16 @@
+/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles/CrossDev.dir
+/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles/test_component.dir
+/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles/test_control.dir
+/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles/test_button.dir
+/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles/test_container.dir
+/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles/test_ownership.dir
+/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles/test_component_collection.dir
+/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles/test_layout.dir
+/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles/layout_demo.dir
+/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles/test.dir
+/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles/edit_cache.dir
+/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles/rebuild_cache.dir
+/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles/list_install_components.dir
+/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles/install.dir
+/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles/install/local.dir
+/Users/merhab/dev/vu.js/cars/cross_dev/build_fs/CMakeFiles/install/strip.dir

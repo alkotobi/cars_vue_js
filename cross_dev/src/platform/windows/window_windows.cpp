@@ -39,9 +39,23 @@ void* createWindow(int x, int y, int width, int height, const std::string& title
     data->userData = userData;  // Store Window* pointer for cleanup
     data->resizeCallback = nullptr;
     data->resizeUserData = nullptr;
+    data->moveCallback = nullptr;
+    data->moveUserData = nullptr;
+    data->fileDropCallback = nullptr;
+    data->fileDropUserData = nullptr;
     data->closeCallback = nullptr;
     data->closeUserData = nullptr;
     data->beingDestroyed = false;
+    data->focusCallback = nullptr;
+    data->blurCallback = nullptr;
+    data->focusUserData = nullptr;
+    data->blurUserData = nullptr;
+    data->stateCallback = nullptr;
+    data->stateUserData = nullptr;
+    data->menuItemCallback = nullptr;
+    data->menuUserData = nullptr;
+    data->contextMenuCallback = nullptr;
+    data->contextMenuUserData = nullptr;
     
     std::wstring wtitle = stringToWString(title);
     HWND hwnd = CreateWindowExW(
@@ -129,11 +143,54 @@ void setWindowResizeCallback(void* windowHandle, void (*callback)(int width, int
     }
 }
 
+void setWindowMoveCallback(void* windowHandle, void (*callback)(int x, int y, void* userData), void* userData) {
+    if (windowHandle && callback) {
+        WindowData* data = static_cast<WindowData*>(windowHandle);
+        data->moveCallback = callback;
+        data->moveUserData = userData;
+    }
+}
+
+void setWindowFileDropCallback(void* windowHandle, void (*callback)(const std::string& pathsJson, void* userData), void* userData) {
+    if (windowHandle) {
+        WindowData* data = static_cast<WindowData*>(windowHandle);
+        data->fileDropCallback = callback;
+        data->fileDropUserData = userData;
+        if (data->hwnd) {
+            DragAcceptFiles(data->hwnd, callback ? TRUE : FALSE);
+        }
+    }
+}
+
 void setWindowCloseCallback(void* windowHandle, void (*callback)(void* userData), void* userData) {
     if (windowHandle) {
         WindowData* data = static_cast<WindowData*>(windowHandle);
         data->closeCallback = callback;
         data->closeUserData = userData;
+    }
+}
+
+void setWindowFocusCallback(void* windowHandle, void (*callback)(void*), void* userData) {
+    if (windowHandle) {
+        WindowData* data = static_cast<WindowData*>(windowHandle);
+        data->focusCallback = callback;
+        data->focusUserData = userData;
+    }
+}
+
+void setWindowBlurCallback(void* windowHandle, void (*callback)(void*), void* userData) {
+    if (windowHandle) {
+        WindowData* data = static_cast<WindowData*>(windowHandle);
+        data->blurCallback = callback;
+        data->blurUserData = userData;
+    }
+}
+
+void setWindowStateCallback(void* windowHandle, void (*callback)(const char* state, void* userData), void* userData) {
+    if (windowHandle) {
+        WindowData* data = static_cast<WindowData*>(windowHandle);
+        data->stateCallback = callback;
+        data->stateUserData = userData;
     }
 }
 

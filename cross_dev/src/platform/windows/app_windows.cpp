@@ -7,6 +7,7 @@
 #include <io.h>
 #include <fcntl.h>
 #include <objbase.h>
+#include <winreg.h>
 
 #ifdef PLATFORM_WINDOWS
 
@@ -84,6 +85,70 @@ void quitApplication() {
         g_comInitialized = false;
     }
     PostQuitMessage(0);
+}
+
+static void (*s_appActivateCb)(void*) = nullptr;
+static void (*s_appDeactivateCb)(void*) = nullptr;
+static void* s_appActivateUd = nullptr;
+static void* s_appDeactivateUd = nullptr;
+
+void setAppActivateCallback(void (*cb)(void*), void* ud) {
+    s_appActivateCb = cb;
+    s_appActivateUd = ud;
+}
+
+void setAppDeactivateCallback(void (*cb)(void*), void* ud) {
+    s_appDeactivateCb = cb;
+    s_appDeactivateUd = ud;
+}
+
+void notifyAppActivate(bool activated) {
+    if (activated && s_appActivateCb) s_appActivateCb(s_appActivateUd);
+    else if (!activated && s_appDeactivateCb) s_appDeactivateCb(s_appDeactivateUd);
+}
+
+static void (*s_themeChangeCb)(const char*, void*) = nullptr;
+static void* s_themeChangeUd = nullptr;
+
+void setThemeChangeCallback(void (*cb)(const char* theme, void* userData), void* ud) {
+    s_themeChangeCb = cb;
+    s_themeChangeUd = ud;
+    if (cb) {
+        notifyThemeChange();  // Fire once with current theme
+    }
+}
+
+void notifyThemeChange() {
+    if (!s_themeChangeCb) return;
+    const char* theme = "light";
+    HKEY hKey = nullptr;
+    if (RegOpenKeyExW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
+                      0, KEY_READ, &hKey) == ERROR_SUCCESS) {
+        DWORD value = 1;
+        DWORD size = sizeof(DWORD);
+        if (RegQueryValueExW(hKey, L"AppsUseLightTheme", nullptr, nullptr, (LPBYTE)&value, &size) == ERROR_SUCCESS) {
+            theme = (value != 0) ? "light" : "dark";
+        }
+        RegCloseKey(hKey);
+    }
+    s_themeChangeCb(theme, s_themeChangeUd);
+}
+
+static void (*s_appOpenFileCb)(const std::string&, void*) = nullptr;
+static void* s_appOpenFileUd = nullptr;
+
+void setKeyShortcutCallback(void (*)(const std::string&, void*), void*) {}
+void setAppOpenFileCallback(void (*cb)(const std::string&, void*), void* ud) {
+    s_appOpenFileCb = cb;
+    s_appOpenFileUd = ud;
+}
+void deliverOpenFilePaths(int argc, const char* argv[]) {
+    if (!s_appOpenFileCb) return;
+    for (int i = 1; i < argc && argv[i]; ++i) {
+        if (argv[i][0] != '-') {
+            s_appOpenFileCb(std::string(argv[i]), s_appOpenFileUd);
+        }
+    }
 }
 
 HINSTANCE getInstance() {
