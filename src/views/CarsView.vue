@@ -84,7 +84,6 @@ const navigateTo = async (view) => {
   isProcessing.value[view] = true
   try {
     activeView.value = view
-    // Close mobile nav when navigating
     closeMobileNav()
 
     // Set appropriate page title based on the view
@@ -202,21 +201,28 @@ const handleReturnToMain = () => {
   showFinishedOrders.value = false
 }
 
-const openCarsStockInNewTab = async () => {
-  const route = router.resolve({ name: 'cars-stock' })
-  const fullUrl = window.location.origin + route.href
-  if (window.CrossDev && window.CrossDev.invoke) {
+const getCarStockUrl = () => {
+  const resolved = router.resolve({ name: 'cars-stock' })
+  return new URL(resolved.href, window.location.href).href
+}
+
+const openCarsStockInNewWindow = async () => {
+  const url = getCarStockUrl()
+  if (window.CrossDev?.invoke) {
     try {
-      await window.CrossDev.invoke('createWindow', {
-        title: 'Car Stock',
-        url: fullUrl,
-      })
-    } catch (e) {
-      console.error('createWindow failed, falling back to window.open:', e)
-      window.open(fullUrl, '_blank')
+      const result = await window.CrossDev.invoke('createWindow', { className: 'car-stock', title: 'Car Stock', url, isSingleton: true })
+      if (!result || result.success === false) {
+        throw new Error(result?.error || 'Open window failed')
+      }
+      closeMobileNav()
+    } catch (err) {
+      const msg = err?.message || String(err) || 'Unknown error'
+      console.error('Failed to open Car Stock window:', msg, err)
+      navigateTo('stock')
     }
   } else {
-    window.open(fullUrl, '_blank')
+    window.open(url, '_blank', 'noopener,noreferrer')
+    closeMobileNav()
   }
 }
 
@@ -232,7 +238,6 @@ const handleLoadClick = async () => {
       await nextTick()
     }
 
-    // Then set the new view
     activeView.value = 'load'
     document.title = 'Loading Management - Cars System'
     await nextTick()
@@ -255,7 +260,6 @@ const handleLoadingInquiryClick = async () => {
       await nextTick()
     }
 
-    // Then set the new view
     activeView.value = 'loading-inquiry'
     document.title = 'Loading Inquiry - Cars System'
     await nextTick()
@@ -278,7 +282,6 @@ const handleTrackingClick = async () => {
       await nextTick()
     }
 
-    // Then set the new view
     activeView.value = 'tracking'
     document.title = 'Car Tracking - Cars System'
     await nextTick()
@@ -355,12 +358,13 @@ const handleTrackingClick = async () => {
         </button>
         <button
           :disabled="!canCCarStock"
-          @click="openCarsStockInNewTab"
+          @click="openCarsStockInNewWindow"
           class="sidebar-btn stock-btn"
+          :class="{ active: activeView === 'stock' }"
         >
           <i class="fas fa-warehouse"></i>
           <span>{{ t('cars.carsStock') }}</span>
-          <i class="fas fa-external-link-alt" style="margin-left: auto; font-size: 0.8em"></i>
+          <i class="fas fa-plus" style="margin-left: auto; font-size: 0.8em" title="Open in new window"></i>
         </button>
 
         <button
@@ -526,21 +530,23 @@ const handleTrackingClick = async () => {
       </div>
     </div>
     <div class="main-content">
-      <h1>
-        <i class="fas fa-car-side"></i>
-        {{ t('cars.carsManagement') }}
-      </h1>
+      <div class="main-content-header">
+        <h1>
+          <i class="fas fa-car-side"></i>
+          {{ t('cars.carsManagement') }}
+        </h1>
+      </div>
       <div class="content">
         <FinishedOrdersTable v-if="showFinishedOrders" @close="showFinishedOrders = false" />
         <div v-else>
-          <div v-if="!currentView" class="empty-state">
-            <i class="fas fa-hand-point-left fa-2x"></i>
-            <p>{{ t('cars.pleaseSelectOption') }}</p>
-          </div>
-          <BuyView v-if="currentView === 'buy'" :key="'buy'" />
-          <SellBillsView v-if="currentView === 'sell-bills'" :key="'sell-bills'" />
-          <CarsStock v-if="currentView === 'stock'" :key="'stock'" />
-          <CarModelsView v-if="currentView === 'models'" :key="'models'" />
+          <div v-if="!currentView && activeView !== 'stock'" class="empty-state">
+              <i class="fas fa-hand-point-left fa-2x"></i>
+              <p>{{ t('cars.pleaseSelectOption') }}</p>
+            </div>
+            <CarsStock v-if="activeView === 'stock'" :key="'stock'" />
+            <BuyView v-if="currentView === 'buy'" :key="'buy'" />
+            <SellBillsView v-if="currentView === 'sell-bills'" :key="'sell-bills'" />
+            <CarModelsView v-if="currentView === 'models'" :key="'models'" />
           <ColorsView v-if="currentView === 'colors'" :key="'colors'" />
           <DischargePortsView v-if="currentView === 'discharge-ports'" :key="'discharge-ports'" />
           <LoadingPortsView v-if="currentView === 'loading-ports'" :key="'loading-ports'" />
@@ -567,6 +573,61 @@ const handleTrackingClick = async () => {
 .cars-view {
   display: flex;
   min-height: 100vh;
+}
+
+.main-content-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.tab-bar {
+  display: flex;
+  gap: 4px;
+  background: #e2e8f0;
+  padding: 4px;
+  border-radius: 8px;
+  flex-wrap: wrap;
+}
+
+.tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.9em;
+  color: #475569;
+  transition: all 0.15s ease;
+}
+
+.tab-btn:hover {
+  background: rgba(255, 255, 255, 0.8);
+  color: #1e293b;
+}
+
+.tab-btn.active {
+  background: white;
+  color: #1e293b;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.tab-close {
+  margin-left: 4px;
+  padding: 2px;
+  font-size: 0.75em;
+  opacity: 0.7;
+}
+
+.tab-close:hover {
+  opacity: 1;
+  color: #dc2626;
 }
 
 .sidebar {

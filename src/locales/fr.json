@@ -244,6 +244,7 @@
   },
   "cars": {
     "returnToDashboard": "Retour au Tableau de Bord",
+    "returnToCarManagement": "Retour à la Gestion des Voitures",
     "returnToCarsView": "Retour à la Vue des Voitures",
     "purchases": "Achats",
     "sell": "Vendre",

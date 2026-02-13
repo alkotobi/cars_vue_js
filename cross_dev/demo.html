@@ -328,7 +328,9 @@
             
             try {
                 const result = await sendNativeMessage('createWindow', {
-                    title: 'New Window ' + Date.now()
+                    className: 'demo-window',
+                    title: 'New Window ' + Date.now(),
+                    isSingleton: false
                     // Optional: url: 'http://localhost:5173', html: '<html>...</html>', or file: '/path/to/file.html'
                 });
                 console.log('Window created successfully:', result);
@@ -610,7 +612,7 @@
         if ((window.chrome && window.chrome.webview && window.chrome.webview.postMessage) ||
             (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.nativeMessage)) {
             console.log('Web view messaging initialized');
-            console.log('Available message types: createWindow(title, url?, html?, file?), getAppInfo, calculate, openFileDialog');
+            console.log('Available message types: createWindow({className, title, url?, html?, file?, isSingleton?}), getAppInfo, calculate, openFileDialog');
         } else {
             console.warn('Web view messaging not available - buttons may not work');
         }

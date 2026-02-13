@@ -9,10 +9,15 @@
  *
  * Binary support: Pass ArrayBuffer/Uint8Array in payload - auto base64. Use
  * invoke(type, payload, { binaryResponse: true }) to decode result.data to ArrayBuffer.
+ *
+ * Platform support:
+ * - WebKit (macOS/iOS): window.webkit.messageHandlers.nativeMessage
+ * - WebView2 (Windows): window.chrome.webview.postMessage + addEventListener('message')
  */
 (function() {
     var _pending = new Map();
     var _eventListeners = {};
+    var _nativeWebView2Post = null;
 
     function _ab2b64(ab) {
         var u8 = ab instanceof Uint8Array ? ab : new Uint8Array(ab);
@@ -37,8 +42,7 @@
         return out;
     }
 
-    window.addEventListener('message', function(e) {
-        var d = e.data;
+    function _handleMessage(d) {
         if (!d) return;
         if (d.type === 'crossdev:event') {
             var name = d.name, payload = d.payload || {};
@@ -55,14 +59,38 @@
                     res = Object.assign({}, res);
                     res.data = _b642ab(res.data);
                 }
-                d.error ? h.reject(new Error(d.error)) : h.resolve(res);
+                console.log('[CrossDev] Response received for requestId:', d.requestId, 'error:', d.error, 'result:', d.error ? null : (res && typeof res === 'object' ? JSON.stringify(res).slice(0, 100) : res));
+                d.error ? h.reject(new Error(typeof d.error === 'string' ? d.error || 'Unknown error' : String(d.error))) : h.resolve(res);
             }
         }
+    }
+
+    window.addEventListener('message', function(e) {
+        var d = e.data;
+        if (d && typeof d === 'string') try { d = JSON.parse(d); } catch (_) {}
+        _handleMessage(d);
     });
+
+    function _ensureWebView2Listener() {
+        if (_nativeWebView2Post) return true;
+        var wv = window.chrome && window.chrome.webview;
+        if (!wv || !wv.postMessage || typeof wv.postMessage !== 'function') return false;
+        _nativeWebView2Post = wv.postMessage;
+        wv.addEventListener('message', function(evt) {
+            var d = evt.data;
+            if (d && typeof d === 'string') try { d = JSON.parse(d); } catch (_) {}
+            _handleMessage(d);
+        });
+        return true;
+    }
 
     function _post(msg) {
         if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.nativeMessage) {
             window.webkit.messageHandlers.nativeMessage.postMessage(msg);
+        } else if (window.chrome && window.chrome.webview) {
+            _ensureWebView2Listener();
+            var post = _nativeWebView2Post;
+            if (post) post.call(window.chrome.webview, typeof msg === 'string' ? msg : JSON.stringify(msg));
         }
     }
 
@@ -72,10 +100,17 @@
             return new Promise(function(resolve, reject) {
                 var rid = Date.now() + '-' + Math.random();
                 _pending.set(rid, { resolve: resolve, reject: reject, binary: !!opt.binaryResponse });
+                console.log('[CrossDev] invoke:', type, 'requestId:', rid, 'payload:', JSON.stringify(payload || {}).slice(0, 120));
                 setTimeout(function() {
-                    if (_pending.has(rid)) { _pending.delete(rid); reject(new Error('Request timeout')); }
-                }, 10000);
-                _post({ type: type, payload: _toWire(payload || {}), requestId: rid });
+                    if (_pending.has(rid)) {
+                        _pending.delete(rid);
+                        console.error('[CrossDev] Request timeout for requestId:', rid, 'type:', type);
+                        reject(new Error('Request timeout'));
+                    }
+                }, 30000);
+                var msg = { type: type, payload: _toWire(payload || {}), requestId: rid };
+                console.log('[CrossDev] Sending message to native:', JSON.stringify(msg).slice(0, 150));
+                _post(msg);
             });
         },
         events: {
@@ -93,10 +128,29 @@
     Object.freeze(CrossDev);
     try { Object.defineProperty(window, 'CrossDev', { value: CrossDev, configurable: false, writable: false }); } catch (_) { window.CrossDev = CrossDev; }
 
-    window.chrome = window.chrome || {};
-    window.chrome.webview = window.chrome.webview || {};
-    window.chrome.webview.postMessage = function(m) {
-        var msg = typeof m === 'string' ? JSON.parse(m) : m;
-        _post(msg);
-    };
+    function _setupWebView2() {
+        if (!window.chrome) window.chrome = {};
+        if (!window.chrome.webview) return false;
+        var wv = window.chrome.webview;
+        if (wv.postMessage && typeof wv.postMessage === 'function') {
+            _nativeWebView2Post = wv.postMessage;
+            wv.addEventListener('message', function(evt) {
+                var d = evt.data;
+                if (d && typeof d === 'string') try { d = JSON.parse(d); } catch (_) {}
+                _handleMessage(d);
+            });
+            wv.postMessage = function(m) {
+                var msg = typeof m === 'string' ? (function() { try { return JSON.parse(m); } catch (_) { return m; } })() : m;
+                _post(msg);
+            };
+            return true;
+        }
+        return false;
+    }
+    if (!_setupWebView2()) {
+        var _poll = setInterval(function() {
+            if (_setupWebView2()) clearInterval(_poll);
+        }, 50);
+        setTimeout(function() { clearInterval(_poll); }, 30000);
+    }
 })();

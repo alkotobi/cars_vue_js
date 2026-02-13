@@ -2,6 +2,7 @@
 #define PLATFORM_IMPL_H
 
 #include <string>
+#include <vector>
 
 // Platform-specific implementation interface
 // Each platform implements these functions
@@ -13,6 +14,7 @@ namespace platform {
     void showWindow(void* handle);
     void hideWindow(void* handle);
     void setWindowTitle(void* handle, const std::string& title);
+    void maximizeWindow(void* handle);
     bool isWindowVisible(void* handle);
     
     // Web view management
@@ -80,11 +82,12 @@ namespace platform {
     std::string getInputText(void* inputHandle);
     
     // Container functions
-    void* createContainer(void* parentHandle, int x, int y, int width, int height);
+    void* createContainer(void* parentHandle, int x, int y, int width, int height, bool flipped = false);
     void destroyContainer(void* containerHandle);
     void resizeContainer(void* containerHandle, int x, int y, int width, int height);
     void showContainer(void* containerHandle);
     void hideContainer(void* containerHandle);
+    void bringContainerToFront(void* containerHandle);
     void setContainerBackgroundColor(void* containerHandle, int red, int green, int blue);
     void setContainerBorderStyle(void* containerHandle, int borderStyle);
     

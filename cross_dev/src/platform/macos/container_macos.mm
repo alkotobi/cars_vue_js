@@ -6,9 +6,16 @@
 
 #ifdef PLATFORM_MACOS
 
+// Flipped container for tab bar (y=0 at top, correct hit-testing for overlay)
+@interface FlippedContainerView : NSView
+@end
+@implementation FlippedContainerView
+- (BOOL)isFlipped { return YES; }
+@end
+
 namespace platform {
 
-void* createContainer(void* parentHandle, int x, int y, int width, int height) {
+void* createContainer(void* parentHandle, int x, int y, int width, int height, bool flipped) {
     @autoreleasepool {
         if (!parentHandle) {
             return nullptr;
@@ -26,10 +33,13 @@ void* createContainer(void* parentHandle, int x, int y, int width, int height) {
             return nullptr;
         }
         
-        // Convert coordinates: parent view uses bottom-left origin, but we receive top-left origin
+        // Convert coordinates: if parent is flipped (y=0 at top), use directly; else convert from top-left to bottom-left
         NSRect parentBounds = [parentView bounds];
-        NSRect containerRect = NSMakeRect(x, parentBounds.size.height - y - height, width, height);
-        NSView *containerView = [[NSView alloc] initWithFrame:containerRect];
+        CGFloat yPos = [parentView isFlipped] ? (CGFloat)y : (parentBounds.size.height - (CGFloat)y - (CGFloat)height);
+        NSRect containerRect = NSMakeRect((CGFloat)x, yPos, (CGFloat)width, (CGFloat)height);
+        NSView *containerView = flipped
+            ? [[FlippedContainerView alloc] initWithFrame:containerRect]
+            : [[NSView alloc] initWithFrame:containerRect];
         [containerView setWantsLayer:YES];
         containerView.layer.backgroundColor = [NSColor whiteColor].CGColor;
         
@@ -53,8 +63,12 @@ void resizeContainer(void* containerHandle, int x, int y, int width, int height)
     @autoreleasepool {
         if (containerHandle) {
             NSView *containerView = (__bridge NSView*)containerHandle;
-            NSRect newRect = NSMakeRect(x, y, width, height);
-            [containerView setFrame:newRect];
+            NSView *superview = [containerView superview];
+            if (superview) {
+                CGFloat yPos = [superview isFlipped] ? (CGFloat)y : ([superview bounds].size.height - (CGFloat)y - (CGFloat)height);
+                NSRect newRect = NSMakeRect((CGFloat)x, yPos, (CGFloat)width, (CGFloat)height);
+                [containerView setFrame:newRect];
+            }
         }
     }
 }
@@ -73,6 +87,22 @@ void hideContainer(void* containerHandle) {
         if (containerHandle) {
             NSView *containerView = (__bridge NSView*)containerHandle;
             [containerView setHidden:YES];
+        }
+    }
+}
+
+void bringContainerToFront(void* containerHandle) {
+    @autoreleasepool {
+        if (containerHandle) {
+            NSView *containerView = (__bridge NSView*)containerHandle;
+            NSView *superview = [containerView superview];
+            if (superview) {
+                [superview addSubview:containerView positioned:NSWindowAbove relativeTo:nil];
+            }
+            // Force tab bar above WebView in layer hierarchy (WKWebView can steal hits otherwise)
+            if (containerView.layer) {
+                containerView.layer.zPosition = 1000;
+            }
         }
     }
 }

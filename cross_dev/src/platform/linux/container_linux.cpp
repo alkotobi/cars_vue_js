@@ -8,7 +8,8 @@
 
 namespace platform {
 
-void* createContainer(void* parentHandle, int x, int y, int width, int height) {
+void* createContainer(void* parentHandle, int x, int y, int width, int height, bool flipped) {
+    (void)flipped;
     if (!parentHandle) {
         return nullptr;
     }
@@ -83,6 +84,11 @@ void hideContainer(void* containerHandle) {
             gtk_widget_hide(container);
         }
     }
+}
+
+void bringContainerToFront(void* containerHandle) {
+    (void)containerHandle;
+    /* GTK doesn't have z-order like Cocoa; layout order determines draw order */
 }
 
 void setContainerBackgroundColor(void* containerHandle, int red, int green, int blue) {

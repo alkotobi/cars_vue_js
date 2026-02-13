@@ -302,12 +302,12 @@ router.beforeEach((to, from, next) => {
   }
 
   if (to.path === '/login' && user) {
-    return next('/dashboard')
+    return next('/cars')
   }
 
   // Check for admin-only routes
   if (to.meta.requiresAdmin && (!userData || userData.role_id !== 1)) {
-    return next('/dashboard')
+    return next('/cars')
   }
 
   // Check for transfer access routes
@@ -321,7 +321,7 @@ router.beforeEach((to, from, next) => {
       )
 
     if (!hasAccess) {
-      return next('/dashboard')
+      return next('/cars')
     }
   }
 

@@ -95,6 +95,12 @@ bool Window::isVisible() const {
     return GetVisible() && platform::isWindowVisible(nativeHandle_);
 }
 
+void Window::maximize() {
+    if (nativeHandle_) {
+        platform::maximizeWindow(nativeHandle_);
+    }
+}
+
 void Window::OnParentChanged(Control* oldParent, Control* newParent) {
     Control::OnParentChanged(oldParent, newParent);
     // Windows typically don't have parents, but if they do, we might need to update native window

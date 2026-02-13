@@ -2,6 +2,7 @@
 import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useEnhancedI18n } from '../composables/useI18n'
+import { MAIN_WINDOW_NAME } from '../constants'
 import CarStockTable from '../components/car-stock/CarStockTable.vue'
 import CarStockForm from '../components/car-stock/CarStockForm.vue'
 import CarStockFilter from '../components/car-stock/CarStockFilter.vue'
@@ -101,8 +102,12 @@ const navigateToWarehouses = async () => {
   }
 }
 
-const returnToDashboard = () => {
-  router.push('/')
+const returnToCarManagement = () => {
+  if (window.CrossDev?.invoke) {
+    window.CrossDev.invoke('focusWindow', { name: MAIN_WINDOW_NAME }).catch(() => {})
+  } else {
+    router.push('/')
+  }
 }
 </script>
 
@@ -110,9 +115,9 @@ const returnToDashboard = () => {
   <div class="cars-stock" :class="{ 'is-loading': isLoading }">
     <div class="header">
       <div class="header-left">
-        <button @click="returnToDashboard" class="return-btn">
+        <button @click="returnToCarManagement" class="return-btn">
           <i class="fas fa-arrow-left"></i>
-          {{ t('cars.returnToDashboard') }}
+          {{ t('cars.returnToCarManagement') }}
         </button>
       </div>
       <h2>

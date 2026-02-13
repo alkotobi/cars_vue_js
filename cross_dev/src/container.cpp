@@ -4,12 +4,13 @@
 #include "platform/platform_impl.h"
 #include <stdexcept>
 
-Container::Container(Component* owner, Control* parent, int x, int y, int width, int height)
+Container::Container(Component* owner, Control* parent, int x, int y, int width, int height, bool flipped)
     : Control(owner, parent),
       nativeHandle_(nullptr),
       bgRed_(255), bgGreen_(255), bgBlue_(255),  // Default white background
       borderStyle_(BorderNone),
-      layout_(nullptr) {
+      layout_(nullptr),
+      flipped_(flipped) {
     // Set bounds using Control's methods
     SetBounds(x, y, width, height);
     
@@ -34,7 +35,8 @@ Container::Container(Container&& other) noexcept
       bgRed_(other.bgRed_),
       bgGreen_(other.bgGreen_),
       bgBlue_(other.bgBlue_),
-      borderStyle_(other.borderStyle_) {
+      borderStyle_(other.borderStyle_),
+      flipped_(other.flipped_) {
     other.nativeHandle_ = nullptr;
 }
 
@@ -50,6 +52,7 @@ Container& Container::operator=(Container&& other) noexcept {
         bgGreen_ = other.bgGreen_;
         bgBlue_ = other.bgBlue_;
         borderStyle_ = other.borderStyle_;
+        flipped_ = other.flipped_;
         
         other.nativeHandle_ = nullptr;
     }
@@ -66,7 +69,7 @@ void Container::createNativeContainer() {
     // For now, this is a placeholder that will be implemented per platform
     nativeHandle_ = platform::createContainer(GetParent()->getNativeHandle(),
                                              GetLeft(), GetTop(),
-                                             GetWidth(), GetHeight());
+                                             GetWidth(), GetHeight(), flipped_);
     if (!nativeHandle_) {
         throw std::runtime_error("Failed to create container");
     }

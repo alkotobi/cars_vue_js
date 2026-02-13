@@ -22,7 +22,6 @@ private:
     void createMainWindow();
     void setupEventHandler();
     void registerHandlers();
-    void setupContentFallbacks();
 
     int argc_;
     const char** argv_;
@@ -30,9 +29,8 @@ private:
     WebViewContentType contentType_;
     std::string content_;
 
-    // eventHandler_ destroyed first (depends on mainWindow_), then mainWindow_
-    std::unique_ptr<WebViewWindow> mainWindow_;
     std::unique_ptr<EventHandler> eventHandler_;
+    std::shared_ptr<WebViewWindow> mainWindow_;
 };
 
 #endif // APP_RUNNER_H

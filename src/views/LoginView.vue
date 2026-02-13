@@ -103,7 +103,7 @@ const login = async () => {
         window.dispatchEvent(new CustomEvent('userLogin'))
         window.dispatchEvent(new CustomEvent('forceUpdateTasks'))
 
-        router.push('/dashboard')
+        router.push('/cars')
       } else {
         error.value = t('auth.invalidCredentials')
       }

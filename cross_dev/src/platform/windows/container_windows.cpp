@@ -9,7 +9,8 @@
 
 namespace platform {
 
-void* createContainer(void* parentHandle, int x, int y, int width, int height) {
+void* createContainer(void* parentHandle, int x, int y, int width, int height, bool flipped) {
+    (void)flipped;
     if (!parentHandle) {
         return nullptr;
     }
@@ -70,6 +71,13 @@ void showContainer(void* containerHandle) {
 void hideContainer(void* containerHandle) {
     if (containerHandle && IsWindow((HWND)containerHandle)) {
         ShowWindow((HWND)containerHandle, SW_HIDE);
+    }
+}
+
+void bringContainerToFront(void* containerHandle) {
+    if (containerHandle && IsWindow((HWND)containerHandle)) {
+        SetWindowPos((HWND)containerHandle, HWND_TOP, 0, 0, 0, 0,
+                     SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
     }
 }
 

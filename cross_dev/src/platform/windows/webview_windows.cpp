@@ -1,6 +1,7 @@
 // Windows web view implementation
 #include "../../../include/platform.h"
 #include "../platform_impl.h"
+#include "windows_common.h"
 #include <string>
 #include <functional>
 #include <windows.h>
@@ -86,11 +87,7 @@ static std::string wStringToString(const std::wstring& wstr) {
 
 namespace platform {
 
-struct WindowData {
-    HWND hwnd;
-    bool visible;
-    std::string title;
-};
+// WindowData is defined in windows_common.h (included above)
 
 // Forward declaration for callbacks
 typedef void (*CreateWindowCallback)(const std::string& title, void* userData);
@@ -138,11 +135,30 @@ public:
         std::cout << "=== WebView2MessageHandler::Invoke CALLED ===" << std::endl;
         OutputDebugStringW(L"=== WebView2MessageHandler::Invoke CALLED ===\n");
         
+        // WebView2 receive: page.postMessage(string) -> TryGetWebMessageAsString works.
+        // page.postMessage(object) -> TryGetWebMessageAsString FAILS, use get_WebMessageAsJson.
         LPWSTR message = nullptr;
         HRESULT hr = args->TryGetWebMessageAsString(&message);
+        const char* source = "TryGetWebMessageAsString";
+        if (FAILED(hr) || !message || !*message) {
+            std::cout << "[WebView2] TryGetWebMessageAsString: FAILED hr=0x" << std::hex << hr << std::dec
+                << " (page sent object? Use get_WebMessageAsJson)" << std::endl;
+            OutputDebugStringA("[WebView2] TryGetWebMessageAsString failed, trying get_WebMessageAsJson\n");
+            CoTaskMemFree(message);
+            message = nullptr;
+            hr = args->get_WebMessageAsJson(&message);
+            source = "get_WebMessageAsJson";
+            if (SUCCEEDED(hr) && message) {
+                std::cout << "[WebView2] get_WebMessageAsJson: OK (page sent object, we got JSON string)" << std::endl;
+                OutputDebugStringA("[WebView2] get_WebMessageAsJson succeeded\n");
+            }
+        } else {
+            std::cout << "[WebView2] TryGetWebMessageAsString: OK (page sent string)" << std::endl;
+            OutputDebugStringA("[WebView2] TryGetWebMessageAsString succeeded\n");
+        }
         
-        std::wcout << L"TryGetWebMessageAsString result: HRESULT=0x" << std::hex << hr << std::dec << std::endl;
-        OutputDebugStringW(L"TryGetWebMessageAsString called\n");
+        std::wcout << L"[WebView2] Message source: " << (source ? stringToWString(std::string(source)) : L"unknown")
+            << L" hr=0x" << std::hex << hr << std::dec << std::endl;
         
         if (SUCCEEDED(hr) && message) {
             std::wstring wmsg(message);
@@ -158,6 +174,10 @@ public:
             OutputDebugStringW(L"Processing message\n");
             
             // First, try the new message callback (for MessageRouter)
+            if (webViewData && !webViewData->messageCallback) {
+                std::wcout << L"WARNING: messageCallback is NULL - message will not reach MessageRouter!" << std::endl;
+                OutputDebugStringW(L"WARNING: messageCallback is NULL\n");
+            }
             if (webViewData && webViewData->messageCallback) {
                 std::cout << "Calling messageCallback..." << std::endl;
                 std::wcout << L"Calling messageCallback..." << std::endl;
@@ -278,6 +298,12 @@ public:
         
         webViewData->webview = webview;
         
+        // Use actual client area when available (window may have different client size than creation params)
+        RECT clientRect = { 0, 0, width, height };
+        if (GetClientRect(webViewData->parent, &clientRect) && clientRect.right > 0 && clientRect.bottom > 0) {
+            width = clientRect.right - clientRect.left;
+            height = clientRect.bottom - clientRect.top;
+        }
         RECT bounds = { x, y, x + width, y + height };
         controller->put_Bounds(bounds);
         controller->put_IsVisible(TRUE);
@@ -438,8 +464,8 @@ public:
             L"    window.chrome.webview.addEventListener('message',_onMsg);"
             L"    var CrossDev={invoke:function(t,p,o){var op=o||{};return new Promise(function(r,j){"
             L"      var id=Date.now()+'-'+Math.random();_pending.set(id,{resolve:r,reject:j,binary:!!op.binaryResponse});"
-            L"      setTimeout(function(){if(_pending.has(id)){_pending.delete(id);j(new Error('Request timeout'));}},10000);"
-            L"      window.chrome.webview.postMessage({type:t,payload:_toWire(p||{}),requestId:id});});},"
+            L"      setTimeout(function(){if(_pending.has(id)){_pending.delete(id);j(new Error('Request timeout'));}},30000);"
+            L"      window.chrome.webview.postMessage(JSON.stringify({type:t,payload:_toWire(p||{}),requestId:id}));});},"
             L"    events:{on:function(n,f){if(!_eventListeners[n])_eventListeners[n]=[];_eventListeners[n].push(f);"
             L"      return function(){var i=_eventListeners[n].indexOf(f);if(i>=0)_eventListeners[n].splice(i,1);};}}};"
             L"    Object.freeze(CrossDev.events);Object.freeze(CrossDev);"
@@ -709,7 +735,7 @@ void* createWebView(void* parentHandle, int x, int y, int width, int height) {
             errorMsg,
             WS_VISIBLE | WS_CHILD | SS_LEFT | SS_CENTER,
             x, y, width, height,
-            windowData->hwnd,
+            parentHwnd,
             nullptr,
             getInstance(),
             nullptr
@@ -723,7 +749,7 @@ void* createWebView(void* parentHandle, int x, int y, int width, int height) {
     OutputDebugStringW(L"Attempting to create WebView2 environment...\n");
     HRESULT hr = CreateCoreWebView2EnvironmentWithOptions(
         nullptr, nullptr, nullptr,
-        new WebView2EnvironmentHandler(webViewData, windowData->hwnd, x, y, width, height)
+        new WebView2EnvironmentHandler(webViewData, parentHwnd, x, y, width, height)
     );
     
     if (FAILED(hr)) {
@@ -757,7 +783,7 @@ void* createWebView(void* parentHandle, int x, int y, int width, int height) {
             errorMsg,
             WS_VISIBLE | WS_CHILD | SS_LEFT | SS_CENTER,
             x, y, width, height,
-            windowData->hwnd,
+            parentHwnd,
             nullptr,
             getInstance(),
             nullptr
@@ -775,7 +801,7 @@ void* createWebView(void* parentHandle, int x, int y, int width, int height) {
         L"WebView2 SDK not available. Install WebView2 SDK and define HAVE_WEBVIEW2 in CMakeLists.txt",
         WS_VISIBLE | WS_CHILD | SS_LEFT,
         x, y, width, height,
-        windowData->hwnd,
+        parentHwnd,
         nullptr,
         getInstance(),
         nullptr
@@ -1043,8 +1069,10 @@ void postMessageToJavaScript(void* webViewHandle, const std::string& jsonMessage
         OutputDebugStringW(wmsg.c_str());
         OutputDebugStringW(L"\n");
         
-        // Use WebView2's native PostWebMessageAsJson API
-        // This sends messages that are received via window.chrome.webview.addEventListener('message', ...)
+        // PostWebMessageAsJson(jsonString): We send a JSON string. Page receives event.data as PARSED OBJECT.
+        // WebView2 accepts string (our jsonMessage); page's addEventListener gets parsed object.
+        std::cout << "[WebView2] postMessageToJS: PostWebMessageAsJson (native->page), len=" << jsonMessage.length() << std::endl;
+        OutputDebugStringA("[WebView2] PostWebMessageAsJson - sends JSON string, page gets object\n");
         HRESULT hr = data->webview->PostWebMessageAsJson(wmsg.c_str());
         if (FAILED(hr)) {
             std::cout << "postMessageToJavaScript: PostWebMessageAsJson failed with HRESULT: 0x" << std::hex << hr << std::dec << std::endl;

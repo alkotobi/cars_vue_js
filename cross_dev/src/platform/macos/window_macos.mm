@@ -144,6 +144,11 @@ void* createWindow(int x, int y, int width, int height, const std::string& title
             backing:NSBackingStoreBuffered
             defer:NO];
         
+        // Use flipped content view so y=0 is at top (matches our top-left coordinate convention)
+        NSView *contentView = [[NSView alloc] initWithFrame:windowRect];
+        [contentView setFlipped:YES];
+        [window setContentView:contentView];
+        
         NSString *nsTitle = [NSString stringWithUTF8String:title.c_str()];
         [window setTitle:nsTitle];
         
@@ -194,6 +199,15 @@ void setWindowTitle(void* handle, const std::string& title) {
             NSWindow *window = (__bridge NSWindow*)handle;
             NSString *nsTitle = [NSString stringWithUTF8String:title.c_str()];
             [window setTitle:nsTitle];
+        }
+    }
+}
+
+void maximizeWindow(void* handle) {
+    @autoreleasepool {
+        if (handle) {
+            NSWindow *window = (__bridge NSWindow*)handle;
+            [window zoom:nil];
         }
     }
 }

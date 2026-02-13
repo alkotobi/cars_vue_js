@@ -1,17 +1,20 @@
 #include "../include/app_runner.h"
 #include "../include/application.h"
-#include "../include/eventhandler.h"
-#include "../include/messagerouter.h"
+#include "../include/event_handler.h"
+#include "../include/message_router.h"
 #include "../include/config_manager.h"
 #include "../include/platform.h"
-#include "../include/handlers/createwindowhandler.h"
-#include "../include/handlers/appinfohandler.h"
-#include "../include/handlers/calculatorhandler.h"
-#include "../include/handlers/filedialoghandler.h"
-#include "../include/handlers/readfilehandler.h"
-#include "../include/handlers/writefilehandler.h"
-#include "../include/handlers/filesystemhandler.h"
-#include "../include/handlers/contextmenuhandler.h"
+#include "../include/webview_window.h"
+#include "../include/singleton_webview_window_manager.h"
+#include "../include/handlers/create_window_handler.h"
+#include "../include/handlers/app_info_handler.h"
+#include "../include/handlers/calculator_handler.h"
+#include "../include/handlers/file_dialog_handler.h"
+#include "../include/handlers/read_file_handler.h"
+#include "../include/handlers/write_file_handler.h"
+#include "../include/handlers/file_system_handler.h"
+#include "../include/handlers/context_menu_handler.h"
+#include "../include/handlers/focus_window_handler.h"
 #include "platform/platform_impl.h"
 #include <iostream>
 
@@ -40,21 +43,41 @@ void AppRunner::loadConfig() {
         if (content_.empty()) {
             content_ = ConfigManager::tryLoadFileContent("demo.html");
         }
+        if (content_.empty()) {
+            content_ = "<html><body><h1>Error: No HTML content</h1><p>Set htmlContent in options.json</p></body></html>";
+        }
     } else if (loadingMethod_ == "url") {
-        contentType_ = WebViewContentType::Url;
         content_ = config.getHtmlUrl();
+        if (content_.empty()) {
+            contentType_ = WebViewContentType::Html;
+            content_ = "<html><body><h1>Error: No URL specified</h1><p>Set url in options.json</p></body></html>";
+        } else {
+            contentType_ = WebViewContentType::Url;
+        }
     } else if (loadingMethod_ == "file") {
-        contentType_ = WebViewContentType::File;
         content_ = config.getHtmlFilePath();
+        if (content_.empty()) {
+            content_ = ConfigManager::tryLoadFileContent("demo.html");
+        }
+        if (content_.empty()) {
+            contentType_ = WebViewContentType::Html;
+            content_ = "<html><body><h1>Error: Could not load file</h1><p>Check filePath in options.json</p></body></html>";
+        } else {
+            contentType_ = WebViewContentType::File;
+        }
     } else {
         content_ = ConfigManager::tryLoadFileContent("demo.html");
+        if (content_.empty()) {
+            content_ = "<html><body><h1>Error</h1><p>No content configured</p></body></html>";
+        }
+        contentType_ = WebViewContentType::Html;
     }
 }
 
 void AppRunner::createMainWindow() {
-    mainWindow_ = std::make_unique<WebViewWindow>(
+    mainWindow_ = std::make_shared<WebViewWindow>(
         nullptr, 100, 100, 800, 600,
-        "Web View Test", contentType_, content_);
+        "Cars", contentType_, content_);
 }
 
 void AppRunner::setupEventHandler() {
@@ -62,15 +85,42 @@ void AppRunner::setupEventHandler() {
         mainWindow_->getWindow(), mainWindow_->getWebView());
 
     eventHandler_->onWebViewCreateWindow(
-        [this](const std::string& title, WebViewContentType type, const std::string& cnt) {
+        [this](const std::string& name, const std::string& title, WebViewContentType type, const std::string& cnt, bool isSingleton) {
             try {
-                WebViewWindow* child = new WebViewWindow(
-                    mainWindow_.get(), 150, 150, 600, 400, title, type, cnt);
-                eventHandler_->attachWebView(child->getWebView());
-                child->show();
-                std::cout << "Created new window (owned by main): " << title << std::endl;
+                std::string content = cnt;
+                WebViewContentType contentType = type;
+                if (content.empty()) {
+                    content = "<html><body><h1>" + title + "</h1><p>No content specified.</p></body></html>";
+                    contentType = WebViewContentType::Html;
+                }
+                auto attachFn = [this](WebView* wv) {
+                    if (eventHandler_ && wv) {
+                        std::vector<std::shared_ptr<MessageHandler>> extras;
+                        extras.push_back(createFocusWindowHandler());
+                        eventHandler_->attachWebView(wv, extras);
+                    }
+                };
+                WebViewWindow* child = nullptr;
+                if (isSingleton) {
+                    child = SingletonWebViewWindowManager::getInstance().getOrCreate(
+                        name, title, contentType, content, mainWindow_.get(), attachFn);
+                }
+                if (!child) {
+                    auto childPtr = std::make_unique<WebViewWindow>(mainWindow_.get(), 150, 150, 900, 700, title, contentType, content);
+                    child = childPtr.get();
+                    if (eventHandler_ && child) {
+                        std::vector<std::shared_ptr<MessageHandler>> extras;
+                        extras.push_back(createFocusWindowHandler());
+                        eventHandler_->attachWebView(child->getWebView(), extras);
+                    }
+                    child->show();
+                    childPtr.release();  // Ownership transferred to Component parent (mainWindow_)
+                }
+                if (child) {
+                    std::cout << "Opened window: " << name << " (" << title << ")" << std::endl;
+                }
             } catch (const std::exception& e) {
-                std::cerr << "Error creating new window: " << e.what() << std::endl;
+                std::cerr << "Error creating window: " << e.what() << std::endl;
             }
         });
 }
@@ -78,34 +128,16 @@ void AppRunner::setupEventHandler() {
 void AppRunner::registerHandlers() {
     MessageRouter* router = eventHandler_->getMessageRouter();
 
+    SingletonWebViewWindowManager::getInstance().registerWindow(SingletonWebViewWindowManager::MAIN_WINDOW_NAME, mainWindow_.get());
+
     router->registerHandler(createAppInfoHandler());
     router->registerHandler(createCalculatorHandler());
     router->registerHandler(createFileDialogHandler(mainWindow_->getWindow()));
     router->registerHandler(createReadFileHandler());
     router->registerHandler(createWriteFileHandler());
     router->registerHandler(createFileSystemHandler());
-    router->registerHandler(createContextMenuHandler(mainWindow_.get(), router));
-}
-
-void AppRunner::setupContentFallbacks() {
-    if (loadingMethod_ == "html" && content_.empty()) {
-        mainWindow_->loadHTMLString(
-            "<html><body><h1>Error: No HTML content</h1>"
-            "<p>Set htmlContent in options.json</p></body></html>");
-    } else if (loadingMethod_ == "url" && content_.empty()) {
-        mainWindow_->loadHTMLString(
-            "<html><body><h1>Error: No URL specified</h1>"
-            "<p>Set url in options.json</p></body></html>");
-    } else if (loadingMethod_ == "file" && content_.empty()) {
-        std::string htmlContent = ConfigManager::tryLoadFileContent("demo.html");
-        if (!htmlContent.empty()) {
-            mainWindow_->loadHTMLString(htmlContent);
-        } else {
-            mainWindow_->loadHTMLString(
-                "<html><body><h1>Error: Could not load file</h1>"
-                "<p>Check filePath in options.json</p></body></html>");
-        }
-    }
+    router->registerHandler(createContextMenuHandler(mainWindow_, eventHandler_->getMessageRouterShared()));
+    router->registerHandler(createFocusWindowHandler());
 }
 
 int AppRunner::run() {
@@ -120,9 +152,8 @@ int AppRunner::run() {
 
     std::cout << "HTML loading method: " << loadingMethod_ << std::endl;
 
-    setupContentFallbacks();
-
     mainWindow_->show();
+    mainWindow_->getWindow()->maximize();
 
     platform::deliverOpenFilePaths(argc_, argv_);
 

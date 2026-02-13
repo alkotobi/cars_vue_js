@@ -11,6 +11,10 @@
 
         <div class="version-info">
           <div class="version-item">
+            <span class="version-label">{{ t('app.databaseName') || 'Database Name' }}:</span>
+            <span class="version-value">{{ dbName || 'N/A' }}</span>
+          </div>
+          <div class="version-item">
             <span class="version-label">{{ t('app.databaseVersion') }}:</span>
             <span class="version-value">{{ dbVersion }}</span>
           </div>
@@ -25,10 +29,6 @@
           <div class="admin-info-header">
             <i class="fas fa-shield-alt"></i>
             <span>{{ t('app.adminInfo') || 'Admin Information' }}</span>
-          </div>
-          <div class="admin-info-item">
-            <span class="admin-label">{{ t('app.databaseName') || 'Database Name' }}:</span>
-            <span class="admin-value">{{ dbName || 'N/A' }}</span>
           </div>
           <div class="admin-info-item">
             <span class="admin-label">{{ t('app.directoryPath') || 'Directory Path' }}:</span>
@@ -119,19 +119,20 @@ onMounted(async () => {
 
   await checkVersion()
 
-  // Load database info only for admin users
-  if (isAdmin.value) {
-    try {
-      const name = await loadDbName()
-      if (name) {
-        dbName.value = name || 'N/A'
-        directoryPath.value = getBasePath() || '/'
-      }
-    } catch (error) {
-      console.error('Failed to load database config:', error)
-      dbName.value = 'Error loading'
-      directoryPath.value = getBasePath() || '/'
+  // Always load database name for version dialog
+  try {
+    const name = await loadDbName()
+    if (name) {
+      dbName.value = name || 'N/A'
     }
+  } catch (error) {
+    console.error('Failed to load database config:', error)
+    dbName.value = 'Error loading'
+  }
+
+  // Load directory path for admin users
+  if (isAdmin.value) {
+    directoryPath.value = getBasePath() || '/'
   }
 })
 </script>

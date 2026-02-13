@@ -67,6 +67,11 @@ void setWindowTitle(void* handle, const std::string& title) {
     }
 }
 
+void maximizeWindow(void* handle) {
+    (void)handle;
+    // Mock implementation - no-op
+}
+
 bool isWindowVisible(void* handle) {
     if (handle) {
         auto it = g_mockWindows.find(handle);
@@ -170,7 +175,8 @@ std::string getInputText(void* inputHandle) {
 }
 
 // Container functions
-void* createContainer(void* parentHandle, int x, int y, int width, int height) {
+void* createContainer(void* parentHandle, int x, int y, int width, int height, bool flipped) {
+    (void)flipped;
     return (void*)g_nextHandleValue++;
 }
 
@@ -187,6 +193,10 @@ void showContainer(void* containerHandle) {
 }
 
 void hideContainer(void* containerHandle) {
+    // Mock implementation
+}
+
+void bringContainerToFront(void* containerHandle) {
     // Mock implementation
 }
 

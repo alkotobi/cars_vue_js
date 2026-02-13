@@ -34,6 +34,28 @@ typedef void (*MessageCallback)(const std::string& jsonMessage, void* userData);
 }
 @end
 
+// Navigation delegate that injects CrossDev bridge when main frame finishes loading.
+// Needed because loadURL is async - when setMessageCallback runs, the page may not be loaded yet.
+@interface BridgeInjectNavigationDelegate : NSObject <WKNavigationDelegate>
+@end
+@implementation BridgeInjectNavigationDelegate
+- (void)webView:(WKWebView *)webView didFinishNavigation:(WKNavigation *)navigation {
+    (void)navigation;
+    if (webView && objc_getAssociatedObject(webView, @"messageHandler") != nil) {
+        NSString *script = nil;
+        id custom = objc_getAssociatedObject(webView, @"customPreloadScript");
+        if (custom && [custom isKindOfClass:[NSString class]] && [custom length] > 0) {
+            script = (NSString *)custom;
+        } else {
+            script = [WebViewMessageHandler crossdevBridgeScript];
+        }
+        if (script) {
+            [webView evaluateJavaScript:script completionHandler:nil];
+        }
+    }
+}
+@end
+
 @implementation WebViewMessageHandler
 + (NSString *)crossdevBridgeScript {
     return @"(function(){"
@@ -311,6 +333,11 @@ void setWebViewMessageCallback(void* webViewHandle, void (*callback)(const std::
             
             // Add script message handler for "nativeMessage" (generic handler)
             [userContentController addScriptMessageHandler:handler name:@"nativeMessage"];
+            
+            // Add navigation delegate to inject bridge when page loads (critical for loadURL - page may load after we set callback)
+            BridgeInjectNavigationDelegate *navDelegate = [[BridgeInjectNavigationDelegate alloc] init];
+            objc_setAssociatedObject(webView, @"bridgeInjectDelegate", navDelegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            webView.navigationDelegate = navDelegate;
             
             // Inject JavaScript bridge (custom preload or built-in) in page world
             NSString *script = getPreloadScriptForWebView(webView);

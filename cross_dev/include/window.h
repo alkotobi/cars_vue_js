@@ -26,6 +26,7 @@ public:
     void hide();
     void setTitle(const std::string& title);
     bool isVisible() const;
+    void maximize();
 
     // Main menu bar (macOS menu bar, Windows/Linux window menu).
     // menuJson: [{"id":"file","label":"File","items":[{"id":"new","label":"New"},{"id":"-"},{"id":"quit","label":"Quit"}]}]

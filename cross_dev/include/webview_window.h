@@ -66,6 +66,9 @@ public:
                     void (*itemCallback)(const std::string& itemId, void* userData),
                     void* userData = nullptr);
 
+    // Called in destructor before destruction. Use for cleanup (e.g. unregister from singleton manager).
+    void setOnDestroyCallback(std::function<void()> callback);
+
     // Get underlying window and webview (for advanced usage)
     Window* getWindow() { return window_.get(); }
     WebView* getWebView() { return webView_.get(); }
@@ -75,6 +78,7 @@ public:
 private:
     std::unique_ptr<Window> window_;
     std::unique_ptr<WebView> webView_;
+    std::function<void()> onDestroyCallback_;
     
     // Handle window resize to update WebView size
     void onWindowResize(int newWidth, int newHeight);

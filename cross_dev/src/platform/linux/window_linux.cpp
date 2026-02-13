@@ -147,6 +147,21 @@ void setWindowTitle(void* handle, const std::string& title) {
     }
 }
 
+void maximizeWindow(void* handle) {
+    if (!handle) return;
+    WindowData* data = static_cast<WindowData*>(handle);
+    if (!data->display || !data->window) return;
+    Atom wmState = XInternAtom(data->display, "_NET_WM_STATE", False);
+    Atom maxHorz = XInternAtom(data->display, "_NET_WM_STATE_MAXIMIZED_HORZ", False);
+    Atom maxVert = XInternAtom(data->display, "_NET_WM_STATE_MAXIMIZED_VERT", False);
+    if (wmState != None && maxHorz != None && maxVert != None) {
+        Atom states[2] = { maxHorz, maxVert };
+        XChangeProperty(data->display, data->window, wmState, XA_ATOM, 32,
+            PropModeReplace, (unsigned char*)states, 2);
+        XFlush(data->display);
+    }
+}
+
 bool isWindowVisible(void* handle) {
     if (handle) {
         WindowData* data = static_cast<WindowData*>(handle);

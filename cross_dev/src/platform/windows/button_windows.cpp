@@ -167,6 +167,41 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
         }
         return DefWindowProc(hwnd, uMsg, wParam, lParam);
     }
+    if (uMsg == WM_DEFERRED_RESIZE) {
+        auto it = platform::g_windowMap.find(hwnd);
+        if (it != platform::g_windowMap.end()) {
+            WindowData* data = it->second;
+            if (data->resizeCallback && data->resizeUserData) {
+                RECT client;
+                if (GetClientRect(hwnd, &client)) {
+                    int w = client.right - client.left;
+                    int h = client.bottom - client.top;
+                    if (w > 0 && h > 0) {
+                        data->resizeCallback(w, h, data->resizeUserData);
+                    }
+                }
+            }
+        }
+        return 0;
+    }
+    if (uMsg == WM_TIMER && wParam == IDT_DEFERRED_RESIZE) {
+        KillTimer(hwnd, IDT_DEFERRED_RESIZE);
+        auto it = platform::g_windowMap.find(hwnd);
+        if (it != platform::g_windowMap.end()) {
+            WindowData* data = it->second;
+            if (data->resizeCallback && data->resizeUserData) {
+                RECT client;
+                if (GetClientRect(hwnd, &client)) {
+                    int w = client.right - client.left;
+                    int h = client.bottom - client.top;
+                    if (w > 0 && h > 0) {
+                        data->resizeCallback(w, h, data->resizeUserData);
+                    }
+                }
+            }
+        }
+        return 0;
+    }
     if (uMsg == WM_SIZE) {
         auto it = platform::g_windowMap.find(hwnd);
         if (it != platform::g_windowMap.end()) {

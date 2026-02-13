@@ -119,6 +119,11 @@ void setWindowTitle(void* handle, const std::string& title) {
     }
 }
 
+void maximizeWindow(void* handle) {
+    // iOS: windows fill the screen by default - no-op
+    (void)handle;
+}
+
 bool isWindowVisible(void* handle) {
     @autoreleasepool {
         if (handle) {

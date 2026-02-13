@@ -131,7 +131,7 @@ const isSignup = ref(false)
 // Get API base URL
 const getApiBaseUrl = () => {
   const hostname = window.location.hostname
-  const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1'
+  const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.')
   return isLocalhost ? 'http://localhost:8000/api' : 'https://www.merhab.com/api'
 }
 

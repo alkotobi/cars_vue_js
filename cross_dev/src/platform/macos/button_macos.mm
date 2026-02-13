@@ -7,6 +7,15 @@
 
 #ifdef PLATFORM_MACOS
 
+// Custom button that accepts first mouse click (responds on first click when window not key)
+@interface ClickableTabButton : NSButton
+@end
+@implementation ClickableTabButton
+- (BOOL)acceptsFirstMouse:(NSEvent *)event {
+    return YES;
+}
+@end
+
 // Button target class (must be outside namespace)
 @interface ButtonTarget : NSObject
 @property (assign) void* userData;
@@ -42,14 +51,18 @@ void* createButton(void* parentHandle, int x, int y, int width, int height, cons
             return nullptr;
         }
         
-        // Convert coordinates: parent view uses bottom-left origin, but we receive top-left origin
+        // Convert coordinates: if parent is flipped (y=0 at top), use directly; else convert from top-left
         NSRect parentBounds = [parentView bounds];
-        NSRect buttonRect = NSMakeRect(x, parentBounds.size.height - y - height, width, height);
-        NSButton *button = [[NSButton alloc] initWithFrame:buttonRect];
+        CGFloat yPos = [parentView isFlipped] ? (CGFloat)y : (parentBounds.size.height - (CGFloat)y - (CGFloat)height);
+        NSRect buttonRect = NSMakeRect((CGFloat)x, yPos, (CGFloat)width, (CGFloat)height);
+        NSButton *button = [[ClickableTabButton alloc] initWithFrame:buttonRect];
         [button setTitle:[NSString stringWithUTF8String:label.c_str()]];
         [button setButtonType:NSButtonTypeMomentaryPushIn];
         [button setBezelStyle:NSBezelStyleRounded];
         [button setAutoresizingMask:NSViewMaxXMargin | NSViewMinYMargin];
+        [button setEnabled:YES];
+        [button setBordered:YES];
+        button.refusesFirstResponder = NO;
         
         // Create target for callback
         ButtonTarget *target = [[ButtonTarget alloc] init];

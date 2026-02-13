@@ -1,6 +1,7 @@
 // Windows application lifecycle implementation
 #include "../../../include/platform.h"
 #include "../platform_impl.h"
+#include "windows_common.h"
 #include <windows.h>
 #include <string>
 #include <iostream>

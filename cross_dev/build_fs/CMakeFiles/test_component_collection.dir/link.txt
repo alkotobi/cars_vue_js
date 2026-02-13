@@ -1,1 +1,0 @@
-/usr/bin/c++ -g -arch arm64 -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/test_component_collection.dir/tests/test_component_collection.cpp.o CMakeFiles/test_component_collection.dir/src/component.cpp.o CMakeFiles/test_component_collection.dir/src/component_collection.cpp.o -o test_component_collection

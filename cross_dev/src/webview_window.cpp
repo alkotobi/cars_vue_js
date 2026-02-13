@@ -65,7 +65,7 @@ WebViewWindow* WebViewWindow::GetMainWebViewWindow() {
 
 WebViewWindow::WebViewWindow(Component* owner, int x, int y, int width, int height, const std::string& title,
                              WebViewContentType type, const std::string& content)
-    : Component(owner), window_(nullptr), webView_(nullptr) {
+    : Component(owner), window_(nullptr), webView_(nullptr), onDestroyCallback_(nullptr) {
     // First one with null owner becomes the main window
     if (!owner && !g_mainWebViewWindow) {
         g_mainWebViewWindow = this;
@@ -115,7 +115,15 @@ WebViewWindow::WebViewWindow(Component* owner, int x, int y, int width, int heig
     debugLogLifecycleCreation(this, GetOwner(), nullptr);
 }
 
+void WebViewWindow::setOnDestroyCallback(std::function<void()> callback) {
+    onDestroyCallback_ = std::move(callback);
+}
+
 WebViewWindow::~WebViewWindow() {
+    if (onDestroyCallback_) {
+        auto cb = std::move(onDestroyCallback_);
+        cb();
+    }
 #ifndef NDEBUG
     const char* trigger = "?";
     if (g_mainWebViewWindow == this) {

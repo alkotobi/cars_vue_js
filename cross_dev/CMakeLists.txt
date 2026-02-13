@@ -1,45 +1,22 @@
 cmake_minimum_required(VERSION 3.15)
 
-# On Windows with Visual Studio generator, architecture must be specified via -A flag
-# CMAKE_GENERATOR_PLATFORM can only be set via command line, not in CMakeLists.txt
-# If you see ARM64 errors, run: cmake -A x64 ..
-# Or use MinGW: cmake -G "MinGW Makefiles" ..
-
-# Try to detect if we're on Windows ARM64 and provide helpful error
+# On Windows with Visual Studio generator, force x64 to avoid ARM64 VCTargetsPath/OutputPath errors.
+# Auto-detected ARM64 often fails with "BaseOutputPath/OutputPath property is not set".
 if(WIN32 AND CMAKE_GENERATOR MATCHES "Visual Studio")
-    # Check if running on ARM64 system
-    if(CMAKE_SYSTEM_PROCESSOR MATCHES "ARM64|aarch64")
-        # If CMAKE_GENERATOR_PLATFORM is not set, CMake will auto-detect ARM64
-        # which often causes build errors. We'll check after project() call.
+    if(NOT CMAKE_GENERATOR_PLATFORM OR CMAKE_GENERATOR_PLATFORM STREQUAL "ARM64")
+        set(CMAKE_GENERATOR_PLATFORM "x64" CACHE STRING "Platform (x64 avoids ARM64 build errors)" FORCE)
+        message(STATUS "Visual Studio: using x64 platform (pass -A ARM64 to override)")
     endif()
 endif()
 
 project(CrossDev CXX)
 
-# After project() call, check if we're stuck with ARM64 on Visual Studio
-if(WIN32 AND CMAKE_GENERATOR MATCHES "Visual Studio")
-    if(CMAKE_VS_PLATFORM_NAME STREQUAL "ARM64" OR CMAKE_GENERATOR_PLATFORM STREQUAL "ARM64")
-        # CMAKE_VS_PLATFORM_NAME can remain ARM64 (native) on ARM64 hardware even with -A x64.
-        # Only error when ARM64 was auto-detected (user did not explicitly pass -A x64 or -A ARM64).
-        if(NOT CMAKE_GENERATOR_PLATFORM STREQUAL "x64" AND NOT CMAKE_GENERATOR_PLATFORM STREQUAL "ARM64")
-            message(FATAL_ERROR "\n"
-                "ERROR: CMake auto-detected ARM64 architecture, which may cause build failures.\n"
-                "SOLUTION: Re-run CMake with explicit architecture:\n"
-                "  cmake -A x64 ..\n"
-                "\n"
-                "Or use MinGW instead:\n"
-                "  cmake -G \"MinGW Makefiles\" ..\n"
-            )
-        endif()
-    endif()
-endif()
-
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Component lifecycle debug logging (CREATED/DESTROYED by name) - visible in console
-option(COMPONENT_DEBUG_LIFECYCLE "Enable component lifecycle debug output (default: ON for Debug)" ON)
+# Component lifecycle + verbose MessageRouter/CreateWindow/Singleton logging
+option(COMPONENT_DEBUG_LIFECYCLE "Enable component lifecycle and verbose routing/window debug output (default: ON for Debug)" ON)
 if(COMPONENT_DEBUG_LIFECYCLE OR CMAKE_BUILD_TYPE STREQUAL "Debug")
     add_compile_definitions(COMPONENT_DEBUG_LIFECYCLE=1)
     message(STATUS "Component lifecycle debug: ENABLED")
@@ -64,10 +41,9 @@ endif()
 
 message(STATUS "Building for platform: ${PLATFORM}")
 
-# Use nlohmann/json library (needed for all platforms)
-# Using manually downloaded file - FetchContent disabled to avoid freeze
+# Use nlohmann/json library (needed for all platforms) - local header only, NO download
 if(EXISTS "${CMAKE_SOURCE_DIR}/include/nlohmann/json.hpp")
-    message(STATUS "Using manually downloaded nlohmann/json from include/nlohmann/json.hpp")
+    message(STATUS "nlohmann/json: using local include/nlohmann/json.hpp (no download)")
     set(JSON_USE_LOCAL_FILE TRUE)
 else()
     message(FATAL_ERROR 
@@ -92,25 +68,27 @@ set(CORE_SOURCES
     src/window.cpp
     src/webview.cpp
     src/webview_window.cpp
+    src/singleton_webview_window_manager.cpp
     src/button.cpp
-    src/inputfield.cpp
+    src/input_field.cpp
     src/container.cpp
     src/layout.cpp
     src/vertical_layout.cpp
     src/horizontal_layout.cpp
     src/application.cpp
-    src/eventhandler.cpp
-    src/messagerouter.cpp
+    src/event_handler.cpp
+    src/message_router.cpp
     src/config_manager.cpp
     src/app_runner.cpp
-    src/handlers/createwindowhandler.cpp
-    src/handlers/appinfohandler.cpp
-    src/handlers/calculatorhandler.cpp
-    src/handlers/filedialoghandler.cpp
-    src/handlers/readfilehandler.cpp
-    src/handlers/writefilehandler.cpp
-    src/handlers/filesystemhandler.cpp
-    src/handlers/contextmenuhandler.cpp
+    src/handlers/create_window_handler.cpp
+    src/handlers/app_info_handler.cpp
+    src/handlers/calculator_handler.cpp
+    src/handlers/file_dialog_handler.cpp
+    src/handlers/read_file_handler.cpp
+    src/handlers/write_file_handler.cpp
+    src/handlers/file_system_handler.cpp
+    src/handlers/context_menu_handler.cpp
+    src/handlers/focus_window_handler.cpp
 )
 
 # Add main.cpp for non-iOS platforms
@@ -162,8 +140,8 @@ elseif(PLATFORM STREQUAL "windows")
         src/platform/windows/menu_windows.cpp
     )
     
-    # Windows-specific flags
-    add_definitions(-DUNICODE -D_UNICODE)
+    # Windows-specific flags (PLATFORM_WINDOWS ensures platform impl #ifdef blocks compile)
+    add_definitions(-DUNICODE -D_UNICODE -DPLATFORM_WINDOWS)
     
     # MinGW-specific flags (only apply if using MinGW)
     if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -177,24 +155,33 @@ elseif(PLATFORM STREQUAL "windows")
         shlwapi
     )
     
-    # WebView2 support - auto-download using FetchContent
-    include(FetchContent)
-    
-    FetchContent_Declare(
-        webview2
-        URL https://www.nuget.org/api/v2/package/Microsoft.Web.WebView2/1.0.2592.51
-        DOWNLOAD_EXTRACT_TIMESTAMP TRUE
-    )
-    
-    FetchContent_MakeAvailable(webview2)
-    
-    # WebView2 include directory will be added to target after executable is created
+    # WebView2 support - use local SDK if present, else FetchContent download.
     set(WEBVIEW2_ENABLED FALSE)
-    if(EXISTS "${webview2_SOURCE_DIR}/build/native/include/WebView2.h")
+    set(webview2_SOURCE_DIR "")
+    
+    if(EXISTS "${CMAKE_SOURCE_DIR}/WebView2/build/native/include/WebView2.h")
+        set(webview2_SOURCE_DIR "${CMAKE_SOURCE_DIR}/WebView2")
         set(WEBVIEW2_ENABLED TRUE)
-        message(STATUS "WebView2 SDK auto-downloaded and enabled")
+        message(STATUS "WebView2: using LOCAL SDK from ${CMAKE_SOURCE_DIR}/WebView2")
+    elseif(DEFINED WEBVIEW2_SDK_PATH AND EXISTS "${WEBVIEW2_SDK_PATH}/build/native/include/WebView2.h")
+        set(webview2_SOURCE_DIR "${WEBVIEW2_SDK_PATH}")
+        set(WEBVIEW2_ENABLED TRUE)
+        message(STATUS "WebView2: using LOCAL SDK from WEBVIEW2_SDK_PATH")
     else()
-        message(WARNING "WebView2 SDK download may have failed - WebView2 features disabled")
+        # Download via FetchContent (NuGet package)
+        include(FetchContent)
+        FetchContent_Declare(
+            webview2
+            URL https://www.nuget.org/api/v2/package/Microsoft.Web.WebView2/1.0.2592.51
+            DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+        )
+        FetchContent_MakeAvailable(webview2)
+        if(webview2_SOURCE_DIR AND EXISTS "${webview2_SOURCE_DIR}/build/native/include/WebView2.h")
+            set(WEBVIEW2_ENABLED TRUE)
+            message(STATUS "WebView2: using SDK from FetchContent (downloaded)")
+        else()
+            message(WARNING "WebView2: SDK download may have failed - building with fallback")
+        endif()
     endif()
     
     # For MSVC: use CONSOLE when Debug or lifecycle logging enabled (so output is visible)
@@ -288,6 +275,8 @@ endif()
 
 # All sources
 set(ALL_SOURCES ${CORE_SOURCES} ${PLATFORM_SOURCES})
+list(LENGTH ALL_SOURCES _src_count)
+message(STATUS "Total sources: ${_src_count} (CORE + PLATFORM)")
 
 # Create executable
 if(PLATFORM STREQUAL "ios")
@@ -314,6 +303,11 @@ endif()
 # Link libraries
 if(PLATFORM_LIBS)
     target_link_libraries(${PROJECT_NAME} PRIVATE ${PLATFORM_LIBS})
+endif()
+
+# Ensure PLATFORM_WINDOWS is defined for Windows builds (needed for platform impl #ifdef)
+if(PLATFORM STREQUAL "windows")
+    target_compile_definitions(${PROJECT_NAME} PRIVATE PLATFORM_WINDOWS)
 endif()
 
 # iOS frameworks - multiple approaches to ensure they're linked
@@ -443,9 +437,13 @@ if(PLATFORM STREQUAL "ios")
     )
 endif()
 
-# Set output name
+# On Windows, avoid double .exe (use base name only; CMake adds .exe)
 if(PLATFORM STREQUAL "windows")
-    set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME "${PROJECT_NAME}.exe")
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+        RUNTIME_OUTPUT_NAME ${PROJECT_NAME}
+        RUNTIME_OUTPUT_NAME_DEBUG ${PROJECT_NAME}
+        RUNTIME_OUTPUT_NAME_RELEASE ${PROJECT_NAME}
+    )
 endif()
 
 # Installation (optional)
@@ -503,6 +501,9 @@ if(NOT PLATFORM STREQUAL "ios")
     add_executable(layout_demo examples/layout_demo.cpp ${LAYOUT_DEMO_SOURCES} ${PLATFORM_SOURCES})
     target_include_directories(layout_demo PRIVATE ${CMAKE_SOURCE_DIR}/include)
     target_link_libraries(layout_demo ${PLATFORM_LIBS})
+    if(PLATFORM STREQUAL "windows")
+        target_compile_definitions(layout_demo PRIVATE PLATFORM_WINDOWS)
+    endif()
     set_target_properties(layout_demo PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/examples
     )

@@ -1,6 +1,7 @@
 // Windows input field implementation
 #include "../../../include/platform.h"
 #include "../platform_impl.h"
+#include "windows_common.h"
 #include <string>
 #include <windows.h>
 #include <commctrl.h>

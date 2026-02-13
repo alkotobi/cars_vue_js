@@ -8,6 +8,10 @@
 
 #ifdef PLATFORM_WINDOWS
 
+// Deferred resize: posted from show/maximize so layout runs in next message loop
+#define WM_DEFERRED_RESIZE (WM_USER + 1)
+#define IDT_DEFERRED_RESIZE 1
+
 namespace platform {
 
 typedef void (*ResizeCallback)(int width, int height, void* userData);

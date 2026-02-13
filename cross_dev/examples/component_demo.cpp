@@ -1,7 +1,7 @@
 // Example demonstrating Delphi-style Owner/Parent component system
 #include "../include/window.h"
 #include "../include/button.h"
-#include "../include/inputfield.h"
+#include "../include/input_field.h"
 #include "../include/container.h"
 #include "../include/application.h"
 #include <iostream>

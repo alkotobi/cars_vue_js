@@ -244,6 +244,7 @@
   },
   "cars": {
     "returnToDashboard": "返回仪表板",
+    "returnToCarManagement": "返回车辆管理",
     "returnToCarsView": "返回汽车视图",
     "purchases": "采购",
     "sell": "销售",

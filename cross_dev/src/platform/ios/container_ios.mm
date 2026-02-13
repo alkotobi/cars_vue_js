@@ -8,7 +8,8 @@
 
 namespace platform {
 
-void* createContainer(void* parentHandle, int x, int y, int width, int height) {
+void* createContainer(void* parentHandle, int x, int y, int width, int height, bool flipped) {
+    (void)flipped;
     @autoreleasepool {
         if (!parentHandle) {
             return nullptr;
@@ -70,6 +71,15 @@ void hideContainer(void* containerHandle) {
         if (containerHandle) {
             UIView *containerView = (__bridge UIView*)containerHandle;
             containerView.hidden = YES;
+        }
+    }
+}
+
+void bringContainerToFront(void* containerHandle) {
+    @autoreleasepool {
+        if (containerHandle) {
+            UIView *containerView = (__bridge UIView*)containerHandle;
+            [[containerView superview] bringSubviewToFront:containerView];
         }
     }
 }

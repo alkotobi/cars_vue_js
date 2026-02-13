@@ -1,4 +1,5 @@
 // Windows menu implementation (main menu bar + context menu)
+#include "../../../include/platform.h"
 #include "../platform_impl.h"
 #include "windows_common.h"
 #include "nlohmann/json.hpp"

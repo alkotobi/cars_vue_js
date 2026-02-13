@@ -107,6 +107,40 @@ void showWindow(void* handle) {
         ShowWindow(data->hwnd, SW_SHOW);
         UpdateWindow(data->hwnd);
         data->visible = true;
+        // Bring to foreground (needed for "Return to Car Management" from child window)
+        BringWindowToTop(data->hwnd);
+        SetWindowPos(data->hwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        if (!SetForegroundWindow(data->hwnd)) {
+            // AttachThreadInput workaround when switching from child window
+            HWND fg = GetForegroundWindow();
+            if (fg && fg != data->hwnd) {
+                DWORD foreThread = GetWindowThreadProcessId(fg, NULL);
+                DWORD currThread = GetCurrentThreadId();
+                if (foreThread != currThread) {
+                    AttachThreadInput(currThread, foreThread, TRUE);
+                    SetForegroundWindow(data->hwnd);
+                    AttachThreadInput(currThread, foreThread, FALSE);
+                }
+            }
+        }
+        // Defer resize to next message loop so window is fully laid out
+        if (data->resizeCallback && data->resizeUserData) {
+            PostMessage(data->hwnd, WM_DEFERRED_RESIZE, 0, 0);
+            SetTimer(data->hwnd, IDT_DEFERRED_RESIZE, 150, nullptr);  // Retry after WebView2 init
+        }
+    }
+}
+
+void maximizeWindow(void* handle) {
+    if (handle) {
+        WindowData* data = static_cast<WindowData*>(handle);
+        ShowWindow(data->hwnd, SW_MAXIMIZE);
+        UpdateWindow(data->hwnd);
+        // Defer resize so maximized layout is complete before we measure
+        if (data->resizeCallback && data->resizeUserData) {
+            PostMessage(data->hwnd, WM_DEFERRED_RESIZE, 0, 0);
+            SetTimer(data->hwnd, IDT_DEFERRED_RESIZE, 150, nullptr);  // Retry after WebView2 init
+        }
     }
 }
 

@@ -11,9 +11,9 @@ class Layout;
 // A visual container that can own and parent other controls
 class Container : public Control {
 public:
-    // Constructor: Container(owner, parent, x, y, width, height)
+    // Constructor: Container(owner, parent, x, y, width, height, flipped=false)
     Container(Component* owner = nullptr, Control* parent = nullptr,
-              int x = 0, int y = 0, int width = 200, int height = 200);
+              int x = 0, int y = 0, int width = 200, int height = 200, bool flipped = false);
     ~Container();
     
     // Non-copyable, movable
@@ -52,6 +52,7 @@ protected:
 private:
     void* nativeHandle_;
     int bgRed_, bgGreen_, bgBlue_;
+    bool flipped_;
     BorderStyle borderStyle_;
     Layout* layout_;
     
