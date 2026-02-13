@@ -426,12 +426,30 @@ void onMainMenuItem(const std::string& itemId, void* userData) {
         platform::executeWebViewScript(self->getWebView()->getNativeHandle(), "location.reload();");
         return;
     }
-    // Zoom (notify page; native zoom would need platform APIs)
+    // View menu: Settings - open embedded options editor (local HTML, not from server)
+    if (itemId == "settings") {
+        std::string script = R"(
+(function(){
+  if(typeof window.CrossDev==='undefined'||!window.CrossDev.invoke)return;
+  window.CrossDev.invoke('createWindow',{className:'settings',title:'Settings',isSingleton:true}).catch(function(e){console.error('Failed to open Settings:',e);});
+})();
+)";
+        platform::executeWebViewScript(self->getWebView()->getNativeHandle(), script);
+        return;
+    }
+    // Zoom: apply via document.documentElement.style.zoom
     if (itemId == "zoomIn" || itemId == "zoomOut" || itemId == "zoomReset") {
-        nlohmann::json zj;
-        zj["type"] = "menu";
-        zj["id"] = itemId;
-        self->postMessageToJavaScript(zj.dump());
+        std::string script =
+            "(function(){"
+            "var el=document.documentElement;"
+            "var z=parseFloat(el.style.zoom||el.getAttribute('data-zoom')||'1');"
+            "if('" + itemId + "'==='zoomIn')z=Math.min(2,z+0.1);"
+            "else if('" + itemId + "'==='zoomOut')z=Math.max(0.5,z-0.1);"
+            "else z=1;"
+            "el.style.zoom=z;"
+            "el.setAttribute('data-zoom',String(z));"
+            "})();";
+        platform::executeWebViewScript(self->getWebView()->getNativeHandle(), script);
         return;
     }
     // File, Help: post to JS for app to handle
@@ -442,34 +460,75 @@ void onMainMenuItem(const std::string& itemId, void* userData) {
 void WebViewWindow::registerMainMenu() {
     if (!window_ || !window_->getNativeHandle()) return;
 #ifdef PLATFORM_MACOS
-    // On macOS the menu appears in the screen menu bar (top of screen), not inside the window.
-    std::cout << "Main menu registered (File/Edit/View/Help) - look at the top of the screen when app is focused." << std::endl;
-#endif
+    // macOS: app menu first (named after the app), with Preferences and Quit per HIG
+    std::string appLabel = window_->getTitle().empty() ? "Cars" : window_->getTitle();
+    using json = nlohmann::json;
+    json appItems = json::array();
+    appItems.push_back({{"id", "about"}, {"label", "About"}});
+    appItems.push_back({{"id", "settings"}, {"label", "Preferences..."}, {"shortcut", "Cmd+,"}});
+    appItems.push_back({{"id", "-"}});
+    appItems.push_back({{"id", "quit"}, {"label", "Quit"}, {"shortcut", "Cmd+Q"}});
+    json fileItems = json::array();
+    fileItems.push_back({{"id", "new"}, {"label", "New"}, {"shortcut", "Cmd+N"}});
+    fileItems.push_back({{"id", "-"}});
+    fileItems.push_back({{"id", "open"}, {"label", "Open"}, {"shortcut", "Cmd+O"}});
+    fileItems.push_back({{"id", "save"}, {"label", "Save"}, {"shortcut", "Cmd+S"}});
+    fileItems.push_back({{"id", "saveAs"}, {"label", "Save As..."}, {"shortcut", "Cmd+Shift+S"}});
+    json editItems = json::array();
+    editItems.push_back({{"id", "undo"}, {"label", "Undo"}, {"shortcut", "Cmd+Z"}});
+    editItems.push_back({{"id", "redo"}, {"label", "Redo"}, {"shortcut", "Cmd+Shift+Z"}});
+    editItems.push_back({{"id", "-"}});
+    editItems.push_back({{"id", "cut"}, {"label", "Cut"}, {"shortcut", "Cmd+X"}});
+    editItems.push_back({{"id", "copy"}, {"label", "Copy"}, {"shortcut", "Cmd+C"}});
+    editItems.push_back({{"id", "paste"}, {"label", "Paste"}, {"shortcut", "Cmd+V"}});
+    editItems.push_back({{"id", "-"}});
+    editItems.push_back({{"id", "selectAll"}, {"label", "Select All"}, {"shortcut", "Cmd+A"}});
+    json viewItems = json::array();
+    viewItems.push_back({{"id", "reload"}, {"label", "Reload"}, {"shortcut", "Cmd+R"}});
+    viewItems.push_back({{"id", "zoomIn"}, {"label", "Zoom In"}, {"shortcut", "Cmd++"}});
+    viewItems.push_back({{"id", "zoomOut"}, {"label", "Zoom Out"}, {"shortcut", "Cmd+-"}});
+    viewItems.push_back({{"id", "zoomReset"}, {"label", "Reset Zoom"}, {"shortcut", "Cmd+0"}});
+    json helpItems = json::array();
+    helpItems.push_back({{"id", "about"}, {"label", "About"}});
+    helpItems.push_back({{"id", "-"}});
+    helpItems.push_back({{"id", "docs"}, {"label", "Documentation"}});
+    json menus = json::array();
+    menus.push_back({{"id", "app"}, {"label", appLabel}, {"items", appItems}});
+    menus.push_back({{"id", "file"}, {"label", "File"}, {"items", fileItems}});
+    menus.push_back({{"id", "edit"}, {"label", "Edit"}, {"items", editItems}});
+    menus.push_back({{"id", "view"}, {"label", "View"}, {"items", viewItems}});
+    menus.push_back({{"id", "help"}, {"label", "Help"}, {"items", helpItems}});
+    std::string menuJson = menus.dump();
+    window_->setMainMenu(menuJson, onMainMenuItem, this);
+#elif defined(PLATFORM_WINDOWS)
+    // Windows: Settings under Edit (Preferences convention)
     const char* menuJson = R"([
         {"id":"file","label":"File","items":[
-            {"id":"new","label":"New","shortcut":"Cmd+N"},
+            {"id":"new","label":"New","shortcut":"Ctrl+N"},
             {"id":"-"},
-            {"id":"open","label":"Open","shortcut":"Cmd+O"},
-            {"id":"save","label":"Save","shortcut":"Cmd+S"},
-            {"id":"saveAs","label":"Save As...","shortcut":"Cmd+Shift+S"},
+            {"id":"open","label":"Open","shortcut":"Ctrl+O"},
+            {"id":"save","label":"Save","shortcut":"Ctrl+S"},
+            {"id":"saveAs","label":"Save As...","shortcut":"Ctrl+Shift+S"},
             {"id":"-"},
-            {"id":"quit","label":"Quit","shortcut":"Cmd+Q"}
+            {"id":"quit","label":"Quit","shortcut":"Ctrl+Q"}
         ]},
         {"id":"edit","label":"Edit","items":[
-            {"id":"undo","label":"Undo","shortcut":"Cmd+Z"},
-            {"id":"redo","label":"Redo","shortcut":"Cmd+Shift+Z"},
+            {"id":"undo","label":"Undo","shortcut":"Ctrl+Z"},
+            {"id":"redo","label":"Redo","shortcut":"Ctrl+Shift+Z"},
             {"id":"-"},
-            {"id":"cut","label":"Cut","shortcut":"Cmd+X"},
-            {"id":"copy","label":"Copy","shortcut":"Cmd+C"},
-            {"id":"paste","label":"Paste","shortcut":"Cmd+V"},
+            {"id":"cut","label":"Cut","shortcut":"Ctrl+X"},
+            {"id":"copy","label":"Copy","shortcut":"Ctrl+C"},
+            {"id":"paste","label":"Paste","shortcut":"Ctrl+V"},
             {"id":"-"},
-            {"id":"selectAll","label":"Select All","shortcut":"Cmd+A"}
+            {"id":"selectAll","label":"Select All","shortcut":"Ctrl+A"},
+            {"id":"-"},
+            {"id":"settings","label":"Preferences...","shortcut":"Ctrl+,"}
         ]},
         {"id":"view","label":"View","items":[
-            {"id":"reload","label":"Reload","shortcut":"Cmd+R"},
-            {"id":"zoomIn","label":"Zoom In","shortcut":"Cmd++"},
-            {"id":"zoomOut","label":"Zoom Out","shortcut":"Cmd+-"},
-            {"id":"zoomReset","label":"Reset Zoom","shortcut":"Cmd+0"}
+            {"id":"reload","label":"Reload","shortcut":"Ctrl+R"},
+            {"id":"zoomIn","label":"Zoom In","shortcut":"Ctrl++"},
+            {"id":"zoomOut","label":"Zoom Out","shortcut":"Ctrl+-"},
+            {"id":"zoomReset","label":"Reset Zoom","shortcut":"Ctrl+0"}
         ]},
         {"id":"help","label":"Help","items":[
             {"id":"about","label":"About"},
@@ -478,6 +537,44 @@ void WebViewWindow::registerMainMenu() {
         ]}
     ])";
     window_->setMainMenu(menuJson, onMainMenuItem, this);
+#else
+    // Linux: Settings under Edit (Preferences convention)
+    const char* menuJson = R"([
+        {"id":"file","label":"File","items":[
+            {"id":"new","label":"New","shortcut":"Ctrl+N"},
+            {"id":"-"},
+            {"id":"open","label":"Open","shortcut":"Ctrl+O"},
+            {"id":"save","label":"Save","shortcut":"Ctrl+S"},
+            {"id":"saveAs","label":"Save As...","shortcut":"Ctrl+Shift+S"},
+            {"id":"-"},
+            {"id":"quit","label":"Quit","shortcut":"Ctrl+Q"}
+        ]},
+        {"id":"edit","label":"Edit","items":[
+            {"id":"undo","label":"Undo","shortcut":"Ctrl+Z"},
+            {"id":"redo","label":"Redo","shortcut":"Ctrl+Shift+Z"},
+            {"id":"-"},
+            {"id":"cut","label":"Cut","shortcut":"Ctrl+X"},
+            {"id":"copy","label":"Copy","shortcut":"Ctrl+C"},
+            {"id":"paste","label":"Paste","shortcut":"Ctrl+V"},
+            {"id":"-"},
+            {"id":"selectAll","label":"Select All","shortcut":"Ctrl+A"},
+            {"id":"-"},
+            {"id":"settings","label":"Preferences...","shortcut":"Ctrl+,"}
+        ]},
+        {"id":"view","label":"View","items":[
+            {"id":"reload","label":"Reload","shortcut":"Ctrl+R"},
+            {"id":"zoomIn","label":"Zoom In","shortcut":"Ctrl++"},
+            {"id":"zoomOut","label":"Zoom Out","shortcut":"Ctrl+-"},
+            {"id":"zoomReset","label":"Reset Zoom","shortcut":"Ctrl+0"}
+        ]},
+        {"id":"help","label":"Help","items":[
+            {"id":"about","label":"About"},
+            {"id":"-"},
+            {"id":"docs","label":"Documentation"}
+        ]}
+    ])";
+    window_->setMainMenu(menuJson, onMainMenuItem, this);
+#endif
 }
 
 void WebViewWindow::setMainMenu(const std::string& menuJson,

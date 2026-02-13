@@ -35,15 +35,19 @@ bool showOpenFileDialog(void* windowHandle, const std::string& title, const std:
     ZeroMemory(&ofn, sizeof(ofn));
     ofn.lStructSize = sizeof(ofn);
     
-    // Set parent window if provided
+    // Set parent window if provided. Use NULL when invoked from child window (Settings etc.)
+    // to avoid modality/focus issues - dialog will be application-modal instead.
     if (windowHandle) {
+        // Get HWND from WindowData (platform window handle structure)
         struct WindowData {
             HWND hwnd;
             bool visible;
             std::string title;
         };
         WindowData* windowData = static_cast<WindowData*>(windowHandle);
-        ofn.hwndOwner = windowData->hwnd;
+        if (windowData && windowData->hwnd && IsWindow(windowData->hwnd)) {
+            ofn.hwndOwner = windowData->hwnd;
+        }
     }
     
     ofn.lpstrFile = szFile;

@@ -122,6 +122,15 @@ struct WebViewData {
 };
 
 #ifdef HAVE_WEBVIEW2
+// Struct for deferring openFileDialog - avoids WebView2 reentrancy (modal dialog in WebMessageReceived)
+struct DeferredWebViewMessage {
+    std::string* message;
+    MessageCallback callback;
+    void* userData;
+};
+#endif
+
+#ifdef HAVE_WEBVIEW2
 // WebView2 message received handler
 class WebView2MessageHandler : public ICoreWebView2WebMessageReceivedEventHandler {
 public:
@@ -179,13 +188,23 @@ public:
                 OutputDebugStringW(L"WARNING: messageCallback is NULL\n");
             }
             if (webViewData && webViewData->messageCallback) {
-                std::cout << "Calling messageCallback..." << std::endl;
-                std::wcout << L"Calling messageCallback..." << std::endl;
-                OutputDebugStringW(L"Calling messageCallback\n");
-                webViewData->messageCallback(msg, webViewData->messageUserData);
-                std::cout << "messageCallback completed" << std::endl;
-                std::wcout << L"messageCallback completed" << std::endl;
-                OutputDebugStringW(L"messageCallback completed\n");
+                // WebView2 does not support modal dialogs inside WebMessageReceived (reentrancy).
+                // See: https://github.com/MicrosoftEdge/WebView2Feedback/issues/2453
+                // Defer openFileDialog to next message loop so GetOpenFileName works and files are clickable.
+                bool isOpenFileDialog = (msg.find("\"type\":\"openFileDialog\"") != std::string::npos ||
+                                        msg.find("\"type\": \"openFileDialog\"") != std::string::npos);
+                if (isOpenFileDialog && webViewData->parent && IsWindow(webViewData->parent)) {
+                    DeferredWebViewMessage* d = new DeferredWebViewMessage();
+                    d->message = new std::string(msg);
+                    d->callback = webViewData->messageCallback;
+                    d->userData = webViewData->messageUserData;
+                    PostMessage(webViewData->parent, WM_DEFERRED_WEBVIEW_MESSAGE, 0, (LPARAM)d);
+                    std::cout << "Deferred openFileDialog to next message loop (reentrancy workaround)" << std::endl;
+                } else {
+                    std::cout << "Calling messageCallback..." << std::endl;
+                    webViewData->messageCallback(msg, webViewData->messageUserData);
+                    std::cout << "messageCallback completed" << std::endl;
+                }
             }
             // Fallback to old createWindow callback for backward compatibility
             else if (webViewData && webViewData->createWindowCallback) {
@@ -486,6 +505,19 @@ public:
             L"    var _nr=window.chrome.webview.removeEventListener;"
             L"    window.chrome.webview.removeEventListener=function(t,l){if(t==='message'){var i=window.__webview2MessageListeners.indexOf(l);if(i>=0)window.__webview2MessageListeners.splice(i,1);}"
             L"    else if(_nr)_nr.call(window.chrome.webview,t,l);};}"
+            L"  document.addEventListener('keydown',function(e){"
+            L"    if(!(e.ctrlKey||e.metaKey))return;"
+            L"    var k=e.key;"
+            L"    if(k!=='+'&&k!=='='&&k!=='-'&&k!=='0')return;"
+            L"    e.preventDefault();"
+            L"    var el=document.documentElement;"
+            L"    var z=parseFloat(el.style.zoom||el.getAttribute('data-zoom')||'1');"
+            L"    if(k==='+'||k==='=')z=Math.min(2,z+0.1);"
+            L"    else if(k==='-')z=Math.max(0.5,z-0.1);"
+            L"    else z=1;"
+            L"    el.style.zoom=z;"
+            L"    el.setAttribute('data-zoom',String(z));"
+            L"  },true);"
             L"})();";
         
         const wchar_t* scriptToInject = setupScriptForFutureDocs;
@@ -1215,6 +1247,21 @@ void resizeWebView(void* webViewHandle, int width, int height) {
     }
 #endif
 }
+
+#ifdef HAVE_WEBVIEW2
+void processDeferredWebViewMessage(LPARAM lParam) {
+    DeferredWebViewMessage* d = (DeferredWebViewMessage*)lParam;
+    if (d && d->message && d->callback) {
+        d->callback(*d->message, d->userData);
+        delete d->message;
+        delete d;
+    }
+}
+#else
+void processDeferredWebViewMessage(LPARAM /*lParam*/) {
+    // Stub when WebView2 not available - should not be called
+}
+#endif
 
 } // namespace platform
 

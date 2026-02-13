@@ -24,6 +24,7 @@ public:
     
     void show();
     void hide();
+    std::string getTitle() const { return title_; }
     void setTitle(const std::string& title);
     bool isVisible() const;
     void maximize();

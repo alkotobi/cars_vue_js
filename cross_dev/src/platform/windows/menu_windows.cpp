@@ -18,14 +18,10 @@ static std::wstring stringToWString(const std::string& str) {
     return wstrTo;
 }
 
-// Parse shortcut like "Cmd+N" to Windows format (e.g. "N" with Ctrl)
-static std::wstring parseShortcut(const std::string& shortcut) {
+// Format shortcut for display (menu expects Ctrl on Windows, Cmd on Mac)
+static std::wstring formatShortcutForDisplay(const std::string& shortcut) {
     if (shortcut.empty()) return L"";
     std::wstring ws = stringToWString(shortcut);
-    size_t pos = ws.find(L'+');
-    if (pos != std::wstring::npos) {
-        return ws.substr(pos + 1);
-    }
     return ws;
 }
 
@@ -51,7 +47,7 @@ static UINT addMenuItems(HMENU popup, const nlohmann::json& items,
         } else {
             std::string shortcut = item.value("shortcut", "");
             std::wstring wlabel = stringToWString(label);
-            std::wstring wkey = parseShortcut(shortcut);
+            std::wstring wkey = formatShortcutForDisplay(shortcut);
             UINT id = nextId++;
             idMap[id] = idStr;
             if (!wkey.empty()) {

@@ -10,6 +10,8 @@
 
 // Deferred resize: posted from show/maximize so layout runs in next message loop
 #define WM_DEFERRED_RESIZE (WM_USER + 1)
+// Deferred WebView message: run after WebMessageReceived returns (avoids reentrancy - required for modal file dialog)
+#define WM_DEFERRED_WEBVIEW_MESSAGE (WM_USER + 2)
 #define IDT_DEFERRED_RESIZE 1
 
 namespace platform {
@@ -58,6 +60,8 @@ extern WindowData* g_mainWindow;
 
 // Called from MainWindowProc on WM_ACTIVATEAPP
 void notifyAppActivate(bool activated);
+// Called from MainWindowProc on WM_DEFERRED_WEBVIEW_MESSAGE (WebView2 reentrancy workaround for modal dialogs)
+void processDeferredWebViewMessage(LPARAM lParam);
 // Called from MainWindowProc on WM_SETTINGCHANGE (theme change)
 void notifyThemeChange();
 

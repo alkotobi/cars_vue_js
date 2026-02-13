@@ -37,10 +37,12 @@ public:
             filter = payload["filter"].get<std::string>();
         }
         
-        // Open file dialog
+        // Open file dialog. Use nullptr for parent - when invoked from child window (Settings),
+        // modal-to-main-window can make the dialog appear disabled or cause focus issues.
+        // Application-modal (no parent) works reliably from any window.
         std::string selectedPath;
         bool selected = platform::showOpenFileDialog(
-            window_->getNativeHandle(),
+            nullptr,  // No parent - avoids modality/focus issues from child windows
             title,
             filter,
             selectedPath

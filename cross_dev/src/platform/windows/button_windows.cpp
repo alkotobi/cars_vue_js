@@ -167,6 +167,10 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
         }
         return DefWindowProc(hwnd, uMsg, wParam, lParam);
     }
+    if (uMsg == WM_DEFERRED_WEBVIEW_MESSAGE) {
+        platform::processDeferredWebViewMessage(lParam);
+        return 0;
+    }
     if (uMsg == WM_DEFERRED_RESIZE) {
         auto it = platform::g_windowMap.find(hwnd);
         if (it != platform::g_windowMap.end()) {

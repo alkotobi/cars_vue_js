@@ -99,7 +99,8 @@ typedef void (*MessageCallback)(const std::string& jsonMessage, void* userData);
         "return new Promise(function(resolve,reject){"
         "var rid=Date.now()+'-'+Math.random();"
         "_pending.set(rid,{resolve:resolve,reject:reject,binary:!!opt.binaryResponse});"
-        "setTimeout(function(){if(_pending.has(rid)){_pending.delete(rid);reject(new Error('Request timeout'));}},10000);"
+        "var to=type==='openFileDialog'?120000:30000;"
+        "setTimeout(function(){if(_pending.has(rid)){_pending.delete(rid);reject(new Error('Request timeout'));}},to);"
         "_post({type:type,payload:_toWire(payload||{}),requestId:rid});"
         "});"
         "},"
@@ -117,6 +118,19 @@ typedef void (*MessageCallback)(const std::string& jsonMessage, void* userData);
         "window.chrome=window.chrome||{};"
         "window.chrome.webview=window.chrome.webview||{};"
         "window.chrome.webview.postMessage=function(m){var msg=typeof m==='string'?JSON.parse(m):m;_post(msg);};"
+        "document.addEventListener('keydown',function(e){"
+        "if(!(e.ctrlKey||e.metaKey))return;"
+        "var k=e.key;"
+        "if(k!=='+'&&k!=='='&&k!=='-'&&k!=='0')return;"
+        "e.preventDefault();"
+        "var el=document.documentElement;"
+        "var z=parseFloat(el.style.zoom||el.getAttribute('data-zoom')||'1');"
+        "if(k==='+'||k==='=')z=Math.min(2,z+0.1);"
+        "else if(k==='-')z=Math.max(0.5,z-0.1);"
+        "else z=1;"
+        "el.style.zoom=z;"
+        "el.setAttribute('data-zoom',String(z));"
+        "},true);"
         "})();";
 }
 - (void)userContentController:(WKUserContentController *)userContentController
@@ -132,7 +146,23 @@ typedef void (*MessageCallback)(const std::string& jsonMessage, void* userData);
         
         // Try new message callback first (for MessageRouter)
         if (self.messageCallback) {
-            self.messageCallback(jsonMsg, self.messageUserData);
+            // Defer openFileDialog - avoid reentrancy with NSOpenPanel. Two run-loop iterations
+            // give WebKit time to fully release the script message handler context before we
+            // show the modal (prevents disabled/greyed dialog).
+            BOOL isOpenFileDialog = ([jsonString rangeOfString:@"\"type\":\"openFileDialog\""].location != NSNotFound ||
+                                    [jsonString rangeOfString:@"\"type\": \"openFileDialog\""].location != NSNotFound);
+            if (isOpenFileDialog) {
+                std::string msgCopy = jsonMsg;
+                MessageCallback cb = self.messageCallback;
+                void* ud = self.messageUserData;
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        if (cb) cb(msgCopy, ud);
+                    });
+                });
+            } else {
+                self.messageCallback(jsonMsg, self.messageUserData);
+            }
             return;
         }
         

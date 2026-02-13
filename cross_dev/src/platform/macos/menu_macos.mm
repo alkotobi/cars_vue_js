@@ -28,6 +28,37 @@ typedef void (*MenuItemCallback)(const std::string& itemId, void* userData);
 }
 @end
 
+// Parse "Cmd+N" or "Cmd+Shift+S" or "Cmd++" into key and modifier mask.
+// NSMenuItem keyEquivalent must be a single character; modifiers go in setKeyEquivalentModifierMask.
+static void parseShortcut(const std::string& shortcut, std::string& outKey, NSEventModifierFlags& outMask) {
+    outKey.clear();
+    outMask = 0;
+    if (shortcut.empty()) return;
+    std::string s = shortcut;
+    size_t lastPlus = s.rfind('+');
+    std::string keyPart = (lastPlus != std::string::npos && lastPlus + 1 < s.size()) ? s.substr(lastPlus + 1) : "";
+    std::string modPart = (lastPlus != std::string::npos && lastPlus > 0) ? s.substr(0, lastPlus) : (keyPart.empty() ? s : "");
+    if (keyPart.empty() && !s.empty() && (s.back() == '+' || s.back() == '-')) {
+        outKey = s.substr(s.size() - 1, 1);
+        modPart = (s.size() > 1) ? s.substr(0, s.size() - 1) : "";
+        size_t sep = modPart.rfind('+');
+        if (sep != std::string::npos && sep > 0) modPart = modPart.substr(0, sep);
+    } else if (!keyPart.empty()) {
+        outKey = keyPart;
+    }
+    for (size_t i = 0; i < modPart.size(); ) {
+        size_t next = modPart.find('+', i);
+        std::string tok = (next == std::string::npos) ? modPart.substr(i) : modPart.substr(i, next - i);
+        i = (next == std::string::npos) ? modPart.size() : next + 1;
+        if (tok.empty()) continue;
+        if (tok == "Cmd" || tok == "Command") outMask |= NSEventModifierFlagCommand;
+        else if (tok == "Ctrl" || tok == "Control") outMask |= NSEventModifierFlagControl;
+        else if (tok == "Shift") outMask |= NSEventModifierFlagShift;
+        else if (tok == "Alt" || tok == "Option" || tok == "Opt") outMask |= NSEventModifierFlagOption;
+    }
+    if (outMask == 0 && !outKey.empty()) outMask = NSEventModifierFlagCommand;
+}
+
 static void addMenuItems2(NSMenu* menu, const json& items, MenuItemTarget2* target) {
     for (const auto& item : items) {
         std::string idStr = item.value("id", "");
@@ -45,9 +76,14 @@ static void addMenuItems2(NSMenu* menu, const json& items, MenuItemTarget2* targ
             [subItem setSubmenu:subMenu];
         } else {
             std::string shortcut = item.value("shortcut", "");
+            std::string keyStr;
+            NSEventModifierFlags mask = 0;
+            parseShortcut(shortcut, keyStr, mask);
+            NSString* keyEquiv = keyStr.empty() ? @"" : [NSString stringWithUTF8String:keyStr.c_str()];
             NSMenuItem* nsItem = [[NSMenuItem alloc] initWithTitle:[NSString stringWithUTF8String:label.c_str()]
                                                              action:@selector(menuItemClicked:)
-                                                      keyEquivalent:[NSString stringWithUTF8String:shortcut.c_str()]];
+                                                      keyEquivalent:keyEquiv];
+            [nsItem setKeyEquivalentModifierMask:mask];
             [nsItem setTarget:target];
             objc_setAssociatedObject(nsItem, "itemId", [NSString stringWithUTF8String:idStr.c_str()], OBJC_ASSOCIATION_RETAIN_NONATOMIC);
             [menu addItem:nsItem];

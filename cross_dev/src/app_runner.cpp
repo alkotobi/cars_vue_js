@@ -15,6 +15,7 @@
 #include "../include/handlers/file_system_handler.h"
 #include "../include/handlers/context_menu_handler.h"
 #include "../include/handlers/focus_window_handler.h"
+#include "../include/handlers/options_handler.h"
 #include "platform/platform_impl.h"
 #include <iostream>
 
@@ -94,9 +95,11 @@ void AppRunner::setupEventHandler() {
                     contentType = WebViewContentType::Html;
                 }
                 auto attachFn = [this](WebView* wv) {
-                    if (eventHandler_ && wv) {
+                    if (eventHandler_ && wv && mainWindow_) {
                         std::vector<std::shared_ptr<MessageHandler>> extras;
                         extras.push_back(createFocusWindowHandler());
+                        extras.push_back(createOptionsHandler());
+                        extras.push_back(createFileDialogHandler(mainWindow_->getWindow()));
                         eventHandler_->attachWebView(wv, extras);
                     }
                 };
@@ -108,9 +111,11 @@ void AppRunner::setupEventHandler() {
                 if (!child) {
                     auto childPtr = std::make_unique<WebViewWindow>(mainWindow_.get(), 150, 150, 900, 700, title, contentType, content);
                     child = childPtr.get();
-                    if (eventHandler_ && child) {
+                    if (eventHandler_ && child && mainWindow_) {
                         std::vector<std::shared_ptr<MessageHandler>> extras;
                         extras.push_back(createFocusWindowHandler());
+                        extras.push_back(createOptionsHandler());
+                        extras.push_back(createFileDialogHandler(mainWindow_->getWindow()));
                         eventHandler_->attachWebView(child->getWebView(), extras);
                     }
                     child->show();
@@ -138,6 +143,7 @@ void AppRunner::registerHandlers() {
     router->registerHandler(createFileSystemHandler());
     router->registerHandler(createContextMenuHandler(mainWindow_, eventHandler_->getMessageRouterShared()));
     router->registerHandler(createFocusWindowHandler());
+    router->registerHandler(createOptionsHandler());
 }
 
 int AppRunner::run() {

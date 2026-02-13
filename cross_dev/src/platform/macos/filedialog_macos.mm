@@ -10,7 +10,7 @@
 
 namespace platform {
 
-static bool showOpenFileDialogImpl(void* windowHandle, const std::string& title, const std::string& /*filter*/, std::string& selectedPath) {
+static bool showOpenFileDialogImpl(void* windowHandle, const std::string& title, const std::string& filter, std::string& selectedPath) {
     @autoreleasepool {
         NSOpenPanel* panel = [NSOpenPanel openPanel];
         
@@ -19,35 +19,52 @@ static bool showOpenFileDialogImpl(void* windowHandle, const std::string& title,
             [panel setTitle:[NSString stringWithUTF8String:title.c_str()]];
         }
         
-        // Set allowed file types using modern API (macOS 11.0+)
-        if (@available(macOS 11.0, *)) {
-            UTType* htmlType = [UTType typeWithFilenameExtension:@"html"];
-            UTType* htmType = [UTType typeWithFilenameExtension:@"htm"];
-            NSMutableArray* contentTypes = [[NSMutableArray alloc] init];
-            if (htmlType) {
-                [contentTypes addObject:htmlType];
+        // Parse filter: "HTML Files (*.html)|*.html|All Files (*.*)|*.*" or "JavaScript (*.js)|*.js|..."
+        // Extract extensions from patterns (Description (*.ext)|*.ext)
+        NSMutableArray* extensions = [NSMutableArray array];
+        std::string f = filter;
+        for (size_t i = 0; i < f.size(); ) {
+            size_t pipe = f.find('|', i);
+            if (pipe == std::string::npos) break;
+            if (pipe + 1 < f.size()) {
+                size_t start = pipe + 1;
+                size_t nextPipe = f.find('|', start);
+                std::string pattern = (nextPipe != std::string::npos) ? f.substr(start, nextPipe - start) : f.substr(start);
+                if (pattern.size() >= 3 && pattern[0] == '*' && pattern[1] == '.') {
+                    std::string ext = pattern.substr(2);
+                    if (ext != "*") {
+                        NSString* nsExt = [NSString stringWithUTF8String:ext.c_str()];
+                        if (![extensions containsObject:nsExt]) [extensions addObject:nsExt];
+                    }
+                }
+                i = (nextPipe != std::string::npos) ? nextPipe : f.size();
+            } else break;
+        }
+        
+        // Set allowed file types (empty = allow all)
+        if (extensions.count > 0) {
+            if (@available(macOS 11.0, *)) {
+                NSMutableArray* contentTypes = [[NSMutableArray alloc] init];
+                for (NSString* ext in extensions) {
+                    UTType* ut = [UTType typeWithFilenameExtension:ext];
+                    if (ut) [contentTypes addObject:ut];
+                }
+                if (contentTypes.count > 0) {
+                    [panel setAllowedContentTypes:contentTypes];
+                }
+            } else {
+                #pragma clang diagnostic push
+                #pragma clang diagnostic ignored "-Wdeprecated-declarations"
+                [panel setAllowedFileTypes:extensions];
+                #pragma clang diagnostic pop
             }
-            if (htmType) {
-                [contentTypes addObject:htmType];
-            }
-            if (contentTypes.count > 0) {
-                [panel setAllowedContentTypes:contentTypes];
-            }
-        } else {
-            // Fallback for older macOS versions (10.15 and earlier)
-            #pragma clang diagnostic push
-            #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-            NSMutableArray* allowedTypes = [[NSMutableArray alloc] init];
-            [allowedTypes addObject:@"html"];
-            [allowedTypes addObject:@"htm"];
-            [panel setAllowedFileTypes:allowedTypes];
-            #pragma clang diagnostic pop
         }
         
         // Configure panel
         [panel setAllowsMultipleSelection:NO];
         [panel setCanChooseFiles:YES];
         [panel setCanChooseDirectories:NO];
+        [panel setAllowsOtherFileTypes:YES];  // Allow user to select "All Files" / override filter
         
         // Set default directory
         [panel setDirectoryURL:[NSURL fileURLWithPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Documents"]]];
@@ -55,21 +72,38 @@ static bool showOpenFileDialogImpl(void* windowHandle, const std::string& title,
         // Activate the app to ensure dialog is visible
         [[NSApplication sharedApplication] activateIgnoringOtherApps:YES];
         
-        // Get parent window if provided
+        // Get parent window - use keyWindow when nil so sheet attaches to frontmost window.
+        // Standalone runModal when invoked from child (e.g. Settings) can appear disabled;
+        // presenting as sheet to the key window fixes focus and interactivity.
         NSWindow* parentWindow = nil;
         if (windowHandle) {
             parentWindow = (__bridge NSWindow*)windowHandle;
-            // Make sure parent window is key
+        }
+        if (!parentWindow) {
+            parentWindow = [NSApp keyWindow];
+        }
+        if (!parentWindow) {
+            parentWindow = [NSApp mainWindow];
+        }
+        if (parentWindow) {
             [parentWindow makeKeyWindow];
         }
         
-        // Show modal dialog (as sheet if we have a parent window, otherwise standalone)
         NSInteger result;
         if (parentWindow) {
-            // Show as sheet attached to parent window
-            result = [panel runModal];
+            // Present as sheet attached to the window - avoids "disabled" state
+            __block NSModalResponse modalResult = NSModalResponseCancel;
+            __block BOOL done = NO;
+            [panel beginSheetModalForWindow:parentWindow completionHandler:^(NSModalResponse resp) {
+                modalResult = resp;
+                done = YES;
+            }];
+            // Pump run loop until sheet is dismissed (avoids sync->async API mismatch)
+            while (!done) {
+                [[NSRunLoop currentRunLoop] runMode:NSDefaultRunLoopMode beforeDate:[NSDate distantFuture]];
+            }
+            result = modalResult;
         } else {
-            // Show as standalone modal dialog
             result = [panel runModal];
         }
         

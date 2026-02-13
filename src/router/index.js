@@ -28,7 +28,7 @@ const getRouterBasePath = () => {
       '/sell-bills', '/buy-payments', '/params', '/advanced-sql', '/transfers-list',
       '/cars', '/warehouses', '/containers', '/print', '/clients', '/cashier',
       '/rates', '/tasks', '/statistics', '/chat', '/invitations', '/containers-ref',
-      '/db-manager', '/alert-cars'
+      '/db-manager', '/alert-cars', '/settings'
     ]
     
     // Check if pathname starts with a known route at root level (e.g., '/login' or '/db-manager')
@@ -268,6 +268,11 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/settings',
+      name: 'settings',
+      component: () => import('../views/SettingsView.vue'),
+    },
+    {
       path: '/:pathMatch(.*)*',
       redirect: '/',
     },
@@ -288,7 +293,7 @@ const router = createRouter({
 
 // Navigation guard for authentication and admin routes
 router.beforeEach((to, from, next) => {
-  const publicPages = ['/login']
+  const publicPages = ['/login', '/settings']
   // Check if the current route is a client details page
   if (to.name === 'client-details') {
     return next()

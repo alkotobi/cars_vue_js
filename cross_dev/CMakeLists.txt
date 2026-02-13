@@ -59,6 +59,41 @@ endif()
 # Include directories
 include_directories(${CMAKE_SOURCE_DIR}/include)
 
+# Embed settings.html for local Settings window (chunked for MSVC C2026 string limit)
+# Logic inlined to avoid dependency on external .in file
+file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/generated")
+set(SETTINGS_EMBED_CPP "${CMAKE_BINARY_DIR}/generated/settings_embed.cpp")
+set(_SE_CHUNK_SIZE 8000)
+set(_SE_DELIM "SEmB")
+file(READ "${CMAKE_SOURCE_DIR}/settings.html" _SE_BODY)
+string(REPLACE "@" "@@" _SE_BODY "${_SE_BODY}")
+string(LENGTH "${_SE_BODY}" _SE_TOTAL_LEN)
+set(_SE_OUT "")
+set(_SE_OFF 0)
+while(_SE_OFF LESS _SE_TOTAL_LEN)
+  math(EXPR _SE_REMAIN "${_SE_TOTAL_LEN} - ${_SE_OFF}")
+  if(_SE_REMAIN LESS _SE_CHUNK_SIZE)
+    set(_SE_CHUNK_LEN ${_SE_REMAIN})
+  else()
+    set(_SE_CHUNK_LEN ${_SE_CHUNK_SIZE})
+  endif()
+  string(SUBSTRING "${_SE_BODY}" ${_SE_OFF} ${_SE_CHUNK_LEN} _SE_CHUNK)
+  set(_SE_OUT "${_SE_OUT}R\"${_SE_DELIM}(${_SE_CHUNK})${_SE_DELIM}\" ")
+  math(EXPR _SE_OFF "${_SE_OFF} + ${_SE_CHUNK_LEN}")
+endwhile()
+set(_SE_CPP "#include \"settings_embed.h\"
+#include <string>
+
+// Auto-generated from settings.html - do not edit. Chunked for MSVC string limit.
+
+const std::string& getEmbeddedSettingsHtml() {
+    static const std::string html = ${_SE_OUT};
+    return html;
+}
+")
+file(WRITE "${SETTINGS_EMBED_CPP}" "${_SE_CPP}")
+message(STATUS "Settings HTML embedded from cross_dev/settings.html (chunked for MSVC)")
+
 # Core sources (main.cpp excluded for iOS - AppDelegate.mm provides main)
 set(CORE_SOURCES
     src/base64.cpp
@@ -89,6 +124,8 @@ set(CORE_SOURCES
     src/handlers/file_system_handler.cpp
     src/handlers/context_menu_handler.cpp
     src/handlers/focus_window_handler.cpp
+    src/handlers/options_handler.cpp
+    ${SETTINGS_EMBED_CPP}
 )
 
 # Add main.cpp for non-iOS platforms

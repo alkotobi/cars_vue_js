@@ -101,6 +101,8 @@ void setWindowMainMenu(void*, const std::string&, void (*)(const std::string&, v
 
 void showContextMenu(void*, int, int, const std::string&, void (*)(const std::string&, void*), void*) {}
 
+void setMenuItemEnabled(void*, const std::string&, bool) {}
+
 // WebView functions
 void* createWebView(void* parentHandle, int x, int y, int width, int height) {
     return (void*)g_nextHandleValue++;

@@ -1,6 +1,7 @@
 #include "../../include/handlers/create_window_handler.h"
 #include "../../include/message_handler.h"
 #include "../../include/window.h"
+#include "settings_embed.h"
 #include <nlohmann/json.hpp>
 #include <cctype>
 #include <iostream>
@@ -10,6 +11,7 @@
 #ifdef _WIN32
 #include <windows.h>
 #endif
+
 
 // Handler for creating new windows from JavaScript.
 // Name is derived from className + incremental int (e.g. car-stock-1, car-stock-2).
@@ -95,6 +97,13 @@ public:
             content = payload["filePath"].get<std::string>();
             if (!content.empty()) {
                 contentType = WebViewContentType::File;
+            }
+        }
+        // Settings window: use embedded HTML (local, not deployed to remote server)
+        if (contentType == WebViewContentType::Default && className == "settings") {
+            content = getEmbeddedSettingsHtml();
+            if (!content.empty()) {
+                contentType = WebViewContentType::Html;
             }
         }
         
