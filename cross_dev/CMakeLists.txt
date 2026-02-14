@@ -590,10 +590,12 @@ if(NOT PLATFORM STREQUAL "ios")
     )
     target_include_directories(excel_excel PUBLIC ${CMAKE_SOURCE_DIR}/include)
     target_link_libraries(excel_excel PUBLIC OpenXLSX::OpenXLSX)
+    target_compile_options(excel_excel PRIVATE -Wno-defaulted-function-deleted)
 
     # Excel template test: uses excel module, opens output in default app
     add_executable(excel_template_test examples/excel_template_test.cpp)
     target_link_libraries(excel_template_test PRIVATE excel_excel)
+    target_compile_options(excel_template_test PRIVATE -Wno-defaulted-function-deleted)
     if(PLATFORM STREQUAL "windows")
         target_link_libraries(excel_template_test PRIVATE shell32)
     endif()

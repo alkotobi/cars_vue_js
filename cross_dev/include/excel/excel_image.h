@@ -23,6 +23,15 @@ bool injectLetterhead(const std::string& xlsxPath, const std::string& imagePath,
  */
 std::string resolveLetterheadPath(const std::string& filename = "letter_head.png");
 
+/**
+ * Read PNG dimensions from IHDR chunk (width, height in pixels).
+ * @param path Path to the PNG file
+ * @param outWidth Output: image width
+ * @param outHeight Output: image height
+ * @return true if dimensions were read successfully
+ */
+bool getPngDimensions(const std::string& path, int& outWidth, int& outHeight);
+
 } // namespace excel
 
 #endif // EXCEL_IMAGE_H

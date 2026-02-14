@@ -43,6 +43,16 @@ std::string resolveLetterheadPath(const std::string& filename) {
     return "";
 }
 
+bool getPngDimensions(const std::string& path, int& outWidth, int& outHeight) {
+    std::ifstream f(path, std::ios::binary);
+    if (!f || !f.seekg(16)) return false;
+    uint8_t buf[8];
+    if (!f.read(reinterpret_cast<char*>(buf), 8)) return false;
+    outWidth = static_cast<int>((static_cast<uint32_t>(buf[0]) << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3]);
+    outHeight = static_cast<int>((static_cast<uint32_t>(buf[4]) << 24) | (buf[5] << 16) | (buf[6] << 8) | buf[7]);
+    return outWidth > 0 && outHeight > 0;
+}
+
 namespace {
 
 // Insert <drawing r:id="rIdN"/> into worksheet XML, before </worksheet>
@@ -113,17 +123,6 @@ bool copyFile(const std::string& src, const std::string& dst) {
     if (!in || !out) return false;
     out << in.rdbuf();
     return true;
-}
-
-// Read PNG dimensions from IHDR (bytes 16-23: width, height, big-endian)
-bool getPngDimensions(const std::string& path, int& outWidth, int& outHeight) {
-    std::ifstream f(path, std::ios::binary);
-    if (!f || !f.seekg(16)) return false;
-    uint8_t buf[8];
-    if (!f.read(reinterpret_cast<char*>(buf), 8)) return false;
-    outWidth = static_cast<int>((static_cast<uint32_t>(buf[0]) << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3]);
-    outHeight = static_cast<int>((static_cast<uint32_t>(buf[4]) << 24) | (buf[5] << 16) | (buf[6] << 8) | buf[7]);
-    return outWidth > 0 && outHeight > 0;
 }
 
 } // namespace
