@@ -146,6 +146,10 @@ void executeWebViewScript(void* webViewHandle, const std::string& script) {
     // Mock implementation
 }
 
+void printWebView(void* webViewHandle) {
+    // Mock implementation
+}
+
 // Button functions
 void* createButton(void* parentHandle, int x, int y, int width, int height, const std::string& label, void* userData) {
     return (void*)g_nextHandleValue++;

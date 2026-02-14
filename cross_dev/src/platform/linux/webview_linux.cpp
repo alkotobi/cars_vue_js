@@ -345,6 +345,40 @@ void executeWebViewScript(void* webViewHandle, const std::string& script) {
     }
 }
 
+void printWebView(void* webViewHandle) {
+    if (!webViewHandle) return;
+    // Hide AppHeader/alerts (same as @media print), restore on afterprint, then window.print()
+    const char* script = R"(
+(function(){
+  var sel='.app-header,.app-header *,.alerts-view,.alerts-view *,#app>header';
+  var els=document.querySelectorAll(sel);
+  window.__crossdevPrintHidden=[];
+  var main=document.querySelector('.app-main');
+  if(main){window.__crossdevPrintHidden.push({el:main,prop:'paddingTop',val:main.style.paddingTop});main.style.paddingTop='0';}
+  els.forEach(function(e){
+    if(e.offsetParent!==null){
+      window.__crossdevPrintHidden.push({el:e,display:e.style.display,visibility:e.style.visibility});
+      e.style.setProperty('display','none','important');
+      e.style.setProperty('visibility','hidden','important');
+    }
+  });
+  function restore(){
+    if(window.__crossdevPrintHidden){
+      window.__crossdevPrintHidden.forEach(function(r){
+        if(r.prop)r.el.style[r.prop]=r.val||'';
+        else{r.el.style.display=r.display||'';r.el.style.visibility=r.visibility||'';}
+      });
+      window.__crossdevPrintHidden=null;
+    }
+    window.removeEventListener('afterprint',restore);
+  }
+  window.addEventListener('afterprint',restore);
+  window.print();
+})();
+)";
+    executeWebViewScript(webViewHandle, script);
+}
+
 void resizeWebView(void* webViewHandle, int width, int height) {
     if (!webViewHandle) {
         return;

@@ -3,8 +3,10 @@ import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useEnhancedI18n } from '../../composables/useI18n'
 import { useApi } from '../../composables/useApi'
+import { useCrossDev } from '../../composables/useCrossDev'
 
 const router = useRouter()
+const { openWindow } = useCrossDev()
 const { callApi } = useApi()
 const { t } = useEnhancedI18n()
 
@@ -136,7 +138,6 @@ const handleProceed = () => {
   let printUrl
 
   if (props.documentType === 'car') {
-    // Open car print page in new tab
     printUrl = router.resolve({
       name: 'print-car',
       params: { carId: props.carId },
@@ -146,7 +147,6 @@ const handleProceed = () => {
       },
     }).href
   } else {
-    // Open sell bill print page in new tab
     printUrl = router.resolve({
       name: 'print',
       params: { billId: props.billId },
@@ -154,7 +154,12 @@ const handleProceed = () => {
     }).href
   }
 
-  window.open(printUrl, '_blank')
+  openWindow(printUrl, {
+    className: 'print-document',
+    title: props.documentType === 'car' ? t('sellBills.print_car_document') : t('sellBills.print_document'),
+    width: 1100,
+    height: 900,
+  })
 
   emit('proceed', {
     billId: props.billId,
@@ -179,7 +184,7 @@ const handleCancel = () => {
         </p>
       </div>
 
-      <div class="form-container">
+      <div class="form-container form-two-columns">
         <div class="form-section">
           <h4><i class="fas fa-file-alt"></i> {{ t('sellBills.document_settings') }}</h4>
           <div class="form-group">
@@ -187,6 +192,22 @@ const handleCancel = () => {
             <select v-model="formData.documentType" class="form-select">
               <option v-for="type in documentTypes" :key="type.value" :value="type.value">
                 {{ type.label }}
+              </option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h4><i class="fas fa-university"></i> {{ t('sellBills.bank_information') }}</h4>
+          <div class="form-group">
+            <label>{{ t('sellBills.select_bank') }}:</label>
+            <select v-model="formData.bankId" :disabled="isLoadingBanks" class="form-select">
+              <option v-if="isLoadingBanks" value="">
+                {{ t('sellBills.loading_banks') }}
+              </option>
+              <option v-else value="">{{ t('sellBills.select_bank') }}</option>
+              <option v-for="bank in banks" :key="bank.id" :value="bank.id">
+                {{ bank.company_name }}
               </option>
             </select>
           </div>
@@ -223,22 +244,6 @@ const handleCancel = () => {
                 :value="currency.value"
               >
                 {{ currency.label }}
-              </option>
-            </select>
-          </div>
-        </div>
-
-        <div class="form-section">
-          <h4><i class="fas fa-university"></i> {{ t('sellBills.bank_information') }}</h4>
-          <div class="form-group">
-            <label>{{ t('sellBills.select_bank') }}:</label>
-            <select v-model="formData.bankId" :disabled="isLoadingBanks" class="form-select">
-              <option v-if="isLoadingBanks" value="">
-                {{ t('sellBills.loading_banks') }}
-              </option>
-              <option v-else value="">{{ t('sellBills.select_bank') }}</option>
-              <option v-for="bank in banks" :key="bank.id" :value="bank.id">
-                {{ bank.company_name }}
               </option>
             </select>
           </div>
@@ -307,7 +312,7 @@ const handleCancel = () => {
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1000;
+  z-index: 1100; /* Above app header (z-index: 1001) */
   backdrop-filter: blur(4px);
 }
 
@@ -316,7 +321,7 @@ const handleCancel = () => {
   border-radius: 12px;
   padding: 32px;
   width: 100%;
-  max-width: 600px;
+  max-width: 900px;
   max-height: calc(100vh - 40px);
   overflow-y: auto;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
@@ -367,6 +372,19 @@ h3 i {
 
 .form-container {
   margin-bottom: 32px;
+}
+
+.form-two-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 640px) {
+  .form-two-columns {
+    grid-template-columns: 1fr;
+  }
 }
 
 .form-section {

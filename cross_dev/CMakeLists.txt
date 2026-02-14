@@ -342,6 +342,39 @@ if(PLATFORM_LIBS)
     target_link_libraries(${PROJECT_NAME} PRIVATE ${PLATFORM_LIBS})
 endif()
 
+# macOS: PDFKit for printWebView (createPDF + PDFView)
+if(PLATFORM STREQUAL "macos")
+    find_library(PDFKIT_FRAMEWORK PDFKit PATHS /System/Library/Frameworks NO_DEFAULT_PATH)
+    if(PDFKIT_FRAMEWORK)
+        target_link_libraries(${PROJECT_NAME} PRIVATE ${PDFKIT_FRAMEWORK})
+    endif()
+endif()
+
+# OpenXLSX for Excel export (template-based .xlsx: copy template, fill cells)
+# Use external/OpenXLSX if present (e.g. git submodule), else FetchContent
+if(EXISTS "${CMAKE_SOURCE_DIR}/external/OpenXLSX/CMakeLists.txt")
+    set(OPENXLSX_CREATE_DOCS OFF CACHE BOOL "" FORCE)
+    set(OPENXLSX_BUILD_SAMPLES OFF CACHE BOOL "" FORCE)
+    set(OPENXLSX_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+    add_subdirectory(external/OpenXLSX)
+    target_link_libraries(${PROJECT_NAME} PRIVATE OpenXLSX::OpenXLSX)
+    message(STATUS "OpenXLSX: using local external/OpenXLSX")
+else()
+    include(FetchContent)
+    FetchContent_Declare(
+        OpenXLSX
+        GIT_REPOSITORY https://github.com/troldal/OpenXLSX.git
+        GIT_TAG master
+        GIT_SHALLOW TRUE
+    )
+    set(OPENXLSX_CREATE_DOCS OFF CACHE BOOL "" FORCE)
+    set(OPENXLSX_BUILD_SAMPLES OFF CACHE BOOL "" FORCE)
+    set(OPENXLSX_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(OpenXLSX)
+    target_link_libraries(${PROJECT_NAME} PRIVATE OpenXLSX::OpenXLSX)
+    message(STATUS "OpenXLSX: fetched via FetchContent")
+endif()
+
 # Ensure PLATFORM_WINDOWS is defined for Windows builds (needed for platform impl #ifdef)
 if(PLATFORM STREQUAL "windows")
     target_compile_definitions(${PROJECT_NAME} PRIVATE PLATFORM_WINDOWS)
@@ -537,11 +570,34 @@ if(NOT PLATFORM STREQUAL "ios")
     
     add_executable(layout_demo examples/layout_demo.cpp ${LAYOUT_DEMO_SOURCES} ${PLATFORM_SOURCES})
     target_include_directories(layout_demo PRIVATE ${CMAKE_SOURCE_DIR}/include)
-    target_link_libraries(layout_demo ${PLATFORM_LIBS})
+    target_link_libraries(layout_demo PRIVATE ${PLATFORM_LIBS})
+    if(PLATFORM STREQUAL "macos" AND PDFKIT_FRAMEWORK)
+        target_link_libraries(layout_demo PRIVATE ${PDFKIT_FRAMEWORK})
+    endif()
     if(PLATFORM STREQUAL "windows")
         target_compile_definitions(layout_demo PRIVATE PLATFORM_WINDOWS)
     endif()
     set_target_properties(layout_demo PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/examples
+    )
+
+    # Excel module: reusable template-based export (see docs/EXCEL_EXPORT_DESIGN.md)
+    add_library(excel_excel STATIC
+        src/excel/excel_sheet_ops.cpp
+        src/excel/excel_paths.cpp
+        src/excel/excel_exporter.cpp
+        src/excel/excel_image.cpp
+    )
+    target_include_directories(excel_excel PUBLIC ${CMAKE_SOURCE_DIR}/include)
+    target_link_libraries(excel_excel PUBLIC OpenXLSX::OpenXLSX)
+
+    # Excel template test: uses excel module, opens output in default app
+    add_executable(excel_template_test examples/excel_template_test.cpp)
+    target_link_libraries(excel_template_test PRIVATE excel_excel)
+    if(PLATFORM STREQUAL "windows")
+        target_link_libraries(excel_template_test PRIVATE shell32)
+    endif()
+    set_target_properties(excel_template_test PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/examples
     )
 endif()

@@ -40,7 +40,9 @@ const canViewAlerts = computed(() => {
 // Computed property to determine if alerts should be shown
 const showAlerts = computed(() => {
   // Show alerts if user has permission and not on hidden routes
-  return canViewAlerts.value && !hideAlertsRoutes.some((hideRoute) => route.path.startsWith(hideRoute))
+  return (
+    canViewAlerts.value && !hideAlertsRoutes.some((hideRoute) => route.path.startsWith(hideRoute))
+  )
 })
 
 onMounted(async () => {
@@ -85,7 +87,9 @@ onMounted(async () => {
 }
 
 .app-main.with-alerts {
-  padding-top: calc(70px + var(--alerts-banner-height, 100px)); /* Account for fixed header (70px) + dynamic alerts view height */
+  padding-top: calc(
+    70px + var(--alerts-banner-height, 100px)
+  ); /* Account for fixed header (70px) + dynamic alerts view height */
 }
 
 @media (max-width: 768px) {

@@ -22,7 +22,7 @@ namespace {
 
 class CreateWindowHandler : public MessageHandler {
 public:
-    CreateWindowHandler(std::function<void(const std::string& name, const std::string& title, WebViewContentType contentType, const std::string& content, bool isSingleton)> onCreateWindow)
+    CreateWindowHandler(std::function<void(const std::string& name, const std::string& title, WebViewContentType contentType, const std::string& content, bool isSingleton, int x, int y, int width, int height)> onCreateWindow)
         : onCreateWindow_(onCreateWindow) {}
     
     bool canHandle(const std::string& messageType) const override {
@@ -107,6 +107,24 @@ public:
             }
         }
         
+        int x = 150, y = 150, width = 900, height = 700;
+        if (payload.contains("x") && payload["x"].is_number()) {
+            int v = payload["x"].get<int>();
+            if (v >= 0) x = v;
+        }
+        if (payload.contains("y") && payload["y"].is_number()) {
+            int v = payload["y"].get<int>();
+            if (v >= 0) y = v;
+        }
+        if (payload.contains("width") && payload["width"].is_number()) {
+            int v = payload["width"].get<int>();
+            if (v > 0) width = v;
+        }
+        if (payload.contains("height") && payload["height"].is_number()) {
+            int v = payload["height"].get<int>();
+            if (v > 0) height = v;
+        }
+        
         if (onCreateWindow_) {
             try {
 #ifdef COMPONENT_DEBUG_LIFECYCLE
@@ -115,7 +133,7 @@ public:
                 OutputDebugStringA(("[CreateWindowHandler] Calling callback name=" + name + " title=" + title + "\n").c_str());
 #endif
 #endif
-                onCreateWindow_(name, title, contentType, content, isSingleton);
+                onCreateWindow_(name, title, contentType, content, isSingleton, x, y, width, height);
 #ifdef COMPONENT_DEBUG_LIFECYCLE
                 std::cout << "[CreateWindowHandler] Callback completed, returning success" << std::endl;
 #ifdef _WIN32
@@ -152,10 +170,10 @@ public:
     }
     
 private:
-    std::function<void(const std::string& name, const std::string& title, WebViewContentType contentType, const std::string& content, bool isSingleton)> onCreateWindow_;
+    std::function<void(const std::string& name, const std::string& title, WebViewContentType contentType, const std::string& content, bool isSingleton, int x, int y, int width, int height)> onCreateWindow_;
 };
 
 std::shared_ptr<MessageHandler> createCreateWindowHandler(
-    std::function<void(const std::string& name, const std::string& title, WebViewContentType contentType, const std::string& content, bool isSingleton)> onCreateWindow) {
+    std::function<void(const std::string& name, const std::string& title, WebViewContentType contentType, const std::string& content, bool isSingleton, int x, int y, int width, int height)> onCreateWindow) {
     return std::make_shared<CreateWindowHandler>(onCreateWindow);
 }

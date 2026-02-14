@@ -1,6 +1,7 @@
 // macOS web view implementation
 #import <Cocoa/Cocoa.h>
 #import <WebKit/WebKit.h>
+#import <PDFKit/PDFKit.h>
 #import <objc/runtime.h>
 #include "../../../include/platform.h"
 #include "../platform_impl.h"
@@ -405,6 +406,72 @@ void executeWebViewScript(void* webViewHandle, const std::string& script) {
         WKWebView *webView = (__bridge WKWebView*)webViewHandle;
         NSString *nsScript = [NSString stringWithUTF8String:script.c_str()];
         [webView evaluateJavaScript:nsScript completionHandler:nil];
+    }
+}
+
+void printWebView(void* webViewHandle) {
+    if (!webViewHandle) return;
+    WKWebView *webView = (__bridge WKWebView*)webViewHandle;
+    if (@available(macOS 11.0, *)) {
+        // createPDF captures on-screen rendering; it does NOT apply @media print CSS.
+        // Hide AppHeader/alerts (same as browser @media print) before capture, restore after.
+        const char *hideScript = R"(
+(function(){
+  var sel = '.app-header, .app-header *, .alerts-view, .alerts-view *, #app > header';
+  var els = document.querySelectorAll(sel);
+  window.__crossdevPrintHidden = [];
+  var main = document.querySelector('.app-main');
+  if (main) {
+    window.__crossdevPrintHidden.push({el: main, prop: 'paddingTop', val: main.style.paddingTop});
+    main.style.paddingTop = '0';
+  }
+  els.forEach(function(e) {
+    if (e.offsetParent !== null) {
+      window.__crossdevPrintHidden.push({el: e, display: e.style.display, visibility: e.style.visibility});
+      e.style.setProperty('display','none','important');
+      e.style.setProperty('visibility','hidden','important');
+    }
+  });
+})();
+)";
+        executeWebViewScript(webViewHandle, std::string(hideScript));
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(150 * NSEC_PER_MSEC)), dispatch_get_main_queue(), ^{
+            [webView createPDFWithConfiguration:nil completionHandler:^(NSData *pdfData, NSError *error) {
+                const char *restoreScript = R"(
+(function(){
+  if (window.__crossdevPrintHidden) {
+    window.__crossdevPrintHidden.forEach(function(r) {
+      if (r.prop) r.el.style[r.prop] = r.val || '';
+      else {
+        r.el.style.display = r.display || '';
+        r.el.style.visibility = r.visibility || '';
+      }
+    });
+    window.__crossdevPrintHidden = null;
+  }
+})();
+)";
+                executeWebViewScript(webViewHandle, std::string(restoreScript));
+                if (error || !pdfData || pdfData.length == 0) {
+                    NSLog(@"CrossDev print: createPDF failed: %@", error);
+                    return;
+                }
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    PDFDocument *pdfDoc = [[PDFDocument alloc] initWithData:pdfData];
+                    if (!pdfDoc) return;
+                    NSRect frame = NSMakeRect(0, 0, 612, 792);
+                    PDFView *pdfView = [[PDFView alloc] initWithFrame:frame];
+                    pdfView.document = pdfDoc;
+                    pdfView.autoScales = YES;
+                    NSPrintOperation *op = [NSPrintOperation printOperationWithView:pdfView];
+                    [op runOperation];
+                });
+            }];
+        });
+    } else {
+        [[NSOperationQueue mainQueue] addOperationWithBlock:^{
+            [webView print:nil];
+        }];
     }
 }
 

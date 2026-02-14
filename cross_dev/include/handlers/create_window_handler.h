@@ -8,14 +8,10 @@
 #include <string>
 
 // Factory function to create CreateWindowHandler
-// Callback receives (name, title, contentType, content, isSingleton).
-// name: auto-generated as {className}-{incremental} or className for singleton.
-// title: user-facing window title.
-// contentType: WebViewContentType (Url, Html, File, or Default).
-// content: URL string, HTML code, or file path depending on type.
-// isSingleton: if true, show existing window with same className; default false.
-// Payload: className (required), title, url/html/file, isSingleton.
+// Callback receives (name, title, contentType, content, isSingleton, x, y, width, height).
+// All geometry from JS: x, y (position), width, height (size). Use 0 for defaults.
+// Payload: className, title, url/html/file, isSingleton, x, y, width, height.
 std::shared_ptr<MessageHandler> createCreateWindowHandler(
-    std::function<void(const std::string& name, const std::string& title, WebViewContentType contentType, const std::string& content, bool isSingleton)> onCreateWindow);
+    std::function<void(const std::string& name, const std::string& title, WebViewContentType contentType, const std::string& content, bool isSingleton, int x, int y, int width, int height)> onCreateWindow);
 
 #endif // CREATE_WINDOW_HANDLER_H

@@ -106,8 +106,6 @@ const calculateCFRDAFromPrice = (price, rate, freight, upgrades = 0) => {
   // Upgrades ADD value, so they increase both FOB and CFR
   // CFR = (FOB + upgrades + freight) × rate
   const result = ((parsedPrice + parsedUpgrades + parsedFreight) * parsedRate).toFixed(2)
-  console.log('[DEBUG] calculateCFRDAFromPrice - Input:', { price: parsedPrice, upgrades: parsedUpgrades, freight: parsedFreight, rate: parsedRate })
-  console.log('[DEBUG] calculateCFRDAFromPrice - Calculation:', `(${parsedPrice} + ${parsedUpgrades} + ${parsedFreight}) × ${parsedRate} = ${result}`)
   return result
 }
 

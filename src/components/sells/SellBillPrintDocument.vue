@@ -33,7 +33,7 @@ const enabledLanguages = ref({})
 
 // Computed property to filter visible terms
 const visibleTerms = computed(() => {
-  return contractTerms.value.filter(term => term.visible !== false)
+  return contractTerms.value.filter((term) => term.visible !== false)
 })
 
 // Helper function to get base path (same as in useApi.js)
@@ -118,7 +118,7 @@ const fetchBillData = async () => {
 
     if (billResult.success && billResult.data.length > 0) {
       const bill = billResult.data[0]
-      
+
       // Parse notes JSON if it exists
       if (bill.notes) {
         try {
@@ -128,14 +128,17 @@ const fetchBillData = async () => {
           } else if (Array.isArray(bill.notes)) {
             notesArray = bill.notes
           }
-          
+
           if (Array.isArray(notesArray) && notesArray.length > 0) {
             // Format notes for printing (show all notes, each on a line, without user/date)
-            const formatted = notesArray.map(note => note.note || '').filter(note => note.trim() !== '').join('\n')
+            const formatted = notesArray
+              .map((note) => note.note || '')
+              .filter((note) => note.trim() !== '')
+              .join('\n')
             if (formatted && formatted.trim() !== '') {
               bill.notesFormatted = formatted
-            // Also keep latest note for simple display
-            bill.notes = notesArray[notesArray.length - 1].note || ''
+              // Also keep latest note for simple display
+              bill.notes = notesArray[notesArray.length - 1].note || ''
             } else {
               // No valid notes found, clear both
               bill.notesFormatted = ''
@@ -147,10 +150,8 @@ const fetchBillData = async () => {
           bill.notesFormatted = bill.notes
         }
       }
-      
+
       billData.value = bill
-      console.log('Bill data:', billData.value)
-      console.log('Bill ref:', billData.value.bill_ref)
 
       // Fetch cars associated with this bill
       const carsResult = await callApi({
@@ -185,13 +186,9 @@ const fetchBillData = async () => {
         params: [props.billId],
       })
 
-      console.log('Cars query params:', [props.billId])
-      console.log('Cars result:', carsResult)
-
       if (carsResult.success) {
         carsData.value = carsResult.data
-        console.log('Cars data with rates:', carsData.value)
-        
+
         // Fetch upgrades for all cars
         await fetchCarsUpgrades()
       }
@@ -213,7 +210,7 @@ const fetchCarsUpgrades = async () => {
   }
 
   try {
-    const carIds = carsData.value.map(car => car.id)
+    const carIds = carsData.value.map((car) => car.id)
     if (carIds.length === 0) return
 
     // Fetch totals
@@ -260,7 +257,7 @@ const fetchCarsUpgrades = async () => {
         }
         carUpgradesDetails.value.get(carId).push({
           description: row.description || 'N/A',
-          value: parseFloat(row.value) || 0
+          value: parseFloat(row.value) || 0,
         })
       })
     }
@@ -278,18 +275,20 @@ const getCarUpgradesTotal = (carId) => {
 const formatCarUpgrades = (carId) => {
   const upgrades = carUpgradesDetails.value.get(carId) || []
   if (upgrades.length === 0) return ''
-  
-  return upgrades.map(upgrade => {
-    const desc = upgrade.description || 'N/A'
-    const value = upgrade.value || 0
-    return `${desc}: $${value.toFixed(2)}`
-  }).join(', ')
+
+  return upgrades
+    .map((upgrade) => {
+      const desc = upgrade.description || 'N/A'
+      const value = upgrade.value || 0
+      return `${desc}: $${value.toFixed(2)}`
+    })
+    .join(', ')
 }
 
 // Format JSON notes - extract only note text without user/date
 const formatNotes = (notes) => {
   if (!notes) return ''
-  
+
   try {
     let notesArray = []
     if (typeof notes === 'string' && notes.trim().startsWith('[')) {
@@ -300,13 +299,16 @@ const formatNotes = (notes) => {
       // Old format (plain text) - use as is if not empty
       return notes.trim() || ''
     }
-    
+
     if (Array.isArray(notesArray) && notesArray.length > 0) {
       // Extract only the note text, filter empty notes, join with newlines
-      const formatted = notesArray.map(note => note.note || '').filter(note => note.trim() !== '').join('\n')
+      const formatted = notesArray
+        .map((note) => note.note || '')
+        .filter((note) => note.trim() !== '')
+        .join('\n')
       return formatted || ''
     }
-    
+
     return ''
   } catch (e) {
     // If parsing fails, treat as old format (plain text)
@@ -512,8 +514,12 @@ const getFreightAndRateValues = () => {
   }
 
   // Get unique freight and rate values
-  const freightValues = [...new Set(carsData.value.map(car => parseFloat(car.freight) || 0).filter(f => f > 0))]
-  const rateValues = [...new Set(carsData.value.map(car => parseFloat(car.rate) || 0).filter(r => r > 0))]
+  const freightValues = [
+    ...new Set(carsData.value.map((car) => parseFloat(car.freight) || 0).filter((f) => f > 0)),
+  ]
+  const rateValues = [
+    ...new Set(carsData.value.map((car) => parseFloat(car.rate) || 0).filter((r) => r > 0)),
+  ]
 
   // Format freight values
   let freightText = 'N/A'
@@ -546,16 +552,17 @@ const getFreightAndRateValues = () => {
 const replaceTermPlaceholders = (text) => {
   if (!text) return text
   const { freightText, rateText } = getFreightAndRateValues()
-  
+
   // Wrap numeric values with LTR markers to preserve direction in RTL text
   // Using Left-to-Right Mark (LRM) and Right-to-Left Mark (RLM) for proper bidirectional text
   const ltrIsolate = '\u2066' // Left-to-Right Isolate
-  const popIsolate = '\u2069'  // Pop Directional Isolate
-  
+  const popIsolate = '\u2069' // Pop Directional Isolate
+
   // Wrap freight and rate values to preserve LTR direction
-  const wrappedFreight = freightText !== 'N/A' ? `${ltrIsolate}${freightText}${popIsolate}` : freightText
+  const wrappedFreight =
+    freightText !== 'N/A' ? `${ltrIsolate}${freightText}${popIsolate}` : freightText
   const wrappedRate = rateText !== 'N/A' ? `${ltrIsolate}${rateText}${popIsolate}` : rateText
-  
+
   return text.replace(/{FREIGHT}/g, wrappedFreight).replace(/{RATE}/g, wrappedRate)
 }
 
@@ -649,7 +656,7 @@ onMounted(async () => {
               <td>{{ car.client_name }}</td>
               <td>{{ car.discharge_port }}</td>
               <td>{{ formatPrice(calculateCarPrice(car)) }}</td>
-              <td style="white-space: pre-line;">{{ formatNotes(car.notes) || '-' }}</td>
+              <td style="white-space: pre-line">{{ formatNotes(car.notes) || '-' }}</td>
             </tr>
           </tbody>
           <tfoot>
@@ -675,7 +682,10 @@ onMounted(async () => {
     </div>
 
     <!-- Payment & Bank Information -->
-    <div class="section payment-bank-section" :style="{ fontSize: (options.tableFontSize || 12) + 'pt' }">
+    <div
+      class="section payment-bank-section"
+      :style="{ fontSize: (options.tableFontSize || 12) + 'pt' }"
+    >
       <div class="payment-bank-details">
         <div class="payment-info">
           <div class="info-row">
@@ -717,11 +727,25 @@ onMounted(async () => {
     </div>
 
     <!-- Notes Section -->
-    <div class="section notes-section" v-if="(billData?.notesFormatted && billData.notesFormatted.trim() !== '') || (billData?.notes && billData.notes.trim() !== '' && billData.notes !== '-')" :style="{ fontSize: (options.tableFontSize || 12) + 'pt' }">
+    <div
+      class="section notes-section"
+      v-if="
+        (billData?.notesFormatted && billData.notesFormatted.trim() !== '') ||
+        (billData?.notes && billData.notes.trim() !== '' && billData.notes !== '-')
+      "
+      :style="{ fontSize: (options.tableFontSize || 12) + 'pt' }"
+    >
       <h3 class="section-title">Bill Notes</h3>
       <div class="notes-content">
-        <p v-if="billData.notesFormatted && billData.notesFormatted.trim() !== ''" style="white-space: pre-line;">{{ billData.notesFormatted }}</p>
-        <p v-else-if="billData.notes && billData.notes.trim() !== '' && billData.notes !== '-'">{{ billData.notes }}</p>
+        <p
+          v-if="billData.notesFormatted && billData.notesFormatted.trim() !== ''"
+          style="white-space: pre-line"
+        >
+          {{ billData.notesFormatted }}
+        </p>
+        <p v-else-if="billData.notes && billData.notes.trim() !== '' && billData.notes !== '-'">
+          {{ billData.notes }}
+        </p>
       </div>
     </div>
 
@@ -737,13 +761,13 @@ onMounted(async () => {
         <div class="terms-list">
           <div v-for="(term, index) in visibleTerms" :key="term.id" class="term-item">
             <template v-for="(value, key) in term" :key="key">
-              <p 
-                v-if="key !== 'id' && key !== 'visible' && enabledLanguages[key] === true" 
+              <p
+                v-if="key !== 'id' && key !== 'visible' && enabledLanguages[key] === true"
                 :class="key"
                 :style="{ fontSize: (options.termsFontSize || 11) + 'pt' }"
               >
                 {{ index + 1 }}. {{ replaceTermPlaceholders(value) }}
-            </p>
+              </p>
             </template>
           </div>
         </div>
@@ -1003,20 +1027,20 @@ onMounted(async () => {
 }
 
 .term-item p.english,
-.term-item p[class*="english"] {
+.term-item p[class*='english'] {
   font-weight: normal;
   color: #000;
 }
 
 .term-item p.chinese,
-.term-item p[class*="chinese"] {
+.term-item p[class*='chinese'] {
   font-weight: normal;
   color: #000;
   margin-top: 8px;
 }
 
 /* Support for any other language classes */
-.term-item p:not(.english):not([class*="english"]):not(.chinese):not([class*="chinese"]) {
+.term-item p:not(.english):not([class*='english']):not(.chinese):not([class*='chinese']) {
   font-weight: normal;
   color: #000;
   margin-top: 8px;
@@ -1056,12 +1080,12 @@ onMounted(async () => {
   .contract-terms {
     padding: 20mm 15mm;
   }
-  
+
   .term-item {
     break-inside: avoid;
     page-break-inside: avoid;
   }
-  
+
   .term-item p {
     orphans: 3;
     widows: 3;

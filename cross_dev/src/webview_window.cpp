@@ -58,6 +58,8 @@ document.addEventListener('contextmenu',function(e){
 
 // Global: the first WebViewWindow created with owner=nullptr
 static WebViewWindow* g_mainWebViewWindow = nullptr;
+// Tracks which WebViewWindow has focus for Print (File menu prints focused window)
+static WebViewWindow* g_focusedWebViewForPrint = nullptr;
 
 WebViewWindow* WebViewWindow::GetMainWebViewWindow() {
     return g_mainWebViewWindow;
@@ -295,6 +297,7 @@ void WebViewWindow::registerCloseCallback() {
             window_->getNativeHandle(),
             [](void* userData) {
                 WebViewWindow* self = static_cast<WebViewWindow*>(userData);
+                if (self && g_focusedWebViewForPrint == self) g_focusedWebViewForPrint = nullptr;
                 if (self && self->getWebView()) {
                     NativeEventBus::getInstance().emitTo(self->getWebView(), "window:close-request", "{}");
                     NativeEventBus::getInstance().emitTo(self->getWebView(), "window:close", "{}");
@@ -331,12 +334,14 @@ void WebViewWindow::closeAllOwnedWebViewWindows() {
 namespace {
 void onWindowFocus(void* userData) {
     WebViewWindow* self = static_cast<WebViewWindow*>(userData);
+    if (self) g_focusedWebViewForPrint = self;
     if (self && self->getWebView()) {
         NativeEventBus::getInstance().emitTo(self->getWebView(), "window:focus", "{}");
     }
 }
 void onWindowBlur(void* userData) {
     WebViewWindow* self = static_cast<WebViewWindow*>(userData);
+    if (self && g_focusedWebViewForPrint == self) g_focusedWebViewForPrint = nullptr;
     if (self && self->getWebView()) {
         NativeEventBus::getInstance().emitTo(self->getWebView(), "window:blur", "{}");
     }
@@ -426,6 +431,13 @@ void onMainMenuItem(const std::string& itemId, void* userData) {
         platform::executeWebViewScript(self->getWebView()->getNativeHandle(), "location.reload();");
         return;
     }
+    // File menu: Print - print the focused window's content, else main window
+    if (itemId == "print") {
+        WebViewWindow* target = g_focusedWebViewForPrint;
+        if (!target || !target->getWebView()) target = self;
+        platform::printWebView(target->getWebView()->getNativeHandle());
+        return;
+    }
     // View menu: Settings - open embedded options editor (local HTML, not from server)
     if (itemId == "settings") {
         std::string script = R"(
@@ -474,6 +486,8 @@ void WebViewWindow::registerMainMenu() {
     fileItems.push_back({{"id", "open"}, {"label", "Open"}, {"shortcut", "Cmd+O"}});
     fileItems.push_back({{"id", "save"}, {"label", "Save"}, {"shortcut", "Cmd+S"}});
     fileItems.push_back({{"id", "saveAs"}, {"label", "Save As..."}, {"shortcut", "Cmd+Shift+S"}});
+    fileItems.push_back({{"id", "-"}});
+    fileItems.push_back({{"id", "print"}, {"label", "Print..."}, {"shortcut", "Cmd+P"}});
     json editItems = json::array();
     editItems.push_back({{"id", "undo"}, {"label", "Undo"}, {"shortcut", "Cmd+Z"}});
     editItems.push_back({{"id", "redo"}, {"label", "Redo"}, {"shortcut", "Cmd+Shift+Z"}});
@@ -509,6 +523,8 @@ void WebViewWindow::registerMainMenu() {
             {"id":"open","label":"Open","shortcut":"Ctrl+O"},
             {"id":"save","label":"Save","shortcut":"Ctrl+S"},
             {"id":"saveAs","label":"Save As...","shortcut":"Ctrl+Shift+S"},
+            {"id":"-"},
+            {"id":"print","label":"Print...","shortcut":"Ctrl+P"},
             {"id":"-"},
             {"id":"quit","label":"Quit","shortcut":"Ctrl+Q"}
         ]},
@@ -546,6 +562,8 @@ void WebViewWindow::registerMainMenu() {
             {"id":"open","label":"Open","shortcut":"Ctrl+O"},
             {"id":"save","label":"Save","shortcut":"Ctrl+S"},
             {"id":"saveAs","label":"Save As...","shortcut":"Ctrl+Shift+S"},
+            {"id":"-"},
+            {"id":"print","label":"Print...","shortcut":"Ctrl+P"},
             {"id":"-"},
             {"id":"quit","label":"Quit","shortcut":"Ctrl+Q"}
         ]},

@@ -32,7 +32,9 @@ namespace platform {
     void postMessageToJavaScript(void* webViewHandle, const std::string& jsonMessage);
     // Execute JavaScript in the WebView (fire-and-forget; used for Edit menu: cut, copy, paste, etc.)
     void executeWebViewScript(void* webViewHandle, const std::string& script);
-    
+    // Open native print dialog for the webview content (File menu: Print)
+    void printWebView(void* webViewHandle);
+
     // Window resize callback management
     void setWindowResizeCallback(void* windowHandle, void (*callback)(int width, int height, void* userData), void* userData);
     

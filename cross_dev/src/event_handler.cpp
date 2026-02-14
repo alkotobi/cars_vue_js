@@ -34,7 +34,7 @@ EventHandler::~EventHandler() {
     // MessageRouter will be automatically destroyed
 }
 
-void EventHandler::onWebViewCreateWindow(std::function<void(const std::string& name, const std::string& title, WebViewContentType contentType, const std::string& content, bool isSingleton)> callback) {
+void EventHandler::onWebViewCreateWindow(std::function<void(const std::string& name, const std::string& title, WebViewContentType contentType, const std::string& content, bool isSingleton, int x, int y, int width, int height)> callback) {
     createWindowCallback_ = std::move(callback);
     if (messageRouter_ && createWindowCallback_) {
         messageRouter_->registerHandler(createCreateWindowHandler(createWindowCallback_));
@@ -42,7 +42,7 @@ void EventHandler::onWebViewCreateWindow(std::function<void(const std::string& n
 }
 
 void EventHandler::onWebViewCreateWindow(std::function<void(const std::string& title, WebViewContentType contentType, const std::string& content)> callback) {
-    createWindowCallback_ = [cb = std::move(callback)](const std::string&, const std::string& title, WebViewContentType type, const std::string& content, bool) {
+    createWindowCallback_ = [cb = std::move(callback)](const std::string&, const std::string& title, WebViewContentType type, const std::string& content, bool, int, int, int, int) {
         cb(title, type, content);
     };
     if (messageRouter_ && createWindowCallback_) {

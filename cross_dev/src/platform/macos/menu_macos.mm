@@ -57,6 +57,8 @@ static void parseShortcut(const std::string& shortcut, std::string& outKey, NSEv
         else if (tok == "Alt" || tok == "Option" || tok == "Opt") outMask |= NSEventModifierFlagOption;
     }
     if (outMask == 0 && !outKey.empty()) outMask = NSEventModifierFlagCommand;
+    // macOS auto-adds Shift when keyEquivalent is uppercase; use lowercase for letters so we control modifiers
+    if (outKey.size() == 1 && outKey[0] >= 'A' && outKey[0] <= 'Z') outKey[0] += ('a' - 'A');
 }
 
 static void addMenuItems2(NSMenu* menu, const json& items, MenuItemTarget2* target) {

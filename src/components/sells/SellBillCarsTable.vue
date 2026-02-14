@@ -110,8 +110,6 @@ const calculateCFRDAFromPrice = (price, rate, freight, upgrades = 0) => {
   // Upgrades ADD value, so they increase both FOB and CFR
   // CFR = (FOB + upgrades + freight) × rate
   const result = ((parsedPrice + parsedUpgrades + parsedFreight) * parsedRate).toFixed(2)
-  console.log('[DEBUG] calculateCFRDAFromPrice - Input:', { price: parsedPrice, upgrades: parsedUpgrades, freight: parsedFreight, rate: parsedRate })
-  console.log('[DEBUG] calculateCFRDAFromPrice - Calculation:', `(${parsedPrice} + ${parsedUpgrades} + ${parsedFreight}) × ${parsedRate} = ${result}`)
   return result
 }
 
@@ -382,22 +380,12 @@ const handleEditUpgrades = () => {
 
 // Recalculate prices when upgrades change
 const recalculatePricesWithUpgrades = () => {
-  console.log('[DEBUG] recalculatePricesWithUpgrades called')
-  console.log('[DEBUG] priceInput.value:', priceInput.value)
-  console.log('[DEBUG] editFormData.value.rate:', editFormData.value.rate)
-  console.log('[DEBUG] editingCar.value?.id:', editingCar.value?.id)
-  console.log('[DEBUG] editCarUpgradesTotal.value:', editCarUpgradesTotal.value)
-  
   if (!priceInput.value || !editFormData.value.rate || !editingCar.value?.id) {
-    console.log('[DEBUG] Recalculation skipped - missing required data')
     return
   }
-  
+
   const upgrades = editCarUpgradesTotal.value || 0
-  console.log('[DEBUG] Using upgrades value:', upgrades)
-  console.log('[DEBUG] selectedCurrency.value:', selectedCurrency.value)
-  console.log('[DEBUG] editFormData.value.freight:', editFormData.value.freight)
-  
+
   if (selectedCurrency.value === 'USD') {
     // User has USD entered, recalculate CFR DA with new upgrades
     editFormData.value.price_cell = priceInput.value
@@ -407,8 +395,6 @@ const recalculatePricesWithUpgrades = () => {
       editFormData.value.freight,
       upgrades,
     )
-    console.log('[DEBUG] Calculated CFR DA from USD:', calculatedCFR)
-    console.log('[DEBUG] Input values - price:', priceInput.value, 'rate:', editFormData.value.rate, 'freight:', editFormData.value.freight, 'upgrades:', upgrades)
     cfrDaInput.value = calculatedCFR
   } else {
     // User has DZD entered, recalculate price_cell with new upgrades
@@ -419,62 +405,36 @@ const recalculatePricesWithUpgrades = () => {
       editFormData.value.freight,
       upgrades,
     )
-    console.log('[DEBUG] Calculated price_cell from DZD:', calculatedPrice)
-    console.log('[DEBUG] Input values - cfrDa:', priceInput.value, 'rate:', editFormData.value.rate, 'freight:', editFormData.value.freight, 'upgrades:', upgrades)
     editFormData.value.price_cell = calculatedPrice
   }
-  console.log('[DEBUG] Final values - price_cell:', editFormData.value.price_cell, 'cfr_da:', cfrDaInput.value)
 }
 
 // Close upgrades modal in edit dialog
 const closeEditUpgradesModal = async () => {
-  console.log('[DEBUG] closeEditUpgradesModal called')
   showEditUpgradesModal.value = false
-  // Refresh upgrades total when modal closes (in case upgrades were modified)
   if (editingCar.value?.id) {
-    console.log('[DEBUG] Refreshing upgrades for car:', editingCar.value.id)
-    // Small delay to ensure any pending database operations complete
-    await new Promise(resolve => setTimeout(resolve, 100))
+    await new Promise((resolve) => setTimeout(resolve, 100))
     await fetchEditCarUpgrades()
-    console.log('[DEBUG] Upgrades refreshed, total:', editCarUpgradesTotal.value)
-    // Also refresh upgrades in the table
     fetchCarsUpgrades()
-    
-    // Recalculate prices with updated upgrades
-    // Use nextTick to ensure DOM is updated
     await nextTick()
-    console.log('[DEBUG] Calling recalculatePricesWithUpgrades after modal close')
     recalculatePricesWithUpgrades()
-  } else {
-    console.log('[DEBUG] No car ID, skipping upgrade refresh')
   }
 }
 
 // Handle upgrade added event from modal
 const handleUpgradeAdded = async () => {
-  console.log('[DEBUG] handleUpgradeAdded called')
-  // Refresh upgrades when a new one is added
   if (editingCar.value?.id) {
-    console.log('[DEBUG] Refreshing upgrades after upgrade added for car:', editingCar.value.id)
-    // Small delay to ensure database operation completes
-    await new Promise(resolve => setTimeout(resolve, 100))
+    await new Promise((resolve) => setTimeout(resolve, 100))
     await fetchEditCarUpgrades()
-    console.log('[DEBUG] Upgrades refreshed after add, total:', editCarUpgradesTotal.value)
     fetchCarsUpgrades()
-    // Recalculate prices with updated upgrades
     await nextTick()
-    console.log('[DEBUG] Calling recalculatePricesWithUpgrades after upgrade added')
     recalculatePricesWithUpgrades()
-  } else {
-    console.log('[DEBUG] No car ID, skipping upgrade refresh')
   }
 }
 
 // Fetch upgrades for the car being edited
 const fetchEditCarUpgrades = async () => {
-  console.log('[DEBUG] fetchEditCarUpgrades called for car ID:', editingCar.value?.id)
   if (!editingCar.value?.id) {
-    console.log('[DEBUG] No car ID, resetting upgrades')
     editCarUpgrades.value = []
     editCarUpgradesTotal.value = 0
     return
@@ -494,20 +454,17 @@ const fetchEditCarUpgrades = async () => {
 
     if (result.success) {
       editCarUpgrades.value = result.data || []
-      console.log('[DEBUG] Fetched upgrades:', editCarUpgrades.value)
       // Calculate total
       editCarUpgradesTotal.value = editCarUpgrades.value.reduce((sum, upgrade) => {
         const value = parseFloat(upgrade.value) || 0
         return sum + value
       }, 0)
-      console.log('[DEBUG] Calculated upgrade total:', editCarUpgradesTotal.value)
     } else {
-      console.log('[DEBUG] Failed to fetch upgrades:', result.error)
       editCarUpgrades.value = []
       editCarUpgradesTotal.value = 0
     }
   } catch (err) {
-    console.error('[DEBUG] Error fetching car upgrades:', err)
+    console.error('Error fetching car upgrades:', err)
     editCarUpgrades.value = []
     editCarUpgradesTotal.value = 0
   }
@@ -693,12 +650,7 @@ const handleEdit = async (car) => {
 
       // Set the price input value based on existing data (after upgrades are fetched)
       const upgrades = editCarUpgradesTotal.value || 0
-      console.log('[DEBUG] handleEdit - Initializing prices with upgrades:', upgrades)
-      console.log('[DEBUG] handleEdit - carData.price_cell:', carData.price_cell)
-      console.log('[DEBUG] handleEdit - carData.cfr_da:', carData.cfr_da)
-      console.log('[DEBUG] handleEdit - editFormData.value.rate:', editFormData.value.rate)
-      console.log('[DEBUG] handleEdit - editFormData.value.freight:', editFormData.value.freight)
-      
+
       // Always prefer price_cell as source of truth if it exists, as it's the base FOB price
       // CFR DA might have been calculated without upgrades in the past
       if (carData.price_cell) {
@@ -714,7 +666,6 @@ const handleEdit = async (car) => {
             editFormData.value.freight,
             upgrades,
           )
-          console.log('[DEBUG] handleEdit - Recalculated CFR DA from price_cell:', recalculatedCFR, 'with upgrades:', upgrades)
           cfrDaInput.value = recalculatedCFR
         }
       } else if (carData.cfr_da) {
@@ -731,7 +682,6 @@ const handleEdit = async (car) => {
             editFormData.value.freight,
             upgrades,
           )
-          console.log('[DEBUG] handleEdit - Calculated price_cell from CFR DA:', recalculatedPrice, 'with upgrades:', upgrades)
           editFormData.value.price_cell = recalculatedPrice
         }
       } else {
@@ -740,7 +690,6 @@ const handleEdit = async (car) => {
         priceInput.value = null
         cfrDaInput.value = null
       }
-      console.log('[DEBUG] handleEdit - Final initialized values - price_cell:', editFormData.value.price_cell, 'cfr_da:', cfrDaInput.value, 'priceInput:', priceInput.value, 'currency:', selectedCurrency.value)
 
       showEditDialog.value = true
     }
@@ -788,12 +737,7 @@ const handleSaveEdit = async () => {
   try {
     // Ensure both values are set based on currency selection
     const upgrades = editCarUpgradesTotal.value || 0
-    console.log('[DEBUG] handleSaveEdit - Using upgrades:', upgrades)
-    console.log('[DEBUG] handleSaveEdit - priceInput.value:', priceInput.value)
-    console.log('[DEBUG] handleSaveEdit - selectedCurrency.value:', selectedCurrency.value)
-    console.log('[DEBUG] handleSaveEdit - rate:', editFormData.value.rate)
-    console.log('[DEBUG] handleSaveEdit - freight:', editFormData.value.freight)
-    
+
     if (selectedCurrency.value === 'USD') {
       // User entered USD, ensure CFR DA is calculated
       editFormData.value.price_cell = priceInput.value
@@ -803,7 +747,6 @@ const handleSaveEdit = async () => {
         editFormData.value.freight,
         upgrades,
       )
-      console.log('[DEBUG] handleSaveEdit - Calculated CFR DA:', calculatedCFR)
       cfrDaInput.value = calculatedCFR
     } else {
       // User entered DZD, ensure price_cell is calculated
@@ -814,10 +757,8 @@ const handleSaveEdit = async () => {
         editFormData.value.freight,
         upgrades,
       )
-      console.log('[DEBUG] handleSaveEdit - Calculated price_cell:', calculatedPrice)
       editFormData.value.price_cell = calculatedPrice
     }
-    console.log('[DEBUG] handleSaveEdit - Final values before save - price_cell:', editFormData.value.price_cell, 'cfr_da:', cfrDaInput.value)
 
     const result = await callApi({
       query: `
@@ -990,20 +931,9 @@ const fetchCarsByBillId = async (billId) => {
 // Watch for upgrades total changes and recalculate prices
 watch(
   () => editCarUpgradesTotal.value,
-  (newValue, oldValue) => {
-    console.log('[DEBUG] editCarUpgradesTotal watcher triggered')
-    console.log('[DEBUG] Old value:', oldValue, 'New value:', newValue)
-    console.log('[DEBUG] showEditDialog.value:', showEditDialog.value)
-    console.log('[DEBUG] priceInput.value:', priceInput.value)
-    console.log('[DEBUG] editFormData.value.rate:', editFormData.value.rate)
-    console.log('[DEBUG] editingCar.value?.id:', editingCar.value?.id)
-    
-    // Only recalculate if edit dialog is open and we have the necessary data
+  () => {
     if (showEditDialog.value && priceInput.value && editFormData.value.rate && editingCar.value?.id) {
-      console.log('[DEBUG] Conditions met, calling recalculatePricesWithUpgrades from watcher')
       recalculatePricesWithUpgrades()
-    } else {
-      console.log('[DEBUG] Conditions not met, skipping recalculation')
     }
   }
 )

@@ -86,7 +86,7 @@ void AppRunner::setupEventHandler() {
         mainWindow_->getWindow(), mainWindow_->getWebView());
 
     eventHandler_->onWebViewCreateWindow(
-        [this](const std::string& name, const std::string& title, WebViewContentType type, const std::string& cnt, bool isSingleton) {
+        [this](const std::string& name, const std::string& title, WebViewContentType type, const std::string& cnt, bool isSingleton, int x, int y, int width, int height) {
             try {
                 std::string content = cnt;
                 WebViewContentType contentType = type;
@@ -94,6 +94,10 @@ void AppRunner::setupEventHandler() {
                     content = "<html><body><h1>" + title + "</h1><p>No content specified.</p></body></html>";
                     contentType = WebViewContentType::Html;
                 }
+                if (x < 0) x = 150;
+                if (y < 0) y = 150;
+                if (width <= 0) width = 900;
+                if (height <= 0) height = 700;
                 auto attachFn = [this](WebView* wv) {
                     if (eventHandler_ && wv && mainWindow_) {
                         std::vector<std::shared_ptr<MessageHandler>> extras;
@@ -106,10 +110,10 @@ void AppRunner::setupEventHandler() {
                 WebViewWindow* child = nullptr;
                 if (isSingleton) {
                     child = SingletonWebViewWindowManager::getInstance().getOrCreate(
-                        name, title, contentType, content, mainWindow_.get(), attachFn);
+                        name, title, contentType, content, mainWindow_.get(), attachFn, x, y, width, height);
                 }
                 if (!child) {
-                    auto childPtr = std::make_unique<WebViewWindow>(mainWindow_.get(), 150, 150, 900, 700, title, contentType, content);
+                    auto childPtr = std::make_unique<WebViewWindow>(mainWindow_.get(), x, y, width, height, title, contentType, content);
                     child = childPtr.get();
                     if (eventHandler_ && child && mainWindow_) {
                         std::vector<std::shared_ptr<MessageHandler>> extras;

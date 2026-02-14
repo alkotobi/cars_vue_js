@@ -220,15 +220,16 @@ onMounted(async () => {
   if (userStr) {
     user.value = JSON.parse(userStr)
   }
-  
+
   // Read query parameters from URL
   if (route.query.paymentStatus) {
     filters.value.paymentStatus = route.query.paymentStatus
   }
   if (route.query.paymentConfirmed !== undefined) {
-    filters.value.paymentConfirmed = route.query.paymentConfirmed === '0' ? 0 : route.query.paymentConfirmed === '1' ? 1 : null
+    filters.value.paymentConfirmed =
+      route.query.paymentConfirmed === '0' ? 0 : route.query.paymentConfirmed === '1' ? 1 : null
   }
-  
+
   await fetchAllUsers() // Fetch users before fetching bills
   fetchSellBills()
 })
@@ -340,7 +341,6 @@ const fetchSellBills = async () => {
     const result = await callApi({ query, params })
 
     if (result.success) {
-      console.log(result.data.length)
       allSellBills.value = result.data.map((bill) => {
         // Parse notes JSON if it exists
         let notesDisplay = 'N/A'
@@ -355,19 +355,21 @@ const fetchSellBills = async () => {
               // Old format (plain text) - use as is
               notesDisplay = bill.notes
             }
-            
+
             if (Array.isArray(notesArray) && notesArray.length > 0) {
               // Format all notes without username or timestamp
-              notesDisplay = notesArray.map((note) => {
-                return note.note || ''
-              }).join('\n')
+              notesDisplay = notesArray
+                .map((note) => {
+                  return note.note || ''
+                })
+                .join('\n')
             }
           } catch (e) {
             // If parsing fails, treat as old format (plain text)
             notesDisplay = bill.notes
           }
         }
-        
+
         return {
           ...bill,
           notes: bill.notes, // Keep original JSON for form
@@ -518,8 +520,7 @@ const handlePrintClose = () => {
   selectedPrintBillId.value = null
 }
 
-const handlePrintProceed = (options) => {
-  console.log('Print options:', options)
+const handlePrintProceed = () => {
   showPrintOptions.value = false
   selectedPrintBillId.value = null
 }
@@ -540,19 +541,9 @@ const handleTask = (bill) => {
 }
 
 const selectBill = (bill) => {
-  console.log('selectBill called with bill:', bill)
   selectedBillId.value = bill.id
-
-  // Emit the selected bill ID to the parent component
-  console.log('Emitting select-bill event with billId:', bill.id)
   emit('select-bill', bill.id)
-
-  if (props.onSelect) {
-    console.log('Calling props.onSelect with billId:', bill.id)
-    props.onSelect(bill.id)
-  } else {
-    console.log('props.onSelect is not available')
-  }
+  props.onSelect?.(bill.id)
 }
 
 const handleSort = (field) => {
@@ -738,17 +729,12 @@ const handleBatchPrint = async () => {
     return
   }
 
-  console.log('Starting batch print for bills:', selectedBills.value)
-
   isPrintingBatch.value = true
 
   try {
-    // Fetch full details for all selected bills
     const billsData = []
 
     for (const billId of selectedBills.value) {
-      console.log('Fetching bill ID:', billId)
-
       // Fetch bill details
       const billResult = await callApi({
         query: `
@@ -768,15 +754,11 @@ const handleBatchPrint = async () => {
         params: [billId],
       })
 
-      console.log('Bill result for ID', billId, ':', billResult)
-
       if (!billResult.success || billResult.data.length === 0) {
-        console.warn('Skipping bill', billId, '- not found or error')
         continue
       }
 
       const bill = billResult.data[0]
-      console.log('Fetched bill:', bill)
 
       // Fetch cars for this bill
       const carsResult = await callApi({
@@ -799,18 +781,13 @@ const handleBatchPrint = async () => {
         params: [billId],
       })
 
-      console.log('Cars result for bill', billId, ':', carsResult)
-
       billsData.push({
         bill,
         cars: carsResult.success ? carsResult.data : [],
       })
     }
 
-    console.log('Bills data for printing:', billsData)
-
     if (billsData.length === 0) {
-      console.error('No bills data collected!')
       alert(t('sellBills.no_bills_to_print'))
       return
     }
@@ -834,7 +811,7 @@ const fetchBatchPrintUpgrades = async (billsData) => {
     // Collect all car IDs
     const allCarIds = []
     billsData.forEach(({ cars }) => {
-      cars.forEach(car => {
+      cars.forEach((car) => {
         if (car.id) allCarIds.push(car.id)
       })
     })
@@ -866,13 +843,13 @@ const fetchBatchPrintUpgrades = async (billsData) => {
         }
         upgradesMap.get(carId).push({
           description: row.description || 'N/A',
-          value: parseFloat(row.value) || 0
+          value: parseFloat(row.value) || 0,
         })
       })
 
       // Attach upgrades to each car
       billsData.forEach(({ cars }) => {
-        cars.forEach(car => {
+        cars.forEach((car) => {
           car.upgrades = upgradesMap.get(car.id) || []
         })
       })
@@ -885,18 +862,20 @@ const fetchBatchPrintUpgrades = async (billsData) => {
 // Format upgrades for display
 const formatCarUpgradesForBatch = (upgrades) => {
   if (!upgrades || upgrades.length === 0) return ''
-  
-  return upgrades.map(upgrade => {
-    const desc = upgrade.description || 'N/A'
-    const value = upgrade.value || 0
-    return `${desc}: $${value.toFixed(2)}`
-  }).join(', ')
+
+  return upgrades
+    .map((upgrade) => {
+      const desc = upgrade.description || 'N/A'
+      const value = upgrade.value || 0
+      return `${desc}: $${value.toFixed(2)}`
+    })
+    .join(', ')
 }
 
 // Format JSON notes - extract only note text without user/date
 const formatNotesForBatch = (notes) => {
   if (!notes) return 'N/A'
-  
+
   try {
     let notesArray = []
     if (typeof notes === 'string' && notes.trim().startsWith('[')) {
@@ -907,12 +886,15 @@ const formatNotesForBatch = (notes) => {
       // Old format (plain text) - use as is
       return notes
     }
-    
+
     if (Array.isArray(notesArray) && notesArray.length > 0) {
       // Extract only the note text, filter empty notes, join with newlines
-      return notesArray.map(note => note.note || '').filter(note => note.trim() !== '').join('\n')
+      return notesArray
+        .map((note) => note.note || '')
+        .filter((note) => note.trim() !== '')
+        .join('\n')
     }
-    
+
     return 'N/A'
   } catch (e) {
     // If parsing fails, treat as old format (plain text)
@@ -921,13 +903,11 @@ const formatNotesForBatch = (notes) => {
 }
 
 const generateBatchPrintReport = async (billsData) => {
-  console.log('generateBatchPrintReport called with:', billsData.length, 'bills')
-
   // Load assets if not already loaded
   if (!letterHeadUrl.value) {
     try {
       const assets = await getAssets()
-      letterHeadUrl.value = await loadLetterhead() || ''
+      letterHeadUrl.value = (await loadLetterhead()) || ''
     } catch (err) {
       console.error('Failed to load assets, using default:', err)
     }
@@ -1001,7 +981,7 @@ const generateBatchPrintReport = async (billsData) => {
   if (!letterHeadUrl.value) {
     try {
       const assets = await getAssets()
-      letterHeadUrl.value = await loadLetterhead() || ''
+      letterHeadUrl.value = (await loadLetterhead()) || ''
     } catch (err) {
       console.error('Failed to load assets, using default:', err)
     }
@@ -1210,16 +1190,7 @@ const generateBatchPrintReport = async (billsData) => {
       <img src="${letterHeadUrl.value}" class="letter-head" alt="Letter Head" />
   `
 
-  // Add each bill
-  billsData.forEach(({ bill, cars }, index) => {
-    console.log(
-      `Processing bill ${index + 1}/${billsData.length}:`,
-      bill.id,
-      'with',
-      cars.length,
-      'cars',
-    )
-
+  billsData.forEach(({ bill, cars }) => {
     html += `
       <div class="bill-section">
         
@@ -1279,8 +1250,6 @@ const generateBatchPrintReport = async (billsData) => {
     let billFreightUsd = 0
     let billCfrDa = 0
 
-    console.log('Rendering', cars.length, 'cars for bill', bill.id)
-
     if (cars.length === 0) {
       html += `
         <tr>
@@ -1296,19 +1265,6 @@ const generateBatchPrintReport = async (billsData) => {
         billFobUsd += priceUsd
         billFreightUsd += freightUsd
         billCfrDa += cfrDa
-
-        console.log(
-          'Car',
-          carIndex + 1,
-          ':',
-          car.car_name,
-          'VIN:',
-          car.vin,
-          'Price USD:',
-          priceUsd,
-          'CFR DA:',
-          cfrDa,
-        )
 
         html += `
           <tr>
@@ -1392,13 +1348,8 @@ const generateBatchPrintReport = async (billsData) => {
     </html>
   `
 
-  console.log('Generated HTML length:', html.length, 'characters')
-  console.log('HTML preview (first 500 chars):', html.substring(0, 500))
-
   printWindow.document.write(html)
   printWindow.document.close()
-
-  console.log('Document written to print window')
 
   // Wait for images to load before printing
   printWindow.onload = () => {
@@ -1429,7 +1380,10 @@ const getPaymentConfirmButtonTitle = (bill) => {
     const total = bill.total_cfr || 0
     const paid = bill.total_paid || 0
     const remaining = (total - paid).toFixed(2)
-    return t('sellBills.cannot_confirm_unpaid') || `Cannot confirm payment. Bill is not fully paid. Remaining: $${remaining}`
+    return (
+      t('sellBills.cannot_confirm_unpaid') ||
+      `Cannot confirm payment. Bill is not fully paid. Remaining: $${remaining}`
+    )
   }
   if (bill.payment_confirmed) {
     return t('sellBills.payment_confirmed_yes')
@@ -1480,7 +1434,10 @@ const getLoadingStatus = (bill) => {
 // Toggle payment confirmed status
 const togglePaymentConfirmed = async (bill) => {
   if (!can_confirm_payment.value) {
-    alert(t('sellBills.no_permission_to_confirm_payment') || 'You do not have permission to confirm payments')
+    alert(
+      t('sellBills.no_permission_to_confirm_payment') ||
+        'You do not have permission to confirm payments',
+    )
     return
   }
 
@@ -1490,13 +1447,13 @@ const togglePaymentConfirmed = async (bill) => {
 
   try {
     const newStatus = bill.payment_confirmed ? 0 : 1
-    
+
     // Get current user info for permission check
     if (!user.value || !user.value.id) {
       alert('User authentication required')
       return
     }
-    
+
     const result = await callApi({
       query: `
         UPDATE sell_bill
@@ -1530,7 +1487,7 @@ const togglePaymentConfirmed = async (bill) => {
 
       if (billResult.success && billResult.data.length > 0) {
         const updatedBill = billResult.data[0]
-        
+
         // Update local state with fresh data
         const billIndex = sellBills.value.findIndex((b) => b.id === bill.id)
         if (billIndex !== -1) {
@@ -1567,26 +1524,39 @@ const togglePaymentConfirmed = async (bill) => {
           }
         }
       }
-      
+
       // Emit refresh event to parent component
       emit('refresh')
-      
+
       // Dispatch global event for CarStockTable to listen to (if it's on a different page)
-      window.dispatchEvent(new CustomEvent('payment-confirmed-updated', {
-        detail: { billId: bill.id, newStatus }
-      }))
-      
+      window.dispatchEvent(
+        new CustomEvent('payment-confirmed-updated', {
+          detail: { billId: bill.id, newStatus },
+        }),
+      )
+
       // Show success message
       if (newStatus === 1) {
-        alert(t('sellBills.payment_confirmed_success') || 'Payment confirmed. All cars in this sell bill have also been confirmed.')
+        alert(
+          t('sellBills.payment_confirmed_success') ||
+            'Payment confirmed. All cars in this sell bill have also been confirmed.',
+        )
       } else {
-        alert(t('sellBills.payment_unconfirmed_success') || 'Payment unconfirmed. All cars in this sell bill have also been unconfirmed.')
+        alert(
+          t('sellBills.payment_unconfirmed_success') ||
+            'Payment unconfirmed. All cars in this sell bill have also been unconfirmed.',
+        )
       }
     } else {
       const errorMsg = result.error || 'Unknown error'
       // Check if it's a missing column error
-      if (errorMsg.includes("Unknown column 'payment_confirmed'") || errorMsg.includes("doesn't exist")) {
-        alert('Payment confirmed column does not exist. Please run migration 008_add_payment_confirmed_to_sell_bill.sql')
+      if (
+        errorMsg.includes("Unknown column 'payment_confirmed'") ||
+        errorMsg.includes("doesn't exist")
+      ) {
+        alert(
+          'Payment confirmed column does not exist. Please run migration 008_add_payment_confirmed_to_sell_bill.sql',
+        )
       } else if (errorMsg.includes('Permission denied')) {
         alert(errorMsg)
       } else {
@@ -1595,7 +1565,10 @@ const togglePaymentConfirmed = async (bill) => {
     }
   } catch (err) {
     console.error('Error toggling payment confirmed:', err)
-    alert(t('sellBills.error_updating_payment_confirmed') || 'Error updating payment confirmed status: ' + err.message)
+    alert(
+      t('sellBills.error_updating_payment_confirmed') ||
+        'Error updating payment confirmed status: ' + err.message,
+    )
   } finally {
     isProcessing.value = false
   }
@@ -1828,9 +1801,7 @@ const togglePaymentConfirmed = async (bill) => {
               ></i>
             </th>
             <th><i class="fas fa-money-bill-wave"></i> {{ t('sellBills.payment_status') }}</th>
-            <th>
-              <i class="fas fa-check-circle"></i> {{ t('sellBills.payment_confirmed') }}
-            </th>
+            <th><i class="fas fa-check-circle"></i> {{ t('sellBills.payment_confirmed') }}</th>
             <th><i class="fas fa-shipping-fast"></i> {{ t('sellBills.loading_status') }}</th>
             <th><i class="fas fa-cog"></i> {{ t('sellBills.actions') }}</th>
           </tr>
@@ -1871,7 +1842,10 @@ const togglePaymentConfirmed = async (bill) => {
             <td>
               <div class="broker-info">
                 <div>{{ bill.broker_name || 'N/A' }}</div>
-                <div v-if="bill.broker_mobiles && bill.broker_mobiles !== 'please provide mobile'" class="broker-mobile">
+                <div
+                  v-if="bill.broker_mobiles && bill.broker_mobiles !== 'please provide mobile'"
+                  class="broker-mobile"
+                >
                   <i class="fas fa-phone"></i>
                   {{ bill.broker_mobiles }}
                 </div>
@@ -1880,7 +1854,7 @@ const togglePaymentConfirmed = async (bill) => {
             <td>{{ bill.created_by || 'N/A' }}</td>
             <td class="notes-cell" :title="bill.notesDisplay || 'N/A'">
               <div class="notes-content">
-                <div style="white-space: pre-line; max-width: 300px;">
+                <div style="white-space: pre-line; max-width: 300px">
                   {{ getTruncatedNotes(bill.notesDisplay, bill.id) }}
                 </div>
                 <button
@@ -1889,7 +1863,11 @@ const togglePaymentConfirmed = async (bill) => {
                   class="btn-show-full-notes"
                   type="button"
                 >
-                  {{ expandedNotes.has(bill.id) ? t('sellBills.show_less') || 'Show Less' : t('sellBills.show_full') || 'Show Full' }}
+                  {{
+                    expandedNotes.has(bill.id)
+                      ? t('sellBills.show_less') || 'Show Less'
+                      : t('sellBills.show_full') || 'Show Full'
+                  }}
                 </button>
               </div>
             </td>
@@ -1904,17 +1882,27 @@ const togglePaymentConfirmed = async (bill) => {
             <td>
               <div class="payment-confirmed-container">
                 <button
-                  @click.stop="can_confirm_payment && isBillFullyPaid(bill) ? togglePaymentConfirmed(bill) : null"
+                  @click.stop="
+                    can_confirm_payment && isBillFullyPaid(bill)
+                      ? togglePaymentConfirmed(bill)
+                      : null
+                  "
                   :disabled="isProcessing || !can_confirm_payment || !isBillFullyPaid(bill)"
-                  :class="['payment-confirmed-btn', bill.payment_confirmed ? 'confirmed' : 'not-confirmed', !can_confirm_payment || !isBillFullyPaid(bill) ? 'read-only' : '']"
+                  :class="[
+                    'payment-confirmed-btn',
+                    bill.payment_confirmed ? 'confirmed' : 'not-confirmed',
+                    !can_confirm_payment || !isBillFullyPaid(bill) ? 'read-only' : '',
+                  ]"
                   :title="getPaymentConfirmButtonTitle(bill)"
                 >
                   <i :class="bill.payment_confirmed ? 'fas fa-check-circle' : 'far fa-circle'"></i>
-                  {{ bill.payment_confirmed ? t('sellBills.confirmed') : t('sellBills.not_confirmed') }}
+                  {{
+                    bill.payment_confirmed ? t('sellBills.confirmed') : t('sellBills.not_confirmed')
+                  }}
                 </button>
                 <div v-if="bill.payment_confirmed" class="confirmed-by">
                   <i class="fas fa-user"></i>
-                  {{ bill.confirmed_by_username || (user?.username || 'Unknown') }}
+                  {{ bill.confirmed_by_username || user?.username || 'Unknown' }}
                 </div>
               </div>
             </td>
