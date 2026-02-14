@@ -9,8 +9,12 @@
 #include "excel/excel_image.h"
 #include "excel/excel_layout.h"
 #include "excel/excel_paths.h"
+#include <chrono>
 #include <cstdlib>
+#include <iomanip>
 #include <iostream>
+#include <random>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -34,7 +38,35 @@ static std::string toAbsolutePath(const std::string& path) {
     return path;
 }
 
-/** Open file in default app. Returns true on success, false if no default app or error. */
+/** Generate a unique temporary filename for Excel output (excel_YYYYMMDD_HHMMSS_XXXX.xlsx). */
+static std::string makeUniqueExcelOutputPath() {
+    auto now = std::chrono::system_clock::now();
+    auto t = std::chrono::system_clock::to_time_t(now);
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+        now.time_since_epoch()) % 1000;
+    std::tm* tm = std::localtime(&t);
+    std::ostringstream os;
+    os << "excel_"
+       << std::put_time(tm, "%Y%m%d_%H%M%S")
+       << "_" << std::setfill('0') << std::setw(3) << ms.count();
+    std::uniform_int_distribution<int> dist(0, 0xFFFF);
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    os << "_" << std::hex << std::setfill('0') << std::setw(4) << dist(gen);
+    return os.str() + ".xlsx";
+}
+
+/** On macOS: trigger Excel print dialog (Cmd+P) after opening. Does nothing on other platforms. */
+static void printExcelAfterOpen() {
+#ifdef __APPLE__
+    // Give Excel time to load the workbook
+    sleep(2);
+    int r = system("osascript -e 'tell application \"Microsoft Excel\" to activate' "
+                  "-e 'tell application \"System Events\" to tell process \"Microsoft Excel\" to keystroke \"p\" using command down' 2>/dev/null");
+    (void)r;
+#endif
+}
+
 static bool openInDefaultApp(const std::string& path) {
     std::string absPath = toAbsolutePath(path);
 #ifdef __APPLE__
@@ -62,7 +94,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    std::string outputPath = "excel_template_test_output.xlsx";
+    std::string outputPath = makeUniqueExcelOutputPath();
     std::cout << "Opening template: " << templatePath << "\n";
 
     excel::ExcelExporter exporter(templatePath);
@@ -103,6 +135,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     std::cout << "Opened in default application.\n";
+    printExcelAfterOpen();
     std::cout << "Done.\n";
     return 0;
 }
