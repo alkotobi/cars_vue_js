@@ -172,6 +172,17 @@
                 :placeholder="t('loading.filter_by_container_ref')"
               />
             </div>
+            <div class="filter-group">
+              <label>
+                <i class="fas fa-file-alt"></i>
+                {{ t('loading.so') }}:
+              </label>
+              <input
+                type="text"
+                v-model="filters.so"
+                :placeholder="t('loading.so_number') || 'Filter by SO...'"
+              />
+            </div>
           </div>
         </div>
 
@@ -460,6 +471,7 @@
       :clientIdFilter="filters.clientId"
       :carIdFilter="filters.carId"
       :containerIdFilter="filters.containerRef"
+      :soFilter="filters.so"
       @container-click="handleContainerClick"
       @refresh-unassigned-cars="handleRefreshUnassignedCars"
       @container-created="handleContainerCreated"
@@ -977,6 +989,7 @@ const filters = ref({
   carId: '',
   container: '',
   containerRef: '',
+  so: '',
 })
 
 const sortBy = ref('id')
@@ -1022,7 +1035,8 @@ const fetchLoadingRecords = async () => {
         GROUP_CONCAT(DISTINCT cl.name) as client_names,
         GROUP_CONCAT(DISTINCT cl.id_no) as client_ids,
         GROUP_CONCAT(DISTINCT lc.ref_container) as container_refs,
-        GROUP_CONCAT(DISTINCT lc.id_container) as container_ids
+        GROUP_CONCAT(DISTINCT lc.id_container) as container_ids,
+        GROUP_CONCAT(DISTINCT lc.so) as container_sos
       FROM loading l
       LEFT JOIN shipping_lines sl ON l.id_shipping_line = sl.id
       LEFT JOIN loading_ports lp ON l.id_loading_port = lp.id
@@ -1181,17 +1195,24 @@ const applyFiltersAndSorting = () => {
   // Apply container reference filter
   if (filters.value.containerRef) {
     const containerRefTerm = filters.value.containerRef.toLowerCase()
-    console.log('Container Ref Filter Debug:', {
-      filterTerm: containerRefTerm,
-      sampleRecord: filteredRecords[0],
-      containerRefsField: filteredRecords[0]?.container_refs,
-    })
     filteredRecords = filteredRecords.filter(
       (record) =>
         record.container_refs &&
         record.container_refs
           .split(',')
           .some((ref) => ref.trim().toLowerCase().includes(containerRefTerm)),
+    )
+  }
+
+  // Apply SO filter
+  if (filters.value.so) {
+    const soTerm = filters.value.so.trim().toLowerCase()
+    filteredRecords = filteredRecords.filter(
+      (record) =>
+        record.container_sos &&
+        record.container_sos
+          .split(',')
+          .some((s) => s && s.trim().toLowerCase().includes(soTerm)),
     )
   }
 
@@ -1265,7 +1286,8 @@ const applyFiltersAndSorting = () => {
     filters.value.clientId ||
     filters.value.carId ||
     filters.value.container ||
-    filters.value.containerRef
+    filters.value.containerRef ||
+    filters.value.so
   )
 
   // Show all filtered records (removed the 5-record limit)
@@ -1301,7 +1323,8 @@ const applyFilters = () => {
     filters.value.clientId ||
     filters.value.carId ||
     filters.value.container ||
-    filters.value.containerRef
+    filters.value.containerRef ||
+    filters.value.so
   ) {
     // If any business filters are active, fetch from database
     fetchLoadingRecords()
@@ -1386,6 +1409,7 @@ const clearFilters = () => {
     carId: '',
     container: '',
     containerRef: '',
+    so: '',
   }
   sortBy.value = 'id'
   sortOrder.value = 'desc'

@@ -629,6 +629,10 @@ const props = defineProps({
     type: String,
     default: '',
   },
+  soFilter: {
+    type: String,
+    default: '',
+  },
 })
 
 const emit = defineEmits(['container-click', 'refresh-unassigned-cars', 'container-created'])
@@ -646,7 +650,8 @@ const hasActiveFilters = computed(() => {
     props.soldDateFrom ||
     props.soldDateTo ||
     props.containerIdFilter ||
-    props.containerRefFilter
+    props.containerRefFilter ||
+    props.soFilter
   )
 })
 
@@ -841,6 +846,11 @@ const fetchContainers = async () => {
       params.push(`%${props.containerRefFilter}%`)
     }
 
+    if (props.soFilter && props.soFilter.trim()) {
+      query += ` AND lc.so LIKE ?`
+      params.push(`%${props.soFilter.trim()}%`)
+    }
+
     query += ` GROUP BY lc.id ${orderByClause}`
 
     const result = await callApi({
@@ -862,6 +872,7 @@ const fetchContainers = async () => {
       carId: props.carIdFilter,
       containerId: props.containerIdFilter,
       containerRef: props.containerRefFilter,
+      so: props.soFilter,
     })
     console.log('Car ID Filter Debug:', {
       carIdFilter: props.carIdFilter,
@@ -1380,6 +1391,7 @@ watch(
     props.carIdFilter,
     props.containerIdFilter,
     props.containerRefFilter,
+    props.soFilter,
   ],
   () => {
     if (props.selectedLoadingId) {
