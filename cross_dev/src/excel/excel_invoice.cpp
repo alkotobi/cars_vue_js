@@ -12,13 +12,14 @@ namespace {
 
 using namespace OpenXLSX;
 
-// Layout constants (1-based rows) — tight spacing, logo 0.5x0.5
-constexpr uint32_t ROW_COMPANY_NAME = 1;   // Same line as logo, right of logo
-constexpr uint32_t ROW_COMPANY_DETAILS = 2;  // Address, phone, etc. below company name
-constexpr uint32_t ROW_INVOICE_TITLE = 5;   // "INVOICE" on its own line
-constexpr uint32_t ROW_BILL_TO = 6;         // Bill To and client data start here
-constexpr uint32_t ROW_TABLE_HEADER = 11;   // Details table header
-constexpr uint32_t COL_COMPANY = 2;         // Company name/details to the right of logo
+// Layout: logo left (col A), company block right (col B) — 3 lines, logo height = 3-line block
+constexpr uint32_t ROW_COMPANY_NAME = 1;      // Line 1: company name (big font)
+constexpr uint32_t ROW_COMPANY_ADDRESS = 2;   // Line 2: address (small font)
+constexpr uint32_t ROW_COMPANY_CONTACT = 3;   // Line 3: mobile | email | website (small font)
+constexpr uint32_t ROW_INVOICE_TITLE = 6;     // "INVOICE" on its own line
+constexpr uint32_t ROW_BILL_TO = 7;          // Bill To and client data start here
+constexpr uint32_t ROW_TABLE_HEADER = 12;     // Details table header
+constexpr uint32_t COL_COMPANY = 2;          // Company block to the right of logo (col B)
 constexpr uint32_t COL_NO = 1;
 constexpr uint32_t COL_DESC = 2;
 constexpr uint32_t COL_DESC_END = 3;        // Description spans B–C
@@ -28,16 +29,27 @@ constexpr uint32_t COL_QTY = 6;
 constexpr uint32_t COL_UNIT = 7;
 constexpr uint32_t COL_AMOUNT = 8;
 
+static std::string joinContactLine(const InvoiceCompany& co) {
+    std::string s;
+    if (!co.phone.empty())   s += co.phone;
+    if (!co.email.empty())   { if (!s.empty()) s += "  |  "; s += co.email; }
+    if (!co.website.empty()) { if (!s.empty()) s += "  |  "; s += co.website; }
+    return s;
+}
+
 void writeCompany(XLWorksheet& wks, OpenXLSX::XLStyles& styles,
-                  const InvoiceCompany& co, XLStyleIndex companyFmt) {
-    // Company name on same line as logo, to the right of logo
+                  const InvoiceCompany& co,
+                  XLStyleIndex companyNameFmt, XLStyleIndex companyDetailsFmt) {
+    // Line 1: company name — big font (right of logo)
     wks.cell(ROW_COMPANY_NAME, COL_COMPANY).value() = co.name;
-    wks.cell(ROW_COMPANY_NAME, COL_COMPANY).setCellFormat(companyFmt);
-    uint32_t r = ROW_COMPANY_DETAILS;
-    if (!co.address.empty()) { wks.cell(r, COL_COMPANY).value() = co.address; wks.cell(r, COL_COMPANY).setCellFormat(companyFmt); r++; }
-    if (!co.phone.empty())  { wks.cell(r, COL_COMPANY).value() = co.phone;  wks.cell(r, COL_COMPANY).setCellFormat(companyFmt); r++; }
-    if (!co.email.empty())  { wks.cell(r, COL_COMPANY).value() = co.email;  wks.cell(r, COL_COMPANY).setCellFormat(companyFmt); r++; }
-    if (!co.website.empty()){ wks.cell(r, COL_COMPANY).value() = co.website; wks.cell(r, COL_COMPANY).setCellFormat(companyFmt); }
+    wks.cell(ROW_COMPANY_NAME, COL_COMPANY).setCellFormat(companyNameFmt);
+    // Line 2: company address — small font
+    wks.cell(ROW_COMPANY_ADDRESS, COL_COMPANY).value() = co.address;
+    wks.cell(ROW_COMPANY_ADDRESS, COL_COMPANY).setCellFormat(companyDetailsFmt);
+    // Line 3: mobile | email | website — small font
+    std::string contactLine = joinContactLine(co);
+    wks.cell(ROW_COMPANY_CONTACT, COL_COMPANY).value() = contactLine;
+    wks.cell(ROW_COMPANY_CONTACT, COL_COMPANY).setCellFormat(companyDetailsFmt);
 }
 
 void writeInvoiceMeta(XLWorksheet& wks, const InvoiceData& data, XLStyleIndex metaFmt) {
@@ -146,19 +158,32 @@ bool createInvoice(const std::string& path, const InvoiceData& data,
         cellFormats[titleFmt].setFontIndex(fontTitleIdx);
         cellFormats[titleFmt].setApplyFont(true);
 
-        // "INVOICE" on its own line (row 5)
+        // "INVOICE" on its own line
         wks.cell(ROW_INVOICE_TITLE, 4).value() = "INVOICE";
         wks.cell(ROW_INVOICE_TITLE, 4).setCellFormat(titleFmt);
 
-        // Company: bold 12pt
-        OpenXLSX::XLStyleIndex fontCompanyIdx = fonts.create();
-        fonts[fontCompanyIdx].setFontName("Arial");
-        fonts[fontCompanyIdx].setFontSize(16);
-        fonts[fontCompanyIdx].setBold();
+        // Company name: big font (20pt bold, dark slate) — line 1 right of logo
+        OpenXLSX::XLStyleIndex fontCompanyNameIdx = fonts.create();
+        fonts[fontCompanyNameIdx].setFontName("Arial");
+        fonts[fontCompanyNameIdx].setFontSize(20);
+        fonts[fontCompanyNameIdx].setBold();
+        fonts[fontCompanyNameIdx].setFontColor(OpenXLSX::XLColor("ff2c3e50"));
 
-        OpenXLSX::XLStyleIndex companyFmt = cellFormats.create();
-        cellFormats[companyFmt].setFontIndex(fontCompanyIdx);
-        cellFormats[companyFmt].setApplyFont(true);
+        OpenXLSX::XLStyleIndex companyNameFmt = cellFormats.create();
+        cellFormats[companyNameFmt].setFontIndex(fontCompanyNameIdx);
+        cellFormats[companyNameFmt].setApplyFont(true);
+
+        // Company details: small font (9pt, gray) — line 2 address, line 3 contact
+        OpenXLSX::XLStyleIndex fontCompanyDetailsIdx = fonts.create();
+        fonts[fontCompanyDetailsIdx].setFontName("Arial");
+        fonts[fontCompanyDetailsIdx].setFontSize(9);
+        fonts[fontCompanyDetailsIdx].setFontColor(OpenXLSX::XLColor("ff5d6d7e"));
+
+        OpenXLSX::XLStyleIndex companyDetailsFmt = cellFormats.create();
+        cellFormats[companyDetailsFmt].setFontIndex(fontCompanyDetailsIdx);
+        cellFormats[companyDetailsFmt].setApplyFont(true);
+        cellFormats[companyDetailsFmt].setApplyAlignment(true);
+        cellFormats[companyDetailsFmt].alignment(OpenXLSX::XLCreateIfMissing).setWrapText(true);
 
         // Meta (invoice #, date): right-aligned
         OpenXLSX::XLStyleIndex fontMetaIdx = fonts.create();
@@ -240,7 +265,7 @@ bool createInvoice(const std::string& path, const InvoiceData& data,
         cellFormats[labelFmt].alignment().setHorizontal(OpenXLSX::XLAlignRight);
 
         // --- Write content ---
-        writeCompany(wks, styles, data.company, companyFmt);
+        writeCompany(wks, styles, data.company, companyNameFmt, companyDetailsFmt);
         writeInvoiceMeta(wks, data, metaFmt);
         writeBillTo(wks, data.client, clientFmt);
         writeLineItems(wks, styles, data.items, headerFmt, rowFmt);
@@ -248,9 +273,9 @@ bool createInvoice(const std::string& path, const InvoiceData& data,
         uint32_t totalsStart = ROW_TABLE_HEADER + 2 + static_cast<uint32_t>(data.items.size());
         writeTotals(wks, data, totalsStart, labelFmt, totalFmt);
 
-        // Column widths (compact but readable for A4 printing)
-        wks.column(1).setWidth(6);    // No
-        wks.column(2).setWidth(16);   // Description (spans B–C)
+        // Column widths: col A = logo + table "No", B = company + description, etc.
+        wks.column(1).setWidth(14);   // Logo (rows 1–3) + table No
+        wks.column(2).setWidth(16);   // Company block (rows 1–3) + description (spans B–C)
         wks.column(3).setWidth(10);
         wks.column(4).setWidth(12);   // Client
         wks.column(5).setWidth(10);   // Port
@@ -262,8 +287,8 @@ bool createInvoice(const std::string& path, const InvoiceData& data,
         doc.close();
 
         if (!logoPath.empty()) {
-            // Logo at top-left, stretched to 1" x 1"; company name at row 1 col B
-            injectLetterhead(path, logoPath, 0.5, 0.5, true);  // 0.5" logo; includes pageSetup
+            // Logo at top-left: height = height of 3-line company block (~0.7"), width 1.0"
+            injectLetterhead(path, logoPath, 1.0, 0.7, true);  // includes pageSetup
         } else {
             injectPrintFitToPage(path);  // pageSetup only
         }

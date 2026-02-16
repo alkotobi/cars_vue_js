@@ -4,10 +4,12 @@ import { useRouter } from 'vue-router'
 import { useEnhancedI18n } from '../../composables/useI18n'
 import { useApi } from '../../composables/useApi'
 import { useCrossDev } from '../../composables/useCrossDev'
+import { useInvoiceCompanyInfo } from '../../composables/useInvoiceCompanyInfo'
 
 const router = useRouter()
 const { openWindow, hasCrossDev } = useCrossDev()
 const { callApi } = useApi()
+const { getCompanyLogoDataUrl, setStoredPrintLogoDataUrl } = useInvoiceCompanyInfo()
 const { t } = useEnhancedI18n()
 
 const props = defineProps({
@@ -134,7 +136,19 @@ onMounted(() => {
   }
 })
 
-const handleProceed = () => {
+const handleProceed = async () => {
+  // CrossDev: print window is a separate WebView with empty sessionStorage/memory. Pre-store logo in localStorage (shared same-origin) so the print document can read it.
+  if (hasCrossDev()) {
+    try {
+      const dataUrl = await getCompanyLogoDataUrl()
+      if (dataUrl && dataUrl.startsWith('data:')) {
+        setStoredPrintLogoDataUrl(dataUrl)
+      }
+    } catch {
+      // proceed anyway; print doc will show without logo if fetch failed
+    }
+  }
+
   let printUrl
 
   if (props.documentType === 'car') {

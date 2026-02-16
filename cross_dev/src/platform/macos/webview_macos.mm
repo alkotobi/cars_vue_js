@@ -429,12 +429,17 @@ void printWebView(void* webViewHandle) {
       e.style.setProperty('visibility','hidden','important');
     }
   });
+  // Force layout/paint of report content (including data-URL logo) so print captures it
+  var report = document.querySelector('.print-report, .print-report-header');
+  if (report) { void report.offsetHeight; }
+  var imgs = document.querySelectorAll('.letter-head[src^="data:"]');
+  imgs.forEach(function(img) { if (img.complete) void img.naturalWidth; });
 })();
 )";
     executeWebViewScript(webViewHandle, std::string(hideScript));
     // WKWebView print produces blank pages unless view frame is set (macOS quirk).
-    // Use runOperationModalForWindow (not runOperation) for proper async rendering.
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(100 * NSEC_PER_MSEC)), dispatch_get_main_queue(), ^{
+    // Delay so data-URL images are committed to the layer tree before print capture.
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(250 * NSEC_PER_MSEC)), dispatch_get_main_queue(), ^{
         NSPrintInfo *info = [NSPrintInfo sharedPrintInfo];
         NSPrintOperation *op = [webView printOperationWithPrintInfo:info];
         if (op && op.view) {

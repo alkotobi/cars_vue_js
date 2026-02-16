@@ -1,12 +1,30 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useApi } from '../../composables/useApi'
+import { useInvoiceCompanyInfo } from '../../composables/useInvoiceCompanyInfo'
 import { useI18n } from 'vue-i18n'
+import LetterHeader from '../shared/LetterHeader.vue'
 
 const { t } = useI18n()
 
-const { getFileUrl, getAssets, loadLetterhead } = useApi()
+const { getFileUrl, callApi } = useApi()
+const {
+  getCompanyLogoDataUrl,
+  getStoredPrintLogoDataUrl,
+  setStoredPrintLogoDataUrl,
+  getReportHeaderContactItems,
+} = useInvoiceCompanyInfo()
+
 const letterHeadUrl = ref(null)
+const banks = ref([])
+const selectedBank = ref(null)
+
+const effectiveLogoUrl = computed(
+  () => letterHeadUrl.value || getStoredPrintLogoDataUrl() || '',
+)
+const headerContactItems = computed(() =>
+  getReportHeaderContactItems(selectedBank.value, null),
+)
 
 const props = defineProps({
   title: {
@@ -87,22 +105,33 @@ const generateRef = computed(() => {
   return `${userPrefix}${buttonPrefix}${dateStr}-${sequenceStr}`
 })
 
-// Load assets (logo, stamp, letter head)
 const loadAssets = async () => {
   try {
-    letterHeadUrl.value = await loadLetterhead()
-    if (!letterHeadUrl.value) {
-      // Fallback to default
-      console.error('Failed to load assets, using default:', err)
+    const stored = getStoredPrintLogoDataUrl()
+    if (stored) letterHeadUrl.value = stored
+
+    const result = await callApi({
+      query: 'SELECT * FROM banks WHERE is_active = 1 ORDER BY company_name ASC',
+      params: [],
+    })
+    if (result.success && result.data?.length > 0) {
+      banks.value = result.data
+      if (!selectedBank.value) selectedBank.value = result.data[0]
+    }
+
+    const dataUrl = await getCompanyLogoDataUrl()
+    if (dataUrl && dataUrl.startsWith('data:')) {
+      letterHeadUrl.value = dataUrl
+      setStoredPrintLogoDataUrl(dataUrl)
     }
   } catch (err) {
-    console.error('Failed to load assets, using default:', err)
-    // Use fallback URL
+    console.error('Failed to load company logo:', err)
   }
 }
 
-// Load assets on mount
 onMounted(() => {
+  const stored = getStoredPrintLogoDataUrl()
+  if (stored) letterHeadUrl.value = stored
   loadAssets()
 })
 
@@ -133,15 +162,13 @@ const getCarValue = (car, columnKey) => {
 
 <template>
   <div class="print-report">
-    <!-- Header Image -->
-    <div v-if="showHeader" class="report-header">
-      <img
-        :src="letterHeadUrl || ''"
-        alt="Letter Head"
-        class="letter-head"
-        @error="$event.target.style.display = 'none'"
-      />
-    </div>
+    <LetterHeader
+      v-if="showHeader && (effectiveLogoUrl || selectedBank?.company_name)"
+      :logo-url="effectiveLogoUrl"
+      :company-name="selectedBank?.company_name || ''"
+      :company-address="selectedBank?.company_address || ''"
+      :contact-items="headerContactItems"
+    />
 
     <!-- Date -->
     <div class="report-date">
@@ -200,17 +227,6 @@ const getCarValue = (car, columnKey) => {
   padding: 20px;
   background: white;
   color: #333;
-}
-
-.report-header {
-  text-align: center;
-  margin-bottom: 20px;
-}
-
-.letter-head {
-  max-width: 100%;
-  height: auto;
-  max-height: 120px;
 }
 
 .report-date {
@@ -305,10 +321,6 @@ const getCarValue = (car, columnKey) => {
   .table-header,
   .table-cell {
     padding: 6px 8px;
-  }
-
-  .letter-head {
-    max-height: 80px;
   }
 
   .report-title {

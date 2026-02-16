@@ -2,6 +2,7 @@
 import { ref, reactive, onMounted, computed, watch, onUnmounted, nextTick } from 'vue'
 import { useEnhancedI18n } from '@/composables/useI18n'
 import { useApi } from '../../composables/useApi'
+import { useInvoiceCompanyInfo } from '../../composables/useInvoiceCompanyInfo'
 import VinEditForm from './VinEditForm.vue'
 import CarFilesManagement from './CarFilesManagement.vue'
 import CarPortsEditForm from './CarPortsEditForm.vue'
@@ -161,12 +162,12 @@ const {
   callApi,
   getFileUrl,
   getAssets,
-  loadLetterhead,
   getCarFiles,
   transferPhysicalCopy,
   getUsersForTransfer,
   getCustomClearanceAgents,
 } = useApi()
+const { getCompanyLogoUrl } = useInvoiceCompanyInfo()
 const letterHeadUrl = ref(null)
 const cars = ref([])
 const loading = ref(true)
@@ -675,12 +676,12 @@ const printReport = async (reportData) => {
     groupBy = '',
   } = reportData
 
-  // Load assets if not already loaded
+  // Load company logo for header (same as xlsx invoice)
   if (!letterHeadUrl.value) {
     try {
-      letterHeadUrl.value = await loadLetterhead()
+      letterHeadUrl.value = await getCompanyLogoUrl()
     } catch (err) {
-      // Failed to load assets, using default
+      // Failed to load company logo
     }
   }
 

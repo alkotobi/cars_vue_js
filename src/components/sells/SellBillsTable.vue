@@ -31,8 +31,8 @@ const selectedBills = ref([])
 
 const router = useRouter()
 const route = useRoute()
-const { callApi, getAssets, loadLetterhead } = useApi()
-const { fetchInvoiceCompanyInfo } = useInvoiceCompanyInfo()
+const { callApi, getAssets } = useApi()
+const { fetchInvoiceCompanyInfo, getCompanyLogoUrl } = useInvoiceCompanyInfo()
 const letterHeadUrl = ref(null)
 const sellBills = ref([])
 const loading = ref(true)
@@ -1111,13 +1111,12 @@ const formatNotesForBatch = (notes) => {
 }
 
 const generateBatchPrintReport = async (billsData) => {
-  // Load assets if not already loaded
+  // Load company logo for header (same as xlsx invoice)
   if (!letterHeadUrl.value) {
     try {
-      const assets = await getAssets()
-      letterHeadUrl.value = (await loadLetterhead()) || ''
+      letterHeadUrl.value = (await getCompanyLogoUrl()) || ''
     } catch (err) {
-      console.error('Failed to load assets, using default:', err)
+      console.error('Failed to load company logo:', err)
     }
   }
 
@@ -1185,13 +1184,12 @@ const generateBatchPrintReport = async (billsData) => {
     return
   }
 
-  // Load assets if not already loaded
+  // Load company logo for header (same as xlsx invoice)
   if (!letterHeadUrl.value) {
     try {
-      const assets = await getAssets()
-      letterHeadUrl.value = (await loadLetterhead()) || ''
+      letterHeadUrl.value = (await getCompanyLogoUrl()) || ''
     } catch (err) {
-      console.error('Failed to load assets, using default:', err)
+      console.error('Failed to load company logo:', err)
     }
   }
 

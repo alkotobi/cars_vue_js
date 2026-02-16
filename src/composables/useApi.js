@@ -544,7 +544,11 @@ export const useApi = () => {
     return result
   }
 
-  // Load letterhead URL - checks for user-specific letterhead first, then falls back to default
+  /**
+   * Load letterhead URL (path_letter_head or default). Prefer useInvoiceCompanyInfo().getCompanyLogoUrl()
+   * for report headers so browser/CrossDev use the same image as xlsx invoice (company logo from banks.logo_path).
+   * This is kept for backward compatibility or settings UIs that need path_letter_head.
+   */
   async function loadLetterhead(user = null) {
     // Get user from localStorage if not provided
     if (!user) {

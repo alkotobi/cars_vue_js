@@ -1,9 +1,11 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useApi } from '../../composables/useApi'
+import { useInvoiceCompanyInfo } from '../../composables/useInvoiceCompanyInfo'
 import UserTransactionsTable from './UserTransactionsTable.vue'
 
-const { callApi, getAssets, loadLetterhead } = useApi()
+const { callApi, getAssets } = useApi()
+const { getCompanyLogoUrl } = useInvoiceCompanyInfo()
 const letterHeadUrl = ref(null)
 const users = ref([])
 const loading = ref(false)
@@ -218,10 +220,9 @@ const printUsersList = async () => {
   // Load assets if not already loaded
   if (!letterHeadUrl.value) {
     try {
-      const assets = await getAssets()
-      letterHeadUrl.value = await loadLetterhead() || ''
+      letterHeadUrl.value = (await getCompanyLogoUrl()) || ''
     } catch (err) {
-      console.error('Failed to load assets, using default:', err)
+      console.error('Failed to load company logo:', err)
     }
   }
 

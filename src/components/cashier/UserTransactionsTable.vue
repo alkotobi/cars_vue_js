@@ -1,6 +1,7 @@
 <script setup>
 import { ref, watch, computed } from 'vue'
 import { useApi } from '../../composables/useApi'
+import { useInvoiceCompanyInfo } from '../../composables/useInvoiceCompanyInfo'
 
 const props = defineProps({
   selectedUser: {
@@ -9,7 +10,8 @@ const props = defineProps({
   },
 })
 
-const { callApi, getAssets, loadLetterhead } = useApi()
+const { callApi, getAssets } = useApi()
+const { getCompanyLogoUrl } = useInvoiceCompanyInfo()
 const letterHeadUrl = ref(null)
 const sellPayments = ref([])
 const receivedTransfers = ref([])
@@ -327,10 +329,9 @@ const printTransactionsList = async () => {
   // Load assets if not already loaded
   if (!letterHeadUrl.value) {
     try {
-      const assets = await getAssets()
-      letterHeadUrl.value = await loadLetterhead() || ''
+      letterHeadUrl.value = (await getCompanyLogoUrl()) || ''
     } catch (err) {
-      console.error('Failed to load assets, using default:', err)
+      console.error('Failed to load company logo:', err)
     }
   }
 
@@ -598,10 +599,9 @@ const printTransactionReceipt = async (transaction) => {
   // Load assets if not already loaded
   if (!letterHeadUrl.value) {
     try {
-      const assets = await getAssets()
-      letterHeadUrl.value = await loadLetterhead() || ''
+      letterHeadUrl.value = (await getCompanyLogoUrl()) || ''
     } catch (err) {
-      console.error('Failed to load assets, using default:', err)
+      console.error('Failed to load company logo:', err)
     }
   }
 

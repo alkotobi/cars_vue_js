@@ -2,12 +2,14 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useEnhancedI18n } from '@/composables/useI18n'
 import { useApi } from '../../composables/useApi'
+import { useInvoiceCompanyInfo } from '../../composables/useInvoiceCompanyInfo'
 import SendSelectionForm from './SendSelectionForm.vue'
 import CarStockPrintOptions from './CarStockPrintOptions.vue'
 import SelectionChatButton from './SelectionChatButton.vue'
 
 const { t } = useEnhancedI18n()
-const { callApi, getFileUrl, getAssets, loadLetterhead } = useApi()
+const { callApi, getFileUrl, getAssets } = useApi()
+const { getCompanyLogoUrl } = useInvoiceCompanyInfo()
 const letterHeadUrl = ref(null)
 const user = ref(null)
 
@@ -603,12 +605,12 @@ const handlePrintWithOptions = async (printData) => {
   if (!selection) return
 
   try {
-    // Load assets if not already loaded
+    // Load company logo for header (same as xlsx invoice)
     if (!letterHeadUrl.value) {
       try {
-        letterHeadUrl.value = await loadLetterhead()
+        letterHeadUrl.value = await getCompanyLogoUrl()
       } catch (err) {
-        console.error('Failed to load assets:', err)
+        console.error('Failed to load company logo:', err)
       }
     }
 

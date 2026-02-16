@@ -1,7 +1,9 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
 import { useEnhancedI18n } from '../../composables/useI18n'
 import { useApi } from '../../composables/useApi'
+import { useInvoiceCompanyInfo } from '../../composables/useInvoiceCompanyInfo'
+import PrintReportHeader from './PrintReportHeader.vue'
 
 const { t } = useEnhancedI18n()
 
@@ -16,7 +18,23 @@ const props = defineProps({
   },
 })
 
-const { callApi, getAssets, loadLetterhead } = useApi()
+const { callApi, getAssets } = useApi()
+const {
+  getCompanyLogoDataUrl,
+  getReportHeaderContactItems,
+  getStoredPrintLogoDataUrl,
+  setStoredPrintLogoDataUrl,
+} = useInvoiceCompanyInfo()
+
+const headerContactItems = computed(() =>
+  getReportHeaderContactItems(selectedBank.value, company.value)
+)
+
+// Sticky capture: once we have a logo we never clear it (CrossDev may clear localStorage or re-run and lose it)
+const logoUrlSticky = ref('')
+const effectiveLogoUrl = computed(() =>
+  letterHeadUrl.value || logoUrlSticky.value || getStoredPrintLogoDataUrl() || ''
+)
 const loading = ref(true)
 const error = ref(null)
 const billData = ref(null)
@@ -485,25 +503,42 @@ const numberToWords = (num) => {
   return result.trim()
 }
 
-// Load assets (logo, stamp, letter head)
+// Load assets (logo, stamp, letter head).
+// In CrossDev print window we already have logo in localStorage (main window pre-stored it). Use it and skip fetch so nothing overwrites or clears it.
 const loadAssets = async () => {
   try {
+    const stored = getStoredPrintLogoDataUrl()
+    if (stored) {
+      letterHeadUrl.value = stored
+      if (!logoUrlSticky.value) logoUrlSticky.value = stored
+    }
+
+    const isCrossDev = typeof window !== 'undefined' && window.CrossDev?.invoke
+    if (isCrossDev && stored) {
+      // Don't call getCompanyLogoDataUrl() in print window — we have the logo; fetch can fail or cause re-renders that make it disappear.
+      const assets = await getAssets()
+      if (assets) {
+        logoUrl.value = assets.logo || null
+        stampUrl.value = assets.gml2 || null
+        if (logoUrl.value) company.value.logo = logoUrl.value
+      }
+      return
+    }
+
     const assets = await getAssets()
     if (assets) {
       logoUrl.value = assets.logo || null
       stampUrl.value = assets.gml2 || null
-      letterHeadUrl.value = await loadLetterhead()
-
-      // Update company logo
-      if (logoUrl.value) {
-        company.value.logo = logoUrl.value
-      } else {
-        console.error('Failed to load assets, using defaults:', err)
+      const dataUrl = await getCompanyLogoDataUrl()
+      if (dataUrl && dataUrl.startsWith('data:')) {
+        letterHeadUrl.value = dataUrl
+        if (!logoUrlSticky.value) logoUrlSticky.value = dataUrl
+        setStoredPrintLogoDataUrl(dataUrl)
       }
+      if (logoUrl.value) company.value.logo = logoUrl.value
     }
   } catch (err) {
     console.error('Failed to load assets, using defaults:', err)
-    // Use fallback URLs
   }
 }
 
@@ -566,31 +601,45 @@ const replaceTermPlaceholders = (text) => {
   return text.replace(/{FREIGHT}/g, wrappedFreight).replace(/{RATE}/g, wrappedRate)
 }
 
+// Restore logo from sessionStorage when window regains focus (CrossDev often clears img paint)
+function restoreLogoOnVisible() {
+  if (document.visibilityState === 'visible' && !letterHeadUrl.value) {
+    const stored = getStoredPrintLogoDataUrl() || logoUrlSticky.value
+    if (stored) {
+      letterHeadUrl.value = stored
+      if (!logoUrlSticky.value) logoUrlSticky.value = stored
+    }
+  }
+}
+
 onMounted(async () => {
+  // Show cached logo immediately so it’s present before async load
+  const stored = getStoredPrintLogoDataUrl()
+  if (stored) {
+    letterHeadUrl.value = stored
+    if (!logoUrlSticky.value) logoUrlSticky.value = stored
+  }
+  document.addEventListener('visibilitychange', restoreLogoOnVisible)
+
   await loadAssets()
   await loadContractTerms()
   fetchBillData()
   fetchBanks()
 })
+
+onBeforeUnmount(() => {
+  document.removeEventListener('visibilitychange', restoreLogoOnVisible)
+})
 </script>
 
 <template>
   <div class="print-report">
-    <!-- Header Image -->
-    <div class="report-header">
-      <img :src="letterHeadUrl || ''" alt="Letter Head" class="letter-head" />
-    </div>
-
-    <!-- Date and Reference -->
-    <div class="report-meta">
-      <span
-        ><strong>{{ t('sellBills.date') }}:</strong>
-        {{ billData ? formatDate(billData.date_sell) : '' }}</span
-      >
-      <span class="report-ref"
-        ><strong>{{ t('sellBills.ci_no') }}:</strong> {{ billData ? billData.bill_ref : '' }}</span
-      >
-    </div>
+    <PrintReportHeader
+      :logo-url="effectiveLogoUrl"
+      :company-name="selectedBank?.company_name || company.name"
+      :company-address="selectedBank?.company_address || company.address"
+      :contact-items="headerContactItems"
+    />
 
     <!-- Title -->
     <h1 class="report-title">
@@ -603,25 +652,20 @@ onMounted(async () => {
       }}
     </h1>
 
-    <!-- Buyer Information Section -->
-    <div class="section buyer-section">
-      <div class="buyer-details">
-        <div class="buyer-info">
-          <div class="info-group">
-            <label class="bold-label">{{ t('sellBills.name') }}:</label>
-            <span class="info-value">{{ billData?.broker_name }}</span>
-          </div>
-          <div class="info-group">
-            <label class="bold-label">{{ t('sellBills.address') }}:</label>
-            <span class="info-value">{{ billData?.broker_address }}</span>
-          </div>
-          <div class="info-group">
-            <label class="bold-label">{{ t('sellBills.phone') }}:</label>
-            <span class="info-value">{{ billData?.broker_phone }}</span>
-          </div>
-        </div>
-      </div>
-    </div>
+    <!-- Two columns: Column 1 = Name/Address/Phone, Column 2 = CI No + Date -->
+    <table class="two-column-block">
+      <tr>
+        <td class="col-1">
+          <div class="info-group"><span class="bold-label">{{ t('sellBills.name') }}:</span> {{ billData?.broker_name }}</div>
+          <div class="info-group"><span class="bold-label">{{ t('sellBills.address') }}:</span> {{ billData?.broker_address }}</div>
+          <div class="info-group"><span class="bold-label">{{ t('sellBills.phone') }}:</span> {{ billData?.broker_phone }}</div>
+        </td>
+        <td class="col-2">
+          <div class="meta-line"><strong>{{ t('sellBills.ci_no') }}:</strong> {{ billData ? billData.bill_ref : '' }}</div>
+          <div class="meta-line"><strong>{{ t('sellBills.date') }}:</strong> {{ billData ? formatDate(billData.date_sell) : '' }}</div>
+        </td>
+      </tr>
+    </table>
 
     <!-- Vehicle Details Table -->
     <div class="section vehicles-section">
@@ -796,24 +840,6 @@ onMounted(async () => {
   color: #333;
 }
 
-.report-header {
-  text-align: center;
-  margin-bottom: 20px;
-}
-
-.letter-head {
-  max-width: 100%;
-  height: auto;
-  max-height: 120px;
-}
-
-.report-meta {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 10px;
-  font-size: 14px;
-}
-
 .report-title {
   text-align: center;
   font-size: 2rem;
@@ -823,6 +849,59 @@ onMounted(async () => {
 
 .section {
   margin-bottom: 30px;
+}
+
+/* Two columns: column 1 = Name/Address/Phone, column 2 = CI No + Date.
+   table-layout: fixed ensures columns stay 50/50 in browser and CrossDev WebView. */
+.two-column-block {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  margin-bottom: 24px;
+}
+
+.two-column-block tr {
+  display: table-row;
+}
+
+.two-column-block td {
+  display: table-cell;
+  vertical-align: top;
+  font-size: 14px;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}
+
+.two-column-block .col-1 {
+  width: 50%;
+  max-width: 50%;
+  padding-right: 24px;
+  box-sizing: border-box;
+}
+
+.two-column-block .col-2 {
+  width: 50%;
+  max-width: 50%;
+  padding-left: 24px;
+  box-sizing: border-box;
+  text-align: right;
+}
+
+.two-column-block .info-group {
+  margin-bottom: 6px;
+}
+
+.two-column-block .info-group:last-child {
+  margin-bottom: 0;
+}
+
+.two-column-block .meta-line {
+  margin-bottom: 4px;
+}
+
+.two-column-block .meta-line:last-child {
+  margin-bottom: 0;
 }
 
 .section-header h3 {
@@ -1077,9 +1156,35 @@ onMounted(async () => {
 }
 
 @media print {
+  .two-column-block {
+    width: 100% !important;
+    table-layout: fixed !important;
+  }
+
+  .two-column-block .col-1,
+  .two-column-block .col-2 {
+    width: 50% !important;
+    max-width: 50% !important;
+  }
+
+  .table-container {
+    width: 100%;
+    overflow: visible;
+  }
+
+  .report-table {
+    width: 100%;
+  }
+
   .report-table th,
   .report-table td {
     border-bottom: 1px solid #ddd;
+    font-size: 12pt;
+  }
+
+  .report-table th {
+    background-color: #f5f5f5;
+    font-weight: bold;
   }
 
   .contract-terms {
