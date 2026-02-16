@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useEnhancedI18n } from '../composables/useI18n'
 import { useApi } from '../composables/useApi'
 import SellBillsTable from '../components/sells/SellBillsTable.vue'
@@ -18,7 +18,16 @@ const editingBill = ref(null)
 const sellBillsTableRef = ref(null)
 const unassignedCarsTableRef = ref(null)
 const sellBillCarsTableRef = ref(null)
+const sellBillCarsTableRefMobile = ref(null)
 const isProcessing = ref(false)
+
+// Mobile only: when true, show assigned cars panel instead of bill list
+const isMobile = ref(false)
+const mobileCarsView = ref(false)
+const mobileQuery = typeof window !== 'undefined' ? window.matchMedia('(max-width: 768px)') : null
+const setMobile = () => {
+  isMobile.value = mobileQuery ? mobileQuery.matches : false
+}
 
 // Multiple selection state for batch operations
 const selectedBills = ref([])
@@ -42,12 +51,18 @@ const can_create_sell_bill = computed(
 )
 
 onMounted(async () => {
+  setMobile()
+  if (mobileQuery) mobileQuery.addEventListener('change', setMobile)
   const userStr = localStorage.getItem('user')
   if (userStr) {
     user.value = JSON.parse(userStr)
     // Fetch max unpaid bills after user is loaded
     await fetchMaxUnpaidBills()
   }
+})
+
+onUnmounted(() => {
+  if (mobileQuery) mobileQuery.removeEventListener('change', setMobile)
 })
 
 const fetchMaxUnpaidBills = async () => {
@@ -71,6 +86,12 @@ const fetchMaxUnpaidBills = async () => {
 const handleSelectBill = (billId) => {
   console.log('handleSelectBill called with billId:', billId)
   selectedBillId.value = billId
+
+  // On mobile: switch to assigned cars panel instead of scrolling
+  if (isMobile.value) {
+    mobileCarsView.value = true
+    return
+  }
 
   // Update the unassigned cars table with the selected bill ID
   if (unassignedCarsTableRef.value) {
@@ -301,8 +322,9 @@ const handleCarsTableRefresh = async () => {
   }
 
   // If a bill is selected, refresh the cars for that bill
-  if (selectedBillId.value && sellBillCarsTableRef.value) {
-    await sellBillCarsTableRef.value.fetchCarsByBillId(selectedBillId.value)
+  const carsTableRef = isMobile.value && mobileCarsView.value ? sellBillCarsTableRefMobile.value : sellBillCarsTableRef.value
+  if (selectedBillId.value && carsTableRef) {
+    await carsTableRef.fetchCarsByBillId(selectedBillId.value)
   }
 }
 
@@ -328,13 +350,17 @@ const handleSelectedBillsUpdate = (bills) => {
   selectedBills.value = bills
   console.log('Selected bills for batch operations:', selectedBills.value)
 }
+
+const goBackToSellBills = () => {
+  mobileCarsView.value = false
+}
 </script>
 
 <template>
   <div class="sell-bills-view">
     <div class="header">
       <h2>{{ t('sellBillsView.sellBillsManagement') }}</h2>
-      <div class="header-actions">
+      <div class="header-actions add-sell-bill-wrapper">
         <button
           v-if="can_create_sell_bill"
           @click="openAddDialog"
@@ -347,30 +373,54 @@ const handleSelectedBillsUpdate = (bills) => {
     </div>
 
     <div class="content">
-      <SellBillsTable
-        ref="sellBillsTableRef"
-        :onEdit="handleEditBill"
-        :onDelete="handleDeleteBill"
-        :onSelect="handleSelectBill"
-        :onTask="openTaskForBill"
-        @select-bill="handleSelectBill"
-        @update-selected-bills="handleSelectedBillsUpdate"
-        :isAdmin="isAdmin"
-        :selectedBillId="selectedBillId"
-      />
+      <!-- Bill list: hidden on mobile when showing cars panel -->
+      <div class="sell-bills-list-wrap" :class="{ 'mobile-hidden': isMobile && mobileCarsView }">
+        <SellBillsTable
+          ref="sellBillsTableRef"
+          :onEdit="handleEditBill"
+          :onDelete="handleDeleteBill"
+          :onSelect="handleSelectBill"
+          :onTask="openTaskForBill"
+          @select-bill="handleSelectBill"
+          @update-selected-bills="handleSelectedBillsUpdate"
+          :isAdmin="isAdmin"
+          :selectedBillId="selectedBillId"
+        />
+      </div>
 
-      <SellBillCarsTable
-        ref="sellBillCarsTableRef"
-        id="sell-bill-cars-table"
-        :sellBillId="selectedBillId"
-        @refresh="handleCarsTableRefresh"
-      />
+      <!-- Mobile only: assigned cars panel with back button -->
+      <div v-show="isMobile && mobileCarsView" class="mobile-cars-panel">
+        <div class="mobile-cars-panel-header">
+          <button type="button" class="mobile-back-btn" @click="goBackToSellBills" aria-label="Back to sell bills">
+            <i class="fas fa-arrow-left"></i>
+            {{ t('sellBillsView.backToSellBills') || 'Back to sell bills' }}
+          </button>
+        </div>
+        <SellBillCarsTable
+          v-if="selectedBillId"
+          ref="sellBillCarsTableRefMobile"
+          id="sell-bill-cars-table-mobile"
+          :sellBillId="selectedBillId"
+          @refresh="handleCarsTableRefresh"
+        />
+      </div>
 
-      <UnassignedCarsTable
-        ref="unassignedCarsTableRef"
-        id="unassigned-cars-table"
-        @refresh="handleCarsTableRefresh"
-      />
+      <div class="assigned-cars-section hide-on-mobile">
+        <SellBillCarsTable
+          ref="sellBillCarsTableRef"
+          id="sell-bill-cars-table"
+          :sellBillId="selectedBillId"
+          @refresh="handleCarsTableRefresh"
+        />
+      </div>
+
+      <div class="unassigned-cars-section hide-on-mobile">
+        <UnassignedCarsTable
+          ref="unassignedCarsTableRef"
+          id="unassigned-cars-table"
+          @refresh="handleCarsTableRefresh"
+        />
+      </div>
     </div>
 
     <!-- Add Dialog -->
@@ -518,5 +568,55 @@ const handleSelectedBillsUpdate = (bills) => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+@media (max-width: 768px) {
+  .sell-bills-view .add-sell-bill-wrapper {
+    display: none !important;
+  }
+
+  .sell-bills-view .hide-on-mobile {
+    display: none !important;
+  }
+
+  .sell-bills-view .sell-bills-list-wrap.mobile-hidden {
+    display: none !important;
+  }
+
+  .sell-bills-view .mobile-cars-panel {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .sell-bills-view .mobile-cars-panel-header {
+    flex-shrink: 0;
+    padding: 12px 16px;
+    border-bottom: 1px solid #e5e7eb;
+    background: #f9fafb;
+  }
+
+  .sell-bills-view .mobile-back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    font-size: 1rem;
+    color: #3b82f6;
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+
+  .sell-bills-view .mobile-back-btn:hover {
+    background: #eff6ff;
+  }
+
+  .sell-bills-view .mobile-back-btn i {
+    font-size: 1rem;
+  }
 }
 </style>

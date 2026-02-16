@@ -2225,6 +2225,7 @@
   "sellBillsView": {
     "sellBillsManagement": "Gestion des factures de vente",
     "addSellBill": "Ajouter une facture de vente",
+    "backToSellBills": "Retour aux factures de vente",
     "editSellBill": "Modifier la facture de vente",
     "deleteSellBill": "Supprimer la facture de vente",
     "confirmDeleteSellBill": "Êtes-vous sûr de vouloir supprimer cette facture de vente ? Toutes les voitures seront désassignées.",

@@ -59,7 +59,8 @@ const fetchUserBank = async () => {
     userBank.value = null
     return
   }
-  const isDifferentCompany = u.is_diffrent_company === 1 || u.is_diffrent_company === true || u.is_diffrent_company === '1'
+  const isDifferentCompany =
+    u.is_diffrent_company === 1 || u.is_diffrent_company === true || u.is_diffrent_company === '1'
   if (!isDifferentCompany || !u.id_bank_account) {
     userBank.value = null
     return
@@ -81,11 +82,11 @@ const fetchUserBank = async () => {
 
 // Different-company user has priority over active bank
 const headerCompanyName = computed(() => {
-  const isDifferentCompany = user.value && (
-    user.value.is_diffrent_company === 1 ||
-    user.value.is_diffrent_company === true ||
-    user.value.is_diffrent_company === '1'
-  )
+  const isDifferentCompany =
+    user.value &&
+    (user.value.is_diffrent_company === 1 ||
+      user.value.is_diffrent_company === true ||
+      user.value.is_diffrent_company === '1')
   if (isDifferentCompany && userBank.value?.company_name) {
     return userBank.value.company_name
   }
@@ -426,11 +427,11 @@ const loadLogo = async () => {
 
   try {
     // Different-company user has priority: use their logo first
-    const isDifferentCompany = user.value && (
-      user.value.is_diffrent_company === 1 ||
-      user.value.is_diffrent_company === true ||
-      user.value.is_diffrent_company === '1'
-    )
+    const isDifferentCompany =
+      user.value &&
+      (user.value.is_diffrent_company === 1 ||
+        user.value.is_diffrent_company === true ||
+        user.value.is_diffrent_company === '1')
     if (isDifferentCompany && user.value.path_logo && user.value.path_logo.trim() !== '') {
       const customLogoUrl = getFileUrl(user.value.path_logo)
       if (customLogoUrl) {
@@ -1102,6 +1103,11 @@ onUnmounted(() => {
 
 /* Responsive adjustments for chat modal */
 @media (max-width: 768px) {
+  .chat-btn,
+  .tasks-btn {
+    display: none !important;
+  }
+
   .chat-modal {
     width: 100%;
     height: 100%;
@@ -1124,18 +1130,6 @@ onUnmounted(() => {
 
   .tasks-label {
     display: none;
-  }
-
-  .chat-btn {
-    padding: 8px;
-    min-width: 40px;
-    justify-content: center;
-  }
-
-  .tasks-btn {
-    padding: 8px;
-    min-width: 40px;
-    justify-content: center;
   }
 }
 </style>

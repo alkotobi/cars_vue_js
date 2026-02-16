@@ -2190,6 +2190,7 @@
   "sellBillsView": {
     "sellBillsManagement": "إدارة فواتير البيع",
     "addSellBill": "إضافة فاتورة بيع",
+    "backToSellBills": "العودة إلى فواتير البيع",
     "editSellBill": "تعديل فاتورة البيع",
     "deleteSellBill": "حذف فاتورة البيع",
     "confirmDeleteSellBill": "هل أنت متأكد أنك تريد حذف فاتورة البيع هذه؟ سيتم إلغاء تعيين جميع السيارات.",

@@ -2245,6 +2245,7 @@
   "sellBillsView": {
     "sellBillsManagement": "Sell Bills Management",
     "addSellBill": "Add Sell Bill",
+    "backToSellBills": "Back to sell bills",
     "unpaidBillsWarning": "You have {count} unpaid bill(s). Are you sure you want to add a new bill?",
     "unpaidBillsWarningTitle": "⚠️ Unpaid Bills Detected",
     "unpaidBillsWarningMessage": "You currently have {count} unpaid bill(s) in your account.",

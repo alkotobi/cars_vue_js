@@ -640,6 +640,7 @@ const handleTrackingClick = async () => {
   gap: 20px;
   transition: width 0.3s ease;
   position: relative;
+  z-index: 9999;
 }
 
 .sidebar.collapsed {
@@ -966,7 +967,7 @@ h2 {
   position: fixed;
   top: 20px;
   left: 20px;
-  z-index: 1000;
+  z-index: 10000;
 }
 
 .mobile-nav-btn {
@@ -1009,6 +1010,7 @@ h2 {
 
   .mobile-nav-overlay {
     display: block;
+    z-index: 9998;
   }
 
   .sidebar {
@@ -1017,7 +1019,7 @@ h2 {
     left: -280px;
     height: 100vh;
     width: 280px;
-    z-index: 1000;
+    z-index: 9999;
     transition: left 0.3s ease;
     overflow-y: auto;
   }
@@ -1165,7 +1167,7 @@ h2 {
   position: fixed;
   top: 20px;
   left: 20px;
-  z-index: 1000;
+  z-index: 10000;
 }
 
 .mobile-nav-btn {
@@ -1208,6 +1210,7 @@ h2 {
 
   .mobile-nav-overlay {
     display: block;
+    z-index: 9998;
   }
 
   .sidebar {
@@ -1216,7 +1219,7 @@ h2 {
     left: -280px;
     height: 100vh;
     width: 280px;
-    z-index: 1000;
+    z-index: 9999;
     transition: left 0.3s ease;
     overflow-y: auto;
   }

@@ -1,5 +1,5 @@
 <template>
-  <div ref="alertsViewRef" class="alerts-view" v-if="hasAlerts" :class="{ refreshing: isRefreshing }">
+  <div ref="alertsViewRef" class="alerts-view hide-on-mobile" v-if="hasAlerts" :class="{ refreshing: isRefreshing }">
     <div class="alerts-container">
       <div class="alerts-badges">
         <!-- Not Loaded Cars Alert -->
@@ -783,6 +783,10 @@ const handleNotFullyPaidClick = () => {
 }
 
 @media (max-width: 768px) {
+  .alerts-view.hide-on-mobile {
+    display: none !important;
+  }
+
   .alerts-view {
     top: 60px; /* Smaller header on mobile */
   }

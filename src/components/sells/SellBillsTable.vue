@@ -1961,7 +1961,8 @@ const togglePaymentConfirmed = async (bill) => {
       <p>{{ t('sellBills.no_bills_found') }}</p>
     </div>
 
-    <div v-else class="table-container">
+    <div v-else>
+      <div class="table-container sell-bills-table-desktop">
       <table class="sell-bills-table">
         <thead>
           <tr>
@@ -2178,6 +2179,49 @@ const togglePaymentConfirmed = async (bill) => {
           </tr>
         </tbody>
       </table>
+      </div>
+
+      <!-- Mobile cards (shown only on mobile) -->
+      <div class="sell-bills-mobile-cards">
+        <div
+          v-for="bill in sortedAndLimitedBills"
+          :key="bill.id"
+          class="sell-bill-card"
+          :class="{ selected: selectedBillId === bill.id }"
+          @click="selectBill(bill)"
+        >
+          <div class="sell-bill-card-header">
+            <span class="sell-bill-card-id">#{{ bill.id }}</span>
+            <span class="sell-bill-card-ref">{{ bill.bill_ref || 'N/A' }}</span>
+          </div>
+          <div class="sell-bill-card-row">
+            <span class="sell-bill-card-label">{{ t('sellBills.date') }}</span>
+            <span class="sell-bill-card-value">{{ new Date(bill.date_sell).toLocaleDateString() }}</span>
+          </div>
+          <div class="sell-bill-card-row">
+            <span class="sell-bill-card-label">{{ t('sellBills.name') }}</span>
+            <span class="sell-bill-card-value">{{ bill.broker_name || 'N/A' }}</span>
+          </div>
+          <div class="sell-bill-card-row">
+            <span class="sell-bill-card-label">{{ t('sellBills.payment_status') }}</span>
+            <span
+              :class="['payment-badge', `payment-${getPaymentStatus(bill).status}`]"
+              class="sell-bill-card-value"
+            >
+              {{ getPaymentStatus(bill).text }}
+            </span>
+          </div>
+          <div class="sell-bill-card-row">
+            <span class="sell-bill-card-label">{{ t('sellBills.loading_status') }}</span>
+            <span
+              :class="['loading-badge', `loading-${getLoadingStatus(bill).status}`]"
+              class="sell-bill-card-value"
+            >
+              {{ getLoadingStatus(bill).text }}
+            </span>
+          </div>
+        </div>
+      </div>
     </div>
 
     <SellBillPrintOption
@@ -2516,9 +2560,82 @@ const togglePaymentConfirmed = async (bill) => {
   cursor: pointer;
 }
 
+/* Mobile cards: hidden on desktop */
+.sell-bills-mobile-cards {
+  display: none;
+}
+
 @media (max-width: 768px) {
   .filters-grid {
     grid-template-columns: 1fr;
+  }
+
+  .sell-bills-table-desktop {
+    display: none !important;
+  }
+
+  .sell-bills-mobile-cards {
+    display: block;
+    padding: 16px 0;
+  }
+
+  .sell-bill-card {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .sell-bill-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  }
+
+  .sell-bill-card.selected {
+    background-color: #e5edff;
+    border-color: #3b82f6;
+  }
+
+  .sell-bill-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #f3f4f6;
+  }
+
+  .sell-bill-card-id {
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: #1f2937;
+  }
+
+  .sell-bill-card-ref {
+    font-size: 0.9rem;
+    color: #6b7280;
+  }
+
+  .sell-bill-card-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    font-size: 0.9rem;
+  }
+
+  .sell-bill-card-label {
+    color: #6b7280;
+    font-weight: 500;
+    min-width: 100px;
+  }
+
+  .sell-bill-card-value {
+    text-align: right;
+    flex: 1;
   }
 }
 

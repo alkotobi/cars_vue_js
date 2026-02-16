@@ -1257,7 +1257,9 @@ const formatDate = (dateString) => {
       <p>{{ t('sellBills.no_cars_match_filters') }}</p>
     </div>
 
-    <table v-else class="cars-table">
+    <div v-else class="sell-bill-cars-data-wrap">
+      <div class="sell-bill-cars-table-desktop">
+    <table class="cars-table">
       <thead>
         <tr>
           <th><i class="fas fa-hashtag"></i> {{ t('sellBills.id') }}</th>
@@ -1392,6 +1394,70 @@ const formatDate = (dateString) => {
         </tr>
       </tbody>
     </table>
+      </div>
+
+      <!-- Mobile cards (shown only on mobile) -->
+      <div class="sell-bill-cars-mobile-cards">
+        <div
+          v-for="car in filteredCars"
+          :key="car.id"
+          class="assigned-car-card"
+        >
+          <div class="assigned-car-card-header">
+            <span class="assigned-car-card-id">#{{ car.id }}</span>
+            <span class="assigned-car-card-name">{{ car.car_name || 'N/A' }}</span>
+          </div>
+          <div class="assigned-car-card-row">
+            <span class="assigned-car-card-label">{{ t('sellBills.vin') || 'VIN' }}</span>
+            <span class="assigned-car-card-value">{{ car.vin || '-' }}</span>
+          </div>
+          <div class="assigned-car-card-row">
+            <span class="assigned-car-card-label">{{ t('sellBills.client') || 'Client' }}</span>
+            <span class="assigned-car-card-value">{{ car.client_name || '-' }}</span>
+          </div>
+          <div class="assigned-car-card-row" v-if="car.color">
+            <span class="assigned-car-card-label">{{ t('carStockPrintOptions.color') || t('sellBills.color') || 'Color' }}</span>
+            <span
+              class="assigned-car-card-value color-badge-inline"
+              :style="{
+                backgroundColor: car.hexa || '#000000',
+                color: getTextColor(car.hexa || '#000000'),
+              }"
+            >
+              {{ car.color }}
+            </span>
+          </div>
+          <div class="assigned-car-card-row">
+            <span class="assigned-car-card-label">{{ t('sellBills.price') || 'FOB' }}</span>
+            <span class="assigned-car-card-value">
+              {{ car.price_cell != null ? '$' + parseFloat(car.price_cell).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : (t('sellBills.not_set') || 'N/A') }}
+            </span>
+          </div>
+          <div class="assigned-car-card-row">
+            <span class="assigned-car-card-label">{{ t('sellBills.freight') || 'Freight' }}</span>
+            <span class="assigned-car-card-value">
+              {{ car.freight != null && car.freight !== '' ? '$' + parseFloat(car.freight).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : (t('sellBills.not_set') || 'N/A') }}
+            </span>
+          </div>
+          <div class="assigned-car-card-row">
+            <span class="assigned-car-card-label">{{ t('sellBills.da') || 'CFR DZA' }}</span>
+            <span class="assigned-car-card-value">{{ calculateCFRDA(car) }}</span>
+          </div>
+          <div class="assigned-car-card-row">
+            <span class="assigned-car-card-label">{{ t('sellBills.rate') || 'Rate' }}</span>
+            <span class="assigned-car-card-value">{{ car.rate != null && car.rate !== '' ? car.rate : (t('sellBills.not_set') || 'N/A') }}</span>
+          </div>
+          <div class="assigned-car-card-row">
+            <span class="assigned-car-card-label">{{ t('sellBills.usd') || 'CFR USD' }}</span>
+            <span class="assigned-car-card-value">{{ calculateCFRUSD(car) }}</span>
+          </div>
+          <div class="assigned-car-card-row">
+            <span class="assigned-car-card-label">{{ t('sellBills.container') || 'Loading' }}</span>
+            <span class="assigned-car-card-value">{{ getContainerStatus(car).status === 'not-loaded' ? (t('sellBills.not_loaded') || 'Not Loaded') : getContainerStatus(car).text }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- Edit Dialog -->
     <div v-if="showEditDialog" class="dialog-overlay">
@@ -1958,9 +2024,84 @@ const formatDate = (dateString) => {
   grid-column: 1 / -1;
 }
 
+/* Mobile cards: hidden on desktop */
+.sell-bill-cars-mobile-cards {
+  display: none;
+}
+
 @media (max-width: 768px) {
   .edit-form .form-row {
     grid-template-columns: 1fr;
+  }
+
+  .cars-table-component .table-header,
+  .cars-table-component .filters-section {
+    display: none !important;
+  }
+
+  .sell-bill-cars-table-desktop {
+    display: none !important;
+  }
+
+  .sell-bill-cars-mobile-cards {
+    display: block;
+    padding: 16px 0;
+  }
+
+  .assigned-car-card {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  }
+
+  .assigned-car-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #f3f4f6;
+  }
+
+  .assigned-car-card-id {
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: #1f2937;
+  }
+
+  .assigned-car-card-name {
+    font-size: 0.95rem;
+    color: #374151;
+    font-weight: 500;
+  }
+
+  .assigned-car-card-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    font-size: 0.9rem;
+  }
+
+  .assigned-car-card-label {
+    color: #6b7280;
+    font-weight: 500;
+    min-width: 90px;
+  }
+
+  .assigned-car-card-value {
+    text-align: right;
+    flex: 1;
+  }
+
+  .assigned-car-card-value.color-badge-inline {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 0.85em;
   }
 }
 

@@ -1939,6 +1939,7 @@
   "sellBillsView": {
     "sellBillsManagement": "销售账单管理",
     "addSellBill": "添加销售账单",
+    "backToSellBills": "返回销售账单",
     "editSellBill": "编辑销售账单",
     "deleteSellBill": "删除销售账单",
     "confirmDeleteSellBill": "您确定要删除此销售账单吗？这将取消分配所有车辆。",

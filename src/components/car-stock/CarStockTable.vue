@@ -4150,8 +4150,9 @@ const closeBatchCheckoutModal = () => {
       <p>{{ t('carStock.no_cars_in_stock') }}</p>
     </div>
     <div v-else>
-      <!-- Toolbar -->
-      <CarStockToolbar
+      <!-- Toolbar (hidden on mobile) -->
+      <div class="car-stock-toolbar-wrapper">
+        <CarStockToolbar
         :selected-cars="selectedCars"
         :total-cars="sortedCars.length"
         :can-change-color="can_change_car_color"
@@ -4187,6 +4188,7 @@ const closeBatchCheckoutModal = () => {
         @new-car-used="handleNewCarUsed"
         @new-car-new="handleNewCarNew"
       />
+      </div>
 
       <div class="table-container" :class="{ 'processing-combine': isProcessing.combine }">
         <table class="cars-table">
@@ -4782,241 +4784,58 @@ const closeBatchCheckoutModal = () => {
           </div>
         </div>
 
-        <!-- Date Buy Section -->
-        <div class="card-section">
-          <div class="section-title">Date Buy</div>
-          <div class="card-value">
-            {{ car.date_buy ? new Date(car.date_buy).toLocaleDateString() : '-' }}
+        <!-- Mobile: only id, car name, color, vin, container no, discharge port, available state -->
+        <div class="card-section card-section-mobile-only">
+          <div class="card-row">
+            <span class="card-label">{{ t('carStockPrintOptions.carName') || t('carStock.car_details') }}</span>
+            <span class="card-value card-name">{{ car.car_name || '-' }}</span>
           </div>
-        </div>
-
-        <!-- Car Details Section -->
-        <div class="card-section">
-          <div class="section-title">Car Details</div>
-          <div class="card-details">
-            <div class="card-name">{{ car.car_name }}</div>
-            <div class="card-badges">
-              <div v-if="car.vin" class="info-badge badge-vin">
-                <i class="fas fa-barcode"></i>
-                {{ car.vin }}
-              </div>
-              <div
-                v-if="car.color"
-                class="info-badge badge-color"
-                :style="{
-                  backgroundColor: car.hexa || '#000000',
-                  color: getTextColor(car.hexa || '#000000'),
-                }"
-              >
-                <i class="fas fa-palette"></i>
-                {{ car.color }}
-              </div>
-              <div v-if="car.export_lisence_ref" class="info-badge badge-export-license">
-                <i class="fas fa-certificate"></i>
-                {{ car.export_lisence_ref }}
-              </div>
-              <div v-else class="info-badge badge-export-license-empty">
-                <i class="fas fa-certificate"></i>
-                -
-              </div>
-              <div v-if="car.buy_bill_ref" class="info-badge badge-buy-bill">
-                <i class="fas fa-shopping-cart"></i>
-                {{ t('carStock.buy') }}: {{ car.buy_bill_ref }}
-              </div>
-              <div v-if="car.sell_bill_ref" class="info-badge badge-sell-bill">
-                <i class="fas fa-file-invoice-dollar"></i>
-                {{ t('carStock.sell') }}: {{ car.sell_bill_ref }}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Client Section -->
-        <div class="card-section">
-          <div class="section-title">Client</div>
-          <div class="card-details">
-            <div class="card-value">{{ car.client_name || '-' }}</div>
-            <div class="card-badges">
-              <div v-if="car.client_mobiles && car.client_mobiles !== 'please provide mobile'" class="info-badge badge-client-mobile">
-                <i class="fas fa-phone"></i>
-                {{ car.client_mobiles }}
-              </div>
-              <div v-if="car.client_id_no" class="info-badge badge-client-id">
-                <i class="fas fa-id-card"></i>
-                {{ car.client_id_no }}
-              </div>
-              <div v-if="car.is_batch" class="info-badge badge-wholesale">
-                <i class="fas fa-layer-group"></i>
-                {{ t('carStock.whole_sale') }}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Ports Section -->
-        <div class="card-section">
-          <div class="section-title">Ports</div>
-          <div class="card-ports">
-            <div class="card-port-item">
-              <div class="card-port-label">Loading:</div>
-              <div v-if="car.loading_port" class="info-badge badge-loading-port">
-                <i class="fas fa-ship"></i>
-                {{ car.loading_port }}
-              </div>
-              <div v-else class="port-empty">-</div>
-            </div>
-            <div class="card-port-item">
-              <div class="card-port-label">Discharge:</div>
-              <div v-if="car.discharge_port" class="info-badge badge-discharge-port">
-                <i class="fas fa-anchor"></i>
-                {{ car.discharge_port }}
-              </div>
-              <div v-else class="port-empty">-</div>
-            </div>
-            <div v-if="car.container_ref" class="info-badge badge-container">
-              <i class="fas fa-box"></i>
-              {{ car.container_ref }}
-            </div>
-            <div v-if="car.date_pay_freight" class="info-badge badge-freight-paid">
-              <i class="fas fa-check-circle"></i>
-              {{ t('carStock.freight_paid') }}
-            </div>
-          </div>
-        </div>
-
-        <!-- Financial Section -->
-        <div v-if="can_see_freight || can_see_fob_price || can_see_cfr_prices" class="card-section">
-          <div class="section-title">Financial</div>
-          <div v-if="can_see_freight" class="card-row">
-            <div class="card-label">Freight:</div>
-            <div class="card-value">${{ getFreightValue(car) }}</div>
-          </div>
-          <div v-if="can_see_fob_price" class="card-row">
-            <div class="card-label">FOB:</div>
-            <div class="card-value">${{ car.price_cell || '0' }}</div>
-          </div>
-          <div v-if="can_see_cfr_prices" class="card-cfr">
-            <div class="info-badge badge-cfr-usd">
-              <i class="fas fa-dollar-sign"></i>
-              USD: ${{ getCfrUsdValue(car) }}
-            </div>
-            <div class="info-badge badge-cfr-dza">
-              <i class="fas fa-coins"></i>
-              DZA: {{ getCfrDzaValue(car) }}
-            </div>
-            <div class="info-badge badge-cfr-rate">
-              <i class="fas fa-percentage"></i>
-              Rate: {{ getRateValue(car) }}
-            </div>
-          </div>
-        </div>
-
-        <!-- Status Section -->
-        <div class="card-section">
-          <div class="section-title">Status</div>
-          <div class="card-status">
-            <div class="card-status-item">
-              <span
-                :class="{
-                  'status-sold': car.id_sell,
-                  'status-available': !car.id_sell,
-                  'status-used': car.is_used_car,
-                }"
-              >
-                <i
-                  :class="[
-                    car.id_sell ? 'fas fa-check-circle' : 'fas fa-clock',
-                    car.is_used_car ? 'fas fa-history' : '',
-                  ]"
-                ></i>
-                {{ car.id_sell ? t('carStock.sold') : t('carStock.available') }}
-                {{ car.is_used_car ? `(${t('carStock.used')})` : '' }}
-              </span>
-            </div>
-            <div v-if="car.in_wharhouse_date" class="info-badge badge-in-warehouse">
-              <i class="fas fa-warehouse"></i>
-              {{ t('carStock.in_warehouse') }}
-            </div>
-            <div v-if="car.date_get_bl" class="info-badge badge-bl-received">
-              <i class="fas fa-file-contract"></i>
-              {{ t('carStock.bl_received') }}
-            </div>
-          </div>
-        </div>
-
-        <!-- Documents Section -->
-        <div class="card-section">
-          <div class="section-title">Documents</div>
-          <div class="card-documents">
-            <a
-              v-if="car.path_documents"
-              :href="getFileUrl(car.path_documents)"
-              target="_blank"
-              class="card-document-link"
+          <div class="card-row">
+            <span class="card-label">{{ t('carStockPrintOptions.color') || 'Color' }}</span>
+            <span
+              v-if="car.color"
+              class="info-badge badge-color card-value-inline"
+              :style="{
+                backgroundColor: car.hexa || '#000000',
+                color: getTextColor(car.hexa || '#000000'),
+              }"
             >
-              <i class="fas fa-file-pdf"></i>
-              BL
-            </a>
-            <a
-              v-if="car.sell_pi_path"
-              :href="getFileUrl(car.sell_pi_path)"
-              target="_blank"
-              class="card-document-link"
-            >
-              <i class="fas fa-file-invoice-dollar"></i>
-              {{ t('carStock.invoice') }}
-            </a>
-            <a
-              v-if="car.buy_pi_path"
-              :href="getFileUrl(car.buy_pi_path)"
-              target="_blank"
-              class="card-document-link"
-            >
-              <i class="fas fa-file-contract"></i>
-              {{ t('carStock.packing_list') }}
-            </a>
-            <a
-              v-if="car.path_coo"
-              :href="getFileUrl(car.path_coo)"
-              target="_blank"
-              class="card-document-link"
-            >
-              <i class="fas fa-certificate"></i>
-              COO
-            </a>
-            <a
-              v-if="car.path_coc"
-              :href="getFileUrl(car.path_coc)"
-              target="_blank"
-              class="card-document-link"
-            >
-              <i class="fas fa-award"></i>
-              COC
-            </a>
+              <i class="fas fa-palette"></i>
+              {{ car.color }}
+            </span>
+            <span v-else class="card-value">-</span>
           </div>
-        </div>
-
-        <!-- Notes Section -->
-        <div class="card-section">
-          <div class="section-title">Notes</div>
-          <div class="card-notes">
-            <div class="notes-content">
-              <div style="white-space: pre-line">
-                {{ getTruncatedCarNotes(car.notesDisplay, car.id) }}
-              </div>
-              <button
-                v-if="isCarNotesTruncated(car.notesDisplay, car.id)"
-                @click.stop="toggleCarNotesExpansion(car.id)"
-                class="btn-show-full-notes"
-                type="button"
-              >
-                {{
-                  expandedCarNotes.has(car.id)
-                    ? t('carStock.show_less') || 'Show Less'
-                    : t('carStock.show_full') || 'Show Full'
-                }}
-              </button>
-            </div>
+          <div class="card-row">
+            <span class="card-label">{{ t('carStock.vin') }}</span>
+            <span class="card-value">{{ car.vin || '-' }}</span>
+          </div>
+          <div class="card-row">
+            <span class="card-label">{{ t('carStockPrintOptions.containerRef') || 'Container No' }}</span>
+            <span class="card-value">{{ car.container_ref || '-' }}</span>
+          </div>
+          <div class="card-row">
+            <span class="card-label">{{ t('carStockPrintOptions.dischargePort') || 'Discharge Port' }}</span>
+            <span class="card-value">{{ car.discharge_port || '-' }}</span>
+          </div>
+          <div class="card-row card-row-status">
+            <span class="card-label">{{ t('carStock.status') }}</span>
+            <span
+              :class="{
+                'status-sold': car.id_sell,
+                'status-available': !car.id_sell,
+                'status-used': car.is_used_car,
+              }"
+              class="card-value"
+            >
+              <i
+                :class="[
+                  car.id_sell ? 'fas fa-check-circle' : 'fas fa-clock',
+                  car.is_used_car ? 'fas fa-history' : '',
+                ]"
+              ></i>
+              {{ car.id_sell ? t('carStock.sold') : t('carStock.available') }}
+              {{ car.is_used_car ? `(${t('carStock.used')})` : '' }}
+            </span>
           </div>
         </div>
       </div>
@@ -6475,8 +6294,16 @@ const closeBatchCheckoutModal = () => {
 
 /* Mobile Responsive Styles */
 @media (max-width: 768px) {
+  .car-stock-toolbar-wrapper {
+    display: none;
+  }
+
   .table-container {
     display: none;
+  }
+
+  .mobile-cards-container .card-actions {
+    display: none !important;
   }
 
   .mobile-cards-container {
@@ -6529,6 +6356,20 @@ const closeBatchCheckoutModal = () => {
 
   .card-section:last-child {
     margin-bottom: 0;
+  }
+
+  .card-section-mobile-only .card-name {
+    font-weight: 600;
+    color: #1f2937;
+  }
+
+  .card-value-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.85em;
   }
 
   .section-title {
