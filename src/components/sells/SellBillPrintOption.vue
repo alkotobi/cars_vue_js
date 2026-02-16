@@ -6,7 +6,7 @@ import { useApi } from '../../composables/useApi'
 import { useCrossDev } from '../../composables/useCrossDev'
 
 const router = useRouter()
-const { openWindow } = useCrossDev()
+const { openWindow, hasCrossDev } = useCrossDev()
 const { callApi } = useApi()
 const { t } = useEnhancedI18n()
 
@@ -144,13 +144,17 @@ const handleProceed = () => {
       query: {
         billId: props.billId,
         options: encodeURIComponent(JSON.stringify(formData.value)),
+        ...(hasCrossDev() ? { printOnly: '1' } : {}),
       },
     }).href
   } else {
     printUrl = router.resolve({
       name: 'print',
       params: { billId: props.billId },
-      query: { options: encodeURIComponent(JSON.stringify(formData.value)) },
+      query: {
+        options: encodeURIComponent(JSON.stringify(formData.value)),
+        ...(hasCrossDev() ? { printOnly: '1' } : {}),
+      },
     }).href
   }
 

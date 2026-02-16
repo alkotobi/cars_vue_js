@@ -1,9 +1,10 @@
 /**
- * Excel image injection: add letterhead at top of worksheet.
+ * Excel image injection: add logo at top of worksheet.
  * Post-processes .xlsx (zip) using unzip/zip to avoid duplicate symbols with OpenXLSX/Zippy.
  */
 #include "excel/excel_image.h"
 #include <algorithm>
+#include <cstdio>
 #include <cstdlib>
 #include <fstream>
 #include <sstream>
@@ -41,6 +42,10 @@ std::string resolveLetterheadPath(const std::string& filename) {
         if (f.good()) return p;
     }
     return "";
+}
+
+std::string resolveLogoPath() {
+    return resolveLetterheadPath("logo.png");
 }
 
 bool getPngDimensions(const std::string& path, int& outWidth, int& outHeight) {
@@ -125,15 +130,51 @@ bool copyFile(const std::string& src, const std::string& dst) {
     return true;
 }
 
+#ifdef _WIN32
+/**
+ * Zip directory to outPath with [Content_Types].xml first (Excel expects this order).
+ * Uses .NET ZipFile since Compress-Archive does not control entry order.
+ */
+static bool zipWithContentTypesFirst(const std::string& tmpBase, const std::string& outPath) {
+    std::string scriptPath = tmpBase + "\\_zip.ps1";
+    std::ofstream ps(scriptPath);
+    if (!ps) return false;
+    ps << R"(
+param($tb, $op)
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+if (Test-Path $op) { Remove-Item $op -Force }
+$z = [System.IO.Compression.ZipFile]::Open($op, [System.IO.Compression.ZipArchiveMode]::Create)
+try {
+  $ct = Join-Path $tb '[Content_Types].xml'
+  if (Test-Path $ct) { [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($z, $ct, '[Content_Types].xml') | Out-Null }
+  @('_rels','docProps','xl') | ForEach-Object {
+    $dir = Join-Path $tb $_
+    if (Test-Path $dir) {
+      Get-ChildItem -Path $dir -Recurse -File | ForEach-Object {
+        $rel = $_.FullName.Substring($tb.Length + 1).Replace('\', '/')
+        [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($z, $_.FullName, $rel) | Out-Null
+      }
+    }
+  }
+} finally { $z.Dispose() }
+)";
+    ps.close();
+    std::string cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File \"" + scriptPath + "\" -tb \"" + tmpBase + "\" -op \"" + outPath + "\"";
+    int r = system(cmd.c_str());
+    std::remove(scriptPath.c_str());
+    return (r == 0);
+}
+#endif
+
 } // namespace
 
 bool injectLetterhead(const std::string& xlsxPath, const std::string& imagePath,
-                      double widthInches, double heightInches) {
+                      double widthInches, double heightInches, bool stretchToFill) {
     if (widthInches <= 0) widthInches = 7.0;
     if (heightInches <= 0) heightInches = 1.5;
     int64_t cx, cy;
     int imgW = 0, imgH = 0;
-    if (getPngDimensions(imagePath, imgW, imgH) && imgW > 0 && imgH > 0) {
+    if (!stretchToFill && getPngDimensions(imagePath, imgW, imgH) && imgW > 0 && imgH > 0) {
         // Preserve aspect ratio: fit within max width x max height
         double aspect = static_cast<double>(imgW) / static_cast<double>(imgH);
         double dispW = widthInches, dispH = heightInches;
@@ -145,6 +186,7 @@ bool injectLetterhead(const std::string& xlsxPath, const std::string& imagePath,
         cx = static_cast<int64_t>(dispW * 914400);
         cy = static_cast<int64_t>(dispH * 914400);
     } else {
+        // Stretch to fill the given dimensions (or fallback if dimensions unknown)
         cx = static_cast<int64_t>(widthInches * 914400);
         cy = static_cast<int64_t>(heightInches * 914400);
     }
@@ -218,7 +260,7 @@ bool injectLetterhead(const std::string& xlsxPath, const std::string& imagePath,
         "<xdr:from><xdr:col>0</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>0</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>\n"
         "<xdr:ext cx=\"" + std::to_string(cx) + "\" cy=\"" + std::to_string(cy) + "\"/>\n"
         "<xdr:pic>\n"
-        "<xdr:nvPicPr><xdr:cNvPr id=\"2\" name=\"Letterhead\"/><xdr:cNvPicPr/></xdr:nvPicPr>\n"
+        "<xdr:nvPicPr><xdr:cNvPr id=\"2\" name=\"Logo\"/><xdr:cNvPicPr/></xdr:nvPicPr>\n"
         "<xdr:blipFill><a:blip r:embed=\"rId1\"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill>\n"
         "<xdr:spPr><a:xfrm><a:off x=\"0\" y=\"0\"/><a:ext cx=\"" +
         std::to_string(cx) + "\" cy=\"" + std::to_string(cy) + "\"/></a:xfrm>"
@@ -278,6 +320,18 @@ bool injectLetterhead(const std::string& xlsxPath, const std::string& imagePath,
         cleanup();
         return false;
     }
+
+    // Add pageSetup (fit to one page) in same pass to avoid second unzip/zip
+    const std::string pageSetup = "\n  <pageSetup paperSize=\"9\" orientation=\"portrait\" fitToPage=\"1\" fitToWidth=\"1\" fitToHeight=\"1\"/>";
+    const std::string pmMarker = "<pageMargins ";
+    auto pmStart = sheetXml.find(pmMarker);
+    if (pmStart != std::string::npos) {
+        auto pmEnd = sheetXml.find("/>", pmStart);
+        if (pmEnd != std::string::npos) {
+            sheetXml.insert(pmEnd + 2, pageSetup);
+        }
+    }
+
     if (!writeFile(sheetPath, sheetXml) || !writeFile(sheetRelsPath, sheetRels)) {
         cleanup();
         return false;
@@ -312,9 +366,10 @@ bool injectLetterhead(const std::string& xlsxPath, const std::string& imagePath,
     }
 #endif
 #ifdef _WIN32
-    int zipR = system(("powershell -NoProfile -Command \"Compress-Archive -Path '" + tmpBase + "\\*' -DestinationPath '" + outPath + "' -Force\"").c_str());
+    int zipR = zipWithContentTypesFirst(tmpBase, outPath) ? 0 : 1;
 #else
-    int zipR = system(("cd \"" + tmpBase + "\" && zip -X -r -q \"" + outPath + "\" .").c_str());
+    // Excel expects [Content_Types].xml first in zip; explicit order avoids recovery dialog
+    int zipR = system(("cd \"" + tmpBase + "\" && zip -X -r -q \"" + outPath + "\" \"[Content_Types].xml\" _rels docProps xl").c_str());
 #endif
     if (zipR != 0) {
         cleanup();
@@ -337,6 +392,110 @@ bool injectLetterhead(const std::string& xlsxPath, const std::string& imagePath,
     }
 #endif
 
+    return ok;
+}
+
+bool injectPrintFitToPage(const std::string& xlsxPath) {
+    std::ifstream checkXlsx(xlsxPath);
+    if (!checkXlsx) return false;
+    checkXlsx.close();
+
+    std::string tmpBase;
+    {
+        unsigned seed = static_cast<unsigned>(
+            std::chrono::steady_clock::now().time_since_epoch().count());
+        std::mt19937 rng(seed);
+        std::uniform_int_distribution<int> dist(100000, 999999);
+#ifdef _WIN32
+        std::string base = std::getenv("TEMP") ? std::getenv("TEMP") : ".";
+        while (!base.empty() && (base.back() == '\\' || base.back() == '/')) base.pop_back();
+        tmpBase = base + "\\excel_fit_" + std::to_string(dist(rng));
+        if (_mkdir(tmpBase.c_str()) != 0) return false;
+#else
+        tmpBase = "/tmp/excel_fit_" + std::to_string(dist(rng));
+        if (mkdir(tmpBase.c_str(), 0755) != 0) return false;
+#endif
+    }
+
+    auto cleanup = [&]() {
+#ifdef _WIN32
+        (void)system(("rd /s /q \"" + tmpBase + "\"").c_str());
+#else
+        (void)system(("rm -rf \"" + tmpBase + "\"").c_str());
+#endif
+    };
+
+#ifdef _WIN32
+    int unzipR = system(("powershell -Command \"Expand-Archive -Path '" + xlsxPath + "' -DestinationPath '" + tmpBase + "'\"").c_str());
+#else
+    int unzipR = system(("unzip -q -o \"" + xlsxPath + "\" -d \"" + tmpBase + "\"").c_str());
+#endif
+    if (unzipR != 0) {
+        cleanup();
+        return false;
+    }
+
+    std::string sheetPath = tmpBase + "/xl/worksheets/sheet1.xml";
+    std::string sheetXml = readFile(sheetPath);
+    if (sheetXml.empty()) {
+        cleanup();
+        return false;
+    }
+
+    // Insert pageSetup right after pageMargins (OOXML order: pageMargins, pageSetup, ...)
+    // Must not append at end: drawing/mergeCells would then precede pageSetup, causing Excel recovery error
+    const std::string pageSetup = "\n  <pageSetup paperSize=\"9\" orientation=\"portrait\" fitToPage=\"1\" fitToWidth=\"1\" fitToHeight=\"1\"/>";
+    const std::string marker = "<pageMargins ";
+    auto start = sheetXml.find(marker);
+    if (start == std::string::npos) {
+        cleanup();
+        return false;
+    }
+    // Find end of pageMargins element (self-closing <pageMargins .../>)
+    auto end = sheetXml.find("/>", start);
+    if (end == std::string::npos) {
+        cleanup();
+        return false;
+    }
+    end += 2;  // past ">"
+    sheetXml.insert(end, pageSetup);
+
+    if (!writeFile(sheetPath, sheetXml)) {
+        cleanup();
+        return false;
+    }
+
+    std::string outPath = xlsxPath + ".new";
+#if defined(__APPLE__) || defined(__linux__)
+    {
+        size_t sep = xlsxPath.rfind('/');
+        std::string dir = (sep != std::string::npos) ? xlsxPath.substr(0, sep + 1) : "";
+        char resolved[PATH_MAX];
+        if (realpath(dir.empty() ? "." : dir.c_str(), resolved)) {
+            outPath = std::string(resolved) + "/" +
+                      ((sep != std::string::npos) ? xlsxPath.substr(sep + 1) : xlsxPath) + ".new";
+        }
+    }
+#endif
+#ifdef _WIN32
+    int zipR = zipWithContentTypesFirst(tmpBase, outPath) ? 0 : 1;
+#else
+    // Excel expects [Content_Types].xml first in zip; explicit order avoids recovery dialog
+    int zipR = system(("cd \"" + tmpBase + "\" && zip -X -r -q \"" + outPath + "\" \"[Content_Types].xml\" _rels docProps xl").c_str());
+#endif
+    cleanup();
+    if (zipR != 0) return false;
+
+#ifdef _WIN32
+    bool ok = copyFile(outPath, xlsxPath);
+    if (ok) std::remove(outPath.c_str());
+#else
+    bool ok = (rename(outPath.c_str(), xlsxPath.c_str()) == 0);
+    if (!ok) {
+        ok = copyFile(outPath, xlsxPath);
+        if (ok) unlink(outPath.c_str());
+    }
+#endif
     return ok;
 }
 

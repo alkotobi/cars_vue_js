@@ -995,6 +995,8 @@
     "edit_bill": "Edit Bill",
     "delete_bill": "Delete Bill",
     "print_bill": "Print Bill",
+    "export_excel": "Export to Excel",
+    "excel_export_failed": "Failed to create Excel invoice",
     "view_payments": "View Payments",
     "add_new_task": "Add New Task",
     "sell": "Sell",

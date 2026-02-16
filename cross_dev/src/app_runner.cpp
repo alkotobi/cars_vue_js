@@ -16,6 +16,7 @@
 #include "../include/handlers/context_menu_handler.h"
 #include "../include/handlers/focus_window_handler.h"
 #include "../include/handlers/options_handler.h"
+#include "../include/app_handlers.h"
 #include "platform/platform_impl.h"
 #include <iostream>
 
@@ -148,6 +149,8 @@ void AppRunner::registerHandlers() {
     router->registerHandler(createContextMenuHandler(mainWindow_, eventHandler_->getMessageRouterShared()));
     router->registerHandler(createFocusWindowHandler());
     router->registerHandler(createOptionsHandler());
+
+    registerAppHandlers(router);
 }
 
 int AppRunner::run() {

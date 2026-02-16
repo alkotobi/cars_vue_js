@@ -1077,6 +1077,11 @@ onMounted(async () => {
 }
 
 @media print {
+  .report-table th,
+  .report-table td {
+    border-bottom: 1px solid #ddd;
+  }
+
   .contract-terms {
     padding: 20mm 15mm;
   }

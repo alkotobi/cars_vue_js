@@ -120,7 +120,7 @@ const returnToDashboard = async () => {
   isProcessing.value.dashboard = true
   try {
     document.title = 'Dashboard - Cars System'
-    await router.push('/')
+    await router.push('/dashboard')
   } finally {
     isProcessing.value.dashboard = false
   }
@@ -322,7 +322,7 @@ const handleTrackingClick = async () => {
           :class="{ processing: isProcessing.dashboard }"
         >
           <i class="fas fa-arrow-left"></i>
-          <span>{{ t('cars.returnToDashboard') }}</span>
+          <span>{{ t('navigation.dashboard') }}</span>
           <i v-if="isProcessing.dashboard" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
         <button

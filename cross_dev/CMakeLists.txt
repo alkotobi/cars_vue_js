@@ -17,6 +17,9 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Component lifecycle + verbose MessageRouter/CreateWindow/Singleton logging
 option(COMPONENT_DEBUG_LIFECYCLE "Enable component lifecycle and verbose routing/window debug output (default: ON for Debug)" ON)
+
+# Cars app: invoice export, etc. When OFF, registerAppHandlers is a no-op (weak stub).
+option(BUILD_CARS_APP "Build Cars app module (createInvoice handler)" ON)
 if(COMPONENT_DEBUG_LIFECYCLE OR CMAKE_BUILD_TYPE STREQUAL "Debug")
     add_compile_definitions(COMPONENT_DEBUG_LIFECYCLE=1)
     message(STATUS "Component lifecycle debug: ENABLED")
@@ -131,6 +134,14 @@ set(CORE_SOURCES
 # Add main.cpp for non-iOS platforms
 if(NOT PLATFORM STREQUAL "ios")
     list(APPEND CORE_SOURCES src/main.cpp)
+endif()
+
+# App handlers: stub (no-op) when no app; apps provide strong symbol when BUILD_CARS_APP.
+# On Windows/MSVC we must exclude stub when app is linked (no weak symbol support).
+if(BUILD_CARS_APP AND NOT PLATFORM STREQUAL "ios")
+    # app_cars provides registerAppHandlers; stub not needed
+else()
+    list(APPEND CORE_SOURCES src/app_handlers_stub.cpp)
 endif()
 
 # Platform-specific sources
@@ -340,14 +351,6 @@ endif()
 # Link libraries
 if(PLATFORM_LIBS)
     target_link_libraries(${PROJECT_NAME} PRIVATE ${PLATFORM_LIBS})
-endif()
-
-# macOS: PDFKit for printWebView (createPDF + PDFView)
-if(PLATFORM STREQUAL "macos")
-    find_library(PDFKIT_FRAMEWORK PDFKit PATHS /System/Library/Frameworks NO_DEFAULT_PATH)
-    if(PDFKIT_FRAMEWORK)
-        target_link_libraries(${PROJECT_NAME} PRIVATE ${PDFKIT_FRAMEWORK})
-    endif()
 endif()
 
 # OpenXLSX for Excel export (template-based .xlsx: copy template, fill cells)
@@ -587,6 +590,7 @@ if(NOT PLATFORM STREQUAL "ios")
         src/excel/excel_paths.cpp
         src/excel/excel_exporter.cpp
         src/excel/excel_image.cpp
+        src/excel/excel_invoice.cpp
     )
     target_include_directories(excel_excel PUBLIC ${CMAKE_SOURCE_DIR}/include)
     target_link_libraries(excel_excel PUBLIC OpenXLSX::OpenXLSX)
@@ -602,6 +606,27 @@ if(NOT PLATFORM STREQUAL "ios")
     set_target_properties(excel_template_test PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/examples
     )
+
+    # Beautiful invoice test: creates styled invoice with logo
+    add_executable(excel_invoice_test examples/excel_invoice_test.cpp)
+    target_link_libraries(excel_invoice_test PRIVATE excel_excel)
+    target_compile_options(excel_invoice_test PRIVATE -Wno-defaulted-function-deleted)
+    if(PLATFORM STREQUAL "windows")
+        target_link_libraries(excel_invoice_test PRIVATE shell32)
+    endif()
+    set_target_properties(excel_invoice_test PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/examples
+    )
+
+    # Cars app: createInvoice handler, etc. Strong registerAppHandlers overrides weak stub.
+    if(BUILD_CARS_APP)
+        add_subdirectory(apps/cars)
+        target_link_libraries(${PROJECT_NAME} PRIVATE app_cars)
+        target_link_libraries(layout_demo PRIVATE app_cars)
+        message(STATUS "Cars app: ENABLED (createInvoice handler)")
+    else()
+        message(STATUS "Cars app: disabled (using weak stub)")
+    endif()
 endif()
 
 # Note: test_window requires full platform libraries, so we'll skip it in test builds

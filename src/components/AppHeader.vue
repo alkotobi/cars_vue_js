@@ -12,6 +12,8 @@ const { t } = useEnhancedI18n()
 const { callApi, getAssets, getFileUrl } = useApi()
 const user = ref(null)
 const logoUrl = ref(null)
+const activeBank = ref(null)
+const userBank = ref(null)
 const showChatModal = ref(false)
 const unreadMessageCount = ref(0)
 const chatMessagesRef = ref(null)
@@ -33,6 +35,62 @@ const INACTIVE_INTERVALS = {
   tasks: 5 * 60 * 1000, // 5 minutes when inactive
   chat: 30 * 1000, // 30 seconds when inactive
 }
+
+// Fetch active bank (company info) for header name and logo
+const fetchActiveBank = async () => {
+  try {
+    const result = await callApi({
+      query: 'SELECT company_name, logo_path FROM banks WHERE is_active = 1 LIMIT 1',
+    })
+    if (result.success && result.data.length > 0) {
+      activeBank.value = result.data[0]
+    } else {
+      activeBank.value = null
+    }
+  } catch {
+    activeBank.value = null
+  }
+}
+
+// Fetch different-company user's bank (for company name when id_bank_account is set)
+const fetchUserBank = async () => {
+  const u = user.value
+  if (!u || !u.id) {
+    userBank.value = null
+    return
+  }
+  const isDifferentCompany = u.is_diffrent_company === 1 || u.is_diffrent_company === true || u.is_diffrent_company === '1'
+  if (!isDifferentCompany || !u.id_bank_account) {
+    userBank.value = null
+    return
+  }
+  try {
+    const result = await callApi({
+      query: 'SELECT company_name, logo_path FROM banks WHERE id = ?',
+      params: [u.id_bank_account],
+    })
+    if (result.success && result.data.length > 0) {
+      userBank.value = result.data[0]
+    } else {
+      userBank.value = null
+    }
+  } catch {
+    userBank.value = null
+  }
+}
+
+// Different-company user has priority over active bank
+const headerCompanyName = computed(() => {
+  const isDifferentCompany = user.value && (
+    user.value.is_diffrent_company === 1 ||
+    user.value.is_diffrent_company === true ||
+    user.value.is_diffrent_company === '1'
+  )
+  if (isDifferentCompany && userBank.value?.company_name) {
+    return userBank.value.company_name
+  }
+  return activeBank.value?.company_name || t('app.companyName')
+})
 
 // Get user from localStorage
 const getUser = async () => {
@@ -156,6 +214,12 @@ const watchUserChanges = () => {
   })
   window.addEventListener('userLogout', async () => {
     await getUser()
+    await nextTick()
+    loadLogo()
+  })
+  window.addEventListener('companyInfoUpdated', async () => {
+    await fetchActiveBank()
+    await fetchUserBank()
     await nextTick()
     loadLogo()
   })
@@ -361,6 +425,48 @@ const loadLogo = async () => {
   const random = Math.random().toString(36).substring(7) // Add random string for extra cache busting
 
   try {
+    // Different-company user has priority: use their logo first
+    const isDifferentCompany = user.value && (
+      user.value.is_diffrent_company === 1 ||
+      user.value.is_diffrent_company === true ||
+      user.value.is_diffrent_company === '1'
+    )
+    if (isDifferentCompany && user.value.path_logo && user.value.path_logo.trim() !== '') {
+      const customLogoUrl = getFileUrl(user.value.path_logo)
+      if (customLogoUrl) {
+        const logoWithCacheBuster = `${customLogoUrl}&t=${timestamp}&r=${random}`
+        logoUrl.value = ''
+        await nextTick()
+        logoUrl.value = logoWithCacheBuster
+        updateFavicon(logoWithCacheBuster)
+        return
+      }
+    }
+    if (isDifferentCompany && userBank.value?.logo_path && userBank.value.logo_path.trim() !== '') {
+      const customLogoUrl = getFileUrl(userBank.value.logo_path)
+      if (customLogoUrl) {
+        const logoWithCacheBuster = `${customLogoUrl}&t=${timestamp}&r=${random}`
+        logoUrl.value = ''
+        await nextTick()
+        logoUrl.value = logoWithCacheBuster
+        updateFavicon(logoWithCacheBuster)
+        return
+      }
+    }
+
+    // Active bank (company info) logo
+    if (activeBank.value?.logo_path && activeBank.value.logo_path.trim() !== '') {
+      const customLogoUrl = getFileUrl(activeBank.value.logo_path)
+      if (customLogoUrl) {
+        const logoWithCacheBuster = `${customLogoUrl}&t=${timestamp}&r=${random}`
+        logoUrl.value = ''
+        await nextTick()
+        logoUrl.value = logoWithCacheBuster
+        updateFavicon(logoWithCacheBuster)
+        return
+      }
+    }
+
     // Wait for user data to be available
     if (!user.value) {
       // If no user, use default logo
@@ -372,45 +478,10 @@ const loadLogo = async () => {
       return
     }
 
-    // Check if user is a different company user - handle 0/1 from database
-    const isDifferentCompany =
-      user.value.is_diffrent_company === 1 ||
-      user.value.is_diffrent_company === true ||
-      user.value.is_diffrent_company === '1'
-
-    console.log(
-      'loadLogo - user:',
-      user.value?.id,
-      'is_diffrent_company:',
-      user.value?.is_diffrent_company,
-      'type:',
-      typeof user.value?.is_diffrent_company,
-      'converted:',
-      isDifferentCompany,
-      'path_logo:',
-      user.value?.path_logo,
-    )
-
-    // Check if user is a different company user and has a custom logo
-    // Make sure path_logo is not empty/null/undefined
-    if (isDifferentCompany && user.value.path_logo && user.value.path_logo.trim() !== '') {
-      // Use user's custom logo from files_dir
-      const customLogoUrl = getFileUrl(user.value.path_logo)
-      if (customLogoUrl) {
-        const logoWithCacheBuster = `${customLogoUrl}&t=${timestamp}&r=${random}`
-        console.log('Using custom logo:', logoWithCacheBuster)
-        logoUrl.value = ''
-        await nextTick()
-        logoUrl.value = logoWithCacheBuster
-        updateFavicon(logoWithCacheBuster)
-        return
-      }
-    }
-
+    // Different-company user logo already handled above (isDifferentCompany from top of try)
     // If user is different company but no logo or empty logo, use logo_default.png
     if (isDifferentCompany) {
       const defaultLogo = `${basePath}logo_default.png?v=${assetsVersion}&t=${timestamp}&r=${random}`
-      console.log('Using default logo for different company (no custom logo):', defaultLogo)
       logoUrl.value = ''
       await nextTick()
       logoUrl.value = defaultLogo
@@ -454,15 +525,18 @@ const loadLogo = async () => {
 // Initialize user on component mount
 onMounted(async () => {
   await getUser()
+  await fetchActiveBank()
+  await fetchUserBank()
   // Wait a bit to ensure user data is fully loaded
   await nextTick()
   loadLogo() // Load logo asynchronously
   watchUserChanges()
 
-  // Watch for user changes to reload logo
+  // Watch for user changes to reload logo and user bank
   watch(
     user,
     async () => {
+      await fetchUserBank()
       await nextTick()
       loadLogo()
     },
@@ -574,7 +648,7 @@ onUnmounted(() => {
             "
           />
           <div class="company-info">
-            <h1 class="company-name">{{ t('app.companyName') }}</h1>
+            <h1 class="company-name">{{ headerCompanyName }}</h1>
             <p class="company-tagline">{{ t('app.subtitle') }}</p>
           </div>
         </div>

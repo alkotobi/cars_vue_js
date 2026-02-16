@@ -2,6 +2,7 @@
 import { ref, onMounted, computed, watch } from 'vue'
 import { useEnhancedI18n } from '../../composables/useI18n'
 import { useApi } from '../../composables/useApi'
+import { useInvoiceCompanyInfo } from '../../composables/useInvoiceCompanyInfo'
 import { useRouter, useRoute } from 'vue-router'
 import SellBillPrintOption from './SellBillPrintOption.vue'
 
@@ -31,6 +32,7 @@ const selectedBills = ref([])
 const router = useRouter()
 const route = useRoute()
 const { callApi, getAssets, loadLetterhead } = useApi()
+const { fetchInvoiceCompanyInfo } = useInvoiceCompanyInfo()
 const letterHeadUrl = ref(null)
 const sellBills = ref([])
 const loading = ref(true)
@@ -38,6 +40,7 @@ const error = ref(null)
 const selectedBillId = ref(null)
 const showPrintOptions = ref(false)
 const selectedPrintBillId = ref(null)
+const isExportingExcel = ref(false)
 const isProcessing = ref(false)
 const allUsers = ref([]) // Store all users for username lookup
 const expandedNotes = ref(new Set()) // Track which bills have expanded notes
@@ -513,6 +516,211 @@ const handleDelete = (id) => {
 const handlePrint = (id) => {
   selectedPrintBillId.value = id
   showPrintOptions.value = true
+}
+
+/** Format car notes for display (same as SellBillPrintDocument). */
+const formatNotesForExport = (notes) => {
+  if (!notes) return ''
+  try {
+    let notesArray = []
+    if (typeof notes === 'string' && notes.trim().startsWith('[')) {
+      notesArray = JSON.parse(notes)
+    } else if (Array.isArray(notes)) {
+      notesArray = notes
+    } else {
+      return (notes && notes.trim()) || ''
+    }
+    if (Array.isArray(notesArray) && notesArray.length > 0) {
+      const formatted = notesArray
+        .map((n) => (n && n.note ? n.note : typeof n === 'string' ? n : ''))
+        .filter((n) => n && String(n).trim() !== '')
+        .join('\n')
+      return formatted || ''
+    }
+    return ''
+  } catch {
+    return (notes && String(notes).trim()) || ''
+  }
+}
+
+/** Export sell bill as Excel invoice (CrossDev only). Data matches SellBillPrintDocument. */
+const exportBillToExcel = async (billId) => {
+  if (isExportingExcel.value) return
+  isExportingExcel.value = true
+  try {
+    const billResult = await callApi({
+      query: `
+        SELECT sb.*, c.name as broker_name, c.address as broker_address,
+               c.mobiles as broker_phone
+        FROM sell_bill sb
+        LEFT JOIN clients c ON sb.id_broker = c.id
+        WHERE sb.id = ?
+      `,
+      params: [billId],
+    })
+    if (!billResult.success || billResult.data.length === 0) {
+      alert(t('sellBills.bill_not_found') || 'Bill not found')
+      return
+    }
+    const bill = billResult.data[0]
+
+    // Same cars query as SellBillPrintDocument: includes loading_port, discharge_port
+    const carsResult = await callApi({
+      query: `
+        SELECT 
+          cs.id, cs.vin, cs.notes, cs.price_cell, cs.cfr_da, cs.freight, cs.rate,
+          c.name as client_name,
+          lp.loading_port,
+          dp.discharge_port,
+          cn.car_name,
+          clr.color
+        FROM cars_stock cs
+        LEFT JOIN clients c ON cs.id_client = c.id
+        LEFT JOIN loading_ports lp ON cs.id_port_loading = lp.id
+        LEFT JOIN discharge_ports dp ON cs.id_port_discharge = dp.id
+        LEFT JOIN buy_details bd ON cs.id_buy_details = bd.id
+        LEFT JOIN cars_names cn ON bd.id_car_name = cn.id
+        LEFT JOIN colors clr ON cs.id_color = clr.id
+        WHERE cs.id_sell = ?
+        ORDER BY cs.id DESC
+      `,
+      params: [billId],
+    })
+    const cars = carsResult.success ? carsResult.data : []
+
+    const carIds = cars.map((c) => c.id).filter(Boolean)
+    const upgradesTotalsMap = new Map()
+    const upgradesDetailsMap = new Map()
+    if (carIds.length > 0) {
+      const [totalsRes, detailsRes] = await Promise.all([
+        callApi({
+          query: `SELECT ca.id_car, SUM(ca.value) as total_upgrades FROM car_apgrades ca
+                  WHERE ca.id_car IN (${carIds.map(() => '?').join(',')}) GROUP BY ca.id_car`,
+          params: carIds,
+        }),
+        callApi({
+          query: `SELECT ca.id_car, u.description, ca.value FROM car_apgrades ca
+                  LEFT JOIN upgrades u ON ca.id_upgrade = u.id
+                  WHERE ca.id_car IN (${carIds.map(() => '?').join(',')}) ORDER BY ca.id_car, ca.id`,
+          params: carIds,
+        }),
+      ])
+      if (totalsRes.success) {
+        totalsRes.data.forEach((r) => upgradesTotalsMap.set(r.id_car, parseFloat(r.total_upgrades) || 0))
+      }
+      if (detailsRes.success) {
+        detailsRes.data.forEach((r) => {
+          const list = upgradesDetailsMap.get(r.id_car) || []
+          list.push({ description: r.description || 'N/A', value: parseFloat(r.value) || 0 })
+          upgradesDetailsMap.set(r.id_car, list)
+        })
+      }
+    }
+
+    const formatMoney = (n) => Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    const formatDateStr = (d) => new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+
+    // Format upgrades for display (same as SellBillPrintDocument formatCarUpgrades)
+    const formatCarUpgradesForExport = (carId) => {
+      const upgrades = upgradesDetailsMap.get(carId) || []
+      if (upgrades.length === 0) return ''
+      return upgrades.map((u) => `${u.description}: $${u.value.toFixed(2)}`).join(', ')
+    }
+
+    // Default: CFR USD (price_cell + upgrades + freight) - matches print when user picks CFR/USD
+    const paymentTerms = 'CFR'
+    const currency = 'USD'
+
+    const items = cars.map((car) => {
+      const upgrades = upgradesTotalsMap.get(car.id) || 0
+      let priceUsd
+      if (paymentTerms.toLowerCase() === 'cfr') {
+        priceUsd = (parseFloat(car.price_cell) || 0) + upgrades + (parseFloat(car.freight) || 0)
+      } else {
+        priceUsd = (parseFloat(car.price_cell) || 0) + upgrades
+      }
+      if (currency.toUpperCase() === 'DA') {
+        if (car.cfr_da) {
+          priceUsd = parseFloat(car.cfr_da)
+        } else {
+          const rate = parseFloat(car.rate)
+          priceUsd = rate ? priceUsd * rate : priceUsd
+        }
+      }
+
+      const parts = [car.car_name, car.color, car.vin].filter(Boolean)
+      const main = parts.length ? parts.join(' — ') : 'Vehicle'
+      const extra = []
+      const upgradeStr = formatCarUpgradesForExport(car.id)
+      if (upgradeStr) extra.push(`Upgrades: ${upgradeStr}`)
+      const notesStr = formatNotesForExport(car.notes)
+      if (notesStr) extra.push(`Notes: ${notesStr}`)
+      const desc = extra.length ? `${main}\n${extra.join(' | ')}` : main
+
+      return {
+        description: desc || 'Vehicle',
+        clientName: car.client_name || '',
+        port: car.discharge_port || '',
+        qty: 1,
+        price: formatMoney(priceUsd),
+        amount: formatMoney(priceUsd),
+      }
+    })
+
+    const subtotal = cars.reduce((sum, car) => {
+      const upgrades = upgradesTotalsMap.get(car.id) || 0
+      let priceUsd
+      if (paymentTerms.toLowerCase() === 'cfr') {
+        priceUsd = (parseFloat(car.price_cell) || 0) + upgrades + (parseFloat(car.freight) || 0)
+      } else {
+        priceUsd = (parseFloat(car.price_cell) || 0) + upgrades
+      }
+      if (currency.toUpperCase() === 'DA') {
+        if (car.cfr_da) return sum + parseFloat(car.cfr_da)
+        const rate = parseFloat(car.rate)
+        return sum + (rate ? priceUsd * rate : priceUsd)
+      }
+      return sum + priceUsd
+    }, 0)
+    const total = subtotal
+
+    const { company, logoBase64 } = await fetchInvoiceCompanyInfo()
+
+    const payload = {
+      ref: bill.bill_ref || `BILL-${billId}`,
+      date: formatDateStr(bill.date_sell),
+      client: {
+        name: bill.broker_name || [...new Set(cars.map((c) => c.client_name).filter(Boolean))].join(', ') || 'Client',
+        mobile: bill.broker_phone || '',
+        address: bill.broker_address || '',
+      },
+      company: {
+        name: company.name,
+        address: company.address,
+        phone: company.phone,
+        email: company.email,
+        website: company.website,
+      },
+      items,
+      subtotal: formatMoney(subtotal),
+      total: formatMoney(total),
+      currency,
+      openAfterCreate: true,
+    }
+    if (logoBase64) payload.logoBase64 = logoBase64
+
+    const result = await window.CrossDev.invoke('createInvoice', payload)
+    if (result.success) {
+      // Optional: brief feedback
+    } else {
+      alert(result.error || t('sellBills.excel_export_failed') || 'Failed to create Excel invoice')
+    }
+  } catch (err) {
+    console.error('Excel export error:', err)
+    alert(err.message || t('sellBills.excel_export_failed') || 'Failed to create Excel invoice')
+  } finally {
+    isExportingExcel.value = false
+  }
 }
 
 const handlePrintClose = () => {

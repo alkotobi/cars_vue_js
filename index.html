@@ -38,6 +38,12 @@
           return match ? match[1] : '/'
         }
 
+        function getApiBase() {
+          return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+            ? 'http://localhost:8000/api'
+            : 'https://www.merhab.com/api'
+        }
+
         function getFileUrl(path, baseDirectory) {
           if (!path || typeof path !== 'string' || path.trim() === '') {
             return ''
@@ -45,12 +51,8 @@
           if (path.startsWith('http://') || path.startsWith('https://')) {
             return path
           }
-          // Construct upload.php URL
-          const basePath = getBasePath()
-          const apiBase = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-            ? 'http://localhost:8000/api'
-            : 'https://www.merhab.com/api'
-          const uploadUrl = `${apiBase}/upload.php`
+          const apiBase = getApiBase()
+          const uploadUrl = apiBase + '/upload.php'
           const url = new URL(uploadUrl)
           url.searchParams.set('path', path.replace(/^\/+/, ''))
           if (baseDirectory) {
@@ -59,55 +61,115 @@
           return url.toString()
         }
 
+        async function fetchDifferentCompanyUserLogo(user) {
+          if (!user || !user.path_logo || typeof user.path_logo !== 'string' || user.path_logo.trim() === '') return null
+          const basePath = getBasePath()
+          const apiBase = getApiBase()
+          try {
+            const dbCodeRes = await fetch(basePath + 'db_code.json')
+            const dbCodeData = await dbCodeRes.json()
+            if (!dbCodeData || !dbCodeData.db_code) return null
+            const dbRes = await fetch(apiBase + '/db_manager_api.php?action=get_database_by_code&db_code=' + encodeURIComponent(dbCodeData.db_code))
+            const dbResult = await dbRes.json()
+            if (!dbResult.success || !dbResult.data) return null
+            const filesDir = dbResult.data.files_dir || ''
+            return getFileUrl(user.path_logo, filesDir)
+          } catch (e) {}
+          return null
+        }
+
+        async function fetchUserBankCompanyName(user) {
+          if (!user || !user.id_bank_account) return null
+          const basePath = getBasePath()
+          const apiBase = getApiBase()
+          try {
+            const dbCodeRes = await fetch(basePath + 'db_code.json')
+            const dbCodeData = await dbCodeRes.json()
+            if (!dbCodeData || !dbCodeData.db_code) return null
+            const dbRes = await fetch(apiBase + '/db_manager_api.php?action=get_database_by_code&db_code=' + encodeURIComponent(dbCodeData.db_code))
+            const dbResult = await dbRes.json()
+            if (!dbResult.success || !dbResult.data || !dbResult.data.db_name) return null
+            const apiRes = await fetch(apiBase + '/api.php', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                query: 'SELECT company_name FROM banks WHERE id = ?',
+                params: [user.id_bank_account],
+                dbname: dbResult.data.db_name
+              })
+            })
+            const apiResult = await apiRes.json()
+            if (apiResult.success && apiResult.data && apiResult.data[0] && apiResult.data[0].company_name) {
+              return apiResult.data[0].company_name
+            }
+          } catch (e) {}
+          return null
+        }
+
+        async function fetchActiveBankLogo() {
+          const basePath = getBasePath()
+          const apiBase = getApiBase()
+          try {
+            const dbCodeRes = await fetch(basePath + 'db_code.json')
+            const dbCodeData = await dbCodeRes.json()
+            if (!dbCodeData || !dbCodeData.db_code) return null
+            const dbRes = await fetch(apiBase + '/db_manager_api.php?action=get_database_by_code&db_code=' + encodeURIComponent(dbCodeData.db_code))
+            const dbResult = await dbRes.json()
+            if (!dbResult.success || !dbResult.data || !dbResult.data.db_name) return null
+            const apiRes = await fetch(apiBase + '/api.php', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                query: 'SELECT logo_path FROM banks WHERE is_active = 1 LIMIT 1',
+                params: [],
+                dbname: dbResult.data.db_name
+              })
+            })
+            const apiResult = await apiRes.json()
+            if (apiResult.success && apiResult.data && apiResult.data[0] && apiResult.data[0].logo_path) {
+              const filesDir = dbResult.data.files_dir || ''
+              return getFileUrl(apiResult.data[0].logo_path, filesDir)
+            }
+          } catch (e) {}
+          return null
+        }
+
         async function loadFavicon() {
           const basePath = getBasePath()
+          const defaultTitle = 'Cars Management System'
           const userStr = localStorage.getItem('user')
-          
+
           if (userStr) {
             try {
               const user = JSON.parse(userStr)
-              
-              // Check if user is a different company user - handle 0/1 from database
               const isDifferentCompany = user && (
-                user.is_diffrent_company === 1 || 
-                user.is_diffrent_company === true || 
+                user.is_diffrent_company === 1 ||
+                user.is_diffrent_company === true ||
                 user.is_diffrent_company === '1'
               )
-              
-              // Check if user is a different company user and has a custom logo
-              if (isDifferentCompany && user.path_logo) {
-                try {
-                  // Need to get files_dir from db_code.json
-                  const res = await fetch(`${basePath}db_code.json`)
-                  const data = await res.json()
-                  
-                  if (data && data.files_dir) {
-                    const customLogoUrl = getFileUrl(user.path_logo, data.files_dir)
-                    if (customLogoUrl) {
-                      updateFavicon(customLogoUrl)
-                      return
-                    }
-                  }
-                } catch (e) {
-                  // Error fetching config, fall through to default
-                }
-                // Fallback to logo_default.png
-                updateFavicon(`${basePath}logo_default.png`)
-                return
-              }
 
-              // If user is different company but no logo, use logo_default.png
               if (isDifferentCompany) {
-                updateFavicon(`${basePath}logo_default.png`)
+                var companyName = await fetchUserBankCompanyName(user)
+                document.title = companyName ? (companyName + ' - Cars Management System') : defaultTitle
+                var userLogoUrl = await fetchDifferentCompanyUserLogo(user)
+                if (userLogoUrl) {
+                  updateFavicon(userLogoUrl)
+                  return
+                }
+                updateFavicon(basePath + 'logo_default.png')
                 return
               }
-            } catch (e) {
-              // Invalid user data, fall through to default
-            }
+            } catch (e) {}
           }
 
-          // For regular users or no user, use default logo.png
-          updateFavicon(`${basePath}logo.png`)
+          document.title = defaultTitle
+          var activeBankLogoUrl = await fetchActiveBankLogo()
+          if (activeBankLogoUrl) {
+            updateFavicon(activeBankLogoUrl)
+            return
+          }
+
+          updateFavicon(basePath + 'logo.png')
         }
 
         // Update favicon on page load
@@ -121,6 +183,9 @@
         })
         window.addEventListener('userLogin', loadFavicon)
         window.addEventListener('userLogout', loadFavicon)
+        window.addEventListener('companyInfoUpdated', function() {
+          window.location.reload()
+        })
       })()
     </script>
   </head>

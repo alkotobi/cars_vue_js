@@ -1,7 +1,6 @@
 // macOS web view implementation
 #import <Cocoa/Cocoa.h>
 #import <WebKit/WebKit.h>
-#import <PDFKit/PDFKit.h>
 #import <objc/runtime.h>
 #include "../../../include/platform.h"
 #include "../platform_impl.h"
@@ -412,10 +411,8 @@ void executeWebViewScript(void* webViewHandle, const std::string& script) {
 void printWebView(void* webViewHandle) {
     if (!webViewHandle) return;
     WKWebView *webView = (__bridge WKWebView*)webViewHandle;
-    if (@available(macOS 11.0, *)) {
-        // createPDF captures on-screen rendering; it does NOT apply @media print CSS.
-        // Hide AppHeader/alerts (same as browser @media print) before capture, restore after.
-        const char *hideScript = R"(
+    // Hide header (same as @media print) via JS, then use native print.
+    const char *hideScript = R"(
 (function(){
   var sel = '.app-header, .app-header *, .alerts-view, .alerts-view *, #app > header';
   var els = document.querySelectorAll(sel);
@@ -434,45 +431,38 @@ void printWebView(void* webViewHandle) {
   });
 })();
 )";
-        executeWebViewScript(webViewHandle, std::string(hideScript));
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(150 * NSEC_PER_MSEC)), dispatch_get_main_queue(), ^{
-            [webView createPDFWithConfiguration:nil completionHandler:^(NSData *pdfData, NSError *error) {
-                const char *restoreScript = R"(
+    executeWebViewScript(webViewHandle, std::string(hideScript));
+    // WKWebView print produces blank pages unless view frame is set (macOS quirk).
+    // Use runOperationModalForWindow (not runOperation) for proper async rendering.
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(100 * NSEC_PER_MSEC)), dispatch_get_main_queue(), ^{
+        NSPrintInfo *info = [NSPrintInfo sharedPrintInfo];
+        NSPrintOperation *op = [webView printOperationWithPrintInfo:info];
+        if (op && op.view) {
+            NSRect bounds = webView.bounds;
+            CGFloat w = bounds.size.width >= 100 ? bounds.size.width : 612;
+            CGFloat h = bounds.size.height >= 100 ? bounds.size.height : 792;
+            op.view.frame = NSMakeRect(0, 0, w, h);
+        }
+        NSWindow *win = webView.window;
+        if (op && win) {
+            [op runOperationModalForWindow:win delegate:nil didRunSelector:NULL contextInfo:NULL];
+        } else if (op) {
+            [op runOperation];
+        }
+        // Restore header after print dialog closes
+        const char *restoreScript = R"(
 (function(){
   if (window.__crossdevPrintHidden) {
     window.__crossdevPrintHidden.forEach(function(r) {
       if (r.prop) r.el.style[r.prop] = r.val || '';
-      else {
-        r.el.style.display = r.display || '';
-        r.el.style.visibility = r.visibility || '';
-      }
+      else { r.el.style.display = r.display || ''; r.el.style.visibility = r.visibility || ''; }
     });
     window.__crossdevPrintHidden = null;
   }
 })();
 )";
-                executeWebViewScript(webViewHandle, std::string(restoreScript));
-                if (error || !pdfData || pdfData.length == 0) {
-                    NSLog(@"CrossDev print: createPDF failed: %@", error);
-                    return;
-                }
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    PDFDocument *pdfDoc = [[PDFDocument alloc] initWithData:pdfData];
-                    if (!pdfDoc) return;
-                    NSRect frame = NSMakeRect(0, 0, 612, 792);
-                    PDFView *pdfView = [[PDFView alloc] initWithFrame:frame];
-                    pdfView.document = pdfDoc;
-                    pdfView.autoScales = YES;
-                    NSPrintOperation *op = [NSPrintOperation printOperationWithView:pdfView];
-                    [op runOperation];
-                });
-            }];
-        });
-    } else {
-        [[NSOperationQueue mainQueue] addOperationWithBlock:^{
-            [webView print:nil];
-        }];
-    }
+        executeWebViewScript(webViewHandle, std::string(restoreScript));
+    });
 }
 
 } // namespace platform

@@ -4,7 +4,7 @@ import { useApi } from '../../composables/useApi'
 
 const emit = defineEmits(['user-added', 'close'])
 
-const { callApi, uploadFile } = useApi()
+const { callApi, uploadFile, getFileUrl } = useApi()
 const loading = ref(false)
 const error = ref(null)
 const roles = ref([])
@@ -15,18 +15,21 @@ const formData = ref({
   role_id: '',
   max_unpayed_created_bills: 0,
   is_diffrent_company: false,
-  path_logo: '',
-  path_letter_head: '',
-  path_stamp: '',
+  // Bank fields (all except is_active - new record is never active)
+  company_name: '',
+  company_address: '',
+  bank_name: '',
+  swift_code: '',
+  bank_account: '',
+  bank_address: '',
+  company_mobile: '',
+  company_email: '',
+  company_website: '',
+  company_notes: '',
+  logo_path: '',
 })
-
-// File upload states
 const logoFile = ref(null)
-const letterHeadFile = ref(null)
-const stampFile = ref(null)
-const uploadingLogo = ref(false)
-const uploadingLetterHead = ref(false)
-const uploadingStamp = ref(false)
+const logoPreviewUrl = ref('')
 
 const fetchRoles = async () => {
   const result = await callApi({
@@ -37,66 +40,19 @@ const fetchRoles = async () => {
   }
 }
 
-const handleFileSelect = (event, type) => {
-  const file = event.target.files[0]
-  if (!file) return
-
-  // Validate image file
-  if (!file.type.startsWith('image/')) {
-    error.value = `${type} must be an image file`
-    return
-  }
-
-  // Limit file size to 5MB
-  if (file.size > 5 * 1024 * 1024) {
-    error.value = `${type} file size must be less than 5MB`
-    return
-  }
-
-  if (type === 'logo') {
-    logoFile.value = file
-  } else if (type === 'letter_head') {
-    letterHeadFile.value = file
-  } else if (type === 'stamp') {
-    stampFile.value = file
-  }
-}
-
-const uploadImageFile = async (file, type) => {
-  if (!file) return null
-
-  try {
-    const timestamp = Date.now()
-    const fileExtension = file.name.split('.').pop()
-    const filename = `${type}_${timestamp}.${fileExtension}`
-    // Upload to files_dir directly (files_dir is used as base_directory in uploadFile)
-    const result = await uploadFile(file, type, filename)
-
-    if (result.success) {
-      return result.relativePath
-    } else {
-      throw new Error(result.error || `Failed to upload ${type}`)
-    }
-  } catch (err) {
-    console.error(`Error uploading ${type}:`, err)
-    throw err
-  }
-}
-
 const handleSubmit = async () => {
   if (!formData.value.username || !formData.value.password || !formData.value.email) {
     error.value = 'Username, email, and password are required'
     return
   }
 
-  // Validate that logo and letterhead are required for different company users
   if (formData.value.is_diffrent_company) {
-    if (!logoFile.value) {
-      error.value = 'Logo is required for different company users'
+    if (!formData.value.company_name || formData.value.company_name.trim() === '') {
+      error.value = 'Company name is required for different company users'
       return
     }
-    if (!letterHeadFile.value) {
-      error.value = 'Letterhead is required for different company users'
+    if (!logoFile.value) {
+      error.value = 'Logo is required for different company users. Please select or drop an image file.'
       return
     }
   }
@@ -105,38 +61,47 @@ const handleSubmit = async () => {
   error.value = null
 
   try {
-    // Upload image files if is_diffrent_company is true
+    let bankId = null
     if (formData.value.is_diffrent_company) {
-      // Logo is mandatory for different company users
+      let logoPath = formData.value.logo_path
       if (logoFile.value) {
-        uploadingLogo.value = true
-        formData.value.path_logo = await uploadImageFile(logoFile.value, 'logo')
-        uploadingLogo.value = false
-      } else {
-        error.value = 'Logo is required for different company users'
+        const filename = `bank_logo_${Date.now()}.${logoFile.value.name.split('.').pop() || 'png'}`
+        const uploadResult = await uploadFile(logoFile.value, 'banks_logos', filename)
+        if (!uploadResult.success || !uploadResult.relativePath) {
+          error.value = uploadResult.message || 'Failed to upload logo'
+          loading.value = false
+          return
+        }
+        logoPath = uploadResult.relativePath
+      }
+      const bankResult = await callApi({
+        query:
+          'INSERT INTO banks (company_name, company_address, bank_name, swift_code, bank_account, bank_address, mobile, email, website, logo_path, notes, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)',
+        params: [
+          formData.value.company_name?.trim() || null,
+          formData.value.company_address?.trim() || null,
+          formData.value.bank_name?.trim() || null,
+          formData.value.swift_code?.trim() || null,
+          formData.value.bank_account?.trim() || null,
+          formData.value.bank_address?.trim() || null,
+          formData.value.company_mobile?.trim() || null,
+          formData.value.company_email?.trim() || null,
+          formData.value.company_website?.trim() || null,
+          logoPath,
+          formData.value.company_notes?.trim() || null,
+        ],
+      })
+      if (!bankResult.success || !bankResult.lastInsertId) {
+        error.value = bankResult.error || 'Failed to create company record'
         loading.value = false
         return
       }
-      // Letterhead is mandatory for different company users
-      if (letterHeadFile.value) {
-        uploadingLetterHead.value = true
-        formData.value.path_letter_head = await uploadImageFile(letterHeadFile.value, 'letter_head')
-        uploadingLetterHead.value = false
-      } else {
-        error.value = 'Letterhead is required for different company users'
-        loading.value = false
-        return
-      }
-      if (stampFile.value) {
-        uploadingStamp.value = true
-        formData.value.path_stamp = await uploadImageFile(stampFile.value, 'stamp')
-        uploadingStamp.value = false
-      }
+      bankId = bankResult.lastInsertId
     }
 
     const result = await callApi({
       query:
-        'INSERT INTO users (username, email, password, role_id, max_unpayed_created_bills, is_diffrent_company, path_logo, path_letter_head, path_stamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO users (username, email, password, role_id, max_unpayed_created_bills, is_diffrent_company, id_bank_account) VALUES (?, ?, ?, ?, ?, ?, ?)',
       params: [
         formData.value.username,
         formData.value.email,
@@ -144,15 +109,12 @@ const handleSubmit = async () => {
         formData.value.role_id || null,
         formData.value.max_unpayed_created_bills || 0,
         formData.value.is_diffrent_company ? 1 : 0,
-        formData.value.path_logo || null,
-        formData.value.path_letter_head || null,
-        formData.value.path_stamp || null,
+        bankId,
       ],
       action: 'insert_user', // Tell API to hash the password before inserting
     })
 
     if (result.success) {
-      // Reset form
       formData.value = {
         username: '',
         email: '',
@@ -160,13 +122,20 @@ const handleSubmit = async () => {
         role_id: '',
         max_unpayed_created_bills: 0,
         is_diffrent_company: false,
-        path_logo: '',
-        path_letter_head: '',
-        path_stamp: '',
+        company_name: '',
+        company_address: '',
+        bank_name: '',
+        swift_code: '',
+        bank_account: '',
+        bank_address: '',
+        company_mobile: '',
+        company_email: '',
+        company_website: '',
+        company_notes: '',
+        logo_path: '',
       }
       logoFile.value = null
-      letterHeadFile.value = null
-      stampFile.value = null
+      logoPreviewUrl.value = ''
       error.value = null
       emit('user-added')
     } else {
@@ -176,9 +145,6 @@ const handleSubmit = async () => {
     error.value = err.message || 'An error occurred'
   } finally {
     loading.value = false
-    uploadingLogo.value = false
-    uploadingLetterHead.value = false
-    uploadingStamp.value = false
   }
 }
 
@@ -190,15 +156,59 @@ const handleCancel = () => {
     role_id: '',
     max_unpayed_created_bills: 0,
     is_diffrent_company: false,
-    path_logo: '',
-    path_letter_head: '',
-    path_stamp: '',
+    company_name: '',
+    company_address: '',
+    bank_name: '',
+    swift_code: '',
+    bank_account: '',
+    bank_address: '',
+    company_mobile: '',
+    company_email: '',
+    company_website: '',
+    company_notes: '',
+    logo_path: '',
   }
   logoFile.value = null
-  letterHeadFile.value = null
-  stampFile.value = null
+  logoPreviewUrl.value = ''
   error.value = null
   emit('close')
+}
+
+const handleLogoFile = (file) => {
+  if (!file) return
+  if (!file.type.startsWith('image/')) {
+    error.value = 'Please select an image file (PNG, JPEG, or WebP)'
+    return
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    error.value = 'Logo must be less than 5MB'
+    return
+  }
+  if (logoPreviewUrl.value && logoPreviewUrl.value.startsWith('blob:')) {
+    URL.revokeObjectURL(logoPreviewUrl.value)
+  }
+  logoFile.value = file
+  logoPreviewUrl.value = URL.createObjectURL(file)
+}
+
+const onLogoDrop = (e) => {
+  e.preventDefault()
+  e.stopPropagation()
+  handleLogoFile(e.dataTransfer?.files?.[0])
+}
+
+const onLogoDragOver = (e) => {
+  e.preventDefault()
+  e.stopPropagation()
+}
+
+const clearLogo = () => {
+  if (logoPreviewUrl.value && logoPreviewUrl.value.startsWith('blob:')) {
+    URL.revokeObjectURL(logoPreviewUrl.value)
+  }
+  logoFile.value = null
+  formData.value.logo_path = ''
+  logoPreviewUrl.value = ''
 }
 
 onMounted(() => {
@@ -311,87 +321,157 @@ onMounted(() => {
           </span>
         </label>
         <p class="form-hint">
-          Enable this to add company-specific assets (logo, letterhead, stamp)
+          Enable to link this user to a company record (bank). A new bank row is created and is not set active.
         </p>
       </div>
 
       <div v-if="formData.is_diffrent_company" class="company-assets-section">
-        <h4 class="section-title">
-          <i class="fas fa-images"></i>
-          Company Assets
-        </h4>
-
-        <div class="form-group">
-          <label for="path_logo">
-            <i class="fas fa-image"></i>
-            Logo <span class="required">*</span>
-          </label>
-          <div class="file-upload-wrapper">
-            <input
-              id="path_logo"
-              type="file"
-              accept="image/*"
-              class="file-input"
-              @change="handleFileSelect($event, 'logo')"
-              :disabled="loading || uploadingLogo"
-            />
-            <label for="path_logo" class="file-upload-label">
-              <i class="fas fa-upload"></i>
-              {{ logoFile ? logoFile.name : 'Choose Logo Image' }}
-            </label>
-            <div v-if="uploadingLogo" class="upload-progress">
-              <i class="fas fa-spinner fa-spin"></i>
-              Uploading...
+        <div class="form-columns">
+          <div class="form-column">
+            <div class="form-group">
+              <label>Logo <span class="required">*</span></label>
+              <div
+                class="logo-dropzone"
+                :class="{ 'has-preview': logoPreviewUrl }"
+                @click="$refs.logoInput?.click()"
+                @drop="onLogoDrop"
+                @dragover="onLogoDragOver"
+              >
+                <input
+                  ref="logoInput"
+                  type="file"
+                  accept="image/png,image/jpeg,image/jpg,image/webp"
+                  class="logo-input-hidden"
+                  @change="(e) => handleLogoFile(e.target.files?.[0])"
+                />
+                <template v-if="logoPreviewUrl">
+                  <img :src="logoPreviewUrl" alt="Logo" class="logo-preview" />
+                  <button type="button" class="logo-clear-btn" title="Remove logo" @click.stop="clearLogo">
+                    <i class="fas fa-times"></i>
+                  </button>
+                </template>
+                <template v-else>
+                  <i class="fas fa-cloud-upload-alt logo-placeholder"></i>
+                  <span class="logo-hint">Drop logo here or click to select</span>
+                </template>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="company_name">
+                <i class="fas fa-building"></i>
+                Company Name <span class="required">*</span>
+              </label>
+              <input
+                id="company_name"
+                v-model="formData.company_name"
+                type="text"
+                class="form-input"
+                placeholder="Enter company name"
+                :disabled="loading"
+              />
+            </div>
+            <div class="form-group">
+              <label for="company_address">Company Address</label>
+              <textarea
+                id="company_address"
+                v-model="formData.company_address"
+                class="form-input"
+                placeholder="Company address"
+                rows="2"
+                :disabled="loading"
+              />
+            </div>
+            <div class="form-group">
+              <label for="bank_name">Bank Name</label>
+              <input
+                id="bank_name"
+                v-model="formData.bank_name"
+                type="text"
+                class="form-input"
+                placeholder="Bank name"
+                :disabled="loading"
+              />
+            </div>
+            <div class="form-group">
+              <label for="swift_code">Swift Code</label>
+              <input
+                id="swift_code"
+                v-model="formData.swift_code"
+                type="text"
+                class="form-input"
+                placeholder="SWIFT code"
+                :disabled="loading"
+              />
             </div>
           </div>
-        </div>
-
-        <div class="form-group">
-          <label for="path_letter_head">
-            <i class="fas fa-file-image"></i>
-            Letterhead <span class="required">*</span>
-          </label>
-          <div class="file-upload-wrapper">
-            <input
-              id="path_letter_head"
-              type="file"
-              accept="image/*"
-              class="file-input"
-              @change="handleFileSelect($event, 'letter_head')"
-              :disabled="loading || uploadingLetterHead"
-            />
-            <label for="path_letter_head" class="file-upload-label">
-              <i class="fas fa-upload"></i>
-              {{ letterHeadFile ? letterHeadFile.name : 'Choose Letterhead Image' }}
-            </label>
-            <div v-if="uploadingLetterHead" class="upload-progress">
-              <i class="fas fa-spinner fa-spin"></i>
-              Uploading...
+          <div class="form-column">
+            <div class="form-group">
+              <label for="bank_account">Account Number</label>
+              <input
+                id="bank_account"
+                v-model="formData.bank_account"
+                type="text"
+                class="form-input"
+                placeholder="Account number"
+                :disabled="loading"
+              />
             </div>
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label for="path_stamp">
-            <i class="fas fa-stamp"></i>
-            Stamp
-          </label>
-          <div class="file-upload-wrapper">
-            <input
-              id="path_stamp"
-              type="file"
-              accept="image/*"
-              class="file-input"
-              @change="handleFileSelect($event, 'stamp')"
-              :disabled="loading || uploadingStamp"
-            />
-            <label for="path_stamp" class="file-upload-label">
-              <i class="fas fa-upload"></i>
-              {{ stampFile ? stampFile.name : 'Choose Stamp Image' }}
-            </label>
-            <div v-if="uploadingStamp" class="upload-progress">
-              <i class="fas fa-spinner fa-spin"></i>
-              Uploading...
+            <div class="form-group">
+              <label for="bank_address">Bank Address</label>
+              <input
+                id="bank_address"
+                v-model="formData.bank_address"
+                type="text"
+                class="form-input"
+                placeholder="Bank address"
+                :disabled="loading"
+              />
+            </div>
+            <div class="form-row bank-fields">
+              <div class="form-group">
+                <label for="company_mobile">Mobile</label>
+                <input
+                  id="company_mobile"
+                  v-model="formData.company_mobile"
+                  type="text"
+                  class="form-input"
+                  placeholder="Phone"
+                  :disabled="loading"
+                />
+              </div>
+              <div class="form-group">
+                <label for="company_email">Company Email</label>
+                <input
+                  id="company_email"
+                  v-model="formData.company_email"
+                  type="email"
+                  class="form-input"
+                  placeholder="company@example.com"
+                  :disabled="loading"
+                />
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="company_website">Website</label>
+              <input
+                id="company_website"
+                v-model="formData.company_website"
+                type="url"
+                class="form-input"
+                placeholder="https://..."
+                :disabled="loading"
+              />
+            </div>
+            <div class="form-group">
+              <label for="company_notes">Notes</label>
+              <textarea
+                id="company_notes"
+                v-model="formData.company_notes"
+                class="form-input"
+                placeholder="Notes"
+                rows="2"
+                :disabled="loading"
+              />
             </div>
           </div>
         </div>
@@ -609,6 +689,106 @@ onMounted(() => {
   background: #f8f9fa;
   border-radius: 8px;
   border: 1px solid #e5e7eb;
+}
+
+.company-assets-section .form-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+@media (max-width: 640px) {
+  .company-assets-section .form-columns {
+    grid-template-columns: 1fr;
+  }
+  .company-assets-section .form-row.bank-fields {
+    grid-template-columns: 1fr;
+  }
+}
+
+.company-assets-section .form-column {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.company-assets-section .form-row.bank-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.logo-dropzone {
+  position: relative;
+  border: 2px dashed #d1d5db;
+  border-radius: 8px;
+  padding: 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: #f9fafb;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.logo-dropzone:hover {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.logo-dropzone.has-preview {
+  padding: 12px;
+}
+
+.logo-input-hidden {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  overflow: hidden;
+}
+
+.logo-placeholder {
+  font-size: 2rem;
+  color: #9ca3af;
+  margin-bottom: 8px;
+}
+
+.logo-hint {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.logo-preview {
+  max-width: 100%;
+  max-height: 120px;
+  object-fit: contain;
+}
+
+.logo-clear-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  transition: background 0.2s;
+}
+
+.logo-clear-btn:hover {
+  background: #ef4444;
 }
 
 .section-title {

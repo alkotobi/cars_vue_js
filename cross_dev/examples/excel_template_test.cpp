@@ -44,14 +44,18 @@ static std::string makeUniqueExcelOutputPath() {
     auto t = std::chrono::system_clock::to_time_t(now);
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
         now.time_since_epoch()) % 1000;
-    std::tm* tm = std::localtime(&t);
-    std::ostringstream os;
-    os << "excel_"
-       << std::put_time(tm, "%Y%m%d_%H%M%S")
-       << "_" << std::setfill('0') << std::setw(3) << ms.count();
     std::uniform_int_distribution<int> dist(0, 0xFFFF);
     std::random_device rd;
     std::mt19937 gen(rd());
+    std::ostringstream os;
+    std::tm* tm = std::localtime(&t);
+    if (tm) {
+        os << "excel_"
+           << std::put_time(tm, "%Y%m%d_%H%M%S")
+           << "_" << std::setfill('0') << std::setw(3) << ms.count();
+    } else {
+        os << "excel_" << t << "_" << ms.count();
+    }
     os << "_" << std::hex << std::setfill('0') << std::setw(4) << dist(gen);
     return os.str() + ".xlsx";
 }
@@ -117,16 +121,16 @@ int main(int argc, char* argv[]) {
     }
     std::cout << "Saved: " << outputPath << "\n";
 
-    // Inject letterhead at top of worksheet
-    std::string letterPath = excel::resolveLetterheadPath("letter_head.png");
-    if (!letterPath.empty()) {
-        if (excel::injectLetterhead(outputPath, letterPath)) {
-            std::cout << "Letterhead injected: " << letterPath << "\n";
+    // Inject logo at top of worksheet
+    std::string logoPath = excel::resolveLogoPath();
+    if (!logoPath.empty()) {
+        if (excel::injectLetterhead(outputPath, logoPath, 1.0, 1.0, true)) {
+            std::cout << "Logo injected: " << logoPath << "\n";
         } else {
-            std::cerr << "Warning: could not inject letterhead from " << letterPath << "\n";
+            std::cerr << "Warning: could not inject logo from " << logoPath << "\n";
         }
     } else {
-        std::cerr << "Warning: letter_head.png not found (tried assets/...)\n";
+        std::cerr << "Warning: logo.png not found (tried assets/...)\n";
     }
 
     if (!openInDefaultApp(outputPath)) {

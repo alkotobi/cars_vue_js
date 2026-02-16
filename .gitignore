@@ -16,6 +16,7 @@ coverage
 
 /cypress/videos/
 /cypress/screenshots/
+/cross_dev/vsc-print/*
 
 # Editor directories and files
 .vscode/*
@@ -26,6 +27,7 @@ coverage
 *.njsproj
 *.sln
 *.sw?
+*.xlsx
 
 *.tsbuildinfo
 

@@ -566,9 +566,21 @@ export const useApi = () => {
         user.is_diffrent_company === '1')
 
     // Check if user is a different company user and has a custom letterhead
-    if (isDifferentCompany && user.path_letter_head && user.path_letter_head.trim() !== '') {
-      // Use user's custom letterhead from files_dir
-      const customLetterheadUrl = getFileUrl(user.path_letter_head)
+    // Source: user.path_letter_head (legacy) or bank.path_letter_head (via id_bank_account)
+    let letterHeadPath = user.path_letter_head && user.path_letter_head.trim() !== '' ? user.path_letter_head : null
+    if (!letterHeadPath && user.id_bank_account) {
+      try {
+        const bankResult = await callApi({
+          query: 'SELECT path_letter_head FROM banks WHERE id = ?',
+          params: [user.id_bank_account],
+        })
+        if (bankResult.success && bankResult.data?.[0]?.path_letter_head) {
+          letterHeadPath = bankResult.data[0].path_letter_head
+        }
+      } catch (e) {}
+    }
+    if (isDifferentCompany && letterHeadPath) {
+      const customLetterheadUrl = getFileUrl(letterHeadPath)
       if (customLetterheadUrl) {
         return customLetterheadUrl
       }

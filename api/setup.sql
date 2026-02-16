@@ -65,6 +65,13 @@ CREATE TABLE IF NOT EXISTS `banks` (
   `bank_account` varchar(255) COLLATE latin1_general_ci DEFAULT NULL,
   `bank_address` varchar(255) COLLATE latin1_general_ci DEFAULT NULL,
   `company_address` text COLLATE latin1_general_ci DEFAULT NULL COMMENT 'Company address for bank account',
+  `mobile` varchar(255) COLLATE latin1_general_ci DEFAULT NULL,
+  `email` varchar(255) COLLATE latin1_general_ci DEFAULT NULL,
+  `website` varchar(500) COLLATE latin1_general_ci DEFAULT NULL,
+  `logo_path` varchar(500) COLLATE latin1_general_ci DEFAULT NULL COMMENT 'Path to bank/company logo image file',
+  `path_letter_head` varchar(500) COLLATE latin1_general_ci DEFAULT NULL COMMENT 'Path to letterhead image file',
+  `path_stamp` varchar(500) COLLATE latin1_general_ci DEFAULT NULL COMMENT 'Path to stamp image file',
+  `is_active` tinyint(1) DEFAULT 1 COMMENT '1=active, 0=inactive',
   `notes` text COLLATE latin1_general_ci,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_general_ci;
@@ -1112,4 +1119,8 @@ DELIMITER ;
 -- Add more CREATE TABLE statements below
 -- ============================================
 
+-- Migration: add path_letter_head, path_stamp to banks (for different-company user assets)
+-- Run manually on existing DBs if needed. MySQL 8.0.12+ supports IF NOT EXISTS for ADD COLUMN.
+-- ALTER TABLE banks ADD COLUMN IF NOT EXISTS path_letter_head varchar(500) DEFAULT NULL COMMENT 'Path to letterhead image file' AFTER logo_path;
+-- ALTER TABLE banks ADD COLUMN IF NOT EXISTS path_stamp varchar(500) DEFAULT NULL COMMENT 'Path to stamp image file' AFTER path_letter_head;
 
