@@ -3,6 +3,7 @@ import { ref, reactive, onMounted, computed, watch, onUnmounted, nextTick } from
 import { useEnhancedI18n } from '@/composables/useI18n'
 import { useApi } from '../../composables/useApi'
 import { useInvoiceCompanyInfo } from '../../composables/useInvoiceCompanyInfo'
+import { useCrossDev } from '../../composables/useCrossDev'
 import VinEditForm from './VinEditForm.vue'
 import CarFilesManagement from './CarFilesManagement.vue'
 import CarPortsEditForm from './CarPortsEditForm.vue'
@@ -167,7 +168,13 @@ const {
   getUsersForTransfer,
   getCustomClearanceAgents,
 } = useApi()
-const { getCompanyLogoUrl } = useInvoiceCompanyInfo()
+const {
+  getCompanyLogoUrl,
+  getBankForCompany,
+  getReportHeaderContactItems,
+  buildLetterheadHtml,
+} = useInvoiceCompanyInfo()
+const { hasCrossDev, openWindowWithHtml } = useCrossDev()
 const letterHeadUrl = ref(null)
 const cars = ref([])
 const loading = ref(true)
@@ -723,8 +730,15 @@ const printReport = async (reportData) => {
     return `${userPrefix}${buttonPrefix}${dateStr}-${sequenceStr}`
   }
 
-  // Create a new window for printing
-  const printWindow = window.open('', '_blank', 'width=800,height=600')
+  // Letterhead (same layout as LetterHeader component)
+  const bank = await getBankForCompany()
+  const contactItems = getReportHeaderContactItems(bank, null)
+  const letterheadHtml = buildLetterheadHtml(
+    letterHeadUrl.value || '',
+    bank?.company_name || '',
+    bank?.company_address || '',
+    contactItems
+  )
 
   // Create the HTML content for the report
   const reportHTML = `
@@ -735,8 +749,6 @@ const printReport = async (reportData) => {
       <style>
         body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
         .print-report { max-width: 210mm; margin: 0 auto; }
-        .report-header { text-align: center; margin-bottom: 20px; }
-        .letter-head { max-width: 100%; height: auto; max-height: 120px; }
         .report-date { text-align: right; margin-bottom: 20px; font-size: 14px; color: #666; float: right; clear: both; width: 100%; }
         .report-ref { text-align: right; margin-bottom: 20px; font-size: 14px; color: #666; float: right; clear: both; width: 100%; }
         .report-title { text-align: center; margin-bottom: 30px; font-size: 24px; font-weight: bold; color: #333; text-transform: uppercase; clear: both; }
@@ -749,20 +761,12 @@ const printReport = async (reportData) => {
         .group-header-row { background-color: #e0f2fe; }
         .group-header-cell { background-color: #e0f2fe; border: 2px solid #0ea5e9; padding: 10px 12px; font-weight: bold; color: #0c4a6e; }
         .content-after-table { margin-top: 20px; line-height: 1.6; font-size: 14px; }
-        @media print { body { padding: 0; margin: 0; } .report-table { font-size: 10px; } .table-header, .table-cell { padding: 6px 8px; } .letter-head { max-height: 80px; } .report-title { font-size: 20px; margin-bottom: 20px; } }
+        @media print { body { padding: 0; margin: 0; } .report-table { font-size: 10px; } .table-header, .table-cell { padding: 6px 8px; } .report-title { font-size: 20px; margin-bottom: 20px; } }
       </style>
     </head>
     <body>
       <div class="print-report">
-        <div class="report-header">
-          <img 
-            src="${letterHeadUrl.value || ''}" 
-            alt="Letter Head" 
-            class="letter-head"
-            style="max-width: 100%; height: auto; max-height: 120px;"
-            onerror="this.style.display='none'"
-          />
-        </div>
+        ${letterheadHtml}
         <div class="report-date">
           <span><strong>Date:</strong> ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
         </div>
@@ -819,10 +823,22 @@ const printReport = async (reportData) => {
     </html>
   `
 
+  if (hasCrossDev()) {
+    // CrossDev: open native window with HTML (window.open doesn't work in app)
+    const printScript = '<script>window.onload=function(){setTimeout(function(){window.print();},500);}<' + '/script>'
+    const htmlWithPrint = reportHTML.replace('</body>', printScript + '</body>')
+    await openWindowWithHtml(htmlWithPrint, {
+      title,
+      className: 'print-stock-report',
+      width: 800,
+      height: 600,
+    })
+    return
+  }
+
+  const printWindow = window.open('', '_blank', 'width=800,height=600')
   printWindow.document.write(reportHTML)
   printWindow.document.close()
-
-  // Wait for content to load then print
   printWindow.onload = () => {
     printWindow.print()
     printWindow.close()

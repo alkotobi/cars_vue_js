@@ -3,6 +3,7 @@ import { ref, onMounted, computed, watch } from 'vue'
 import { useEnhancedI18n } from '../../composables/useI18n'
 import { useApi } from '../../composables/useApi'
 import { useInvoiceCompanyInfo } from '../../composables/useInvoiceCompanyInfo'
+import { useCrossDev } from '../../composables/useCrossDev'
 import { useRouter, useRoute } from 'vue-router'
 import SellBillPrintOption from './SellBillPrintOption.vue'
 
@@ -32,7 +33,14 @@ const selectedBills = ref([])
 const router = useRouter()
 const route = useRoute()
 const { callApi, getAssets } = useApi()
-const { fetchInvoiceCompanyInfo, getCompanyLogoUrl } = useInvoiceCompanyInfo()
+const {
+  fetchInvoiceCompanyInfo,
+  getCompanyLogoUrl,
+  getBankForCompany,
+  getReportHeaderContactItems,
+  buildLetterheadHtml,
+} = useInvoiceCompanyInfo()
+const { hasCrossDev, openWindowWithHtml } = useCrossDev()
 const letterHeadUrl = ref(null)
 const sellBills = ref([])
 const loading = ref(true)
@@ -1120,6 +1128,16 @@ const generateBatchPrintReport = async (billsData) => {
     }
   }
 
+  // Letterhead (same layout as LetterHeader component)
+  const bank = await getBankForCompany()
+  const contactItems = getReportHeaderContactItems(bank, null)
+  const letterheadHtml = buildLetterheadHtml(
+    letterHeadUrl.value || '',
+    bank?.company_name || '',
+    bank?.company_address || '',
+    contactItems
+  )
+
   // Pre-translate all strings
   const translations = {
     batchPrintTitle: t('sellBills.batch_print_title'),
@@ -1177,23 +1195,7 @@ const generateBatchPrintReport = async (billsData) => {
     })
   })
 
-  // Create print window
-  const printWindow = window.open('', '_blank')
-  if (!printWindow) {
-    alert(t('sellBills.popup_blocked'))
-    return
-  }
-
-  // Load company logo for header (same as xlsx invoice)
-  if (!letterHeadUrl.value) {
-    try {
-      letterHeadUrl.value = (await getCompanyLogoUrl()) || ''
-    } catch (err) {
-      console.error('Failed to load company logo:', err)
-    }
-  }
-
-  // Generate HTML
+  // Generate HTML (build full document first so we can open via CrossDev or window.open)
   let html = `
     <!DOCTYPE html>
     <html>
@@ -1217,13 +1219,6 @@ const generateBatchPrintReport = async (billsData) => {
           font-size: 10pt;
           line-height: 1.4;
           color: #000;
-        }
-        
-        .letter-head {
-          width: 100%;
-          max-height: 100px;
-          object-fit: contain;
-          margin-bottom: 20px;
         }
         
         .page-break {
@@ -1393,7 +1388,7 @@ const generateBatchPrintReport = async (billsData) => {
       </style>
     </head>
     <body>
-      <img src="${letterHeadUrl.value}" class="letter-head" alt="Letter Head" />
+      ${letterheadHtml}
   `
 
   billsData.forEach(({ bill, cars }) => {
@@ -1554,10 +1549,25 @@ const generateBatchPrintReport = async (billsData) => {
     </html>
   `
 
+  if (hasCrossDev()) {
+    const printScript = '<script>window.onload=function(){setTimeout(function(){window.print();},500);}<' + '/script>'
+    const htmlWithPrint = html.replace('</body>', printScript + '</body>')
+    await openWindowWithHtml(htmlWithPrint, {
+      title: translations.batchPrintTitle,
+      className: 'print-batch-bills',
+      width: 900,
+      height: 700,
+    })
+    return
+  }
+
+  const printWindow = window.open('', '_blank')
+  if (!printWindow) {
+    alert(t('sellBills.popup_blocked'))
+    return
+  }
   printWindow.document.write(html)
   printWindow.document.close()
-
-  // Wait for images to load before printing
   printWindow.onload = () => {
     setTimeout(() => {
       printWindow.focus()

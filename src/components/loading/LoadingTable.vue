@@ -891,6 +891,8 @@
 import { ref, onMounted, watch, nextTick, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useApi } from '@/composables/useApi'
+import { useInvoiceCompanyInfo } from '@/composables/useInvoiceCompanyInfo'
+import { useCrossDev } from '@/composables/useCrossDev'
 import ContainersTable from './ContainersTable.vue'
 import LoadingAssignedCars from './LoadingAssignedCars.vue'
 import UnassignedCars from './UnassignedCars.vue'
@@ -898,6 +900,13 @@ import TaskForm from '../car-stock/TaskForm.vue'
 
 const { t } = useI18n()
 const { callApi, getFileUrl } = useApi()
+const {
+  getCompanyLogoUrl,
+  getBankForCompany,
+  getReportHeaderContactItems,
+  buildLetterheadHtml,
+} = useInvoiceCompanyInfo()
+const { hasCrossDev, openWindowWithHtml } = useCrossDev()
 
 const loadingRecords = ref([])
 const totalRecords = ref(0)
@@ -2259,11 +2268,42 @@ const printLoadingRecord = async () => {
       }
     })
 
-    // Create the print content
-    const printContent = generatePrintContent(loadingRecord, containersData)
+    // Letterhead (same layout as LetterHeader component)
+    let letterHeadUrl = ''
+    try {
+      letterHeadUrl = (await getCompanyLogoUrl()) || ''
+    } catch {
+      // use empty logo
+    }
+    const bank = await getBankForCompany()
+    const contactItems = getReportHeaderContactItems(bank, null)
+    const letterheadHtml = buildLetterheadHtml(
+      letterHeadUrl,
+      bank?.company_name || '',
+      bank?.company_address || '',
+      contactItems
+    )
 
-    // Open new tab with print content (no automatic print dialog)
+    // Create the print content
+    const printContent = generatePrintContent(loadingRecord, containersData, letterheadHtml)
+
+    if (hasCrossDev()) {
+      const printScript = '<script>window.onload=function(){setTimeout(function(){window.print();},500);}<' + '/script>'
+      const htmlWithPrint = printContent.replace('</body>', printScript + '</body>')
+      await openWindowWithHtml(htmlWithPrint, {
+        title: t('loading.loading_record') + ' #' + loadingRecord.id,
+        className: 'print-loading-record',
+        width: 900,
+        height: 700,
+      })
+      return
+    }
+
     const printWindow = window.open('', '_blank')
+    if (!printWindow) {
+      alert(t('loading.popup_blocked') || 'Popup blocked. Please allow popups for this site.')
+      return
+    }
     printWindow.document.write(printContent)
     printWindow.document.close()
   } catch (err) {
@@ -2274,7 +2314,7 @@ const printLoadingRecord = async () => {
   }
 }
 
-const generatePrintContent = (loadingRecord, containersData) => {
+const generatePrintContent = (loadingRecord, containersData, letterheadHtml = '') => {
   const containers = Object.values(containersData)
   const totalCars = containers.reduce((sum, container) => sum + container.cars.length, 0)
 
@@ -2453,6 +2493,7 @@ const generatePrintContent = (loadingRecord, containersData) => {
       </style>
     </head>
     <body>
+      ${letterheadHtml}
       <div class="header">
         <h1>Loading Record #${loadingRecord.id}</h1>
         <p>Generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}</p>

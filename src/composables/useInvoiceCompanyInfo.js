@@ -189,12 +189,76 @@ export function useInvoiceCompanyInfo() {
     return items
   }
 
+  /**
+   * Build HTML for the letterhead block (same layout as LetterHeader.vue) for use in
+   * raw HTML print windows (e.g. print selected, batch print). Pass logo URL (or data URL),
+   * company name, address, and contact items from getReportHeaderContactItems(bank, null).
+   * @param {string} logoUrl
+   * @param {string} companyName
+   * @param {string} companyAddress
+   * @param {{ type: 'phone'|'email'|'website', value: string }[]} contactItems
+   * @returns {string} HTML string
+   */
+  // Inline SVGs matching LetterHeader.vue (address, phone, email, website)
+  const iconStyle = 'width:12px;height:12px;min-width:12px;min-height:12px;margin-right:4px;opacity:0.85;vertical-align:middle;display:inline-block'
+  const iconAddress = `<svg style="${iconStyle}" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>`
+  const iconPhone = `<svg style="${iconStyle}" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>`
+  const iconEmail = `<svg style="${iconStyle}" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>`
+  const iconWebsite = `<svg style="${iconStyle}" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>`
+
+  function buildLetterheadHtml(logoUrl, companyName, companyAddress, contactItems) {
+    const escape = (s) => {
+      if (s == null || s === '') return ''
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+    }
+    const name = escape(companyName)
+    const address = escape(companyAddress)
+    const logoSrc = logoUrl ? ` src="${escape(logoUrl)}"` : ''
+    const addressLine = address
+      ? `<div style="font-size:0.8rem;line-height:1.3;margin-bottom:4px;color:#444">${iconAddress}<span>${address}</span></div>`
+      : ''
+    let contactHtml = ''
+    if (contactItems && contactItems.length > 0) {
+      const iconByType = { phone: iconPhone, email: iconEmail, website: iconWebsite }
+      contactHtml = contactItems
+        .map(
+          (item, idx) => {
+            const icon = iconByType[item.type] || ''
+            return `${idx > 0 ? '<span style="margin:0 6px;opacity:0.7">|</span>' : ''}${icon}<span>${escape(item.value)}</span>`
+          }
+        )
+        .join('')
+      contactHtml = `<div style="font-size:0.8rem;line-height:1.3;color:#444">${contactHtml}</div>`
+    }
+    return `
+<div style="margin-bottom:20px">
+  <table style="width:100%;table-layout:fixed;border-collapse:collapse">
+    <tr>
+      <td style="width:120px;max-width:120px;vertical-align:top;padding-right:16px">
+        ${logoUrl ? `<img${logoSrc} alt="" style="width:120px;max-width:120px;height:auto;max-height:80px;object-fit:contain;display:block" onerror="this.style.display='none'" />` : ''}
+      </td>
+      <td style="vertical-align:top">
+        <div style="font-size:1.25rem;font-weight:bold;line-height:1.3;margin-bottom:4px">${name}</div>
+        ${addressLine}
+        ${contactHtml}
+      </td>
+    </tr>
+  </table>
+</div>`
+  }
+
   return {
     fetchInvoiceCompanyInfo,
+    getBankForCompany,
     getCompanyLogoUrl,
     getCompanyLogoDataUrl,
     getReportHeaderContactItems,
     getStoredPrintLogoDataUrl,
     setStoredPrintLogoDataUrl,
+    buildLetterheadHtml,
   }
 }
