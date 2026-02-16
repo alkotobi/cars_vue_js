@@ -2218,7 +2218,7 @@ const printLoadingRecord = async () => {
       return
     }
 
-    // Get all containers and their assigned cars for this loading
+    // Get all containers and their assigned cars for this loading (incl. sell bill payment status)
     const result = await callApi({
       query: `
         SELECT 
@@ -2240,7 +2240,9 @@ const printLoadingRecord = async () => {
           cl.mobiles as client_mobiles,
           cl.id_no as client_id_no,
           cl.nin as client_nin,
-          cl.id_copy_path
+          cl.id_copy_path,
+          (SELECT COALESCE(SUM(sp.amount_usd), 0) FROM sell_payments sp WHERE sp.id_sell_bill = cs.id_sell) as bill_total_paid,
+          (SELECT SUM(cs2.price_cell + COALESCE(cs2.freight, 0) + COALESCE((SELECT SUM(ca.value) FROM car_apgrades ca WHERE ca.id_car = cs2.id), 0)) FROM cars_stock cs2 WHERE cs2.id_sell = cs.id_sell) as bill_total_cfr
         FROM loaded_containers lc
         LEFT JOIN containers c ON lc.id_container = c.id
         LEFT JOIN cars_stock cs ON lc.id = cs.id_loaded_container
@@ -2277,6 +2279,19 @@ const printLoadingRecord = async () => {
         }
       }
       if (row.car_id) {
+        const total = Number(row.bill_total_cfr) || 0
+        const paid = Number(row.bill_total_paid) || 0
+        let paymentStatus = ''
+        if (total === 0) {
+          paymentStatus = t('sellBills.no_amount')
+        } else if (paid === 0) {
+          paymentStatus = t('sellBills.not_paid')
+        } else if (paid >= total) {
+          paymentStatus = t('sellBills.paid')
+        } else {
+          const remaining = (total - paid).toFixed(2)
+          paymentStatus = `${t('sellBills.partially_paid')} (${t('sellBills.left')}: $${remaining})`
+        }
         containersData[row.loaded_container_id].cars.push({
           id: row.car_id,
           vin: row.vin,
@@ -2288,6 +2303,7 @@ const printLoadingRecord = async () => {
           client_id_no: row.client_id_no,
           client_nin: row.client_nin,
           id_copy_path: row.id_copy_path,
+          payment_status: paymentStatus,
         })
       }
     })
@@ -2308,8 +2324,9 @@ const printLoadingRecord = async () => {
       contactItems
     )
 
-    // Create the print content
-    const printContent = generatePrintContent(loadingRecord, containersData, letterheadHtml)
+    // Create the print content (pass translated labels for print)
+    const paymentStatusLabel = t('sellBills.payment_status') || 'Payment Status'
+    const printContent = generatePrintContent(loadingRecord, containersData, letterheadHtml, paymentStatusLabel)
 
     if (hasCrossDev()) {
       const printScript = '<script>window.onload=function(){setTimeout(function(){window.print();},500);}<' + '/script>'
@@ -2338,7 +2355,7 @@ const printLoadingRecord = async () => {
   }
 }
 
-const generatePrintContent = (loadingRecord, containersData, letterheadHtml = '') => {
+const generatePrintContent = (loadingRecord, containersData, letterheadHtml = '', paymentStatusLabel = 'Payment Status') => {
   const containers = Object.values(containersData)
   const totalCars = containers.reduce((sum, container) => sum + container.cars.length, 0)
 
@@ -2582,6 +2599,7 @@ const generatePrintContent = (loadingRecord, containersData, letterheadHtml = ''
                   <th>Car Name</th>
                   <th>Color</th>
                   <th>VIN</th>
+                  <th>${paymentStatusLabel}</th>
                   <th>Client</th>
                 </tr>
               </thead>
@@ -2594,6 +2612,7 @@ const generatePrintContent = (loadingRecord, containersData, letterheadHtml = ''
                     <td>${car.car_name || 'N/A'}</td>
                     <td>${car.color || 'N/A'}</td>
                     <td>${car.vin || 'N/A'}</td>
+                    <td>${car.payment_status || '-'}</td>
                     <td>
                       <div class="client-info">
                         ${
