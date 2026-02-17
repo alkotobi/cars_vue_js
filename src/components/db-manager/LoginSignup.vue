@@ -89,23 +89,12 @@
                   : 'fas fa-sign-in-alt'
             "
           ></i>
-          {{
-            isProcessing
-              ? 'Processing...'
-              : isSignup
-                ? 'Sign Up'
-                : 'Login'
-          }}
+          {{ isProcessing ? 'Processing...' : isSignup ? 'Sign Up' : 'Login' }}
         </span>
       </button>
 
       <!-- Toggle Login/Signup Mode -->
-      <button
-        type="button"
-        class="secondary-btn"
-        @click="toggleMode"
-        :disabled="isProcessing"
-      >
+      <button type="button" class="secondary-btn" @click="toggleMode" :disabled="isProcessing">
         <i :class="isSignup ? 'fas fa-sign-in-alt' : 'fas fa-user-plus'"></i>
         {{ isSignup ? 'Already have an account? Login' : "Don't have an account? Sign Up" }}
       </button>
@@ -131,7 +120,8 @@ const isSignup = ref(false)
 // Get API base URL
 const getApiBaseUrl = () => {
   const hostname = window.location.hostname
-  const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.')
+  const isLocalhost =
+    hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.')
   return isLocalhost ? 'http://localhost:8000/api' : 'https://www.merhab.com/api'
 }
 
@@ -421,4 +411,3 @@ button:disabled {
   }
 }
 </style>
-

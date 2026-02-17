@@ -140,7 +140,8 @@
         </div>
         <div class="modal-body">
           <p>
-            Are you sure you want to delete update <strong>#{{ updateToDelete?.id }}</strong>?
+            Are you sure you want to delete update <strong>#{{ updateToDelete?.id }}</strong
+            >?
           </p>
           <p class="warning-text">This action cannot be undone.</p>
         </div>
@@ -180,7 +181,8 @@ const formData = ref({
 // Get API base URL
 const getApiBaseUrl = () => {
   const hostname = window.location.hostname
-  const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.')
+  const isLocalhost =
+    hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.')
   return isLocalhost ? 'http://localhost:8000/api' : 'https://www.merhab.com/api'
 }
 
@@ -646,4 +648,3 @@ onMounted(() => {
   margin-top: 0.5rem;
 }
 </style>
-

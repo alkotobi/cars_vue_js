@@ -29,7 +29,11 @@
     <!-- Toolbar -->
     <div v-if="!loading && databases.length > 0" class="toolbar">
       <div class="toolbar-left">
-        <button @click="updateStructure" class="btn-toolbar" :disabled="selectedDatabases.length === 0">
+        <button
+          @click="updateStructure"
+          class="btn-toolbar"
+          :disabled="selectedDatabases.length === 0"
+        >
           <i class="fas fa-sync-alt"></i>
           Update Structure
         </button>
@@ -37,11 +41,19 @@
           <i class="fas fa-code"></i>
           Run SQL
         </button>
-        <button @click="openUpdateVersionModal" class="btn-toolbar" :disabled="selectedDatabases.length === 0">
+        <button
+          @click="openUpdateVersionModal"
+          class="btn-toolbar"
+          :disabled="selectedDatabases.length === 0"
+        >
           <i class="fas fa-tag"></i>
           Update Version
         </button>
-        <button @click="openUploadCodeModal" class="btn-toolbar" :disabled="selectedDatabases.length === 0">
+        <button
+          @click="openUploadCodeModal"
+          class="btn-toolbar"
+          :disabled="selectedDatabases.length === 0"
+        >
           <i class="fas fa-upload"></i>
           Upload Code Files
         </button>
@@ -108,27 +120,34 @@
             <td>{{ db.files_dir }}</td>
             <td>{{ db.js_dir }}</td>
             <td>
-              <span :class="['status-badge', db.is_created == 1 ? 'status-created' : 'status-pending']">
+              <span
+                :class="['status-badge', db.is_created == 1 ? 'status-created' : 'status-pending']"
+              >
                 {{ db.is_created == 1 ? 'Created' : 'Pending' }}
               </span>
             </td>
             <td>
-              <span v-if="db.is_created == 1 && db.version !== null && db.version !== undefined" class="version-badge">
+              <span
+                v-if="db.is_created == 1 && db.version !== null && db.version !== undefined"
+                class="version-badge"
+              >
                 v{{ db.version }}
               </span>
               <span v-else-if="db.is_created == 1" class="version-badge version-unknown">
                 N/A
               </span>
-              <span v-else class="version-badge version-pending">
-                -
-              </span>
+              <span v-else class="version-badge version-pending"> - </span>
             </td>
             <td class="actions-cell">
               <button
                 @click="createTables(db)"
                 :disabled="db.is_created == 1 || creatingTables"
                 class="btn-create-tables"
-                :title="db.is_created == 1 ? 'Already created' : 'Create tables, directories, and db_code.json'"
+                :title="
+                  db.is_created == 1
+                    ? 'Already created'
+                    : 'Create tables, directories, and db_code.json'
+                "
               >
                 <i class="fas fa-database"></i>
                 {{ creatingTables && creatingTablesId === db.id ? 'Creating...' : 'Create' }}
@@ -300,7 +319,9 @@
         </div>
         <div class="modal-body">
           <p>
-            Please enter the version number for database <strong>{{ databaseToCreateTables?.db_code }}</strong>:
+            Please enter the version number for database
+            <strong>{{ databaseToCreateTables?.db_code }}</strong
+            >:
           </p>
           <div class="form-group">
             <label for="version-input">Version:</label>
@@ -317,7 +338,11 @@
         </div>
         <div class="modal-actions">
           <button @click="cancelVersionInput" class="btn-cancel">Cancel</button>
-          <button @click="confirmCreateTables" :disabled="!versionInput || creatingTables" class="btn-primary">
+          <button
+            @click="confirmCreateTables"
+            :disabled="!versionInput || creatingTables"
+            class="btn-primary"
+          >
             <i v-if="creatingTables" class="fas fa-spinner fa-spin"></i>
             {{ creatingTables ? 'Creating...' : 'Create' }}
           </button>
@@ -332,13 +357,14 @@
           <h3>Update Version</h3>
         </div>
         <div class="modal-body">
-          <div v-if="versionCheckError" class="error-message" style="margin-bottom: 1rem;">
+          <div v-if="versionCheckError" class="error-message" style="margin-bottom: 1rem">
             <i class="fas fa-exclamation-circle"></i>
             {{ versionCheckError }}
           </div>
           <div v-else>
             <p>
-              Updating version for <strong>{{ selectedDatabases.length }}</strong> selected database(s).
+              Updating version for <strong>{{ selectedDatabases.length }}</strong> selected
+              database(s).
             </p>
             <p v-if="selectedDatabasesVersions.length > 0" class="info-text">
               Current version: <strong>v{{ selectedDatabasesVersions[0] }}</strong>
@@ -360,7 +386,11 @@
         </div>
         <div class="modal-actions">
           <button @click="cancelUpdateVersion" class="btn-cancel">Cancel</button>
-          <button @click="confirmUpdateVersion" :disabled="!newVersionInput || updatingVersion || !!versionCheckError" class="btn-primary">
+          <button
+            @click="confirmUpdateVersion"
+            :disabled="!newVersionInput || updatingVersion || !!versionCheckError"
+            class="btn-primary"
+          >
             <i v-if="updatingVersion" class="fas fa-spinner fa-spin"></i>
             {{ updatingVersion ? 'Updating...' : 'Update Version' }}
           </button>
@@ -390,11 +420,16 @@
               :disabled="runningSql"
             ></textarea>
           </div>
-          
+
           <!-- Results -->
           <div v-if="runSqlResults.length > 0" class="sql-results">
             <h4>Results:</h4>
-            <div v-for="(result, index) in runSqlResults" :key="index" class="result-item" :class="{ 'result-error': result.error, 'result-success': !result.error }">
+            <div
+              v-for="(result, index) in runSqlResults"
+              :key="index"
+              class="result-item"
+              :class="{ 'result-error': result.error, 'result-success': !result.error }"
+            >
               <div class="result-header">
                 <strong>{{ result.db_name }}</strong>
                 <span v-if="result.error" class="result-status error">Error</span>
@@ -414,7 +449,11 @@
         </div>
         <div class="modal-actions">
           <button @click="cancelRunSql" class="btn-cancel" :disabled="runningSql">Cancel</button>
-          <button @click="confirmRunSql" :disabled="!runSqlInput.trim() || runningSql" class="btn-primary">
+          <button
+            @click="confirmRunSql"
+            :disabled="!runSqlInput.trim() || runningSql"
+            class="btn-primary"
+          >
             <i v-if="runningSql" class="fas fa-spinner fa-spin"></i>
             {{ runningSql ? 'Running...' : 'Run SQL' }}
           </button>
@@ -441,9 +480,7 @@
           </button>
         </div>
         <div class="modal-body">
-          <p>
-            Upload file(s) to <strong>/api/</strong> folder. Existing files will be replaced.
-          </p>
+          <p>Upload file(s) to <strong>/api/</strong> folder. Existing files will be replaced.</p>
           <div class="form-group">
             <label for="php-file-input">Select File(s) *</label>
             <div
@@ -484,22 +521,27 @@
               </ul>
             </div>
           </div>
-          
+
           <!-- Upload Results -->
           <div v-if="updatePhpResults.length > 0" class="upload-results">
             <h4>Results:</h4>
-            <div v-for="(result, index) in updatePhpResults" :key="index" class="result-item" :class="{ 'result-error': result.error, 'result-success': !result.error }">
+            <div
+              v-for="(result, index) in updatePhpResults"
+              :key="index"
+              class="result-item"
+              :class="{ 'result-error': result.error, 'result-success': !result.error }"
+            >
               <div class="result-header">
                 <strong>{{ result.file_name }}</strong>
                 <span v-if="result.error" class="result-status error">Error</span>
                 <span v-else class="result-status success">Success</span>
               </div>
-              
+
               <!-- Error Message -->
               <div v-if="result.error" class="result-message">
                 {{ result.error }}
               </div>
-              
+
               <!-- Success Message -->
               <div v-else class="result-message">
                 File uploaded successfully to /api/{{ result.file_name }}
@@ -508,8 +550,14 @@
           </div>
         </div>
         <div class="modal-actions">
-          <button @click="cancelUpdatePhp" class="btn-cancel" :disabled="uploadingPhp">Cancel</button>
-          <button @click="confirmUpdatePhp" :disabled="selectedPhpFiles.length === 0 || uploadingPhp" class="btn-primary">
+          <button @click="cancelUpdatePhp" class="btn-cancel" :disabled="uploadingPhp">
+            Cancel
+          </button>
+          <button
+            @click="confirmUpdatePhp"
+            :disabled="selectedPhpFiles.length === 0 || uploadingPhp"
+            class="btn-primary"
+          >
             <i v-if="uploadingPhp" class="fas fa-spinner fa-spin"></i>
             {{ uploadingPhp ? 'Uploading...' : 'Upload' }}
           </button>
@@ -525,7 +573,8 @@
         </div>
         <div class="modal-body">
           <p>
-            Upload code file(s) to <strong>{{ selectedDatabases.length }}</strong> selected database(s).
+            Upload code file(s) to <strong>{{ selectedDatabases.length }}</strong> selected
+            database(s).
           </p>
           <div class="form-group">
             <label for="code-file-input">Select File(s) *</label>
@@ -567,39 +616,46 @@
               </ul>
             </div>
           </div>
-          
+
           <!-- Upload Results -->
           <div v-if="uploadCodeResults.length > 0" class="upload-results">
             <h4>Progress:</h4>
-            <div v-for="(result, index) in uploadCodeResults" :key="index" class="result-item" :class="{ 'result-error': result.error, 'result-success': !result.error && result.progress === 100 }">
+            <div
+              v-for="(result, index) in uploadCodeResults"
+              :key="index"
+              class="result-item"
+              :class="{
+                'result-error': result.error,
+                'result-success': !result.error && result.progress === 100,
+              }"
+            >
               <div class="result-header">
                 <strong>{{ result.db_name }}</strong>
                 <span v-if="result.error" class="result-status error">Error</span>
-                <span v-else-if="result.progress === 100" class="result-status success">Completed</span>
+                <span v-else-if="result.progress === 100" class="result-status success"
+                  >Completed</span
+                >
                 <span v-else class="result-status progress">In Progress</span>
               </div>
-              
+
               <!-- Progress Bar -->
               <div v-if="!result.error" class="progress-container">
                 <div class="progress-bar">
-                  <div 
-                    class="progress-fill" 
-                    :style="{ width: (result.progress || 0) + '%' }"
-                  ></div>
+                  <div class="progress-fill" :style="{ width: (result.progress || 0) + '%' }"></div>
                 </div>
                 <span class="progress-text">{{ result.progress || 0 }}%</span>
               </div>
-              
+
               <!-- Status Message -->
               <div v-if="result.status" class="result-status-message">
                 {{ result.status }}
               </div>
-              
+
               <!-- Error Message -->
               <div v-if="result.error" class="result-message">
                 {{ result.error }}
               </div>
-              
+
               <!-- Success Message with Files -->
               <div v-else-if="result.files && result.files.length > 0" class="result-message">
                 <p>Uploaded {{ result.files.length }} file(s):</p>
@@ -609,9 +665,13 @@
                   </li>
                 </ul>
               </div>
-              
+
               <!-- Skipped Files Message -->
-              <div v-if="result.skipped && result.skipped.length > 0" class="result-message" style="margin-top: 0.5rem; color: #909399;">
+              <div
+                v-if="result.skipped && result.skipped.length > 0"
+                class="result-message"
+                style="margin-top: 0.5rem; color: #909399"
+              >
                 <p>Skipped {{ result.skipped.length }} protected file(s) (already exist):</p>
                 <ul>
                   <li v-for="(file, fileIndex) in result.skipped" :key="fileIndex">
@@ -623,8 +683,14 @@
           </div>
         </div>
         <div class="modal-actions">
-          <button @click="cancelUploadCode" class="btn-cancel" :disabled="uploadingCode">Cancel</button>
-          <button @click="confirmUploadCode" :disabled="selectedCodeFiles.length === 0 || uploadingCode" class="btn-primary">
+          <button @click="cancelUploadCode" class="btn-cancel" :disabled="uploadingCode">
+            Cancel
+          </button>
+          <button
+            @click="confirmUploadCode"
+            :disabled="selectedCodeFiles.length === 0 || uploadingCode"
+            class="btn-primary"
+          >
             <i v-if="uploadingCode" class="fas fa-spinner fa-spin"></i>
             {{ uploadingCode ? 'Uploading...' : 'Upload' }}
           </button>
@@ -684,7 +750,7 @@ const openJsonModal = (db) => {
     error.value = 'JS directory (js_dir) is not configured for this database'
     return
   }
-  
+
   jsonEditingDatabase.value = db
   showJsonModal.value = true
 }
@@ -717,7 +783,8 @@ const formData = ref({
 // Get API base URL
 const getApiBaseUrl = () => {
   const hostname = window.location.hostname
-  const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.')
+  const isLocalhost =
+    hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.')
   return isLocalhost ? 'http://localhost:8000/api' : 'https://www.merhab.com/api'
 }
 
@@ -984,7 +1051,7 @@ const toggleSelectAll = () => {
   if (allSelected.value) {
     selectedDatabases.value = []
   } else {
-    selectedDatabases.value = databases.value.map(db => db.id)
+    selectedDatabases.value = databases.value.map((db) => db.id)
   }
 }
 
@@ -996,7 +1063,11 @@ const updateStructure = async () => {
   }
 
   // Confirm action
-  if (!confirm(`This will update the structure for ${selectedDatabases.value.length} selected database(s). Continue?`)) {
+  if (
+    !confirm(
+      `This will update the structure for ${selectedDatabases.value.length} selected database(s). Continue?`,
+    )
+  ) {
     return
   }
 
@@ -1037,7 +1108,7 @@ const runSql = () => {
     error.value = 'Please select at least one database'
     return
   }
-  
+
   runSqlInput.value = ''
   runSqlResults.value = []
   showRunSqlModal.value = true
@@ -1050,19 +1121,17 @@ const openUpdateVersionModal = () => {
   }
 
   // Get selected databases with their versions
-  const selectedDbs = databases.value.filter(db => selectedDatabases.value.includes(db.id))
-  
+  const selectedDbs = databases.value.filter((db) => selectedDatabases.value.includes(db.id))
+
   // Check if all selected databases are created
-  const notCreated = selectedDbs.filter(db => db.is_created != 1)
+  const notCreated = selectedDbs.filter((db) => db.is_created != 1)
   if (notCreated.length > 0) {
     error.value = 'All selected databases must be created before updating version'
     return
   }
 
   // Get versions of selected databases
-  const versions = selectedDbs
-    .map(db => db.version)
-    .filter(v => v !== null && v !== undefined)
+  const versions = selectedDbs.map((db) => db.version).filter((v) => v !== null && v !== undefined)
 
   if (versions.length === 0) {
     versionCheckError.value = 'Selected databases do not have version information'
@@ -1168,7 +1237,9 @@ const confirmUpdateVersion = async () => {
     const result = await response.json()
 
     if (result.success) {
-      successMessage.value = result.message || `Version updated successfully for ${selectedDatabases.value.length} database(s)`
+      successMessage.value =
+        result.message ||
+        `Version updated successfully for ${selectedDatabases.value.length} database(s)`
       showUpdateVersionModal.value = false
       newVersionInput.value = ''
       versionCheckError.value = ''
@@ -1219,15 +1290,15 @@ const openUploadCodeModal = () => {
     error.value = 'Please select at least one database'
     return
   }
-  
+
   // Check if all selected databases have js_dir
-  const selectedDbs = databases.value.filter(db => selectedDatabases.value.includes(db.id))
-  const withoutJsDir = selectedDbs.filter(db => !db.js_dir || db.js_dir.trim() === '')
+  const selectedDbs = databases.value.filter((db) => selectedDatabases.value.includes(db.id))
+  const withoutJsDir = selectedDbs.filter((db) => !db.js_dir || db.js_dir.trim() === '')
   if (withoutJsDir.length > 0) {
     error.value = 'All selected databases must have a JS directory (js_dir) configured'
     return
   }
-  
+
   selectedCodeFiles.value = []
   uploadCodeResults.value = []
   isDragOver.value = false
@@ -1248,7 +1319,7 @@ const handleFileDrop = (event) => {
     // Also update the file input element
     if (codeFileInput.value) {
       const dataTransfer = new DataTransfer()
-      files.forEach(file => dataTransfer.items.add(file))
+      files.forEach((file) => dataTransfer.items.add(file))
       codeFileInput.value.files = dataTransfer.files
     }
   }
@@ -1259,7 +1330,7 @@ const formatFileSize = (bytes) => {
   const k = 1024
   const sizes = ['Bytes', 'KB', 'MB', 'GB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
+  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i]
 }
 
 const cancelUploadCode = () => {
@@ -1296,7 +1367,7 @@ const handlePhpFileDrop = (event) => {
     // Also update the file input element
     if (phpFileInput.value) {
       const dataTransfer = new DataTransfer()
-      files.forEach(file => dataTransfer.items.add(file))
+      files.forEach((file) => dataTransfer.items.add(file))
       phpFileInput.value.files = dataTransfer.files
     }
   }
@@ -1317,20 +1388,20 @@ const confirmUpdatePhp = async () => {
     error.value = 'Please select at least one file'
     return
   }
-  
+
   // Files that require confirmation before replacement
   const protectedFiles = ['config.php', 'db_manager_config.php']
-  
+
   // Check if any protected files are being uploaded
-  const protectedFilesToUpload = selectedPhpFiles.value.filter(file => 
-    protectedFiles.includes(file.name)
+  const protectedFilesToUpload = selectedPhpFiles.value.filter((file) =>
+    protectedFiles.includes(file.name),
   )
-  
+
   // If protected files are being uploaded, check if they exist and ask for confirmation
   if (protectedFilesToUpload.length > 0) {
     try {
       // Check which files actually exist on the server
-      const fileNames = protectedFilesToUpload.map(f => f.name)
+      const fileNames = protectedFilesToUpload.map((f) => f.name)
       const checkResponse = await fetch(`${getApiBaseUrl()}/api.php`, {
         method: 'POST',
         headers: {
@@ -1338,39 +1409,39 @@ const confirmUpdatePhp = async () => {
         },
         body: JSON.stringify({
           action: 'check_api_files_exist',
-          file_names: fileNames
-        })
+          file_names: fileNames,
+        }),
       })
-      
+
       const checkResult = await checkResponse.json()
-      
+
       if (checkResult.success && checkResult.data) {
         // Filter to only files that actually exist
-        const existingFiles = protectedFilesToUpload.filter(file => 
-          checkResult.data[file.name] === true
+        const existingFiles = protectedFilesToUpload.filter(
+          (file) => checkResult.data[file.name] === true,
         )
-        
+
         // Only show confirmation if files actually exist
         if (existingFiles.length > 0) {
-          const existingFileNames = existingFiles.map(f => f.name).join(', ')
+          const existingFileNames = existingFiles.map((f) => f.name).join(', ')
           const confirmMessage = `The following file(s) will replace existing files:\n\n${existingFileNames}\n\nDo you want to continue?`
-          
+
           if (!confirm(confirmMessage)) {
             // User cancelled - remove protected files from upload list
-            selectedPhpFiles.value = selectedPhpFiles.value.filter(file => 
-              !protectedFiles.includes(file.name)
+            selectedPhpFiles.value = selectedPhpFiles.value.filter(
+              (file) => !protectedFiles.includes(file.name),
             )
-            
+
             // If no files left, show error and return
             if (selectedPhpFiles.value.length === 0) {
               error.value = 'Upload cancelled - no files to upload'
               return
             }
-            
+
             // Update file input if it exists
             if (phpFileInput.value) {
               const dataTransfer = new DataTransfer()
-              selectedPhpFiles.value.forEach(file => dataTransfer.items.add(file))
+              selectedPhpFiles.value.forEach((file) => dataTransfer.items.add(file))
               phpFileInput.value.files = dataTransfer.files
             }
           }
@@ -1379,64 +1450,64 @@ const confirmUpdatePhp = async () => {
     } catch (err) {
       // If check fails, show confirmation anyway for safety
       console.error('Error checking file existence:', err)
-      const fileNames = protectedFilesToUpload.map(f => f.name).join(', ')
+      const fileNames = protectedFilesToUpload.map((f) => f.name).join(', ')
       const confirmMessage = `The following file(s) will replace existing files:\n\n${fileNames}\n\nDo you want to continue?`
-      
+
       if (!confirm(confirmMessage)) {
         // User cancelled - remove protected files from upload list
-        selectedPhpFiles.value = selectedPhpFiles.value.filter(file => 
-          !protectedFiles.includes(file.name)
+        selectedPhpFiles.value = selectedPhpFiles.value.filter(
+          (file) => !protectedFiles.includes(file.name),
         )
-        
+
         // If no files left, show error and return
         if (selectedPhpFiles.value.length === 0) {
           error.value = 'Upload cancelled - no files to upload'
           return
         }
-        
+
         // Update file input if it exists
         if (phpFileInput.value) {
           const dataTransfer = new DataTransfer()
-          selectedPhpFiles.value.forEach(file => dataTransfer.items.add(file))
+          selectedPhpFiles.value.forEach((file) => dataTransfer.items.add(file))
           phpFileInput.value.files = dataTransfer.files
         }
       }
     }
   }
-  
+
   uploadingPhp.value = true
   updatePhpResults.value = []
   error.value = ''
-  
+
   try {
     const totalFiles = selectedPhpFiles.value.length
-    
+
     for (let fileIndex = 0; fileIndex < selectedPhpFiles.value.length; fileIndex++) {
       const file = selectedPhpFiles.value[fileIndex]
-      
+
       // Initialize result for this file
       const fileResult = {
         file_name: file.name,
         error: null,
       }
       updatePhpResults.value.push(fileResult)
-      
+
       try {
         const formData = new FormData()
         formData.append('file', file)
-        
+
         // Upload to api folder (base_directory = 'api')
         formData.append('base_directory', 'api')
         formData.append('destination_folder', '') // Upload to root of api folder
         formData.append('custom_filename', file.name) // Keep original filename (will replace if exists)
-        
+
         const uploadResponse = await fetch(`${getApiBaseUrl()}/upload.php`, {
           method: 'POST',
           body: formData,
         })
-        
+
         const uploadResult = await uploadResponse.json()
-        
+
         if (uploadResult.success) {
           fileResult.error = null
         } else {
@@ -1447,16 +1518,16 @@ const confirmUpdatePhp = async () => {
         console.error('Error uploading PHP file:', err)
       }
     }
-    
+
     // Show success message if all files uploaded successfully
-    const allSuccess = updatePhpResults.value.every(r => !r.error)
+    const allSuccess = updatePhpResults.value.every((r) => !r.error)
     if (allSuccess) {
       successMessage.value = `Successfully uploaded ${totalFiles} file(s) to /api/ folder`
       setTimeout(() => {
         successMessage.value = ''
       }, 5000)
     } else {
-      const failedCount = updatePhpResults.value.filter(r => r.error).length
+      const failedCount = updatePhpResults.value.filter((r) => r.error).length
       error.value = `${failedCount} file(s) failed to upload`
     }
   } catch (err) {
@@ -1472,53 +1543,53 @@ const confirmUploadCode = async () => {
     error.value = 'Please select at least one file'
     return
   }
-  
+
   uploadingCode.value = true
   uploadCodeResults.value = []
   error.value = ''
-  
+
   try {
-    const selectedDbs = databases.value.filter(db => selectedDatabases.value.includes(db.id))
-    
+    const selectedDbs = databases.value.filter((db) => selectedDatabases.value.includes(db.id))
+
     // Group databases by js_dir to avoid duplicate uploads
     const dbGroupsByJsDir = {}
-    selectedDbs.forEach(db => {
+    selectedDbs.forEach((db) => {
       const jsDir = db.js_dir.trim()
       if (!dbGroupsByJsDir[jsDir]) {
         dbGroupsByJsDir[jsDir] = []
       }
       dbGroupsByJsDir[jsDir].push(db)
     })
-    
+
     // Initialize results for all databases
-    selectedDbs.forEach(db => {
+    selectedDbs.forEach((db) => {
       uploadCodeResults.value.push({
         db_name: db.db_name,
         error: null,
         files: [],
         progress: 0,
         status: 'preparing',
-        js_dir: db.js_dir.trim()
+        js_dir: db.js_dir.trim(),
       })
     })
-    
+
     // Process each unique js_dir
     for (const [jsDir, dbGroup] of Object.entries(dbGroupsByJsDir)) {
       // Find result indices for all databases in this group
-      const resultIndices = dbGroup.map(db => 
-        uploadCodeResults.value.findIndex(r => r.db_name === db.db_name)
+      const resultIndices = dbGroup.map((db) =>
+        uploadCodeResults.value.findIndex((r) => r.db_name === db.db_name),
       )
-      
+
       // Use the first database in the group for the API call
       const firstDb = dbGroup[0]
-      
+
       try {
         // Step 1: Prepare folder (create if doesn't exist, clear if exists)
-        resultIndices.forEach(idx => {
+        resultIndices.forEach((idx) => {
           uploadCodeResults.value[idx].status = 'Preparing folder...'
           uploadCodeResults.value[idx].progress = 0
         })
-        
+
         const prepareResponse = await fetch(`${getApiBaseUrl()}/db_manager_api.php`, {
           method: 'POST',
           headers: {
@@ -1530,37 +1601,37 @@ const confirmUploadCode = async () => {
             js_dir: jsDir,
           }),
         })
-        
+
         const prepareResult = await prepareResponse.json()
-        
+
         if (!prepareResult.success) {
           const errorMsg = prepareResult.message || 'Failed to prepare folder'
-          resultIndices.forEach(idx => {
+          resultIndices.forEach((idx) => {
             uploadCodeResults.value[idx].error = errorMsg
             uploadCodeResults.value[idx].status = 'Error'
           })
           continue
         }
-        
+
         // Step 2: Upload files with progress (only once per js_dir)
-        resultIndices.forEach(idx => {
+        resultIndices.forEach((idx) => {
           uploadCodeResults.value[idx].status = 'Uploading files...'
         })
-        
+
         // Files to skip if they already exist
         const protectedFiles = ['logo.png', 'letter_head.png', 'gml2.png', 'db_code.json']
-        
+
         const totalFiles = selectedCodeFiles.value.length
         const uploadedFiles = []
         const skippedFiles = []
-        
+
         for (let fileIndex = 0; fileIndex < selectedCodeFiles.value.length; fileIndex++) {
           const file = selectedCodeFiles.value[fileIndex]
-          
+
           // Check if this is a protected file that should be skipped if it exists
           const isProtectedFile = protectedFiles.includes(file.name)
           let shouldSkip = false
-          
+
           if (isProtectedFile) {
             // Check if file already exists
             try {
@@ -1576,14 +1647,14 @@ const confirmUploadCode = async () => {
                   js_dir: jsDir,
                 }),
               })
-              
+
               const checkResult = await checkResponse.json()
-              
+
               if (checkResult.success && checkResult.data && checkResult.data.exists) {
                 shouldSkip = true
                 skippedFiles.push({
                   name: file.name,
-                  reason: 'File already exists and is protected'
+                  reason: 'File already exists and is protected',
                 })
               }
             } catch (err) {
@@ -1591,26 +1662,28 @@ const confirmUploadCode = async () => {
               console.warn('Failed to check if file exists:', err)
             }
           }
-          
+
           // Update progress for all databases in this group
           const progress = Math.round(((fileIndex + 1) / totalFiles) * 100)
-          resultIndices.forEach(idx => {
+          resultIndices.forEach((idx) => {
             uploadCodeResults.value[idx].progress = progress
             if (shouldSkip) {
-              uploadCodeResults.value[idx].status = `Skipping ${fileIndex + 1}/${totalFiles}: ${file.name} (already exists)`
+              uploadCodeResults.value[idx].status =
+                `Skipping ${fileIndex + 1}/${totalFiles}: ${file.name} (already exists)`
             } else {
-              uploadCodeResults.value[idx].status = `Uploading ${fileIndex + 1}/${totalFiles}: ${file.name}`
+              uploadCodeResults.value[idx].status =
+                `Uploading ${fileIndex + 1}/${totalFiles}: ${file.name}`
             }
           })
-          
+
           // Skip upload if file exists and is protected
           if (shouldSkip) {
             continue
           }
-          
+
           const formData = new FormData()
           formData.append('file', file)
-          
+
           // Use js_dir as base_directory, remove leading slash if present
           let jsDirPath = jsDir
           if (jsDirPath.startsWith('/')) {
@@ -1619,42 +1692,45 @@ const confirmUploadCode = async () => {
           formData.append('base_directory', jsDirPath)
           formData.append('destination_folder', '') // Upload to root of js_dir
           formData.append('custom_filename', file.name) // Keep original filename
-          
+
           const uploadResponse = await fetch(`${getApiBaseUrl()}/upload.php`, {
             method: 'POST',
             body: formData,
           })
-          
+
           const uploadResult = await uploadResponse.json()
-          
+
           if (uploadResult.success) {
             uploadedFiles.push({
               name: file.name,
-              path: uploadResult.file_path || 'Uploaded successfully'
+              path: uploadResult.file_path || 'Uploaded successfully',
             })
           } else {
             const errorMsg = uploadResult.message || 'Upload failed'
-            resultIndices.forEach(idx => {
+            resultIndices.forEach((idx) => {
               uploadCodeResults.value[idx].error = errorMsg
               uploadCodeResults.value[idx].status = 'Error'
             })
             break // Stop uploading other files for this js_dir if one fails
           }
         }
-        
+
         // Add skipped files info to results
         if (skippedFiles.length > 0) {
-          resultIndices.forEach(idx => {
+          resultIndices.forEach((idx) => {
             if (!uploadCodeResults.value[idx].skipped) {
               uploadCodeResults.value[idx].skipped = []
             }
             uploadCodeResults.value[idx].skipped.push(...skippedFiles)
           })
         }
-        
+
         // Mark all databases in this group as complete
-        if (uploadedFiles.length > 0 && !resultIndices.some(idx => uploadCodeResults.value[idx].error)) {
-          resultIndices.forEach(idx => {
+        if (
+          uploadedFiles.length > 0 &&
+          !resultIndices.some((idx) => uploadCodeResults.value[idx].error)
+        ) {
+          resultIndices.forEach((idx) => {
             uploadCodeResults.value[idx].files = uploadedFiles
             uploadCodeResults.value[idx].status = 'Completed'
             uploadCodeResults.value[idx].progress = 100
@@ -1662,16 +1738,16 @@ const confirmUploadCode = async () => {
         }
       } catch (err) {
         const errorMsg = err.message || 'An error occurred during upload'
-        resultIndices.forEach(idx => {
+        resultIndices.forEach((idx) => {
           uploadCodeResults.value[idx].error = errorMsg
           uploadCodeResults.value[idx].status = 'Error'
         })
       }
     }
-    
+
     // Check if all uploads were successful
-    const allSuccessful = uploadCodeResults.value.every(r => !r.error && r.files.length > 0)
-    
+    const allSuccessful = uploadCodeResults.value.every((r) => !r.error && r.files.length > 0)
+
     if (allSuccessful) {
       successMessage.value = 'All files uploaded successfully'
       setTimeout(() => {
@@ -1691,7 +1767,6 @@ const confirmUploadCode = async () => {
 onMounted(() => {
   fetchDatabases()
 })
-
 </script>
 
 <style scoped>
@@ -2384,12 +2459,7 @@ onMounted(() => {
   left: 0;
   bottom: 0;
   right: 0;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255, 255, 255, 0.3),
-    transparent
-  );
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
   animation: shimmer 1.5s infinite;
 }
 

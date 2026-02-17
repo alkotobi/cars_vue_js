@@ -27,7 +27,10 @@
       <div class="info-box">
         <i class="fas fa-info-circle"></i>
         <div>
-          <p><strong>Upload Location:</strong> {{ uploadPath ? `/${uploadPath}/` : 'Loading...' }} (same folder as index.html)</p>
+          <p>
+            <strong>Upload Location:</strong>
+            {{ uploadPath ? `/${uploadPath}/` : 'Loading...' }} (same folder as index.html)
+          </p>
           <p v-if="dbCode" class="db-code-info">Database Code: {{ dbCode }}</p>
         </div>
       </div>
@@ -236,7 +239,8 @@ const uploadResults = ref({
 // Get API base URL
 const getApiBaseUrl = () => {
   const hostname = window.location.hostname
-  const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.')
+  const isLocalhost =
+    hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.')
   return isLocalhost ? 'http://localhost:8000/api' : 'https://www.merhab.com/api'
 }
 
@@ -257,7 +261,7 @@ const loadConfiguration = async () => {
       return baseUrl
     }
     const basePath = getBasePath()
-    
+
     // Load db_code.json to get db_code (for display purposes)
     const dbCodeResponse = await fetch(`${basePath}db_code.json`)
     if (!dbCodeResponse.ok) {
@@ -284,7 +288,7 @@ const loadConfiguration = async () => {
     }
     // If it's root, use empty string (files go to project root, same as index.html)
     // upload.php will handle empty base_directory correctly
-    
+
     uploadPath.value = uploadDir || '' // Empty string for root
   } catch (err) {
     error.value = err.message || 'Failed to load configuration'
@@ -391,7 +395,8 @@ const formatFileSize = (bytes) => {
 const canUpload = computed(() => {
   return (
     Object.values(selectedFiles.value).some((file) => file !== null) &&
-    (uploadPath.value !== null && uploadPath.value !== undefined) &&
+    uploadPath.value !== null &&
+    uploadPath.value !== undefined &&
     !uploading.value
   )
 })

@@ -4,7 +4,8 @@ import { ref } from 'vue'
 const hostname = window.location.hostname
 const protocol = window.location.protocol
 // Treat localhost and local LAN IPs as development (use local API)
-const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.')
+const isLocalhost =
+  hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.')
 
 // Detect base path from current location (e.g., '/mig_26/' or '/')
 // This allows the app to work from any subdirectory or root
@@ -17,28 +18,51 @@ const getBasePath = () => {
   // If base is relative, convert to absolute path
   if (baseUrl === './' || baseUrl.startsWith('./')) {
     const pathname = window.location.pathname
-    
+
     // Known route patterns that should NOT be treated as base paths
     const knownRoutes = [
-      '/login', '/dashboard', '/users', '/roles', '/transfers', '/send', '/receive',
-      '/sell-bills', '/buy-payments', '/params', '/advanced-sql', '/transfers-list',
-      '/cars', '/warehouses', '/containers', '/print', '/clients', '/cashier',
-      '/rates', '/tasks', '/statistics', '/chat', '/invitations', '/containers-ref',
-      '/db-manager', '/alert-cars'
+      '/login',
+      '/dashboard',
+      '/users',
+      '/roles',
+      '/transfers',
+      '/send',
+      '/receive',
+      '/sell-bills',
+      '/buy-payments',
+      '/params',
+      '/advanced-sql',
+      '/transfers-list',
+      '/cars',
+      '/warehouses',
+      '/containers',
+      '/print',
+      '/clients',
+      '/cashier',
+      '/rates',
+      '/tasks',
+      '/statistics',
+      '/chat',
+      '/invitations',
+      '/containers-ref',
+      '/db-manager',
+      '/alert-cars',
     ]
-    
+
     // Check if pathname starts with a known route at root level (e.g., '/login' or '/db-manager')
     // But NOT if it's in a subdirectory (e.g., '/mig_26/db-manager' should extract '/mig_26/')
-    const startsWithKnownRouteAtRoot = knownRoutes.some(route => {
+    const startsWithKnownRouteAtRoot = knownRoutes.some((route) => {
       // Check if pathname exactly matches the route or starts with route followed by / or end of string
-      return pathname === route || pathname.startsWith(route + '/') || pathname.startsWith(route + '?')
+      return (
+        pathname === route || pathname.startsWith(route + '/') || pathname.startsWith(route + '?')
+      )
     })
-    
+
     // If it starts with a known route at root level (not in subdirectory), base path is '/'
     if (startsWithKnownRouteAtRoot && !pathname.match(/^\/[^/]+\//)) {
       return '/'
     }
-    
+
     // If pathname is like '/mig_26/login', extract '/mig_26/'
     // If pathname is like '/login', use '/'
     const match = pathname.match(/^(\/[^/]+\/)/)
@@ -371,7 +395,7 @@ export const useApi = () => {
       // Server returns: '/api/upload.php?path=documents/file.pdf&base_directory=mig_files'
       // We need to extract just the path part for storage
       let relativePath = result.file_path
-      
+
       // If the server returned a full URL path, extract just the relative path
       if (result.file_path && result.file_path.includes('?path=')) {
         const urlParams = new URLSearchParams(result.file_path.split('?')[1])
@@ -423,14 +447,9 @@ export const useApi = () => {
 
     // If the path already contains 'upload.php?path=' or 'upload_simple.php?path=', extract parameters
     // This handles paths stored as '/api/upload.php?path=...&base_directory=...' or 'upload.php?path=...'
-    if (
-      path.includes('upload.php?path=') ||
-      path.includes('upload_simple.php?path=')
-    ) {
+    if (path.includes('upload.php?path=') || path.includes('upload_simple.php?path=')) {
       // Extract the query string part (everything after '?')
-      const queryString = path.includes('?')
-        ? path.split('?').slice(1).join('?')
-        : ''
+      const queryString = path.includes('?') ? path.split('?').slice(1).join('?') : ''
 
       // Parse the query parameters to extract path and base_directory separately
       try {
@@ -455,7 +474,7 @@ export const useApi = () => {
 
     // If path starts with '/api/', remove it (it's a relative path to the API)
     // This handles paths like '/api/documents/file.pdf' -> 'documents/file.pdf'
-    let processedPath = path.startsWith('/api/') 
+    let processedPath = path.startsWith('/api/')
       ? path.substring(5) // Remove '/api/'
       : path.replace(/^\/+/, '') // Remove leading slashes
 
@@ -571,7 +590,8 @@ export const useApi = () => {
 
     // Check if user is a different company user and has a custom letterhead
     // Source: user.path_letter_head (legacy) or bank.path_letter_head (via id_bank_account)
-    let letterHeadPath = user.path_letter_head && user.path_letter_head.trim() !== '' ? user.path_letter_head : null
+    let letterHeadPath =
+      user.path_letter_head && user.path_letter_head.trim() !== '' ? user.path_letter_head : null
     if (!letterHeadPath && user.id_bank_account) {
       try {
         const bankResult = await callApi({
