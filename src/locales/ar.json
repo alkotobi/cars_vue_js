@@ -1465,7 +1465,9 @@
     "buyBillRef": "مرجع فاتورة الشراء",
     "sellBillRef": "مرجع فاتورة البيع",
     "exportLicense": "رخصة التصدير",
-    "notes": "ملاحظات"
+    "notes": "ملاحظات",
+    "clientMobile": "هاتف العميل",
+    "paymentStatus": "حالة الدفع"
   },
   "carStockPrintDropdown": {
     "printOptions": "خيارات الطباعة",

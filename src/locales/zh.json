@@ -1247,7 +1247,9 @@
     "buyBillRef": "购买账单参考",
     "sellBillRef": "销售账单参考",
     "exportLicense": "出口许可证",
-    "notes": "备注"
+    "notes": "备注",
+    "clientMobile": "客户手机",
+    "paymentStatus": "付款状态"
   },
   "carStockPrintDropdown": {
     "printOptions": "打印选项",

@@ -1524,7 +1524,9 @@
     "buyBillRef": "Référence de Facture d'Achat",
     "sellBillRef": "Référence de Facture de Vente",
     "exportLicense": "Licence d'Exportation",
-    "notes": "Notes"
+    "notes": "Notes",
+    "clientMobile": "Téléphone client",
+    "paymentStatus": "Statut de paiement"
   },
   "carStockPrintDropdown": {
     "printOptions": "Options d'Impression",

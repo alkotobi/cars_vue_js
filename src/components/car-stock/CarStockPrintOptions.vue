@@ -216,6 +216,7 @@ const availableColumns = ref([
   { key: 'vin', label: t('carStockPrintOptions.vin'), checked: true },
   { key: 'color', label: t('carStockPrintOptions.color'), checked: true },
   { key: 'client_name', label: t('carStockPrintOptions.client'), checked: true },
+  { key: 'client_mobiles', label: t('carStockPrintOptions.clientMobile'), checked: false },
   { key: 'client_id_no', label: t('carStockPrintOptions.clientId'), checked: false },
   { key: 'client_id_picture', label: t('carStockPrintOptions.clientIdPicture'), checked: false },
   { key: 'loading_port', label: t('carStockPrintOptions.loadingPort'), checked: true },
@@ -232,6 +233,7 @@ const availableColumns = ref([
   { key: 'sell_bill_ref', label: t('carStockPrintOptions.sellBillRef'), checked: false },
   { key: 'export_lisence_ref', label: t('carStockPrintOptions.exportLicense'), checked: false },
   { key: 'notes', label: t('carStockPrintOptions.notes'), checked: false },
+  { key: 'payment_status', label: t('carStockPrintOptions.paymentStatus'), checked: false },
 ])
 
 const isProcessing = ref(false)
@@ -854,7 +856,7 @@ const groupByOptions = ref([
 
 .columns-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 12px;
 }
 

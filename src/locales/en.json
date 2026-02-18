@@ -1501,7 +1501,9 @@
     "buyBillRef": "Buy Bill Ref",
     "sellBillRef": "Sell Bill Ref",
     "exportLicense": "Export License",
-    "notes": "Notes"
+    "notes": "Notes",
+    "clientMobile": "Client Mobile",
+    "paymentStatus": "Payment Status"
   },
   "carStockPrintDropdown": {
     "printOptions": "Print Options",

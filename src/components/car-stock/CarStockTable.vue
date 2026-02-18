@@ -2817,7 +2817,9 @@ const loadInitialCarsData = async () => {
           CASE 
             WHEN cs.id_sell IS NOT NULL THEN 'Sold'
             ELSE 'Available'
-          END as status
+          END as status,
+          (SELECT COALESCE(SUM(sp.amount_usd), 0) FROM sell_payments sp WHERE sp.id_sell_bill = cs.id_sell) as bill_total_paid,
+          (SELECT SUM(cs2.price_cell + COALESCE(cs2.freight, 0) + COALESCE((SELECT SUM(ca.value) FROM car_apgrades ca WHERE ca.id_car = cs2.id), 0)) FROM cars_stock cs2 WHERE cs2.id_sell = cs.id_sell) as bill_total_cfr
         FROM cars_stock cs
         LEFT JOIN clients c ON cs.id_client = c.id
         LEFT JOIN buy_details bd ON cs.id_buy_details = bd.id
@@ -2839,10 +2841,28 @@ const loadInitialCarsData = async () => {
         // Use formatNotesDisplay helper to merge car notes with sell bill notes
         const notesDisplay = formatNotesDisplay(car.notes, car.sell_bill_notes || null)
 
+        // Payment status for print (same logic as LoadingTable)
+        const total = Number(car.bill_total_cfr) || 0
+        const paid = Number(car.bill_total_paid) || 0
+        let payment_status = ''
+        if (car.id_sell == null) {
+          payment_status = ''
+        } else if (total === 0) {
+          payment_status = t('sellBills.no_amount')
+        } else if (paid === 0) {
+          payment_status = t('sellBills.not_paid')
+        } else if (paid >= total) {
+          payment_status = t('sellBills.paid')
+        } else {
+          const remaining = (total - paid).toFixed(2)
+          payment_status = `${t('sellBills.partially_paid')} (${t('sellBills.left')}: $${remaining})`
+        }
+
         return {
           ...car,
           payment_confirmed: car.payment_confirmed !== undefined ? car.payment_confirmed : 0,
           notesDisplay: notesDisplay, // Add formatted display version
+          payment_status,
         }
       })
       allCars.value = carsData
