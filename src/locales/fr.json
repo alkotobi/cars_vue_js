@@ -1136,6 +1136,7 @@
     "confirm_checkout": "Confirmer l'encaissement",
     "client_name": "Nom du client",
     "enter_client_name": "Entrer le nom du client...",
+    "clientMobile": "Téléphone client",
     "client_contact": "Contact du client",
     "enter_client_contact": "Entrer le contact du client...",
     "custom_clearance_agent": "Transitaire",

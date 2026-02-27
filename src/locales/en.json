@@ -534,6 +534,7 @@
     "confirm_checkout": "Confirm Checkout",
     "client_name": "Client Name",
     "enter_client_name": "Enter client name...",
+    "clientMobile": "Client mobile",
     "client_contact": "Client Contact",
     "enter_client_contact": "Enter client contact...",
     "custom_clearance_agent": "Custom Clearance Agent",

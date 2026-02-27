@@ -4804,8 +4804,16 @@ const closeBatchCheckoutModal = () => {
           </div>
         </div>
 
-        <!-- Mobile: only id, car name, color, vin, container no, discharge port, available state -->
+        <!-- Mobile: client name, client mobile, car name, then color, vin, container no, discharge port, sell bill, status -->
         <div class="card-section card-section-mobile-only">
+          <div class="card-row">
+            <span class="card-label">{{ t('carStock.client_name') || 'Client name' }}</span>
+            <span class="card-value card-name">{{ car.client_name || '-' }}</span>
+          </div>
+          <div class="card-row">
+            <span class="card-label">{{ t('carStock.clientMobile') || 'Client mobile' }}</span>
+            <span class="card-value">{{ (car.client_mobiles && car.client_mobiles !== 'please provide mobile') ? car.client_mobiles : '-' }}</span>
+          </div>
           <div class="card-row">
             <span class="card-label">{{ t('carStockPrintOptions.carName') || t('carStock.car_details') }}</span>
             <span class="card-value card-name">{{ car.car_name || '-' }}</span>
@@ -4836,6 +4844,10 @@ const closeBatchCheckoutModal = () => {
           <div class="card-row">
             <span class="card-label">{{ t('carStockPrintOptions.dischargePort') || 'Discharge Port' }}</span>
             <span class="card-value">{{ car.discharge_port || '-' }}</span>
+          </div>
+          <div class="card-row">
+            <span class="card-label">{{ t('carStock.sell_bill') || 'Sell Bill' }}</span>
+            <span class="card-value">{{ car.sell_bill_ref || '-' }}</span>
           </div>
           <div class="card-row card-row-status">
             <span class="card-label">{{ t('carStock.status') }}</span>

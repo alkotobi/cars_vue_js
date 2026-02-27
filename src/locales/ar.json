@@ -1149,6 +1149,7 @@
     "confirm_checkout": "تأكيد الدفع",
     "client_name": "اسم العميل",
     "enter_client_name": "أدخل اسم العميل...",
+    "clientMobile": "هاتف العميل",
     "client_contact": "اتصال العميل",
     "enter_client_contact": "أدخل اتصال العميل...",
     "custom_clearance_agent": "وكيل التخليص الجمركي"

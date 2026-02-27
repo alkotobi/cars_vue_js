@@ -546,6 +546,7 @@
     "confirm_checkout": "确认结账",
     "client_name": "客户名称",
     "enter_client_name": "输入客户名称...",
+    "clientMobile": "客户手机",
     "client_contact": "客户联系方式",
     "enter_client_contact": "输入客户联系方式...",
     "custom_clearance_agent": "报关代理"
