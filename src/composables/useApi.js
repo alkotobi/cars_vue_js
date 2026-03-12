@@ -79,10 +79,10 @@ const BASE_PATH = getBasePath()
 // Set API base URL based on environment
 // For local/LAN: use same hostname as page (so 192.168.x.x:5173 calls 192.168.x.x:8000)
 // PHP built-in server runs from project root → /api/ maps to api/ folder
-// For production: use production API (web server serves api/ at /api/)
+// For production: use same host (and port) as current page, under /api
 const API_BASE_URL = isLocalhost
   ? `${protocol}//${hostname}:8000/api`
-  : 'https://www.merhab.com/api'
+  : `${protocol}//${hostname}${window.location.port ? `:${window.location.port}` : ''}/api`
 
 const API_URL = `${API_BASE_URL}/api.php`
 const UPLOAD_URL = `${API_BASE_URL}/upload.php`

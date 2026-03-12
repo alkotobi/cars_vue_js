@@ -22,6 +22,10 @@
             <span class="version-label">{{ t('app.applicationVersion') }}:</span>
             <span class="version-value">{{ currentAppVersion }}</span>
           </div>
+          <div class="version-item">
+            <span class="version-label">Server Host/IP:</span>
+            <span class="version-value">{{ serverHost }}</span>
+          </div>
         </div>
 
         <!-- Admin-only information -->
@@ -66,6 +70,7 @@ const { loadDbName } = useApi()
 const user = ref(null)
 const dbName = ref('')
 const directoryPath = ref('')
+const serverHost = ref('')
 
 const isAdmin = computed(() => {
   return user.value?.role_id === 1
@@ -133,6 +138,14 @@ onMounted(async () => {
   // Load directory path for admin users
   if (isAdmin.value) {
     directoryPath.value = getBasePath() || '/'
+  }
+
+  // Always show server host/IP for debugging
+  try {
+    const { protocol, hostname, port } = window.location
+    serverHost.value = `${protocol}//${hostname}${port ? `:${port}` : ''}`
+  } catch (e) {
+    serverHost.value = 'Unknown'
   }
 })
 </script>

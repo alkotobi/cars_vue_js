@@ -36,6 +36,7 @@ export default defineConfig({
     },
   },
   server: {
+    allowedHosts: ['python-platinum-rainbow-printed.trycloudflare.com'],
     proxy: {
       '/api': {
         target: apiUrl,

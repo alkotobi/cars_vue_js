@@ -1,15 +1,9 @@
-# .htaccess (replace existing content)
+# .htaccess for Vue SPA (works at root or in subdirs like /mig/)
 
 <IfModule mod_rewrite.c>
   RewriteEngine On
-  
-  # Skip rewrite for real files and directories
-  RewriteCond %{REQUEST_FILENAME} -f [OR]
-  RewriteCond %{REQUEST_FILENAME} -d
-  RewriteRule ^ - [L]
-  
-  # Redirect all other requests to index.html
-  RewriteRule ^ index.html [L]
+  # Apache 2.4+: any non-file, non-dir request serves index.html (fixes refresh on /mig/cars, /mig/login, etc.)
+  FallbackResource index.html
 </IfModule>
 
 # Force correct MIME types for JavaScript modules

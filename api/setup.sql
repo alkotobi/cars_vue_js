@@ -13,12 +13,12 @@ CREATE TABLE IF NOT EXISTS `login` (
   `pass` text,
   `active` int DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- Databases table
 CREATE TABLE IF NOT EXISTS `dbs` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
-  `db_code` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
+  `db_code` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
   `db_host_start` date DEFAULT NULL,
   `db_host_end` date DEFAULT NULL,
   `serv_host_start` date DEFAULT NULL,
@@ -31,17 +31,17 @@ CREATE TABLE IF NOT EXISTS `dbs` (
   `is_created` int DEFAULT '0',
   PRIMARY KEY (`id`),
   UNIQUE KEY `name` (`db_code`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- Database updates table (for version migration)
 CREATE TABLE IF NOT EXISTS `db_updates` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
-  `sql` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
+  `sql` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
   `from_version` int NOT NULL,
   `current_version` int NOT NULL,
   `description` text,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- Advanced SQL table
 CREATE TABLE IF NOT EXISTS `adv_sql` (
@@ -196,27 +196,7 @@ INSERT IGNORE INTO `cars_names` (`car_name`) VALUES
 ('TIGO 3'),
 ('TIGUAN L');
 
--- Car name media table (photos and videos)
-CREATE TABLE IF NOT EXISTS `car_name_media` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `car_name_id` int(11) NOT NULL COMMENT 'FK to cars_names',
-  `file_path` varchar(500) NOT NULL COMMENT 'Storage path to media file',
-  `file_name` varchar(255) NOT NULL COMMENT 'Original filename',
-  `file_size` bigint(20) DEFAULT NULL COMMENT 'File size in bytes',
-  `file_type` varchar(100) DEFAULT NULL COMMENT 'MIME type (image/* or video/*)',
-  `media_type` enum('photo', 'video') NOT NULL COMMENT 'Type: photo or video',
-  `uploaded_by` int(11) NOT NULL COMMENT 'FK to users - who uploaded',
-  `uploaded_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `is_active` tinyint(1) NOT NULL DEFAULT 1 COMMENT '0=Deleted, 1=Active',
-  PRIMARY KEY (`id`),
-  KEY `idx_car_name_id` (`car_name_id`),
-  KEY `idx_uploaded_by` (`uploaded_by`),
-  KEY `idx_uploaded_at` (`uploaded_at`),
-  KEY `idx_media_type` (`media_type`),
-  KEY `idx_is_active` (`is_active`),
-  CONSTRAINT `fk_car_name_media_car_name` FOREIGN KEY (`car_name_id`) REFERENCES `cars_names` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_car_name_media_uploaded_by` FOREIGN KEY (`uploaded_by`) REFERENCES `users` (`id`) ON DELETE RESTRICT
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+-- Car name media table: created after users (see below)
 
 -- Cars stock table
 CREATE TABLE IF NOT EXISTS `cars_stock` (
@@ -266,37 +246,7 @@ CREATE TABLE IF NOT EXISTS `cars_stock` (
   KEY `idx_payment_confirmed` (`payment_confirmed`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
--- Upgrades table
-CREATE TABLE IF NOT EXISTS `upgrades` (
-  `id` int unsigned NOT NULL AUTO_INCREMENT,
-  `description` varchar(255) DEFAULT NULL,
-  `notes` text,
-  `id_user_owner` int DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  KEY `idx_id_user_owner` (`id_user_owner`),
-  CONSTRAINT `fk_upgrades_user_owner` FOREIGN KEY (`id_user_owner`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
--- Car upgrades table
-CREATE TABLE IF NOT EXISTS `car_apgrades` (
-  `id` int unsigned NOT NULL AUTO_INCREMENT,
-  `id_car` int DEFAULT NULL,
-  `id_upgrade` int DEFAULT NULL,
-  `value` float NOT NULL,
-  `date_done` datetime DEFAULT NULL,
-  `id_uder_done` int DEFAULT NULL,
-  `id_user_create` int DEFAULT NULL,
-  `time_creation` timestamp NULL DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  KEY `idx_id_car` (`id_car`),
-  KEY `idx_id_upgrade` (`id_upgrade`),
-  KEY `idx_id_uder_done` (`id_uder_done`),
-  KEY `idx_id_user_create` (`id_user_create`),
-  CONSTRAINT `fk_car_apgrades_car` FOREIGN KEY (`id_car`) REFERENCES `cars_stock` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_car_apgrades_upgrade` FOREIGN KEY (`id_upgrade`) REFERENCES `upgrades` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_car_apgrades_user` FOREIGN KEY (`id_uder_done`) REFERENCES `users` (`id`) ON DELETE SET NULL,
-  CONSTRAINT `fk_car_apgrades_user_create` FOREIGN KEY (`id_user_create`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+-- Upgrades and car_apgrades: created after users (see below)
 
 -- Chat groups table
 CREATE TABLE IF NOT EXISTS `chat_groups` (
@@ -583,6 +533,85 @@ CREATE TABLE IF NOT EXISTS `role_permissions` (
   PRIMARY KEY (`role_id`,`permission_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
+-- Users table (must exist before sell_bill, car_name_media, upgrades, car_apgrades)
+CREATE TABLE IF NOT EXISTS `users` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `username` varchar(50) NOT NULL,
+  `email` varchar(100) NOT NULL,
+  `password` varchar(255) NOT NULL,
+  `role_id` int(11) NOT NULL,
+  `max_unpayed_created_bills` int(11) DEFAULT '0',
+  `is_diffrent_company` tinyint(1) DEFAULT 0 COMMENT 'Flag to indicate if user has different company assets',
+  `path_logo` varchar(500) DEFAULT NULL COMMENT 'Path to company logo file',
+  `path_letter_head` varchar(500) DEFAULT NULL COMMENT 'Path to letterhead file',
+  `path_stamp` varchar(500) DEFAULT NULL COMMENT 'Path to stamp/gml2 file',
+  `path_contract_terms` varchar(500) DEFAULT NULL COMMENT 'Path to contract terms JSON file',
+  `id_bank_account` int unsigned DEFAULT NULL COMMENT 'Foreign key to banks table for user''s bank account',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `username` (`username`),
+  UNIQUE KEY `email` (`email`),
+  KEY `idx_id_bank_account` (`id_bank_account`),
+  CONSTRAINT `fk_users_bank_account` FOREIGN KEY (`id_bank_account`) REFERENCES `banks` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+-- Insert default admin user
+INSERT IGNORE INTO `users` (`username`, `email`, `password`, `role_id`, `max_unpayed_created_bills`) VALUES
+('admin', 'admin@example.com', '$2y$10$xk9Kh/WwDsRGOBvSQG4jO.Lwvwfnl1wXFmjCdvrD2ahCq5oGHYGSO', 1, 5);
+
+-- Car name media table (photos and videos)
+CREATE TABLE IF NOT EXISTS `car_name_media` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `car_name_id` int(11) NOT NULL COMMENT 'FK to cars_names',
+  `file_path` varchar(500) NOT NULL COMMENT 'Storage path to media file',
+  `file_name` varchar(255) NOT NULL COMMENT 'Original filename',
+  `file_size` bigint(20) DEFAULT NULL COMMENT 'File size in bytes',
+  `file_type` varchar(100) DEFAULT NULL COMMENT 'MIME type (image/* or video/*)',
+  `media_type` enum('photo', 'video') NOT NULL COMMENT 'Type: photo or video',
+  `uploaded_by` int(11) NOT NULL COMMENT 'FK to users - who uploaded',
+  `uploaded_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1 COMMENT '0=Deleted, 1=Active',
+  PRIMARY KEY (`id`),
+  KEY `idx_car_name_id` (`car_name_id`),
+  KEY `idx_uploaded_by` (`uploaded_by`),
+  KEY `idx_uploaded_at` (`uploaded_at`),
+  KEY `idx_media_type` (`media_type`),
+  KEY `idx_is_active` (`is_active`),
+  CONSTRAINT `fk_car_name_media_car_name` FOREIGN KEY (`car_name_id`) REFERENCES `cars_names` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_car_name_media_uploaded_by` FOREIGN KEY (`uploaded_by`) REFERENCES `users` (`id`) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+-- Upgrades table
+CREATE TABLE IF NOT EXISTS `upgrades` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `description` varchar(255) DEFAULT NULL,
+  `notes` text,
+  `id_user_owner` int DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_id_user_owner` (`id_user_owner`),
+  CONSTRAINT `fk_upgrades_user_owner` FOREIGN KEY (`id_user_owner`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Car upgrades table
+CREATE TABLE IF NOT EXISTS `car_apgrades` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `id_car` int DEFAULT NULL,
+  `id_upgrade` int unsigned DEFAULT NULL,
+  `value` float NOT NULL,
+  `date_done` datetime DEFAULT NULL,
+  `id_uder_done` int DEFAULT NULL,
+  `id_user_create` int DEFAULT NULL,
+  `time_creation` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_id_car` (`id_car`),
+  KEY `idx_id_upgrade` (`id_upgrade`),
+  KEY `idx_id_uder_done` (`id_uder_done`),
+  KEY `idx_id_user_create` (`id_user_create`),
+  CONSTRAINT `fk_car_apgrades_car` FOREIGN KEY (`id_car`) REFERENCES `cars_stock` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_car_apgrades_upgrade` FOREIGN KEY (`id_upgrade`) REFERENCES `upgrades` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_car_apgrades_user` FOREIGN KEY (`id_uder_done`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_car_apgrades_user_create` FOREIGN KEY (`id_user_create`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 -- Sell bill table
 CREATE TABLE IF NOT EXISTS `sell_bill` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
@@ -695,31 +724,6 @@ CREATE TABLE IF NOT EXISTS `transfer_details` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
--- Users table
-CREATE TABLE IF NOT EXISTS `users` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `username` varchar(50) NOT NULL,
-  `email` varchar(100) NOT NULL,
-  `password` varchar(255) NOT NULL,
-  `role_id` int(11) NOT NULL,
-  `max_unpayed_created_bills` int(11) DEFAULT '0',
-  `is_diffrent_company` tinyint(1) DEFAULT 0 COMMENT 'Flag to indicate if user has different company assets',
-  `path_logo` varchar(500) DEFAULT NULL COMMENT 'Path to company logo file',
-  `path_letter_head` varchar(500) DEFAULT NULL COMMENT 'Path to letterhead file',
-  `path_stamp` varchar(500) DEFAULT NULL COMMENT 'Path to stamp/gml2 file',
-  `path_contract_terms` varchar(500) DEFAULT NULL COMMENT 'Path to contract terms JSON file',
-  `id_bank_account` int unsigned DEFAULT NULL COMMENT 'Foreign key to banks table for user''s bank account',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `username` (`username`),
-  UNIQUE KEY `email` (`email`),
-  KEY `idx_id_bank_account` (`id_bank_account`),
-  CONSTRAINT `fk_users_bank_account` FOREIGN KEY (`id_bank_account`) REFERENCES `banks` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;
-
--- Insert default admin user
-INSERT IGNORE INTO `users` (`username`, `email`, `password`, `role_id`, `max_unpayed_created_bills`) VALUES
-('admin', 'admin@example.com', '$2y$10$xk9Kh/WwDsRGOBvSQG4jO.Lwvwfnl1wXFmjCdvrD2ahCq5oGHYGSO', 1, 5);
-
 -- Transfers table
 CREATE TABLE IF NOT EXISTS `transfers` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -761,9 +765,9 @@ CREATE TABLE IF NOT EXISTS `versions` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
--- Insert default version
+-- Insert default version (must match currentAppVersion in src/composables/useVersionCheck.js)
 INSERT IGNORE INTO `versions` (`id`, `version`) VALUES
-(1, 19);
+(1, 26);
 
 -- Warehouses table
 CREATE TABLE IF NOT EXISTS `warehouses` (
