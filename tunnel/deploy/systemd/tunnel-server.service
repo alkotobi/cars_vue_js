@@ -1,0 +1,15 @@
+[Unit]
+Description=Tunnel Server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/tunnel-server
+Restart=on-failure
+RestartSec=3
+Environment=CGO_ENABLED=0
+WorkingDirectory=/var/lib/tunnel
+
+[Install]
+WantedBy=multi-user.target

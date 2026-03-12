@@ -1,0 +1,20 @@
+# Example Nginx configuration for fronting the tunnel-server HTTP entrypoint.
+# This is a skeleton only; later agents will fill in concrete upstreams and
+# TLS configuration.
+
+events {}
+
+http {
+    upstream tunnel_server {
+        server 127.0.0.1:8080;
+    }
+
+    server {
+        listen 80;
+        server_name _;
+
+        location / {
+            proxy_pass http://tunnel_server;
+        }
+    }
+}

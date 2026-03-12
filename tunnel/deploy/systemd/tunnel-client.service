@@ -1,0 +1,14 @@
+[Unit]
+Description=Tunnel Client
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/tunnel-client
+Restart=on-failure
+RestartSec=3
+Environment=CGO_ENABLED=0
+
+[Install]
+WantedBy=multi-user.target

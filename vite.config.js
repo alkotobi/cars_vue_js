@@ -4,6 +4,9 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
 
+// Build ID so every build produces different filenames (avoids stale cache after deploy)
+const buildId = Date.now().toString(36)
+
 // Plugin to remove vendor chunk preload links
 const removeVendorPreload = () => {
   return {
@@ -54,8 +57,8 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        entryFileNames: `[name].[hash].js`,
-        chunkFileNames: `[name].[hash].js`,
+        entryFileNames: `[name].[hash].${buildId}.js`,
+        chunkFileNames: `[name].[hash].${buildId}.js`,
         assetFileNames: (assetInfo) => {
           // Preserve exact filenames for logo.png, letter_head.png, and gml2.png
           const preservedAssets = ['logo.png', 'letter_head.png', 'gml2.png']
@@ -77,8 +80,8 @@ export default defineConfig({
             return fileName
           }
 
-          // For all other assets, use the default hashed naming
-          return `[name].[hash].[ext]`
+          // For all other assets: hash + buildId so names change every build
+          return `[name].[hash].${buildId}.[ext]`
         },
         manualChunks: {
           vendor: ['vue', 'vue-router', 'pinia'],
