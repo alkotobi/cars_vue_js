@@ -4,6 +4,7 @@
 package client
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"net"
@@ -21,11 +22,13 @@ import (
 // after the control connection is established. Calls are serialized by the client.
 type sendFrameFunc func(h frame.Header, payload []byte) error
 
-// activeReq holds state for one in-flight request: the pipe write end feeds the
-// request body to http.Client; done is closed when the response has been fully sent.
+// activeReq holds state for one in-flight request.
 type activeReq struct {
-	bodyWriter io.WriteCloser
-	done       chan struct{}
+	// Buffered request body and constructed request. We buffer until ReqEnd so
+	// http.Client.Do always sees a complete body and cannot hang waiting for EOF.
+	req     *http.Request
+	bodyBuf *bytes.Buffer
+	started bool
 }
 
 // Forwarder proxies request frames to the local application and streams
@@ -99,15 +102,10 @@ func (c *Forwarder) HandleRequest(ctx context.Context, id uint64, payload []byte
 	path = strings.TrimPrefix(path, "/")
 	fullURL := c.localURL + "/" + path
 
-	pr, pw := io.Pipe()
-	c.mu.Lock()
-	c.active[id] = &activeReq{bodyWriter: pw, done: make(chan struct{})}
-	c.mu.Unlock()
-
-	req, err := http.NewRequestWithContext(ctx, sp.Method, fullURL, pr)
+	// Buffer request body until ReqEnd so Do(req) always sees a complete body.
+	bodyBuf := &bytes.Buffer{}
+	req, err := http.NewRequestWithContext(ctx, sp.Method, fullURL, bodyBuf)
 	if err != nil {
-		c.removeActive(id)
-		pw.Close()
 		c.sendError(id, send, 502, err.Error())
 		return
 	}
@@ -115,19 +113,27 @@ func (c *Forwarder) HandleRequest(ctx context.Context, id uint64, payload []byte
 		req.Header.Set(hf.Key, hf.Value)
 	}
 
-	// GET/HEAD have no body: close pipe so Do(req) can proceed without waiting for ReqEnd.
-	// Avoids gateway timeout when ReqEnd is delayed or demux ordering differs.
-	if sp.Method == "GET" || sp.Method == "HEAD" {
-		pw.Close()
+	c.mu.Lock()
+	c.active[id] = &activeReq{
+		req:     req,
+		bodyBuf: bodyBuf,
 	}
+	c.mu.Unlock()
 
-	go c.doAndStream(ctx, id, req, send, pw)
+	// For GET/HEAD, there is no request body; start the local request immediately.
+	if sp.Method == http.MethodGet || sp.Method == http.MethodHead {
+		c.mu.Lock()
+		ar := c.active[id]
+		if ar != nil && !ar.started {
+			ar.started = true
+		}
+		c.mu.Unlock()
+		go c.doAndStream(ctx, id, req, send)
+	}
 }
 
 // doAndStream runs http.Client.Do and streams the response as frames.
-func (c *Forwarder) doAndStream(ctx context.Context, id uint64, req *http.Request, send sendFrameFunc, pw *io.PipeWriter) {
-	defer c.removeActive(id)
-	defer pw.Close()
+func (c *Forwarder) doAndStream(ctx context.Context, id uint64, req *http.Request, send sendFrameFunc) {
 	resp, err := c.client.Do(req)
 	if err != nil {
 		c.sendError(id, send, 502, err.Error())
@@ -169,9 +175,7 @@ func (c *Forwarder) doAndStream(ctx context.Context, id uint64, req *http.Reques
 	_ = send(frame.Header{Type: frame.FrameHTTPRespEnd, RequestID: id, PayloadLen: 0}, nil)
 
 	c.mu.Lock()
-	if ar, ok := c.active[id]; ok {
-		close(ar.done)
-	}
+	delete(c.active, id)
 	c.mu.Unlock()
 }
 
@@ -194,8 +198,8 @@ func (c *Forwarder) DeliverBody(id uint64, payload []byte) {
 	c.mu.Lock()
 	ar := c.active[id]
 	c.mu.Unlock()
-	if ar != nil && ar.bodyWriter != nil {
-		_, _ = ar.bodyWriter.Write(payload)
+	if ar != nil && ar.bodyBuf != nil {
+		_, _ = ar.bodyBuf.Write(payload)
 	}
 }
 
@@ -204,10 +208,24 @@ func (c *Forwarder) DeliverBody(id uint64, payload []byte) {
 func (c *Forwarder) DeliverBodyEnd(id uint64) {
 	c.mu.Lock()
 	ar := c.active[id]
-	c.mu.Unlock()
-	if ar != nil && ar.bodyWriter != nil {
-		_ = ar.bodyWriter.Close()
+	if ar == nil || ar.started {
+		c.mu.Unlock()
+		return
 	}
+	ar.started = true
+	req := ar.req
+	body := ar.bodyBuf
+	c.mu.Unlock()
+
+	if body != nil {
+		req.Body = io.NopCloser(bytes.NewReader(body.Bytes()))
+	}
+
+	send := c.getSend()
+	if send == nil {
+		return
+	}
+	go c.doAndStream(context.Background(), id, req, send)
 }
 
 var bufPool = sync.Pool{

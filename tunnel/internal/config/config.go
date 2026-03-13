@@ -220,8 +220,7 @@ func (c Config) IsBaseDomain(host string) bool {
 
 // SubdomainFrom extracts the tunnel ID from a Host header value.
 // "cars.merhab.com" → "cars", true
-// "www.merhab.com"  → "www", true  (so root/www can serve dist/)
-// "merhab.com"      → "", false  (base domain; proxy may still route via "www" client)
+// "merhab.com"      → "", false  (base domain, not a tunnel)
 // "other.com"       → "", false  (foreign domain)
 func (c Config) SubdomainFrom(host string) (string, bool) {
 	host = strings.ToLower(strings.TrimSpace(host))
@@ -237,10 +236,9 @@ func (c Config) SubdomainFrom(host string) (string, bool) {
 		return "", false
 	}
 	sub := strings.TrimSuffix(host, suffix)
-	if sub == "" {
+	if sub == "" || sub == "www" {
 		return "", false
 	}
-	// "www" is now a valid tunnel ID so merhab.com can be served from one client.
 	// Reject nested subdomains like "cars.other.merhab.com" — only a single
 	// label directly under BaseDomain is considered a tunnel ID.
 	if strings.Contains(sub, ".") {

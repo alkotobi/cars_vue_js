@@ -125,25 +125,16 @@ func (p *Proxy) SetWSUpgrader(ws WSUpgrader) {
 
 // ServeHTTP implements http.Handler. It is the entry point for every browser request.
 func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// Step 1: Resolve tunnel ID from Host header.
-	// Base domain (merhab.com / www.merhab.com) with no subdomain: try "www" client so root can serve dist/.
+	// Step 1: Extract tunnel ID from Host header.
 	tunnelID, ok := p.cfg.SubdomainFrom(r.Host)
 	if !ok {
 		if p.cfg.IsBaseDomain(r.Host) {
-			// If a client is registered as "www", proxy base domain to it (so dist/ can be at merhab.com).
-			if client, found := p.registry.Find("www"); found && client.Connected.Load() {
-				tunnelID = "www"
-				ok = true
-			}
-			if !ok {
-				w.Header().Set("Content-Type", "application/json")
-				_, _ = fmt.Fprintf(w, `{"status":"ok","service":"tunnel","version":"%s"}`, config.Version)
-				return
-			}
-		} else {
-			http.Error(w, "unknown host", http.StatusNotFound)
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = fmt.Fprintf(w, `{"status":"ok","service":"tunnel","version":"%s"}`, config.Version)
 			return
 		}
+		http.Error(w, "unknown host", http.StatusNotFound)
+		return
 	}
 
 	// Step 2: WebSocket upgrade check.

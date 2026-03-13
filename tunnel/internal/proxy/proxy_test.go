@@ -267,36 +267,28 @@ func TestSubdomainRouting(t *testing.T) {
 	<-respCh
 }
 
-// TestBaseDomainRequest: Host merhab.com (bare domain) returns landing JSON when no "www" client is registered.
-// www.merhab.com is a tunnel subdomain; without a client it returns 404.
+// TestBaseDomainRequest: Host merhab.com or www.merhab.com returns landing JSON (not a tunnel lookup).
 func TestBaseDomainRequest(t *testing.T) {
 	p, reg := makeProxyAndRegistry(t)
 	_ = reg
 	srv := httptest.NewServer(p)
 	defer srv.Close()
 
-	req, _ := http.NewRequest(http.MethodGet, srv.URL+"/", nil)
-	req.Host = config.BaseDomain
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatalf("GET with Host %q: %v", config.BaseDomain, err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		t.Errorf("Host %q: status = %d, want 200", config.BaseDomain, resp.StatusCode)
-	}
-	b, _ := io.ReadAll(resp.Body)
-	resp.Body.Close()
-	if !strings.Contains(string(b), `"status":"ok"`) {
-		t.Errorf("Host %q: body = %q, want JSON with status ok", config.BaseDomain, b)
-	}
-
-	// www.merhab.com is a tunnel; no client registered → 404
-	req2, _ := http.NewRequest(http.MethodGet, srv.URL+"/", nil)
-	req2.Host = "www." + config.BaseDomain
-	resp2, _ := http.DefaultClient.Do(req2)
-	resp2.Body.Close()
-	if resp2.StatusCode != http.StatusNotFound {
-		t.Errorf("Host www.%s without client: status = %d, want 404", config.BaseDomain, resp2.StatusCode)
+	for _, host := range []string{config.BaseDomain, "www." + config.BaseDomain} {
+		req, _ := http.NewRequest(http.MethodGet, srv.URL+"/", nil)
+		req.Host = host
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatalf("GET with Host %q: %v", host, err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("Host %q: status = %d, want 200", host, resp.StatusCode)
+		}
+		b, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if !strings.Contains(string(b), `"status":"ok"`) {
+			t.Errorf("Host %q: body = %q, want JSON with status ok", host, b)
+		}
 	}
 }
 

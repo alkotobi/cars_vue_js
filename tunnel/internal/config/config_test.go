@@ -153,7 +153,7 @@ func TestSubdomainFrom(t *testing.T) {
 		{"cars.merhab.com", "cars", true},
 		{"cars.merhab.com:443", "cars", true},
 		{"merhab.com", "", false},
-		{"www.merhab.com", "www", true}, // www can be a tunnel so root domain can serve dist/
+		{"www.merhab.com", "", false},
 		{"CARS.MERHAB.COM", "cars", true},
 		{"evil.otherdomain.com", "", false},
 		{"cars.other.merhab.com", "", false},

@@ -1,5 +1,5 @@
-# Apache2 configuration for tunnel server (replaces nginx.conf.example).
-# See deploy/DEPLOYMENT.md — same architecture: TLS on 443, proxy to 127.0.0.1:83.
+# Apache2 configuration for merhab.com + tunnel.
+# See deploy/DEPLOYMENT.md — same architecture: TLS on 443, tunnel HTTP on 127.0.0.1:83.
 #
 # Enable required modules:
 #   sudo a2enmod ssl rewrite proxy proxy_http proxy_wstunnel headers
@@ -29,7 +29,7 @@
 </VirtualHost>
 
 # ---------------------------------------------------------------------------
-# HTTPS (443): base domain (merhab.com, www.merhab.com) → tunnel server :83
+# HTTPS (443): base domains merhab.com / www.merhab.com — normal site, no tunnel
 # ---------------------------------------------------------------------------
 <VirtualHost *:443>
     ServerName merhab.com
@@ -43,12 +43,12 @@
 
     Header always set Strict-Transport-Security "max-age=63072000"
 
-    ProxyPreserveHost On
-    ProxyPass / http://127.0.0.1:83/
-    ProxyPassReverse / http://127.0.0.1:83/
-
-    RequestHeader set X-Forwarded-Proto "https"
-    RequestHeader set X-Forwarded-For "%{REMOTE_ADDR}s"
+    # Serve your normal site here (no tunnel). Adjust DocumentRoot as needed.
+    DocumentRoot /var/www/html
+    <Directory /var/www/html>
+        Require all granted
+        AllowOverride All
+    </Directory>
 </VirtualHost>
 
 # ---------------------------------------------------------------------------
@@ -70,7 +70,6 @@
 
     ProxyPreserveHost On
     RequestHeader set X-Forwarded-Proto "https"
-    RequestHeader set X-Forwarded-For "%{REMOTE_ADDR}s"
 
     # WebSocket: upgrade requests to ws:// backend
     RewriteEngine On
