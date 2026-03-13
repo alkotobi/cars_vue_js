@@ -85,24 +85,14 @@ func TestValidate_Server_InvalidLogLevel(t *testing.T) {
 
 func TestValidate_Client_Valid(t *testing.T) {
 	c := config.ClientDefaults()
-	c.ServerAddr = "163.245.222.142:3000"
 	c.LocalURL = "http://127.0.0.1:5173"
 	if err := c.Validate(false); err != nil {
 		t.Errorf("Validate(client): %v", err)
 	}
 }
 
-func TestValidate_Client_MissingServerAddr(t *testing.T) {
-	c := config.ClientDefaults()
-	c.LocalURL = "http://127.0.0.1:5173"
-	if err := c.Validate(false); err == nil {
-		t.Error("Validate(client) without ServerAddr: want error")
-	}
-}
-
 func TestValidate_Client_MissingLocalURL(t *testing.T) {
 	c := config.ClientDefaults()
-	c.ServerAddr = "163.245.222.142:3000"
 	c.LocalURL = ""
 	if err := c.Validate(false); err == nil {
 		t.Error("Validate(client) without LocalURL: want error")
@@ -111,7 +101,6 @@ func TestValidate_Client_MissingLocalURL(t *testing.T) {
 
 func TestValidate_Client_InvalidLocalURL(t *testing.T) {
 	c := config.ClientDefaults()
-	c.ServerAddr = "163.245.222.142:3000"
 	c.LocalURL = "://bad"
 	if err := c.Validate(false); err == nil {
 		t.Error("Validate(client) with invalid LocalURL: want error")
@@ -120,7 +109,6 @@ func TestValidate_Client_InvalidLocalURL(t *testing.T) {
 
 func TestValidate_Client_SubdomainTooLong(t *testing.T) {
 	c := config.ClientDefaults()
-	c.ServerAddr = "163.245.222.142:3000"
 	c.LocalURL = "http://127.0.0.1:5173"
 	c.Subdomain = string(make([]byte, config.MaxDomainLen+1))
 	if err := c.Validate(false); err == nil {
@@ -130,7 +118,6 @@ func TestValidate_Client_SubdomainTooLong(t *testing.T) {
 
 func TestValidate_Client_NegativeReconnectMax(t *testing.T) {
 	c := config.ClientDefaults()
-	c.ServerAddr = "163.245.222.142:3000"
 	c.LocalURL = "http://127.0.0.1:5173"
 	c.ReconnectMax = -1
 	if err := c.Validate(false); err == nil {
@@ -140,7 +127,6 @@ func TestValidate_Client_NegativeReconnectMax(t *testing.T) {
 
 func TestValidate_Client_InvalidLogLevel(t *testing.T) {
 	c := config.ClientDefaults()
-	c.ServerAddr = "163.245.222.142:3000"
 	c.LocalURL = "http://127.0.0.1:5173"
 	c.LogLevel = "trace"
 	if err := c.Validate(false); err == nil {
@@ -153,5 +139,62 @@ func TestValidate_LogLevel_EmptyAllowed(t *testing.T) {
 	c.LogLevel = ""
 	if err := c.Validate(true); err != nil {
 		t.Errorf("Validate(server) with empty LogLevel: %v", err)
+	}
+}
+
+func TestSubdomainFrom(t *testing.T) {
+	cfg := config.ServerDefaults()
+
+	tests := []struct {
+		host string
+		want string
+		ok   bool
+	}{
+		{"cars.merhab.com", "cars", true},
+		{"cars.merhab.com:443", "cars", true},
+		{"merhab.com", "", false},
+		{"www.merhab.com", "www", true}, // www can be a tunnel so root domain can serve dist/
+		{"CARS.MERHAB.COM", "cars", true},
+		{"evil.otherdomain.com", "", false},
+		{"cars.other.merhab.com", "", false},
+		{"", "", false},
+	}
+
+	for _, tt := range tests {
+		got, ok := cfg.SubdomainFrom(tt.host)
+		if got != tt.want || ok != tt.ok {
+			t.Errorf("SubdomainFrom(%q) = (%q,%v), want (%q,%v)", tt.host, got, ok, tt.want, tt.ok)
+		}
+	}
+}
+
+func TestIsBaseDomain(t *testing.T) {
+	cfg := config.ServerDefaults()
+
+	tests := []struct {
+		host string
+		want bool
+	}{
+		{"merhab.com", true},
+		{"www.merhab.com", true},
+		{"cars.merhab.com", false},
+		{"merhab.com:443", true},
+	}
+
+	for _, tt := range tests {
+		if got := cfg.IsBaseDomain(tt.host); got != tt.want {
+			t.Errorf("IsBaseDomain(%q) = %v, want %v", tt.host, got, tt.want)
+		}
+	}
+}
+
+func TestPublicURL(t *testing.T) {
+	cfg := config.ServerDefaults()
+
+	if got := cfg.PublicURL("cars"); got != "https://cars.merhab.com/" {
+		t.Errorf("PublicURL(cars) = %q, want https://cars.merhab.com/", got)
+	}
+	if got := cfg.PublicURL("my-app-123"); got != "https://my-app-123.merhab.com/" {
+		t.Errorf("PublicURL(my-app-123) = %q, want https://my-app-123.merhab.com/", got)
 	}
 }

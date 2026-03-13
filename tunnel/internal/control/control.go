@@ -54,22 +54,22 @@ type msgPing struct {
 
 // Handler holds dependencies for handling one client control connection.
 type Handler struct {
+	cfg           config.Config
 	registry      registry.Registrar
 	proxy         proxy.Dispatcher
 	wsproxy       wsproxy.Dispatcher
 	log           *log.Logger
-	publicBaseURL string
 }
 
-// NewHandler returns a Handler for the given dependencies. publicBaseURL is
-// the base URL for register_ack (e.g. "http://163.245.222.142:83").
-func NewHandler(r registry.Registrar, p proxy.Dispatcher, w wsproxy.Dispatcher, l *log.Logger, publicBaseURL string) *Handler {
+// NewHandler returns a Handler for the given dependencies and config.
+// cfg is used to derive public URLs in register_ack messages.
+func NewHandler(cfg config.Config, r registry.Registrar, p proxy.Dispatcher, w wsproxy.Dispatcher, l *log.Logger) *Handler {
 	return &Handler{
+		cfg:           cfg,
 		registry:      r,
 		proxy:         p,
 		wsproxy:       w,
 		log:           l,
-		publicBaseURL: publicBaseURL,
 	}
 }
 
@@ -226,7 +226,7 @@ func (h *Handler) handleControlMessage(conn net.Conn, line string, client **regi
 			return sendJSON(conn, msgRegisterNack{Type: "register_nack", Reason: reason})
 		}
 		*client = c
-		publicURL := h.publicBaseURL + "/" + c.Domain + "/"
+		publicURL := h.cfg.PublicURL(c.Domain)
 		return sendJSON(conn, msgRegisterAck{Type: "register_ack", Domain: c.Domain, PublicURL: publicURL})
 	case "heartbeat":
 		lastPong.Store(time.Now().UnixNano())

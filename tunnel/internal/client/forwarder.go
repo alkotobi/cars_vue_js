@@ -115,6 +115,12 @@ func (c *Forwarder) HandleRequest(ctx context.Context, id uint64, payload []byte
 		req.Header.Set(hf.Key, hf.Value)
 	}
 
+	// GET/HEAD have no body: close pipe so Do(req) can proceed without waiting for ReqEnd.
+	// Avoids gateway timeout when ReqEnd is delayed or demux ordering differs.
+	if sp.Method == "GET" || sp.Method == "HEAD" {
+		pw.Close()
+	}
+
 	go c.doAndStream(ctx, id, req, send, pw)
 }
 

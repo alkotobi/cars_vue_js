@@ -6,10 +6,12 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/yourname/tunnel/internal/config"
 	"github.com/yourname/tunnel/internal/frame"
 	"github.com/yourname/tunnel/internal/log"
 	"github.com/yourname/tunnel/internal/proxy"
@@ -20,7 +22,8 @@ func makeProxyAndRegistry(t *testing.T) (*proxy.Proxy, registry.Registrar) {
 	t.Helper()
 	reg := registry.New()
 	logger := log.New(io.Discard, 0)
-	p := proxy.New(reg, logger)
+	cfg := config.ServerDefaults()
+	p := proxy.New(cfg, reg, logger)
 	return p, reg
 }
 
@@ -52,7 +55,9 @@ func TestHappyPath(t *testing.T) {
 
 	respCh := make(chan *http.Response, 1)
 	go func() {
-		resp, err := http.Get(srv.URL + "/cars/")
+		req, _ := http.NewRequest(http.MethodGet, srv.URL+"/", nil)
+		req.Host = "cars." + config.BaseDomain
+		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			return
 		}
@@ -90,7 +95,9 @@ func TestMIMEPassthrough(t *testing.T) {
 
 	respCh := make(chan *http.Response, 1)
 	go func() {
-		resp, _ := http.Get(srv.URL + "/app/static/style.css")
+		req, _ := http.NewRequest(http.MethodGet, srv.URL+"/static/style.css", nil)
+		req.Host = "app." + config.BaseDomain
+		resp, _ := http.DefaultClient.Do(req)
 		respCh <- resp
 	}()
 
@@ -120,7 +127,9 @@ func TestTunnelNotFound(t *testing.T) {
 	srv := httptest.NewServer(p)
 	defer srv.Close()
 
-	resp, err := http.Get(srv.URL + "/nonexistent/")
+	req, _ := http.NewRequest(http.MethodGet, srv.URL+"/", nil)
+	req.Host = "nonexistent." + config.BaseDomain
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("get: %v", err)
 	}
@@ -138,7 +147,9 @@ func TestClientOffline(t *testing.T) {
 	srv := httptest.NewServer(p)
 	defer srv.Close()
 
-	resp, err := http.Get(srv.URL + "/offline/")
+	req, _ := http.NewRequest(http.MethodGet, srv.URL+"/", nil)
+	req.Host = "offline." + config.BaseDomain
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("get: %v", err)
 	}
@@ -159,7 +170,8 @@ func TestTimeout(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, srv.URL+"/slow/", nil)
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, srv.URL+"/", nil)
+	req.Host = "slow." + config.BaseDomain
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		// Context cancelled or connection closed is expected.
@@ -175,7 +187,8 @@ func TestTimeout(t *testing.T) {
 func TestSemaphoreFull(t *testing.T) {
 	reg := registry.New()
 	logger := log.New(io.Discard, 0)
-	p := proxy.NewWithSemSize(reg, logger, 1)
+	cfg := config.ServerDefaults()
+	p := proxy.NewWithSemSize(cfg, reg, logger, 1)
 	reqIDCh := make(chan uint64, 2)
 	registerClient(t, reg, "busy", reqIDCh, p)
 	srv := httptest.NewServer(p)
@@ -183,12 +196,16 @@ func TestSemaphoreFull(t *testing.T) {
 
 	respCh1 := make(chan *http.Response, 1)
 	go func() {
-		resp, _ := http.Get(srv.URL + "/busy/")
+		req, _ := http.NewRequest(http.MethodGet, srv.URL+"/", nil)
+		req.Host = "busy." + config.BaseDomain
+		resp, _ := http.DefaultClient.Do(req)
 		respCh1 <- resp
 	}()
 	firstID := <-reqIDCh // first request acquired sem and is waiting for response
 
-	resp2, err := http.Get(srv.URL + "/busy/")
+	req2, _ := http.NewRequest(http.MethodGet, srv.URL+"/", nil)
+	req2.Host = "busy." + config.BaseDomain
+	resp2, err := http.DefaultClient.Do(req2)
 	if err != nil {
 		t.Fatalf("second get: %v", err)
 	}
@@ -205,18 +222,18 @@ func TestSemaphoreFull(t *testing.T) {
 	<-respCh1
 }
 
-// pathAndID is used by TestPathStripping to pass data from Send callback to test without data race.
+// pathAndID is used by TestSubdomainRouting to pass data from Send callback to test without data race.
 type pathAndID struct {
 	path string
 	id   uint64
 }
 
-// TestPathStripping: /cars/src/main.js → backend receives /src/main.js.
-func TestPathStripping(t *testing.T) {
+// TestSubdomainRouting: Host cars.merhab.com with path /assets/main.js → backend receives /assets/main.js.
+func TestSubdomainRouting(t *testing.T) {
 	pathCh := make(chan pathAndID, 1)
 	p, reg := makeProxyAndRegistry(t)
 	c := &registry.Client{
-		Domain: "strip",
+		Domain: "cars",
 		Send: func(h frame.Header, payload []byte) error {
 			if h.Type == frame.FrameHTTPReqStart {
 				sp, _ := frame.UnmarshalStart(payload)
@@ -234,18 +251,112 @@ func TestPathStripping(t *testing.T) {
 
 	respCh := make(chan *http.Response, 1)
 	go func() {
-		resp, _ := http.Get(srv.URL + "/strip/src/main.js")
+		req, _ := http.NewRequest(http.MethodGet, srv.URL+"/assets/main.js", nil)
+		req.Host = "cars." + config.BaseDomain
+		resp, _ := http.DefaultClient.Do(req)
 		respCh <- resp
 	}()
 
 	pathInfo := <-pathCh
-	if pathInfo.path != "/src/main.js" {
-		t.Errorf("backend path: got %q, want /src/main.js", pathInfo.path)
+	if pathInfo.path != "/assets/main.js" {
+		t.Errorf("backend path: got %q, want /assets/main.js", pathInfo.path)
 	}
 	startPayload, _ := frame.MarshalStart(frame.StartPayload{Status: 200})
 	_ = p.DeliverFrame(context.Background(), frame.Header{Type: frame.FrameHTTPRespStart, RequestID: pathInfo.id, PayloadLen: uint32(len(startPayload))}, startPayload)
 	_ = p.DeliverFrame(context.Background(), frame.Header{Type: frame.FrameHTTPRespEnd, RequestID: pathInfo.id, PayloadLen: 0}, nil)
 	<-respCh
+}
+
+// TestBaseDomainRequest: Host merhab.com (bare domain) returns landing JSON when no "www" client is registered.
+// www.merhab.com is a tunnel subdomain; without a client it returns 404.
+func TestBaseDomainRequest(t *testing.T) {
+	p, reg := makeProxyAndRegistry(t)
+	_ = reg
+	srv := httptest.NewServer(p)
+	defer srv.Close()
+
+	req, _ := http.NewRequest(http.MethodGet, srv.URL+"/", nil)
+	req.Host = config.BaseDomain
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("GET with Host %q: %v", config.BaseDomain, err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Host %q: status = %d, want 200", config.BaseDomain, resp.StatusCode)
+	}
+	b, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if !strings.Contains(string(b), `"status":"ok"`) {
+		t.Errorf("Host %q: body = %q, want JSON with status ok", config.BaseDomain, b)
+	}
+
+	// www.merhab.com is a tunnel; no client registered → 404
+	req2, _ := http.NewRequest(http.MethodGet, srv.URL+"/", nil)
+	req2.Host = "www." + config.BaseDomain
+	resp2, _ := http.DefaultClient.Do(req2)
+	resp2.Body.Close()
+	if resp2.StatusCode != http.StatusNotFound {
+		t.Errorf("Host www.%s without client: status = %d, want 404", config.BaseDomain, resp2.StatusCode)
+	}
+}
+
+// TestForeignDomainRequest: Host not ending in BaseDomain returns 404.
+func TestForeignDomainRequest(t *testing.T) {
+	p, reg := makeProxyAndRegistry(t)
+	_ = reg
+	srv := httptest.NewServer(p)
+	defer srv.Close()
+
+	req, _ := http.NewRequest(http.MethodGet, srv.URL+"/", nil)
+	req.Host = "evil.com"
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("GET foreign host: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("status: got %d, want 404", resp.StatusCode)
+	}
+}
+
+// recordingRegistrar wraps a Registrar and records the last domain passed to Find.
+type recordingRegistrar struct {
+	registry.Registrar
+	lastDomain string
+}
+
+func (r *recordingRegistrar) Find(domain string) (*registry.Client, bool) {
+	r.lastDomain = domain
+	return nil, false
+}
+
+// TestSubdomainWithPort: Host cars.merhab.com:443 should still extract subdomain "cars".
+func TestSubdomainWithPort(t *testing.T) {
+	baseReg := registry.New()
+	logger := log.New(io.Discard, 0)
+	cfg := config.ServerDefaults()
+	rec := &recordingRegistrar{Registrar: baseReg}
+	p := proxy.New(cfg, rec, logger)
+
+	c := &registry.Client{Domain: "cars"}
+	if err := baseReg.Register(c); err != nil {
+		t.Fatalf("Register: %v", err)
+	}
+
+	srv := httptest.NewServer(p)
+	defer srv.Close()
+
+	req, _ := http.NewRequest(http.MethodGet, srv.URL+"/", nil)
+	req.Host = "cars." + config.BaseDomain + ":443"
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("GET: %v", err)
+	}
+	resp.Body.Close()
+
+	if rec.lastDomain != "cars" {
+		t.Errorf("expected Find called with domain %q, got %q", "cars", rec.lastDomain)
+	}
 }
 
 // TestRequestBodyStreaming: POST with 2 MiB body → forwarded in chunks.
@@ -258,7 +369,10 @@ func TestRequestBodyStreaming(t *testing.T) {
 		Domain: "big",
 		Send: func(h frame.Header, payload []byte) error {
 			if h.Type == frame.FrameHTTPReqStart {
-				select { case reqIDCh <- h.RequestID: default: }
+				select {
+				case reqIDCh <- h.RequestID:
+				default:
+				}
 			}
 			if h.Type == frame.FrameHTTPReqBody {
 				bodyChunks++
@@ -275,7 +389,10 @@ func TestRequestBodyStreaming(t *testing.T) {
 	body := bytes.Repeat([]byte("x"), size)
 	respCh := make(chan *http.Response, 1)
 	go func() {
-		resp, _ := http.Post(srv.URL+"/big/", "application/octet-stream", bytes.NewReader(body))
+		req, _ := http.NewRequest(http.MethodPost, srv.URL+"/", bytes.NewReader(body))
+		req.Host = "big." + config.BaseDomain
+		req.Header.Set("Content-Type", "application/octet-stream")
+		resp, _ := http.DefaultClient.Do(req)
 		respCh <- resp
 	}()
 
@@ -304,7 +421,9 @@ func TestResponseBodyStreaming(t *testing.T) {
 
 	respCh := make(chan *http.Response, 1)
 	go func() {
-		resp, _ := http.Get(srv.URL + "/stream/")
+		req, _ := http.NewRequest(http.MethodGet, srv.URL+"/", nil)
+		req.Host = "stream." + config.BaseDomain
+		resp, _ := http.DefaultClient.Do(req)
 		respCh <- resp
 	}()
 
@@ -356,7 +475,9 @@ func TestConcurrent(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			resp, err := http.Get(srv.URL + "/conc/")
+			req, _ := http.NewRequest(http.MethodGet, srv.URL+"/", nil)
+			req.Host = "conc." + config.BaseDomain
+			resp, err := http.DefaultClient.Do(req)
 			if err != nil {
 				return
 			}

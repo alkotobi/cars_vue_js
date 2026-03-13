@@ -137,7 +137,12 @@ func (c *TunnelClient) Run(ctx context.Context) error {
 // heartbeat, and runs the demux loop. Returns when conn closes or ctx is cancelled.
 func (c *TunnelClient) connect(ctx context.Context) error {
 	dialer := net.Dialer{Timeout: config.DialTimeout}
-	conn, err := dialer.DialContext(ctx, "tcp", c.cfg.ServerAddr)
+	host := c.cfg.ControlHost
+	if host == "" {
+		host = c.cfg.ServerAddr
+	}
+	addr := fmt.Sprintf("%s:%d", host, c.cfg.ControlPort)
+	conn, err := dialer.DialContext(ctx, "tcp", addr)
 	if err != nil {
 		return err
 	}
@@ -168,7 +173,7 @@ func (c *TunnelClient) connect(ctx context.Context) error {
 		conn.Close()
 		return err
 	}
-	c.log.Info("tunnel active", "url", ack.PublicURL)
+	c.log.Info("✓ Tunnel active", "url", ack.PublicURL)
 
 	heartbeatDone := make(chan struct{})
 	go func() {

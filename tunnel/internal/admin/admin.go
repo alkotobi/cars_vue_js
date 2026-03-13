@@ -154,12 +154,6 @@ func (s *Server) handleStats(w http.ResponseWriter, _ *http.Request) {
 	var mem runtime.MemStats
 	runtime.ReadMemStats(&mem)
 
-	host := s.cfg.PublicHost
-	if host == "" {
-		host = "localhost"
-	}
-	baseURL := "http://" + host + ":" + strconv.Itoa(s.cfg.HTTPPort) + "/"
-
 	clients := s.registry.List()
 	clientStats := make([]statsClient, 0, len(clients))
 	for _, c := range clients {
@@ -170,7 +164,7 @@ func (s *Server) handleStats(w http.ResponseWriter, _ *http.Request) {
 		clientStats = append(clientStats, statsClient{
 			ID:           c.ID,
 			Domain:       c.Domain,
-			PublicURL:    baseURL + c.Domain + "/",
+			PublicURL:    s.cfg.PublicURL(c.Domain),
 			ConnectedSec: connectedSec,
 			Requests:     c.Requests.Load(),
 			BytesIn:      c.BytesIn.Load(),
@@ -198,11 +192,6 @@ func (s *Server) handleStats(w http.ResponseWriter, _ *http.Request) {
 
 func (s *Server) handleClientsList(w http.ResponseWriter, _ *http.Request) {
 	clients := s.registry.List()
-	host := s.cfg.PublicHost
-	if host == "" {
-		host = "localhost"
-	}
-	baseURL := "http://" + host + ":" + strconv.Itoa(s.cfg.HTTPPort) + "/"
 	out := make([]statsClient, 0, len(clients))
 	for _, c := range clients {
 		connectedSec := int64(0)
@@ -212,7 +201,7 @@ func (s *Server) handleClientsList(w http.ResponseWriter, _ *http.Request) {
 		out = append(out, statsClient{
 			ID:           c.ID,
 			Domain:       c.Domain,
-			PublicURL:    baseURL + c.Domain + "/",
+			PublicURL:    s.cfg.PublicURL(c.Domain),
 			ConnectedSec: connectedSec,
 			Requests:     c.Requests.Load(),
 			BytesIn:      c.BytesIn.Load(),

@@ -28,7 +28,10 @@ var (
 func TestRegisterHappyPath(t *testing.T) {
 	reg := registry.New()
 	logger := log.New(&bytes.Buffer{}, 0)
-	handler := control.NewHandler(reg, &mockProxy{}, &mockWS{}, logger, "http://localhost:83")
+	cfg := config.ServerDefaults()
+	cfg.BaseDomain = "merhab.com"
+	cfg.PublicScheme = "https"
+	handler := control.NewHandler(cfg, reg, &mockProxy{}, &mockWS{}, logger)
 	serverConn, clientConn := net.Pipe()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -52,6 +55,10 @@ func TestRegisterHappyPath(t *testing.T) {
 	if ack.Type != "register_ack" || ack.Domain == "" || ack.URL == "" {
 		t.Fatalf("unexpected ack: %+v", ack)
 	}
+	wantURL := cfg.PublicURL(ack.Domain)
+	if ack.URL != wantURL {
+		t.Fatalf("publicUrl: got %q, want %q", ack.URL, wantURL)
+	}
 	cancel()
 	_ = clientConn.Close()
 }
@@ -59,7 +66,8 @@ func TestRegisterHappyPath(t *testing.T) {
 func TestRegisterDuplicateReturnsNack(t *testing.T) {
 	reg := registry.New()
 	logger := log.New(&bytes.Buffer{}, 0)
-	handler := control.NewHandler(reg, &mockProxy{}, &mockWS{}, logger, "http://localhost:83")
+	cfg := config.ServerDefaults()
+	handler := control.NewHandler(cfg, reg, &mockProxy{}, &mockWS{}, logger)
 	serverConn, clientConn := net.Pipe()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -101,7 +109,8 @@ func TestRegisterDuplicateReturnsNack(t *testing.T) {
 func TestHeartbeat(t *testing.T) {
 	reg := registry.New()
 	logger := log.New(&bytes.Buffer{}, 0)
-	handler := control.NewHandler(reg, &mockProxy{}, &mockWS{}, logger, "http://localhost:83")
+	cfg := config.ServerDefaults()
+	handler := control.NewHandler(cfg, reg, &mockProxy{}, &mockWS{}, logger)
 	serverConn, clientConn := net.Pipe()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -128,7 +137,8 @@ func TestHeartbeat(t *testing.T) {
 func TestDeregisterRemovesClient(t *testing.T) {
 	reg := registry.New()
 	logger := log.New(&bytes.Buffer{}, 0)
-	handler := control.NewHandler(reg, &mockProxy{}, &mockWS{}, logger, "http://localhost:83")
+	cfg := config.ServerDefaults()
+	handler := control.NewHandler(cfg, reg, &mockProxy{}, &mockWS{}, logger)
 	serverConn, clientConn := net.Pipe()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -183,7 +193,8 @@ func TestFrameDemuxCallsDeliverFrame(t *testing.T) {
 	reg := registry.New()
 	pr := &mockProxy{}
 	logger := log.New(&bytes.Buffer{}, 0)
-	handler := control.NewHandler(reg, pr, &mockWS{}, logger, "http://localhost:83")
+	cfg := config.ServerDefaults()
+	handler := control.NewHandler(cfg, reg, pr, &mockWS{}, logger)
 	serverConn, clientConn := net.Pipe()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -221,7 +232,8 @@ func TestFrameDemuxCallsDeliverFrame(t *testing.T) {
 func TestDoSLineTooLongClosesConn(t *testing.T) {
 	reg := registry.New()
 	logger := log.New(&bytes.Buffer{}, 0)
-	handler := control.NewHandler(reg, &mockProxy{}, &mockWS{}, logger, "http://localhost:83")
+	cfg := config.ServerDefaults()
+	handler := control.NewHandler(cfg, reg, &mockProxy{}, &mockWS{}, logger)
 	serverConn, clientConn := net.Pipe()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -244,7 +256,8 @@ func TestDoSLineTooLongClosesConn(t *testing.T) {
 func TestUnknownFrameTypeKeepsConnOpen(t *testing.T) {
 	reg := registry.New()
 	logger := log.New(&bytes.Buffer{}, 0)
-	handler := control.NewHandler(reg, &mockProxy{}, &mockWS{}, logger, "http://localhost:83")
+	cfg := config.ServerDefaults()
+	handler := control.NewHandler(cfg, reg, &mockProxy{}, &mockWS{}, logger)
 	serverConn, clientConn := net.Pipe()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -274,7 +287,8 @@ func TestUnknownFrameTypeKeepsConnOpen(t *testing.T) {
 func TestContextCancellationServeConnReturns(t *testing.T) {
 	reg := registry.New()
 	logger := log.New(&bytes.Buffer{}, 0)
-	handler := control.NewHandler(reg, &mockProxy{}, &mockWS{}, logger, "http://localhost:83")
+	cfg := config.ServerDefaults()
+	handler := control.NewHandler(cfg, reg, &mockProxy{}, &mockWS{}, logger)
 	serverConn, clientConn := net.Pipe()
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})

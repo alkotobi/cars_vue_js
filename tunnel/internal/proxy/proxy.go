@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -87,6 +88,7 @@ func (m *pendingMap) delete(id uint64) {
 // Proxy forwards HTTP requests through the tunnel and streams responses.
 // pending is sharded by requestID; sem is the global semaphore.
 type Proxy struct {
+	cfg        config.Config
 	registry   registry.Registrar
 	log        *log.Logger
 	ws         WSUpgrader
@@ -96,9 +98,10 @@ type Proxy struct {
 	nextID     atomic.Uint64
 }
 
-// New returns a Proxy with the given registry and logger.
-func New(r registry.Registrar, l *log.Logger) *Proxy {
+// New returns a Proxy with the given config, registry, and logger.
+func New(cfg config.Config, r registry.Registrar, l *log.Logger) *Proxy {
 	return &Proxy{
+		cfg:      cfg,
 		registry: r,
 		log:      l,
 		sem:      make(chan struct{}, config.MaxPendingGlobal),
@@ -106,8 +109,9 @@ func New(r registry.Registrar, l *log.Logger) *Proxy {
 }
 
 // NewWithSemSize returns a Proxy with a custom global semaphore size (for tests).
-func NewWithSemSize(r registry.Registrar, l *log.Logger, semSize int) *Proxy {
+func NewWithSemSize(cfg config.Config, r registry.Registrar, l *log.Logger, semSize int) *Proxy {
 	return &Proxy{
+		cfg:      cfg,
 		registry: r,
 		log:      l,
 		sem:      make(chan struct{}, semSize),
@@ -121,27 +125,29 @@ func (p *Proxy) SetWSUpgrader(ws WSUpgrader) {
 
 // ServeHTTP implements http.Handler. It is the entry point for every browser request.
 func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// Step 1: Parse tunnel ID and backend path.
-	path := r.URL.Path
-	if path == "" {
-		path = "/"
-	}
-	path = strings.TrimPrefix(path, "/")
-	if path == "" {
-		http.Error(w, "bad path", http.StatusBadRequest)
-		return
-	}
-	parts := strings.SplitN(path, "/", 2)
-	tunnelID := parts[0]
-	var backendPath string
-	if len(parts) > 1 && parts[1] != "" {
-		backendPath = "/" + parts[1]
-	} else {
-		backendPath = "/"
+	// Step 1: Resolve tunnel ID from Host header.
+	// Base domain (merhab.com / www.merhab.com) with no subdomain: try "www" client so root can serve dist/.
+	tunnelID, ok := p.cfg.SubdomainFrom(r.Host)
+	if !ok {
+		if p.cfg.IsBaseDomain(r.Host) {
+			// If a client is registered as "www", proxy base domain to it (so dist/ can be at merhab.com).
+			if client, found := p.registry.Find("www"); found && client.Connected.Load() {
+				tunnelID = "www"
+				ok = true
+			}
+			if !ok {
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = fmt.Fprintf(w, `{"status":"ok","service":"tunnel","version":"%s"}`, config.Version)
+				return
+			}
+		} else {
+			http.Error(w, "unknown host", http.StatusNotFound)
+			return
+		}
 	}
 
 	// Step 2: WebSocket upgrade check.
-	if r.Header.Get("Upgrade") == "websocket" {
+	if strings.EqualFold(r.Header.Get("Upgrade"), "websocket") {
 		if p.ws == nil {
 			http.Error(w, "WebSocket not configured", http.StatusNotImplemented)
 			return
@@ -151,7 +157,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "tunnel not found or offline", http.StatusNotFound)
 			return
 		}
-		p.ws.HandleUpgrade(w, r, client, backendPath)
+		p.ws.HandleUpgrade(w, r, client, r.URL.Path)
 		return
 	}
 
@@ -204,16 +210,21 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Step 5: Build request frame and send FrameHTTPReqStart.
 	sp := frame.StartPayload{
 		Method: r.Method,
-		Path:   backendPath,
+		Path:   r.URL.RequestURI(),
 	}
 	for k, vv := range r.Header {
-		sp.Headers = append(sp.Headers, frame.HeaderField{Key: k, Value: strings.Join(vv, ", ")})
+		for _, v := range vv {
+			sp.Headers = append(sp.Headers, frame.HeaderField{Key: k, Value: v})
+		}
 	}
 	if r.RemoteAddr != "" {
 		sp.Headers = append(sp.Headers, frame.HeaderField{Key: "X-Forwarded-For", Value: r.RemoteAddr})
 	}
 	if r.Host != "" {
 		sp.Headers = append(sp.Headers, frame.HeaderField{Key: "X-Forwarded-Host", Value: r.Host})
+	}
+	if p.cfg.PublicScheme != "" {
+		sp.Headers = append(sp.Headers, frame.HeaderField{Key: "X-Forwarded-Proto", Value: p.cfg.PublicScheme})
 	}
 	startPayload, err := frame.MarshalStart(sp)
 	if err != nil {

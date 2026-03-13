@@ -2,31 +2,45 @@ package config
 
 import (
 	"fmt"
+	"net"
 	"net/url"
+	"strings"
 	"time"
 )
 
 // Capacity constants: per-node limits and initial allocations.
 const (
 	MaxRegisteredClients int = 1_000_000 // idle control connections per node
-	MaxActiveProxyReqs   int = 50_000     // concurrent HTTP/WS proxy requests per node
+	MaxActiveProxyReqs   int = 50_000    // concurrent HTTP/WS proxy requests per node
 	InitialRegistryCap   int = 1_024
-	ClientHashBuckets    int = 131_072   // must be power of 2; for future sharded map
+	ClientHashBuckets    int = 131_072 // must be power of 2; for future sharded map
 )
 
 // Timeouts for control, proxy, and connection lifecycle.
 const (
 	HeartbeatTimeout    = 120 * time.Second
-	ProxyRequestTimeout = 60 * time.Second
+	ProxyRequestTimeout = 120 * time.Second
 	ClientIdleTimeout   = 300 * time.Second
 	WSIdleTimeout       = 600 * time.Second
 	DialTimeout         = 10 * time.Second
 	ShutdownGracePeriod = 30 * time.Second
 )
 
+// BaseDomain is the root domain. Tunnel subdomains are <id>.BaseDomain.
+// Never hardcode this string anywhere else — always reference this constant.
+const BaseDomain = "merhab.com"
+
+// PublicScheme is the scheme used in public URLs shown to clients.
+// TLS is terminated by nginx; the server itself speaks plain HTTP.
+const PublicScheme = "https"
+
 // Default ports for HTTP, control, and admin listeners.
 const (
-	DefaultHTTPPort    = 83
+	// DefaultHTTPPort is the internal HTTP port nginx proxies to.
+	// nginx listens on 443, terminates TLS, forwards to this port.
+	DefaultHTTPPort = 83
+	// DefaultControlPort is the port tunnel clients connect to for the control channel.
+	// This port must be open in the firewall and NOT behind nginx.
 	DefaultControlPort = 3000
 	DefaultAdminPort   = 8083
 )
@@ -43,9 +57,9 @@ const (
 
 // Backpressure: copy buffer and flow-control watermarks.
 const (
-	CopyBufferSize  int = 32 * 1024  // 32 KiB io.Copy buffer
-	HighWatermark   int = 256 * 1024  // pause upstream reads above this
-	LowWatermark    int = 64 * 1024   // resume upstream reads below this
+	CopyBufferSize int = 32 * 1024  // 32 KiB io.Copy buffer
+	HighWatermark  int = 256 * 1024 // pause upstream reads above this
+	LowWatermark   int = 64 * 1024  // resume upstream reads below this
 )
 
 // Frame protocol: header size, max payload, and control line length.
@@ -62,14 +76,16 @@ const Version = "2.0.0"
 // Server and client use different subsets; Validate() checks the active role.
 type Config struct {
 	// Server
-	HTTPPort    int
-	ControlPort int
-	AdminPort   int
-	PublicHost  string
-	Workers     int // 0 = GOMAXPROCS
+	HTTPPort     int
+	ControlPort  int
+	AdminPort    int
+	BaseDomain   string
+	PublicScheme string
+	Workers      int // 0 = GOMAXPROCS
 
 	// Client
 	ServerAddr   string
+	ControlHost  string
 	LocalURL     string
 	Subdomain    string
 	ReconnectMax time.Duration // cap for exponential backoff
@@ -82,12 +98,13 @@ type Config struct {
 // ServerDefaults returns a Config with server defaults filled in.
 func ServerDefaults() Config {
 	return Config{
-		HTTPPort:    DefaultHTTPPort,
-		ControlPort: DefaultControlPort,
-		AdminPort:   DefaultAdminPort,
-		PublicHost:  "",
-		Workers:     0,
-		LogLevel:    "info",
+		BaseDomain:   BaseDomain,
+		PublicScheme: PublicScheme,
+		HTTPPort:     DefaultHTTPPort,
+		ControlPort:  DefaultControlPort,
+		AdminPort:    DefaultAdminPort,
+		Workers:      0,
+		LogLevel:     "info",
 		PProfEnabled: false,
 	}
 }
@@ -95,12 +112,13 @@ func ServerDefaults() Config {
 // ClientDefaults returns a Config with client defaults filled in.
 func ClientDefaults() Config {
 	return Config{
-		ServerAddr:    "",
-		LocalURL:      "http://127.0.0.1:5173",
-		Subdomain:     "",
-		ReconnectMax:  5 * time.Minute,
-		LogLevel:      "info",
-		PProfEnabled:  false,
+		ServerAddr:   "",
+		ControlHost:  BaseDomain,
+		LocalURL:     "http://127.0.0.1:5173",
+		Subdomain:    "",
+		ReconnectMax: 5 * time.Minute,
+		LogLevel:     "info",
+		PProfEnabled: false,
 	}
 }
 
@@ -128,13 +146,21 @@ func (c Config) validateServer() error {
 	if c.Workers < 0 {
 		return fmt.Errorf("config: Workers %d must be >= 0", c.Workers)
 	}
+	if strings.TrimSpace(c.BaseDomain) == "" {
+		return fmt.Errorf("config: BaseDomain must not be empty")
+	}
+	if !strings.Contains(c.BaseDomain, ".") {
+		return fmt.Errorf("config: BaseDomain %q must contain at least one dot", c.BaseDomain)
+	}
+	switch c.PublicScheme {
+	case "http", "https":
+	default:
+		return fmt.Errorf("config: PublicScheme %q must be http or https", c.PublicScheme)
+	}
 	return validateLogLevel(c.LogLevel)
 }
 
 func (c Config) validateClient() error {
-	if c.ServerAddr == "" {
-		return fmt.Errorf("config: ServerAddr is required")
-	}
 	if c.LocalURL == "" {
 		return fmt.Errorf("config: LocalURL is required")
 	}
@@ -162,4 +188,63 @@ func validateLogLevel(level string) error {
 	default:
 		return fmt.Errorf("config: LogLevel %q must be one of debug, info, warn, error", level)
 	}
+}
+
+// PublicURL returns the full public URL for a tunnel subdomain.
+// Example: PublicURL("cars") → "https://cars.merhab.com/".
+func (c Config) PublicURL(subdomain string) string {
+	scheme := c.PublicScheme
+	if scheme == "" {
+		scheme = PublicScheme
+	}
+	domain := c.BaseDomain
+	if domain == "" {
+		domain = BaseDomain
+	}
+	return fmt.Sprintf("%s://%s.%s/", scheme, subdomain, domain)
+}
+
+// IsBaseDomain returns true if host is the base domain or www subdomain.
+// These requests are NOT tunnel lookups.
+func (c Config) IsBaseDomain(host string) bool {
+	host = strings.ToLower(strings.TrimSpace(host))
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		host = h
+	}
+	base := c.BaseDomain
+	if base == "" {
+		base = BaseDomain
+	}
+	return host == base || host == "www."+base
+}
+
+// SubdomainFrom extracts the tunnel ID from a Host header value.
+// "cars.merhab.com" → "cars", true
+// "www.merhab.com"  → "www", true  (so root/www can serve dist/)
+// "merhab.com"      → "", false  (base domain; proxy may still route via "www" client)
+// "other.com"       → "", false  (foreign domain)
+func (c Config) SubdomainFrom(host string) (string, bool) {
+	host = strings.ToLower(strings.TrimSpace(host))
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		host = h
+	}
+	base := c.BaseDomain
+	if base == "" {
+		base = BaseDomain
+	}
+	suffix := "." + base
+	if !strings.HasSuffix(host, suffix) {
+		return "", false
+	}
+	sub := strings.TrimSuffix(host, suffix)
+	if sub == "" {
+		return "", false
+	}
+	// "www" is now a valid tunnel ID so merhab.com can be served from one client.
+	// Reject nested subdomains like "cars.other.merhab.com" — only a single
+	// label directly under BaseDomain is considered a tunnel ID.
+	if strings.Contains(sub, ".") {
+		return "", false
+	}
+	return sub, true
 }

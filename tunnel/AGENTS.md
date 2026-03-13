@@ -35,6 +35,8 @@
 | internal/ratelimit/doc.go             | ratelimit | Package docs for rate limiting         | 0       | (none)      |
 | internal/ratelimit/ratelimit.go       | ratelimit | Limiter, shards, Allow, Cleanup, normaliseAddr, FNV-1a | 9 | Limiter, NewLimiter, Allow, Cleanup, SetCleanupStaleForTest |
 | internal/ratelimit/ratelimit_test.go  | ratelimit_test | Unit tests + BenchmarkAllow (under limit, burst, refill, concurrent -race, different IPs, IPv6 /48, cleanup) | 9 | (tests) |
+| internal/client/distserver.go          | client    | DistServer helper serving dist/ via local HTTP for tunnelling | 12 | DistServer, NewDistServer |
+| internal/client/distserver_test.go     | client    | Unit tests for DistServer (files, SPA fallback, invalid dir) | 12 | (tests)     |
 
 ## Concurrency model
 
