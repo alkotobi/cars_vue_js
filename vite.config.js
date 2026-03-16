@@ -30,6 +30,11 @@ const apiUrl = 'http://localhost:8000'
 
 export default defineConfig({
   plugins: [vue(), vueDevTools(), removeVendorPreload()],
+  test: {
+    globals: true,
+    environment: 'node',
+    include: ['src/**/*.spec.js', 'src/**/*.test.js'],
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
