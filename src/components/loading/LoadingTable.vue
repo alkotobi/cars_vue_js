@@ -23,7 +23,7 @@
           <span>{{ t('loading.add_record') }}</span>
         </button>
         <button
-          @click="printLoadingRecord"
+          @click="openPrintOptionsDialog"
           class="print-btn"
           :disabled="!selectedLoadingId || loading || isPrintingRecord"
           :title="t('loading.print_loading_record')"
@@ -888,6 +888,12 @@
     </div>
   </div>
 
+  <PrintOptionsDialog
+    v-model="showPrintOptionsDialog"
+    :initial-options="printOptions"
+    @confirm="onConfirmPrintOptions"
+  />
+
   <!-- Task Form Modal -->
   <TaskForm
     v-if="selectedLoadingForTask"
@@ -905,10 +911,13 @@ import { useI18n } from 'vue-i18n'
 import { useApi } from '@/composables/useApi'
 import { useInvoiceCompanyInfo } from '@/composables/useInvoiceCompanyInfo'
 import { useCrossDev } from '@/composables/useCrossDev'
+import { generateLoadingPrintContent } from '@/lib/loadingPrintContent.js'
+import { getDefaultPrintOptions, loadPrintOptions, savePrintOptions } from '@/lib/loadingPrintOptions.js'
 import ContainersTable from './ContainersTable.vue'
 import LoadingAssignedCars from './LoadingAssignedCars.vue'
 import UnassignedCars from './UnassignedCars.vue'
 import TaskForm from '../car-stock/TaskForm.vue'
+import PrintOptionsDialog from './PrintOptionsDialog.vue'
 
 const { t } = useI18n()
 const { callApi, getFileUrl } = useApi()
@@ -935,6 +944,8 @@ const editingRecord = ref(null)
 const isDeletingRecord = ref(false)
 const isProcessingTask = ref(false)
 const isPrintingRecord = ref(false)
+const showPrintOptionsDialog = ref(false)
+const printOptions = ref(getDefaultPrintOptions())
 
 // Quick add dialog states
 const showShippingLineDialog = ref(false)
@@ -2199,7 +2210,7 @@ const refreshSelectedContainerStatus = async () => {
   }
 }
 
-const printLoadingRecord = async () => {
+const printLoadingRecord = async (options) => {
   if (!selectedLoadingId.value) {
     alert('Please select a loading record first')
     return
@@ -2326,7 +2337,15 @@ const printLoadingRecord = async () => {
 
     // Create the print content (pass translated labels for print)
     const paymentStatusLabel = t('sellBills.payment_status') || 'Payment Status'
-    const printContent = generatePrintContent(loadingRecord, containersData, letterheadHtml, paymentStatusLabel)
+    const effectiveOptions = options || getDefaultPrintOptions()
+    const printContent = generateLoadingPrintContent(
+      loadingRecord,
+      containersData,
+      letterheadHtml,
+      paymentStatusLabel,
+      effectiveOptions,
+      getFileUrl,
+    )
 
     if (hasCrossDev()) {
       const printScript = '<script>window.onload=function(){setTimeout(function(){window.print();},500);}<' + '/script>'
@@ -2354,325 +2373,19 @@ const printLoadingRecord = async () => {
     isPrintingRecord.value = false
   }
 }
+const openPrintOptionsDialog = () => {
+  if (!selectedLoadingId.value) {
+    alert('Please select a loading record first')
+    return
+  }
+  printOptions.value = loadPrintOptions()
+  showPrintOptionsDialog.value = true
+}
 
-const generatePrintContent = (loadingRecord, containersData, letterheadHtml = '', paymentStatusLabel = 'Payment Status') => {
-  const containers = Object.values(containersData)
-  const totalCars = containers.reduce((sum, container) => sum + container.cars.length, 0)
-
-  return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>Loading Record #${loadingRecord.id} - Print</title>
-      <style>
-        body {
-          font-family: Arial, sans-serif;
-          margin: 20px;
-          line-height: 1.4;
-        }
-        .header {
-          text-align: center;
-          margin-bottom: 30px;
-          border-bottom: 2px solid #333;
-          padding-bottom: 20px;
-        }
-        .header h1 {
-          margin: 0;
-          color: #333;
-          font-size: 24px;
-        }
-        .loading-info {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 20px;
-          margin-bottom: 30px;
-          background: #f8f9fa;
-          padding: 20px;
-          border-radius: 8px;
-        }
-        .info-group {
-          margin-bottom: 15px;
-        }
-        .info-label {
-          font-weight: bold;
-          color: #555;
-          margin-bottom: 5px;
-        }
-        .info-value {
-          color: #333;
-        }
-        .container-section {
-          margin-bottom: 40px;
-          page-break-inside: avoid;
-        }
-        .container-header {
-          background: #e3f2fd;
-          padding: 15px;
-          border-radius: 8px;
-          margin-bottom: 15px;
-          border-left: 4px solid #2196f3;
-        }
-        .container-title {
-          font-size: 18px;
-          font-weight: bold;
-          margin: 0 0 10px 0;
-          color: #1976d2;
-        }
-        .cars-table {
-          width: 100%;
-          border-collapse: collapse;
-          margin-top: 10px;
-        }
-        .cars-table th {
-          background: #f5f5f5;
-          padding: 10px;
-          text-align: left;
-          border: 1px solid #ddd;
-          font-weight: bold;
-        }
-        .cars-table td {
-          padding: 8px 10px;
-          border: 1px solid #ddd;
-          vertical-align: top;
-        }
-        .cars-table tr:nth-child(even) {
-          background: #f9f9f9;
-        }
-        .client-id-image {
-          width: 100px;
-          height: 70px;
-          object-fit: cover;
-          border-radius: 6px;
-          border: 2px solid #ddd;
-          cursor: pointer;
-        }
-        .client-info {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-        .client-details {
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-        }
-        .client-name {
-          font-weight: 500;
-        }
-        .client-id-no {
-          font-size: 0.85rem;
-          color: #666;
-        }
-        .client-mobile {
-          font-size: 0.8rem;
-          color: #1e40af;
-          font-weight: 500;
-          margin-top: 2px;
-          display: flex;
-          align-items: center;
-          gap: 4px;
-          background: #eff6ff;
-          padding: 4px 8px;
-          border-radius: 4px;
-          border-left: 3px solid #3b82f6;
-        }
-        .client-mobile i {
-          font-size: 0.7rem;
-          color: #3b82f6;
-        }
-        .client-mobile strong {
-          color: #1e40af;
-          font-weight: 600;
-        }
-        .client-nin {
-          font-size: 0.75rem;
-          color: #1e40af;
-          font-weight: 600;
-          background: #dbeafe;
-          border: 1px solid #93c5fd;
-          border-radius: 4px;
-          padding: 2px 4px;
-          font-family: 'Courier New', monospace;
-          text-align: center;
-          margin-top: 2px;
-          display: inline-block;
-          width: fit-content;
-        }
-        .summary {
-          margin-top: 30px;
-          padding: 20px;
-          background: #e8f5e8;
-          border-radius: 8px;
-          border-left: 4px solid #4caf50;
-        }
-        .summary h3 {
-          margin: 0 0 15px 0;
-          color: #2e7d32;
-        }
-        .summary-stats {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-          gap: 15px;
-        }
-        .stat-item {
-          text-align: center;
-        }
-        .stat-number {
-          font-size: 24px;
-          font-weight: bold;
-          color: #2e7d32;
-        }
-        .stat-label {
-          font-size: 12px;
-          color: #666;
-          text-transform: uppercase;
-        }
-        @media print {
-          body { margin: 0; }
-          .container-section { page-break-inside: avoid; }
-        }
-      </style>
-    </head>
-    <body>
-      ${letterheadHtml}
-      <div class="header">
-        <h1>Loading Record #${loadingRecord.id}</h1>
-        <p>Generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}</p>
-      </div>
-
-      <div class="loading-info">
-        <div class="info-group">
-          <div class="info-label">Operation Date:</div>
-          <div class="info-value">${loadingRecord.date_loading ? new Date(loadingRecord.date_loading).toLocaleDateString() : 'Not set'}</div>
-        </div>
-        <div class="info-group">
-          <div class="info-label">Shipping Line:</div>
-          <div class="info-value">${loadingRecord.shipping_line_name || 'Not set'}</div>
-        </div>
-        <div class="info-group">
-          <div class="info-label">Freight:</div>
-          <div class="info-value">${loadingRecord.freight ? `$${loadingRecord.freight}` : 'Not set'}</div>
-        </div>
-        <div class="info-group">
-          <div class="info-label">Loading Port:</div>
-          <div class="info-value">${loadingRecord.loading_port_name || 'Not set'}</div>
-        </div>
-        <div class="info-group">
-          <div class="info-label">Discharge Port:</div>
-          <div class="info-value">${loadingRecord.discharge_port_name || 'Not set'}</div>
-        </div>
-        <div class="info-group">
-          <div class="info-label">EDD:</div>
-          <div class="info-value">${loadingRecord.EDD ? new Date(loadingRecord.EDD).toLocaleDateString() : 'Not set'}</div>
-        </div>
-        <div class="info-group">
-          <div class="info-label">Loaded Date:</div>
-          <div class="info-value">${loadingRecord.date_loaded ? new Date(loadingRecord.date_loaded).toLocaleDateString() : 'Not set'}</div>
-        </div>
-        <div class="info-group">
-          <div class="info-label">Notes:</div>
-          <div class="info-value">${loadingRecord.note || 'No notes'}</div>
-        </div>
-      </div>
-
-      ${containers
-        .map(
-          (container) => `
-        <div class="container-section">
-          <div class="container-header">
-            <div class="container-title">
-              Container: ${container.name || 'Unnamed'} 
-              ${container.ref_container ? `(${container.ref_container})` : ''}
-              ${container.so ? ` - SO: ${container.so}` : ''}
-              ${container.is_released ? ' - RELEASED' : ''}
-              - Loading #${loadingRecord.id} - Container #${container.id}
-            </div>
-          </div>
-          
-          ${
-            container.cars.length > 0
-              ? `
-            <table class="cars-table">
-              <thead>
-                <tr>
-                  <th>Car ID</th>
-                  <th>Car Name</th>
-                  <th>Color</th>
-                  <th>VIN</th>
-                  <th>${paymentStatusLabel}</th>
-                  <th>Client</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${container.cars
-                  .map(
-                    (car) => `
-                  <tr>
-                    <td>#${car.id}</td>
-                    <td>${car.car_name || 'N/A'}</td>
-                    <td>${car.color || 'N/A'}</td>
-                    <td>${car.vin || 'N/A'}</td>
-                    <td>${car.payment_status || '-'}</td>
-                    <td>
-                      <div class="client-info">
-                        ${
-                          car.id_copy_path
-                            ? `
-                          <img 
-                            src="${getFileUrl(car.id_copy_path)}" 
-                            alt="Client ID" 
-                            class="client-id-image"
-                            onerror="this.style.display='none'"
-                          />
-                        `
-                            : ''
-                        }
-                        <div class="client-details">
-                          <div class="client-name">${car.client_name || 'N/A'}</div>
-                          ${car.client_mobiles && car.client_mobiles !== 'please provide mobile' ? `<div class="client-mobile"><i class="fas fa-phone"></i> <strong>Mobile:</strong> ${car.client_mobiles}</div>` : ''}
-                          <div class="client-id-no">${car.client_id_no || 'No ID'}</div>
-                          ${car.client_nin ? `<div class="client-nin">${car.client_nin}</div>` : ''}
-                        </div>
-                      </div>
-                    </td>
-                  </tr>
-                `,
-                  )
-                  .join('')}
-              </tbody>
-            </table>
-          `
-              : '<p style="text-align: center; color: #666; font-style: italic;">No cars assigned to this container</p>'
-          }
-        </div>
-      `,
-        )
-        .join('')}
-
-      <div class="summary">
-        <h3>Summary</h3>
-        <div class="summary-stats">
-          <div class="stat-item">
-            <div class="stat-number">${containers.length}</div>
-            <div class="stat-label">Containers</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-number">${totalCars}</div>
-            <div class="stat-label">Total Cars</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-number">${containers.filter((c) => c.date_on_board).length}</div>
-            <div class="stat-label">On Board</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-number">${containers.filter((c) => !c.date_on_board).length}</div>
-            <div class="stat-label">Pending</div>
-          </div>
-        </div>
-      </div>
-    </body>
-    </html>
-  `
+const onConfirmPrintOptions = (options) => {
+  savePrintOptions(options)
+  showPrintOptionsDialog.value = false
+  printLoadingRecord(options)
 }
 
 // Add task handling methods

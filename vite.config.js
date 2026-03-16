@@ -87,7 +87,7 @@ export default defineConfig({
       },
     },
     manifest: true,
-    sourcemap: true,
+    sourcemap: false,
     chunkSizeWarningLimit: 1000, // Increase warning limit to 1MB
   },
 })
