@@ -3,17 +3,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
     <meta charset="UTF-8">
-    <!-- Base tag to ensure relative URLs resolve correctly regardless of route -->
+    <!-- Base = directory where index.html lives so all relative URLs (scripts, assets, fetch) resolve from there -->
     <script>
       (function() {
-        // Detect base path from current location
         const pathname = window.location.pathname
-        // Extract base path (e.g., '/mig_2026/' from '/mig_2026/cars/stock')
-        const match = pathname.match(/^(\/[^/]+\/)/)
-        const basePath = match ? match[1] : '/'
-        
-        // Create and insert <base> tag
-        const baseTag = document.createElement('base')
+        var knownRootRoutes = ['/login','/dashboard','/users','/roles','/transfers','/send','/receive','/sell-bills','/buy-payments','/params','/advanced-sql','/transfers-list','/cars','/warehouses','/containers','/print','/clients','/cashier','/rates','/tasks','/statistics','/chat','/invitations','/containers-ref','/db-manager','/alert-cars','/settings']
+        var startsWithKnown = knownRootRoutes.some(function(r){ return pathname === r || pathname.startsWith(r + '/') || pathname.startsWith(r + '?') })
+        var basePath = startsWithKnown ? '/' : (pathname.match(/^(\/[^/]+\/)/) || [null,'/'])[1]
+        var baseTag = document.createElement('base')
         baseTag.href = basePath
         document.head.insertBefore(baseTag, document.head.firstChild)
       })()
@@ -34,8 +31,9 @@
 
         function getBasePath() {
           const pathname = window.location.pathname
-          const match = pathname.match(/^(\/[^/]+\/)/)
-          return match ? match[1] : '/'
+          var knownRootRoutes = ['/login','/dashboard','/users','/roles','/transfers','/send','/receive','/sell-bills','/buy-payments','/params','/advanced-sql','/transfers-list','/cars','/warehouses','/containers','/print','/clients','/cashier','/rates','/tasks','/statistics','/chat','/invitations','/containers-ref','/db-manager','/alert-cars','/settings']
+          var startsWithKnown = knownRootRoutes.some(function(r){ return pathname === r || pathname.startsWith(r + '/') || pathname.startsWith(r + '?') })
+          return startsWithKnown ? '/' : (pathname.match(/^(\/[^/]+\/)/) || [null,'/'])[1]
         }
 
         function getApiBase() {

@@ -49,17 +49,17 @@ const getBasePath = () => {
       '/alert-cars',
     ]
 
-    // Check if pathname starts with a known route at root level (e.g., '/login' or '/db-manager')
-    // But NOT if it's in a subdirectory (e.g., '/mig_26/db-manager' should extract '/mig_26/')
+    // Check if pathname starts with a known route at root level (e.g., '/login', '/cars', '/cars/stock')
+    // Subdirectory deployments (e.g. '/mig_26/login') do not start with a bare route, so they fall through
     const startsWithKnownRouteAtRoot = knownRoutes.some((route) => {
-      // Check if pathname exactly matches the route or starts with route followed by / or end of string
       return (
         pathname === route || pathname.startsWith(route + '/') || pathname.startsWith(route + '?')
       )
     })
 
-    // If it starts with a known route at root level (not in subdirectory), base path is '/'
-    if (startsWithKnownRouteAtRoot && !pathname.match(/^\/[^/]+\//)) {
+    // If at root deployment and path is a known route (any depth, e.g. /cars or /cars/stock), base is '/'
+    // so we never request e.g. /cars/db_code.json (which can 500 on some servers)
+    if (startsWithKnownRouteAtRoot) {
       return '/'
     }
 
