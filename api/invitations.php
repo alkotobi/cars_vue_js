@@ -9,7 +9,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 // Database configuration
-$host = '173.214.163.18';
+// ACTIVE: world-automobile.com server (163.245.214.125)
+// Old production server (173.214.163.18) kept for reference/reuse:
+// $host = '173.214.163.18';
+$host = '127.0.0.1';
 $port = '3306';
 $dbname = 'merhab_invitations';
 $username = 'merhab_root';

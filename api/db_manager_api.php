@@ -107,6 +107,90 @@ try {
         return true;
     }
     
+    /**
+     * Build SQL dump body for one database (no FOREIGN_KEY_CHECKS wrapper).
+     */
+    function buildDatabaseBackupBody(PDO $pdo) {
+        $lines = [];
+        $stmt = $pdo->query('SHOW TABLES');
+        $tables = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        
+        foreach ($tables as $table) {
+            $stmt = $pdo->query("SHOW CREATE TABLE `$table`");
+            $row = $stmt->fetch(PDO::FETCH_NUM);
+            if (!$row || empty($row[1])) {
+                continue;
+            }
+            
+            $lines[] = "DROP TABLE IF EXISTS `$table`;";
+            $lines[] = $row[1] . ';';
+            $lines[] = '';
+            
+            $dataStmt = $pdo->query("SELECT * FROM `$table`");
+            $rows = $dataStmt->fetchAll(PDO::FETCH_ASSOC);
+            if (empty($rows)) {
+                continue;
+            }
+            
+            $columns = array_keys($rows[0]);
+            $colList = '`' . implode('`, `', $columns) . '`';
+            
+            foreach (array_chunk($rows, 100) as $chunk) {
+                $valueSets = [];
+                foreach ($chunk as $dataRow) {
+                    $vals = [];
+                    foreach ($columns as $col) {
+                        $val = $dataRow[$col];
+                        $vals[] = $val === null ? 'NULL' : $pdo->quote($val);
+                    }
+                    $valueSets[] = '(' . implode(', ', $vals) . ')';
+                }
+                $lines[] = "INSERT INTO `$table` ($colList) VALUES\n" . implode(",\n", $valueSets) . ';';
+                $lines[] = '';
+            }
+        }
+        
+        return implode("\n", $lines);
+    }
+    
+    /**
+     * Wrap dump body with header and FOREIGN_KEY_CHECKS off/on.
+     */
+    function wrapDatabaseBackupSql($dbname, $body) {
+        $lines = [
+            '-- Merhab Cars Database Backup',
+            '-- Generated on: ' . date('Y-m-d H:i:s'),
+            '-- Database: ' . $dbname,
+            '',
+            'SET NAMES utf8mb4;',
+            'SET FOREIGN_KEY_CHECKS=0;',
+            '',
+            $body,
+            '',
+            'SET FOREIGN_KEY_CHECKS=1;',
+            '',
+        ];
+        return implode("\n", $lines);
+    }
+    
+    /**
+     * Send SQL/ZIP backup as file download and exit (skip JSON response).
+     */
+    function sendBackupFileDownload($content, $filename, $contentType = 'application/sql') {
+        if (ob_get_level()) {
+            ob_end_clean();
+        }
+        header('Access-Control-Allow-Origin: *');
+        header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+        header('Access-Control-Allow-Headers: Content-Type, Accept, Authorization, X-Requested-With');
+        header('Access-Control-Expose-Headers: Content-Disposition');
+        header('Content-Type: ' . $contentType);
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Cache-Control: no-cache, must-revalidate');
+        echo $content;
+        exit;
+    }
+    
     // Handle different actions
     $action = $inputData['action'] ?? '';
     
@@ -1694,6 +1778,124 @@ try {
             } catch (Exception $e) {
                 $response['message'] = 'Error checking file: ' . $e->getMessage();
             }
+            break;
+            
+        case 'backup_databases':
+            // Export selected tenant databases as SQL (FK checks off at start, on at end)
+            $databaseIds = $inputData['database_ids'] ?? [];
+            
+            if (empty($databaseIds) || !is_array($databaseIds)) {
+                $response['message'] = 'Database IDs are required';
+                break;
+            }
+            
+            require_once __DIR__ . '/config.php';
+            $targetDbHost = $db_config['host'];
+            $targetDbUser = $db_config['user'];
+            $targetDbPass = $db_config['pass'];
+            
+            $placeholders = implode(',', array_fill(0, count($databaseIds), '?'));
+            $getStmt = $conn->prepare("SELECT id, db_name, is_created FROM dbs WHERE id IN ($placeholders)");
+            $getStmt->execute($databaseIds);
+            $selectedDbs = $getStmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            if (empty($selectedDbs)) {
+                $response['message'] = 'No databases found for the selected IDs';
+                break;
+            }
+            
+            $backups = [];
+            $errors = [];
+            
+            foreach ($selectedDbs as $db) {
+                if (empty($db['db_name'])) {
+                    $errors[] = "Database ID {$db['id']}: Database name is not set";
+                    continue;
+                }
+                if (intval($db['is_created']) !== 1) {
+                    $errors[] = "Database {$db['db_name']}: Tables have not been created yet";
+                    continue;
+                }
+                
+                try {
+                    $targetConn = new PDO(
+                        "mysql:host={$targetDbHost};dbname={$db['db_name']}",
+                        $targetDbUser,
+                        $targetDbPass
+                    );
+                    $targetConn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+                    
+                    $body = buildDatabaseBackupBody($targetConn);
+                    $dbSafe = preg_replace('/[^a-zA-Z0-9_-]/', '_', $db['db_name']);
+                    $fileTimestamp = date('Y-m-d_H-i-s');
+                    $backups[] = [
+                        'db_name' => $db['db_name'],
+                        'filename' => "backup_{$dbSafe}_{$fileTimestamp}.sql",
+                        'body' => $body,
+                        'sql' => wrapDatabaseBackupSql($db['db_name'], $body),
+                    ];
+                } catch (PDOException $e) {
+                    $errors[] = "Database {$db['db_name']}: " . $e->getMessage();
+                }
+            }
+            
+            if (empty($backups)) {
+                $response['message'] = 'Backup failed: ' . implode('; ', $errors);
+                break;
+            }
+            
+            $timestamp = date('Y-m-d_H-i-s');
+            
+            if (count($backups) === 1) {
+                sendBackupFileDownload($backups[0]['sql'], $backups[0]['filename']);
+            }
+            
+            if (class_exists('ZipArchive')) {
+                $zip = new ZipArchive();
+                $tmpFile = tempnam(sys_get_temp_dir(), 'dbbackup_');
+                if ($zip->open($tmpFile, ZipArchive::CREATE | ZipArchive::OVERWRITE) === true) {
+                    foreach ($backups as $backup) {
+                        $zip->addFromString($backup['filename'], $backup['sql']);
+                    }
+                    $zip->close();
+                    $zipContent = file_get_contents($tmpFile);
+                    unlink($tmpFile);
+                    if ($zipContent !== false) {
+                        sendBackupFileDownload(
+                            $zipContent,
+                            "databases_backup_{$timestamp}.zip",
+                            'application/zip'
+                        );
+                    }
+                }
+                if (isset($tmpFile) && file_exists($tmpFile)) {
+                    unlink($tmpFile);
+                }
+            }
+            
+            // Fallback: one combined SQL file
+            $combined = [
+                '-- Merhab Cars Database Backup',
+                '-- Generated on: ' . date('Y-m-d H:i:s'),
+                '-- Databases: ' . implode(', ', array_column($backups, 'db_name')),
+                '',
+                'SET NAMES utf8mb4;',
+                'SET FOREIGN_KEY_CHECKS=0;',
+                '',
+            ];
+            foreach ($backups as $backup) {
+                $combined[] = '-- ========== Database: ' . $backup['db_name'] . ' ==========';
+                $combined[] = '';
+                $combined[] = $backup['body'];
+                $combined[] = '';
+            }
+            $combined[] = 'SET FOREIGN_KEY_CHECKS=1;';
+            $combined[] = '';
+            
+            sendBackupFileDownload(
+                implode("\n", $combined),
+                "databases_backup_{$timestamp}.sql"
+            );
             break;
             
         default:

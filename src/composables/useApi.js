@@ -56,9 +56,10 @@ const BASE_PATH = getBasePath()
 // For local/LAN: use same hostname as page (so 192.168.x.x:5173 calls 192.168.x.x:8000)
 // PHP built-in server runs from project root → /api/ maps to api/ folder
 // For production: use production API (web server serves api/ at /api/)
+// Old production API: 'https://www.merhab.com/api' (kept for reference/reuse)
 const API_BASE_URL = isLocalhost
   ? `${protocol}//${hostname}:8000/api`
-  : 'https://www.merhab.com/api'
+  : 'https://world-automobile.com/cars/api'
 
 const API_URL = `${API_BASE_URL}/api.php`
 const UPLOAD_URL = `${API_BASE_URL}/upload.php`

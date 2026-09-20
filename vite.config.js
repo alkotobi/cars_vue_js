@@ -2,7 +2,6 @@ import { fileURLToPath, URL } from 'node:url'
 
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
-import vueDevTools from 'vite-plugin-vue-devtools'
 
 // Plugin to remove vendor chunk preload links
 const removeVendorPreload = () => {
@@ -29,7 +28,7 @@ const isProduction = process.env.NODE_ENV === 'production'
 const apiUrl = 'http://localhost:8000'
 
 export default defineConfig({
-  plugins: [vue(), vueDevTools(), removeVendorPreload()],
+  plugins: [vue(), removeVendorPreload()],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
