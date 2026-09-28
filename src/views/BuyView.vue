@@ -62,7 +62,6 @@ const canUpdateStock = (bill) => {
 }
 
 const handleUpdateStock = async (bill) => {
-  if (isUpdatingStock.value) return // prevent double submission
   if (!confirm(t('confirm_update_stock'))) {
     return
   }
@@ -202,7 +201,6 @@ const handleSelectBill = (bill) => {
 }
 
 const handleDeleteBill = async (bill) => {
-  if (isDeletingBill.value) return // prevent double submission
   if (!confirm(t('confirm_delete_purchase_details'))) {
     return
   }

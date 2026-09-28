@@ -223,7 +223,6 @@ const openEditDialog = (transfer) => {
 }
 
 const updateTransfer = async () => {
-  if (isProcessing.value) return // prevent double submission
   if (isProcessing.value) return
   isProcessing.value = true
 
@@ -282,7 +281,6 @@ const updateTransfer = async () => {
 }
 
 const deleteTransfer = async (transfer) => {
-  if (isProcessing.value) return // prevent double submission
   if (!confirm('Are you sure you want to delete this transfer? This action cannot be undone.')) {
     return
   }
@@ -338,7 +336,6 @@ const fetchBanks = async () => {
 }
 
 const createTransfer = async () => {
-  if (isProcessing.value) return // prevent double submission
   if (isProcessing.value) return
   isProcessing.value = true
 

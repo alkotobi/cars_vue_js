@@ -42,7 +42,6 @@ watch([error, successMessage], () => {
 })
 
 const login = async () => {
-  if (isProcessing.value) return // prevent double submission
   try {
     if (isProcessing.value) return // Prevent double-clicks
 
@@ -121,7 +120,6 @@ const login = async () => {
 
 // Update the changePassword function verification check as well
 const changePassword = async () => {
-  if (isProcessing.value) return // prevent double submission
   try {
     if (isProcessing.value) return // Prevent double-clicks
 

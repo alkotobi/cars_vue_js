@@ -494,7 +494,6 @@ const formatDate = (dateString) => {
 }
 
 const unassignCar = async (car) => {
-  if (isUnassigning.value) return // prevent double submission
   if (isUnassigning.value) return
 
   // Check if container has date_on_board (container is on board)

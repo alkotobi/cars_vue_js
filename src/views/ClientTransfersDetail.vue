@@ -160,7 +160,6 @@ const clearFilters = () => {
 
 // Add new client function
 const addNewClient = async () => {
-  if (isProcessing.value) return // prevent double submission
   if (isProcessing.value) return
   isProcessing.value = true
   try {

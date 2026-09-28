@@ -963,7 +963,6 @@ const closeDialog = () => {
 }
 
 const saveContainer = async () => {
-  if (isSubmitting.value) return // prevent double submission
   if (isSubmitting.value) return
 
   isSubmitting.value = true
@@ -1096,7 +1095,6 @@ const closeAddContainerDialog = () => {
 }
 
 const saveNewContainer = async () => {
-  if (isAddingContainer.value) return // prevent double submission
   if (isAddingContainer.value) return
 
   isAddingContainer.value = true

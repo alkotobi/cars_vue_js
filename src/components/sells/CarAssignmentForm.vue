@@ -824,7 +824,6 @@ const closeAddDischargePortDialog = () => {
 }
 
 const addDischargePort = async () => {
-  if (isSubmitting.value) return // prevent double submission
   if (isSubmitting.value) return
 
   if (!newDischargePort.value.discharge_port || newDischargePort.value.discharge_port.trim() === '') {

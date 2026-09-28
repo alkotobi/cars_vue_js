@@ -125,7 +125,6 @@ const fetchPayments = async () => {
 
 // Add payment with proper number handling and double-click prevention
 const addPayment = async () => {
-  if (loading.value) return // prevent double submission
   if (!validateForm()) return
   if (loading.value) return // Prevent double-click
   

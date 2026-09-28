@@ -1512,7 +1512,6 @@ const editRecord = (record) => {
 }
 
 const deleteRecord = async (record) => {
-  if (isDeletingRecord.value) return // prevent double submission
   if (!confirm(`Are you sure you want to delete loading record #${record.id}?`)) {
     return
   }
@@ -1582,7 +1581,6 @@ const validateDateInput = (event) => {
 }
 
 const saveRecord = async () => {
-  if (isSubmitting.value) return // prevent double submission
   if (isSubmitting.value) return
 
   console.log('=== DEBUG: saveRecord called ===')

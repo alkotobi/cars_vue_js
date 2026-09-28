@@ -41,10 +41,6 @@ const fetchRoles = async () => {
 }
 
 const handleSubmit = async () => {
-  if (loading.value) return // prevent double submission
-  // Guard against double submission: :disabled="loading" only takes effect on the
-  // next render tick, so two fast clicks can both enter this handler before the
-  // button is actually disabled.
   if (loading.value) return
 
   if (!formData.value.username || !formData.value.password || !formData.value.email) {

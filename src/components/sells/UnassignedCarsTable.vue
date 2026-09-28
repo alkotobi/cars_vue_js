@@ -342,7 +342,6 @@ const fetchBrokerInfo = async (billId) => {
 
 // Function to directly assign car for batch sell with pricing
 const assignCarToBatchSell = async (carId) => {
-  if (isProcessing.value) return // prevent double submission
   if (isProcessing.value) return
   isProcessing.value = true
 

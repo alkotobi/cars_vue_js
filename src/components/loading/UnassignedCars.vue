@@ -767,7 +767,6 @@ const refreshData = () => {
 
 // Toggle payment confirmed status
 const togglePaymentConfirmed = async (car) => {
-  if (isProcessingPayment.value) return // prevent double submission
   if (!can_confirm_payment.value) {
     alert(
       t('carStock.no_permission_to_confirm_payment') ||
@@ -939,7 +938,6 @@ const performCarAssignment = async (car) => {
 }
 
 const submitVinAndAssign = async () => {
-  if (isSubmittingVin.value) return // prevent double submission
   if (isSubmittingVin.value) return
 
   // Validate VIN input

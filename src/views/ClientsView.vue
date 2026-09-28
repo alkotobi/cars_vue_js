@@ -701,7 +701,6 @@ const editClient = (client) => {
 }
 
 const updateClient = async () => {
-  if (isSubmitting.value) return // prevent double submission
   if (isSubmitting.value) return // Prevent double submission
 
   // Clear previous validation errors
