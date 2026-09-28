@@ -2,10 +2,12 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useApi } from '../composables/useApi'
+import { useSubmitGuard } from '../composables/useSubmitGuard'
 import TaskForm from '../components/car-stock/TaskForm.vue'
 
 const router = useRouter()
 const { callApi } = useApi()
+const { guard, isBusy } = useSubmitGuard()
 
 const tasks = ref([])
 const loading = ref(true)
@@ -316,7 +318,7 @@ const formatDate = (dateString) => {
   return new Date(dateString).toLocaleDateString()
 }
 
-const openTaskChat = async (task) => {
+const openTaskChat = guard('open-task-chat', async (task) => {
   try {
     // First, check if a group with this task title already exists
     const checkGroupResult = await callApi({
@@ -404,7 +406,7 @@ const openTaskChat = async (task) => {
     console.error('Error opening task chat:', error)
     alert('Error opening chat for this task')
   }
-}
+})
 
 const totalPages = computed(() => {
   return Math.ceil(totalItems.value / itemsPerPage.value)
@@ -740,7 +742,12 @@ onMounted(async () => {
                 <td>{{ formatDate(task.date_create) }}</td>
                 <td class="task-notes">{{ task.notes || '-' }}</td>
                 <td class="actions-cell">
-                  <button @click="openTaskChat(task)" class="btn-chat" title="Open task chat">
+                  <button
+                    @click="openTaskChat(task)"
+                    class="btn-chat"
+                    title="Open task chat"
+                    :disabled="isBusy('open-task-chat')"
+                  >
                     <i class="fas fa-comments"></i>
                     Chat
                   </button>
@@ -955,7 +962,12 @@ onMounted(async () => {
             </div>
 
             <div class="card-actions">
-              <button @click="openTaskChat(task)" class="btn-chat" title="Open task chat">
+              <button
+                @click="openTaskChat(task)"
+                class="btn-chat"
+                title="Open task chat"
+                :disabled="isBusy('open-task-chat')"
+              >
                 <i class="fas fa-comments"></i>
                 Chat
               </button>

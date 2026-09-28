@@ -90,8 +90,8 @@
             >
               Cancel
             </button>
-            <button type="submit" class="save-btn" :disabled="loading">
-              {{ loading ? 'Saving...' : editingRate ? 'Update' : 'Save' }}
+            <button type="submit" class="save-btn" :disabled="loading || isBusy('save-rate')">
+              {{ loading || isBusy('save-rate') ? 'Saving...' : editingRate ? 'Update' : 'Save' }}
             </button>
           </div>
         </form>
@@ -103,10 +103,12 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useApi } from '../composables/useApi'
+import { useSubmitGuard } from '../composables/useSubmitGuard'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
 const { callApi, error: apiError, loading } = useApi()
+const { guard, isBusy } = useSubmitGuard()
 
 const rates = ref([])
 const showAddDialog = ref(false)
@@ -147,7 +149,7 @@ const fetchRates = async () => {
   }
 }
 
-const saveRate = async () => {
+const saveRate = guard('save-rate', async () => {
   try {
     if (editingRate.value) {
       // Update existing rate
@@ -190,7 +192,7 @@ const saveRate = async () => {
   } catch (error) {
     console.error('Error saving rate:', error)
   }
-}
+})
 
 const editRate = (rate) => {
   editingRate.value = rate

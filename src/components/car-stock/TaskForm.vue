@@ -2,6 +2,7 @@
 import { ref, onMounted, watch, computed } from 'vue'
 import { useEnhancedI18n } from '@/composables/useI18n'
 import { useApi } from '../../composables/useApi'
+import { useSubmitGuard } from '../../composables/useSubmitGuard'
 import { useRouter } from 'vue-router'
 
 const { t } = useEnhancedI18n()
@@ -29,6 +30,7 @@ const props = defineProps({
 const emit = defineEmits(['save', 'cancel', 'task-created'])
 
 const { callApi, loading, error } = useApi()
+const { guard, isBusy } = useSubmitGuard()
 
 const formData = ref({
   title: '',
@@ -261,7 +263,7 @@ const fetchSubjects = async () => {
   }
 }
 
-const handleSubmit = async () => {
+const handleSubmit = guard('submit-task', async () => {
   if (!formData.value.title.trim()) {
     alert(t('taskForm.please_enter_task_title'))
     return
@@ -368,7 +370,7 @@ const handleSubmit = async () => {
     console.error('Error creating task:', err)
     alert(t('taskForm.error_creating_task'))
   }
-}
+})
 
 const handleCancel = () => {
   emit('cancel')
@@ -389,7 +391,7 @@ const showAddPriorityForm = () => {
   }
 }
 
-const handleAddPriority = async () => {
+const handleAddPriority = guard('add-priority', async () => {
   if (!newPriority.value.priority.trim()) {
     alert(t('taskForm.please_enter_priority_name'))
     return
@@ -420,7 +422,7 @@ const handleAddPriority = async () => {
     console.error('Error creating priority:', err)
     alert(t('taskForm.error_creating_priority'))
   }
-}
+})
 
 const cancelAddPriority = () => {
   showPriorityForm.value = false
@@ -627,7 +629,7 @@ const openEntityView = () => {
               >
                 {{ t('taskForm.cancel') }}
               </button>
-              <button type="submit" class="btn btn-primary" :disabled="loading">
+              <button type="submit" class="btn btn-primary" :disabled="loading || isBusy('submit-task')">
                 <i v-if="loading" class="fas fa-spinner fa-spin"></i>
                 <span v-else>{{ t('taskForm.create_task') }}</span>
               </button>
@@ -683,7 +685,7 @@ const openEntityView = () => {
               <button type="button" @click="cancelAddPriority" class="btn btn-secondary">
                 {{ t('taskForm.cancel') }}
               </button>
-              <button type="submit" class="btn btn-primary">
+              <button type="submit" class="btn btn-primary" :disabled="isBusy('add-priority')">
                 <i v-if="loading" class="fas fa-spinner fa-spin"></i>
                 <span v-else>{{ t('taskForm.add_priority') }}</span>
               </button>

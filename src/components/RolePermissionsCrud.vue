@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useApi } from '../composables/useApi'
+import { useSubmitGuard } from '../composables/useSubmitGuard'
 
 const props = defineProps({
   selectedRoleId: {
@@ -10,6 +11,7 @@ const props = defineProps({
 })
 
 const { callApi, error, loading } = useApi()
+const { guard, isBusy } = useSubmitGuard()
 const rolePermissions = ref([])
 const allPermissions = ref([])
 
@@ -74,7 +76,7 @@ const hasPermission = (permission_id) => {
   )
 }
 
-const togglePermission = async (permission_id, checked) => {
+const togglePermission = guard('toggle-permission', async (permission_id, checked) => {
   if (!props.selectedRoleId) return
 
   if (checked) {
@@ -96,7 +98,7 @@ const togglePermission = async (permission_id, checked) => {
       fetchRolePermissions()
     }
   }
-}
+})
 
 const addAllPermissions = async () => {
   if (!props.selectedRoleId || allPermissions.value.length === 0) {
@@ -251,7 +253,7 @@ onMounted(() => {
                 type="checkbox"
                 :checked="true"
                 @change="togglePermission(permission.id, $event.target.checked)"
-                :disabled="loading"
+                :disabled="loading || isBusy('toggle-permission')"
               />
               <span class="checkbox-text">{{ permission.permission_name }}</span>
             </label>
@@ -276,7 +278,7 @@ onMounted(() => {
                 type="checkbox"
                 :checked="false"
                 @change="togglePermission(permission.id, $event.target.checked)"
-                :disabled="loading"
+                :disabled="loading || isBusy('toggle-permission')"
               />
               <span class="checkbox-text">{{ permission.permission_name }}</span>
             </label>

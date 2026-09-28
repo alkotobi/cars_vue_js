@@ -320,6 +320,7 @@ const handleSave = async () => {
     :show="show"
     :title="t('carStockForm.addClient') || 'Add New Client'"
     :loading="isSubmitting || loading"
+    :saving="isSubmitting"
     max-width="900px"
     min-width="600px"
     @close="handleClose"

@@ -407,9 +407,13 @@
                   <i class="fas fa-edit"></i>
                   Load
                 </button>
-                <button @click="deleteTemplate(template.id)" class="btn btn-secondary btn-sm">
+                <button
+                  @click="deleteTemplate(template.id)"
+                  class="btn btn-secondary btn-sm"
+                  :disabled="isBusy('delete-template')"
+                >
                   <i class="fas fa-trash"></i>
-                  Delete
+                  {{ isBusy('delete-template') ? 'Deleting...' : 'Delete' }}
                 </button>
               </div>
             </div>
@@ -513,9 +517,11 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useApi } from '../composables/useApi.js'
+import { useSubmitGuard } from '../composables/useSubmitGuard.js'
 
 const router = useRouter()
 const { callApi, loading: apiLoading, error: apiError } = useApi()
+const { guard, isBusy } = useSubmitGuard()
 const loading = ref(false)
 const isProcessing = ref(false)
 const sqlQuery = ref('')
@@ -1056,7 +1062,7 @@ const loadTemplate = (template) => {
   ElMessage.success(`Template "${template.name}" loaded.`)
 }
 
-const deleteTemplate = async (templateId) => {
+const deleteTemplate = guard('delete-template', async (templateId) => {
   try {
     await ElMessageBox.confirm(
       'Are you sure you want to delete this template?',
@@ -1087,7 +1093,7 @@ const deleteTemplate = async (templateId) => {
       ElMessage.error('Failed to delete template: ' + err.message)
     }
   }
-}
+})
 
 const exportToCSV = () => {
   if (!queryResults.value || queryResults.value.length === 0) return

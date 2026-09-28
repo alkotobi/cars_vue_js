@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, watch, computed, nextTick } from 'vue'
 import { useApi } from '../../composables/useApi'
+import { useSubmitGuard } from '../../composables/useSubmitGuard'
 import { useEnhancedI18n } from '@/composables/useI18n'
 import { ElSelect, ElOption } from 'element-plus'
 import SelectWithAddButton from './SelectWithAddButton.vue'
@@ -63,6 +64,7 @@ const emit = defineEmits(['save', 'cancel'])
 
 const { callApi, uploadFile, getFileUrl } = useApi()
 const loading = ref(false)
+const { guard, isBusy } = useSubmitGuard()
 const error = ref(null)
 
 // File upload refs
@@ -348,7 +350,7 @@ const fetchReferenceData = async () => {
   }
 }
 
-const addSupplier = async () => {
+const addSupplier = guard('add-supplier', async () => {
   if (!newSupplier.value.name || newSupplier.value.name.trim() === '') {
     error.value = t('carStockForm.supplierNameRequired') || 'Supplier name is required'
     return
@@ -389,7 +391,7 @@ const addSupplier = async () => {
   } else {
     error.value = result.error || t('carStockForm.failedToAddSupplier') || 'Failed to add supplier'
   }
-}
+})
 
 const openAddSupplierDialog = () => {
   newSupplier.value = {
@@ -409,7 +411,7 @@ const closeAddSupplierDialog = () => {
   }
 }
 
-const addCarName = async () => {
+const addCarName = guard('add-car-name', async () => {
   if (!newCarName.value.car_name || newCarName.value.car_name.trim() === '') {
     error.value = t('carStockForm.carNameRequired') || 'Car name is required'
     return
@@ -450,7 +452,7 @@ const addCarName = async () => {
   } else {
     error.value = result.error || t('carStockForm.failedToAddCarName') || 'Failed to add car name'
   }
-}
+})
 
 const openAddCarNameDialog = () => {
   newCarName.value = {
@@ -470,7 +472,7 @@ const closeAddCarNameDialog = () => {
   }
 }
 
-const addBrand = async () => {
+const addBrand = guard('add-brand', async () => {
   if (!newBrand.value.brand || newBrand.value.brand.trim() === '') {
     error.value = t('carStockForm.brandRequired') || 'Brand name is required'
     return
@@ -505,7 +507,7 @@ const addBrand = async () => {
   } else {
     error.value = result.error || t('carStockForm.failedToAddBrand') || 'Failed to add brand'
   }
-}
+})
 
 const openAddBrandDialog = () => {
   newBrand.value = {
@@ -1367,6 +1369,7 @@ onMounted(async () => {
     :show="showAddSupplierDialog"
     :title="t('carStockForm.addSupplier') || 'Add New Supplier'"
     :loading="loading"
+    :saving="isBusy('add-supplier')"
     @close="closeAddSupplierDialog"
     @save="addSupplier"
   >
@@ -1409,6 +1412,7 @@ onMounted(async () => {
     :show="showAddCarNameDialog"
     :title="t('carStockForm.addCarName') || 'Add New Car Name'"
     :loading="loading"
+    :saving="isBusy('add-car-name')"
     @close="closeAddCarNameDialog"
     @save="addCarName"
   >
@@ -1453,6 +1457,7 @@ onMounted(async () => {
     :show="showAddBrandDialog"
     :title="t('carStockForm.addBrand') || 'Add New Brand'"
     :loading="loading"
+    :saving="isBusy('add-brand')"
     @close="closeAddBrandDialog"
     @save="addBrand"
   >
