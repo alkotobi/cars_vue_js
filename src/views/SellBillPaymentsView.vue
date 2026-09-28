@@ -17,6 +17,7 @@ const user = ref(null)
 
 // Add loading state for form submission
 const isSubmittingPayment = ref(false)
+const deletingPaymentId = ref(null)
 
 // Add computed properties for permissions
 const can_edit_sell_payments = computed(() => {
@@ -440,6 +441,7 @@ const handleSubmit = async () => {
 }
 
 const handleDelete = async (paymentId) => {
+  if (deletingPaymentId.value) return
   if (!can_delete_sell_payments.value) {
     error.value = 'You do not have permission to delete payments'
     return
@@ -449,6 +451,7 @@ const handleDelete = async (paymentId) => {
     return
   }
 
+  deletingPaymentId.value = paymentId
   try {
     const result = await callApi({
       query: 'DELETE FROM sell_payments WHERE id = ?',
@@ -462,6 +465,8 @@ const handleDelete = async (paymentId) => {
     }
   } catch (err) {
     error.value = err.message
+  } finally {
+    deletingPaymentId.value = null
   }
 }
 </script>
@@ -566,10 +571,10 @@ const handleDelete = async (paymentId) => {
             <button
               @click="handleDelete(payment.id)"
               class="delete-btn"
-              :disabled="!can_delete_sell_payments"
-              :class="{ disabled: !can_delete_sell_payments }"
+              :disabled="!can_delete_sell_payments || deletingPaymentId !== null"
+              :class="{ disabled: !can_delete_sell_payments || deletingPaymentId !== null }"
             >
-              Delete
+              {{ deletingPaymentId === payment.id ? 'Deleting...' : 'Delete' }}
             </button>
           </td>
         </tr>

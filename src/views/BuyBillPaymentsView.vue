@@ -14,6 +14,8 @@ const error = ref(null)
 const showAddDialog = ref(false)
 const showEditDialog = ref(false)
 const editingPayment = ref(null)
+const savingPayment = ref(false)
+const deletingPaymentId = ref(null)
 const user = ref(JSON.parse(localStorage.getItem('user')))
 
 // Add computed properties for permissions
@@ -154,8 +156,10 @@ const handleEditPayment = (payment) => {
 }
 
 const handleDeletePayment = async (payment) => {
+  if (deletingPaymentId.value) return
   if (!confirm('Are you sure you want to delete this payment?')) return
 
+  deletingPaymentId.value = payment.id
   try {
     const result = await callApi({
       query: 'DELETE FROM buy_payments WHERE id = ?',
@@ -170,6 +174,8 @@ const handleDeletePayment = async (payment) => {
     }
   } catch (err) {
     alert(err.message)
+  } finally {
+    deletingPaymentId.value = null
   }
 }
 
@@ -193,6 +199,8 @@ const updateBillPaidAmount = async () => {
 }
 
 const savePayment = async (isEdit = false) => {
+  if (savingPayment.value) return
+  savingPayment.value = true
   try {
     let swiftPath = paymentForm.value.swift_path
 
@@ -275,6 +283,8 @@ const savePayment = async (isEdit = false) => {
   } catch (err) {
     console.error('Error in savePayment:', err)
     alert(err.message)
+  } finally {
+    savingPayment.value = false
   }
 }
 
@@ -370,8 +380,9 @@ const validateForm = () => {
                 @click="handleDeletePayment(payment)" 
                 class="delete-btn"
                 v-if="isAdmin"
+                :disabled="deletingPaymentId !== null"
               >
-                Delete
+                {{ deletingPaymentId === payment.id ? 'Deleting...' : 'Delete' }}
               </button>
             </td>
           </tr>
@@ -442,8 +453,8 @@ const validateForm = () => {
             >
               Cancel
             </button>
-            <button type="submit" :disabled="loading" class="submit-btn">
-              {{ loading ? 'Adding...' : 'Add Payment' }}
+            <button type="submit" :disabled="savingPayment" class="submit-btn">
+              {{ savingPayment ? 'Adding...' : 'Add Payment' }}
             </button>
           </div>
         </form>
@@ -585,8 +596,14 @@ th {
   color: white;
 }
 
-.delete-btn:hover {
+.delete-btn:hover:not(:disabled) {
   background-color: #dc2626;
+}
+
+.delete-btn:disabled {
+  background-color: #94a3b8;
+  cursor: not-allowed;
+  opacity: 0.7;
 }
 
 .loading, .no-data {
