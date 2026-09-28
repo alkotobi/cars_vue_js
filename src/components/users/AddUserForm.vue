@@ -41,6 +41,8 @@ const fetchRoles = async () => {
 }
 
 const handleSubmit = async () => {
+  if (loading.value) return
+
   if (!formData.value.username || !formData.value.password || !formData.value.email) {
     error.value = 'Username, email, and password are required'
     return

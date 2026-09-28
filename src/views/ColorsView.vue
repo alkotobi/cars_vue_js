@@ -1,7 +1,9 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useApi } from '../composables/useApi'
+import { useSubmitGuard } from '../composables/useSubmitGuard'
 
+const { guard, isBusy } = useSubmitGuard()
 const colors = ref([])
 const { callApi, error } = useApi()
 const showAddDialog = ref(false)
@@ -26,7 +28,7 @@ const fetchColors = async () => {
   }
 }
 
-const addColor = async () => {
+const addColor = guard('add', async () => {
   const result = await callApi({
     query: 'INSERT INTO colors (color, hexa) VALUES (?, ?)',
     params: [newColor.value.color, newColor.value.hexa],
@@ -36,14 +38,14 @@ const addColor = async () => {
     newColor.value = { color: '', hexa: '#000000' }
     await fetchColors()
   }
-}
+})
 
 const editColor = (color) => {
   editingColor.value = { ...color }
   showEditDialog.value = true
 }
 
-const updateColor = async () => {
+const updateColor = guard('update', async () => {
   const result = await callApi({
     query: 'UPDATE colors SET color = ?, hexa = ? WHERE id = ?',
     params: [editingColor.value.color, editingColor.value.hexa, editingColor.value.id],
@@ -53,9 +55,9 @@ const updateColor = async () => {
     editingColor.value = null
     await fetchColors()
   }
-}
+})
 
-const deleteColor = async (color) => {
+const deleteColor = guard('delete', async (color) => {
   if (confirm('Are you sure you want to delete this color?')) {
     const result = await callApi({
       query: 'DELETE FROM colors WHERE id = ?',
@@ -65,7 +67,7 @@ const deleteColor = async (color) => {
       await fetchColors()
     }
   }
-}
+})
 
 onMounted(() => {
   const userStr = localStorage.getItem('user')
@@ -105,8 +107,13 @@ onMounted(() => {
             <td>{{ color.hexa || 'N/A' }}</td>
             <td>
               <button @click="editColor(color)" class="btn edit-btn">Edit</button>
-              <button v-if="isAdmin" @click="deleteColor(color)" class="btn delete-btn">
-                Delete
+              <button
+                v-if="isAdmin"
+                @click="deleteColor(color)"
+                class="btn delete-btn"
+                :disabled="isBusy('delete')"
+              >
+                {{ isBusy('delete') ? 'Deleting...' : 'Delete' }}
               </button>
             </td>
           </tr>
@@ -130,7 +137,9 @@ onMounted(() => {
           </div>
         </div>
         <div class="dialog-actions">
-          <button @click="addColor" class="btn save-btn">Save</button>
+          <button @click="addColor" class="btn save-btn" :disabled="isBusy('add')">
+            {{ isBusy('add') ? 'Saving...' : 'Save' }}
+          </button>
           <button @click="showAddDialog = false" class="btn cancel-btn">Cancel</button>
         </div>
       </div>
@@ -152,7 +161,9 @@ onMounted(() => {
           </div>
         </div>
         <div class="dialog-actions">
-          <button @click="updateColor" class="btn save-btn">Save</button>
+          <button @click="updateColor" class="btn save-btn" :disabled="isBusy('update')">
+            {{ isBusy('update') ? 'Saving...' : 'Save' }}
+          </button>
           <button @click="showEditDialog = false" class="btn cancel-btn">Cancel</button>
         </div>
       </div>
@@ -209,6 +220,11 @@ onMounted(() => {
   border-radius: 4px;
   cursor: pointer;
   margin-right: 8px;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .edit-btn {

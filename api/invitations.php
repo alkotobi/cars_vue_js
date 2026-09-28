@@ -8,12 +8,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
 
-// Database configuration
-$host = '173.214.163.18';
+// Database configuration for the merhab_invitations database.
+// Credentials are resolved by the shared loader in config.php: it reads
+// api/config.local.php (git-ignored) and falls back to DB_HOST / DB_USER /
+// DB_PASS / DB_NAME. The invitations database name is overridden here because
+// it is a third database, distinct from the main app database.
+require_once __DIR__ . '/config.php';
+
+$host = $db_host;
 $port = '3306';
 $dbname = 'merhab_invitations';
-$username = 'merhab_root';
-$password = '@Salima61';
+$username = $db_user;
+$password = $db_pass;
 
 try {
     $pdo = new PDO("mysql:host=$host;port=$port;dbname=$dbname;charset=utf8", $username, $password);

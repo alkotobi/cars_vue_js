@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useEnhancedI18n } from '../composables/useI18n'
-import { useApi } from '../composables/useApi'
+import { useApi, apiErrorText } from '../composables/useApi'
 import BuyBillsTable from '../components/buy/BuyBillsTable.vue'
 import BuyDetailsTable from '../components/buy/BuyDetailsTable.vue'
 import CarStockTable from '../components/car-stock/CarStockTable.vue'
@@ -41,7 +41,6 @@ const selectedBillForTask = ref(null)
 // Loading states
 const isSubmittingPurchase = ref(false)
 const isSubmittingDetail = ref(false)
-const isUpdatingStock = ref(false)
 const isDeletingBill = ref(false)
 const isProcessingTask = ref(false)
 
@@ -49,60 +48,11 @@ const isProcessingTask = ref(false)
 const user = ref(JSON.parse(localStorage.getItem('user')))
 const isAdmin = computed(() => user.value?.role_id === 1)
 
-// Computed property to check if bill is pending (not stock updated)
-const isBillPending = computed(() => {
-  if (!selectedBill.value) return false
-  const stockUpdated = selectedBill.value.is_stock_updated
-  return stockUpdated == 0 || stockUpdated === null || stockUpdated === '0'
-})
-
 // Toolbar action methods
-const canUpdateStock = (bill) => {
-  return bill.amount > 0 && !bill.is_stock_updated
-}
-
-const handleUpdateStock = async (bill) => {
-  if (!confirm(t('confirm_update_stock'))) {
-    return
-  }
-
-  if (isUpdatingStock.value) return // Prevent double-click
-
-  try {
-    isUpdatingStock.value = true
-    const result = await callApi({
-      query: `
-        UPDATE buy_bill 
-        SET is_stock_updated = 1 
-        WHERE id = ?
-      `,
-      params: [bill.id],
-    })
-
-    if (result.success) {
-      await fetchBuyBills()
-
-      // Update the selected bill data to reflect the new status
-      if (selectedBill.value?.id === bill.id) {
-        const updatedBill = buyBills.value.find((b) => b.id === bill.id)
-        if (updatedBill) {
-          selectedBill.value = updatedBill
-        }
-      }
-
-      // Note: New cars will be added to memory via the cars-created event
-      // No need to refresh from database
-    } else {
-      alert(t('failed_update_stock'))
-    }
-  } catch (err) {
-    console.error('Error updating stock:', err)
-    alert(t('failed_update_stock'))
-  } finally {
-    isUpdatingStock.value = false
-  }
-}
-
+// Stock expansion is owned by BuyDetailsTable.showStockAlert, which calls the
+// create_stock_from_details action so the QTY expansion runs in one server-side
+// transaction. There is deliberately no bill-level equivalent here: a handler on
+// this view could only flip is_stock_updated, creating no cars at all.
 const handleStockUpdated = async (billId) => {
   // Refresh the bills list to get updated data
   await fetchBuyBills()
@@ -201,60 +151,47 @@ const handleSelectBill = (bill) => {
 }
 
 const handleDeleteBill = async (bill) => {
-  if (!confirm(t('confirm_delete_purchase_details'))) {
+  if (isDeletingBill.value) return // Prevent double-click
+
+  if (!confirm(t('buyView.confirmDeletePurchaseWithCars'))) {
     return
   }
-
-  if (isDeletingBill.value) return // Prevent double-click
 
   try {
     isDeletingBill.value = true
 
-    // First check if the bill can be deleted
-    if (bill.is_stock_updated) {
-      alert(t('cannot_delete_stock_updated_purchase'))
-      return
-    }
-
-    // Start with deleting related records
-    // 1. Delete payments
-    const deletePayments = await callApi({
-      query: `DELETE FROM buy_payments WHERE id_buy_bill = ?`,
-      params: [bill.id],
+    // One transactional endpoint: it cascade deletes the bill's payments, details and
+    // untouched cars, and refuses when any car of the bill is already committed.
+    const result = await callApi({
+      action: 'delete_buy_bill',
+      bill_id: bill.id,
+      user_id: user.value?.id,
     })
 
-    if (!deletePayments.success) {
-      throw new Error(t('failed_delete_related_payments'))
-    }
-
-    // 2. Delete details
-    const deleteDetails = await callApi({
-      query: `DELETE FROM buy_details WHERE id_buy_bill = ?`,
-      params: [bill.id],
-    })
-
-    if (!deleteDetails.success) {
-      throw new Error(t('failed_delete_purchase_details'))
-    }
-
-    // 3. Finally delete the bill
-    const deleteBill = await callApi({
-      query: `DELETE FROM buy_bill WHERE id = ? AND is_stock_updated = 0`,
-      params: [bill.id],
-    })
-
-    if (deleteBill.success) {
+    if (result.success) {
+      if (result.removedCarIds?.length) {
+        carStockTableRef.value?.removeCarsToMemory(result.removedCarIds)
+      }
       if (selectedBill.value?.id === bill.id) {
         selectedBill.value = null
         buyDetails.value = [] // Clear details
       }
       await fetchBuyBills()
+    } else if (result.code === 'bill_locked') {
+      alert(t('buyView.cannotDeleteBillCommittedCars', { count: result.meta?.count || 0 }))
+      console.error('Error deleting purchase:', result.code)
+    } else if (result.code === 'not_admin') {
+      alert(t('buyView.adminOnlyDeleteBill'))
+      console.error('Error deleting purchase:', result.code)
+    } else if (result.code === 'bill_not_found') {
+      alert(t('buyView.billNotFound'))
+      console.error('Error deleting purchase:', result.code)
     } else {
-      throw new Error(t('failed_delete_purchase'))
+      throw new Error(t('buyView.failedDeletePurchase'))
     }
   } catch (err) {
     console.error('Error deleting purchase:', err)
-    alert(err.message || t('failed_delete_purchase'))
+    alert(err.message || t('buyView.failedDeletePurchase'))
   } finally {
     isDeletingBill.value = false
   }
@@ -362,6 +299,7 @@ const fetchSuppliers = async () => {
 }
 
 const addPurchase = async () => {
+  if (isSubmittingPurchase.value) return // prevent double submission
   // Prevent multiple submissions
   if (isSubmittingPurchase.value) {
     return
@@ -491,6 +429,7 @@ const addPurchase = async () => {
 }
 
 const updatePurchase = async () => {
+  if (isSubmittingPurchase.value) return // prevent double submission
   // Prevent multiple submissions
   if (isSubmittingPurchase.value) {
     return
@@ -611,9 +550,27 @@ const fetchBuyBills = async () => {
 }
 
 const fetchBuyDetails = async (billId) => {
+  const committedCarPredicate = `
+      cs.id_buy_details = bd.id AND (
+        (cs.vin IS NOT NULL AND TRIM(cs.vin) <> '')
+        OR (cs.id_sell IS NOT NULL)
+        OR (cs.id_client IS NOT NULL)
+        OR (cs.id_port_loading IS NOT NULL)
+        OR (cs.id_port_discharge IS NOT NULL)
+        OR (cs.date_loding IS NOT NULL)
+        OR (cs.container_ref IS NOT NULL AND TRIM(cs.container_ref) <> '')
+        OR (cs.id_loaded_container IS NOT NULL)
+        OR (cs.date_assigned IS NOT NULL)
+        OR (cs.payment_confirmed != 0)
+        OR EXISTS (SELECT 1 FROM car_files cf WHERE cf.car_id = cs.id)
+      )
+  `
+
   const result = await callApi({
     query: `
-      SELECT bd.*, cn.car_name, c.color, bb.is_stock_updated
+      SELECT bd.*, cn.car_name, c.color, bb.is_stock_updated,
+        (SELECT COUNT(*) FROM cars_stock cs WHERE ${committedCarPredicate}) AS locked_cars,
+        (SELECT COUNT(*) FROM cars_stock cs WHERE cs.id_buy_details = bd.id) AS cars_count
       FROM buy_details bd
       LEFT JOIN cars_names cn ON bd.id_car_name = cn.id
       LEFT JOIN colors c ON bd.id_color = c.id
@@ -623,7 +580,12 @@ const fetchBuyDetails = async (billId) => {
     params: [billId],
   })
   if (result.success) {
-    buyDetails.value = result.data
+    buyDetails.value = result.data.map((d) => ({
+      ...d,
+      locked: Number(d.locked_cars) > 0,
+      carsCount: Number(d.cars_count) || 0,
+      is_stock_updated: Number(d.is_stock_updated),
+    }))
   } else {
     console.error('Error fetching details:', result.error)
   }
@@ -674,6 +636,7 @@ const updateBillAmount = async (billId) => {
 }
 
 const addDetail = async () => {
+  if (isSubmittingDetail.value) return // prevent double submission
   // Prevent multiple submissions
   if (isSubmittingDetail.value) {
     return
@@ -741,44 +704,53 @@ onMounted(() => {
 
 const handleDeleteDetail = async (detailId) => {
   const result = await callApi({
-    query: 'DELETE FROM buy_details WHERE id = ?',
-    params: [detailId],
+    action: 'delete_buy_detail',
+    bill_id: selectedBill.value.id,
+    detail_id: detailId,
+    user_id: user.value?.id,
   })
 
   if (result.success) {
-    await updateBillAmount(selectedBill.value.id) // Update bill amount
+    if (result.removedCarIds?.length) {
+      carStockTableRef.value?.removeCarsToMemory(result.removedCarIds)
+    }
+    buyDetailsTableRef.value?.closeEditDialog()
     await fetchBuyDetails(selectedBill.value.id)
     await fetchBuyBills() // Refresh bills to show updated amount
   } else {
-    alert(t('failed_delete_detail'))
+    alert(apiErrorText(t, result) || t('failed_delete_detail'))
     console.error('Error deleting detail:', result.error)
   }
 }
 
 const handleUpdateDetail = async (updatedDetail) => {
   const result = await callApi({
-    query: `
-      UPDATE buy_details 
-      SET QTY = ?, amount = ?, year = ?, month = ?, price_sell = ?, is_big_car = ?
-      WHERE id = ?
-    `,
-    params: [
-      updatedDetail.QTY,
-      updatedDetail.amount,
-      updatedDetail.year,
-      updatedDetail.month,
-      updatedDetail.price_sell,
-      updatedDetail.is_big_car ? 1 : 0,
-      updatedDetail.id,
-    ],
+    action: 'update_buy_detail',
+    bill_id: selectedBill.value.id,
+    detail_id: updatedDetail.id,
+    user_id: user.value?.id,
+    QTY: updatedDetail.QTY,
+    amount: updatedDetail.amount,
+    year: updatedDetail.year,
+    month: updatedDetail.month,
+    price_sell: updatedDetail.price_sell,
+    notes: updatedDetail.notes,
+    is_used_car: updatedDetail.is_used_car ? 1 : 0,
+    is_big_car: updatedDetail.is_big_car ? 1 : 0,
   })
 
   if (result.success) {
-    await updateBillAmount(selectedBill.value.id)
+    if (result.createdCars?.length) {
+      await handleCarsCreated(result.createdCars)
+    }
+    if (result.removedCarIds?.length) {
+      carStockTableRef.value?.removeCarsToMemory(result.removedCarIds)
+    }
+    buyDetailsTableRef.value?.closeEditDialog()
     await fetchBuyDetails(selectedBill.value.id)
     await fetchBuyBills()
   } else {
-    alert(t('failed_update_detail'))
+    alert(apiErrorText(t, result) || t('failed_update_detail'))
     console.error('Error updating detail:', result.error)
   }
 }
@@ -836,6 +808,7 @@ const openEditNotesDialog = () => {
 }
 
 const saveNotes = async (newNotes) => {
+  if (isSavingNotes.value) return // prevent double submission
   if (!selectedBill.value) return
   isSavingNotes.value = true
   try {
@@ -882,24 +855,21 @@ const saveNotes = async (newNotes) => {
             <button
               @click.stop="openEditDialog(bill)"
               class="action-btn edit-btn"
-              :disabled="bill.is_stock_updated"
+              :disabled="(bill.is_stock_updated && !isAdmin) || isSubmittingPurchase"
+              :title="
+                bill.is_stock_updated && !isAdmin
+                  ? t('buyView.editBillAdminOnlyTitle')
+                  : t('buyView.edit')
+              "
             >
               <i class="fas fa-edit"></i>
               {{ t('buyView.edit') }}
             </button>
             <button
-              v-if="false"
-              @click.stop="handleUpdateStock(bill)"
-              class="action-btn update-btn"
-              :disabled="!canUpdateStock(bill)"
-            >
-              {{ t('buyView.updateStock') }}
-            </button>
-            <button
               v-if="isAdmin"
               @click.stop="handleDeleteBill(bill)"
               class="action-btn delete-btn"
-              :disabled="bill.is_stock_updated || isDeletingBill"
+              :disabled="isDeletingBill"
             >
               <i v-if="isDeletingBill" class="fas fa-spinner fa-spin"></i>
               {{ isDeletingBill ? t('buyView.deleting') : t('buyView.delete') }}
@@ -929,7 +899,7 @@ const saveNotes = async (newNotes) => {
         <BuyDetailsTable
           ref="buyDetailsTableRef"
           id="buy-details-table"
-          v-if="selectedBill && isBillPending"
+          v-if="selectedBill"
           :buyDetails="buyDetails"
           :isAdmin="isAdmin"
           @add-detail="showAddDetailDialog = true"

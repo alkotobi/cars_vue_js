@@ -115,6 +115,70 @@ function hasPermission($conn, $userId, $permissionName) {
     }
 }
 
+// Admin check derived from the database, not from a client-supplied flag. The
+// rest of this file historically trusted $postData['is_admin'], which anyone can
+// set to true. Buy detail edits/deletes are gated on this instead.
+function isAdminUser($conn, $userId) {
+    try {
+        $stmt = $conn->prepare('SELECT role_id FROM users WHERE id = ?');
+        $stmt->execute([$userId]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $user && (int)$user['role_id'] === 1;
+    } catch (Exception $e) {
+        error_log("Error checking admin: " . $e->getMessage());
+        return false;
+    }
+}
+
+// A car is "committed" the moment downstream workflow has touched it. Any such
+// car must never be silently removed by editing or deleting its buy detail.
+function isCommittedCarSql() {
+    return "
+        (cs.vin IS NOT NULL AND TRIM(cs.vin) <> '')
+        OR (cs.id_sell IS NOT NULL)
+        OR (cs.id_client IS NOT NULL)
+        OR (cs.id_port_loading IS NOT NULL)
+        OR (cs.id_port_discharge IS NOT NULL)
+        OR (cs.date_loding IS NOT NULL)
+        OR (cs.container_ref IS NOT NULL AND TRIM(cs.container_ref) <> '')
+        OR (cs.id_loaded_container IS NOT NULL)
+        OR (cs.date_assigned IS NOT NULL)
+        OR (cs.payment_confirmed != 0)
+        OR EXISTS (SELECT 1 FROM car_files cf WHERE cf.car_id = cs.id)
+    ";
+}
+
+function countCommittedCars($conn, $detailId) {
+    $stmt = $conn->prepare(
+        'SELECT COUNT(*) AS cnt FROM cars_stock cs WHERE cs.id_buy_details = ? AND (' . isCommittedCarSql() . ')'
+    );
+    $stmt->execute([$detailId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return (int)$row['cnt'];
+}
+
+function countDetailCars($conn, $detailId) {
+    $stmt = $conn->prepare('SELECT COUNT(*) AS cnt FROM cars_stock WHERE id_buy_details = ?');
+    $stmt->execute([$detailId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return (int)$row['cnt'];
+}
+
+// Emit an error payload carrying a stable machine-readable `code` so the client
+// can translate it into the active locale. Never include a raw English message
+// when a code exists: the client maps `code` -> i18n key.
+function apiErrorDie($code, $status = 200, $meta = null) {
+    if ($status) {
+        http_response_code($status);
+    }
+    $payload = ['success' => false, 'code' => $code, 'error' => $code];
+    if ($meta !== null) {
+        $payload['meta'] = $meta;
+    }
+    echo json_encode($payload);
+    exit;
+}
+
 // Function to execute multi-statement SQL query
 function executeMultiQuery($sql, $params = []) {
     try {
@@ -300,7 +364,7 @@ if (isset($postData['action'])) {
             exit;
 
             case 'insert_user':
-                if (!isset($postData['query']) ||!isset($postData['params']) || count($postData['params'])!== 9) {
+                if (!isset($postData['query']) ||!isset($postData['params']) || count($postData['params'])!== 7) {
                     http_response_code(400);
                     echo json_encode(['success' => false, 'error' => 'Invalid parameters for user creation']);
                     exit;
@@ -379,6 +443,509 @@ if (isset($postData['action'])) {
                 
             } catch (Exception $e) {
                 if (isset($conn)) {
+                    $conn->rollBack();
+                }
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            }
+                exit;
+
+        case 'create_stock_from_details':
+            // Expand a pending bill's buy_details into individual cars_stock rows.
+            //
+            // The whole expansion happens in one transaction: the previous client-side
+            // loop issued one INSERT per QTY unit, so a failure partway through left a
+            // pending bill holding partial stock, and a retry inserted the remainder on
+            // top of it. Details are read here by bill id rather than trusted from the
+            // client, so the inserted rows are derived from committed data.
+            if (!isset($postData['bill_id'])) {
+                apiErrorDie('invalid_request', 400);
+            }
+
+            $billId = intval($postData['bill_id']);
+            if ($billId <= 0) {
+                apiErrorDie('invalid_request', 400);
+            }
+
+            $createdCars = [];
+            $inTransaction = false;
+
+            try {
+                $conn = getConnection(getDbConfig());
+                if (is_array($conn) && isset($conn['error'])) {
+                    throw new Exception($conn['error']);
+                }
+
+                $conn->beginTransaction();
+                $inTransaction = true;
+
+                // Lock the bill row for the rest of the transaction so a concurrent
+                // request cannot also observe it as pending and expand it again.
+                $billStmt = $conn->prepare('SELECT id, is_stock_updated FROM buy_bill WHERE id = ? FOR UPDATE');
+                $billStmt->execute([$billId]);
+                $bill = $billStmt->fetch(PDO::FETCH_ASSOC);
+
+                if (!$bill) {
+                    apiErrorDie('bill_not_found');
+                }
+                if ((int)$bill['is_stock_updated'] === 1) {
+                    apiErrorDie('stock_already_updated');
+                }
+
+                $detailStmt = $conn->prepare(
+                    'SELECT id, QTY, price_sell, notes, is_used_car, is_big_car, id_color
+                     FROM buy_details WHERE id_buy_bill = ?'
+                );
+                $detailStmt->execute([$billId]);
+                $details = $detailStmt->fetchAll(PDO::FETCH_ASSOC);
+
+                if (empty($details)) {
+                    apiErrorDie('no_details');
+                }
+
+                // Refuse to expand if this bill already has stock rows. Covers the case
+                // where is_stock_updated was reset by hand after a successful expansion.
+                $detailIds = array_map(function ($d) { return intval($d['id']); }, $details);
+                $placeholders = implode(',', array_fill(0, count($detailIds), '?'));
+                $existingStmt = $conn->prepare(
+                    "SELECT id_buy_details, COUNT(*) as cnt FROM cars_stock
+                     WHERE id_buy_details IN ($placeholders) GROUP BY id_buy_details"
+                );
+                $existingStmt->execute($detailIds);
+                $existing = $existingStmt->fetchAll(PDO::FETCH_ASSOC);
+
+                if (!empty($existing)) {
+                    $detailParts = [];
+                    foreach ($existing as $row) {
+                        $detailParts[] = [
+                            'id' => intval($row['id_buy_details']),
+                            'count' => intval($row['cnt']),
+                        ];
+                    }
+                    apiErrorDie('stock_rows_exist', 200, ['details' => $detailParts]);
+                }
+
+                $insertStmt = $conn->prepare(
+                    'INSERT INTO cars_stock
+                     (id_buy_details, price_cell, notes, is_used_car, is_big_car, id_color)
+                     VALUES (?, ?, ?, ?, ?, ?)'
+                );
+
+                foreach ($details as $detail) {
+                    $qty = intval($detail['QTY']);
+                    if ($qty <= 0) {
+                        // This is the only refusal that can happen after rows have
+                        // already been inserted, so roll back explicitly instead of
+                        // relying on the connection closing to release the transaction.
+                        $conn->rollBack();
+                        $inTransaction = false;
+                        apiErrorDie('invalid_detail_qty', 200, ['detailId' => intval($detail['id'])]);
+                    }
+
+                    for ($i = 0; $i < $qty; $i++) {
+                        $insertStmt->execute([
+                            $detail['id'],
+                            $detail['price_sell'],
+                            $detail['notes'],
+                            $detail['is_used_car'],
+                            $detail['is_big_car'],
+                            $detail['id_color'],
+                        ]);
+
+                        $createdCars[] = [
+                            'id' => intval($conn->lastInsertId()),
+                            'id_buy_details' => intval($detail['id']),
+                            'price_cell' => $detail['price_sell'],
+                            'notes' => $detail['notes'],
+                            'is_used_car' => $detail['is_used_car'],
+                            'is_big_car' => $detail['is_big_car'],
+                            'id_color' => $detail['id_color'],
+                            'buy_bill_id' => $billId,
+                        ];
+                    }
+                }
+
+                $flagStmt = $conn->prepare('UPDATE buy_bill SET is_stock_updated = 1 WHERE id = ?');
+                $flagStmt->execute([$billId]);
+
+                $conn->commit();
+                $inTransaction = false;
+
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'Stock updated successfully',
+                    'createdCount' => count($createdCars),
+                    'createdCars' => $createdCars,
+                ]);
+            } catch (Exception $e) {
+                if ($inTransaction && $conn instanceof PDO && $conn->inTransaction()) {
+                    $conn->rollBack();
+                }
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            }
+                exit;
+
+        case 'update_buy_detail':
+            // Admin-only edit of a buy detail, including after stock has been
+            // updated. Refuses whenever any car of the detail is committed, so a
+            // sold/VIN'd/filed/assigned car can never be altered out from under the
+            // workflow. QTY changes create or remove cars: the delta is reconciled
+            // against the actual cars_stock count for the detail, not the stored QTY.
+            foreach (['bill_id', 'detail_id', 'user_id'] as $requiredKey) {
+                if (!isset($postData[$requiredKey])) {
+                    apiErrorDie('invalid_request', 400);
+                }
+            }
+
+            $billId = intval($postData['bill_id']);
+            $detailId = intval($postData['detail_id']);
+            $userId = intval($postData['user_id']);
+
+            if ($billId <= 0 || $detailId <= 0 || $userId <= 0) {
+                apiErrorDie('invalid_request', 400);
+            }
+
+            $qtyValue = isset($postData['QTY']) ? $postData['QTY'] : null;
+            if ($qtyValue === null || intval($qtyValue) < 1) {
+                apiErrorDie('invalid_qty');
+            }
+            $newQty = intval($qtyValue);
+
+            $amount = isset($postData['amount']) && $postData['amount'] !== '' ? floatval($postData['amount']) : 0;
+            $priceSell = isset($postData['price_sell']) && $postData['price_sell'] !== '' ? floatval($postData['price_sell']) : 0;
+            $year = isset($postData['year']) ? intval($postData['year']) : null;
+            $month = isset($postData['month']) ? intval($postData['month']) : null;
+            $notes = isset($postData['notes']) ? $postData['notes'] : null;
+            $isUsed = isset($postData['is_used_car']) ? (int)(bool)$postData['is_used_car'] : 0;
+            $isBig = isset($postData['is_big_car']) ? (int)(bool)$postData['is_big_car'] : 0;
+
+            $createdCars = [];
+            $removedCarIds = [];
+            $inTransaction = false;
+
+            try {
+                $conn = getConnection(getDbConfig());
+                if (is_array($conn) && isset($conn['error'])) {
+                    throw new Exception($conn['error']);
+                }
+
+                if (!isAdminUser($conn, $userId)) {
+                    apiErrorDie('not_admin');
+                }
+
+                $conn->beginTransaction();
+                $inTransaction = true;
+
+                $billStmt = $conn->prepare('SELECT id, is_stock_updated FROM buy_bill WHERE id = ? FOR UPDATE');
+                $billStmt->execute([$billId]);
+                $bill = $billStmt->fetch(PDO::FETCH_ASSOC);
+                if (!$bill) {
+                    apiErrorDie('bill_not_found');
+                }
+
+                $detailStmt = $conn->prepare('SELECT id, QTY, price_sell, notes, is_used_car, is_big_car, id_color FROM buy_details WHERE id = ? AND id_buy_bill = ?');
+                $detailStmt->execute([$detailId, $billId]);
+                $detail = $detailStmt->fetch(PDO::FETCH_ASSOC);
+
+                if (!$detail) {
+                    apiErrorDie('detail_not_found');
+                }
+
+                if (countCommittedCars($conn, $detailId) > 0) {
+                    apiErrorDie('detail_locked');
+                }
+
+                $updateStmt = $conn->prepare(
+                    'UPDATE buy_details SET QTY = ?, amount = ?, year = ?, month = ?, price_sell = ?, notes = ?, is_used_car = ?, is_big_car = ? WHERE id = ?'
+                );
+                $updateStmt->execute([$newQty, $amount, $year, $month, $priceSell, $notes, $isUsed, $isBig, $detailId]);
+
+                // Cars only exist once the bill has been expanded. On a pending bill
+                // this edit must not create them: "Update Stock" is the only action
+                // that turns QTY into cars_stock rows, otherwise saving a QTY on a
+                // pending bill silently does the expansion and leaves the bill pending
+                // with cars already attached (which then trips the stock_rows_exist
+                // guard on the real Update Stock click).
+                if ((int)$bill['is_stock_updated'] !== 1) {
+                    $billAmountStmt = $conn->prepare(
+                        'UPDATE buy_bill SET amount = (SELECT COALESCE(SUM(amount * QTY), 0) FROM buy_details WHERE id_buy_bill = ?) WHERE id = ?'
+                    );
+                    $billAmountStmt->execute([$billId, $billId]);
+
+                    $conn->commit();
+                    $inTransaction = false;
+
+                    echo json_encode([
+                        'success' => true,
+                        'message' => 'Buy detail updated successfully',
+                        'createdCount' => 0,
+                        'createdCars' => [],
+                        'removedCount' => 0,
+                        'removedCarIds' => [],
+                    ]);
+                    exit;
+                }
+
+                $currentCars = countDetailCars($conn, $detailId);
+
+                // Propagate the snapshot fields to this detail's cars. Safe: we have
+                // already confirmed none of them are committed.
+                $propagateStmt = $conn->prepare(
+                    'UPDATE cars_stock SET price_cell = ?, notes = ?, is_used_car = ?, is_big_car = ? WHERE id_buy_details = ?'
+                );
+                $propagateStmt->execute([$priceSell, $notes, $isUsed, $isBig, $detailId]);
+
+                $delta = $newQty - $currentCars;
+
+                if ($delta > 0) {
+                    $insertStmt = $conn->prepare(
+                        'INSERT INTO cars_stock (id_buy_details, price_cell, notes, is_used_car, is_big_car, id_color) VALUES (?, ?, ?, ?, ?, ?)'
+                    );
+                    for ($i = 0; $i < $delta; $i++) {
+                        $insertStmt->execute([$detailId, $priceSell, $notes, $isUsed, $isBig, $detail['id_color']]);
+                        $createdCars[] = [
+                            'id' => intval($conn->lastInsertId()),
+                            'id_buy_details' => $detailId,
+                            'price_cell' => $priceSell,
+                            'notes' => $notes,
+                            'is_used_car' => $isUsed,
+                            'is_big_car' => $isBig,
+                            'id_color' => $detail['id_color'],
+                            'buy_bill_id' => $billId,
+                        ];
+                    }
+                } elseif ($delta < 0) {
+                    // Remove the surplus cars, most recently created first. Select the
+                    // ids before deleting so the client can drop them from memory.
+                    $idsToRemove = (-$delta);
+                    // $idsToRemove is a validated integer; LIMIT must be inlined
+                    // because PDO emulated prepares would quote a bound value.
+                    $idsStmt = $conn->prepare(
+                        "SELECT id FROM cars_stock WHERE id_buy_details = ? ORDER BY id DESC LIMIT {$idsToRemove}"
+                    );
+                    $idsStmt->execute([$detailId]);
+                    $idsToDelete = [];
+                    while ($row = $idsStmt->fetch(PDO::FETCH_ASSOC)) {
+                        $idsToDelete[] = intval($row['id']);
+                        $removedCarIds[] = intval($row['id']);
+                    }
+
+                    if (!empty($idsToDelete)) {
+                        $inPlaceholders = implode(',', array_fill(0, count($idsToDelete), '?'));
+                        $deleteStmt = $conn->prepare("DELETE FROM cars_stock WHERE id IN ($inPlaceholders)");
+                        $deleteStmt->execute($idsToDelete);
+                    }
+                }
+
+                $billAmountStmt = $conn->prepare(
+                    'UPDATE buy_bill SET amount = (SELECT COALESCE(SUM(amount * QTY), 0) FROM buy_details WHERE id_buy_bill = ?) WHERE id = ?'
+                );
+                $billAmountStmt->execute([$billId, $billId]);
+
+                $conn->commit();
+                $inTransaction = false;
+
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'Buy detail updated successfully',
+                    'createdCount' => count($createdCars),
+                    'createdCars' => $createdCars,
+                    'removedCount' => count($removedCarIds),
+                    'removedCarIds' => $removedCarIds,
+                ]);
+            } catch (Exception $e) {
+                if ($inTransaction && $conn instanceof PDO && $conn->inTransaction()) {
+                    $conn->rollBack();
+                }
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            }
+                exit;
+
+        case 'delete_buy_detail':
+            // Admin-only delete of a buy detail, including after stock has been
+            // updated. Destroys the detail's cars too, so it refuses whenever any of
+            // them is committed. car_files and upgrades cascade by FK, but their
+            // presence is itself a committed state, so the cascade never fires.
+            foreach (['bill_id', 'detail_id', 'user_id'] as $requiredKey) {
+                if (!isset($postData[$requiredKey])) {
+                    apiErrorDie('invalid_request', 400);
+                }
+            }
+
+            $billId = intval($postData['bill_id']);
+            $detailId = intval($postData['detail_id']);
+            $userId = intval($postData['user_id']);
+
+            if ($billId <= 0 || $detailId <= 0 || $userId <= 0) {
+                apiErrorDie('invalid_request', 400);
+            }
+
+            $removedCarIds = [];
+            $inTransaction = false;
+
+            try {
+                $conn = getConnection(getDbConfig());
+                if (is_array($conn) && isset($conn['error'])) {
+                    throw new Exception($conn['error']);
+                }
+
+                if (!isAdminUser($conn, $userId)) {
+                    apiErrorDie('not_admin');
+                }
+
+                $conn->beginTransaction();
+                $inTransaction = true;
+
+                $billStmt = $conn->prepare('SELECT id FROM buy_bill WHERE id = ? FOR UPDATE');
+                $billStmt->execute([$billId]);
+                if (!$billStmt->fetch(PDO::FETCH_ASSOC)) {
+                    apiErrorDie('bill_not_found');
+                }
+
+                $detailStmt = $conn->prepare('SELECT id FROM buy_details WHERE id = ? AND id_buy_bill = ?');
+                $detailStmt->execute([$detailId, $billId]);
+                if (!$detailStmt->fetch(PDO::FETCH_ASSOC)) {
+                    apiErrorDie('detail_not_found');
+                }
+
+                if (countCommittedCars($conn, $detailId) > 0) {
+                    apiErrorDie('detail_locked');
+                }
+
+                // Collect the car ids being deleted for the client before removing them.
+                $idsStmt = $conn->prepare('SELECT id FROM cars_stock WHERE id_buy_details = ? ORDER BY id ASC');
+                $idsStmt->execute([$detailId]);
+                while ($row = $idsStmt->fetch(PDO::FETCH_ASSOC)) {
+                    $removedCarIds[] = intval($row['id']);
+                }
+
+                $deleteCarsStmt = $conn->prepare('DELETE FROM cars_stock WHERE id_buy_details = ?');
+                $deleteCarsStmt->execute([$detailId]);
+
+                $deleteDetailStmt = $conn->prepare('DELETE FROM buy_details WHERE id = ? AND id_buy_bill = ?');
+                $deleteDetailStmt->execute([$detailId, $billId]);
+
+                $billAmountStmt = $conn->prepare(
+                    'UPDATE buy_bill SET amount = (SELECT COALESCE(SUM(amount * QTY), 0) FROM buy_details WHERE id_buy_bill = ?) WHERE id = ?'
+                );
+                $billAmountStmt->execute([$billId, $billId]);
+
+                $conn->commit();
+                $inTransaction = false;
+
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'Buy detail deleted successfully',
+                    'removedCount' => count($removedCarIds),
+                    'removedCarIds' => $removedCarIds,
+                ]);
+            } catch (Exception $e) {
+                if ($inTransaction && $conn instanceof PDO && $conn->inTransaction()) {
+                    $conn->rollBack();
+                }
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            }
+                exit;
+
+        case 'delete_buy_bill':
+            // Admin-only delete of a whole bill. Unlike the old client-side version
+            // (delete payments, then details, then the bill, each its own request),
+            // this runs in one transaction, so a failure cannot leave a bill with its
+            // payments and details already gone.
+            //
+            // An expanded bill owns cars_stock rows, so they are cascade deleted here
+            // rather than orphaned. That is only safe while none of them is committed:
+            // once a car has a VIN, a buyer, files, an assignment or a loading, the
+            // downstream workflow depends on it and the bill must be refused.
+            foreach (['bill_id', 'user_id'] as $requiredKey) {
+                if (!isset($postData[$requiredKey])) {
+                    apiErrorDie('invalid_request', 400);
+                }
+            }
+
+            $billId = intval($postData['bill_id']);
+            $userId = intval($postData['user_id']);
+
+            if ($billId <= 0 || $userId <= 0) {
+                apiErrorDie('invalid_request', 400);
+            }
+
+            $removedCarIds = [];
+            $inTransaction = false;
+
+            try {
+                $conn = getConnection(getDbConfig());
+                if (is_array($conn) && isset($conn['error'])) {
+                    throw new Exception($conn['error']);
+                }
+
+                if (!isAdminUser($conn, $userId)) {
+                    apiErrorDie('not_admin');
+                }
+
+                $conn->beginTransaction();
+                $inTransaction = true;
+
+                $billStmt = $conn->prepare('SELECT id FROM buy_bill WHERE id = ? FOR UPDATE');
+                $billStmt->execute([$billId]);
+                if (!$billStmt->fetch(PDO::FETCH_ASSOC)) {
+                    apiErrorDie('bill_not_found');
+                }
+
+                $detailStmt = $conn->prepare('SELECT id FROM buy_details WHERE id_buy_bill = ?');
+                $detailStmt->execute([$billId]);
+                $detailIds = array_map(function ($row) {
+                    return intval($row['id']);
+                }, $detailStmt->fetchAll(PDO::FETCH_ASSOC));
+
+                $committedCount = 0;
+                if (!empty($detailIds)) {
+                    $placeholders = implode(',', array_fill(0, count($detailIds), '?'));
+
+                    $committedStmt = $conn->prepare(
+                        'SELECT COUNT(*) AS cnt FROM cars_stock cs
+                         WHERE cs.id_buy_details IN (' . $placeholders . ')
+                           AND (' . isCommittedCarSql() . ')'
+                    );
+                    $committedStmt->execute($detailIds);
+                    $committedCount = (int)$committedStmt->fetch(PDO::FETCH_ASSOC)['cnt'];
+
+                    if ($committedCount > 0) {
+                        apiErrorDie('bill_locked', 200, ['count' => $committedCount]);
+                    }
+
+                    $carsStmt = $conn->prepare(
+                        "SELECT id FROM cars_stock WHERE id_buy_details IN ($placeholders) ORDER BY id ASC"
+                    );
+                    $carsStmt->execute($detailIds);
+                    while ($row = $carsStmt->fetch(PDO::FETCH_ASSOC)) {
+                        $removedCarIds[] = intval($row['id']);
+                    }
+
+                    // Collect the ids first so the client can drop them from the grid.
+                    $deleteCarsStmt = $conn->prepare("DELETE FROM cars_stock WHERE id_buy_details IN ($placeholders)");
+                    $deleteCarsStmt->execute($detailIds);
+                }
+
+                $deletePaymentsStmt = $conn->prepare('DELETE FROM buy_payments WHERE id_buy_bill = ?');
+                $deletePaymentsStmt->execute([$billId]);
+
+                $deleteDetailsStmt = $conn->prepare('DELETE FROM buy_details WHERE id_buy_bill = ?');
+                $deleteDetailsStmt->execute([$billId]);
+
+                $deleteBillStmt = $conn->prepare('DELETE FROM buy_bill WHERE id = ?');
+                $deleteBillStmt->execute([$billId]);
+
+                $conn->commit();
+                $inTransaction = false;
+
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'Buy bill deleted successfully',
+                    'removedCount' => count($removedCarIds),
+                    'removedCarIds' => $removedCarIds,
+                ]);
+            } catch (Exception $e) {
+                if ($inTransaction && $conn instanceof PDO && $conn->inTransaction()) {
                     $conn->rollBack();
                 }
                 echo json_encode(['success' => false, 'error' => $e->getMessage()]);

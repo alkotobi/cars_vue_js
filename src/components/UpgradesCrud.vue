@@ -370,6 +370,7 @@ const closeDialog = () => {
 }
 
 const saveUpgrade = async () => {
+  if (isSubmitting.value) return // prevent double submission
   if (isSubmitting.value || !formData.value.description.trim()) return
 
   isSubmitting.value = true
@@ -437,6 +438,7 @@ const closeDeleteDialog = () => {
 }
 
 const confirmDelete = async () => {
+  if (isDeleting.value) return // prevent double submission
   if (isDeleting.value || !upgradeToDelete.value) return
 
   isDeleting.value = true

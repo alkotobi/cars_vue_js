@@ -2043,7 +2043,7 @@ const startRecording = async () => {
   try {
     // Check if we're on HTTPS (required for microphone access)
     if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
-      throw new Error('Microphone access requires HTTPS. Please use https://cars.merhab.com')
+      throw new Error('Microphone access requires HTTPS. Please use https://world-automobile.com/cars')
     }
 
     // Check if MediaRecorder is supported

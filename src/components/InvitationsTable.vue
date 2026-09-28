@@ -429,6 +429,7 @@ const fetchInvitations = async () => {
 }
 
 const saveInvitation = async () => {
+  if (saving.value) return // prevent double submission
   saving.value = true
 
   try {

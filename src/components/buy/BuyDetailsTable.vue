@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, useAttrs } from 'vue'
-import { useApi } from '../../composables/useApi'
+import { useApi, apiErrorText } from '../../composables/useApi'
 import { useEnhancedI18n } from '../../composables/useI18n'
 
 // Get all attributes passed to the component
@@ -42,15 +42,24 @@ const isProcessing = ref(false)
 const isEditingDetail = ref(false)
 const isDeletingDetail = ref(false)
 
-const confirmDelete = (detailId, isStockUpdated) => {
-  if (isStockUpdated) {
-    alert(t('buy.detailsTable.cannotDeleteDetailsStockUpdated'))
+const confirmDelete = (detail) => {
+  if (!props.isAdmin) {
+    alert(t('buy.detailsTable.adminOnly'))
+    return
+  }
+  if (detail.locked) {
+    alert(t('buy.detailsTable.detailLocked'))
     return
   }
   if (isDeletingDetail.value) return // Prevent double-click
-  if (confirm(t('buy.detailsTable.confirmDeleteDetail'))) {
+
+  const message = t('buy.detailsTable.confirmDeleteDetailWithCars', {
+    count: detail.carsCount || 0,
+  })
+
+  if (confirm(message)) {
     isDeletingDetail.value = true
-    emit('delete-detail', detailId)
+    emit('delete-detail', detail.id)
     // Reset after a short delay to allow the parent to handle the deletion
     setTimeout(() => {
       isDeletingDetail.value = false
@@ -59,18 +68,49 @@ const confirmDelete = (detailId, isStockUpdated) => {
 }
 
 const openEditDialog = (detail) => {
+  if (!props.isAdmin) {
+    alert(t('buy.detailsTable.adminOnly'))
+    return
+  }
+  if (detail.locked) {
+    alert(t('buy.detailsTable.detailLocked'))
+    return
+  }
   if (isEditingDetail.value) return // Prevent double-click
   isEditingDetail.value = true
   editingDetail.value = { ...detail }
+  originalQty.value = Number(detail.QTY) || 0
   showEditDialog.value = true
 }
 
+const originalQty = ref(0)
+const isSavingEdit = ref(false)
+
+const qtyDelta = computed(() => {
+  if (!editingDetail.value) return 0
+  return (Number(editingDetail.value.QTY) || 0) - originalQty.value
+})
+
 const handleEditSubmit = () => {
-  isEditingDetail.value = false
+  if (isSavingEdit.value) return // Prevent double submission
+  isSavingEdit.value = true
+  // Keep the dialog open until the parent closes it on success, so a server-side
+  // refusal (not admin, detail locked) leaves the admin's edits intact.
   emit('update-detail', editingDetail.value)
-  showEditDialog.value = false
-  editingDetail.value = null
+  setTimeout(() => {
+    isSavingEdit.value = false
+  }, 1000)
 }
+
+defineExpose({
+  closeEditDialog: () => {
+    isEditingDetail.value = false
+    isSavingEdit.value = false
+    showEditDialog.value = false
+    editingDetail.value = null
+    originalQty.value = 0
+  },
+})
 
 const showStockAlert = async () => {
   if (!props.buyDetails.length) {
@@ -84,63 +124,27 @@ const showStockAlert = async () => {
     isProcessing.value = true
 
     try {
-      // Process each detail
-      for (const detail of props.buyDetails) {
-        // Create stock entries based on quantity
-        for (let i = 0; i < detail.QTY; i++) {
-          const result = await callApi({
-            query: `
-              INSERT INTO cars_stock 
-              (id_buy_details, price_cell, notes, is_used_car, is_big_car, id_color)
-              VALUES (?, ?, ?, ?, ?, ?)
-            `,
-            params: [
-              detail.id,
-              detail.price_sell,
-              detail.notes,
-              detail.is_used_car,
-              detail.is_big_car,
-              detail.id_color,
-            ],
-          })
+      // The expansion into one cars_stock row per QTY unit happens server-side in a
+      // single transaction, keyed by bill id. It must not be done here: a client-side
+      // loop that failed partway left the bill pending with partial stock, and the
+      // retry added the remainder on top of it.
+      const billId = props.buyDetails[0].id_buy_bill
 
-          if (!result.success) {
-            alert(t('buy.detailsTable.errorCreatingStockEntry'))
-            console.error('Error creating stock entry:', result.error)
-            return
-          }
-        }
-      }
-
-      // Update the is_stock_updated flag in buy_bill
       const result = await callApi({
-        query: 'UPDATE buy_bill SET is_stock_updated = 1 WHERE id = ?',
-        params: [props.buyDetails[0].id_buy_bill],
+        action: 'create_stock_from_details',
+        bill_id: billId,
       })
 
       if (result.success) {
         alert(t('buy.detailsTable.stockSuccessfullyUpdated'))
-        emit('stock-updated', props.buyDetails[0].id_buy_bill) // Emit the bill ID for parent refresh
+        emit('stock-updated', billId) // Emit the bill ID for parent refresh
 
-        // Emit the new cars data to add to memory
-        const newCars = []
-        for (const detail of props.buyDetails) {
-          for (let i = 0; i < detail.QTY; i++) {
-            newCars.push({
-              id_buy_details: detail.id,
-              price_cell: detail.price_sell,
-              notes: detail.notes,
-              is_used_car: detail.is_used_car,
-              is_big_car: detail.is_big_car,
-              id_color: detail.id_color,
-              buy_bill_id: detail.id_buy_bill,
-            })
-          }
-        }
-        emit('cars-created', newCars)
+        // Real ids come back from the insert, so the car stock table no longer has to
+        // invent them when adding these to memory.
+        emit('cars-created', result.createdCars || [])
       } else {
-        console.error('Error updating is_stock_updated flag:', result.error)
-        alert(t('buy.detailsTable.errorUpdatingStock'))
+        console.error('Error updating stock:', result.error)
+        alert(apiErrorText(t, result) || t('buy.detailsTable.errorUpdatingStock'))
       }
     } catch (err) {
       console.error('Error updating stock:', err)
@@ -238,12 +242,14 @@ const showStockAlert = async () => {
             <button
               @click="openEditDialog(detail)"
               class="edit-btn"
-              :class="{ disabled: detail.is_stock_updated || isEditingDetail }"
-              :disabled="detail.is_stock_updated || isEditingDetail"
+              :class="{ disabled: !isAdmin || detail.locked || isEditingDetail }"
+              :disabled="!isAdmin || detail.locked || isEditingDetail"
               :title="
-                detail.is_stock_updated
-                  ? 'Cannot edit - Stock has been updated'
-                  : 'Edit this detail'
+                !isAdmin
+                  ? t('buy.detailsTable.adminOnlyTitle')
+                  : detail.locked
+                    ? t('buy.detailsTable.detailLockedTitle')
+                    : t('buy.detailsTable.edit')
               "
             >
               <i v-if="isEditingDetail" class="fas fa-spinner fa-spin"></i>
@@ -251,14 +257,16 @@ const showStockAlert = async () => {
               {{ isEditingDetail ? t('buy.detailsTable.processing') : t('buy.detailsTable.edit') }}
             </button>
             <button
-              @click="confirmDelete(detail.id, detail.is_stock_updated)"
+              @click="confirmDelete(detail)"
               class="delete-btn"
-              :class="{ disabled: detail.is_stock_updated || isDeletingDetail }"
-              :disabled="detail.is_stock_updated || isDeletingDetail"
+              :class="{ disabled: !isAdmin || detail.locked || isDeletingDetail }"
+              :disabled="!isAdmin || detail.locked || isDeletingDetail"
               :title="
-                detail.is_stock_updated
-                  ? 'Cannot delete - Stock has been updated'
-                  : 'Delete this detail'
+                !isAdmin
+                  ? t('buy.detailsTable.adminOnlyTitle')
+                  : detail.locked
+                    ? t('buy.detailsTable.detailLockedTitle')
+                    : t('buy.detailsTable.delete')
               "
             >
               <i v-if="isDeletingDetail" class="fas fa-spinner fa-spin"></i>
@@ -291,6 +299,20 @@ const showStockAlert = async () => {
             {{ t('buy.detailsTable.quantity') }}
           </label>
           <input type="number" id="edit-qty" v-model="editingDetail.QTY" min="1" required />
+          <div
+            v-if="isStockUpdated && qtyDelta > 0"
+            class="qty-hint"
+            :style="{ color: 'var(--success, #16a34a)' }"
+          >
+            {{ t('buy.detailsTable.qtyIncreaseHint', { count: qtyDelta }) }}
+          </div>
+          <div
+            v-else-if="isStockUpdated && qtyDelta < 0"
+            class="qty-hint"
+            :style="{ color: 'var(--danger, #dc2626)' }"
+          >
+            {{ t('buy.detailsTable.qtyDecreaseHint', { count: -qtyDelta }) }}
+          </div>
         </div>
 
         <div class="form-group">

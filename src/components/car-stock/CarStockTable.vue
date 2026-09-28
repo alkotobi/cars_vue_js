@@ -21,6 +21,7 @@ import CarPortsBulkEditForm from './CarPortsBulkEditForm.vue'
 
 import CarNotesBulkEditForm from './CarNotesBulkEditForm.vue'
 import CarColorBulkEditForm from './CarColorBulkEditForm.vue'
+import CarStockBenefitModal from './CarStockBenefitModal.vue'
 import CarExportLicenseBulkEditForm from './CarExportLicenseBulkEditForm.vue'
 import CarUpgradesBulkAddForm from './CarUpgradesBulkAddForm.vue'
 import SaveSelectionForm from './SaveSelectionForm.vue'
@@ -2483,6 +2484,7 @@ const fetchSingleCar = async (carId) => {
           lp.loading_port,
           dp.discharge_port,
           bd.price_sell as buy_price,
+          bd.amount as cost_price,
           bb.id as buy_bill_id,
           bb.date_buy,
           w.warhouse_name as warehouse_name,
@@ -2648,6 +2650,26 @@ const handleExportLicenseFromToolbar = () => {
   showExportLicenseBulkEditForm.value = true
 }
 
+const showBenefitModal = ref(false)
+
+const handleBenefitFromToolbar = () => {
+  if (selectedCars.value.size === 0) {
+    alert(t('carStock.no_cars_selected_for_benefit'))
+    return
+  }
+
+  const soldCount = sortedCars.value.filter(
+    (car) => selectedCars.value.has(car.id) && car.id_sell !== null && car.id_sell !== undefined,
+  ).length
+
+  if (soldCount === 0) {
+    alert(t('carStock.no_sold_cars_selected_for_benefit'))
+    return
+  }
+
+  showBenefitModal.value = true
+}
+
 const handleCfrDaFromToolbar = () => {
   if (selectedCars.value.size === 0) {
     alert(t('carStock.no_cars_selected_for_cfr_da_editing'))
@@ -2802,6 +2824,7 @@ const loadInitialCarsData = async () => {
           lp.loading_port,
           dp.discharge_port,
           bd.price_sell as buy_price,
+          bd.amount as cost_price,
           bb.id as buy_bill_id,
           bb.date_buy,
           w.warhouse_name as warehouse_name,
@@ -2937,11 +2960,14 @@ onUnmounted(() => {
 defineExpose({
   fetchCarsStock,
   addCarsToMemory: async (newCarsData) => {
-    // Generate IDs for new cars (since they don't have IDs yet)
+    // Stock expansion returns the real inserted ids, so keep them. Anything without
+    // an id still gets a synthetic one for display, as before.
     const maxId = allCars.value.length > 0 ? Math.max(...allCars.value.map((car) => car.id)) : 0
 
-    const newCars = newCarsData.map((carData, index) => ({
-      id: maxId + index + 1, // Generate unique ID
+    let nextSyntheticId = maxId + 1
+
+    const newCars = newCarsData.map((carData) => ({
+      id: carData.id || nextSyntheticId++,
       vin: null,
       price_cell: carData.price_cell,
       date_loding: null,
@@ -2992,6 +3018,14 @@ defineExpose({
     allCars.value.push(...newCars)
 
     // Apply current filters to update the display
+    fetchCarsStock()
+  },
+  removeCarsToMemory: (carIds) => {
+    if (!carIds?.length) return
+
+    const idSet = new Set(carIds)
+    allCars.value = allCars.value.filter((car) => !idSet.has(car.id))
+
     fetchCarsStock()
   },
 })
@@ -4190,6 +4224,7 @@ const closeBatchCheckoutModal = () => {
         @color="handleColorFromToolbar"
         @export-license="handleExportLicenseFromToolbar"
         @cfr-da="handleCfrDaFromToolbar"
+        @benefit="handleBenefitFromToolbar"
         @mark-delivered="handleMarkDelivered"
         @refresh="handleRefresh"
         @delete-cars="handleDeleteCars"
@@ -5119,6 +5154,12 @@ const closeBatchCheckoutModal = () => {
     :is-admin="isAdmin"
     @close="showColorBulkEditForm = false"
     @save="handleColorBulkSave"
+  />
+
+  <CarStockBenefitModal
+    :show="showBenefitModal"
+    :selected-cars="sortedCars.filter((car) => selectedCars.has(car.id))"
+    @close="showBenefitModal = false"
   />
 
   <CarExportLicenseBulkEditForm

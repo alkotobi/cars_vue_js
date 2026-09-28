@@ -30,6 +30,7 @@ const user = ref(JSON.parse(localStorage.getItem('user') || 'null'))
 const isAdmin = computed(() => user.value?.role_id === 1)
 
 const handleSubmit = async () => {
+  if (loading.value) return // prevent double submission
   if (isProcessing.value || loading.value) return
   if (!newVin.value.trim()) {
     error.value = t('vinEditForm.vin_number_required')
@@ -67,6 +68,7 @@ const closeModal = () => {
 }
 
 const handleRevertVin = async () => {
+  if (loading.value) return // prevent double submission
   if (!isAdmin.value) return
 
   if (!confirm(t('vinEditForm.confirm_revert_vin'))) {

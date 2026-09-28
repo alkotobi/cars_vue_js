@@ -99,6 +99,7 @@ const handleEdit = (transfer) => {
 }
 
 const handleDelete = async (transfer) => {
+  if (loading.value) return // prevent double submission
   if (!confirm(`Are you sure you want to delete transfer #${transfer.id}?`)) {
     return
   }
@@ -136,6 +137,7 @@ const handleAddNew = () => {
 }
 
 const handleConfirmReceive = async (transfer) => {
+  if (loading.value) return // prevent double submission
   if (!confirm('Are you sure you want to confirm receiving this transfer?')) {
     return
   }
@@ -174,6 +176,7 @@ const isAdmin = computed(() => {
 })
 
 const handleAdminConfirm = async (transfer) => {
+  if (loading.value) return // prevent double submission
   if (!confirm('Are you sure you want to confirm this transfer as an admin?')) {
     return
   }

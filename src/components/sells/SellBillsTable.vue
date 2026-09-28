@@ -857,6 +857,7 @@ const handleBatchDelete = () => {
 }
 
 const confirmBatchDelete = async () => {
+  if (isDeletingBatch.value) return // prevent double submission
   showBatchDeleteConfirm.value = false
   isDeletingBatch.value = true
 

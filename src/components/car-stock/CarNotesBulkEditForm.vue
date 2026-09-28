@@ -78,6 +78,7 @@ watch(() => props.show, (isOpen) => {
 })
 
 const handleNotesChange = async () => {
+  if (loading.value) return // prevent double submission
   if (isProcessing.value || loading.value) return
   if (!newNote.value.trim()) {
     error.value = t('carNotesBulkEditForm.pleaseEnterNotes')

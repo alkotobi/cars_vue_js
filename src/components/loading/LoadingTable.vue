@@ -921,12 +921,8 @@ import { generatePrintContent } from '@/lib/loadingPrintContent.js'
 
 const { t } = useI18n()
 const { callApi, getFileUrl } = useApi()
-const {
-  getCompanyLogoUrl,
-  getBankForCompany,
-  getReportHeaderContactItems,
-  buildLetterheadHtml,
-} = useInvoiceCompanyInfo()
+const { getCompanyLogoUrl, getBankForCompany, getReportHeaderContactItems, buildLetterheadHtml } =
+  useInvoiceCompanyInfo()
 const { hasCrossDev, openWindowWithHtml } = useCrossDev()
 
 const loadingRecords = ref([])
@@ -944,7 +940,6 @@ const editingRecord = ref(null)
 const isDeletingRecord = ref(false)
 const isProcessingTask = ref(false)
 const isPrintingRecord = ref(false)
-
 // Print options dialog: when true, user can choose columns/sections before printing
 const showPrintOptionsDialog = ref(false)
 
@@ -1222,9 +1217,7 @@ const applyFiltersAndSorting = () => {
     filteredRecords = filteredRecords.filter(
       (record) =>
         record.container_sos &&
-        record.container_sos
-          .split(',')
-          .some((s) => s && s.trim().toLowerCase().includes(soTerm)),
+        record.container_sos.split(',').some((s) => s && s.trim().toLowerCase().includes(soTerm)),
     )
   }
 
@@ -1850,6 +1843,7 @@ const openAddDischargePortDialog = () => {
 }
 
 const saveShippingLine = async () => {
+  if (isAddingItem.value) return // prevent double submission
   if (!quickAddForm.value.shipping_line_name.trim()) {
     alert('Please enter a shipping line name')
     return
@@ -1878,6 +1872,7 @@ const saveShippingLine = async () => {
 }
 
 const saveLoadingPort = async () => {
+  if (isAddingItem.value) return // prevent double submission
   if (!quickAddForm.value.loading_port_name.trim()) {
     alert('Please enter a loading port name')
     return
@@ -1906,6 +1901,7 @@ const saveLoadingPort = async () => {
 }
 
 const saveDischargePort = async () => {
+  if (isAddingItem.value) return // prevent double submission
   if (!quickAddForm.value.discharge_port_name.trim()) {
     alert('Please enter a discharge port name')
     return
@@ -2356,7 +2352,7 @@ const printLoadingRecord = async (printOptions) => {
       letterHeadUrl,
       bank?.company_name || '',
       bank?.company_address || '',
-      contactItems
+      contactItems,
     )
 
     // Create the print content (pass translated labels and selected options)
@@ -2367,11 +2363,13 @@ const printLoadingRecord = async (printOptions) => {
       letterheadHtml,
       paymentStatusLabel,
       printOptions,
-      getFileUrl
+      getFileUrl,
     )
 
     if (hasCrossDev()) {
-      const printScript = '<script>window.onload=function(){setTimeout(function(){window.print();},500);}<' + '/script>'
+      const printScript =
+        '<script>window.onload=function(){setTimeout(function(){window.print();},500);}<' +
+        '/script>'
       const htmlWithPrint = printContent.replace('</body>', printScript + '</body>')
       await openWindowWithHtml(htmlWithPrint, {
         title: t('loading.loading_record') + ' #' + loadingRecord.id,
@@ -2396,7 +2394,6 @@ const printLoadingRecord = async (printOptions) => {
     isPrintingRecord.value = false
   }
 }
-
 // Add task handling methods
 const openTaskForLoading = (record) => {
   if (isProcessingTask.value) return // Prevent double-click

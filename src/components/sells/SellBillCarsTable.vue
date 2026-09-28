@@ -208,6 +208,7 @@ const handleCFRDAChange = (event) => {
 
 // Function to unassign a car from the sell bill
 const unassignCar = async (carId) => {
+  if (isProcessing.value) return // prevent double submission
   // Check permission first
   if (!can_unassign_cars.value) {
     error.value = t('sellBills.no_permission_to_unassign_car')
@@ -702,6 +703,7 @@ const handleEdit = async (car) => {
 
 // Handle save edit
 const handleSaveEdit = async () => {
+  if (isProcessing.value) return // prevent double submission
   if (!editingCar.value) return
 
   isProcessing.value = true

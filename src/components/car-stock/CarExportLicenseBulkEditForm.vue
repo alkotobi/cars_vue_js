@@ -19,6 +19,7 @@ const error = ref('')
 const success = ref('')
 
 const handleSave = async () => {
+  if (loading.value) return // prevent double submission
   if (!exportLicense.value) {
     error.value = t('carExportLicenseBulkEditForm.pleaseEnterExportLicenseValue')
     return

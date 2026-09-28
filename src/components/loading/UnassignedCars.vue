@@ -900,6 +900,7 @@ const assignCar = async (car) => {
 }
 
 const performCarAssignment = async (car) => {
+  if (isAssigning.value) return // prevent double submission
   isAssigning.value = true
 
   try {

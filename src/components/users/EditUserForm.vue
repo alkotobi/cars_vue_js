@@ -107,6 +107,8 @@ const initializeForm = async () => {
 }
 
 const handleSubmit = async () => {
+  if (loading.value) return
+
   if (!formData.value.username || !formData.value.email) {
     error.value = 'Username and email are required'
     return
@@ -220,6 +222,11 @@ const handleSubmit = async () => {
 }
 
 const handleCancel = () => {
+  // The close and Cancel buttons are disabled while loading; the overlay click
+  // reaches this handler too, so guard it as well to avoid dismissing the modal
+  // mid-request.
+  if (loading.value) return
+
   formData.value = {
     username: '',
     email: '',

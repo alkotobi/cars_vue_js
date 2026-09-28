@@ -42,6 +42,14 @@
           Run SQL
         </button>
         <button
+          @click="backupSelectedDatabases"
+          class="btn-toolbar"
+          :disabled="selectedDatabases.length === 0 || backingUp"
+        >
+          <i class="fas fa-download"></i>
+          {{ backingUp ? 'Backing up...' : 'Backup SQL' }}
+        </button>
+        <button
           @click="openUpdateVersionModal"
           class="btn-toolbar"
           :disabled="selectedDatabases.length === 0"
@@ -729,6 +737,7 @@ const showRunSqlModal = ref(false)
 const runSqlInput = ref('')
 const runningSql = ref(false)
 const runSqlResults = ref([])
+const backingUp = ref(false)
 const showUploadCodeModal = ref(false)
 const codeFileInput = ref(null)
 const selectedCodeFiles = ref([])
@@ -785,7 +794,13 @@ const getApiBaseUrl = () => {
   const hostname = window.location.hostname
   const isLocalhost =
     hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.')
-  return isLocalhost ? 'http://localhost:8000/api' : 'https://www.merhab.com/api'
+  // Derive the API from the host serving the page: on local/LAN the PHP server
+  // runs on :8000, in production the web server exposes api/ under the same host.
+  const protocol = window.location.protocol
+  const port = window.location.port
+  return isLocalhost
+    ? `${protocol}//${hostname}:8000/api`
+    : `${protocol}//${hostname}${port ? `:${port}` : ''}/api`
 }
 
 // Fetch all databases
@@ -1166,6 +1181,87 @@ const cancelRunSql = () => {
   runSqlResults.value = []
 }
 
+const parseDownloadFilename = (contentDisposition, fallback) => {
+  if (!contentDisposition) {
+    return fallback
+  }
+  const match = contentDisposition.match(/filename="?([^";\n]+)"?/i)
+  return match ? match[1] : fallback
+}
+
+const downloadBackupBlob = (blob, filename) => {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
+const backupSelectedDatabases = async () => {
+  if (selectedDatabases.value.length === 0) {
+    return
+  }
+
+  const selectedDbs = databases.value.filter((db) => selectedDatabases.value.includes(db.id))
+  const notReady = selectedDbs.filter((db) => db.is_created != 1 || !db.db_name)
+  if (notReady.length > 0) {
+    error.value = 'All selected databases must be created and have a database name before backup'
+    return
+  }
+
+  backingUp.value = true
+  error.value = ''
+  successMessage.value = ''
+
+  try {
+    const response = await fetch(`${getApiBaseUrl()}/db_manager_api.php`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        action: 'backup_databases',
+        database_ids: selectedDatabases.value,
+      }),
+    })
+
+    const contentType = response.headers.get('Content-Type') || ''
+
+    if (
+      contentType.includes('application/sql') ||
+      contentType.includes('application/zip') ||
+      contentType.includes('application/octet-stream')
+    ) {
+      const blob = await response.blob()
+      const fallbackName =
+        selectedDatabases.value.length === 1
+          ? `backup_${selectedDbs[0].db_name}_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.sql`
+          : `databases_backup_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.zip`
+      const filename = parseDownloadFilename(
+        response.headers.get('Content-Disposition'),
+        fallbackName,
+      )
+      downloadBackupBlob(blob, filename)
+      successMessage.value = `Backup downloaded: ${filename}`
+      setTimeout(() => {
+        successMessage.value = ''
+      }, 5000)
+      return
+    }
+
+    const result = await response.json()
+    error.value = result.message || 'Failed to create backup'
+  } catch (err) {
+    error.value = 'An error occurred while creating the backup'
+    console.error(err)
+  } finally {
+    backingUp.value = false
+  }
+}
+
 const confirmRunSql = async () => {
   if (!runSqlInput.value.trim()) {
     return
@@ -1209,6 +1305,7 @@ const confirmRunSql = async () => {
 }
 
 const confirmUpdateVersion = async () => {
+  if (updatingVersion.value) return // prevent double submission
   if (!newVersionInput.value || parseInt(newVersionInput.value) <= 0) {
     return
   }
@@ -1539,6 +1636,7 @@ const confirmUpdatePhp = async () => {
 }
 
 const confirmUploadCode = async () => {
+  if (uploadingCode.value) return // prevent double submission
   if (selectedCodeFiles.value.length === 0) {
     error.value = 'Please select at least one file'
     return

@@ -13,6 +13,8 @@ const formData = ref({
 })
 
 const handleSubmit = async () => {
+  if (loading.value) return
+
   if (!formData.value.role_name.trim()) {
     error.value = 'Role name is required'
     return
@@ -47,6 +49,12 @@ const handleSubmit = async () => {
 }
 
 const handleCancel = () => {
+  // The close and Cancel buttons are disabled while loading; the overlay click
+  // reaches this handler too, so guard it as well to avoid dismissing the modal
+  // mid-request (the insert would complete but role-added would fire on an
+  // unmounted component and the roles list would not refresh).
+  if (loading.value) return
+
   formData.value = {
     role_name: '',
     description: '',

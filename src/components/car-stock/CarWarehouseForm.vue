@@ -92,6 +92,7 @@ const fetchWarehouses = async () => {
 }
 
 const handleGetCar = async () => {
+  if (loading.value) return // prevent double submission
   if (isProcessing.value || loading.value) return
   if (!can_receive_car.value) {
     error.value = t('warehouse.noPermission')
@@ -173,6 +174,7 @@ const handleGetCar = async () => {
 }
 
 const handleWarehouseChange = async () => {
+  if (loading.value) return // prevent double submission
   if (isProcessing.value || loading.value) return
   if (!selectedWarehouse.value) {
     error.value = t('warehouse.selectWarehouse')
@@ -244,6 +246,7 @@ const handleWarehouseChange = async () => {
 }
 
 const handleRevertWarehouse = async () => {
+  if (loading.value) return // prevent double submission
   if (!props.isAdmin) return
 
   if (!confirm(t('warehouse.confirmRevertWarehouse', { count: carCount.value }))) {
@@ -306,6 +309,7 @@ const handleRevertWarehouse = async () => {
 }
 
 const handleRevertGetCar = async () => {
+  if (loading.value) return // prevent double submission
   if (!props.isAdmin) return
 
   if (!confirm(t('warehouse.confirmRevertGetCar', { count: carCount.value }))) {

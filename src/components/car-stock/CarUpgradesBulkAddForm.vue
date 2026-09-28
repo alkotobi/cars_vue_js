@@ -116,6 +116,7 @@ const closeAddUpgradeTypeDialog = () => {
 
 // Save Upgrade Type
 const saveUpgradeType = async () => {
+  if (isSavingUpgradeType.value) return // prevent double submission
   if (isSavingUpgradeType.value || !newUpgradeType.value.description?.trim()) return
 
   isSavingUpgradeType.value = true
@@ -196,6 +197,7 @@ const saveUpgradeType = async () => {
 
 // Handle submit
 const handleSubmit = async () => {
+  if (isProcessing.value) return // prevent double submission
   if (isProcessing.value || loading.value) return
 
   // Validation

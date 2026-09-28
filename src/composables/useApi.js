@@ -1136,3 +1136,37 @@ export const useApi = () => {
     loading,
   }
 }
+
+// to locale keys so raw English never reaches the UI. Unknown codes (DB-level
+// errors, unexpected failures) return '' so the caller falls back to its own
+// generic translated message and keeps the raw text in the console.
+export function apiErrorText(t, result) {
+  const code = result?.code
+  const keys = {
+    invalid_request: 'buy.detailsTable.invalidRequest',
+    not_admin: 'buy.detailsTable.adminOnly',
+    detail_locked: 'buy.detailsTable.detailLocked',
+    invalid_qty: 'buy.detailsTable.invalidQty',
+    bill_not_found: 'buy.detailsTable.billNotFound',
+    detail_not_found: 'buy.detailsTable.detailNotFound',
+    stock_already_updated: 'buy.detailsTable.stockAlreadyUpdated',
+    no_details: 'buy.detailsTable.noDetailsToProcess',
+    stock_rows_exist: 'buy.detailsTable.stockRowsExist',
+    invalid_detail_qty: 'buy.detailsTable.invalidDetailQty',
+  }
+  const key = keys[code]
+  if (!key) return ''
+  switch (code) {
+    case 'stock_rows_exist': {
+      const details = result?.meta?.details || []
+      const parts = details.map((d) =>
+        t('buy.detailsTable.stockRowsExistDetail', { id: d.id, count: d.count }),
+      )
+      return t(key, { count: details.length, parts: parts.join(', ') })
+    }
+    case 'invalid_detail_qty':
+      return t(key, { id: result?.meta?.detailId })
+    default:
+      return t(key)
+  }
+}

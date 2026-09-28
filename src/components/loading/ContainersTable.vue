@@ -1187,6 +1187,7 @@ const closeDeleteDialog = () => {
 }
 
 const confirmDelete = async () => {
+  if (isDeleting.value) return // prevent double submission
   if (isDeleting.value || !containerToDelete.value) return
 
   isDeleting.value = true
@@ -1304,6 +1305,7 @@ const closeOnBoardDialog = () => {
 }
 
 const confirmOnBoard = async () => {
+  if (isSubmittingOnBoard.value) return // prevent double submission
   if (isSubmittingOnBoard.value || !onBoardData.value.date_on_board) return
 
   if (

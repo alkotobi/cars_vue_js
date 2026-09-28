@@ -37,6 +37,7 @@ const isAdmin = computed(() => {
 })
 
 const handleLoad = async () => {
+  if (loading.value) return // prevent double submission
   containerRefError.value = ''
   loadingDateError.value = ''
 
@@ -90,6 +91,7 @@ const handleLoad = async () => {
 }
 
 const handleRevert = async () => {
+  if (loading.value) return // prevent double submission
   if (!isAdmin.value) {
     error.value = t('carLoadForm.onlyAdminCanRevertLoadingStatus')
     return

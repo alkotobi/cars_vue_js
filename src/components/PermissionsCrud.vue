@@ -1,8 +1,10 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useApi } from '../composables/useApi'
+import { useSubmitGuard } from '../composables/useSubmitGuard'
 
-const { callApi, error, loading } = useApi()
+const { callApi, error } = useApi()
+const { guard, isBusy } = useSubmitGuard()
 const permissions = ref([])
 const newPermission = ref({ permission_name: '', description: '' })
 const editingPermission = ref(null)
@@ -17,7 +19,7 @@ const fetchPermissions = async () => {
   }
 }
 
-const addPermission = async () => {
+const addPermission = guard('add', async () => {
   if (!newPermission.value.permission_name) return
   const result = await callApi({
     query: 'INSERT INTO permissions (permission_name, description) VALUES (?, ?)',
@@ -27,7 +29,7 @@ const addPermission = async () => {
     fetchPermissions()
     newPermission.value = { permission_name: '', description: '' }
   }
-}
+})
 
 const startEditPermission = (perm) => {
   editingPermission.value = perm.id
@@ -39,7 +41,7 @@ const cancelEdit = () => {
   editPermissionData.value = { permission_name: '', description: '' }
 }
 
-const updatePermission = async (perm) => {
+const updatePermission = guard('update', async (perm) => {
   const result = await callApi({
     query: 'UPDATE permissions SET permission_name = ?, description = ? WHERE id = ?',
     params: [editPermissionData.value.permission_name, editPermissionData.value.description, perm.id]
@@ -48,9 +50,9 @@ const updatePermission = async (perm) => {
     fetchPermissions()
     cancelEdit()
   }
-}
+})
 
-const deletePermission = async (perm) => {
+const deletePermission = guard('delete', async (perm) => {
   // First confirm deletion
   if (!confirm(`Are you sure you want to delete the permission "${perm.permission_name}"?`)) {
     return
@@ -74,7 +76,7 @@ const deletePermission = async (perm) => {
   if (result.success) {
     fetchPermissions()
   }
-}
+})
 
 onMounted(() => {
   fetchPermissions()
@@ -92,7 +94,7 @@ onMounted(() => {
               <input v-model="editPermissionData.permission_name" placeholder="Permission name" class="input-field" />
               <input v-model="editPermissionData.description" placeholder="Description" class="input-field" />
               <div class="button-group">
-                <button @click="updatePermission(perm)" :disabled="loading" class="btn save-btn">Save</button>
+                <button @click="updatePermission(perm)" :disabled="isBusy('update')" class="btn save-btn">Save</button>
                 <button @click="cancelEdit" class="btn cancel-btn">Cancel</button>
               </div>
             </div>
@@ -105,7 +107,7 @@ onMounted(() => {
               </div>
               <div class="button-group">
                 <button @click="startEditPermission(perm)" class="btn edit-btn">Edit</button>
-                <button @click="deletePermission(perm)" :disabled="loading" class="btn delete-btn">Delete</button>
+                <button @click="deletePermission(perm)" :disabled="isBusy('delete')" class="btn delete-btn">Delete</button>
               </div>
             </div>
           </template>
@@ -114,7 +116,7 @@ onMounted(() => {
       <div class="add-form">
         <input v-model="newPermission.permission_name" placeholder="Permission name" class="input-field" />
         <input v-model="newPermission.description" placeholder="Description" class="input-field" />
-        <button @click="addPermission" :disabled="loading" class="btn add-btn">Add Permission</button>
+        <button @click="addPermission" :disabled="isBusy('add')" class="btn add-btn">Add Permission</button>
       </div>
       <div v-if="error" class="error-message">{{ error }}</div>
     </div>

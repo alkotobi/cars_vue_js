@@ -267,6 +267,7 @@ const openEditDialog = (detail) => {
 }
 
 const updateDetail = async () => {
+  if (isProcessing.value) return // prevent double submission
   if (!editDetail.value || isProcessing.value) return
   isProcessing.value = true
 

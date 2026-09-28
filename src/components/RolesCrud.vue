@@ -1,8 +1,10 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useApi } from '../composables/useApi'
+import { useSubmitGuard } from '../composables/useSubmitGuard'
 
 const { callApi, error, loading } = useApi()
+const { guard, isBusy } = useSubmitGuard()
 const roles = ref([])
 const newRole = ref({ role_name: '', description: '' })
 const editingRole = ref(null)
@@ -17,7 +19,7 @@ const fetchRoles = async () => {
   }
 }
 
-const addRole = async () => {
+const addRole = guard('add', async () => {
   if (!newRole.value.role_name) return
   const result = await callApi({
     query: 'INSERT INTO roles (role_name, description) VALUES (?, ?)',
@@ -27,7 +29,7 @@ const addRole = async () => {
     fetchRoles()
     newRole.value = { role_name: '', description: '' }
   }
-}
+})
 
 const startEditRole = (role) => {
   editingRole.value = role.id
@@ -39,7 +41,7 @@ const cancelEdit = () => {
   editRoleData.value = { role_name: '', description: '' }
 }
 
-const updateRole = async (role) => {
+const updateRole = guard('update', async (role) => {
   const result = await callApi({
     query: 'UPDATE roles SET role_name = ?, description = ? WHERE id = ?',
     params: [editRoleData.value.role_name, editRoleData.value.description, role.id],
@@ -48,9 +50,9 @@ const updateRole = async (role) => {
     fetchRoles()
     cancelEdit()
   }
-}
+})
 
-const deleteRole = async (role) => {
+const deleteRole = guard('delete', async (role) => {
   // First confirm deletion
   if (!confirm(`Are you sure you want to delete the role "${role.role_name}"?`)) {
     return
@@ -74,7 +76,7 @@ const deleteRole = async (role) => {
   if (result.success) {
     fetchRoles()
   }
-}
+})
 
 onMounted(() => {
   fetchRoles()
@@ -125,7 +127,7 @@ onMounted(() => {
               <div class="button-group">
                 <button
                   @click="updateRole(role)"
-                  :disabled="loading || !editRoleData.role_name.trim()"
+                  :disabled="loading || isBusy('update') || !editRoleData.role_name.trim()"
                   class="btn save-btn"
                 >
                   <i class="fas" :class="loading ? 'fa-spinner fa-spin' : 'fa-save'"></i>
@@ -162,7 +164,7 @@ onMounted(() => {
                 </button>
                 <button
                   @click="deleteRole(role)"
-                  :disabled="loading || editingRole !== null"
+                  :disabled="loading || isBusy('delete') || editingRole !== null"
                   class="btn delete-btn"
                   title="Delete role"
                 >
@@ -200,7 +202,7 @@ onMounted(() => {
         </div>
         <button
           @click="addRole"
-          :disabled="loading || !newRole.role_name.trim()"
+          :disabled="loading || isBusy('add') || !newRole.role_name.trim()"
           class="btn add-btn"
         >
           <i class="fas" :class="loading ? 'fa-spinner fa-spin' : 'fa-plus'"></i>

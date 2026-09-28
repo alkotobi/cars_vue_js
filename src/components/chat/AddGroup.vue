@@ -1,6 +1,7 @@
 <script setup>
 import { ref, watch } from 'vue'
 import { useApi } from '../../composables/useApi'
+import { useSubmitGuard } from '../../composables/useSubmitGuard'
 
 const props = defineProps({
   isVisible: {
@@ -12,6 +13,7 @@ const props = defineProps({
 const emit = defineEmits(['close', 'group-added'])
 
 const { callApi, loading, error } = useApi()
+const { guard, isBusy } = useSubmitGuard()
 const availableUsers = ref([])
 const selectedUsers = ref(new Set()) // Use Set to track selected user IDs
 const groupName = ref('')
@@ -109,7 +111,7 @@ const getTotalGroupMembers = () => {
   return 1 + selectedUsers.value.size
 }
 
-const createGroup = async () => {
+const createGroup = guard('create-group', async () => {
   if (!groupName.value.trim()) {
     alert('Please enter a group name')
     return
@@ -190,7 +192,7 @@ const createGroup = async () => {
     console.error('Error creating group:', err)
     alert('Error creating group')
   }
-}
+})
 
 const closeModal = () => {
   groupName.value = ''
@@ -389,10 +391,10 @@ const handleBackdropClick = (event) => {
         <button
           @click="createGroup"
           class="btn btn-primary"
-          :disabled="!groupName.trim() || getSelectedUsersCount() === 0 || loading"
+          :disabled="!groupName.trim() || getSelectedUsersCount() === 0 || loading || isBusy('create-group')"
         >
           <i class="fas fa-plus"></i>
-          Create Group
+          {{ isBusy('create-group') ? 'Creating...' : 'Create Group' }}
         </button>
       </div>
     </div>

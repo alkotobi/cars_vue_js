@@ -16,6 +16,12 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  // the parent passes the handler's own busy state, so a two-call save
+  // (insert then refetch) still shows a disabled button
+  saving: {
+    type: Boolean,
+    default: false,
+  },
   maxWidth: {
     type: String,
     default: '500px',
@@ -51,8 +57,8 @@ const handleSave = () => {
           <slot></slot>
         </div>
         <div class="dialog-actions">
-          <button @click="handleSave" class="btn save-btn" :disabled="loading">
-            {{ loading ? t('carStockForm.saving') || 'Saving...' : t('carStockForm.save') || 'Save' }}
+          <button @click="handleSave" class="btn save-btn" :disabled="loading || saving">
+            {{ loading || saving ? t('carStockForm.saving') || 'Saving...' : t('carStockForm.save') || 'Save' }}
           </button>
           <button @click="handleClose" class="btn cancel-btn" :disabled="loading">
             {{ t('carStockForm.cancel') || 'Cancel' }}

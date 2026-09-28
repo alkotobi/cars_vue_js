@@ -1,9 +1,11 @@
 <script setup>
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useApi } from '../composables/useApi'
+import { useI18n } from 'vue-i18n'
 
 const route = useRoute()
+const { t } = useI18n()
 const { callApi, uploadFile, getFileUrl } = useApi()
 
 const billId = ref(route.params.id)
@@ -15,8 +17,17 @@ const showPaymentDialog = ref(false)
 const editingPayment = ref(null)
 const user = ref(null)
 
+// `error` is reserved for load failures: it replaces the table, because there is nothing
+// meaningful to show. Action and permission problems must not do that, so they go here
+// and render as a dismissible notice on top of the still-usable page.
+const actionError = ref(null)
+const clearActionError = () => {
+  actionError.value = null
+}
+
 // Add loading state for form submission
 const isSubmittingPayment = ref(false)
+const deletingPaymentId = ref(null)
 
 // Add computed properties for permissions
 const can_edit_sell_payments = computed(() => {
@@ -51,42 +62,91 @@ onMounted(() => {
   fetchPayments()
 })
 
-// Helper function to format number safely
+// Placeholder for any value that is missing or not a number.
+const notAvailable = () => t('sellBillPayments.not_available')
+
+// Display formatter only. The computeds below return numbers or null so that no
+// arithmetic is ever performed on a formatted string.
 const formatNumber = (value) => {
+  if (value === null || value === undefined || value === '') return notAvailable()
   const num = Number(value)
-  return !isNaN(num) ? num.toFixed(2) : 'N/A'
+  return isNaN(num) ? notAvailable() : num.toFixed(2)
+}
+
+// Single money formatter for every currency tile and the dialog balances, so a null
+// balance renders as the placeholder rather than as a misleading 0.00.
+const formatMoney = (value, currency = 'USD') => {
+  const num = Number(value)
+  if (value === null || value === undefined || value === '' || isNaN(num)) {
+    return notAvailable()
+  }
+  return currency === 'DA' ? `${num.toFixed(2)} DA` : `$ ${num.toFixed(2)}`
 }
 
 // Format date helper
 const formatDate = (dateStr) => {
-  if (!dateStr) return 'N/A'
+  if (!dateStr) return notAvailable()
   return new Date(dateStr).toLocaleDateString()
 }
 
-// Computed total payments (USD)
+// Computed total payments (USD). Number() keeps the sum numeric even if a value
+// arrives as a decimal string, which would otherwise concatenate instead of adding.
 const totalPayments = computed(() => {
-  return payments.value.reduce((sum, payment) => {
-    return sum + (payment.amount_usd || 0)
-  }, 0)
+  return payments.value.reduce((sum, payment) => sum + (Number(payment.amount_usd) || 0), 0)
 })
 
 // Computed total payments (DA)
 const totalPaymentsDa = computed(() => {
-  return payments.value.reduce((sum, payment) => {
-    return sum + (payment.amount_da || 0)
-  }, 0)
+  return payments.value.reduce((sum, payment) => sum + (Number(payment.amount_da) || 0), 0)
 })
 
 // Computed remaining balance (USD)
 const remainingBalance = computed(() => {
-  if (!billInfo.value?.total_cfr) return 'N/A'
-  return billInfo.value.total_cfr - totalPayments.value
+  const totalCfr = Number(billInfo.value?.total_cfr)
+  if (!totalCfr) return null
+  return totalCfr - totalPayments.value
 })
 
 // Computed remaining balance (DA)
 const remainingBalanceDa = computed(() => {
-  if (!billInfo.value?.total_cfr_da) return 'N/A'
-  return billInfo.value.total_cfr_da - totalPaymentsDa.value
+  const totalCfrDa = Number(billInfo.value?.total_cfr_da)
+  if (!totalCfrDa) return null
+  return totalCfrDa - totalPaymentsDa.value
+})
+
+// Cars with no exchange rate cannot be converted, so the DA totals silently skip them.
+// Track this so the UI can say so instead of showing a deceptively clean number.
+const totalBillCars = computed(() => billInfo.value?.total_cars || 0)
+const carsMissingRate = computed(() => billInfo.value?.cars_missing_rate || 0)
+const isDaTotalIncomplete = computed(() => carsMissingRate.value > 0)
+const isDaTotalUnavailable = computed(
+  () => totalBillCars.value > 0 && carsMissingRate.value >= totalBillCars.value,
+)
+
+// Paid DA comes from the payments table and stays valid even when rates are missing,
+// but the bill DA total and the remaining balance do not, so they report null and
+// formatMoney renders the placeholder for them.
+const billTotalCfrDa = computed(() =>
+  isDaTotalUnavailable.value ? null : Number(billInfo.value?.total_cfr_da) || 0,
+)
+const billRemainingDa = computed(() =>
+  isDaTotalUnavailable.value ? null : remainingBalanceDa.value,
+)
+
+// Balances shown inside the payment dialog. While editing, the payment being edited is
+// backed out of the paid total, so the figure reflects what will remain after saving.
+const dialogRemainingUsd = computed(() => {
+  const totalCfr = Number(billInfo.value?.total_cfr)
+  if (!totalCfr) return null
+  const paid = totalPayments.value - (Number(editingPayment.value?.amount_usd) || 0)
+  return totalCfr - paid
+})
+
+const dialogRemainingDa = computed(() => {
+  const totalCfrDa = Number(billInfo.value?.total_cfr_da)
+  if (!totalCfrDa || isDaTotalUnavailable.value) return null
+  const paid = totalPaymentsDa.value - (Number(editingPayment.value?.amount_da) || 0)
+  return totalCfrDa - paid
 })
 
 // Form validation
@@ -115,7 +175,11 @@ const verifyCalculations = () => {
     const usdError = Math.abs(usd - expectedUsd) / expectedUsd
 
     if (daError > tolerance || usdError > tolerance) {
-      formErrors.value.calculation = `The values don't match the rate. Expected: ${usd} USD × ${rate} = ${expectedDa} DA`
+      formErrors.value.calculation = t('sellBillPayments.err_rate_mismatch', {
+        usd,
+        rate,
+        expectedDa,
+      })
       return false
     }
   }
@@ -161,19 +225,19 @@ const validateForm = () => {
 
   // Check if at least one amount is provided
   if (!paymentForm.value.amount_usd && !paymentForm.value.amount_da) {
-    formErrors.value.amounts = 'Either USD or DA amount is required'
+    formErrors.value.amounts = t('sellBillPayments.err_amount_required')
     return false
   }
 
   // Check if rate is provided
   if (!paymentForm.value.rate) {
-    formErrors.value.rate = 'Rate is required'
+    formErrors.value.rate = t('sellBillPayments.err_rate_required')
     return false
   }
 
   // Check if swift document is provided for new payments
   if (!editingPayment.value && !paymentForm.value.swift_file && !paymentForm.value.path_swift) {
-    formErrors.value.swift = 'Swift document is required'
+    formErrors.value.swift = t('sellBillPayments.err_swift_required')
     return false
   }
 
@@ -189,7 +253,7 @@ const handleSwiftFileChange = (event) => {
   const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp']
 
   if (!allowedTypes.includes(file.type)) {
-    alert('Only PDF and image files (JPEG, PNG, GIF, WEBP) are allowed')
+    alert(t('sellBillPayments.err_file_type'))
     event.target.value = ''
     return
   }
@@ -231,8 +295,18 @@ const fetchBillInfo = async () => {
               ) * COALESCE(cs.rate, 0)
             )
             FROM cars_stock cs
-            WHERE cs.id_sell = sb.id AND cs.rate IS NOT NULL
-          ) as total_cfr_da
+            WHERE cs.id_sell = sb.id AND cs.rate IS NOT NULL AND cs.rate <> 0
+          ) as total_cfr_da,
+          (
+            SELECT COUNT(*)
+            FROM cars_stock cs
+            WHERE cs.id_sell = sb.id
+          ) as total_cars,
+          (
+            SELECT COUNT(*)
+            FROM cars_stock cs
+            WHERE cs.id_sell = sb.id AND (cs.rate IS NULL OR cs.rate = 0)
+          ) as cars_missing_rate
         FROM sell_bill sb
         LEFT JOIN clients c ON sb.id_broker = c.id
         LEFT JOIN users u ON sb.id_user = u.id
@@ -246,10 +320,12 @@ const fetchBillInfo = async () => {
         ...result.data[0],
         total_cfr: Number(result.data[0].total_cfr) || 0,
         total_cfr_da: Number(result.data[0].total_cfr_da) || 0,
+        total_cars: Number(result.data[0].total_cars) || 0,
+        cars_missing_rate: Number(result.data[0].cars_missing_rate) || 0,
       }
     }
   } catch (err) {
-    error.value = err.message || 'Failed to fetch bill information'
+    error.value = err.message || t('sellBillPayments.err_load_bill')
   }
 }
 
@@ -280,16 +356,17 @@ const fetchPayments = async () => {
         rate: payment.rate ? Number(payment.rate) : null,
       }))
     } else {
-      error.value = result.error || 'Failed to fetch payments'
+      error.value = result.error || t('sellBillPayments.err_load_payments')
     }
   } catch (err) {
-    error.value = err.message || 'An error occurred'
+    error.value = err.message || t('sellBillPayments.err_generic')
   } finally {
     loading.value = false
   }
 }
 
 const openAddDialog = () => {
+  clearActionError()
   editingPayment.value = null
   paymentForm.value = {
     amount_usd: '',
@@ -305,9 +382,10 @@ const openAddDialog = () => {
 
 const openEditDialog = (payment) => {
   if (!can_edit_sell_payments.value) {
-    error.value = 'You do not have permission to edit payments'
+    actionError.value = t('sellBillPayments.err_no_permission_edit')
     return
   }
+  clearActionError()
   editingPayment.value = payment
   paymentForm.value = {
     amount_usd: payment.amount_usd,
@@ -322,10 +400,7 @@ const openEditDialog = (payment) => {
 }
 
 const handleSubmit = async () => {
-  // Prevent multiple submissions
-  if (isSubmittingPayment.value) {
-    return
-  }
+  if (isSubmittingPayment.value) return // prevent double submission
 
   if (!validateForm()) {
     return
@@ -333,7 +408,7 @@ const handleSubmit = async () => {
 
   // Calculate missing amount before submission
   if (!calculateMissingAmount()) {
-    error.value = 'Failed to calculate missing amount. Please check the rate.'
+    actionError.value = t('sellBillPayments.err_calculate_missing')
     return
   }
 
@@ -363,14 +438,16 @@ const handleSubmit = async () => {
         )
 
         if (!uploadResult.success) {
-          throw new Error(uploadResult.message || 'Failed to upload swift document')
+          throw new Error(uploadResult.message || t('sellBillPayments.err_upload_failed'))
         }
 
         // Store just the relative path without the API endpoint
         paymentForm.value.path_swift = `payments_swift/${filename}`
       } catch (uploadError) {
         console.error('Upload error:', uploadError)
-        throw new Error(`Failed to upload swift document: ${uploadError.message}`)
+        throw new Error(
+          t('sellBillPayments.err_upload_failed_detail', { reason: uploadError.message }),
+        )
       }
     }
 
@@ -399,7 +476,7 @@ const handleSubmit = async () => {
       })
 
       if (!result.success) {
-        throw new Error(result.error || 'Failed to update payment')
+        throw new Error(result.error || t('sellBillPayments.err_update_failed'))
       }
     } else {
       // Create new payment
@@ -422,32 +499,35 @@ const handleSubmit = async () => {
       })
 
       if (!result.success) {
-        throw new Error(result.error || 'Failed to create payment')
+        throw new Error(result.error || t('sellBillPayments.err_create_failed'))
       }
     }
 
     // Reset and refresh
     showPaymentDialog.value = false
     editingPayment.value = null
+    clearActionError()
     await fetchPayments()
   } catch (err) {
     console.error('Error in handleSubmit:', err)
-    error.value = err.message
+    actionError.value = err.message
   } finally {
     isSubmittingPayment.value = false
   }
 }
 
 const handleDelete = async (paymentId) => {
+  if (deletingPaymentId.value) return
   if (!can_delete_sell_payments.value) {
-    error.value = 'You do not have permission to delete payments'
+    actionError.value = t('sellBillPayments.err_no_permission_delete')
     return
   }
 
-  if (!confirm('Are you sure you want to delete this payment?')) {
+  if (!confirm(t('sellBillPayments.confirm_delete_payment'))) {
     return
   }
 
+  deletingPaymentId.value = paymentId
   try {
     const result = await callApi({
       query: 'DELETE FROM sell_payments WHERE id = ?',
@@ -455,12 +535,15 @@ const handleDelete = async (paymentId) => {
     })
 
     if (result.success) {
+      clearActionError()
       await fetchPayments()
     } else {
-      throw new Error(result.error || 'Failed to delete payment')
+      throw new Error(result.error || t('sellBillPayments.err_delete_failed'))
     }
   } catch (err) {
-    error.value = err.message
+    actionError.value = err.message
+  } finally {
+    deletingPaymentId.value = null
   }
 }
 </script>
@@ -468,75 +551,123 @@ const handleDelete = async (paymentId) => {
 <template>
   <div class="sell-bill-payments">
     <div class="header">
-      <h2>Payments for Sell Bill #{{ billId }}</h2>
+      <h2>{{ t('sellBillPayments.title', { id: billId }) }}</h2>
 
       <div v-if="billInfo" class="bill-info">
         <div class="info-grid">
           <div class="info-item">
-            <span class="label">Reference:</span>
-            <span class="value">{{ billInfo.bill_ref || 'N/A' }}</span>
+            <span class="label">{{ t('sellBillPayments.lbl_reference') }}</span>
+            <span class="value">{{ billInfo.bill_ref || notAvailable() }}</span>
           </div>
           <div class="info-item">
-            <span class="label">Date:</span>
+            <span class="label">{{ t('sellBillPayments.lbl_date') }}</span>
             <span class="value">{{ formatDate(billInfo.date_sell) }}</span>
           </div>
           <div class="info-item">
-            <span class="label">Broker:</span>
-            <span class="value">{{ billInfo.broker_name || 'N/A' }}</span>
+            <span class="label">{{ t('sellBillPayments.lbl_broker') }}</span>
+            <span class="value">{{ billInfo.broker_name || notAvailable() }}</span>
           </div>
           <div class="info-item">
-            <span class="label">Created By:</span>
-            <span class="value">{{ billInfo.created_by || 'N/A' }}</span>
+            <span class="label">{{ t('sellBillPayments.lbl_created_by') }}</span>
+            <span class="value">{{ billInfo.created_by || notAvailable() }}</span>
+          </div>
+        </div>
+
+        <div
+          v-if="isDaTotalIncomplete"
+          class="rate-warning"
+          :class="{ fatal: isDaTotalUnavailable }"
+        >
+          <i
+            class="fas"
+            :class="isDaTotalUnavailable ? 'fa-exclamation-triangle' : 'fa-exclamation-circle'"
+          ></i>
+          <div class="rate-warning-text">
+            <p v-if="isDaTotalUnavailable" class="rate-warning-title">
+              {{
+                t('sellBillPayments.da_total_unavailable', {
+                  total: totalBillCars,
+                  missing: carsMissingRate,
+                })
+              }}
+            </p>
+            <p v-else class="rate-warning-title">
+              {{
+                t('sellBillPayments.da_total_incomplete', {
+                  total: totalBillCars,
+                  missing: carsMissingRate,
+                })
+              }}
+            </p>
+            <p class="rate-warning-hint">{{ t('sellBillPayments.da_total_hint') }}</p>
           </div>
         </div>
 
         <div class="financial-summary">
           <div class="summary-item">
-            <span class="label">Total CFR (USD):</span>
-            <span class="value amount">$ {{ formatNumber(billInfo.total_cfr) }}</span>
+            <span class="label">{{ t('sellBillPayments.lbl_total_cfr_usd') }}</span>
+            <span class="value amount">{{ formatMoney(billInfo.total_cfr) }}</span>
           </div>
           <div class="summary-item">
-            <span class="label">Total Paid (USD):</span>
-            <span class="value amount">$ {{ formatNumber(totalPayments) }}</span>
+            <span class="label">{{ t('sellBillPayments.lbl_total_paid_usd') }}</span>
+            <span class="value amount">{{ formatMoney(totalPayments) }}</span>
           </div>
           <div class="summary-item">
-            <span class="label">Remaining (USD):</span>
-            <span class="value amount">$ {{ formatNumber(remainingBalance) }}</span>
+            <span class="label">{{ t('sellBillPayments.lbl_remaining_usd') }}</span>
+            <span class="value amount">{{ formatMoney(remainingBalance) }}</span>
+          </div>
+          <div class="summary-item" :class="{ 'summary-item-flagged': isDaTotalIncomplete }">
+            <span class="label">
+              {{ t('sellBillPayments.lbl_total_cfr_da') }}
+              <i v-if="isDaTotalIncomplete" class="fas fa-exclamation-triangle flag-icon"></i>
+            </span>
+            <span class="value amount">{{ formatMoney(billTotalCfrDa, 'DA') }}</span>
           </div>
           <div class="summary-item">
-            <span class="label">Total CFR (DA):</span>
-            <span class="value amount">{{ formatNumber(billInfo.total_cfr_da) }} DA</span>
+            <span class="label">{{ t('sellBillPayments.lbl_total_paid_da') }}</span>
+            <span class="value amount">{{ formatMoney(totalPaymentsDa, 'DA') }}</span>
           </div>
-          <div class="summary-item">
-            <span class="label">Total Paid (DA):</span>
-            <span class="value amount">{{ formatNumber(totalPaymentsDa) }} DA</span>
-          </div>
-          <div class="summary-item">
-            <span class="label">Remaining (DA):</span>
-            <span class="value amount">{{ formatNumber(remainingBalanceDa) }} DA</span>
+          <div class="summary-item" :class="{ 'summary-item-flagged': isDaTotalIncomplete }">
+            <span class="label">
+              {{ t('sellBillPayments.lbl_remaining_da') }}
+              <i v-if="isDaTotalIncomplete" class="fas fa-exclamation-triangle flag-icon"></i>
+            </span>
+            <span class="value amount">{{ formatMoney(billRemainingDa, 'DA') }}</span>
           </div>
         </div>
       </div>
     </div>
 
     <div class="actions">
-      <button @click="openAddDialog" class="add-btn">Add Payment</button>
+      <button @click="openAddDialog" class="add-btn">
+        {{ t('sellBillPayments.add_payment') }}
+      </button>
     </div>
 
-    <div v-if="loading" class="loading">Loading...</div>
+    <div v-if="actionError && !showPaymentDialog" class="action-error">
+      <i class="fas fa-exclamation-circle"></i>
+      <span>{{ actionError }}</span>
+      <button type="button" class="action-error-close" @click="clearActionError">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+
+    <div v-if="loading" class="loading">{{ t('sellBillPayments.loading') }}</div>
     <div v-else-if="error" class="error">{{ error }}</div>
-    <div v-else-if="payments.length === 0" class="no-data">No payments found for this bill</div>
+    <div v-else-if="payments.length === 0" class="no-data">
+      {{ t('sellBillPayments.no_payments') }}
+    </div>
     <table v-else class="payments-table">
       <thead>
         <tr>
-          <th>ID</th>
-          <th>Date</th>
-          <th>Amount (USD)</th>
-          <th>Amount (DA)</th>
-          <th>Rate</th>
-          <th>Created By</th>
-          <th>Swift Document</th>
-          <th>Actions</th>
+          <th>{{ t('sellBillPayments.col_id') }}</th>
+          <th>{{ t('sellBillPayments.col_date') }}</th>
+          <th>{{ t('sellBillPayments.col_amount_usd') }}</th>
+          <th>{{ t('sellBillPayments.col_amount_da') }}</th>
+          <th>{{ t('sellBillPayments.col_rate') }}</th>
+          <th>{{ t('sellBillPayments.col_created_by') }}</th>
+          <th>{{ t('sellBillPayments.col_swift') }}</th>
+          <th>{{ t('sellBillPayments.col_actions') }}</th>
         </tr>
       </thead>
       <tbody>
@@ -546,12 +677,12 @@ const handleDelete = async (paymentId) => {
           <td>{{ formatNumber(payment.amount_usd) }}</td>
           <td>{{ formatNumber(payment.amount_da) }}</td>
           <td>{{ formatNumber(payment.rate) }}</td>
-          <td>{{ payment.created_by || 'N/A' }}</td>
+          <td>{{ payment.created_by || notAvailable() }}</td>
           <td>
-            <a v-if="payment.path_swift" :href="getFileUrl(payment.path_swift)" target="_blank"
-              >View Swift</a
-            >
-            <span v-else>No document</span>
+            <a v-if="payment.path_swift" :href="getFileUrl(payment.path_swift)" target="_blank">
+              {{ t('sellBillPayments.view_swift') }}
+            </a>
+            <span v-else>{{ t('sellBillPayments.no_document') }}</span>
           </td>
           <td class="actions-cell">
             <button
@@ -560,15 +691,19 @@ const handleDelete = async (paymentId) => {
               :disabled="!can_edit_sell_payments"
               :class="{ disabled: !can_edit_sell_payments }"
             >
-              Edit
+              {{ t('sellBillPayments.edit') }}
             </button>
             <button
               @click="handleDelete(payment.id)"
               class="delete-btn"
-              :disabled="!can_delete_sell_payments"
-              :class="{ disabled: !can_delete_sell_payments }"
+              :disabled="!can_delete_sell_payments || deletingPaymentId !== null"
+              :class="{ disabled: !can_delete_sell_payments || deletingPaymentId !== null }"
             >
-              Delete
+              {{
+                deletingPaymentId === payment.id
+                  ? t('sellBillPayments.deleting')
+                  : t('sellBillPayments.delete')
+              }}
             </button>
           </td>
         </tr>
@@ -578,28 +713,53 @@ const handleDelete = async (paymentId) => {
     <!-- Payment Dialog -->
     <div v-if="showPaymentDialog" class="dialog-overlay">
       <div class="dialog">
-        <h3>{{ editingPayment ? 'Edit Payment' : 'Add Payment' }}</h3>
+        <h3>
+          {{
+            editingPayment ? t('sellBillPayments.edit_payment') : t('sellBillPayments.add_payment')
+          }}
+        </h3>
 
         <form @submit.prevent="handleSubmit" class="payment-form">
+          <div v-if="actionError" class="error-message">{{ actionError }}</div>
+
+          <div v-if="billInfo" class="dialog-balance">
+            <div class="balance-item">
+              <span class="balance-label">{{ t('sellBillPayments.remaining_usd') }}</span>
+              <span class="balance-value">{{ formatMoney(dialogRemainingUsd) }}</span>
+            </div>
+            <div class="balance-item" :class="{ 'balance-item-flagged': isDaTotalIncomplete }">
+              <span class="balance-label">
+                {{ t('sellBillPayments.remaining_da') }}
+                <i v-if="isDaTotalIncomplete" class="fas fa-exclamation-triangle balance-flag"></i>
+              </span>
+              <span class="balance-value">
+                {{ formatMoney(dialogRemainingDa, 'DA') }}
+              </span>
+            </div>
+          </div>
+          <p v-if="editingPayment && billInfo" class="balance-hint">
+            {{ t('sellBillPayments.remaining_excludes_edit') }}
+          </p>
+
           <div class="form-group">
-            <label for="amount_usd">Amount (USD):</label>
+            <label for="amount_usd">{{ t('sellBillPayments.lbl_amount_usd') }}</label>
             <input
               type="number"
               id="amount_usd"
               v-model="paymentForm.amount_usd"
               step="0.01"
-              placeholder="Enter USD amount"
+              :placeholder="t('sellBillPayments.ph_amount_usd')"
             />
           </div>
 
           <div class="form-group">
-            <label for="amount_da">Amount (DA):</label>
+            <label for="amount_da">{{ t('sellBillPayments.lbl_amount_da') }}</label>
             <input
               type="number"
               id="amount_da"
               v-model="paymentForm.amount_da"
               step="0.01"
-              placeholder="Enter DA amount"
+              :placeholder="t('sellBillPayments.ph_amount_da')"
             />
           </div>
 
@@ -608,14 +768,14 @@ const handleDelete = async (paymentId) => {
           </div>
 
           <div class="form-group">
-            <label for="rate">Rate:</label>
+            <label for="rate">{{ t('sellBillPayments.lbl_rate') }}</label>
             <input
               type="number"
               id="rate"
               v-model="paymentForm.rate"
               step="0.01"
               required
-              placeholder="Enter rate"
+              :placeholder="t('sellBillPayments.ph_rate')"
             />
             <div v-if="formErrors.rate" class="error-message">
               {{ formErrors.rate }}
@@ -627,12 +787,12 @@ const handleDelete = async (paymentId) => {
           </div>
 
           <div class="form-group">
-            <label for="date">Date:</label>
+            <label for="date">{{ t('sellBillPayments.lbl_date') }}</label>
             <input type="date" id="date" v-model="paymentForm.date" required />
           </div>
 
           <div class="form-group">
-            <label for="path_swift">Swift Document (PDF or Image):</label>
+            <label for="path_swift">{{ t('sellBillPayments.lbl_swift') }}</label>
             <input
               type="file"
               id="path_swift"
@@ -649,22 +809,28 @@ const handleDelete = async (paymentId) => {
               target="_blank"
               class="current-file-link"
             >
-              View Current Swift Document
+              {{ t('sellBillPayments.view_current_swift') }}
             </a>
           </div>
 
           <div class="form-group">
-            <label for="notes">Notes:</label>
+            <label for="notes">{{ t('sellBillPayments.lbl_notes') }}</label>
             <textarea id="notes" v-model="paymentForm.notes" rows="3"></textarea>
           </div>
 
           <div class="dialog-buttons">
             <button type="button" @click="showPaymentDialog = false" class="cancel-btn">
-              Cancel
+              {{ t('sellBillPayments.cancel') }}
             </button>
             <button type="submit" class="submit-btn" :disabled="isSubmittingPayment">
               <span v-if="isSubmittingPayment" class="spinner"></span>
-              {{ isSubmittingPayment ? 'Saving...' : editingPayment ? 'Update' : 'Add' }}
+              {{
+                isSubmittingPayment
+                  ? t('sellBillPayments.saving')
+                  : editingPayment
+                    ? t('sellBillPayments.update')
+                    : t('sellBillPayments.add')
+              }}
             </button>
           </div>
         </form>
@@ -757,6 +923,93 @@ const handleDelete = async (paymentId) => {
   font-size: 1.25rem;
   color: #0f172a;
   font-weight: 600;
+}
+
+.action-error {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 16px;
+  padding: 0.75rem 1rem;
+  background-color: #fef2f2;
+  border: 1px solid #fca5a5;
+  border-left: 4px solid #dc2626;
+  border-radius: 6px;
+  color: #991b1b;
+  font-size: 0.9rem;
+}
+
+.action-error-close {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  opacity: 0.7;
+}
+
+.action-error-close:hover {
+  background-color: #fee2e2;
+  opacity: 1;
+}
+
+.rate-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding: 0.85rem 1rem;
+  background-color: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-left: 4px solid #f59e0b;
+  border-radius: 6px;
+  color: #92400e;
+}
+
+.rate-warning.fatal {
+  background-color: #fef2f2;
+  border-color: #fca5a5;
+  border-left-color: #dc2626;
+  color: #991b1b;
+}
+
+.rate-warning > i {
+  font-size: 1.05rem;
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+
+.rate-warning-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.rate-warning-title {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.rate-warning-hint {
+  margin: 0;
+  font-size: 0.8rem;
+  opacity: 0.85;
+}
+
+.summary-item-flagged {
+  padding: 0.5rem 0.6rem;
+  margin: -0.5rem -0.6rem;
+  background-color: #fffbeb;
+  border-radius: 6px;
+}
+
+.flag-icon {
+  margin-left: 4px;
+  color: #f59e0b;
+  font-size: 0.75rem;
 }
 
 .payments-table {
@@ -868,6 +1121,57 @@ a:hover {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.dialog-balance {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  padding: 0.75rem 0.9rem;
+  margin-bottom: 4px;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+}
+
+.balance-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.balance-item-flagged {
+  padding: 0.3rem 0.45rem;
+  margin: -0.3rem -0.45rem;
+  background-color: #fffbeb;
+  border-radius: 5px;
+}
+
+.balance-label {
+  font-size: 0.72rem;
+  color: #64748b;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.balance-flag {
+  margin-left: 3px;
+  color: #f59e0b;
+  font-size: 0.65rem;
+}
+
+.balance-value {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0f172a;
+  font-variant-numeric: tabular-nums;
+}
+
+.balance-hint {
+  margin: -8px 0 0;
+  font-size: 0.72rem;
+  color: #94a3b8;
 }
 
 .form-group {

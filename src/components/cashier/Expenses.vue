@@ -121,6 +121,7 @@ const fetchExpenses = async () => {
 }
 
 const addExpense = async () => {
+  if (loading.value) return // prevent double submission
   if (!newExpense.value.amount || !newExpense.value.date_transfer) {
     error.value = 'Amount and date are required'
     return
@@ -163,6 +164,7 @@ const addExpense = async () => {
 }
 
 const deleteExpense = async (expenseId) => {
+  if (loading.value) return // prevent double submission
   if (!confirm('Are you sure you want to delete this expense?')) {
     return
   }

@@ -1,6 +1,7 @@
 <script setup>
 import { ref, watch, computed } from 'vue'
 import { useApi } from '../../composables/useApi'
+import { useSubmitGuard } from '../../composables/useSubmitGuard'
 import { useEnhancedI18n } from '../../composables/useI18n'
 
 const props = defineProps({
@@ -21,6 +22,7 @@ const props = defineProps({
 const emit = defineEmits(['close', 'saved'])
 
 const { callApi } = useApi()
+const { guard, isBusy } = useSubmitGuard()
 const { t } = useEnhancedI18n()
 
 const formData = ref({
@@ -62,7 +64,7 @@ watch(() => props.show, (isVisible) => {
   }
 })
 
-const saveTeam = async () => {
+const saveTeam = guard('save-team', async () => {
   if (!formData.value.name || !formData.value.team_leader_id) {
     alert(t('cars.teamNameAndLeaderRequired') || 'Team name and leader are required')
     return
@@ -188,7 +190,7 @@ const saveTeam = async () => {
     console.error('Error saving team:', err)
     alert((isEditMode.value ? (t('cars.errorUpdatingTeam') || 'Error updating team') : (t('cars.errorCreatingTeam') || 'Error creating team')) + ': ' + err.message)
   }
-}
+})
 
 const closeForm = () => {
   emit('close')
@@ -229,7 +231,9 @@ const closeForm = () => {
       </div>
     </div>
     <div class="form-actions">
-      <button class="save-button" @click="saveTeam">{{ t('cars.save') || 'Save' }}</button>
+      <button class="save-button" @click="saveTeam" :disabled="isBusy('save-team')">
+        {{ isBusy('save-team') ? 'Saving...' : (t('cars.save') || 'Save') }}
+      </button>
       <button class="cancel-button" @click="closeForm">{{ t('cars.cancel') || 'Cancel' }}</button>
     </div>
   </div>

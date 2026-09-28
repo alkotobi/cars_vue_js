@@ -148,6 +148,7 @@ const uploadLogoFile = async () => {
 }
 
 const handleDelete = async (bank) => {
+  if (loading.value) return // prevent double submission
   if (!confirm('Are you sure you want to delete this bank?')) return
 
   loading.value = true

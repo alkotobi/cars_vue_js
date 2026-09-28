@@ -53,6 +53,7 @@ const clientDocsDate = ref(new Date().toISOString().split('T')[0])
 
 // Handle BL received
 const handleGetBL = async () => {
+  if (loading.value) return // prevent double submission
   try {
     const confirmed = confirm(t('carDocumentsForm.confirmMarkBlAsReceived'))
     if (!confirmed) return
@@ -86,6 +87,7 @@ const handleGetBL = async () => {
 
 // Handle freight payment
 const handleFreightPaid = async () => {
+  if (loading.value) return // prevent double submission
   try {
     const confirmed = confirm(t('carDocumentsForm.confirmMarkFreightAsPaid'))
     if (!confirmed) return
@@ -119,6 +121,7 @@ const handleFreightPaid = async () => {
 
 // Handle documents received from supplier
 const handleDocsFromSupplier = async () => {
+  if (loading.value) return // prevent double submission
   try {
     const confirmed = confirm(t('carDocumentsForm.confirmMarkDocsAsReceivedFromSupplier'))
     if (!confirmed) return
@@ -152,6 +155,7 @@ const handleDocsFromSupplier = async () => {
 
 // Handle documents sent to client
 const handleDocsSentToClient = async () => {
+  if (loading.value) return // prevent double submission
   try {
     const confirmed = confirm(t('carDocumentsForm.confirmMarkDocsAsSentToClient'))
     if (!confirmed) return
@@ -189,6 +193,7 @@ const handleDocsSentToClient = async () => {
 
 // Handle export license update
 const handleExportLicenseUpdate = async () => {
+  if (loading.value) return // prevent double submission
   try {
     const confirmed = confirm(t('carDocumentsForm.confirmUpdateExportLicenseReference'))
     if (!confirmed) return
@@ -222,6 +227,7 @@ const handleExportLicenseUpdate = async () => {
 
 // Revert functions for admin
 const handleRevertBL = async () => {
+  if (loading.value) return // prevent double submission
   console.log('handleRevertBL called, isAdmin:', isAdmin.value)
   if (!isAdmin.value) return
 
@@ -257,6 +263,7 @@ const handleRevertBL = async () => {
 }
 
 const handleRevertFreight = async () => {
+  if (loading.value) return // prevent double submission
   console.log('handleRevertFreight called, isAdmin:', isAdmin.value)
   if (!isAdmin.value) return
 
@@ -292,6 +299,7 @@ const handleRevertFreight = async () => {
 }
 
 const handleRevertSupplierDocs = async () => {
+  if (loading.value) return // prevent double submission
   console.log('handleRevertSupplierDocs called, isAdmin:', isAdmin.value)
   if (!isAdmin.value) return
 
@@ -327,6 +335,7 @@ const handleRevertSupplierDocs = async () => {
 }
 
 const handleRevertClientDocs = async () => {
+  if (loading.value) return // prevent double submission
   console.log('handleRevertClientDocs called, isAdmin:', isAdmin.value)
   if (!isAdmin.value) return
 

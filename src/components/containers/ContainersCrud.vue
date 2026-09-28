@@ -345,6 +345,7 @@ const closeDeleteDialog = () => {
 }
 
 const confirmDelete = async () => {
+  if (isDeleting.value) return // prevent double submission
   if (isDeleting.value || !containerToDelete.value) return
 
   isDeleting.value = true

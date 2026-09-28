@@ -28,6 +28,7 @@ const freight = ref(props.car.freight || '')
 const rate = ref(props.car.rate || '')
 
 const handleSubmit = async () => {
+  if (loading.value) return // prevent double submission
   if (isProcessing.value || loading.value) return
   // Validate inputs
   if (price.value && isNaN(parseFloat(price.value))) {

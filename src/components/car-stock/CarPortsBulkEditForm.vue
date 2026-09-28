@@ -69,6 +69,7 @@ const fetchPorts = async () => {
 }
 
 const handleSubmit = async () => {
+  if (loading.value) return // prevent double submission
   if (isProcessing.value || loading.value) return
   if (!selectedLoadingPort.value && !selectedDischargePort.value) {
     error.value = t('carPortsBulkEditForm.pleaseSelectAtLeastOnePort')
@@ -138,6 +139,7 @@ const handleSubmit = async () => {
 }
 
 const handleRevertPorts = async () => {
+  if (loading.value) return // prevent double submission
   if (isProcessing.value || loading.value) return
 
   // Add confirmation dialog
