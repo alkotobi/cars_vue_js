@@ -548,7 +548,9 @@
     "enter_client_name": "输入客户名称...",
     "client_contact": "客户联系方式",
     "enter_client_contact": "输入客户联系方式...",
-    "custom_clearance_agent": "报关代理"
+    "custom_clearance_agent": "报关代理",
+    "no_cars_selected_for_benefit": "请至少选择一辆车以计算利润。",
+    "no_sold_cars_selected_for_benefit": "所选车辆中没有已售出的车辆，利润仅针对已售出车辆计算。"
   },
   "containersRef": {
     "title": "集装箱参考",
@@ -626,7 +628,23 @@
     "mark_upgrades_done": "将选定汽车的所有待处理升级标记为已完成",
     "new_car": "新车",
     "shipping_only": "仅运输",
-    "used_car": "二手车"
+    "used_car": "二手车",
+    "benefit": "利润",
+    "calculate_benefit_of_selected_cars": "计算已选中已售出车辆的利润"
+  },
+  "carStockBenefitModal": {
+    "title": "已选中已售出车辆的利润",
+    "vin": "车辆识别码 (VIN)",
+    "sell_bill": "销售单据",
+    "sell_price": "销售价",
+    "buy_cost": "进货成本",
+    "benefit": "利润",
+    "total": "合计",
+    "cars_sold": "已售出车辆数",
+    "cars_not_sold_ignored": "未售出（已忽略）",
+    "cars_without_price": "无销售价（不计入）",
+    "missing_price_note": "无销售价的车辆以短横线显示，不计入合计。",
+    "close": "关闭"
   },
   "vinEditForm": {
     "edit_vin_number": "编辑车架号",

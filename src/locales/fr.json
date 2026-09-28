@@ -1210,7 +1210,9 @@
     "failed_to_update_payment_confirmed": "Échec de la mise à jour du statut de confirmation de paiement",
     "error_updating_payment_confirmed": "Erreur lors de la mise à jour du statut de confirmation de paiement",
     "payment_confirmed_success": "Paiement confirmé. Toutes les voitures de cette facture de vente ont également été confirmées.",
-    "payment_unconfirmed_success": "Paiement non confirmé. Toutes les voitures de cette facture de vente ont également été non confirmées."
+    "payment_unconfirmed_success": "Paiement non confirmé. Toutes les voitures de cette facture de vente ont également été non confirmées.",
+    "no_cars_selected_for_benefit": "Veuillez sélectionner au moins une voiture pour calculer le bénéfice.",
+    "no_sold_cars_selected_for_benefit": "Aucune des voitures sélectionnées n’est vendue. Le bénéfice n’est calculé que pour les voitures vendues."
   },
   "containersRef": {
     "title": "Références de Conteneurs",
@@ -1289,7 +1291,23 @@
     "mark_upgrades_done": "Marquer toutes les améliorations en attente comme terminées pour les voitures sélectionnées",
     "new_car": "Nouvelle voiture",
     "shipping_only": "Expédition uniquement",
-    "used_car": "Voiture d'occasion"
+    "used_car": "Voiture d'occasion",
+    "benefit": "Bénéfice",
+    "calculate_benefit_of_selected_cars": "Calculer le bénéfice des voitures vendues sélectionnées"
+  },
+  "carStockBenefitModal": {
+    "title": "Bénéfice des voitures vendues sélectionnées",
+    "vin": "VIN",
+    "sell_bill": "Facture de vente",
+    "sell_price": "Prix de vente",
+    "buy_cost": "Coût d’achat",
+    "benefit": "Bénéfice",
+    "total": "Total",
+    "cars_sold": "Voitures vendues comptées",
+    "cars_not_sold_ignored": "Non vendues (ignorées)",
+    "cars_without_price": "Sans prix de vente (exclues)",
+    "missing_price_note": "Les voitures sans prix de vente sont affichées avec un tiret et exclues des totaux.",
+    "close": "Fermer"
   },
   "vinEditForm": {
     "edit_vin_number": "Modifier le numéro VIN",

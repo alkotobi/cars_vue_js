@@ -603,7 +603,9 @@
     "instructions": "Instructions:",
     "ensure_vehicles_loaded": "Please ensure all vehicles are properly Loaded as soon as possible.",
     "unknown_error": "Unknown error",
-    "invalid_document_path_for": "Invalid document path for {documentName}"
+    "invalid_document_path_for": "Invalid document path for {documentName}",
+    "no_cars_selected_for_benefit": "Please select at least one car to calculate the benefit.",
+    "no_sold_cars_selected_for_benefit": "None of the selected cars are sold. The benefit is only calculated for sold cars."
   },
   "containersRef": {
     "title": "Container References",
@@ -686,7 +688,23 @@
     "mark_upgrades_done": "Mark all pending upgrades as done for selected cars",
     "new_car": "New Car",
     "shipping_only": "Shipping Only",
-    "used_car": "Used Car"
+    "used_car": "Used Car",
+    "benefit": "Benefit",
+    "calculate_benefit_of_selected_cars": "Calculate the benefit of the selected sold cars"
+  },
+  "carStockBenefitModal": {
+    "title": "Benefit of selected sold cars",
+    "vin": "VIN",
+    "sell_bill": "Sell bill",
+    "sell_price": "Sell price",
+    "buy_cost": "Buy cost",
+    "benefit": "Benefit",
+    "total": "Total",
+    "cars_sold": "Sold cars counted",
+    "cars_not_sold_ignored": "Not sold (ignored)",
+    "cars_without_price": "Without sell price (excluded)",
+    "missing_price_note": "Cars with no sell price are shown with a dash and are excluded from the totals.",
+    "close": "Close"
   },
   "vinEditForm": {
     "edit_vin_number": "Edit VIN Number",

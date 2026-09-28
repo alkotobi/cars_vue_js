@@ -21,6 +21,7 @@ import CarPortsBulkEditForm from './CarPortsBulkEditForm.vue'
 
 import CarNotesBulkEditForm from './CarNotesBulkEditForm.vue'
 import CarColorBulkEditForm from './CarColorBulkEditForm.vue'
+import CarStockBenefitModal from './CarStockBenefitModal.vue'
 import CarExportLicenseBulkEditForm from './CarExportLicenseBulkEditForm.vue'
 import CarUpgradesBulkAddForm from './CarUpgradesBulkAddForm.vue'
 import SaveSelectionForm from './SaveSelectionForm.vue'
@@ -2483,6 +2484,7 @@ const fetchSingleCar = async (carId) => {
           lp.loading_port,
           dp.discharge_port,
           bd.price_sell as buy_price,
+          bd.amount as cost_price,
           bb.id as buy_bill_id,
           bb.date_buy,
           w.warhouse_name as warehouse_name,
@@ -2648,6 +2650,26 @@ const handleExportLicenseFromToolbar = () => {
   showExportLicenseBulkEditForm.value = true
 }
 
+const showBenefitModal = ref(false)
+
+const handleBenefitFromToolbar = () => {
+  if (selectedCars.value.size === 0) {
+    alert(t('carStock.no_cars_selected_for_benefit'))
+    return
+  }
+
+  const soldCount = sortedCars.value.filter(
+    (car) => selectedCars.value.has(car.id) && car.id_sell !== null && car.id_sell !== undefined,
+  ).length
+
+  if (soldCount === 0) {
+    alert(t('carStock.no_sold_cars_selected_for_benefit'))
+    return
+  }
+
+  showBenefitModal.value = true
+}
+
 const handleCfrDaFromToolbar = () => {
   if (selectedCars.value.size === 0) {
     alert(t('carStock.no_cars_selected_for_cfr_da_editing'))
@@ -2802,6 +2824,7 @@ const loadInitialCarsData = async () => {
           lp.loading_port,
           dp.discharge_port,
           bd.price_sell as buy_price,
+          bd.amount as cost_price,
           bb.id as buy_bill_id,
           bb.date_buy,
           w.warhouse_name as warehouse_name,
@@ -4181,6 +4204,7 @@ const closeBatchCheckoutModal = () => {
         @color="handleColorFromToolbar"
         @export-license="handleExportLicenseFromToolbar"
         @cfr-da="handleCfrDaFromToolbar"
+        @benefit="handleBenefitFromToolbar"
         @mark-delivered="handleMarkDelivered"
         @refresh="handleRefresh"
         @delete-cars="handleDeleteCars"
@@ -5098,6 +5122,12 @@ const closeBatchCheckoutModal = () => {
     :is-admin="isAdmin"
     @close="showColorBulkEditForm = false"
     @save="handleColorBulkSave"
+  />
+
+  <CarStockBenefitModal
+    :show="showBenefitModal"
+    :selected-cars="sortedCars.filter((car) => selectedCars.has(car.id))"
+    @close="showBenefitModal = false"
   />
 
   <CarExportLicenseBulkEditForm

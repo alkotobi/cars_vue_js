@@ -159,6 +159,7 @@ const emit = defineEmits([
   'color',
   'export-license',
   'cfr-da',
+  'benefit',
   'refresh',
   'delete-cars',
   'toggle-hidden',
@@ -312,6 +313,20 @@ const emit = defineEmits([
       >
         <i class="fas fa-coins"></i>
         <span>CFR DA</span>
+      </button>
+      <button
+        v-if="isAdmin"
+        @click="$emit('benefit')"
+        class="benefit-btn"
+        :disabled="selectedCars.size === 0"
+        :title="
+          selectedCars.size === 0
+            ? t('carStockToolbar.no_cars_selected')
+            : t('carStockToolbar.calculate_benefit_of_selected_cars')
+        "
+      >
+        <i class="fas fa-chart-line"></i>
+        <span>{{ t('carStockToolbar.benefit') }}</span>
       </button>
       <button
         v-if="isAdmin"
@@ -813,6 +828,34 @@ const emit = defineEmits([
 }
 
 .cfr-da-btn:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.benefit-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background-color: #16a34a;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.benefit-btn:hover:not(:disabled) {
+  background-color: #15803d;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.benefit-btn:disabled {
   background-color: #9ca3af;
   cursor: not-allowed;
   transform: none;

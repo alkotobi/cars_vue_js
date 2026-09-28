@@ -1151,7 +1151,9 @@
     "enter_client_name": "أدخل اسم العميل...",
     "client_contact": "اتصال العميل",
     "enter_client_contact": "أدخل اتصال العميل...",
-    "custom_clearance_agent": "وكيل التخليص الجمركي"
+    "custom_clearance_agent": "وكيل التخليص الجمركي",
+    "no_cars_selected_for_benefit": "يرجى اختيار سيارة واحدة على الأقل لحساب الفائدة.",
+    "no_sold_cars_selected_for_benefit": "ليس من السيارات المحددة مباعة. تُحسب الفائدة للسيارات المباعة فقط."
   },
   "containersRef": {
     "title": "مراجع الحاويات",
@@ -1230,7 +1232,23 @@
     "mark_upgrades_done": "تعيين جميع الترقيات المعلقة كمكتملة للسيارات المحددة",
     "new_car": "سيارة جديدة",
     "shipping_only": "الشحن فقط",
-    "used_car": "سيارة مستعملة"
+    "used_car": "سيارة مستعملة",
+    "benefit": "الفائدة",
+    "calculate_benefit_of_selected_cars": "حساب فائدة السيارات المباعة المحددة"
+  },
+  "carStockBenefitModal": {
+    "title": "فائدة السيارات المباعة المحددة",
+    "vin": "رقم الهيكل (VIN)",
+    "sell_bill": "فاتورة البيع",
+    "sell_price": "سعر البيع",
+    "buy_cost": "تكلفة الشراء",
+    "benefit": "الفائدة",
+    "total": "الإجمالي",
+    "cars_sold": "السيارات المباعة المحسوبة",
+    "cars_not_sold_ignored": "غير مباعة (تُجاهلت)",
+    "cars_without_price": "بدون سعر بيع (مستثناة)",
+    "missing_price_note": "السيارات التي لا تملك سعر بيع تُعرض بشرطة وتُستثنى من الإجماليات.",
+    "close": "إغلاق"
   },
   "vinEditForm": {
     "edit_vin_number": "تعديل رقم الشاصي",
