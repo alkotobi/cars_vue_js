@@ -196,6 +196,34 @@ INSERT IGNORE INTO `cars_names` (`car_name`) VALUES
 ('TIGO 3'),
 ('TIGUAN L');
 
+-- Users table
+-- Defined early: car_name_media, upgrades, car_apgrades and sell_bill all hold
+-- foreign keys into `users`, so it must exist before them.
+CREATE TABLE IF NOT EXISTS `users` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `username` varchar(50) NOT NULL,
+  `email` varchar(100) NOT NULL,
+  `password` varchar(255) NOT NULL,
+  `role_id` int(11) NOT NULL,
+  `max_unpayed_created_bills` int(11) DEFAULT '0',
+  `is_diffrent_company` tinyint(1) DEFAULT 0 COMMENT 'Flag to indicate if user has different company assets',
+  `path_logo` varchar(500) DEFAULT NULL COMMENT 'Path to company logo file',
+  `path_letter_head` varchar(500) DEFAULT NULL COMMENT 'Path to letterhead file',
+  `path_stamp` varchar(500) DEFAULT NULL COMMENT 'Path to stamp/gml2 file',
+  `path_contract_terms` varchar(500) DEFAULT NULL COMMENT 'Path to contract terms JSON file',
+  `id_bank_account` int unsigned DEFAULT NULL COMMENT 'Foreign key to banks table for user''s bank account',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `username` (`username`),
+  UNIQUE KEY `email` (`email`),
+  KEY `idx_id_bank_account` (`id_bank_account`),
+  CONSTRAINT `fk_users_bank_account` FOREIGN KEY (`id_bank_account`) REFERENCES `banks` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+-- Insert default admin user
+-- Safe to run before `roles` is seeded: users.role_id has no foreign key.
+INSERT IGNORE INTO `users` (`username`, `email`, `password`, `role_id`, `max_unpayed_created_bills`) VALUES
+('admin', 'admin@example.com', '$2y$10$xk9Kh/WwDsRGOBvSQG4jO.Lwvwfnl1wXFmjCdvrD2ahCq5oGHYGSO', 1, 5);
+
 -- Car name media table (photos and videos)
 CREATE TABLE IF NOT EXISTS `car_name_media` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -281,7 +309,7 @@ CREATE TABLE IF NOT EXISTS `upgrades` (
 CREATE TABLE IF NOT EXISTS `car_apgrades` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
   `id_car` int DEFAULT NULL,
-  `id_upgrade` int DEFAULT NULL,
+  `id_upgrade` int unsigned DEFAULT NULL,
   `value` float NOT NULL,
   `date_done` datetime DEFAULT NULL,
   `id_uder_done` int DEFAULT NULL,
@@ -694,31 +722,6 @@ CREATE TABLE IF NOT EXISTS `transfer_details` (
   `id_client` int DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- Users table
-CREATE TABLE IF NOT EXISTS `users` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `username` varchar(50) NOT NULL,
-  `email` varchar(100) NOT NULL,
-  `password` varchar(255) NOT NULL,
-  `role_id` int(11) NOT NULL,
-  `max_unpayed_created_bills` int(11) DEFAULT '0',
-  `is_diffrent_company` tinyint(1) DEFAULT 0 COMMENT 'Flag to indicate if user has different company assets',
-  `path_logo` varchar(500) DEFAULT NULL COMMENT 'Path to company logo file',
-  `path_letter_head` varchar(500) DEFAULT NULL COMMENT 'Path to letterhead file',
-  `path_stamp` varchar(500) DEFAULT NULL COMMENT 'Path to stamp/gml2 file',
-  `path_contract_terms` varchar(500) DEFAULT NULL COMMENT 'Path to contract terms JSON file',
-  `id_bank_account` int unsigned DEFAULT NULL COMMENT 'Foreign key to banks table for user''s bank account',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `username` (`username`),
-  UNIQUE KEY `email` (`email`),
-  KEY `idx_id_bank_account` (`id_bank_account`),
-  CONSTRAINT `fk_users_bank_account` FOREIGN KEY (`id_bank_account`) REFERENCES `banks` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;
-
--- Insert default admin user
-INSERT IGNORE INTO `users` (`username`, `email`, `password`, `role_id`, `max_unpayed_created_bills`) VALUES
-('admin', 'admin@example.com', '$2y$10$xk9Kh/WwDsRGOBvSQG4jO.Lwvwfnl1wXFmjCdvrD2ahCq5oGHYGSO', 1, 5);
 
 -- Transfers table
 CREATE TABLE IF NOT EXISTS `transfers` (

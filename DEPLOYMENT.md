@@ -4,7 +4,10 @@ Battle-tested guide from the live deploy to **https://world-automobile.com/cars*
 (VPS `163.245.214.125`, domain `world-automobile.com`). Follow exactly; every command
 was executed and verified against production.
 
-> **Secrets live ONLY in server files.** DB passwords are in `api/config.php`
+> **Secrets live ONLY in server files.** DB passwords are in `api/config.local.php`,
+> which is git-ignored and never committed. `api/config.php` is a tracked loader
+> that resolves credentials from `config.local.php`, falling back to the
+> `DB_HOST` / `DB_USER` / `DB_PASS` / `DB_NAME` environment variables.
 > (`merhab_root` — MariaDB user, hosts `localhost` + `127.0.0.1`). App + db-manager
 > admin login is `admin / 123`, stored as bcrypt in the DB. `db_code.json` →
 > `db_9a7f4e0b2fa8134e0ea0`. Do NOT paste credentials into chats/docs.
@@ -37,7 +40,9 @@ alias deployssh="ssh -i ~/.ssh/cars_deploy root@163.245.214.125"
 
 Pubkey (`cars_deploy.pub`) is in `root@…:~/.ssh/authorized_keys`. Rotate the keypair
 on this machine; on the server just replace the line. Always use `www-data` for
-`api/config.php` owner so PHP-FPM can read it: `chown www-data:www-data api/config.php`.
+`api/config.local.php` owner so PHP-FPM can read it:
+`chown www-data:www-data api/config.local.php`. Create it on a new server with
+`cp api/config.example.php api/config.local.php`, then fill in the credentials.
 
 Git deployment key for pushes: `~/.ssh/cars_gh_ekotobi` (ed25519), registered as a
 **write** deploy key on `github.com/ekotobi/cars_vue_js.git` via `gh api`. Remote:
@@ -69,7 +74,7 @@ Host github.com-ekotobi
 ### 4.1 Create user + DBs (as root via socket)
 
 ```sql
-CREATE USER 'merhab_root'@'localhost' IDENTIFIED BY '<from api/config.php>';
+CREATE USER 'merhab_root'@'localhost' IDENTIFIED BY '<from api/config.local.php>';
 CREATE USER 'merhab_root'@'127.0.0.1' IDENTIFIED BY '<same>';
 GRANT ALL PRIVILEGES ON merhab_cars.*        TO 'merhab_root'@'localhost';
 GRANT ALL PRIVILEGES ON merhab_cars.*        TO 'merhab_root'@'127.0.0.1';
@@ -90,18 +95,17 @@ CREATE DATABASE IF NOT EXISTS merhab_invitations DEFAULT CHARACTER SET utf8mb4 C
 
 ### 4.3 App schema (MariaDB — REQUIRED fixes)
 
-`api/setup.sql` is MySQL-8 oriented. For MariaDB apply ALL of these or you get
+`api/setup.sql` is MySQL-8 oriented. For MariaDB apply this or you get
 `ERROR 150` / collation errors:
 
 1. **99 that9 that0 replace:** `sed -i 's/utf8mb4_0900_ai_ci/utf8mb4_general_ci/g' setup.sql`
-2. **FK ordering:** MariaDB builds FKs inline and referencing tables must come after
-   referenced ones. Reorder CREATE TABLEs **topologically by FK** (no forward refs).
-   A python `order_schema.py` produced the working file — 55 tables, 0 FK errors.
-3. **`car_apgrades.id_upgrade` sign mismatch:** setup.sql declares `int`, FK points at
-   `upgrades.id` which is `int unsigned` → errno 150.
-   ```sql
-   ALTER TABLE merhab_cars.car_apgrades MODIFY id_upgrade INTEGER UNSIGNED NOT NULL;
-   ```
+2. **FK ordering:** fixed. `users` is declared before `car_name_media`, `upgrades`,
+   `car_apgrades` and `sell_bill`, so the file now has no forward references and
+   applies in a single pass (55 tables, 0 FK errors). The old
+   `order_schema.py` top-sort is no longer needed.
+3. **`car_apgrades.id_upgrade` sign mismatch:** fixed. `setup.sql` now declares
+   `int unsigned`, matching `upgrades.id`. No `ALTER TABLE` needed on new installs;
+   existing databases keep the manual fix from their original deploy.
 
 Then seed: `roles` (admin/user/SELLER), `users` (admin + `role_id` 1, password bcrypt `123`),
 `versions` = **25** (matches `useVersionCheck.js`). Insert the `dbs` row only in the

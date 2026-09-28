@@ -29,6 +29,10 @@ coverage
 *.sw?
 *.xlsx
 
+# Local secrets (per-machine DB credentials; see api/config.example.php)
+api/config.local.php
+api/db_manager_config.local.php
+
 *.tsbuildinfo
 
 # Migration folders

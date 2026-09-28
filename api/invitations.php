@@ -8,15 +8,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
 
-// Database configuration
-// ACTIVE: world-automobile.com server (163.245.214.125)
-// Old production server (173.214.163.18) kept for reference/reuse:
-// $host = '173.214.163.18';
-$host = '127.0.0.1';
+// Database configuration for the merhab_invitations database.
+// Credentials are resolved by the shared loader in config.php: it reads
+// api/config.local.php (git-ignored) and falls back to DB_HOST / DB_USER /
+// DB_PASS / DB_NAME. The invitations database name is overridden here because
+// it is a third database, distinct from the main app database.
+require_once __DIR__ . '/config.php';
+
+$host = $db_host;
 $port = '3306';
 $dbname = 'merhab_invitations';
-$username = 'merhab_root';
-$password = '@Salima61';
+$username = $db_user;
+$password = $db_pass;
 
 try {
     $pdo = new PDO("mysql:host=$host;port=$port;dbname=$dbname;charset=utf8", $username, $password);
