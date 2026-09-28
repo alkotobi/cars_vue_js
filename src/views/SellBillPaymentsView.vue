@@ -322,6 +322,7 @@ const openEditDialog = (payment) => {
 }
 
 const handleSubmit = async () => {
+  if (isSubmittingPayment.value) return // prevent double submission
   // Prevent multiple submissions
   if (isSubmittingPayment.value) {
     return

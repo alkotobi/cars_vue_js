@@ -1512,6 +1512,7 @@ const editRecord = (record) => {
 }
 
 const deleteRecord = async (record) => {
+  if (isDeletingRecord.value) return // prevent double submission
   if (!confirm(`Are you sure you want to delete loading record #${record.id}?`)) {
     return
   }
@@ -1581,6 +1582,7 @@ const validateDateInput = (event) => {
 }
 
 const saveRecord = async () => {
+  if (isSubmitting.value) return // prevent double submission
   if (isSubmitting.value) return
 
   console.log('=== DEBUG: saveRecord called ===')
@@ -1849,6 +1851,7 @@ const openAddDischargePortDialog = () => {
 }
 
 const saveShippingLine = async () => {
+  if (isAddingItem.value) return // prevent double submission
   if (!quickAddForm.value.shipping_line_name.trim()) {
     alert('Please enter a shipping line name')
     return
@@ -1877,6 +1880,7 @@ const saveShippingLine = async () => {
 }
 
 const saveLoadingPort = async () => {
+  if (isAddingItem.value) return // prevent double submission
   if (!quickAddForm.value.loading_port_name.trim()) {
     alert('Please enter a loading port name')
     return
@@ -1905,6 +1909,7 @@ const saveLoadingPort = async () => {
 }
 
 const saveDischargePort = async () => {
+  if (isAddingItem.value) return // prevent double submission
   if (!quickAddForm.value.discharge_port_name.trim()) {
     alert('Please enter a discharge port name')
     return

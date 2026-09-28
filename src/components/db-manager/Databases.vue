@@ -1231,6 +1231,7 @@ const confirmRunSql = async () => {
 }
 
 const confirmUpdateVersion = async () => {
+  if (updatingVersion.value) return // prevent double submission
   if (!newVersionInput.value || parseInt(newVersionInput.value) <= 0) {
     return
   }
@@ -1559,6 +1560,7 @@ const confirmUpdatePhp = async () => {
 }
 
 const confirmUploadCode = async () => {
+  if (uploadingCode.value) return // prevent double submission
   if (selectedCodeFiles.value.length === 0) {
     error.value = 'Please select at least one file'
     return

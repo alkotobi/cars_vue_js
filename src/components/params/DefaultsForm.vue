@@ -55,6 +55,7 @@ const handleInput = () => {
 }
 
 const handleSubmit = async () => {
+  if (isProcessing.value) return // prevent double submission
   if (isProcessing.value) return
   isProcessing.value = true
   error.value = null

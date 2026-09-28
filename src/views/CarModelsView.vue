@@ -87,6 +87,7 @@ const handleMediaFileSelect = (event) => {
 }
 
 const uploadCarNameMedia = async () => {
+  if (uploadingMedia.value) return // prevent double submission
   if (!selectedMediaFiles.value.length || !selectedCarNameForMedia.value) return
   if (!user.value || !user.value.id) {
     alert('User not logged in')

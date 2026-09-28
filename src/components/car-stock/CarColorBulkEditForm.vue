@@ -84,6 +84,7 @@ const fetchColors = async () => {
 }
 
 const handleSave = async () => {
+  if (isProcessing.value) return // prevent double submission
   if (!selectedColor.value) {
     alert(t('carColorBulkEditForm.pleaseSelectAColor'))
     return
@@ -120,6 +121,7 @@ const handleSave = async () => {
 }
 
 const handleRevert = async () => {
+  if (isProcessing.value) return // prevent double submission
   if (!props.isAdmin) return
 
   if (!confirm(t('carColorBulkEditForm.confirmRemoveColorFromAllSelectedCars'))) {

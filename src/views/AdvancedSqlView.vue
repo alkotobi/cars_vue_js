@@ -1142,6 +1142,7 @@ const formatTime = (timestamp) => {
 }
 
 const saveTemplate = async () => {
+  if (isSaving.value) return // prevent double submission
   // Validate form
   saveFormErrors.value = {}
 

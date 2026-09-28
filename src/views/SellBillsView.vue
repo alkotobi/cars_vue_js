@@ -225,6 +225,7 @@ const handleEditBill = (bill) => {
 }
 
 const handleDeleteBill = async (id) => {
+  if (isProcessing.value) return // prevent double submission
   if (!isAdmin.value) {
     alert(t('sellBillsView.onlyAdminsCanDeleteSellBills'))
     return

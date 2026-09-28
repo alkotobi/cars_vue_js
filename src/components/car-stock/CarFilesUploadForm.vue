@@ -164,6 +164,7 @@ const handleFileUpload = async (file, type) => {
 }
 
 const handleRevertFile = async (fileType) => {
+  if (loading.value) return // prevent double submission
   if (!isAdmin.value) {
     error.value = t('carFilesUploadForm.onlyAdminCanRevertFileUploads')
     return
@@ -251,6 +252,7 @@ const handleRevertFile = async (fileType) => {
 }
 
 const handleSubmit = async () => {
+  if (loading.value) return // prevent double submission
   if (isProcessing.value || loading.value) return
   loading.value = true
   isProcessing.value = true

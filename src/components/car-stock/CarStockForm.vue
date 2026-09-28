@@ -771,6 +771,7 @@ const uploadPiFile = async () => {
 }
 
 const saveCar = async () => {
+  if (loading.value) return // prevent double submission
   loading.value = true
   error.value = null
 

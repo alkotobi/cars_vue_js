@@ -431,6 +431,7 @@ const ensureFolderExists = async () => {
 }
 
 const uploadFiles = async () => {
+  if (uploading.value) return // prevent double submission
   if (!canUpload.value) return
 
   uploading.value = true

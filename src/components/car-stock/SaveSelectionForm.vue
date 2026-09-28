@@ -31,6 +31,7 @@ const isValid = computed(() => {
 })
 
 const handleSave = async () => {
+  if (isSaving.value) return // prevent double submission
   if (!isValid.value) return
 
   isSaving.value = true

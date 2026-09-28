@@ -62,6 +62,7 @@ const canUpdateStock = (bill) => {
 }
 
 const handleUpdateStock = async (bill) => {
+  if (isUpdatingStock.value) return // prevent double submission
   if (!confirm(t('confirm_update_stock'))) {
     return
   }
@@ -201,6 +202,7 @@ const handleSelectBill = (bill) => {
 }
 
 const handleDeleteBill = async (bill) => {
+  if (isDeletingBill.value) return // prevent double submission
   if (!confirm(t('confirm_delete_purchase_details'))) {
     return
   }
@@ -362,6 +364,7 @@ const fetchSuppliers = async () => {
 }
 
 const addPurchase = async () => {
+  if (isSubmittingPurchase.value) return // prevent double submission
   // Prevent multiple submissions
   if (isSubmittingPurchase.value) {
     return
@@ -491,6 +494,7 @@ const addPurchase = async () => {
 }
 
 const updatePurchase = async () => {
+  if (isSubmittingPurchase.value) return // prevent double submission
   // Prevent multiple submissions
   if (isSubmittingPurchase.value) {
     return
@@ -674,6 +678,7 @@ const updateBillAmount = async (billId) => {
 }
 
 const addDetail = async () => {
+  if (isSubmittingDetail.value) return // prevent double submission
   // Prevent multiple submissions
   if (isSubmittingDetail.value) {
     return
@@ -836,6 +841,7 @@ const openEditNotesDialog = () => {
 }
 
 const saveNotes = async (newNotes) => {
+  if (isSavingNotes.value) return // prevent double submission
   if (!selectedBill.value) return
   isSavingNotes.value = true
   try {

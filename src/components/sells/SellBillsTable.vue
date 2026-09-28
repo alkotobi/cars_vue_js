@@ -857,6 +857,7 @@ const handleBatchDelete = () => {
 }
 
 const confirmBatchDelete = async () => {
+  if (isDeletingBatch.value) return // prevent double submission
   showBatchDeleteConfirm.value = false
   isDeletingBatch.value = true
 
@@ -1649,6 +1650,7 @@ const getLoadingStatus = (bill) => {
 
 // Toggle payment confirmed status
 const togglePaymentConfirmed = async (bill) => {
+  if (isProcessing.value) return // prevent double submission
   if (!can_confirm_payment.value) {
     alert(
       t('sellBills.no_permission_to_confirm_payment') ||

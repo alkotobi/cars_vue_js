@@ -963,6 +963,7 @@ const closeDialog = () => {
 }
 
 const saveContainer = async () => {
+  if (isSubmitting.value) return // prevent double submission
   if (isSubmitting.value) return
 
   isSubmitting.value = true
@@ -1095,6 +1096,7 @@ const closeAddContainerDialog = () => {
 }
 
 const saveNewContainer = async () => {
+  if (isAddingContainer.value) return // prevent double submission
   if (isAddingContainer.value) return
 
   isAddingContainer.value = true
@@ -1187,6 +1189,7 @@ const closeDeleteDialog = () => {
 }
 
 const confirmDelete = async () => {
+  if (isDeleting.value) return // prevent double submission
   if (isDeleting.value || !containerToDelete.value) return
 
   isDeleting.value = true
@@ -1304,6 +1307,7 @@ const closeOnBoardDialog = () => {
 }
 
 const confirmOnBoard = async () => {
+  if (isSubmittingOnBoard.value) return // prevent double submission
   if (isSubmittingOnBoard.value || !onBoardData.value.date_on_board) return
 
   if (

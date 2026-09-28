@@ -99,6 +99,7 @@ const handleTeamChange = (teamId) => {
 }
 
 const handleSend = async () => {
+  if (isSending.value) return // prevent double submission
   if (!isValid.value) return
 
   isSending.value = true

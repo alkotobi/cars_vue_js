@@ -261,6 +261,7 @@ const cancelEdit = () => {
 }
 
 const handleSaveEdit = async (index) => {
+  if (saving.value) return // prevent double submission
   if (!editNoteText.value.trim() || saving.value) return
   
   saving.value = true

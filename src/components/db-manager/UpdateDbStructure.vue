@@ -244,6 +244,7 @@ const resetForm = () => {
 
 // Save update
 const saveUpdate = async () => {
+  if (saving.value) return // prevent double submission
   saving.value = true
   error.value = ''
   successMessage.value = ''
@@ -302,6 +303,7 @@ const cancelDelete = () => {
 
 // Delete update
 const deleteUpdate = async () => {
+  if (deleting.value) return // prevent double submission
   deleting.value = true
   error.value = ''
   successMessage.value = ''

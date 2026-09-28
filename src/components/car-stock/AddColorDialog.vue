@@ -61,6 +61,7 @@ const handleClose = () => {
 }
 
 const handleSave = async () => {
+  if (loading.value) return // prevent double submission
   if (!newColor.value.color || newColor.value.color.trim() === '') {
     error.value = t('carStockForm.colorNameRequired') || 'Color name is required'
     return

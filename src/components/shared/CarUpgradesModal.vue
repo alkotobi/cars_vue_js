@@ -801,6 +801,7 @@ const closeAddUpgradeTypeDialog = () => {
 }
 
 const saveUpgradeType = async () => {
+  if (isSavingUpgradeType.value) return // prevent double submission
   if (isSavingUpgradeType.value || !newUpgradeType.value.description?.trim()) return
 
   isSavingUpgradeType.value = true
@@ -934,6 +935,7 @@ const closeEditDialog = () => {
 }
 
 const saveEditedUpgrade = async () => {
+  if (isSavingEdit.value) return // prevent double submission
   if (isSavingEdit.value || !editingUpgrade.value.id) return
 
   isSavingEdit.value = true
@@ -994,6 +996,7 @@ const closeDeleteDialog = () => {
 }
 
 const deleteUpgrade = async () => {
+  if (isDeleting.value) return // prevent double submission
   if (isDeleting.value || !upgradeToDelete.value) return
 
   isDeleting.value = true
@@ -1054,6 +1057,7 @@ const markUpgradeAsDone = async (upgrade) => {
 }
 
 const saveCarUpgrade = async () => {
+  if (isSubmitting.value) return // prevent double submission
   if (isSubmitting.value || !props.carId) return
 
   isSubmitting.value = true

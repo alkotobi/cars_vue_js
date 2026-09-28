@@ -233,6 +233,7 @@ const handleBrokerSaved = async (newBrokerData) => {
 }
 
 const saveBill = async () => {
+  if (isSubmitting.value) return // prevent double submission
   // Prevent multiple submissions
   if (isSubmitting.value) {
     return

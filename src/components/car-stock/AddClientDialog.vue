@@ -148,6 +148,7 @@ const handleClose = () => {
 }
 
 const handleSave = async () => {
+  if (isSubmitting.value) return // prevent double submission
   if (isSubmitting.value) return
 
   validationError.value = ''

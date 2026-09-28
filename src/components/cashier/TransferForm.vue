@@ -82,6 +82,7 @@ const fetchUsers = async () => {
 }
 
 const saveTransfer = async () => {
+  if (loading.value) return // prevent double submission
   if (!validateForm()) return
 
   loading.value = true

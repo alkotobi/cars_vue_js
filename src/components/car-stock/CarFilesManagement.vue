@@ -228,6 +228,7 @@ const isPendingTransferRecipient = (file) => {
 
 // Approve a pending transfer
 const handleApproveTransfer = async (transfer) => {
+  if (loading.value) return // prevent double submission
   loading.value = true
   error.value = null
 
@@ -267,6 +268,7 @@ const handleRejectTransfer = async (transfer) => {
 
 // Approve all pending transfers
 const handleApproveAll = async () => {
+  if (loading.value) return // prevent double submission
   if (pendingTransfers.value.length === 0) {
     error.value = 'No pending transfers to approve'
     return
@@ -315,6 +317,7 @@ const handleApproveAll = async () => {
 
 // Reject all pending transfers
 const handleRejectAll = async () => {
+  if (loading.value) return // prevent double submission
   if (pendingTransfers.value.length === 0) {
     error.value = 'No pending transfers to reject'
     return
@@ -1224,6 +1227,7 @@ const openCategoryModal = (category = null) => {
 }
 
 const saveCategory = async () => {
+  if (loading.value) return // prevent double submission
   if (!categoryForm.value.category_name.trim()) {
     error.value = 'Category name is required'
     return
