@@ -1,8 +1,10 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useApi } from '../composables/useApi'
+import { useSubmitGuard } from '../composables/useSubmitGuard'
 
 const { callApi, uploadFile, getFileUrl, error } = useApi()
+const { guard, isBusy } = useSubmitGuard()
 const showAddBrandDialog = ref(false)
 const showEditBrandDialog = ref(false)
 const showAddCarNameDialog = ref(false)
@@ -164,7 +166,7 @@ const uploadCarNameMedia = async () => {
   }
 }
 
-const deleteCarNameMedia = async (media) => {
+const deleteCarNameMedia = guard('delete-media', async (media) => {
   if (!confirm(`Are you sure you want to delete ${media.file_name}?`)) return
   
   const result = await callApi({
@@ -177,7 +179,7 @@ const deleteCarNameMedia = async (media) => {
   } else {
     alert('Failed to delete media: ' + result.error)
   }
-}
+})
 
 const closeMediaDialog = () => {
   showMediaDialog.value = false
@@ -186,7 +188,7 @@ const closeMediaDialog = () => {
   selectedMediaFiles.value = []
 }
 
-const addBrand = async () => {
+const addBrand = guard('add-brand', async () => {
   let logoPath = null
   
   // Upload logo if provided
@@ -242,9 +244,9 @@ const addBrand = async () => {
     console.log(result.error)
     alert('Failed to add brand: ' + (result.error || 'Unknown error'))
   }
-}
+})
 
-const addCarName = async () => {
+const addCarName = guard('add-car-name', async () => {
   const result = await callApi({
     query: 'INSERT INTO cars_names (car_name, notes, is_big_car, id_brand) VALUES (?, ?, ?, ?)',
     params: [
@@ -262,7 +264,7 @@ const addCarName = async () => {
   else{
     console.log(result.error)
   }
-}
+})
 
 const editBrand = (brand) => {
   editingBrand.value = { ...brand }
@@ -275,7 +277,7 @@ const editCarName = (carName) => {
   showEditCarNameDialog.value = true
 }
 
-const updateBrand = async () => {
+const updateBrand = guard('update-brand', async () => {
   let logoPath = editingBrand.value.logo_path
   
   // Upload new logo if provided
@@ -332,9 +334,9 @@ const updateBrand = async () => {
   } else {
     console.log(result.error)
   }
-}
+})
 
-const updateCarName = async () => {
+const updateCarName = guard('update-car-name', async () => {
   const result = await callApi({
     query: 'UPDATE cars_names SET car_name = ?, notes = ?, is_big_car = ?, id_brand = ? WHERE id = ?',
     params: [
@@ -353,9 +355,9 @@ const updateCarName = async () => {
   else{
     console.log(result.error)
   }
-}
+})
 
-const deleteBrand = async (brand) => {
+const deleteBrand = guard('delete-brand', async (brand) => {
   if (confirm('Are you sure you want to delete this brand?')) {
     const result = await callApi({
       query: 'DELETE FROM brands WHERE id = ?',
@@ -365,7 +367,7 @@ const deleteBrand = async (brand) => {
       await fetchBrands()
     }
   }
-}
+})
 
 const formatFileSize = (bytes) => {
   if (!bytes) return ''
@@ -379,7 +381,7 @@ const formatDate = (dateString) => {
   return new Date(dateString).toLocaleDateString()
 }
 
-const deleteCarName = async (carName) => {
+const deleteCarName = guard('delete-car-name', async (carName) => {
   if (confirm('Are you sure you want to delete this car name?')) {
     const result = await callApi({
       query: 'DELETE FROM cars_names WHERE id = ?',
@@ -389,7 +391,7 @@ const deleteCarName = async (carName) => {
       await fetchCarNames()
     }
   }
-}
+})
 
 onMounted(() => {
   const userStr = localStorage.getItem('user')
@@ -433,8 +435,7 @@ onMounted(() => {
               <button 
                 v-if="isAdmin"
                 @click="deleteBrand(brand)" 
-                class="btn delete-btn"
-              >Delete</button>
+                class="btn delete-btn" :disabled="isBusy('delete-brand')">Delete</button>
             </td>
           </tr>
         </tbody>
@@ -468,8 +469,7 @@ onMounted(() => {
               <button 
                 v-if="isAdmin"
                 @click="deleteCarName(carName)" 
-                class="btn delete-btn"
-              >Delete</button>
+                class="btn delete-btn" :disabled="isBusy('delete-car-name')">Delete</button>
             </td>
           </tr>
         </tbody>
@@ -499,7 +499,7 @@ onMounted(() => {
           <small class="form-hint">Upload a logo image (PNG, JPG, etc.)</small>
         </div>
         <div class="dialog-actions">
-          <button @click="addBrand" class="btn save-btn">Save</button>
+          <button @click="addBrand" class="btn save-btn" :disabled="isBusy('add-brand')">Save</button>
           <button @click="showAddBrandDialog = false" class="btn cancel-btn">Cancel</button>
         </div>
       </div>
@@ -539,7 +539,7 @@ onMounted(() => {
           <small class="form-hint">Upload a new logo to replace the current one</small>
         </div>
         <div class="dialog-actions">
-          <button @click="updateBrand" class="btn save-btn">Save</button>
+          <button @click="updateBrand" class="btn save-btn" :disabled="isBusy('update-brand')">Save</button>
           <button @click="showEditBrandDialog = false" class="btn cancel-btn">Cancel</button>
         </div>
       </div>
@@ -578,7 +578,7 @@ onMounted(() => {
           </label>
         </div>
         <div class="dialog-buttons">
-          <button @click="addCarName" class="btn save-btn">Save</button>
+          <button @click="addCarName" class="btn save-btn" :disabled="isBusy('add-car-name')">Save</button>
           <button @click="showAddCarNameDialog = false" class="btn cancel-btn">Cancel</button>
         </div>
       </div>
@@ -617,7 +617,7 @@ onMounted(() => {
           </label>
         </div>
         <div class="dialog-buttons">
-          <button @click="updateCarName" class="btn save-btn">Save</button>
+          <button @click="updateCarName" class="btn save-btn" :disabled="isBusy('update-car-name')">Save</button>
           <button @click="showEditCarNameDialog = false" class="btn cancel-btn">Cancel</button>
         </div>
       </div>
@@ -676,7 +676,7 @@ onMounted(() => {
                   <span>{{ formatDate(media.uploaded_at) }}</span>
                 </div>
               </div>
-              <button @click="deleteCarNameMedia(media)" class="btn delete-btn-small" title="Delete">
+              <button @click="deleteCarNameMedia(media)" class="btn delete-btn-small" title="Delete" :disabled="isBusy('delete-media')">
                 <i class="fas fa-trash"></i>
               </button>
             </div>

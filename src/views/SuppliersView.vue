@@ -1,10 +1,12 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useApi } from '../composables/useApi'
+import { useSubmitGuard } from '../composables/useSubmitGuard'
 import TaskForm from '../components/car-stock/TaskForm.vue'
 
 const suppliers = ref([])
 const { callApi, error } = useApi()
+const { guard, isBusy } = useSubmitGuard()
 const showAddDialog = ref(false)
 const showEditDialog = ref(false)
 const editingSupplier = ref(null)
@@ -35,7 +37,7 @@ const fetchSuppliers = async () => {
   }
 }
 
-const addSupplier = async () => {
+const addSupplier = guard('add', async () => {
   const result = await callApi({
     query: `
       INSERT INTO suppliers (name, contact_info, notes)
@@ -55,14 +57,14 @@ const addSupplier = async () => {
     error.value = result.error
     console.error('Error adding supplier:', result.error)
   }
-}
+})
 
 const editSupplier = (supplier) => {
   editingSupplier.value = { ...supplier }
   showEditDialog.value = true
 }
 
-const updateSupplier = async () => {
+const updateSupplier = guard('update', async () => {
   const result = await callApi({
     query: `
       UPDATE suppliers 
@@ -84,9 +86,9 @@ const updateSupplier = async () => {
     error.value = result.error
     console.error('Error updating supplier:', result.error)
   }
-}
+})
 
-const deleteSupplier = async (supplier) => {
+const deleteSupplier = guard('delete', async (supplier) => {
   if (confirm('Are you sure you want to delete this supplier?')) {
     const result = await callApi({
       query: 'DELETE FROM suppliers WHERE id = ?',
@@ -96,7 +98,7 @@ const deleteSupplier = async (supplier) => {
       await fetchSuppliers()
     }
   }
-}
+})
 
 onMounted(() => {
   const userStr = localStorage.getItem('user')
@@ -143,7 +145,8 @@ const handleTaskCreated = () => {
             <td>{{ supplier.notes }}</td>
             <td>
               <button @click="editSupplier(supplier)" class="btn edit-btn">Edit</button>
-              <button v-if="isAdmin" @click="deleteSupplier(supplier)" class="btn delete-btn">
+              <button v-if="isAdmin" @click="deleteSupplier(supplier)" class="btn delete-btn"
+                :disabled="isBusy('delete')">
                 Delete
               </button>
               <button 
@@ -177,7 +180,7 @@ const handleTaskCreated = () => {
           ></textarea>
         </div>
         <div class="dialog-actions">
-          <button @click="addSupplier" class="btn save-btn">Save</button>
+          <button @click="addSupplier" class="btn save-btn" :disabled="isBusy('add')">Save</button>
           <button @click="showAddDialog = false" class="btn cancel-btn">Cancel</button>
         </div>
       </div>
@@ -201,7 +204,7 @@ const handleTaskCreated = () => {
           ></textarea>
         </div>
         <div class="dialog-actions">
-          <button @click="updateSupplier" class="btn save-btn">Save</button>
+          <button @click="updateSupplier" class="btn save-btn" :disabled="isBusy('update')">Save</button>
           <button @click="showEditDialog = false" class="btn cancel-btn">Cancel</button>
         </div>
       </div>
