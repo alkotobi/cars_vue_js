@@ -107,6 +107,11 @@ const initializeForm = async () => {
 }
 
 const handleSubmit = async () => {
+  // Guard against double submission: :disabled="loading" only takes effect on the
+  // next render tick, so two fast clicks can both enter this handler before the
+  // button is actually disabled.
+  if (loading.value) return
+
   if (!formData.value.username || !formData.value.email) {
     error.value = 'Username and email are required'
     return
@@ -220,6 +225,11 @@ const handleSubmit = async () => {
 }
 
 const handleCancel = () => {
+  // The close and Cancel buttons are disabled while loading; the overlay click
+  // reaches this handler too, so guard it as well to avoid dismissing the modal
+  // mid-request.
+  if (loading.value) return
+
   formData.value = {
     username: '',
     email: '',
