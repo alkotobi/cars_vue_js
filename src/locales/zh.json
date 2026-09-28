@@ -1949,7 +1949,12 @@
     "failedDeletePurchase": "删除采购失败",
     "failedAddDetail": "添加详情失败",
     "failedDeleteDetail": "删除详情失败",
-    "failedUpdateDetail": "更新详情失败"
+    "failedUpdateDetail": "更新详情失败",
+    "editBillAdminOnlyTitle": "只有管理员可以编辑已入库的账单",
+    "confirmDeletePurchaseWithCars": "删除此账单、其明细以及它创建的所有车辆？此操作无法撤销。",
+    "cannotDeleteBillCommittedCars": "无法删除：此账单中有 {count} 辆车已被占用（有VIN、有买家、有文件、已分配或已装运）。",
+    "adminOnlyDeleteBill": "只有管理员可以删除账单。",
+    "billNotFound": "未找到此账单。"
   },
   "sellBillsView": {
     "sellBillsManagement": "销售账单管理",

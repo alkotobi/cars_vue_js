@@ -2255,7 +2255,12 @@
     "usedCar": "Used Car",
     "bigCar": "Big Car",
     "addDetail": "Add Detail",
-    "deleting": "Deleting..."
+    "deleting": "Deleting...",
+    "editBillAdminOnlyTitle": "Only an admin can edit a bill that has already been added to stock",
+    "confirmDeletePurchaseWithCars": "Delete this purchase, its details and every car it created? This action cannot be undone.",
+    "cannotDeleteBillCommittedCars": "Cannot delete: {count} car(s) of this purchase are already committed (they have a VIN, a buyer, files, an assignment or a loading).",
+    "adminOnlyDeleteBill": "Only an admin can delete a purchase.",
+    "billNotFound": "This purchase was not found."
   },
   "sellBillsView": {
     "sellBillsManagement": "Sell Bills Management",

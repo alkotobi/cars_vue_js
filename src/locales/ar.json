@@ -2200,7 +2200,12 @@
     "notes": "ملاحظات",
     "usedCar": "سيارة مستعملة",
     "bigCar": "سيارة كبيرة",
-    "addDetail": "إضافة تفصيل"
+    "addDetail": "إضافة تفصيل",
+    "editBillAdminOnlyTitle": "الإدارة فقط يمكنها تعديل فاتورة تمت إضافتها إلى المخزون",
+    "confirmDeletePurchaseWithCars": "حذف هذه الفاتورة وتفاصيلها وكل السيارات التي أنشأتها؟ لا يمكن التراجع عن هذا الإجراء.",
+    "cannotDeleteBillCommittedCars": "لا يمكن الحذف: {count} سيارة من هذه الفاتورة أصبحت ملتزمة بالفعل (رقم الهيكل، مشتري، ملفات، مخصصة أو محمّلة).",
+    "adminOnlyDeleteBill": "الإدارة فقط يمكنها حذف الفاتورة.",
+    "billNotFound": "هذه الفاتورة غير موجودة."
   },
   "sellBillsView": {
     "sellBillsManagement": "إدارة فواتير البيع",

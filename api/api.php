@@ -846,6 +846,112 @@ if (isset($postData['action'])) {
             }
                 exit;
 
+        case 'delete_buy_bill':
+            // Admin-only delete of a whole bill. Unlike the old client-side version
+            // (delete payments, then details, then the bill, each its own request),
+            // this runs in one transaction, so a failure cannot leave a bill with its
+            // payments and details already gone.
+            //
+            // An expanded bill owns cars_stock rows, so they are cascade deleted here
+            // rather than orphaned. That is only safe while none of them is committed:
+            // once a car has a VIN, a buyer, files, an assignment or a loading, the
+            // downstream workflow depends on it and the bill must be refused.
+            foreach (['bill_id', 'user_id'] as $requiredKey) {
+                if (!isset($postData[$requiredKey])) {
+                    apiErrorDie('invalid_request', 400);
+                }
+            }
+
+            $billId = intval($postData['bill_id']);
+            $userId = intval($postData['user_id']);
+
+            if ($billId <= 0 || $userId <= 0) {
+                apiErrorDie('invalid_request', 400);
+            }
+
+            $removedCarIds = [];
+            $inTransaction = false;
+
+            try {
+                $conn = getConnection(getDbConfig());
+                if (is_array($conn) && isset($conn['error'])) {
+                    throw new Exception($conn['error']);
+                }
+
+                if (!isAdminUser($conn, $userId)) {
+                    apiErrorDie('not_admin');
+                }
+
+                $conn->beginTransaction();
+                $inTransaction = true;
+
+                $billStmt = $conn->prepare('SELECT id FROM buy_bill WHERE id = ? FOR UPDATE');
+                $billStmt->execute([$billId]);
+                if (!$billStmt->fetch(PDO::FETCH_ASSOC)) {
+                    apiErrorDie('bill_not_found');
+                }
+
+                $detailStmt = $conn->prepare('SELECT id FROM buy_details WHERE id_buy_bill = ?');
+                $detailStmt->execute([$billId]);
+                $detailIds = array_map(function ($row) {
+                    return intval($row['id']);
+                }, $detailStmt->fetchAll(PDO::FETCH_ASSOC));
+
+                $committedCount = 0;
+                if (!empty($detailIds)) {
+                    $placeholders = implode(',', array_fill(0, count($detailIds), '?'));
+
+                    $committedStmt = $conn->prepare(
+                        'SELECT COUNT(*) AS cnt FROM cars_stock cs
+                         WHERE cs.id_buy_details IN (' . $placeholders . ')
+                           AND (' . isCommittedCarSql() . ')'
+                    );
+                    $committedStmt->execute($detailIds);
+                    $committedCount = (int)$committedStmt->fetch(PDO::FETCH_ASSOC)['cnt'];
+
+                    if ($committedCount > 0) {
+                        apiErrorDie('bill_locked', 200, ['count' => $committedCount]);
+                    }
+
+                    $carsStmt = $conn->prepare(
+                        "SELECT id FROM cars_stock WHERE id_buy_details IN ($placeholders) ORDER BY id ASC"
+                    );
+                    $carsStmt->execute($detailIds);
+                    while ($row = $carsStmt->fetch(PDO::FETCH_ASSOC)) {
+                        $removedCarIds[] = intval($row['id']);
+                    }
+
+                    // Collect the ids first so the client can drop them from the grid.
+                    $deleteCarsStmt = $conn->prepare("DELETE FROM cars_stock WHERE id_buy_details IN ($placeholders)");
+                    $deleteCarsStmt->execute($detailIds);
+                }
+
+                $deletePaymentsStmt = $conn->prepare('DELETE FROM buy_payments WHERE id_buy_bill = ?');
+                $deletePaymentsStmt->execute([$billId]);
+
+                $deleteDetailsStmt = $conn->prepare('DELETE FROM buy_details WHERE id_buy_bill = ?');
+                $deleteDetailsStmt->execute([$billId]);
+
+                $deleteBillStmt = $conn->prepare('DELETE FROM buy_bill WHERE id = ?');
+                $deleteBillStmt->execute([$billId]);
+
+                $conn->commit();
+                $inTransaction = false;
+
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'Buy bill deleted successfully',
+                    'removedCount' => count($removedCarIds),
+                    'removedCarIds' => $removedCarIds,
+                ]);
+            } catch (Exception $e) {
+                if ($inTransaction && $conn instanceof PDO && $conn->inTransaction()) {
+                    $conn->rollBack();
+                }
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            }
+                exit;
+
         // ============================================
         // Car Files Management Actions
         // ============================================

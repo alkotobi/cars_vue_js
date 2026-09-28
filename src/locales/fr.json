@@ -2235,7 +2235,12 @@
     "failedDeletePurchase": "Échec de la suppression de l'achat",
     "failedAddDetail": "Échec de l'ajout du détail",
     "failedDeleteDetail": "Échec de la suppression du détail",
-    "failedUpdateDetail": "Échec de la mise à jour du détail"
+    "failedUpdateDetail": "Échec de la mise à jour du détail",
+    "editBillAdminOnlyTitle": "Seul un administrateur peut modifier une facture déjà ajoutée au stock",
+    "confirmDeletePurchaseWithCars": "Supprimer cette facture, ses détails et toutes les voitures créées ? Cette action est irréversible.",
+    "cannotDeleteBillCommittedCars": "Suppression impossible : {count} voiture(s) de cette facture sont déjà engagées (numéro de châssis, acheteur, documents, affectation ou chargement).",
+    "adminOnlyDeleteBill": "Seul un administrateur peut supprimer une facture.",
+    "billNotFound": "Cette facture est introuvable."
   },
   "sellBillsView": {
     "sellBillsManagement": "Gestion des factures de vente",

@@ -151,60 +151,47 @@ const handleSelectBill = (bill) => {
 }
 
 const handleDeleteBill = async (bill) => {
-  if (!confirm(t('confirm_delete_purchase_details'))) {
+  if (isDeletingBill.value) return // Prevent double-click
+
+  if (!confirm(t('buyView.confirmDeletePurchaseWithCars'))) {
     return
   }
-
-  if (isDeletingBill.value) return // Prevent double-click
 
   try {
     isDeletingBill.value = true
 
-    // First check if the bill can be deleted
-    if (bill.is_stock_updated) {
-      alert(t('cannot_delete_stock_updated_purchase'))
-      return
-    }
-
-    // Start with deleting related records
-    // 1. Delete payments
-    const deletePayments = await callApi({
-      query: `DELETE FROM buy_payments WHERE id_buy_bill = ?`,
-      params: [bill.id],
+    // One transactional endpoint: it cascade deletes the bill's payments, details and
+    // untouched cars, and refuses when any car of the bill is already committed.
+    const result = await callApi({
+      action: 'delete_buy_bill',
+      bill_id: bill.id,
+      user_id: user.value?.id,
     })
 
-    if (!deletePayments.success) {
-      throw new Error(t('failed_delete_related_payments'))
-    }
-
-    // 2. Delete details
-    const deleteDetails = await callApi({
-      query: `DELETE FROM buy_details WHERE id_buy_bill = ?`,
-      params: [bill.id],
-    })
-
-    if (!deleteDetails.success) {
-      throw new Error(t('failed_delete_purchase_details'))
-    }
-
-    // 3. Finally delete the bill
-    const deleteBill = await callApi({
-      query: `DELETE FROM buy_bill WHERE id = ? AND is_stock_updated = 0`,
-      params: [bill.id],
-    })
-
-    if (deleteBill.success) {
+    if (result.success) {
+      if (result.removedCarIds?.length) {
+        carStockTableRef.value?.removeCarsToMemory(result.removedCarIds)
+      }
       if (selectedBill.value?.id === bill.id) {
         selectedBill.value = null
         buyDetails.value = [] // Clear details
       }
       await fetchBuyBills()
+    } else if (result.code === 'bill_locked') {
+      alert(t('buyView.cannotDeleteBillCommittedCars', { count: result.meta?.count || 0 }))
+      console.error('Error deleting purchase:', result.code)
+    } else if (result.code === 'not_admin') {
+      alert(t('buyView.adminOnlyDeleteBill'))
+      console.error('Error deleting purchase:', result.code)
+    } else if (result.code === 'bill_not_found') {
+      alert(t('buyView.billNotFound'))
+      console.error('Error deleting purchase:', result.code)
     } else {
-      throw new Error(t('failed_delete_purchase'))
+      throw new Error(t('buyView.failedDeletePurchase'))
     }
   } catch (err) {
     console.error('Error deleting purchase:', err)
-    alert(err.message || t('failed_delete_purchase'))
+    alert(err.message || t('buyView.failedDeletePurchase'))
   } finally {
     isDeletingBill.value = false
   }
@@ -868,7 +855,12 @@ const saveNotes = async (newNotes) => {
             <button
               @click.stop="openEditDialog(bill)"
               class="action-btn edit-btn"
-              :disabled="bill.is_stock_updated"
+              :disabled="(bill.is_stock_updated && !isAdmin) || isSubmittingPurchase"
+              :title="
+                bill.is_stock_updated && !isAdmin
+                  ? t('buyView.editBillAdminOnlyTitle')
+                  : t('buyView.edit')
+              "
             >
               <i class="fas fa-edit"></i>
               {{ t('buyView.edit') }}
@@ -877,7 +869,7 @@ const saveNotes = async (newNotes) => {
               v-if="isAdmin"
               @click.stop="handleDeleteBill(bill)"
               class="action-btn delete-btn"
-              :disabled="bill.is_stock_updated || isDeletingBill"
+              :disabled="isDeletingBill"
             >
               <i v-if="isDeletingBill" class="fas fa-spinner fa-spin"></i>
               {{ isDeletingBill ? t('buyView.deleting') : t('buyView.delete') }}
