@@ -385,6 +385,137 @@ if (isset($postData['action'])) {
             }
                 exit;
 
+        case 'create_stock_from_details':
+            // Expand a pending bill's buy_details into individual cars_stock rows.
+            //
+            // The whole expansion happens in one transaction: the previous client-side
+            // loop issued one INSERT per QTY unit, so a failure partway through left a
+            // pending bill holding partial stock, and a retry inserted the remainder on
+            // top of it. Details are read here by bill id rather than trusted from the
+            // client, so the inserted rows are derived from committed data.
+            if (!isset($postData['bill_id'])) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'bill_id is required']);
+                exit;
+            }
+
+            $billId = intval($postData['bill_id']);
+            if ($billId <= 0) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Invalid bill_id']);
+                exit;
+            }
+
+            $createdCars = [];
+            $inTransaction = false;
+
+            try {
+                $conn = getConnection(getDbConfig());
+                if (is_array($conn) && isset($conn['error'])) {
+                    throw new Exception($conn['error']);
+                }
+
+                $conn->beginTransaction();
+                $inTransaction = true;
+
+                // Lock the bill row for the rest of the transaction so a concurrent
+                // request cannot also observe it as pending and expand it again.
+                $billStmt = $conn->prepare('SELECT id, is_stock_updated FROM buy_bill WHERE id = ? FOR UPDATE');
+                $billStmt->execute([$billId]);
+                $bill = $billStmt->fetch(PDO::FETCH_ASSOC);
+
+                if (!$bill) {
+                    throw new Exception('Buy bill not found');
+                }
+                if ((int)$bill['is_stock_updated'] === 1) {
+                    throw new Exception('Stock has already been updated for this bill');
+                }
+
+                $detailStmt = $conn->prepare(
+                    'SELECT id, QTY, price_sell, notes, is_used_car, is_big_car, id_color
+                     FROM buy_details WHERE id_buy_bill = ?'
+                );
+                $detailStmt->execute([$billId]);
+                $details = $detailStmt->fetchAll(PDO::FETCH_ASSOC);
+
+                if (empty($details)) {
+                    throw new Exception('No purchase details to process');
+                }
+
+                // Refuse to expand if this bill already has stock rows. Covers the case
+                // where is_stock_updated was reset by hand after a successful expansion.
+                $detailIds = array_map(function ($d) { return intval($d['id']); }, $details);
+                $placeholders = implode(',', array_fill(0, count($detailIds), '?'));
+                $existingStmt = $conn->prepare(
+                    "SELECT id_buy_details, COUNT(*) as cnt FROM cars_stock
+                     WHERE id_buy_details IN ($placeholders) GROUP BY id_buy_details"
+                );
+                $existingStmt->execute($detailIds);
+                $existing = $existingStmt->fetchAll(PDO::FETCH_ASSOC);
+
+                if (!empty($existing)) {
+                    $parts = [];
+                    foreach ($existing as $row) {
+                        $parts[] = "detail {$row['id_buy_details']}: {$row['cnt']}";
+                    }
+                    throw new Exception('Stock rows already exist for this bill (' . implode(', ', $parts) . ')');
+                }
+
+                $insertStmt = $conn->prepare(
+                    'INSERT INTO cars_stock
+                     (id_buy_details, price_cell, notes, is_used_car, is_big_car, id_color)
+                     VALUES (?, ?, ?, ?, ?, ?)'
+                );
+
+                foreach ($details as $detail) {
+                    $qty = intval($detail['QTY']);
+                    if ($qty <= 0) {
+                        throw new Exception('Detail ' . $detail['id'] . ' has an invalid quantity');
+                    }
+
+                    for ($i = 0; $i < $qty; $i++) {
+                        $insertStmt->execute([
+                            $detail['id'],
+                            $detail['price_sell'],
+                            $detail['notes'],
+                            $detail['is_used_car'],
+                            $detail['is_big_car'],
+                            $detail['id_color'],
+                        ]);
+
+                        $createdCars[] = [
+                            'id' => intval($conn->lastInsertId()),
+                            'id_buy_details' => intval($detail['id']),
+                            'price_cell' => $detail['price_sell'],
+                            'notes' => $detail['notes'],
+                            'is_used_car' => $detail['is_used_car'],
+                            'is_big_car' => $detail['is_big_car'],
+                            'id_color' => $detail['id_color'],
+                            'buy_bill_id' => $billId,
+                        ];
+                    }
+                }
+
+                $flagStmt = $conn->prepare('UPDATE buy_bill SET is_stock_updated = 1 WHERE id = ?');
+                $flagStmt->execute([$billId]);
+
+                $conn->commit();
+                $inTransaction = false;
+
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'Stock updated successfully',
+                    'createdCount' => count($createdCars),
+                    'createdCars' => $createdCars,
+                ]);
+            } catch (Exception $e) {
+                if ($inTransaction && $conn instanceof PDO && $conn->inTransaction()) {
+                    $conn->rollBack();
+                }
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            }
+                exit;
+
         // ============================================
         // Car Files Management Actions
         // ============================================

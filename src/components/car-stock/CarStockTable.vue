@@ -2917,11 +2917,14 @@ onUnmounted(() => {
 defineExpose({
   fetchCarsStock,
   addCarsToMemory: async (newCarsData) => {
-    // Generate IDs for new cars (since they don't have IDs yet)
+    // Stock expansion returns the real inserted ids, so keep them. Anything without
+    // an id still gets a synthetic one for display, as before.
     const maxId = allCars.value.length > 0 ? Math.max(...allCars.value.map((car) => car.id)) : 0
 
-    const newCars = newCarsData.map((carData, index) => ({
-      id: maxId + index + 1, // Generate unique ID
+    let nextSyntheticId = maxId + 1
+
+    const newCars = newCarsData.map((carData) => ({
+      id: carData.id || nextSyntheticId++,
       vin: null,
       price_cell: carData.price_cell,
       date_loding: null,

@@ -41,7 +41,6 @@ const selectedBillForTask = ref(null)
 // Loading states
 const isSubmittingPurchase = ref(false)
 const isSubmittingDetail = ref(false)
-const isUpdatingStock = ref(false)
 const isDeletingBill = ref(false)
 const isProcessingTask = ref(false)
 
@@ -57,52 +56,10 @@ const isBillPending = computed(() => {
 })
 
 // Toolbar action methods
-const canUpdateStock = (bill) => {
-  return bill.amount > 0 && !bill.is_stock_updated
-}
-
-const handleUpdateStock = async (bill) => {
-  if (!confirm(t('confirm_update_stock'))) {
-    return
-  }
-
-  if (isUpdatingStock.value) return // Prevent double-click
-
-  try {
-    isUpdatingStock.value = true
-    const result = await callApi({
-      query: `
-        UPDATE buy_bill 
-        SET is_stock_updated = 1 
-        WHERE id = ?
-      `,
-      params: [bill.id],
-    })
-
-    if (result.success) {
-      await fetchBuyBills()
-
-      // Update the selected bill data to reflect the new status
-      if (selectedBill.value?.id === bill.id) {
-        const updatedBill = buyBills.value.find((b) => b.id === bill.id)
-        if (updatedBill) {
-          selectedBill.value = updatedBill
-        }
-      }
-
-      // Note: New cars will be added to memory via the cars-created event
-      // No need to refresh from database
-    } else {
-      alert(t('failed_update_stock'))
-    }
-  } catch (err) {
-    console.error('Error updating stock:', err)
-    alert(t('failed_update_stock'))
-  } finally {
-    isUpdatingStock.value = false
-  }
-}
-
+// Stock expansion is owned by BuyDetailsTable.showStockAlert, which calls the
+// create_stock_from_details action so the QTY expansion runs in one server-side
+// transaction. There is deliberately no bill-level equivalent here: a handler on
+// this view could only flip is_stock_updated, creating no cars at all.
 const handleStockUpdated = async (billId) => {
   // Refresh the bills list to get updated data
   await fetchBuyBills()
@@ -890,14 +847,6 @@ const saveNotes = async (newNotes) => {
             >
               <i class="fas fa-edit"></i>
               {{ t('buyView.edit') }}
-            </button>
-            <button
-              v-if="false"
-              @click.stop="handleUpdateStock(bill)"
-              class="action-btn update-btn"
-              :disabled="!canUpdateStock(bill)"
-            >
-              {{ t('buyView.updateStock') }}
             </button>
             <button
               v-if="isAdmin"

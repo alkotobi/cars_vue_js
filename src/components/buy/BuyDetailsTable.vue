@@ -84,63 +84,27 @@ const showStockAlert = async () => {
     isProcessing.value = true
 
     try {
-      // Process each detail
-      for (const detail of props.buyDetails) {
-        // Create stock entries based on quantity
-        for (let i = 0; i < detail.QTY; i++) {
-          const result = await callApi({
-            query: `
-              INSERT INTO cars_stock 
-              (id_buy_details, price_cell, notes, is_used_car, is_big_car, id_color)
-              VALUES (?, ?, ?, ?, ?, ?)
-            `,
-            params: [
-              detail.id,
-              detail.price_sell,
-              detail.notes,
-              detail.is_used_car,
-              detail.is_big_car,
-              detail.id_color,
-            ],
-          })
+      // The expansion into one cars_stock row per QTY unit happens server-side in a
+      // single transaction, keyed by bill id. It must not be done here: a client-side
+      // loop that failed partway left the bill pending with partial stock, and the
+      // retry added the remainder on top of it.
+      const billId = props.buyDetails[0].id_buy_bill
 
-          if (!result.success) {
-            alert(t('buy.detailsTable.errorCreatingStockEntry'))
-            console.error('Error creating stock entry:', result.error)
-            return
-          }
-        }
-      }
-
-      // Update the is_stock_updated flag in buy_bill
       const result = await callApi({
-        query: 'UPDATE buy_bill SET is_stock_updated = 1 WHERE id = ?',
-        params: [props.buyDetails[0].id_buy_bill],
+        action: 'create_stock_from_details',
+        bill_id: billId,
       })
 
       if (result.success) {
         alert(t('buy.detailsTable.stockSuccessfullyUpdated'))
-        emit('stock-updated', props.buyDetails[0].id_buy_bill) // Emit the bill ID for parent refresh
+        emit('stock-updated', billId) // Emit the bill ID for parent refresh
 
-        // Emit the new cars data to add to memory
-        const newCars = []
-        for (const detail of props.buyDetails) {
-          for (let i = 0; i < detail.QTY; i++) {
-            newCars.push({
-              id_buy_details: detail.id,
-              price_cell: detail.price_sell,
-              notes: detail.notes,
-              is_used_car: detail.is_used_car,
-              is_big_car: detail.is_big_car,
-              id_color: detail.id_color,
-              buy_bill_id: detail.id_buy_bill,
-            })
-          }
-        }
-        emit('cars-created', newCars)
+        // Real ids come back from the insert, so the car stock table no longer has to
+        // invent them when adding these to memory.
+        emit('cars-created', result.createdCars || [])
       } else {
-        console.error('Error updating is_stock_updated flag:', result.error)
-        alert(t('buy.detailsTable.errorUpdatingStock'))
+        console.error('Error updating stock:', result.error)
+        alert(t('buy.detailsTable.errorUpdatingStock') + ': ' + (result.error || ''))
       }
     } catch (err) {
       console.error('Error updating stock:', err)
