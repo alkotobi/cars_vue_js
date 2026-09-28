@@ -215,6 +215,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { getBasePath as sharedGetBasePath } from '@/utils/basePath'
 import { useApi } from '@/composables/useApi'
 
 const { updateAssetsVersion } = useApi()
@@ -256,16 +257,8 @@ const loadConfiguration = async () => {
   error.value = null
 
   try {
-    // Get base path where index.html is located (same folder as db_code.json)
-    const getBasePath = () => {
-      let baseUrl = import.meta.env.BASE_URL || './'
-      if (baseUrl === './' || baseUrl.startsWith('./')) {
-        const pathname = window.location.pathname
-        const match = pathname.match(/^(\/[^/]+\/)/)
-        return match ? match[1] : '/'
-      }
-      return baseUrl
-    }
+    // Base path helper (shared, see utils/basePath.js)
+    const getBasePath = () => sharedGetBasePath()
     const basePath = getBasePath()
 
     // Load db_code.json to get db_code (for display purposes)

@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
+import { getBasePath as sharedGetBasePath } from '../../utils/basePath'
 import { useEnhancedI18n } from '../../composables/useI18n'
 import { useApi } from '../../composables/useApi'
 import { useInvoiceCompanyInfo } from '../../composables/useInvoiceCompanyInfo'
@@ -54,16 +55,8 @@ const visibleTerms = computed(() => {
   return contractTerms.value.filter((term) => term.visible !== false)
 })
 
-// Helper function to get base path (same as in useApi.js)
-const getBasePath = () => {
-  let baseUrl = import.meta.env.BASE_URL || './'
-  if (baseUrl === './' || baseUrl.startsWith('./')) {
-    const pathname = window.location.pathname
-    const match = pathname.match(/^(\/[^/]+\/)/)
-    return match ? match[1] : '/'
-  }
-  return baseUrl
-}
+// Base path helper (shared, see utils/basePath.js)
+const getBasePath = () => sharedGetBasePath()
 
 // Load contract terms from JSON file
 const loadContractTerms = async () => {

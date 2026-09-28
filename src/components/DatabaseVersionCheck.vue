@@ -58,6 +58,7 @@
 
 <script setup>
 import { onMounted, ref, computed } from 'vue'
+import { getBasePath as sharedGetBasePath } from '@/utils/basePath'
 import { useI18n } from 'vue-i18n'
 import { useVersionCheck } from '@/composables/useVersionCheck'
 import { useApi } from '@/composables/useApi'
@@ -76,44 +77,8 @@ const isAdmin = computed(() => {
   return user.value?.role_id === 1
 })
 
-// Get base path where index.html exists (same logic as useApi.js)
-const getBasePath = () => {
-  let baseUrl = import.meta.env.BASE_URL || './'
-  
-  // If base is relative, convert to absolute path
-  if (baseUrl === './' || baseUrl.startsWith('./')) {
-    const pathname = window.location.pathname
-    
-    // Known route patterns that should NOT be treated as base paths
-    const knownRoutes = [
-      '/login', '/dashboard', '/users', '/roles', '/transfers', '/send', '/receive',
-      '/sell-bills', '/buy-payments', '/params', '/advanced-sql', '/transfers-list',
-      '/cars', '/warehouses', '/containers', '/print', '/clients', '/cashier',
-      '/rates', '/tasks', '/statistics', '/chat', '/invitations', '/containers-ref',
-      '/db-manager', '/alert-cars'
-    ]
-    
-    // Check if pathname starts with a known route at root level (e.g., '/login' or '/db-manager')
-    // But NOT if it's in a subdirectory (e.g., '/mig_26/db-manager' should extract '/mig_26/')
-    const startsWithKnownRouteAtRoot = knownRoutes.some(route => {
-      // Check if pathname exactly matches the route or starts with route followed by / or end of string
-      return pathname === route || pathname.startsWith(route + '/') || pathname.startsWith(route + '?')
-    })
-    
-    // If it starts with a known route at root level (not in subdirectory), base path is '/'
-    if (startsWithKnownRouteAtRoot && !pathname.match(/^\/[^/]+\//)) {
-      return '/'
-    }
-    
-    // If pathname is like '/mig_26/login', extract '/mig_26/'
-    // If pathname is like '/login', use '/'
-    const match = pathname.match(/^(\/[^/]+\/)/)
-    return match ? match[1] : '/'
-  }
-  
-  // If base is already absolute, use it as is
-  return baseUrl
-}
+// Get base path where index.html exists (shared helper, see utils/basePath.js)
+const getBasePath = () => sharedGetBasePath()
 
 onMounted(async () => {
   // Get user from localStorage

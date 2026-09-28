@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { getBasePath as sharedGetBasePath } from '../utils/basePath'
 import { useEnhancedI18n } from '../composables/useI18n'
 import { useApi, apiErrorText } from '../composables/useApi'
 import BuyBillsTable from '../components/buy/BuyBillsTable.vue'
@@ -755,18 +756,8 @@ const handleUpdateDetail = async (updatedDetail) => {
   }
 }
 
-// Get base path helper (same logic as router and useApi)
-const getBasePath = () => {
-  let baseUrl = import.meta.env.BASE_URL || './'
-  if (baseUrl === './' || baseUrl.startsWith('./')) {
-    const pathname = window.location.pathname
-    // If pathname is like '/mig_26/login', extract '/mig_26/'
-    // If pathname is like '/login', use '/'
-    const match = pathname.match(/^(\/[^/]+\/)/)
-    return match ? match[1] : '/'
-  }
-  return baseUrl
-}
+// Base path helper (shared, see utils/basePath.js)
+const getBasePath = () => sharedGetBasePath()
 
 // Replace handlePaymentClick with new method to open in new tab
 const openPayments = (bill) => {

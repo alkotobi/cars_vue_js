@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { getBasePath } from '../utils/basePath'
 import LoginView from '../views/LoginView.vue'
 import DashboardView from '../views/DashboardView.vue'
 import PrintPage from '../views/PrintPage.vue'
@@ -13,42 +14,7 @@ import RatesView from '../views/RatesView.vue'
 // Use root path since we're using a subdomain
 // Detect base path dynamically (same logic as useApi.js)
 // This allows the app to work from any subdirectory or root
-const getRouterBasePath = () => {
-  // Use Vite's BASE_URL if available (set in vite.config.js)
-  // If it's relative (./), convert to absolute based on current pathname
-  let baseUrl = import.meta.env.BASE_URL || './'
-
-  // If base is relative, convert to absolute path
-  if (baseUrl === './' || baseUrl.startsWith('./')) {
-    const pathname = window.location.pathname
-    
-    // Known route patterns that should NOT be treated as base paths
-    const knownRoutes = [
-      '/login', '/dashboard', '/users', '/roles', '/transfers', '/send', '/receive',
-      '/sell-bills', '/buy-payments', '/params', '/advanced-sql', '/transfers-list',
-      '/cars', '/warehouses', '/containers', '/print', '/clients', '/cashier',
-      '/rates', '/tasks', '/statistics', '/chat', '/invitations', '/containers-ref',
-      '/db-manager', '/alert-cars', '/settings'
-    ]
-    
-    // Check if pathname starts with a known route at root level (e.g., '/login' or '/db-manager')
-    // But NOT if it's in a subdirectory (e.g., '/mig_26/db-manager' should extract '/mig_26/')
-    const startsWithKnownRouteAtRoot = knownRoutes.some(route => {
-      return pathname === route || pathname.startsWith(route + '/') || pathname.startsWith(route + '?')
-    })
-    if (startsWithKnownRouteAtRoot) {
-      return '/'
-    }
-
-    // If pathname is like '/mig_26/login' or '/dist/cars/stock', extract first segment as base
-    const match = pathname.match(/^(\/[^/]+\/)/)
-    const detectedBase = match ? match[1] : '/'
-    return detectedBase
-  }
-
-  // If base is already absolute, use it as is
-  return baseUrl
-}
+const getRouterBasePath = () => getBasePath()
 
 const router = createRouter({
   history: createWebHistory(getRouterBasePath()),

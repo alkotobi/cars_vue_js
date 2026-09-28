@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, watch, onUnmounted, nextTick } from 'vue'
+import { getBasePath as sharedGetBasePath } from '../utils/basePath'
 import { useRouter } from 'vue-router'
 import { useEnhancedI18n } from '../composables/useI18n'
 import { useApi } from '../composables/useApi'
@@ -352,16 +353,8 @@ const updateUnreadCount = async () => {
 let unreadCountInterval = null
 let tasksCountInterval = null
 
-// Get base path helper (same logic as useApi.js)
-const getBasePath = () => {
-  let baseUrl = import.meta.env.BASE_URL || './'
-  if (baseUrl === './' || baseUrl.startsWith('./')) {
-    const pathname = window.location.pathname
-    const match = pathname.match(/^(\/[^/]+\/)/)
-    return match ? match[1] : '/'
-  }
-  return baseUrl
-}
+// Base path helper (shared, see utils/basePath.js)
+const getBasePath = () => sharedGetBasePath()
 
 // Update favicon function
 const updateFavicon = (url) => {

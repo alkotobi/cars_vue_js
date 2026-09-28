@@ -3,18 +3,20 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
     <meta charset="UTF-8">
-    <!-- Base = directory where index.html lives so all relative URLs (scripts, assets, fetch) resolve from there -->
-    <script>
-      (function() {
-        const pathname = window.location.pathname
-        var knownRootRoutes = ['/login','/dashboard','/users','/roles','/transfers','/send','/receive','/sell-bills','/buy-payments','/params','/advanced-sql','/transfers-list','/cars','/warehouses','/containers','/print','/clients','/cashier','/rates','/tasks','/statistics','/chat','/invitations','/containers-ref','/db-manager','/alert-cars','/settings']
-        var startsWithKnown = knownRootRoutes.some(function(r){ return pathname === r || pathname.startsWith(r + '/') || pathname.startsWith(r + '?') })
-        var basePath = startsWithKnown ? '/' : (pathname.match(/^(\/[^/]+\/)/) || [null,'/'])[1]
-        var baseTag = document.createElement('base')
-        baseTag.href = basePath
-        document.head.insertBefore(baseTag, document.head.firstChild)
-      })()
-    </script>
+    <!--
+      No <base> tag on purpose. The built index.html references its entry
+      script relatively ("./index.<hash>.js"), and a relative URL is resolved
+      against the document URL, which already yields the right directory for
+      every deployment: '/' on a root deploy, '/cars/' when served from
+      /cars/, and '/mig_26/' on a deep link such as /mig_26/login (the last
+      segment is treated as a file, so the base is its parent).
+
+      Injecting a <base> element here is what broke production: any base
+      computed from window.location.pathname mis-detected the /cars/ mount as
+      a route named /cars, resolved to '/', and made every asset 404. The
+      authoritative mount point for JS consumers now comes from
+      src/utils/basePath.js, which reads import.meta.url.
+    -->
     <link rel="icon" href="./logo_default.png" type="image/png" id="favicon-link">
     <link rel="apple-touch-icon" href="./logo_default.png" id="apple-touch-link">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -30,17 +32,21 @@
         }
 
         function getBasePath() {
-          const pathname = window.location.pathname
-          var knownRootRoutes = ['/login','/dashboard','/users','/roles','/transfers','/send','/receive','/sell-bills','/buy-payments','/params','/advanced-sql','/transfers-list','/cars','/warehouses','/containers','/print','/clients','/cashier','/rates','/tasks','/statistics','/chat','/invitations','/containers-ref','/db-manager','/alert-cars','/settings']
-          var startsWithKnown = knownRootRoutes.some(function(r){ return pathname === r || pathname.startsWith(r + '/') || pathname.startsWith(r + '?') })
-          return startsWithKnown ? '/' : (pathname.match(/^(\/[^/]+\/)/) || [null,'/'])[1]
+          // Relative to the document URL, so this resolves to the app directory
+          // in every deployment (see the note about <base> above).
+          return './'
         }
 
         function getApiBase() {
           // Old production API: https://www.merhab.com/api (kept for reference/reuse)
-          return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-            ? 'http://localhost:8000/api'
-            : 'https://world-automobile.com/cars/api'
+          if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            return 'http://localhost:8000/api'
+          }
+          // The API ships with the app, so it lives under the same mount point
+          // ('/cars/api' in production) — there is no api/ at the domain root.
+          // Resolve against the document URL so './' cannot glue a stray '.' onto
+          // the hostname, and so deep links like /cars/cars-stock still resolve.
+          return new URL(getBasePath() + 'api', window.location.href).href
         }
 
         function getFileUrl(path, baseDirectory) {

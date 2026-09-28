@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import { getBasePath as sharedGetBasePath } from '../utils/basePath'
 
 // Get the current hostname and protocol
 const hostname = window.location.hostname
@@ -10,69 +11,7 @@ const isLocalhost =
 // Detect base path from current location (e.g., '/mig_26/' or '/')
 // This allows the app to work from any subdirectory or root
 // Uses the same logic as getRouterBasePath() in router/index.js for consistency
-const getBasePath = () => {
-  // Use Vite's BASE_URL if available (set in vite.config.js)
-  // If it's relative (./), convert to absolute based on current pathname
-  let baseUrl = import.meta.env.BASE_URL || './'
-
-  // If base is relative, convert to absolute path
-  if (baseUrl === './' || baseUrl.startsWith('./')) {
-    const pathname = window.location.pathname
-
-    // Known route patterns that should NOT be treated as base paths
-    const knownRoutes = [
-      '/login',
-      '/dashboard',
-      '/users',
-      '/roles',
-      '/transfers',
-      '/send',
-      '/receive',
-      '/sell-bills',
-      '/buy-payments',
-      '/params',
-      '/advanced-sql',
-      '/transfers-list',
-      '/cars',
-      '/warehouses',
-      '/containers',
-      '/print',
-      '/clients',
-      '/cashier',
-      '/rates',
-      '/tasks',
-      '/statistics',
-      '/chat',
-      '/invitations',
-      '/containers-ref',
-      '/db-manager',
-      '/alert-cars',
-    ]
-
-    // Check if pathname starts with a known route at root level (e.g., '/login', '/cars', '/cars/stock')
-    // Subdirectory deployments (e.g. '/mig_26/login') do not start with a bare route, so they fall through
-    const startsWithKnownRouteAtRoot = knownRoutes.some((route) => {
-      return (
-        pathname === route || pathname.startsWith(route + '/') || pathname.startsWith(route + '?')
-      )
-    })
-
-    // If at root deployment and path is a known route (any depth, e.g. /cars or /cars/stock), base is '/'
-    // so we never request e.g. /cars/db_code.json (which can 500 on some servers)
-    if (startsWithKnownRouteAtRoot) {
-      return '/'
-    }
-
-    // If pathname is like '/mig_26/login', extract '/mig_26/'
-    // If pathname is like '/login', use '/'
-    const match = pathname.match(/^(\/[^/]+\/)/)
-    const detectedBase = match ? match[1] : '/'
-    return detectedBase
-  }
-
-  // If base is already absolute, use it as is
-  return baseUrl
-}
+const getBasePath = () => sharedGetBasePath()
 
 const BASE_PATH = getBasePath()
 
@@ -80,6 +19,9 @@ const BASE_PATH = getBasePath()
 // Default: derive from the host serving the page. On local/LAN the PHP built-in
 // server runs on :8000, in production the web server exposes api/ under the same
 // host, so the app works from any domain without a code change.
+// The mount path is part of the URL: the app is served from /cars/ and so is its
+// API (/cars/api/api.php). Building the base from the host alone produced
+// https://host/api/api.php, which 404s — there is no api/ at the domain root.
 // Override with VITE_API_BASE_URL when you need to bypass that, e.g. during
 // tunnel development:  VITE_API_BASE_URL=http://localhost:8000/api npx vite
 // A .env.local override is untracked, so this stays out of commits by default.
@@ -87,7 +29,7 @@ const API_BASE_URL =
   import.meta.env?.VITE_API_BASE_URL ||
   (isLocalhost
     ? `${protocol}//${hostname}:8000/api`
-    : `${protocol}//${hostname}${window.location.port ? `:${window.location.port}` : ''}/api`)
+    : `${protocol}//${hostname}${window.location.port ? `:${window.location.port}` : ''}${BASE_PATH}api`)
 
 const API_URL = `${API_BASE_URL}/api.php`
 const UPLOAD_URL = `${API_BASE_URL}/upload.php`
