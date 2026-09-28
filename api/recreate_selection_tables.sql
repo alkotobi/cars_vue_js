@@ -1,106 +1,1584 @@
--- ============================================
--- Recreate Car Selections System Tables
--- This script recreates tables that had foreign key order issues
--- Run this after setup.sql if these tables failed to create
--- ============================================
+-- phpMyAdmin SQL Dump
+-- version 5.2.2
+-- https://www.phpmyadmin.net/
+--
+-- Host: localhost:3306
+-- Generation Time: Mar 12, 2026 at 12:36 PM
+-- Server version: 11.4.10-MariaDB
+-- PHP Version: 8.4.18
 
--- Drop tables in reverse dependency order (if they exist)
-DROP TABLE IF EXISTS `selection_comments`;
-DROP TABLE IF EXISTS `selection_ownership_history`;
+SET FOREIGN_KEY_CHECKS=0;
+SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
+START TRANSACTION;
+SET time_zone = "+00:00";
+
+
+/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
+/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
+/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
+/*!40101 SET NAMES utf8mb4 */;
+
+--
+-- Database: `merhab_cars_26`
+--
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `adv_sql`
+--
+
+DROP TABLE IF EXISTS `adv_sql`;
+CREATE TABLE IF NOT EXISTS `adv_sql` (
+  `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `stmt` text DEFAULT NULL,
+  `desc` varchar(255) DEFAULT NULL,
+  `params` text CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `param_values` text CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `name` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `banks`
+--
+
+DROP TABLE IF EXISTS `banks`;
+CREATE TABLE IF NOT EXISTS `banks` (
+  `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `company_name` varchar(255) DEFAULT NULL,
+  `bank_name` varchar(255) DEFAULT NULL,
+  `swift_code` varchar(255) DEFAULT NULL,
+  `bank_account` varchar(255) DEFAULT NULL,
+  `bank_address` varchar(255) DEFAULT NULL,
+  `company_address` text DEFAULT NULL COMMENT 'Company address for bank account',
+  `mobile` varchar(255) DEFAULT NULL,
+  `email` varchar(255) DEFAULT NULL,
+  `website` varchar(500) DEFAULT NULL,
+  `logo_path` varchar(500) DEFAULT NULL COMMENT 'Path to bank/company logo image file',
+  `is_active` tinyint(1) DEFAULT 1 COMMENT '1=active, 0=inactive',
+  `notes` text DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=latin1 COLLATE=latin1_general_ci;
+
+--
+-- Dumping data for table `banks`
+--
+
+INSERT INTO `banks` (`id`, `company_name`, `bank_name`, `swift_code`, `bank_account`, `bank_address`, `company_address`, `mobile`, `email`, `website`, `logo_path`, `is_active`, `notes`) VALUES
+(1, 'MERHAB INTERNATIONAL GROUP LIMITED', 'OCBC WING HANG BANK (CHINA) LTD', 'OCBCCNSH', '8472 2120 0019 395 ', 'ROOM 2102-2105 GOLDLION DIGITAL NETWORK CENTRE, 138 TIYU ROAD EAST, GUANGZHOU, CHINA', '', '0552663908', 'merhab@merhab.com', 'https://www.merhab.com', 'banks_logos/bank_logo_1771242797863.png', 1, '');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `brands`
+--
+
+DROP TABLE IF EXISTS `brands`;
+CREATE TABLE IF NOT EXISTS `brands` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `brand` varchar(255) DEFAULT NULL,
+  `logo_path` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `brand` (`brand`)
+) ENGINE=InnoDB AUTO_INCREMENT=15 DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+--
+-- Dumping data for table `brands`
+--
+
+INSERT INTO `brands` (`id`, `brand`, `logo_path`) VALUES
+(1, 'AUDI', NULL),
+(2, 'CHANGAN', NULL),
+(3, 'CHERRY', NULL),
+(4, 'FREIGHT', NULL),
+(5, 'GEELY', NULL),
+(6, 'JETA', NULL),
+(7, 'JETOUR', NULL),
+(8, 'KIA', NULL),
+(9, 'MG', NULL),
+(10, 'PEUGEOT', NULL),
+(11, 'SKODA', NULL),
+(12, 'VW', NULL),
+(13, 'GAC', NULL),
+(14, 'TOYOTA', NULL);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `buy_bill`
+--
+
+DROP TABLE IF EXISTS `buy_bill`;
+CREATE TABLE IF NOT EXISTS `buy_bill` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id_supplier` int(11) DEFAULT NULL,
+  `date_buy` datetime DEFAULT NULL,
+  `amount` decimal(10,2) DEFAULT NULL,
+  `payed` decimal(10,2) DEFAULT NULL,
+  `pi_path` varchar(255) DEFAULT NULL,
+  `bill_ref` varchar(255) DEFAULT NULL,
+  `is_stock_updated` tinyint(1) DEFAULT 0,
+  `is_ordered` tinyint(1) DEFAULT 1,
+  `notes` text DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `bill_ref` (`bill_ref`)
+) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+--
+-- Dumping data for table `buy_bill`
+--
+
+INSERT INTO `buy_bill` (`id`, `id_supplier`, `date_buy`, `amount`, `payed`, `pi_path`, `bill_ref`, `is_stock_updated`, `is_ordered`, `notes`) VALUES
+(1, 1, '2025-12-23 18:35:00', 155000.00, NULL, 'purchase_pi/pi_purchase_leo_2025-12-25_18-36-12_1766687772022.pdf', 'HKZL2025175', 1, 1, NULL),
+(2, 1, '2025-12-26 10:16:00', 429500.00, NULL, 'purchase_pi/pi_purchase_leo_2025-12-29_10-16-43_1767003403976.pdf', 'HKZL2025176', 1, 1, NULL),
+(3, 2, '2025-12-30 16:57:00', 279000.00, 41850.00, 'purchase_pi/pi_purchase_bruce_2025-12-30_16-58-24_1767113904800.pdf', 'HSXMER20251230CQ01', 1, 1, NULL),
+(4, 2, '2026-01-06 04:17:00', 0.00, NULL, 'purchase_pi/pi_purchase_bruce_2026-01-06_04-18-13_1767673093265.pdf', 'HSXMER20260106CQ01', 1, 1, '1 livan'),
+(5, 4, '2026-01-07 11:51:00', 0.00, NULL, 'purchase_pi/pi_purchase_CHINESE_ALI_2026-01-07_11-52-19_1767786739378.pdf', 'MER26010101', 1, 1, 'TIGO 5X'),
+(6, 4, '2026-01-07 12:19:00', 0.00, NULL, 'purchase_pi/pi_purchase_CHINESE_ALI_2026-01-07_12-20-27_1767788427055.jpg', '0003064', 1, 1, 'geely boyue L'),
+(7, 4, '2026-01-13 07:46:00', 0.00, NULL, 'purchase_pi/pi_purchase_CHINESE_ALI_2026-01-13_07-49-43_1768290583254.pdf', 'ALI260113', 1, 1, 'USED COOLRAY'),
+(8, 2, '2026-01-17 01:51:00', 0.00, NULL, 'purchase_pi/pi_purchase_bruce_2026-01-17_01-52-02_1768614722048.pdf', 'HSXMER20251230CQ02', 1, 1, '100 livan'),
+(10, 1, '2026-01-18 10:04:00', 3580000.00, NULL, 'purchase_pi/pi_purchase_leo_2026-01-18_10-05-20_1768730720951.pdf', 'HKZL2025176-1', 1, 1, '20 GS3(70leo)'),
+(11, 4, '2026-01-24 13:41:00', 0.00, NULL, 'purchase_pi/pi_purchase_CHINESE_ALI_2026-01-24_13-42-24_1769262144684.pdf', 'shipping ', 1, 1, 'shipping'),
+(12, 6, '2026-02-01 08:48:00', 96000.00, NULL, 'purchase_pi/pi_purchase_mimo_2026-02-01_08-49-20_1769935760293.png', 'mimo01', 1, 1, NULL);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `buy_details`
+--
+
+DROP TABLE IF EXISTS `buy_details`;
+CREATE TABLE IF NOT EXISTS `buy_details` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id_car_name` int(11) DEFAULT NULL,
+  `id_color` int(11) DEFAULT NULL,
+  `amount` decimal(10,2) DEFAULT NULL,
+  `notes` text DEFAULT NULL,
+  `QTY` int(11) DEFAULT NULL,
+  `year` int(11) DEFAULT NULL,
+  `month` int(11) DEFAULT NULL,
+  `is_used_car` tinyint(1) DEFAULT 0,
+  `id_buy_bill` int(11) DEFAULT NULL,
+  `price_sell` decimal(10,2) DEFAULT NULL,
+  `is_big_car` tinyint(1) DEFAULT 0,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=15 DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+--
+-- Dumping data for table `buy_details`
+--
+
+INSERT INTO `buy_details` (`id`, `id_car_name`, `id_color`, `amount`, `notes`, `QTY`, `year`, `month`, `is_used_car`, `id_buy_bill`, `price_sell`, `is_big_car`) VALUES
+(1, 38, 4, 7750.00, NULL, 20, 2025, 12, 0, 1, 8750.00, 0),
+(2, 37, 4, 8950.00, NULL, 20, 2025, 12, 0, 2, 9950.00, 0),
+(3, 37, 7, 8950.00, NULL, 15, 2025, 12, 0, 2, 9950.00, 0),
+(4, 37, 7, 7750.00, NULL, 15, 2025, 12, 0, 2, 8750.00, 0),
+(5, 22, 4, 6975.00, NULL, 40, 2025, 12, 0, 3, 7975.00, 0),
+(6, 21, 4, 0.00, NULL, 1, 2026, 1, 0, 4, 8000.00, 0),
+(7, 41, 1, 0.00, NULL, 1, 2025, 4, 1, 5, 10900.00, 0),
+(8, 42, 4, 0.00, NULL, 1, 2024, 6, 1, 6, 12755.00, 1),
+(9, 6, 1, 0.00, NULL, 1, 2024, 1, 1, 7, 12710.00, 0),
+(11, 22, 4, 0.00, NULL, 100, 2026, 1, 0, 8, 7800.00, 0),
+(12, 37, 4, 179000.00, NULL, 20, 2026, 1, 0, 10, 9600.00, 0),
+(13, 43, 8, 0.00, NULL, 50, 2026, 1, 0, 11, 1500.00, 0),
+(14, 46, 1, 9600.00, NULL, 10, 2023, 2, 1, 12, 10600.00, 0);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `buy_payments`
+--
+
+DROP TABLE IF EXISTS `buy_payments`;
+CREATE TABLE IF NOT EXISTS `buy_payments` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id_buy_bill` int(11) DEFAULT NULL,
+  `date_payment` datetime DEFAULT NULL,
+  `amount` decimal(10,2) DEFAULT NULL,
+  `swift_path` varchar(255) DEFAULT NULL,
+  `notes` text DEFAULT NULL,
+  `id_user` int(11) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+--
+-- Dumping data for table `buy_payments`
+--
+
+INSERT INTO `buy_payments` (`id`, `id_buy_bill`, `date_payment`, `amount`, `swift_path`, `notes`, `id_user`) VALUES
+(1, 3, '2025-12-30 16:59:00', 41850.00, '/api/upload.php?path=buy_payment_swifts%2Fbill_3_1767114010984.png&base_directory=mig_26_files', '', 1);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `cars_names`
+--
+
+DROP TABLE IF EXISTS `cars_names`;
+CREATE TABLE IF NOT EXISTS `cars_names` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `car_name` varchar(255) DEFAULT NULL,
+  `id_brand` int(11) DEFAULT NULL,
+  `notes` text DEFAULT NULL,
+  `is_big_car` tinyint(1) DEFAULT 0,
+  `cbm` decimal(10,0) DEFAULT NULL,
+  `gw` decimal(10,0) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `car_name` (`car_name`)
+) ENGINE=InnoDB AUTO_INCREMENT=47 DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+--
+-- Dumping data for table `cars_names`
+--
+
+INSERT INTO `cars_names` (`id`, `car_name`, `id_brand`, `notes`, `is_big_car`, `cbm`, `gw`) VALUES
+(1, '2008', NULL, NULL, 0, NULL, NULL),
+(2, 'A3', NULL, NULL, 0, NULL, NULL),
+(3, 'CHANGAN CS75 PLUS', NULL, NULL, 0, NULL, NULL),
+(4, 'CHERRY TIGO 7', NULL, NULL, 0, NULL, NULL),
+(5, 'CHERY TIGGO 3X', NULL, NULL, 0, NULL, NULL),
+(6, 'COOLRAY FULL NOT SPORT', NULL, NULL, 0, NULL, NULL),
+(7, 'COOLRAY SPORT', NULL, NULL, 0, NULL, NULL),
+(8, 'COOLRAY SUPER AUTO NO SUNROOF', NULL, NULL, 0, NULL, NULL),
+(9, 'COOLRAY SUPER AUTO WITH SUNROOF', NULL, NULL, 0, NULL, NULL),
+(10, 'COOLRAY SUPER MANUAL', NULL, NULL, 0, NULL, NULL),
+(11, 'DASHING PRO 1.6 DCT', NULL, NULL, 0, NULL, NULL),
+(12, 'EMGRAND MAN', NULL, NULL, 0, NULL, NULL),
+(13, 'EMGRAND USED CAR', NULL, NULL, 0, NULL, NULL),
+(14, 'FREIGHT', NULL, NULL, 0, NULL, NULL),
+(15, 'GOLF 300TSI R-LINE', NULL, NULL, 0, NULL, NULL),
+(16, 'GOLF R-LINE (FULL OPTION)', NULL, NULL, 0, NULL, NULL),
+(17, 'JETTA VS5', NULL, NULL, 0, NULL, NULL),
+(18, 'K3', NULL, NULL, 0, NULL, NULL),
+(19, 'KAMIQ GT', NULL, NULL, 0, NULL, NULL),
+(20, 'KX1 20251.4LCVT SUNROOFEDITION', NULL, NULL, 0, NULL, NULL),
+(21, 'LIVAN AUTO', NULL, NULL, 0, NULL, NULL),
+(22, 'LIVAN MAN', NULL, NULL, 0, NULL, NULL),
+(23, 'MG5 BASE AUTO', NULL, NULL, 0, NULL, NULL),
+(24, 'MG5 MAN', NULL, NULL, 0, NULL, NULL),
+(25, 'SELTOS LUXERY BLACK ROOF', NULL, NULL, 0, NULL, NULL),
+(26, 'SONET BLACK ROOF', NULL, NULL, 0, NULL, NULL),
+(27, 'T-CROSS', NULL, NULL, 0, NULL, NULL),
+(28, 'T-ROC STARLIGHT', NULL, NULL, 0, NULL, NULL),
+(29, 'T-ROC WITH PACKAKE', NULL, NULL, 0, NULL, NULL),
+(30, 'TACOUA', NULL, NULL, 0, NULL, NULL),
+(31, 'THARU BASIC', NULL, NULL, 0, NULL, NULL),
+(32, 'THARU MID', NULL, NULL, 0, NULL, NULL),
+(33, 'THARU TOP', NULL, NULL, 0, NULL, NULL),
+(34, 'TIGO 3', NULL, NULL, 0, NULL, NULL),
+(35, 'TIGUAN L', NULL, NULL, 0, NULL, NULL),
+(36, 'GS3 top', 13, '', 0, NULL, NULL),
+(37, 'GS3 MID', 13, '', 0, NULL, NULL),
+(38, 'GS3 BAS', NULL, '', 0, NULL, NULL),
+(39, 'HAOYUE PRO', 5, '', 1, NULL, NULL),
+(41, 'TIGGO 5X', 5, '', 0, NULL, NULL),
+(42, 'BOYUE L', 5, '', 1, NULL, NULL),
+(43, 'shipping ', NULL, '', 0, NULL, NULL),
+(46, 'COROLLA 1.2T', 14, '', 0, NULL, NULL);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `cars_stock`
+--
+
+DROP TABLE IF EXISTS `cars_stock`;
+CREATE TABLE IF NOT EXISTS `cars_stock` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `notes` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT 'JSON array of notes: [{"id_user": int, "note": "text", "timestamp": "datetime"}]' CHECK (json_valid(`notes`)),
+  `id_buy_details` int(11) DEFAULT NULL,
+  `date_sell` datetime DEFAULT NULL,
+  `id_client` int(11) DEFAULT NULL,
+  `price_cell` decimal(10,2) DEFAULT NULL,
+  `cfr_da` decimal(10,2) DEFAULT NULL,
+  `freight` decimal(10,2) DEFAULT NULL,
+  `id_port_loading` int(11) DEFAULT NULL,
+  `id_port_discharge` int(11) DEFAULT NULL,
+  `vin` varchar(255) DEFAULT NULL,
+  `path_documents` varchar(255) DEFAULT NULL,
+  `date_loding` datetime DEFAULT NULL,
+  `date_send_documents` datetime DEFAULT NULL,
+  `hidden` tinyint(1) DEFAULT 0,
+  `id_sell_pi` varchar(255) DEFAULT NULL,
+  `sell_pi_path` varchar(255) DEFAULT NULL,
+  `buy_pi_path` varchar(255) DEFAULT NULL,
+  `id_sell` int(11) DEFAULT NULL,
+  `export_lisence_ref` varchar(255) DEFAULT NULL,
+  `id_warehouse` int(11) DEFAULT NULL,
+  `in_wharhouse_date` date DEFAULT NULL,
+  `date_get_documents_from_supp` date DEFAULT NULL,
+  `date_get_keys_from_supp` date DEFAULT NULL,
+  `rate` decimal(10,2) DEFAULT NULL,
+  `date_get_bl` date DEFAULT NULL,
+  `date_pay_freight` date DEFAULT NULL,
+  `is_used_car` tinyint(1) DEFAULT NULL,
+  `is_big_car` tinyint(1) DEFAULT 0,
+  `container_ref` varchar(255) DEFAULT NULL,
+  `is_tmp_client` tinyint(1) DEFAULT 0,
+  `id_loaded_container` int(11) DEFAULT NULL,
+  `is_batch` tinyint(1) DEFAULT 0,
+  `is_loading_inquiry_sent` tinyint(1) DEFAULT 0,
+  `date_assigned` timestamp NULL DEFAULT NULL,
+  `id_color` int(11) DEFAULT NULL,
+  `payment_confirmed` tinyint(1) DEFAULT 0 COMMENT 'Payment confirmed status - only admins or users with can_confirm_payment permission can set to true',
+  `hidden_by_user_id` int(11) DEFAULT NULL,
+  `hidden_time_stamp` timestamp NULL DEFAULT NULL,
+  `path_coo` varchar(255) DEFAULT NULL,
+  `path_coc` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `vin` (`vin`),
+  KEY `idx_payment_confirmed` (`payment_confirmed`)
+) ENGINE=InnoDB AUTO_INCREMENT=295 DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+--
+-- Dumping data for table `cars_stock`
+--
+
+INSERT INTO `cars_stock` (`id`, `notes`, `id_buy_details`, `date_sell`, `id_client`, `price_cell`, `cfr_da`, `freight`, `id_port_loading`, `id_port_discharge`, `vin`, `path_documents`, `date_loding`, `date_send_documents`, `hidden`, `id_sell_pi`, `sell_pi_path`, `buy_pi_path`, `id_sell`, `export_lisence_ref`, `id_warehouse`, `in_wharhouse_date`, `date_get_documents_from_supp`, `date_get_keys_from_supp`, `rate`, `date_get_bl`, `date_pay_freight`, `is_used_car`, `is_big_car`, `container_ref`, `is_tmp_client`, `id_loaded_container`, `is_batch`, `is_loading_inquiry_sent`, `date_assigned`, `id_color`, `payment_confirmed`, `hidden_by_user_id`, `hidden_time_stamp`, `path_coo`, `path_coc`) VALUES
+(1, '[{\"id_user\": 1, \"note\": \"with spare tire\", \"timestamp\": \"2026-01-06 12:18:17\"}]', 1, '2026-01-06 00:00:00', 65, 8508.57, 2637650.00, 2000.00, NULL, 5, 'LMGHT1L25S3237012', NULL, NULL, NULL, 0, 'SOF005060126037', NULL, NULL, 37, NULL, NULL, '2026-02-10', NULL, NULL, 251.00, NULL, NULL, 0, 0, 'ECMU5458328', 0, 38, 0, 0, '2026-01-06 07:51:25', 4, 0, NULL, NULL, NULL, NULL),
+(2, '[{\"id_user\": 1, \"note\": \"LOAD IT TO MOSTGANEM\", \"timestamp\": \"2026-01-06 12:18:17\"}]', 1, '2025-12-31 00:00:00', 13, 8956.97, 2699999.47, 1650.00, NULL, 4, 'LMGHT1L25S3236989', NULL, NULL, NULL, 0, 'BIL017311225005', NULL, NULL, 5, NULL, NULL, '2026-02-10', NULL, NULL, 251.00, NULL, NULL, 0, 0, 'TIIU7247954', 0, 35, 0, 0, '2025-12-31 10:08:04', 4, 0, NULL, NULL, NULL, NULL),
+(3, NULL, 1, '2026-01-18 00:00:00', 156, 8177.51, 2580000.00, 2000.00, NULL, 2, 'LMGHT1L22S3237002', NULL, NULL, NULL, 0, 'BIL017180126086', NULL, NULL, 86, NULL, NULL, '2026-02-10', NULL, NULL, 253.50, NULL, NULL, 0, 0, 'GESU6104985', 0, 36, 0, 0, '2026-01-18 11:47:54', 4, 0, NULL, NULL, NULL, NULL),
+(4, NULL, 1, '2026-01-18 00:00:00', 169, 8177.51, 2580000.00, 2000.00, NULL, 2, 'LMGHT1L24S3237003', NULL, NULL, NULL, 0, 'BIL017180126100', NULL, NULL, 100, NULL, NULL, '2026-02-10', NULL, NULL, 253.50, NULL, NULL, 0, 0, 'GESU6104985', 0, 36, 0, 0, '2026-01-18 15:07:53', 4, 1, NULL, NULL, NULL, NULL),
+(5, NULL, 1, '2026-01-21 00:00:00', 203, 8098.62, 2560000.00, 2000.00, NULL, 2, 'LMGHT1L29S3236994', NULL, NULL, NULL, 0, 'MIM006210126114', NULL, NULL, 114, NULL, NULL, '2026-02-10', NULL, NULL, 253.50, NULL, NULL, 0, 0, 'TCLU1513520', 0, 37, 0, 0, '2026-01-21 09:57:51', 4, 0, NULL, NULL, NULL, NULL),
+(8, NULL, 1, '2026-01-18 00:00:00', 155, 7980.28, 2530000.00, 2000.00, NULL, 5, 'LMGHT1L21S3236990', NULL, NULL, NULL, 0, 'MIM006180126087', NULL, NULL, 87, NULL, NULL, '2026-02-10', NULL, NULL, 253.50, NULL, NULL, 0, 0, 'ECMU5458328', 0, 38, 0, 0, '2026-01-18 11:50:09', 4, 0, NULL, NULL, NULL, NULL),
+(10, NULL, 1, '2026-01-18 00:00:00', 168, 8177.51, 2580000.00, 2000.00, NULL, 2, 'LMGHT1L26S3237004', NULL, NULL, NULL, 0, 'BIL017180126098', NULL, NULL, 98, NULL, NULL, '2026-02-10', NULL, NULL, 253.50, NULL, NULL, 0, 0, 'GESU6104985', 0, 36, 0, 0, '2026-01-18 15:00:56', 4, 0, NULL, NULL, NULL, NULL),
+(12, NULL, 1, '2026-01-18 00:00:00', 166, 8138.07, 2570000.00, 2000.00, NULL, 2, 'LMGHT1L20S3237001', NULL, NULL, NULL, 0, 'MIM006180126095', NULL, NULL, 95, NULL, NULL, '2026-02-10', NULL, NULL, 253.50, NULL, NULL, 0, 0, 'GESU6104985', 0, 36, 0, 0, '2026-01-18 13:50:08', 4, 0, NULL, NULL, NULL, NULL),
+(13, NULL, 1, '2026-01-26 00:00:00', 233, 8177.51, 2580000.00, 2000.00, NULL, 2, 'LMGHT1L2XS3236986', NULL, NULL, NULL, 0, 'BIL017260126124', NULL, NULL, 124, NULL, NULL, '2026-02-10', NULL, NULL, 253.50, NULL, NULL, 0, 0, 'TCLU1513520', 0, 37, 0, 0, '2026-01-26 12:03:00', 4, 0, NULL, NULL, NULL, NULL),
+(14, NULL, 1, '2026-02-02 00:00:00', 264, 8740.00, 2560000.00, 1500.00, NULL, 2, 'LMGHT1L2XS3237023', NULL, NULL, NULL, 0, 'SOF005020226134', NULL, NULL, 134, NULL, NULL, '2026-02-10', NULL, NULL, 250.00, NULL, NULL, 0, 0, 'TCLU1513520', 0, 37, 0, 0, '2026-02-02 14:56:39', 4, 0, NULL, NULL, NULL, NULL),
+(15, NULL, 1, '2026-01-21 00:00:00', 208, 8098.62, 2560000.00, 2000.00, NULL, 2, 'LMGHT1L24S3236997', NULL, NULL, NULL, 0, 'MIM006210126119', NULL, NULL, 119, NULL, NULL, '2026-02-10', NULL, NULL, 253.50, NULL, NULL, 0, 0, 'TCLU1513520', 0, 37, 0, 0, '2026-01-21 17:10:19', 4, 0, NULL, NULL, NULL, NULL),
+(16, NULL, 1, '2026-02-14 00:00:00', 289, 8177.51, 2580000.00, 2000.00, NULL, 2, 'LMGHT1L23S3237025', NULL, NULL, NULL, 0, 'BIL017140226150', NULL, NULL, 150, NULL, NULL, '2026-02-10', NULL, NULL, 253.50, NULL, NULL, 0, 0, 'ECMU5458328', 0, 38, 0, 0, '2026-02-14 13:22:12', 4, 0, NULL, NULL, NULL, NULL),
+(17, NULL, 1, '2026-01-12 00:00:00', 105, 8177.51, 2618023.79, 2000.00, NULL, 4, 'LMGHT1L23S3236991', NULL, NULL, NULL, 0, 'MOH007110126064', NULL, NULL, 64, NULL, NULL, '2026-02-10', NULL, NULL, 253.50, NULL, NULL, 0, 0, 'TIIU7247954', 0, 35, 0, 0, '2026-01-12 17:24:10', 4, 0, NULL, NULL, NULL, NULL),
+(18, NULL, 1, '2026-01-11 00:00:00', 90, 8880.88, 2643250.00, 1650.00, NULL, 6, 'LMGHT1L21S3236987', NULL, NULL, NULL, 0, 'MOH007100126050', NULL, NULL, 50, NULL, NULL, '2026-02-10', NULL, NULL, 251.00, NULL, NULL, 0, 0, 'TIIU7247954', 0, 35, 0, 0, '2026-01-11 13:27:55', 4, 0, NULL, NULL, NULL, NULL),
+(19, NULL, 1, '2026-01-11 00:00:00', 85, 8527.51, 2618025.00, 1650.00, NULL, 6, 'LMGHT1L23S3236988', NULL, NULL, NULL, 0, 'MOH007100126046', NULL, NULL, 46, NULL, NULL, '2026-02-10', NULL, NULL, 253.50, NULL, NULL, 0, 0, 'TIIU7247954', 0, 35, 0, 0, '2026-01-11 11:41:05', 4, 0, NULL, NULL, NULL, NULL),
+(20, NULL, 1, '2025-12-30 00:00:00', 10, 8907.77, 2650000.00, 1650.00, NULL, 4, 'LMGHT1L26S3237018', NULL, NULL, NULL, 0, 'ADM001301225002', NULL, NULL, 2, NULL, NULL, '2026-02-10', NULL, NULL, 251.00, NULL, NULL, 0, 0, 'ECMU5458328', 0, 38, 0, 0, '2025-12-30 19:06:54', 4, 1, NULL, NULL, NULL, NULL),
+(21, '[{\"id_user\": 1, \"note\": \"with electric seat, electric tailgate, spare tire \", \"timestamp\": \"2026-01-06 12:18:17\"}]', 2, '2025-12-31 00:00:00', 5, 10030.00, 3019530.00, 2000.00, NULL, 5, 'LMGHT1L80T3238249', NULL, NULL, NULL, 0, 'SOF005291225001', NULL, NULL, 1, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'TLLU4802720', 0, 21, 0, 0, '2025-12-31 07:06:15', 4, 0, NULL, NULL, NULL, NULL),
+(22, NULL, 2, '2026-02-21 00:00:00', 283, 9242.60, 2850000.00, 2000.00, NULL, 2, 'LMGHT1L82T3238365', NULL, NULL, NULL, 0, 'ATE004210226152', NULL, NULL, 152, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'GESU6872915', 0, 40, 0, 0, '2026-02-21 10:57:49', 4, 0, NULL, NULL, NULL, NULL),
+(23, '[{\"id_user\": 1, \"note\": \"spare tyre\", \"timestamp\": \"2026-01-06 12:18:17\"}]', 2, '2026-01-03 00:00:00', 28, 9530.00, 2862655.00, 1875.00, NULL, 5, 'LMGHT1L85S3233465', NULL, NULL, NULL, 0, 'SOF005030126020', NULL, NULL, 20, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'TCNU3553176', 0, 23, 0, 0, '2026-01-03 07:41:02', 4, 0, NULL, NULL, NULL, NULL),
+(24, '[{\"id_user\": 1, \"note\": \"spare tyre\", \"timestamp\": \"2026-01-06 12:18:17\"}]', 2, '2026-01-03 00:00:00', 42, 9530.00, 2862655.00, 1875.00, NULL, 5, 'LMGHT1L82S3233469', NULL, NULL, NULL, 0, 'SOF005030126020', NULL, NULL, 20, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'TCNU3553176', 0, 23, 0, 0, '2026-01-03 07:41:45', 4, 0, NULL, NULL, NULL, NULL),
+(25, '[{\"id_user\": 1, \"note\": \"spare tyre\", \"timestamp\": \"2026-01-06 12:18:17\"}]', 2, '2026-01-03 00:00:00', 40, 9530.00, 2862655.00, 1875.00, NULL, 5, 'LMGHT1L80S3233468', NULL, NULL, NULL, 0, 'SOF005030126020', NULL, NULL, 20, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'TCNU3553176', 0, 23, 0, 0, '2026-01-03 07:42:12', 4, 0, NULL, NULL, NULL, NULL),
+(26, '[{\"id_user\":5,\"note\":\"with ES/LED/EG/spare wire\",\"timestamp\":\"2026-01-18 12:29:31\"}]', 2, '2026-01-18 00:00:00', 59, 10200.00, 2959612.50, 1475.00, NULL, 2, 'LMGHT1L80T3238333', NULL, NULL, NULL, 0, 'SOF005060126035', NULL, NULL, 35, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'CMAU9817589', 0, 28, 0, 0, '2026-01-18 12:24:53', 4, 0, NULL, NULL, NULL, NULL),
+(27, NULL, 2, '2026-01-18 00:00:00', 178, 9733.40, 2880000.00, 1650.00, NULL, 2, 'LMGHT1L82T3238351', NULL, NULL, NULL, 0, 'SOF005180126097', NULL, NULL, 97, NULL, NULL, NULL, NULL, NULL, 253.00, NULL, NULL, 0, 0, 'GESU6872915', 0, 40, 0, 0, '2026-01-18 15:14:00', 4, 0, NULL, NULL, NULL, NULL),
+(28, NULL, 2, '2026-01-18 00:00:00', 184, 9710.95, 2880000.00, 1650.00, NULL, 2, 'LMGHT1L82T3238348', NULL, NULL, NULL, 0, 'SOF005180126097', NULL, NULL, 97, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'GESU6872915', 0, 40, 0, 0, '2026-01-18 16:22:36', 4, 0, NULL, NULL, NULL, NULL),
+(29, NULL, 2, '2026-01-20 00:00:00', 228, 9720.00, 2882295.00, 1650.00, NULL, 5, 'LMGHT1L86S3233488', NULL, NULL, NULL, 0, 'SOF005130126065', NULL, NULL, 65, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'SEGU6377710', 0, 24, 0, 0, '2026-01-20 12:04:36', 4, 0, NULL, NULL, NULL, NULL),
+(30, NULL, 2, '2026-01-21 00:00:00', 158, 10200.00, 2883725.00, 1475.00, NULL, 5, 'LMGHT1L80T3238347', NULL, NULL, NULL, 0, 'SOF005060126035', NULL, NULL, 35, NULL, NULL, NULL, NULL, NULL, 247.00, NULL, NULL, 0, 0, 'CMAU9817589', 0, 28, 0, 0, '2026-01-21 01:28:01', 4, 0, NULL, NULL, NULL, NULL),
+(31, NULL, 2, '2026-02-12 00:00:00', 279, 9400.00, 2981160.00, 1500.00, NULL, 7, 'LMGHT1L81T3238289', NULL, NULL, NULL, 0, 'SOF005120226144', NULL, NULL, 144, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, NULL, 0, 47, 0, 0, '2026-02-12 05:03:27', 4, 0, NULL, NULL, NULL, NULL),
+(32, NULL, 2, '2026-01-03 00:00:00', 29, 9950.00, 2949250.00, 1650.00, NULL, 4, 'LMGHT1L82T3238334', NULL, NULL, NULL, 0, 'BEL011030126021', NULL, NULL, 21, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'GESU6872915', 0, 40, 0, 0, '2026-01-03 09:38:44', 4, 0, NULL, NULL, NULL, NULL),
+(33, '[{\"id_user\": 1, \"note\": \"spare tyre\", \"timestamp\": \"2026-01-06 12:18:17\"}]', 2, '2026-01-04 00:00:00', 41, 9530.00, 2862655.00, 1875.00, NULL, 5, 'LMGHT1L89S3233467', NULL, NULL, NULL, 0, 'SOF005030126020', NULL, NULL, 20, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'TCNU3553176', 0, 23, 0, 0, '2026-01-04 08:23:53', 4, 0, NULL, NULL, NULL, NULL),
+(34, '[{\"id_user\": 1, \"note\": \"tail gate + electric seat + 5w\", \"timestamp\": \"2026-01-06 12:18:17\"}]', 2, '2025-12-31 00:00:00', 9, 9880.00, 2981880.00, 2000.00, NULL, 5, 'LMGHT1L80T3238266', NULL, NULL, NULL, 0, 'SOF005291225001', NULL, NULL, 1, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'TLLU4802720', 0, 21, 0, 0, '2025-12-31 08:07:59', 4, 0, NULL, NULL, NULL, NULL),
+(35, '[{\"id_user\": 1, \"note\": \"led + 5w\", \"timestamp\": \"2026-01-06 12:18:17\"}]', 2, '2025-12-31 00:00:00', 12, 9680.00, 2989410.00, 2000.00, NULL, 5, 'LMGHT1L80T3238297', NULL, NULL, NULL, 0, 'SOF005291225001', NULL, NULL, 1, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'TLLU4802720', 0, 21, 0, 0, '2025-12-31 08:06:57', 4, 0, NULL, NULL, NULL, NULL),
+(36, '[{\"id_user\": 1, \"note\": \"with electric seat, electric tailgate, spare tire\", \"timestamp\": \"2026-01-06 12:18:17\"}]', 2, '2025-12-31 00:00:00', 112, 10030.00, 3019530.00, 2000.00, NULL, 5, 'LMGHT1L86S3233474', NULL, NULL, NULL, 0, 'SOF005291225001', NULL, NULL, 1, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'TLLU4802720', 0, 21, 0, 0, '2025-12-31 08:04:52', 4, 0, NULL, NULL, NULL, NULL),
+(37, '[{\"id_user\": 1, \"note\": \"with electric seat, electric tailgate, spare tire\\n\", \"timestamp\": \"2026-01-06 12:18:17\"}]', 2, '2025-12-31 00:00:00', 249, 10030.00, 3019530.00, 2000.00, NULL, 5, 'LMGHT1L88S3233475', NULL, NULL, NULL, 0, 'SOF005291225001', NULL, NULL, 1, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'SELU4530381', 0, 22, 0, 0, '2025-12-31 08:04:23', 4, 0, NULL, NULL, NULL, NULL),
+(38, '[{\"id_user\": 1, \"note\": \"tail gate + electric seat + 5w\", \"timestamp\": \"2026-01-06 12:18:17\"}]', 2, '2025-12-31 00:00:00', 7, 9880.00, 2981880.00, 2000.00, NULL, 5, 'LMGHT1L82S3233472', NULL, NULL, NULL, 0, 'SOF005291225001', NULL, NULL, 1, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'SELU4530381', 0, 22, 0, 0, '2025-12-31 08:02:13', 4, 0, NULL, NULL, NULL, NULL),
+(39, '[{\"id_user\": 1, \"note\": \"with electric seat, electric tailgate, spare tire\", \"timestamp\": \"2026-01-06 12:18:17\"}]', 2, '2025-12-31 00:00:00', 6, 10030.00, 3019530.00, 2000.00, NULL, 5, 'LMGHT1L89S3233484', NULL, NULL, NULL, 0, 'SOF005291225001', NULL, NULL, 1, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'SELU4530381', 0, 22, 0, 0, '2025-12-31 07:59:34', 4, 0, NULL, NULL, NULL, NULL),
+(40, '[{\"id_user\": 1, \"note\": \"WITH PACKAGE\", \"timestamp\": \"2026-01-06 12:18:17\"}]', 2, '2025-12-31 00:00:00', 2, 10030.00, 3069730.00, 2200.00, NULL, 6, 'LMGHT1L85S3233501', NULL, NULL, NULL, 0, 'SOF005311225003', NULL, NULL, 3, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'TCNU8957680', 0, 8, 0, 0, '2025-12-31 04:54:31', 4, 0, NULL, NULL, NULL, NULL),
+(41, NULL, 3, '2026-01-15 00:00:00', 126, 9360.95, 2880000.00, 2000.00, NULL, 4, 'LMGHT1L85T3238540', NULL, NULL, NULL, 0, 'MOH007140126074', NULL, NULL, 74, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'BEAU4149880', 0, 29, 0, 0, '2026-01-15 09:42:49', 7, 1, NULL, NULL, NULL, NULL),
+(42, NULL, 3, '2026-02-12 00:00:00', 280, 9400.00, 2981160.00, 1500.00, NULL, 7, 'LMGHT1L81T3238325', NULL, NULL, NULL, 0, 'SOF005120226144', NULL, NULL, 144, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, NULL, 0, 47, 0, 0, '2026-02-12 05:05:49', 4, 0, NULL, NULL, NULL, NULL),
+(43, NULL, 3, '2026-02-12 00:00:00', 281, 9400.00, 2981160.00, 1500.00, NULL, 7, 'LMGHT1L81T3238339', NULL, NULL, NULL, 0, 'SOF005120226144', NULL, NULL, 144, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, NULL, 0, 47, 0, 0, '2026-02-12 05:08:32', 4, 0, NULL, NULL, NULL, NULL),
+(44, '[{\"id_user\":5,\"note\":\"tire/EG/ES/led\",\"timestamp\":\"2026-02-12 05:10:58\"}]', 3, '2026-02-12 00:00:00', 282, 9400.00, 2981160.00, 1500.00, NULL, 7, 'LMGHT1L81T3238342', NULL, NULL, NULL, 0, 'SOF005120226144', NULL, NULL, 144, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, NULL, 0, 47, 0, 0, '2026-02-12 05:11:09', 4, 0, NULL, NULL, NULL, NULL),
+(45, NULL, 3, '2026-01-11 00:00:00', 93, 9710.95, 2976330.00, 1650.00, NULL, 4, 'LMGHT1L85S3233434', NULL, NULL, NULL, 0, 'SOF005110126052', NULL, NULL, 52, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'CMAU6216157', 0, 30, 0, 0, '2026-01-11 15:40:40', 4, 0, NULL, NULL, NULL, NULL),
+(46, NULL, 3, '2026-01-11 00:00:00', 95, 9710.95, 2976330.00, 1650.00, NULL, 4, 'LMGHT1L83S3233495', NULL, NULL, NULL, 0, 'SOF005110126053', NULL, NULL, 53, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'CMAU6216157', 0, 30, 0, 0, '2026-01-11 16:01:06', 4, 0, NULL, NULL, NULL, NULL),
+(47, NULL, 3, '2026-01-11 00:00:00', 96, 9710.95, 3098010.00, 1650.00, NULL, 4, 'LMGHT1L8XS3233493', NULL, NULL, NULL, 0, 'SOF005110126054', NULL, NULL, 54, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'CMAU6216157', 0, 30, 0, 0, '2026-01-11 16:38:44', 4, 0, NULL, NULL, NULL, NULL),
+(48, NULL, 3, '2026-01-11 00:00:00', 97, 9710.95, 3034635.00, 1650.00, NULL, 4, 'LMGHT1L89S3233498', NULL, NULL, NULL, 0, 'SOF005110126056', NULL, NULL, 56, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'CMAU6216157', 0, 30, 0, 0, '2026-01-11 17:00:35', 4, 0, NULL, NULL, NULL, NULL),
+(49, NULL, 3, '2026-01-11 00:00:00', 98, 9710.95, 2880000.00, 1650.00, NULL, 4, 'LMGHT1L85S3233482', NULL, NULL, NULL, 0, 'SOF005110126057', NULL, NULL, 57, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'BEAU4149880', 0, 29, 0, 0, '2026-01-11 17:07:39', 4, 0, NULL, NULL, NULL, NULL),
+(50, NULL, 3, '2026-01-13 00:00:00', 106, 9720.00, 2882295.00, 1650.00, NULL, 5, 'LMGHT1L83S3233464', NULL, NULL, NULL, 0, 'SOF005130126065', NULL, NULL, 65, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'SEGU6377710', 0, 24, 0, 0, '2026-01-13 07:59:55', 4, 0, NULL, NULL, NULL, NULL),
+(51, NULL, 3, '2026-01-14 00:00:00', 88, 9360.95, 2880000.00, 2000.00, NULL, 4, 'LMGHT1L88S3233489', NULL, NULL, NULL, 0, 'MOH007100126049', NULL, NULL, 49, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'UETU7119523', 0, 31, 0, 0, '2026-01-14 11:35:47', 4, 0, NULL, NULL, NULL, NULL),
+(52, NULL, 3, '2026-01-12 00:00:00', 99, 9360.95, 2880000.00, 2000.00, NULL, 2, 'LMGHT1L82S3233486', NULL, NULL, NULL, 0, 'BIL017120126059', NULL, NULL, 59, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'SEGU6377710', 0, 24, 0, 0, '2026-01-12 09:49:36', 4, 0, NULL, NULL, NULL, NULL),
+(53, NULL, 3, '2026-03-09 00:00:00', 330, 8848.13, 2750000.00, 2000.00, NULL, 4, NULL, NULL, NULL, NULL, 0, 'MOH007090326167', NULL, NULL, 167, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, '2026-03-09 11:42:26', 4, 0, NULL, NULL, NULL, NULL),
+(54, NULL, 3, '2026-01-12 00:00:00', 101, 9360.95, 2880000.00, 2000.00, NULL, 2, 'LMGHT1L87S3233483', NULL, NULL, NULL, 0, 'BIL017120126059', NULL, NULL, 59, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'SEGU6377710', 0, 24, 0, 0, '2026-01-12 09:48:39', 4, 0, NULL, NULL, NULL, NULL),
+(55, '[{\"id_user\": 1, \"note\": \"ELECTRIC SEAT + SPARE WHEEL\", \"timestamp\": \"2026-01-06 12:18:17\"}]', 3, '2026-01-01 00:00:00', 23, 9950.00, 3006980.00, 1650.00, NULL, 4, 'LMGHT1L85T3238554', NULL, NULL, NULL, 0, 'BEL011010126015', NULL, NULL, 15, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'CMAU6669256', 0, 41, 0, 0, '2026-01-01 11:04:10', 7, 0, NULL, NULL, NULL, NULL),
+(56, NULL, 4, '2026-01-12 00:00:00', 104, 9360.95, 2880000.00, 2000.00, NULL, 4, 'LMGHT1L85S3233403', NULL, NULL, NULL, 0, 'MOH007110126063', NULL, NULL, 63, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'BEAU4149880', 0, 29, 0, 0, '2026-01-12 16:21:19', 4, 1, NULL, NULL, NULL, NULL),
+(57, NULL, 4, '2026-01-12 00:00:00', 100, 9360.95, 2880000.83, 2000.00, NULL, 4, 'LMGHT1L87S3233421', NULL, NULL, NULL, 0, 'MOH007110126058', NULL, NULL, 58, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'UETU7119523', 0, 31, 0, 0, '2026-01-12 09:47:45', 4, 0, NULL, NULL, NULL, NULL),
+(58, NULL, 4, '2026-01-11 00:00:00', 87, 10090.95, 2880000.00, 1650.00, NULL, 6, 'LMGHT1L80S3233471', NULL, NULL, NULL, 0, 'ADM001110126048', NULL, NULL, 48, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'CMAU6669256', 0, 41, 0, 0, '2026-01-11 11:52:02', 4, 0, NULL, NULL, NULL, NULL),
+(59, NULL, 4, '2026-03-06 00:00:00', NULL, 9400.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, '2026-03-06 16:17:27', 4, 0, NULL, NULL, NULL, NULL),
+(60, '[{\"id_user\": 1, \"note\": \"with ES/LED/EG/spare wire\", \"timestamp\": \"2026-01-06 12:18:17\"}]', 4, '2026-01-06 00:00:00', 118, 10200.00, 2930425.00, 1475.00, NULL, 2, 'LMGHT1L80T3238350', NULL, NULL, NULL, 0, 'SOF005060126035', NULL, NULL, 35, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'CMAU9817589', 0, 28, 0, 0, '2026-01-06 04:15:28', 4, 0, NULL, NULL, NULL, NULL),
+(61, '[{\"id_user\": 1, \"note\": \"with ES/LED/EG/spare wire\", \"timestamp\": \"2026-01-06 12:18:17\"}]', 4, '2026-01-06 00:00:00', 119, 10200.00, 2930425.00, 1475.00, NULL, 2, 'LMGHT1L80T3238364', NULL, NULL, NULL, 0, 'SOF005060126035', NULL, NULL, 35, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'CMAU9817589', 0, 28, 0, 0, '2026-01-06 04:14:42', 4, 0, NULL, NULL, NULL, NULL),
+(62, NULL, 4, '2026-03-06 00:00:00', NULL, 9400.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, '2026-03-06 16:17:49', 4, 0, NULL, NULL, NULL, NULL),
+(63, NULL, 4, '2026-03-06 00:00:00', NULL, 9400.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, '2026-03-06 16:18:26', 4, 0, NULL, NULL, NULL, NULL),
+(64, NULL, 4, '2026-03-09 00:00:00', 327, 8848.13, 2750000.00, 2000.00, NULL, 4, NULL, NULL, NULL, NULL, 0, 'MOH007090326164', NULL, NULL, 164, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, '2026-03-09 08:46:28', 4, 0, NULL, NULL, NULL, NULL),
+(65, NULL, 4, '2026-03-07 00:00:00', NULL, 10000.00, 3042000.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, '2026-03-07 10:26:00', 4, 0, NULL, NULL, NULL, NULL),
+(66, NULL, 4, '2026-03-05 00:00:00', NULL, 10000.00, 3042000.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, '2026-03-05 08:20:42', 4, 0, NULL, NULL, NULL, NULL),
+(67, '{}', 4, '2026-01-14 00:00:00', 122, 10000.00, 3080025.00, 2000.00, NULL, 4, 'LMGHT1L82T3238382', NULL, NULL, NULL, 0, 'BEL011140126071', NULL, NULL, 71, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'CMAU6669256', 0, 41, 0, 0, '2026-01-14 11:42:32', 4, 0, NULL, NULL, NULL, NULL),
+(68, '[{\"id_user\": 1, \"note\": \"WITH PACKAGE\", \"timestamp\": \"2026-01-06 12:18:17\"}]', 4, '2025-12-31 00:00:00', 1, 10030.00, 3069730.00, 2200.00, NULL, 6, 'LMGHT1L83T3238505', NULL, NULL, NULL, 0, 'SOF005311225003', NULL, NULL, 3, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'TCNU8957680', 0, 8, 0, 0, '2025-12-31 04:53:51', 7, 0, NULL, NULL, NULL, NULL),
+(69, '[{\"id_user\": 1, \"note\": \"WITH PACKAGE\", \"timestamp\": \"2026-01-06 12:18:17\"}]', 4, '2025-12-31 00:00:00', 3, 10030.00, 3069730.00, 2200.00, NULL, 6, 'LMGHT1L83T3238519', NULL, NULL, NULL, 0, 'SOF005311225003', NULL, NULL, 3, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'TCNU8957680', 0, 8, 0, 0, '2025-12-31 04:51:36', 7, 0, NULL, NULL, NULL, NULL),
+(70, '[{\"id_user\": 1, \"note\": \"modify package:TG 200, ES 150, LED 150, 5wheel 80\", \"timestamp\": \"2026-01-06 12:18:17\"}]', 4, '2025-12-31 00:00:00', 4, 10030.00, 3069730.00, 2200.00, NULL, 6, 'LMGHT1L84T3238500', NULL, NULL, NULL, 0, 'SOF005311225003', NULL, NULL, 3, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'TCNU8957680', 0, 8, 0, 0, '2025-12-31 04:45:50', 7, 0, NULL, NULL, NULL, NULL),
+(71, '[{\"id_user\":1,\"note\":\"40 livan\",\"timestamp\":\"2026-01-06 12:18:17\"}]', 5, '2026-01-12 00:00:00', 103, 7072.98, 2300000.00, 2000.00, NULL, 2, 'LLV2C3A24T0208419', NULL, NULL, NULL, 0, 'ISH003120126062', NULL, NULL, 62, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'CAAU7899704', 0, 5, 0, 0, '2026-01-12 13:22:31', 4, 0, NULL, NULL, NULL, NULL),
+(72, '[{\"id_user\":1,\"note\":\"40 livan\",\"timestamp\":\"2026-01-06 12:18:17\"}]', 5, '2026-01-12 00:00:00', 102, 7270.22, 2350000.00, 2000.00, NULL, 2, 'LLV2C3A23T0208427', NULL, NULL, NULL, 0, 'BIL017120126061', NULL, NULL, 61, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'MSMU5203270', 0, 3, 0, 0, '2026-01-12 10:40:16', 4, 0, NULL, NULL, NULL, NULL),
+(73, '[{\"id_user\":1,\"note\":\"40 livan\",\"timestamp\":\"2026-01-06 12:18:17\"}]', 5, '2026-01-12 00:00:00', 84, 7270.22, 2350000.00, 2000.00, NULL, 5, 'LLV2C3A23T0208413', NULL, NULL, NULL, 0, 'BIL017120126060', NULL, NULL, 60, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'TCNU8929733', 0, 6, 0, 0, '2026-01-12 10:07:18', 4, 0, NULL, NULL, NULL, NULL),
+(74, NULL, 5, '2026-01-17 00:00:00', 133, 7478.50, 2200000.00, 1200.00, NULL, 5, 'LLV2C3A22T0215692', NULL, NULL, NULL, 0, 'SOF005170126079', NULL, NULL, 79, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'CLHU8987248', 0, 15, 0, 0, '2026-01-17 13:31:33', 4, 1, NULL, NULL, NULL, NULL),
+(75, NULL, 5, '2026-01-17 00:00:00', 134, 7478.50, 2200000.00, 1200.00, NULL, 5, 'LLV2C3A20T0215691', NULL, NULL, NULL, 0, 'SOF005170126079', NULL, NULL, 79, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'CLHU8987248', 0, 15, 0, 0, '2026-01-17 13:32:38', 4, 0, NULL, NULL, NULL, NULL),
+(76, NULL, 5, '2026-01-17 00:00:00', 80, 7478.50, 2200000.00, 1200.00, NULL, 5, 'LLV2C3A29T0215690', NULL, NULL, NULL, 0, 'SOF005170126079', NULL, NULL, 79, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'CLHU8987248', 0, 15, 0, 0, '2026-01-17 13:33:35', 4, 0, NULL, NULL, NULL, NULL),
+(77, '[{\"id_user\":1,\"note\":\"40 livan\",\"timestamp\":\"2026-01-06 12:18:17\"}]', 5, '2026-01-15 00:00:00', 131, 7270.22, 2350000.00, 2000.00, NULL, 2, 'LLV2C3A26T0215730', NULL, NULL, NULL, 0, 'BIL017150126077', NULL, NULL, 77, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'TGBU7427622', 0, 9, 0, 0, '2026-01-15 13:35:16', 4, 0, NULL, NULL, NULL, NULL),
+(78, '[{\"id_user\":1,\"note\":\"40 livan\",\"timestamp\":\"2026-01-06 12:18:17\"}]', 5, '2026-01-15 00:00:00', 130, 7072.98, 2300000.00, 2000.00, NULL, 5, 'LLV2C3A24T0215712', NULL, NULL, NULL, 0, 'MOH007140126076', NULL, NULL, 76, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'MSBU5148755', 0, 13, 0, 0, '2026-01-15 12:06:45', 4, 1, NULL, NULL, NULL, NULL),
+(79, '[{\"id_user\":1,\"note\":\"40 livan\",\"timestamp\":\"2026-01-06 12:18:17\"}]', 5, '2026-01-10 00:00:00', 83, 7712.55, 2350000.00, 1650.00, NULL, 5, 'LLV2C3A25T0208414', NULL, NULL, NULL, 0, 'BIL017100126045', NULL, NULL, 45, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'TCNU8929733', 0, 6, 0, 0, '2026-01-10 12:00:30', 4, 0, NULL, NULL, NULL, NULL),
+(80, '[{\"id_user\":1,\"note\":\"40 livan\",\"timestamp\":\"2026-01-06 12:18:17\"}]', 5, '2026-01-31 00:00:00', 252, 7706.88, 2200000.00, 1200.00, NULL, 2, 'LLV2C3A20T0215710', NULL, NULL, NULL, 0, 'SOF005310126127', NULL, NULL, 127, NULL, NULL, NULL, NULL, NULL, 247.00, NULL, NULL, 0, 0, 'SLSU8007390', 0, 33, 0, 0, '2026-01-31 06:46:53', 4, 0, NULL, NULL, NULL, NULL),
+(81, '[{\"id_user\":1,\"note\":\"40 livan\",\"timestamp\":\"2026-01-06 12:18:17\"}]', 5, '2026-01-08 00:00:00', 82, 7712.55, 2350000.00, 1650.00, NULL, 2, 'LLV2C3A20T0208420', NULL, NULL, NULL, 0, 'MIM006080126044', NULL, NULL, 44, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'CAAU7899704', 0, 5, 0, 0, '2026-01-08 09:04:58', 4, 0, NULL, NULL, NULL, NULL),
+(82, NULL, 5, '2026-01-14 00:00:00', 124, 7171.60, 2325000.00, 2000.00, NULL, 2, 'LLV2C3A22T0208418', NULL, NULL, NULL, 0, 'BIL017140126073', NULL, NULL, 73, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'GESU6106972', 0, 7, 0, 0, '2026-01-14 12:39:16', 4, 0, NULL, NULL, NULL, NULL),
+(83, NULL, 5, '2026-01-21 00:00:00', 199, 7706.88, 2200000.00, 1200.00, NULL, 5, 'LLV2C3A28T0215681', NULL, NULL, NULL, 0, 'SOF005170126079', NULL, NULL, 79, NULL, NULL, NULL, NULL, NULL, 247.00, NULL, NULL, 0, 0, 'MEDU7473266', 0, 17, 0, 0, '2026-01-21 02:56:57', 4, 0, NULL, NULL, NULL, NULL),
+(84, NULL, 5, '2026-01-14 00:00:00', 120, 6875.74, 2250000.00, 2000.00, NULL, 2, 'LLV2C3A27T0208432', NULL, NULL, NULL, 0, 'MIM006140126069', NULL, NULL, 69, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'FFAU3943274', 0, 2, 0, 0, '2026-01-14 09:12:45', 4, 0, NULL, NULL, NULL, NULL),
+(85, '[{\"id_user\":1,\"note\":\"4 livan together in one container\",\"timestamp\":\"2026-01-16 22:59:06\"}]', 5, '2026-01-16 00:00:00', 114, 6678.50, 2200000.00, 2000.00, NULL, 2, 'LLV2C3A21T0208426', NULL, NULL, NULL, 0, 'SOF005060126036', NULL, NULL, 36, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'CAAU5596524', 0, 4, 0, 0, '2026-01-16 22:59:16', 4, 0, NULL, NULL, NULL, NULL),
+(86, NULL, 5, '2026-01-13 00:00:00', 113, 7072.98, 2300000.00, 2000.00, NULL, 2, 'LLV2C3A22T0208421', NULL, NULL, NULL, 0, 'ISH003120126062', NULL, NULL, 62, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'CAAU7899704', 0, 5, 0, 0, '2026-01-13 10:13:11', 4, 0, NULL, NULL, NULL, NULL),
+(87, NULL, 5, '2026-01-13 00:00:00', 117, 7270.22, 2350000.00, 2000.00, NULL, 2, 'LLV2C3A2XT0208411', NULL, NULL, NULL, 0, 'ISH003130126067', NULL, NULL, 67, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'TCNU8929733', 0, 6, 0, 0, '2026-01-13 12:54:57', 4, 0, NULL, NULL, NULL, NULL),
+(88, NULL, 5, '2026-01-07 00:00:00', 74, 7712.55, 2350000.00, 1650.00, NULL, 2, 'LLV2C3A21T0208412', NULL, NULL, NULL, 0, 'ISH003070126042', NULL, NULL, 42, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'TCNU8929733', 0, 6, 0, 0, '2026-01-07 13:23:51', 4, 0, NULL, NULL, NULL, NULL),
+(89, NULL, 5, '2026-01-06 00:00:00', 70, 7712.55, 2350000.00, 1650.00, NULL, 2, 'LLV2C3A24T0208422', NULL, NULL, NULL, 0, 'MIM006060126039', NULL, NULL, 39, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'CAAU7899704', 0, 5, 0, 0, '2026-01-06 10:46:04', 4, 0, NULL, NULL, NULL, NULL),
+(90, NULL, 5, '2026-01-06 00:00:00', 61, 6764.94, 2200000.00, 2000.00, NULL, 2, 'LLV2C3A2XT0208425', NULL, NULL, NULL, 0, 'SOF005060126036', NULL, NULL, 36, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'CAAU5596524', 0, 4, 0, 0, '2026-01-06 05:27:12', 4, 1, NULL, NULL, NULL, NULL),
+(91, NULL, 5, '2026-01-06 00:00:00', 62, 6764.94, 2200000.00, 2000.00, NULL, 2, 'LLV2C3A28T0208424', NULL, NULL, NULL, 0, 'SOF005060126036', NULL, NULL, 36, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'CAAU5596524', 0, 4, 0, 0, '2026-01-06 05:26:18', 4, 1, NULL, NULL, NULL, NULL),
+(92, NULL, 5, '2026-01-06 00:00:00', 71, 6764.94, 2200000.00, 2000.00, NULL, 2, 'LLV2C3A26T0208423', NULL, NULL, NULL, 0, 'SOF005060126036', NULL, NULL, 36, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'CAAU5596524', 0, 4, 0, 0, '2026-01-06 05:23:17', 4, 1, NULL, NULL, NULL, NULL),
+(93, NULL, 5, '2026-01-05 00:00:00', 53, 7712.55, 2350000.00, 1650.00, NULL, 2, 'LLV2C3A25T0208428', NULL, NULL, NULL, 0, 'MIM006050126034', NULL, NULL, 34, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'MSMU5203270', 0, 3, 0, 0, '2026-01-05 10:17:26', 4, 0, NULL, NULL, NULL, NULL),
+(94, NULL, 5, '2026-01-04 00:00:00', 43, 9362.55, 2350000.00, 0.00, NULL, 2, 'LLV2C3A23T0208430', NULL, NULL, NULL, 0, 'ISH003040126031', NULL, NULL, 31, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'MSMU5203270', 0, 3, 0, 0, '2026-01-04 18:04:13', 4, 0, NULL, NULL, NULL, NULL),
+(95, NULL, 5, '2026-01-05 00:00:00', 52, 7712.55, 2350000.00, 1650.00, NULL, 2, 'LLV2C3A27T0208429', NULL, NULL, NULL, 0, 'MIM006050126033', NULL, NULL, 33, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'MSMU5203270', 0, 3, 0, 0, '2026-01-05 10:10:42', 4, 0, NULL, NULL, NULL, NULL),
+(96, NULL, 5, '2026-01-04 00:00:00', 49, 7513.35, 2300000.00, 1650.00, NULL, 2, 'LLV2C3A22T0215725', NULL, NULL, NULL, 0, 'MIM006040126030', NULL, NULL, 30, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'MSMU8812305', 0, 10, 0, 0, '2026-01-04 14:53:52', 4, 0, NULL, NULL, NULL, NULL),
+(97, '[{\"id_user\": 1, \"note\": \"40 livan\", \"timestamp\": \"2026-01-06 12:18:17\"}]', 5, '2026-01-03 00:00:00', 32, 7712.55, 2350000.05, 1650.00, NULL, 2, 'LLV2C3A27T0208415', NULL, NULL, NULL, 0, 'BIL017030126023', NULL, NULL, 23, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'GESU6106972', 0, 7, 0, 0, '2026-01-03 13:59:38', 4, 0, NULL, NULL, NULL, NULL),
+(98, NULL, 5, '2026-01-04 00:00:00', 46, 7712.55, 2350000.00, 1650.00, NULL, 2, 'LLV2C3A25T0215718', NULL, NULL, NULL, 0, 'MIM006040126026', NULL, NULL, 26, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'MSNU9804083', 0, 12, 0, 0, '2026-01-04 12:44:07', 4, 0, NULL, NULL, NULL, NULL),
+(99, '[{\"id_user\": 1, \"note\": \"40 livan\", \"timestamp\": \"2026-01-06 12:18:17\"}]', 5, '2026-01-03 00:00:00', 31, 7712.55, 2350000.05, 1650.00, NULL, 2, 'LLV2C3A20T0208417', NULL, NULL, NULL, 0, 'BIL017030126023', NULL, NULL, 23, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'GESU6106972', 0, 7, 0, 0, '2026-01-03 13:58:34', 4, 0, NULL, NULL, NULL, NULL),
+(100, '[{\"id_user\": 1, \"note\": \"40 livan\", \"timestamp\": \"2026-01-06 12:18:17\"}]', 5, '2026-01-03 00:00:00', 30, 7513.35, 2300000.00, 1650.00, NULL, 2, 'LLV2C3A29T0208416', NULL, NULL, NULL, 0, 'MIM006030126022', NULL, NULL, 22, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'GESU6106972', 0, 7, 0, 0, '2026-01-03 11:09:03', 4, 0, NULL, NULL, NULL, NULL),
+(101, NULL, 5, '2026-03-07 00:00:00', 315, NULL, 2200000.00, 1200.00, NULL, 2, NULL, NULL, NULL, NULL, 0, 'SOF005070326159', NULL, NULL, 159, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, '2026-03-07 07:10:24', 4, 0, NULL, NULL, NULL, NULL),
+(102, '[{\"id_user\": 1, \"note\": \"40 livan\", \"timestamp\": \"2026-01-06 12:18:17\"}]', 5, '2025-12-31 00:00:00', 19, 7712.55, 2350000.00, 1650.00, NULL, 2, 'LLV2C3A24T0208436', NULL, NULL, NULL, 0, 'BIL017311225013', NULL, NULL, 13, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'TCLU7888910', 0, 1, 0, 0, '2025-12-31 17:26:31', 4, 1, NULL, NULL, NULL, NULL),
+(103, '[{\"id_user\": 1, \"note\": \"40 livan\", \"timestamp\": \"2026-01-06 12:18:17\"}]', 5, '2026-01-01 00:00:00', 26, 7314.14, 2250000.00, 1650.00, NULL, 2, 'LLV2C3A29T0208433', NULL, NULL, NULL, 0, 'MIM006010126018', NULL, NULL, 18, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'FFAU3943274', 0, 2, 0, 0, '2026-01-01 13:55:29', 4, 0, NULL, NULL, NULL, NULL),
+(104, '[{\"id_user\": 1, \"note\": \"40 livan\", \"timestamp\": \"2026-01-06 12:18:17\"}]', 5, '2025-12-31 00:00:00', 17, 7712.55, 2350000.05, 1650.00, NULL, 4, 'LLV2C3A22T0215675', NULL, NULL, NULL, 0, 'BIL017311225010', NULL, NULL, 10, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'TGBU7987036', 0, 19, 0, 0, '2025-12-31 14:32:18', 4, 0, NULL, NULL, NULL, NULL),
+(105, '[{\"id_user\": 1, \"note\": \"40 livan\", \"timestamp\": \"2026-01-06 12:18:17\"}]', 5, '2026-01-01 00:00:00', 25, 7314.14, 2250000.00, 1650.00, NULL, 2, 'LLV2C3A20T0208434', NULL, NULL, NULL, 0, 'MIM006010126017', NULL, NULL, 17, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'FFAU3943274', 0, 2, 0, 0, '2026-01-01 13:41:35', 4, 0, NULL, NULL, NULL, NULL),
+(106, '[{\"id_user\": 1, \"note\": \"40 livan\", \"timestamp\": \"2026-01-06 12:18:17\"}]', 5, '2025-12-31 00:00:00', 18, 7712.55, 2350000.00, 1650.00, NULL, 2, 'LLV2C3A26T0208437', NULL, NULL, NULL, 0, 'BIL017311225012', NULL, NULL, 12, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'TCLU7888910', 0, 1, 0, 0, '2025-12-31 15:21:30', 4, 1, NULL, NULL, NULL, NULL),
+(107, '[{\"id_user\": 1, \"note\": \"40 livan\", \"timestamp\": \"2026-01-06 12:18:17\"}]', 5, '2026-01-01 00:00:00', 24, 7712.55, 2350000.00, 1650.00, NULL, 2, 'LLV2C3A22T0208435', NULL, NULL, NULL, 0, 'MIM006010126016', NULL, NULL, 16, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'TCLU7888910', 0, 1, 0, 0, '2026-01-01 11:27:51', 4, 0, NULL, NULL, NULL, NULL),
+(108, NULL, 5, '2026-01-28 00:00:00', 246, 7600.00, 2200000.00, 1200.00, NULL, 2, 'LLV2C3A2XT0215715', NULL, NULL, NULL, 0, 'SOF005170126079', NULL, NULL, 79, NULL, NULL, NULL, NULL, NULL, 250.00, NULL, NULL, 0, 0, 'MSNU9804083', 0, 12, 0, 0, '2026-01-28 09:34:26', 4, 0, NULL, NULL, NULL, NULL),
+(109, NULL, 5, '2026-01-06 00:00:00', 69, 7712.55, 2350000.05, 1650.00, NULL, 3, 'LLV2C3A20T0215674', NULL, NULL, NULL, 0, 'MOH007050126038', NULL, NULL, 38, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'TGBU7987036', 0, 19, 0, 0, '2026-01-06 10:18:58', 4, 0, NULL, NULL, NULL, NULL),
+(110, '[{\"id_user\": 1, \"note\": \"40 livan\", \"timestamp\": \"2026-01-06 12:18:17\"}]', 5, '2025-12-31 00:00:00', 14, 7314.14, 2250000.00, 1650.00, NULL, 2, 'LLV2C3A28T0208438', NULL, NULL, NULL, 0, 'MIM006311225006', NULL, NULL, 6, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'TCLU7888910', 0, 1, 0, 0, '2025-12-31 13:21:53', 4, 0, NULL, NULL, NULL, NULL),
+(112, NULL, 7, '2026-01-07 00:00:00', 222, 11150.00, 3326950.00, 2000.00, NULL, 5, 'LVVDB21B8SD196195', NULL, NULL, NULL, 0, 'SOF005070126040', NULL, NULL, 40, NULL, NULL, NULL, NULL, NULL, 253.00, NULL, NULL, 1, 0, 'TEMU6466434', 0, 45, 0, 0, '2026-01-07 11:59:18', 1, 0, NULL, NULL, NULL, NULL),
+(113, NULL, 8, '2026-01-07 00:00:00', 73, 12755.00, 3829005.00, 2500.00, NULL, 5, NULL, NULL, NULL, NULL, 0, 'SOF005070126041', NULL, NULL, 41, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 1, 1, NULL, 0, NULL, 0, 0, '2026-01-07 12:24:49', 4, 0, NULL, NULL, NULL, NULL),
+(114, '[{\"id_user\":5,\"note\":\"SKIKDA OR ORAN\",\"timestamp\":\"2026-01-13 07:57:34\"}]', 9, '2026-01-13 00:00:00', 107, 11060.00, 3221985.00, 1650.00, NULL, 5, 'LB37622Z0PX915801', NULL, NULL, NULL, 0, 'SOF005130126065', NULL, NULL, 65, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 1, 0, 'TEMU6466434', 0, 45, 0, 0, '2026-01-13 07:57:46', 4, 0, NULL, NULL, NULL, NULL),
+(115, NULL, 11, '2026-01-18 00:00:00', 149, 7478.50, 2200000.00, 1200.00, NULL, 5, 'LLV2C3A22T0215689', NULL, NULL, NULL, 0, 'SOF005170126079', NULL, NULL, 79, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'CLHU8987248', 0, 15, 0, 0, '2026-01-18 09:51:03', 4, 0, NULL, NULL, NULL, NULL),
+(116, NULL, 11, '2026-01-17 00:00:00', 78, 7478.50, 2200000.00, 1200.00, NULL, 5, 'LLV2C3A20T0215688', NULL, NULL, NULL, 0, 'SOF005170126079', NULL, NULL, 79, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'TGBU9750547', 0, 16, 0, 0, '2026-01-17 13:40:39', 4, 0, NULL, NULL, NULL, NULL),
+(117, NULL, 11, '2026-01-17 00:00:00', 148, 7478.50, 2200000.00, 1200.00, NULL, 5, 'LLV2C3A29T0215687', NULL, NULL, NULL, 0, 'SOF005170126079', NULL, NULL, 79, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'TGBU9750547', 0, 16, 0, 0, '2026-01-17 13:45:38', 4, 0, NULL, NULL, NULL, NULL),
+(118, NULL, 11, '2026-01-17 00:00:00', 77, 7478.50, 2200000.00, 1200.00, NULL, 5, 'LLV2C3A27T0215686', NULL, NULL, NULL, 0, 'SOF005170126079', NULL, NULL, 79, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'TGBU9750547', 0, 16, 0, 0, '2026-01-17 13:49:50', 4, 0, NULL, NULL, NULL, NULL),
+(119, NULL, 11, '2026-01-18 00:00:00', 198, 7564.94, 2200000.00, 1200.00, NULL, 5, 'LLV2C3A25T0215685', NULL, NULL, NULL, 0, 'SOF005170126079', NULL, NULL, 79, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'TGBU9750547', 0, 16, 0, 0, '2026-01-18 10:00:26', 4, 0, NULL, NULL, NULL, NULL),
+(120, NULL, 11, '2026-01-18 00:00:00', 76, 7478.50, 2200000.00, 1200.00, NULL, 5, 'LLV2C3A23T0215684', NULL, NULL, NULL, 0, 'SOF005170126079', NULL, NULL, 79, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'MEDU7473266', 0, 17, 0, 0, '2026-01-18 10:01:37', 4, 0, NULL, NULL, NULL, NULL),
+(121, NULL, 11, '2026-01-18 00:00:00', 75, 7478.50, 2200000.00, 1200.00, NULL, 5, 'LLV2C3A21T0215683', NULL, NULL, NULL, 0, 'SOF005170126079', NULL, NULL, 79, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'MEDU7473266', 0, 17, 0, 0, '2026-01-18 10:03:45', 4, 0, NULL, NULL, NULL, NULL),
+(122, NULL, 11, '2026-01-18 00:00:00', 170, 7564.94, 2200000.00, 1200.00, NULL, 2, 'LLV2C3A23T0215717', NULL, NULL, NULL, 0, 'SOF005180126097', NULL, NULL, 97, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'MSNU9804083', 0, 12, 0, 0, '2026-01-18 14:57:18', 4, 0, NULL, NULL, NULL, NULL),
+(123, NULL, 11, '2026-01-18 00:00:00', 183, 7564.94, 2200000.00, 1200.00, NULL, 2, 'LLV2C3A21T0215716', NULL, NULL, NULL, 0, 'SOF005180126097', NULL, NULL, 97, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'MSNU9804083', 0, 12, 0, 0, '2026-01-18 16:23:55', 4, 0, NULL, NULL, NULL, NULL),
+(124, NULL, 11, '2026-01-23 00:00:00', 79, 7564.94, 2200000.00, 1200.00, NULL, 5, 'LLV2C3A26T0215680', NULL, NULL, NULL, 0, 'SOF005170126079', NULL, NULL, 79, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'MSMU5638458', 0, 18, 0, 0, '2026-01-23 02:47:05', 4, 0, NULL, NULL, NULL, NULL),
+(125, NULL, 11, '2026-01-23 00:00:00', 218, 7564.94, 2200000.00, 1200.00, NULL, 5, 'LLV2C3A28T0215678', NULL, NULL, NULL, 0, 'SOF005170126079', NULL, NULL, 79, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'MSMU5638458', 0, 18, 0, 0, '2026-01-23 02:47:54', 4, 0, NULL, NULL, NULL, NULL),
+(126, NULL, 11, '2026-01-23 00:00:00', 219, 7564.94, 2200000.00, 1200.00, NULL, 5, 'LLV2C3A2XT0215679', NULL, NULL, NULL, 0, 'SOF005170126079', NULL, NULL, 79, NULL, NULL, NULL, NULL, NULL, 251.00, NULL, NULL, 0, 0, 'MSMU5638458', 0, 18, 0, 0, '2026-01-23 02:48:52', 4, 0, NULL, NULL, NULL, NULL),
+(127, NULL, 11, '2026-01-24 00:00:00', 220, 7600.00, 2200000.00, 1200.00, NULL, 5, 'LLV2C3A26T0215677', NULL, NULL, NULL, 0, 'SOF005170126079', NULL, NULL, 79, NULL, NULL, NULL, NULL, NULL, 250.00, NULL, NULL, 0, 0, 'MSMU5638458', 0, 18, 0, 0, '2026-01-24 10:50:11', 4, 0, NULL, NULL, NULL, NULL),
+(128, NULL, 11, '2026-01-27 00:00:00', 245, 8000.00, 2300000.00, 1200.00, NULL, 2, 'LLV2C3A21T0215733', NULL, NULL, NULL, 0, 'SOF005270126125', NULL, NULL, 125, NULL, NULL, NULL, NULL, NULL, 250.00, NULL, NULL, 0, 0, 'CAXU9374068', 0, 32, 0, 0, '2026-01-27 10:32:55', 4, 0, NULL, NULL, NULL, NULL),
+(129, NULL, 11, '2026-01-27 00:00:00', 244, 8000.00, 2300000.00, 1200.00, NULL, 2, 'LLV2C3A2XT0215732', NULL, NULL, NULL, 0, 'SOF005270126125', NULL, NULL, 125, NULL, NULL, NULL, NULL, NULL, 250.00, NULL, NULL, 0, 0, 'CAXU9374068', 0, 32, 0, 0, '2026-01-27 10:33:48', 4, 0, NULL, NULL, NULL, NULL),
+(130, NULL, 11, '2026-01-27 00:00:00', 243, 8000.00, 2300000.00, 1200.00, NULL, 2, 'LLV2C3A28T0215731', NULL, NULL, NULL, 0, 'SOF005270126125', NULL, NULL, 125, NULL, NULL, NULL, NULL, NULL, 250.00, NULL, NULL, 0, 0, 'CAXU9374068', 0, 32, 0, 0, '2026-01-27 10:34:41', 4, 0, NULL, NULL, NULL, NULL),
+(131, NULL, 11, '2026-01-31 00:00:00', 287, 7706.88, 2199999.36, 1200.00, NULL, 2, 'LLV2C3A20T0215707', NULL, NULL, NULL, 0, 'SOF005170126079', NULL, NULL, 79, NULL, NULL, NULL, NULL, NULL, 247.00, NULL, NULL, 0, 0, 'SLSU8007390', 0, 33, 0, 0, '2026-01-31 09:36:21', 4, 0, NULL, NULL, NULL, NULL),
+(132, NULL, 11, '2026-03-07 00:00:00', 315, NULL, 2200000.00, 1200.00, NULL, 2, NULL, NULL, NULL, NULL, 0, 'SOF005070326159', NULL, NULL, 159, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, '2026-03-07 07:10:38', 4, 0, NULL, NULL, NULL, NULL),
+(133, NULL, 11, '2026-03-07 00:00:00', 315, NULL, 2200000.00, 1200.00, NULL, 2, NULL, NULL, NULL, NULL, 0, 'SOF005070326159', NULL, NULL, 159, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, '2026-03-07 07:10:49', 4, 0, NULL, NULL, NULL, NULL),
+(134, NULL, 11, '2026-03-07 00:00:00', 315, NULL, 2200000.00, 1200.00, NULL, 2, NULL, NULL, NULL, NULL, 0, 'SOF005070326159', NULL, NULL, 159, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, '2026-03-07 07:10:59', 4, 0, NULL, NULL, NULL, NULL),
+(135, NULL, 11, '2026-03-08 00:00:00', 306, 7600.00, NULL, 1200.00, NULL, 5, NULL, NULL, NULL, NULL, 0, 'SOF005060326157', NULL, NULL, 157, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, '2026-03-08 10:00:09', 4, 0, NULL, NULL, NULL, NULL),
+(136, NULL, 11, '2026-03-08 00:00:00', 308, 7600.00, NULL, 1200.00, NULL, 5, NULL, NULL, NULL, NULL, 0, 'SOF005060326157', NULL, NULL, 157, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, '2026-03-08 10:02:15', 4, 0, NULL, NULL, NULL, NULL),
+(137, NULL, 11, '2026-03-08 00:00:00', 320, 7600.00, NULL, 1200.00, NULL, 5, NULL, NULL, NULL, NULL, 0, 'SOF005060326157', NULL, NULL, 157, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, '2026-03-08 10:04:35', 4, 0, NULL, NULL, NULL, NULL),
+(138, NULL, 11, '2026-03-08 00:00:00', 321, NULL, 2200000.00, 1200.00, NULL, 5, NULL, NULL, NULL, NULL, 0, 'SOF005060326157', NULL, NULL, 157, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, '2026-03-08 10:17:45', 4, 0, NULL, NULL, NULL, NULL),
+(139, NULL, 11, NULL, NULL, 7800.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, NULL, 4, 0, NULL, NULL, NULL, NULL),
+(140, NULL, 11, NULL, NULL, 7800.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, NULL, 4, 0, NULL, NULL, NULL, NULL),
+(141, NULL, 11, NULL, NULL, 7800.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, NULL, 4, 0, NULL, NULL, NULL, NULL),
+(142, NULL, 11, '2026-01-18 00:00:00', 152, 7072.98, 2300000.00, 2000.00, NULL, 2, 'LLV2C3A20T0215724', NULL, NULL, NULL, 0, 'MIM006180126082', NULL, NULL, 82, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'MSMU8812305', 0, 10, 0, 0, '2026-01-18 10:44:23', 4, 0, NULL, NULL, NULL, NULL),
+(143, NULL, 11, NULL, NULL, 7800.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, NULL, 4, 0, NULL, NULL, NULL, NULL),
+(144, NULL, 11, '2026-03-11 00:00:00', 335, 7200.00, 2300000.00, 2000.00, NULL, 2, NULL, NULL, NULL, NULL, 0, 'BIL017110326174', NULL, NULL, 174, NULL, NULL, NULL, NULL, NULL, 250.00, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, '2026-03-11 12:33:02', 4, 0, NULL, NULL, NULL, NULL),
+(145, NULL, 11, NULL, NULL, 7800.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, NULL, 4, 0, NULL, NULL, NULL, NULL),
+(146, NULL, 11, NULL, NULL, 7800.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, NULL, 4, 0, NULL, NULL, NULL, NULL),
+(147, NULL, 11, NULL, NULL, 7800.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, NULL, 4, 0, NULL, NULL, NULL, NULL),
+(148, NULL, 11, NULL, NULL, 7800.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, NULL, 4, 0, NULL, NULL, NULL, NULL),
+(149, NULL, 11, '2026-03-11 00:00:00', 334, -6880.00, 2280000.00, 16000.00, NULL, 2, NULL, NULL, NULL, NULL, 0, 'ISH003110326173', NULL, NULL, 173, NULL, NULL, NULL, NULL, NULL, 250.00, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, '2026-03-11 09:25:35', 4, 0, NULL, NULL, NULL, NULL),
+(150, NULL, 11, NULL, NULL, 7800.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, NULL, 4, 0, NULL, NULL, NULL, NULL),
+(151, NULL, 11, NULL, NULL, 7800.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, NULL, 4, 0, NULL, NULL, NULL, NULL),
+(152, NULL, 11, NULL, NULL, 7800.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, NULL, 4, 0, NULL, NULL, NULL, NULL),
+(153, NULL, 11, '2026-03-10 00:00:00', 332, 7072.98, 2300000.00, 2000.00, NULL, 2, NULL, NULL, NULL, NULL, 0, 'MIM006100326170', NULL, NULL, 170, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, '2026-03-10 10:02:08', 4, 0, NULL, NULL, NULL, NULL),
+(154, NULL, 11, '2026-03-10 00:00:00', 309, 7600.00, NULL, 1200.00, NULL, 5, NULL, NULL, NULL, NULL, 0, 'SOF005100326169', NULL, NULL, 169, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, '2026-03-10 09:42:32', 4, 0, NULL, NULL, NULL, NULL),
+(155, NULL, 11, '2026-03-10 00:00:00', 309, 7600.00, NULL, 1200.00, NULL, 5, NULL, NULL, NULL, NULL, 0, 'SOF005100326169', NULL, NULL, 169, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, '2026-03-10 09:42:14', 4, 0, NULL, NULL, NULL, NULL),
+(156, NULL, 11, '2026-03-10 00:00:00', 309, 7600.00, NULL, 1200.00, NULL, 5, NULL, NULL, NULL, NULL, 0, 'SOF005100326169', NULL, NULL, 169, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, '2026-03-10 09:41:53', 4, 0, NULL, NULL, NULL, NULL),
+(157, NULL, 11, '2026-03-10 00:00:00', 309, 7600.00, NULL, 1200.00, NULL, 5, NULL, NULL, NULL, NULL, 0, 'SOF005100326169', NULL, NULL, 169, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, '2026-03-10 09:41:36', 4, 0, NULL, NULL, NULL, NULL),
+(158, NULL, 11, '2026-03-09 00:00:00', 307, 7600.00, NULL, 1200.00, NULL, 5, NULL, NULL, NULL, NULL, 0, 'SOF005060326157', NULL, NULL, 157, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, '2026-03-09 18:10:22', 4, 0, NULL, NULL, NULL, NULL),
+(159, NULL, 11, '2026-03-09 00:00:00', 309, 7600.00, NULL, 1200.00, NULL, 5, NULL, NULL, NULL, NULL, 0, 'SOF005060326157', NULL, NULL, 157, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, '2026-03-09 18:10:11', 4, 0, NULL, NULL, NULL, NULL),
+(160, NULL, 11, '2026-03-09 00:00:00', 328, 7600.00, 2300000.00, 1600.00, NULL, 2, NULL, NULL, NULL, NULL, 0, 'ISH003090326166', NULL, NULL, 166, NULL, NULL, NULL, NULL, NULL, 250.00, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, '2026-03-09 11:39:51', 4, 0, NULL, NULL, NULL, NULL),
+(161, NULL, 11, '2026-03-09 00:00:00', 329, 7200.00, 2300000.00, 2000.00, NULL, 2, NULL, NULL, NULL, NULL, 0, 'ISH003090326165', NULL, NULL, 165, NULL, NULL, NULL, NULL, NULL, 250.00, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, '2026-03-09 11:38:02', 4, 0, NULL, NULL, NULL, NULL),
+(162, NULL, 11, '2026-03-08 00:00:00', 324, 7072.98, 2300000.00, 2000.00, NULL, 2, NULL, NULL, NULL, NULL, 0, 'MIM006080326163', NULL, NULL, 163, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, '2026-03-08 13:48:12', 4, 0, NULL, NULL, NULL, NULL),
+(163, NULL, 11, '2026-03-08 00:00:00', 323, 6678.50, 2200000.00, 2000.00, NULL, 1, NULL, NULL, NULL, NULL, 0, 'MOH007080326162', NULL, NULL, 162, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, '2026-03-08 11:50:27', 4, 0, NULL, NULL, NULL, NULL),
+(164, NULL, 11, '2026-03-08 00:00:00', 322, 6678.50, 2200000.00, 2000.00, NULL, 1, NULL, NULL, NULL, NULL, 0, 'MOH007080326162', NULL, NULL, 162, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, '2026-03-08 11:48:20', 4, 0, NULL, NULL, NULL, NULL),
+(165, NULL, 11, '2026-03-08 00:00:00', 318, 6678.50, 2200000.00, 2000.00, NULL, 4, NULL, NULL, NULL, NULL, 0, 'MOH007080326161', NULL, NULL, 161, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, '2026-03-08 07:30:19', 4, 0, NULL, NULL, NULL, NULL);
+INSERT INTO `cars_stock` (`id`, `notes`, `id_buy_details`, `date_sell`, `id_client`, `price_cell`, `cfr_da`, `freight`, `id_port_loading`, `id_port_discharge`, `vin`, `path_documents`, `date_loding`, `date_send_documents`, `hidden`, `id_sell_pi`, `sell_pi_path`, `buy_pi_path`, `id_sell`, `export_lisence_ref`, `id_warehouse`, `in_wharhouse_date`, `date_get_documents_from_supp`, `date_get_keys_from_supp`, `rate`, `date_get_bl`, `date_pay_freight`, `is_used_car`, `is_big_car`, `container_ref`, `is_tmp_client`, `id_loaded_container`, `is_batch`, `is_loading_inquiry_sent`, `date_assigned`, `id_color`, `payment_confirmed`, `hidden_by_user_id`, `hidden_time_stamp`, `path_coo`, `path_coc`) VALUES
+(166, NULL, 11, '2026-03-08 00:00:00', 317, 6678.50, 2200000.00, 2000.00, NULL, 4, NULL, NULL, NULL, NULL, 0, 'MOH007080326161', NULL, NULL, 161, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, '2026-03-08 07:27:10', 4, 0, NULL, NULL, NULL, NULL),
+(167, NULL, 11, '2026-03-08 00:00:00', 316, 6678.50, 2200000.00, 2000.00, NULL, 4, NULL, NULL, NULL, NULL, 0, 'MOH007080326161', NULL, NULL, 161, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, '2026-03-08 07:22:00', 4, 0, NULL, NULL, NULL, NULL),
+(168, NULL, 11, '2026-03-08 00:00:00', 213, 6678.50, 2200000.00, 2000.00, NULL, 4, NULL, NULL, NULL, NULL, 0, 'MOH007080326161', NULL, NULL, 161, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, '2026-03-08 07:21:02', 4, 0, NULL, NULL, NULL, NULL),
+(169, NULL, 11, '2026-03-07 00:00:00', 284, 7800.00, 2484300.00, 2000.00, NULL, 4, NULL, NULL, NULL, NULL, 1, 'MOH007050326154', NULL, NULL, 154, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, '2026-03-07 15:58:14', 4, 0, 7, '2026-03-10 15:16:30', NULL, NULL),
+(170, NULL, 11, '2026-03-07 00:00:00', 284, 7800.00, 2484300.00, 2000.00, NULL, 4, NULL, NULL, NULL, NULL, 1, 'MOH007050326154', NULL, NULL, 154, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, '2026-03-07 15:57:51', 4, 0, 7, '2026-03-10 15:16:30', NULL, NULL),
+(171, NULL, 11, '2026-03-07 00:00:00', 284, 7800.00, 2484300.00, 2000.00, NULL, 4, NULL, NULL, NULL, NULL, 1, 'MOH007050326154', NULL, NULL, 154, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, '2026-03-07 15:57:17', 4, 0, 7, '2026-03-10 15:16:30', NULL, NULL),
+(172, NULL, 11, '2026-03-07 00:00:00', 284, 7800.00, 2484300.00, 2000.00, NULL, 4, NULL, NULL, NULL, NULL, 1, 'MOH007050326154', NULL, NULL, 154, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, '2026-03-07 15:56:45', 4, 0, 7, '2026-03-10 15:16:30', NULL, NULL),
+(173, NULL, 11, '2026-01-22 00:00:00', 209, 7072.98, 2300000.00, 2000.00, NULL, 4, 'LLV2C3A27T0215672', NULL, NULL, NULL, 0, 'MOH007210126121', NULL, NULL, 121, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'MEDU4937620', 0, 20, 0, 0, '2026-01-22 09:32:52', 4, 0, NULL, NULL, NULL, NULL),
+(174, NULL, 11, '2026-03-05 00:00:00', 293, 6757.40, 2220000.00, 2000.00, NULL, 2, NULL, NULL, NULL, NULL, 0, 'MIM006050326155', NULL, NULL, 155, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, '2026-03-05 22:46:16', 4, 0, NULL, NULL, NULL, NULL),
+(175, NULL, 11, '2026-01-25 00:00:00', 227, 7072.98, 2300000.00, 2000.00, NULL, 2, 'LLV2C3A23T0215734', NULL, NULL, NULL, 0, 'BIL017250126123', NULL, NULL, 123, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'CAXU9374068', 0, 32, 0, 0, '2026-01-25 13:11:44', 4, 0, NULL, NULL, NULL, NULL),
+(176, NULL, 11, '2026-03-05 00:00:00', 294, 6757.40, 2220000.00, 2000.00, NULL, 2, NULL, NULL, NULL, NULL, 0, 'MIM006050326155', NULL, NULL, 155, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, '2026-03-05 22:44:47', 4, 0, NULL, NULL, NULL, NULL),
+(177, NULL, 11, '2026-03-05 00:00:00', 295, 6757.40, 2220000.00, 2000.00, NULL, 2, NULL, NULL, NULL, NULL, 0, 'MIM006050326155', NULL, NULL, 155, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, '2026-03-05 22:43:01', 4, 0, NULL, NULL, NULL, NULL),
+(178, NULL, 11, '2026-01-29 00:00:00', 248, 7072.98, 2300000.00, 2000.00, NULL, 2, 'LLV2C3A22T0215708', NULL, NULL, NULL, 0, 'MIM006290126126', NULL, NULL, 126, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'SLSU8007390', 0, 33, 0, 0, '2026-01-29 08:21:13', 4, 0, NULL, NULL, NULL, NULL),
+(179, NULL, 11, '2026-03-05 00:00:00', 296, 6757.40, 2220000.00, 2000.00, NULL, 2, NULL, NULL, NULL, NULL, 0, 'MIM006050326155', NULL, NULL, 155, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, '2026-03-05 22:41:56', 4, 0, NULL, NULL, NULL, NULL),
+(180, NULL, 11, '2026-03-05 00:00:00', 297, 6757.40, 2220000.00, 2000.00, NULL, 2, NULL, NULL, NULL, NULL, 0, 'MIM006050326155', NULL, NULL, 155, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, '2026-03-05 22:41:13', 4, 0, NULL, NULL, NULL, NULL),
+(181, NULL, 11, '2026-03-05 00:00:00', 284, 7800.00, 2484300.00, 2000.00, NULL, 4, NULL, NULL, NULL, NULL, 1, 'MOH007050326154', NULL, NULL, 154, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, '2026-03-05 15:04:41', 4, 0, 7, '2026-03-10 15:16:30', NULL, NULL),
+(182, NULL, 11, '2026-01-22 00:00:00', 210, 7072.98, 2300000.00, 2000.00, NULL, 4, 'LLV2C3A25T0215671', NULL, NULL, NULL, 0, 'MOH007210126121', NULL, NULL, 121, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'MEDU4937620', 0, 20, 0, 0, '2026-01-22 09:32:13', 4, 0, NULL, NULL, NULL, NULL),
+(183, NULL, 11, '2026-03-05 00:00:00', 284, 7800.00, 2484300.00, 2000.00, NULL, 4, NULL, NULL, NULL, NULL, 1, 'MOH007050326154', NULL, NULL, 154, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, '2026-03-05 08:19:59', 4, 0, 7, '2026-03-10 15:16:30', NULL, NULL),
+(184, NULL, 11, '2026-02-05 00:00:00', 269, 7072.98, 2300000.00, 2000.00, NULL, 2, 'LLV2C3A2XT0215701', NULL, NULL, NULL, 0, 'ATE004050226143', NULL, NULL, 143, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'FFAU6603597', 0, 39, 0, 0, '2026-02-05 13:38:46', 4, 0, NULL, NULL, NULL, NULL),
+(185, NULL, 11, '2026-02-05 00:00:00', 268, 7072.98, 2300000.00, 2000.00, NULL, 2, 'LLV2C3A28T0215700', NULL, NULL, NULL, 0, 'ATE004050226142', NULL, NULL, 142, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'FFAU6603597', 0, 39, 0, 0, '2026-02-05 13:35:24', 4, 0, NULL, NULL, NULL, NULL),
+(186, NULL, 11, '2026-02-05 00:00:00', 267, 7072.98, 2300000.00, 2000.00, NULL, 2, 'LLV2C3A23T0215698', NULL, NULL, NULL, 0, 'ATE004050226141', NULL, NULL, 141, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'FFAU6603597', 0, 39, 0, 0, '2026-02-05 13:31:21', 4, 0, NULL, NULL, NULL, NULL),
+(187, NULL, 11, '2026-02-05 00:00:00', 270, 7072.98, 2300000.00, 2000.00, NULL, 2, 'LLV2C3A21T0215697', NULL, NULL, NULL, 0, 'ATE004050226139', NULL, NULL, 139, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'FFAU6603597', 0, 39, 0, 0, '2026-02-05 11:18:09', 4, 0, NULL, NULL, NULL, NULL),
+(188, NULL, 11, '2026-02-01 00:00:00', 261, 7072.98, 2300000.00, 2000.00, NULL, 2, 'LLV2C3A21T0215702', NULL, NULL, NULL, 0, 'MIM006010226132', NULL, NULL, 132, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'MSNU6504800', 0, 34, 0, 0, '2026-02-01 11:40:05', 4, 0, NULL, NULL, NULL, NULL),
+(189, NULL, 11, '2026-01-31 00:00:00', 257, 7072.98, 2300000.00, 2000.00, NULL, 2, 'LLV2C3A25T0215704', NULL, NULL, NULL, 0, 'MIM006290126126', NULL, NULL, 126, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'MSNU6504800', 0, 34, 0, 0, '2026-01-31 13:17:14', 4, 0, NULL, NULL, NULL, NULL),
+(190, NULL, 11, '2026-01-22 00:00:00', 212, 7072.98, 2300000.00, 2000.00, NULL, 4, 'LLV2C3A23T0215670', NULL, NULL, NULL, 0, 'MOH007210126121', NULL, NULL, 121, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'MEDU4937620', 0, 20, 0, 0, '2026-01-22 09:31:23', 4, 0, NULL, NULL, NULL, NULL),
+(191, NULL, 11, '2026-01-22 00:00:00', 211, 7072.98, 2300000.00, 2000.00, NULL, 4, 'LLV2C3A27T0215669', NULL, NULL, NULL, 0, 'MOH007210126121', NULL, NULL, 121, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'MEDU4937620', 0, 20, 0, 0, '2026-01-22 09:30:21', 4, 0, NULL, NULL, NULL, NULL),
+(192, NULL, 11, '2026-01-21 00:00:00', 206, 6678.50, 2200000.00, 2000.00, NULL, 2, 'LLV2C3A26T0215694', NULL, NULL, NULL, 0, 'MIM006210126117', NULL, NULL, 117, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'MSMU4330218', 0, 14, 0, 0, '2026-01-21 15:24:19', 4, 0, NULL, NULL, NULL, NULL),
+(193, NULL, 11, '2026-01-18 00:00:00', 164, 7072.98, 2300000.00, 2000.00, NULL, 2, 'LLV2C3A25T0215721', NULL, NULL, NULL, 0, 'MIM006180126093', NULL, NULL, 93, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'MSBU5551312', 0, 11, 0, 0, '2026-01-18 13:10:22', 4, 0, NULL, NULL, NULL, NULL),
+(194, NULL, 11, '2026-01-18 00:00:00', 163, 7072.98, 2300000.00, 2000.00, NULL, 2, 'LLV2C3A24T0215726', NULL, NULL, NULL, 0, 'BIL017180126092', NULL, NULL, 92, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'MSMU8812305', 0, 10, 0, 0, '2026-01-18 12:38:32', 4, 0, NULL, NULL, NULL, NULL),
+(195, NULL, 11, '2026-01-21 00:00:00', 207, 6678.50, 2200000.00, 2000.00, NULL, 2, 'LLV2C3A24T0215693', NULL, NULL, NULL, 0, 'MIM006210126118', NULL, NULL, 118, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'MSMU4330218', 0, 14, 0, 0, '2026-01-21 15:49:30', 4, 0, NULL, NULL, NULL, NULL),
+(196, NULL, 11, '2026-01-21 00:00:00', 205, 6678.50, 2200000.00, 2000.00, NULL, 2, 'LLV2C3A28T0215695', NULL, NULL, NULL, 0, 'MIM006210126116', NULL, NULL, 116, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'MSMU4330218', 0, 14, 0, 0, '2026-01-21 14:59:36', 4, 0, NULL, NULL, NULL, NULL),
+(197, NULL, 11, '2026-01-21 00:00:00', 204, 6678.50, 2200000.00, 2000.00, NULL, 2, 'LLV2C3A2XT0215696', NULL, NULL, NULL, 0, 'MIM006210126115', NULL, NULL, 115, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'MSMU4330218', 0, 14, 0, 0, '2026-01-21 14:47:16', 4, 0, NULL, NULL, NULL, NULL),
+(198, NULL, 11, '2026-01-20 00:00:00', 181, 7072.98, 2300000.00, 2000.00, NULL, 5, 'LLV2C3A22T0215711', NULL, NULL, NULL, 0, 'SOF005291225001', NULL, NULL, 1, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'MSBU5148755', 0, 13, 0, 0, '2026-01-20 22:43:10', 4, 0, NULL, NULL, NULL, NULL),
+(199, NULL, 11, '2026-01-18 00:00:00', 159, 7072.98, 2300000.00, 2000.00, NULL, 2, 'LLV2C3A26T0215727', NULL, NULL, NULL, 0, 'BIL017180126089', NULL, NULL, 89, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'TGBU7427622', 0, 9, 0, 0, '2026-01-18 12:21:11', 4, 0, NULL, NULL, NULL, NULL),
+(200, NULL, 11, '2026-01-19 00:00:00', 193, 7072.98, 2300000.00, 2000.00, NULL, 2, 'LLV2C3A28T0215714', NULL, NULL, NULL, 0, 'MIM006190126112', NULL, NULL, 112, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'MSBU5148755', 0, 13, 0, 0, '2026-01-19 16:10:55', 4, 0, NULL, NULL, NULL, NULL),
+(201, NULL, 11, '2026-01-19 00:00:00', 192, 6875.74, 2250000.00, 2000.00, NULL, 2, 'LLV2C3A25T0208431', NULL, NULL, NULL, 0, 'MIM006190126111', NULL, NULL, 111, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'FFAU3943274', 0, 2, 0, 0, '2026-01-19 15:48:31', 4, 0, NULL, NULL, NULL, NULL),
+(202, NULL, 11, '2026-01-19 00:00:00', 191, 6875.74, 2250000.00, 2000.00, NULL, 2, 'LLV2C3A27T0215719', NULL, NULL, NULL, 0, 'MIM006190126110', NULL, NULL, 110, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'MSBU5551312', 0, 11, 0, 0, '2026-01-19 15:38:41', 4, 0, NULL, NULL, NULL, NULL),
+(203, NULL, 11, '2026-01-18 00:00:00', 162, 7072.98, 2300000.00, 2000.00, NULL, 2, 'LLV2C3A27T0215722', NULL, NULL, NULL, 0, 'MIM006180126091', NULL, NULL, 91, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'MSBU5551312', 0, 11, 0, 0, '2026-01-18 12:31:55', 4, 0, NULL, NULL, NULL, NULL),
+(204, NULL, 11, '2026-01-18 00:00:00', 151, 7072.98, 2300000.00, 2000.00, NULL, 2, 'LLV2C3A28T0215728', NULL, NULL, NULL, 0, 'BIL017180126081', NULL, NULL, 81, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'TGBU7427622', 0, 9, 0, 0, '2026-01-18 10:39:43', 4, 1, NULL, NULL, NULL, NULL),
+(205, NULL, 11, '2026-01-18 00:00:00', 187, 7478.50, 2200000.00, 1200.00, NULL, 5, 'LLV2C3A2XT0215682', NULL, NULL, NULL, 0, 'SOF005170126079', NULL, NULL, 79, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'MEDU7473266', 0, 17, 0, 0, '2026-01-18 18:11:53', 4, 0, NULL, NULL, NULL, NULL),
+(206, NULL, 11, '2026-01-31 00:00:00', 259, 7072.98, 2300000.00, 2000.00, NULL, 2, 'LLV2C3A24T0215676', NULL, NULL, NULL, 0, 'ATE004310126131', NULL, NULL, 131, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'TGBU7987036', 0, 19, 0, 0, '2026-01-31 12:35:16', 4, 0, NULL, NULL, NULL, NULL),
+(207, NULL, 11, '2026-01-18 00:00:00', 171, 7800.00, 2484300.00, 2000.00, NULL, 2, 'LLV2C3A23T0215720', NULL, NULL, NULL, 0, 'MIM006180126099', NULL, NULL, 99, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'MSBU5551312', 0, 11, 0, 0, '2026-01-18 15:07:43', 4, 0, NULL, NULL, NULL, NULL),
+(208, NULL, 11, '2026-01-31 00:00:00', 258, 7072.98, 2300000.00, 2000.00, NULL, 2, 'LLV2C3A23T0215703', NULL, NULL, NULL, 0, 'MIM006290126126', NULL, NULL, 126, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'MSNU6504800', 0, 34, 0, 0, '2026-01-31 13:19:10', 4, 0, NULL, NULL, NULL, NULL),
+(209, NULL, 11, '2026-01-31 00:00:00', 260, 7072.98, 2300000.00, 2000.00, NULL, 2, 'LLV2C3A27T0215705', NULL, NULL, NULL, 0, 'MIM006290126126', NULL, NULL, 126, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'MSNU6504800', 0, 34, 0, 0, '2026-01-31 13:18:16', 4, 0, NULL, NULL, NULL, NULL),
+(210, NULL, 11, '2026-01-31 00:00:00', 254, 8314.17, 2350000.00, 1200.00, NULL, 2, 'LLV2C3A24T0215709', NULL, NULL, NULL, 0, 'SOF005310126128', NULL, NULL, 128, NULL, NULL, NULL, NULL, NULL, 247.00, NULL, NULL, 0, 0, 'SLSU8007390', 0, 33, 0, 0, '2026-01-31 09:46:18', 4, 0, NULL, NULL, NULL, NULL),
+(211, NULL, 11, '2026-01-18 00:00:00', 179, 7072.98, 2300000.00, 2000.00, NULL, 4, 'LLV2C3A29T0215673', NULL, NULL, NULL, 0, 'MOH007170126103', NULL, NULL, 103, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'TGBU7987036', 0, 19, 0, 0, '2026-01-18 15:51:01', 4, 1, NULL, NULL, NULL, NULL),
+(212, NULL, 11, '2026-01-18 00:00:00', 157, 7072.98, 2300000.00, 2000.00, NULL, 2, 'LLV2C3A29T0215723', NULL, NULL, NULL, 0, 'MIM006180126088', NULL, NULL, 88, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'MSMU8812305', 0, 10, 0, 0, '2026-01-18 12:06:32', 4, 0, NULL, NULL, NULL, NULL),
+(213, NULL, 11, '2026-01-18 00:00:00', 154, 7800.00, 2484300.00, 2000.00, NULL, 2, 'LLV2C3A26T0215713', NULL, NULL, NULL, 0, 'ATE004180126085', NULL, NULL, 85, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'MSBU5148755', 0, 13, 0, 0, '2026-01-18 11:17:06', 4, 0, NULL, NULL, NULL, NULL),
+(214, NULL, 11, '2026-01-17 00:00:00', 132, 7270.22, 2350000.00, 2000.00, NULL, 2, 'LLV2C3A2XT0215729', NULL, NULL, NULL, 0, 'BIL017170126078', NULL, NULL, 78, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'TGBU7427622', 0, 9, 0, 0, '2026-01-17 12:03:08', 4, 0, NULL, NULL, NULL, NULL),
+(215, '[{\"id_user\":7,\"note\":\"GREY SURIE COLOR\",\"timestamp\":\"2026-01-18 10:15:22\"}]', 12, '2026-01-18 00:00:00', 150, 9360.95, 2880000.00, 2000.00, NULL, 4, 'LMGHT1L81S3233494', NULL, NULL, NULL, 0, 'MOH007170126080', NULL, NULL, 80, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'UETU7119523', 0, 31, 0, 0, '2026-01-18 10:15:33', 4, 1, NULL, NULL, NULL, NULL),
+(216, NULL, 12, '2026-01-18 00:00:00', 175, 9360.95, 2880000.00, 2000.00, NULL, 4, 'LMGHT1L8XS3233476', NULL, NULL, NULL, 0, 'MOH007170126101', NULL, NULL, 101, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'BEAU4149880', 0, 29, 0, 0, '2026-01-18 15:10:30', 4, 1, NULL, NULL, NULL, NULL),
+(217, NULL, 12, '2026-03-06 00:00:00', 298, 8848.13, 2750000.00, 2000.00, NULL, 4, NULL, NULL, NULL, NULL, 0, 'MOH007060326156', NULL, NULL, 156, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, '2026-03-06 13:32:48', 4, 0, NULL, NULL, NULL, NULL),
+(218, '[{\"id_user\":3,\"note\":\"THERE IS ONLY FOB PRICE SHIPPING NOT YET\",\"timestamp\":\"2026-03-10 10:15:38\"}]', 12, '2026-03-10 00:00:00', 319, 9900.00, 2475000.00, NULL, NULL, 2, NULL, NULL, NULL, NULL, 0, 'ISH003100326171', NULL, NULL, 171, NULL, NULL, NULL, NULL, NULL, 250.00, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, '2026-03-10 10:15:49', 4, 0, NULL, NULL, NULL, NULL),
+(219, NULL, 12, '2026-03-04 00:00:00', 292, 9485.94, 2860000.00, 2000.00, NULL, 2, NULL, NULL, NULL, NULL, 0, 'ISH003040326153', NULL, NULL, 153, NULL, NULL, NULL, NULL, NULL, 249.00, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, '2026-03-04 13:11:25', 4, 0, NULL, NULL, NULL, NULL),
+(220, NULL, 12, '2026-01-25 00:00:00', 226, 9610.95, 2880000.00, 2000.00, NULL, 4, 'LMGHT1L82T3238379', NULL, NULL, NULL, 0, 'MOH007240126122', NULL, NULL, 122, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'CMAU6669256', 0, 41, 0, 0, '2026-01-25 09:29:59', 4, 1, NULL, NULL, NULL, NULL),
+(221, NULL, 12, '2026-01-20 00:00:00', 200, 9510.95, 2880000.00, 2000.00, NULL, 4, 'LMGHT1L84S3233490', NULL, NULL, NULL, 0, 'MOH007190126113', NULL, NULL, 113, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'UETU7119523', 0, 31, 0, 0, '2026-01-20 11:36:08', 4, 0, NULL, NULL, NULL, NULL),
+(222, NULL, 12, '2026-01-19 00:00:00', 190, 9360.95, 2880000.83, 2000.00, NULL, 2, 'LMGHT1L89S3233405', NULL, NULL, NULL, 0, 'MIM006190126109', NULL, NULL, 109, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, NULL, 0, 26, 0, 0, '2026-01-19 15:22:23', 4, 0, NULL, NULL, NULL, NULL),
+(223, NULL, 12, '2026-01-19 00:00:00', 232, 9360.95, 2880000.00, 2000.00, NULL, 2, 'LMGHT1L81S3233477', NULL, NULL, NULL, 0, 'MIM006190126108', NULL, NULL, 108, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'TRHU7689082', 0, 25, 0, 0, '2026-01-19 11:05:07', 4, 0, NULL, NULL, NULL, NULL),
+(224, NULL, 12, '2026-01-19 00:00:00', 230, 9360.95, 2880000.00, 2000.00, NULL, 2, 'LMGHT1L81S3233480', NULL, NULL, NULL, 0, 'MIM006190126108', NULL, NULL, 108, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'TRHU7689082', 0, 25, 0, 0, '2026-01-19 11:04:15', 4, 0, NULL, NULL, NULL, NULL),
+(225, NULL, 12, '2026-01-19 00:00:00', 229, 9360.95, 2880000.83, 2000.00, NULL, 2, 'LMGHT1L83S3233481', NULL, NULL, NULL, 0, 'MIM006190126108', NULL, NULL, 108, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'TRHU7689082', 0, 25, 0, 0, '2026-01-19 11:03:44', 4, 0, NULL, NULL, NULL, NULL),
+(226, NULL, 12, '2026-01-19 00:00:00', 231, 9360.95, 2880000.00, 2000.00, NULL, 2, 'LMGHT1L85S3233479', NULL, NULL, NULL, 0, 'MIM006190126108', NULL, NULL, 108, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'TRHU7689082', 0, 25, 0, 0, '2026-01-19 11:03:07', 4, 0, NULL, NULL, NULL, NULL),
+(227, NULL, 12, '2026-01-19 00:00:00', 188, 9360.95, 2880000.00, 2000.00, NULL, 2, 'LMGHT1L87S3233404', NULL, NULL, NULL, 0, 'MIM006190126107', NULL, NULL, 107, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, NULL, 0, 26, 0, 0, '2026-01-19 10:15:31', 4, 0, NULL, NULL, NULL, NULL),
+(228, '[{\"id_user\":1,\"note\":\"with electric seat, electric tailgate, spare tire\",\"timestamp\":\"2026-01-18 17:19:34\"}]', 12, '2026-01-18 00:00:00', 11, 10030.00, 3049605.00, 2000.00, NULL, 5, 'LMGHT1L84S3233473', NULL, NULL, NULL, 0, 'SOF005291225001', NULL, NULL, 1, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'SELU4530381', 0, 22, 0, 0, '2026-01-18 17:19:46', 4, 0, NULL, NULL, NULL, NULL),
+(229, NULL, 12, '2026-01-18 00:00:00', 182, 9360.95, 2880000.00, 2000.00, NULL, 2, 'LMGHT1L87S3233435', NULL, NULL, NULL, 0, 'MIM006180126105', NULL, NULL, 105, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, NULL, 0, 26, 0, 0, '2026-01-18 16:11:21', 4, 0, NULL, NULL, NULL, NULL),
+(230, NULL, 12, '2026-01-18 00:00:00', 180, 9360.95, 2880000.00, 2000.00, NULL, 2, 'LMGHT1L80S3233499', NULL, NULL, NULL, 0, 'MIM006180126104', NULL, NULL, 104, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, NULL, 0, 26, 0, 0, '2026-01-18 15:56:49', 4, 0, NULL, NULL, NULL, NULL),
+(231, NULL, 12, '2026-01-18 00:00:00', 167, 9360.95, 2880000.00, 2000.00, NULL, 2, 'LMGHT1L80T3238378', NULL, NULL, NULL, 0, 'MIM006180126096', NULL, NULL, 96, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'CMAU8862217', 0, 27, 0, 0, '2026-01-18 14:19:27', 4, 0, NULL, NULL, NULL, NULL),
+(232, NULL, 12, '2026-01-18 00:00:00', 165, 9360.95, 2880000.00, 2000.00, NULL, 2, 'LMGHT1L80T3238381', NULL, NULL, NULL, 0, 'MIM006180126094', NULL, NULL, 94, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'CMAU8862217', 0, 27, 0, 0, '2026-01-18 13:36:21', 4, 0, NULL, NULL, NULL, NULL),
+(233, NULL, 12, '2026-01-18 00:00:00', 160, 9360.95, 2880000.00, 2000.00, NULL, 2, 'LMGHT1L80T3238395', NULL, NULL, NULL, 0, 'MIM006180126090', NULL, NULL, 90, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'CMAU8862217', 0, 27, 0, 0, '2026-01-18 12:23:45', 4, 0, NULL, NULL, NULL, NULL),
+(234, NULL, 12, '2026-01-18 00:00:00', 153, 9360.95, 2880000.00, 2000.00, NULL, 2, 'LMGHT1L81T3238258', NULL, NULL, NULL, 0, 'MIM006180126084', NULL, NULL, 84, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'CMAU8862217', 0, 27, 0, 0, '2026-01-18 10:58:16', 4, 0, NULL, NULL, NULL, NULL),
+(235, NULL, 13, '2026-02-12 00:00:00', 277, 2475.00, 627412.50, NULL, NULL, 4, 'LJNTGUCY6TN427878', NULL, NULL, NULL, 0, 'SOF005120226145', NULL, NULL, 145, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'HMMU4654165', 0, 42, 0, 0, '2026-02-12 07:33:11', 8, 0, NULL, NULL, NULL, NULL),
+(236, NULL, 13, '2026-02-12 00:00:00', 275, 2475.00, 627412.50, NULL, NULL, 4, 'LJNTGUCY3TN428017', NULL, NULL, NULL, 0, 'SOF005120226145', NULL, NULL, 145, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'HMMU4654165', 0, 42, 0, 0, '2026-02-12 07:33:59', 8, 0, NULL, NULL, NULL, NULL),
+(237, NULL, 13, '2026-02-12 00:00:00', 272, 1550.00, 392925.00, NULL, NULL, 2, 'LLV2C3A28T0213686', NULL, NULL, NULL, 0, 'SOF005120226146', NULL, NULL, 146, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'HMMU4906375', 0, 43, 0, 0, '2026-02-12 07:28:24', 8, 0, NULL, NULL, NULL, NULL),
+(238, NULL, 13, '2026-02-12 00:00:00', 276, 1550.00, 392925.00, NULL, NULL, 2, 'LLV2C3A26T0213685', NULL, NULL, NULL, 0, 'SOF005120226146', NULL, NULL, 146, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'HMMU4906375', 0, 43, 0, 0, '2026-02-12 07:29:30', 8, 0, NULL, NULL, NULL, NULL),
+(239, NULL, 13, '2026-02-12 00:00:00', 274, 1550.00, 392925.00, NULL, NULL, 2, 'LLV2C3A21T0208474', NULL, NULL, NULL, 0, 'SOF005120226146', NULL, NULL, 146, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'HMMU4906375', 0, 43, 0, 0, '2026-02-12 07:30:25', 8, 0, NULL, NULL, NULL, NULL),
+(240, NULL, 13, '2026-02-12 00:00:00', 273, 1550.00, 392925.00, NULL, NULL, 2, 'LUYJB1G28SA014064', NULL, NULL, NULL, 0, 'SOF005120226146', NULL, NULL, 146, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'HMMU4906375', 0, 43, 0, 0, '2026-02-12 07:27:24', 8, 0, NULL, NULL, NULL, NULL),
+(241, NULL, 13, NULL, NULL, 1500.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, NULL, 8, 0, NULL, NULL, NULL, NULL),
+(242, NULL, 13, NULL, NULL, 1500.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, NULL, 8, 0, NULL, NULL, NULL, NULL),
+(243, NULL, 13, NULL, NULL, 1500.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, NULL, 8, 0, NULL, NULL, NULL, NULL),
+(244, NULL, 13, NULL, NULL, 1500.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, NULL, 8, 0, NULL, NULL, NULL, NULL),
+(245, NULL, 13, NULL, NULL, 1500.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, NULL, 8, 0, NULL, NULL, NULL, NULL),
+(246, NULL, 13, NULL, NULL, 1500.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, NULL, 8, 0, NULL, NULL, NULL, NULL),
+(247, NULL, 13, NULL, NULL, 1500.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, NULL, 8, 0, NULL, NULL, NULL, NULL),
+(248, NULL, 13, NULL, NULL, 1500.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, NULL, 8, 0, NULL, NULL, NULL, NULL),
+(249, NULL, 13, NULL, NULL, 1500.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, NULL, 8, 0, NULL, NULL, NULL, NULL),
+(250, NULL, 13, NULL, NULL, 1500.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, NULL, 8, 0, NULL, NULL, NULL, NULL),
+(251, NULL, 13, NULL, NULL, 1500.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, NULL, 8, 0, NULL, NULL, NULL, NULL),
+(252, NULL, 13, NULL, NULL, 1500.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, NULL, 8, 0, NULL, NULL, NULL, NULL),
+(253, NULL, 13, NULL, NULL, 1500.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, NULL, 8, 0, NULL, NULL, NULL, NULL),
+(254, NULL, 13, NULL, NULL, 1500.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, NULL, 8, 0, NULL, NULL, NULL, NULL),
+(255, NULL, 13, NULL, NULL, 1500.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, NULL, 8, 0, NULL, NULL, NULL, NULL),
+(256, NULL, 13, NULL, NULL, 1500.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, NULL, 8, 0, NULL, NULL, NULL, NULL),
+(257, NULL, 13, NULL, NULL, 1500.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, NULL, 8, 0, NULL, NULL, NULL, NULL),
+(258, NULL, 13, NULL, NULL, 1500.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, NULL, 8, 0, NULL, NULL, NULL, NULL),
+(259, NULL, 13, NULL, NULL, 1500.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, NULL, 8, 0, NULL, NULL, NULL, NULL),
+(260, NULL, 13, NULL, NULL, 1500.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, NULL, 8, 0, NULL, NULL, NULL, NULL),
+(261, NULL, 13, NULL, NULL, 1500.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, NULL, 8, 0, NULL, NULL, NULL, NULL),
+(262, NULL, 13, NULL, NULL, 1500.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, NULL, 8, 0, NULL, NULL, NULL, NULL),
+(263, NULL, 13, NULL, NULL, 1500.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, NULL, 8, 0, NULL, NULL, NULL, NULL),
+(264, NULL, 13, NULL, NULL, 1500.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, NULL, 8, 0, NULL, NULL, NULL, NULL),
+(265, NULL, 13, NULL, NULL, 1500.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, NULL, 8, 0, NULL, NULL, NULL, NULL),
+(266, NULL, 13, NULL, NULL, 1500.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, NULL, 8, 0, NULL, NULL, NULL, NULL),
+(267, NULL, 13, NULL, NULL, 1500.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, NULL, 8, 0, NULL, NULL, NULL, NULL),
+(268, NULL, 13, NULL, NULL, 1500.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, NULL, 8, 0, NULL, NULL, NULL, NULL),
+(269, NULL, 13, NULL, NULL, 1500.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, NULL, 8, 0, NULL, NULL, NULL, NULL),
+(270, NULL, 13, NULL, NULL, 1500.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, NULL, 8, 0, NULL, NULL, NULL, NULL),
+(271, NULL, 13, NULL, NULL, 1500.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, NULL, 8, 0, NULL, NULL, NULL, NULL),
+(272, NULL, 13, NULL, NULL, 1500.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, NULL, 8, 0, NULL, NULL, NULL, NULL),
+(273, NULL, 13, NULL, NULL, 1500.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, NULL, 8, 0, NULL, NULL, NULL, NULL),
+(274, NULL, 13, NULL, NULL, 1500.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, 0, 0, NULL, 8, 0, NULL, NULL, NULL, NULL),
+(275, '[{\"id_user\":5,\"note\":\"TIGGO 3X-6727\",\"timestamp\":\"2026-03-10 08:58:33\"}]', 13, '2026-03-10 00:00:00', 111, 1600.00, 405600.00, NULL, NULL, 4, 'LVVDB21B9PE046727', NULL, NULL, NULL, 0, 'SOF005100326168', NULL, NULL, 168, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'CARU9765386', 0, 46, 0, 0, '2026-03-10 08:59:10', 8, 0, NULL, NULL, NULL, NULL),
+(276, '[{\"id_user\":5,\"note\":\"TOYOTA-9913\",\"timestamp\":\"2026-03-10 08:57:42\"}]', 13, '2026-03-10 00:00:00', 110, 1600.00, 405600.00, NULL, NULL, 4, 'LVGBPB9E0PG749913', NULL, NULL, NULL, 0, 'SOF005100326168', NULL, NULL, 168, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'CARU9765386', 0, 46, 0, 0, '2026-03-10 08:52:06', 8, 0, NULL, NULL, NULL, NULL),
+(277, '[{\"id_user\":5,\"note\":\"TIGGO 8 PLUS-6242\",\"timestamp\":\"2026-03-10 08:49:17\"}]', 13, '2026-03-10 00:00:00', 109, 1600.00, 405600.00, NULL, NULL, 4, 'LVTDB21B5PD536242', NULL, NULL, NULL, 0, 'SOF005100326168', NULL, NULL, 168, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'CARU9765386', 0, 46, 0, 0, '2026-03-10 08:49:35', 8, 0, NULL, NULL, NULL, NULL),
+(278, '[{\"id_user\":5,\"note\":\"BOYUE-0297\",\"timestamp\":\"2026-03-10 08:47:42\"}]', 13, '2026-03-10 00:00:00', 108, 1600.00, 405600.00, NULL, NULL, 4, 'LB37722Z8PX330297', NULL, NULL, NULL, 0, 'SOF005100326168', NULL, NULL, 168, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'CARU9765386', 0, 46, 0, 0, '2026-03-10 08:48:18', 8, 0, NULL, NULL, NULL, NULL),
+(279, NULL, 13, '2026-03-07 00:00:00', 225, 1650.00, 418275.00, NULL, NULL, 5, 'LB37824ZXRG086455', NULL, NULL, NULL, 0, 'SOF005070326160', NULL, NULL, 160, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'TEMU6466434', 0, 45, 0, 0, '2026-03-07 10:02:27', 8, 0, NULL, NULL, NULL, NULL),
+(280, NULL, 13, '2026-03-07 00:00:00', 224, 1650.00, 418275.00, NULL, NULL, 5, 'LB37824Z3PG149960', NULL, NULL, NULL, 0, 'SOF005070326160', NULL, NULL, 160, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'TEMU6466434', 0, 45, 0, 0, '2026-03-07 10:01:33', 8, 0, NULL, NULL, NULL, NULL),
+(281, NULL, 13, '2026-03-07 00:00:00', 310, 1350.00, 342225.00, NULL, NULL, 2, 'LLV2C3A23S0204389', NULL, NULL, NULL, 0, 'SOF005070326158', NULL, NULL, 158, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'MSNU9685580', 0, 44, 0, 0, '2026-03-07 05:04:35', 8, 0, NULL, NULL, NULL, NULL),
+(282, NULL, 13, '2026-03-07 00:00:00', 313, 1350.00, 342225.00, NULL, NULL, 2, 'LLV2C3A24T0212602', NULL, NULL, NULL, 0, 'SOF005070326158', NULL, NULL, 158, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'MSNU9685580', 0, 44, 0, 0, '2026-03-07 05:03:44', 8, 0, NULL, NULL, NULL, NULL),
+(283, NULL, 13, '2026-03-07 00:00:00', 312, 1350.00, 342225.00, NULL, NULL, 2, 'LLV2C3A28T0212604', NULL, NULL, NULL, 0, 'SOF005070326158', NULL, NULL, 158, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'MSNU9685580', 0, 44, 0, 0, '2026-03-07 05:03:12', 8, 0, NULL, NULL, NULL, NULL),
+(284, NULL, 13, '2026-03-07 00:00:00', 311, 1350.00, 342225.00, NULL, NULL, 2, 'LLV2C3A28S0204386', NULL, NULL, NULL, 0, 'SOF005070326158', NULL, NULL, 158, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 0, 0, 'MSNU9685580', 0, 44, 0, 0, '2026-03-07 05:02:22', 8, 0, NULL, NULL, NULL, NULL),
+(285, NULL, 14, NULL, NULL, 10600.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 1, 0, NULL, 0, NULL, 0, 0, NULL, 1, 0, 5, '2026-02-26 10:44:55', NULL, NULL),
+(286, NULL, 14, NULL, NULL, 10600.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 1, 0, NULL, 0, NULL, 0, 0, NULL, 1, 0, 5, '2026-02-26 10:44:55', NULL, NULL),
+(287, NULL, 14, NULL, NULL, 10600.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 1, 0, NULL, 0, NULL, 0, 0, NULL, 1, 0, 5, '2026-02-26 10:44:55', NULL, NULL),
+(288, '[{\"id_user\":17,\"note\":\"813536\",\"timestamp\":\"2026-02-14 10:37:43\"}]', 14, '2026-02-14 00:00:00', 288, 9676.53, 2960000.00, 2000.00, NULL, 2, NULL, NULL, NULL, NULL, 1, 'BIL017140226149', NULL, NULL, 149, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 1, 0, NULL, 0, NULL, 0, 0, '2026-02-14 10:38:00', 1, 0, 5, '2026-02-26 10:44:55', NULL, NULL),
+(289, '[{\"id_user\":17,\"note\":\"813220\",\"timestamp\":\"2026-02-14 14:12:30\"}]', 14, '2026-02-14 00:00:00', 290, 9755.42, 2980000.00, 2000.00, NULL, 2, NULL, NULL, NULL, NULL, 1, 'BIL017140226150', NULL, NULL, 150, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 1, 0, NULL, 0, NULL, 0, 0, '2026-02-14 14:15:48', 1, 0, 5, '2026-02-26 10:44:55', NULL, NULL),
+(290, NULL, 14, '2026-02-01 00:00:00', NULL, 9676.53, 2960000.35, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 1, 0, NULL, 0, NULL, 0, 0, '2026-02-01 16:36:02', 1, 0, 5, '2026-02-26 10:44:55', NULL, NULL),
+(291, '[{\"id_user\":6,\"note\":\"LFM***********813748\",\"timestamp\":\"2026-02-17 11:11:50\"}]', 14, '2026-02-17 00:00:00', 291, 9518.74, 2920000.00, 2000.00, NULL, 2, NULL, NULL, NULL, NULL, 1, 'MIM006170226151', NULL, NULL, 151, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 1, 0, NULL, 0, NULL, 0, 0, '2026-02-17 11:12:02', 1, 0, 5, '2026-02-26 10:44:55', NULL, NULL),
+(292, NULL, 14, '2026-02-12 00:00:00', 285, 9676.53, 2960000.00, 2000.00, NULL, 2, NULL, NULL, NULL, NULL, 1, 'BIL017120226147', NULL, NULL, 147, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 1, 0, NULL, 0, NULL, 0, 0, '2026-02-12 10:59:47', 1, 0, 5, '2026-02-26 10:44:55', NULL, NULL),
+(293, NULL, 14, '2026-02-05 00:00:00', 266, 9755.42, 2980000.00, 2000.00, NULL, 4, NULL, NULL, NULL, NULL, 1, 'MOH007040226136', NULL, NULL, 136, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 1, 0, NULL, 0, NULL, 0, 0, '2026-02-05 09:32:10', 1, 0, 5, '2026-02-26 10:44:55', NULL, NULL),
+(294, '[{\"id_user\":17,\"note\":\"814760\",\"timestamp\":\"2026-02-05 09:28:36\"}]', 14, '2026-02-05 00:00:00', 265, 9755.42, 2980000.00, 2000.00, NULL, 2, NULL, NULL, NULL, NULL, 0, 'BIL017050226135', NULL, NULL, 135, NULL, NULL, NULL, NULL, NULL, 253.50, NULL, NULL, 1, 0, NULL, 0, NULL, 0, 0, '2026-02-05 09:29:14', 1, 0, NULL, NULL, NULL, NULL);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `car_apgrades`
+--
+
+DROP TABLE IF EXISTS `car_apgrades`;
+CREATE TABLE IF NOT EXISTS `car_apgrades` (
+  `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `id_car` int(11) DEFAULT NULL,
+  `id_upgrade` int(11) DEFAULT NULL,
+  `value` float NOT NULL,
+  `date_done` datetime DEFAULT NULL,
+  `id_uder_done` int(11) DEFAULT NULL,
+  `id_user_create` int(11) DEFAULT NULL,
+  `time_creation` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=48 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `car_apgrades`
+--
+
+INSERT INTO `car_apgrades` (`id`, `id_car`, `id_upgrade`, `value`, `date_done`, `id_uder_done`, `id_user_create`, `time_creation`) VALUES
+(5, 58, 3, 150, NULL, NULL, 1, '2026-01-11 11:50:18'),
+(6, 58, 4, 230, NULL, NULL, 1, '2026-01-11 11:51:11'),
+(7, 19, 3, 150, NULL, NULL, 1, '2026-01-11 13:44:03'),
+(8, 45, 6, 150, NULL, 5, 5, '2026-01-11 15:49:24'),
+(9, 45, 4, 230, '2026-01-11 15:49:00', 5, 5, '2026-01-11 15:49:59'),
+(10, 46, 6, 150, '2026-01-12 15:59:00', 5, 5, '2026-01-11 16:00:12'),
+(11, 46, 4, 230, '2026-01-11 16:00:00', 5, 5, '2026-01-11 16:00:36'),
+(13, 47, 6, 150, '2026-01-11 16:37:00', 5, 5, '2026-01-11 16:37:15'),
+(14, 47, 5, 250, '2026-01-11 16:37:00', 5, 5, '2026-01-11 16:37:42'),
+(15, 47, 7, 230, '2026-01-11 16:38:00', 5, 5, '2026-01-11 16:38:13'),
+(16, 47, 4, 230, NULL, NULL, 1, '2026-01-11 16:58:27'),
+(17, 48, 6, 150, '2026-01-11 16:59:00', 5, 5, '2026-01-11 16:59:13'),
+(18, 48, 7, 230, NULL, 5, 5, '2026-01-11 16:59:39'),
+(19, 48, 4, 230, NULL, 5, 5, '2026-01-11 17:00:09'),
+(20, 2, 6, 150, NULL, NULL, 1, '2026-01-11 17:48:56'),
+(21, 17, 6, 150, NULL, NULL, 1, '2026-01-13 15:42:04'),
+(22, 67, 6, 150, NULL, NULL, 11, '2026-01-14 11:41:53'),
+(24, 32, 6, 150, NULL, NULL, 1, '2026-01-14 11:49:15'),
+(25, 55, 7, 230, NULL, NULL, 1, '2026-01-14 11:50:22'),
+(26, 55, 6, 150, NULL, NULL, 1, '2026-01-14 11:50:38'),
+(27, 221, 6, 150, '2026-01-20 08:34:00', 7, 7, '2026-01-20 11:34:38'),
+(28, 35, 7, 230, NULL, 5, 5, '2026-01-24 18:10:02'),
+(29, 220, 5, 250, '2056-01-25 18:00:00', 7, 7, '2026-01-25 09:29:43'),
+(30, 220, 7, 230, '2026-01-25 18:00:00', 7, 7, '2026-01-25 09:44:11'),
+(31, 18, 6, 150, '2026-01-02 23:30:00', 7, 7, '2026-02-01 14:23:49'),
+(32, 31, 7, 230, NULL, 5, 5, '2026-02-12 05:00:11'),
+(33, 31, 6, 150, NULL, 5, 5, '2026-02-12 05:00:54'),
+(34, 31, 8, 250, NULL, 5, 5, '2026-02-12 05:02:37'),
+(35, 31, 4, 230, NULL, 5, 5, '2026-02-12 05:03:06'),
+(36, 42, 7, 230, NULL, NULL, 5, '2026-02-12 05:04:36'),
+(37, 42, 8, 250, NULL, NULL, 5, '2026-02-12 05:04:51'),
+(38, 42, 4, 230, NULL, NULL, 5, '2026-02-12 05:05:09'),
+(39, 42, 6, 150, NULL, NULL, 5, '2026-02-12 05:05:25'),
+(40, 43, 7, 230, NULL, NULL, 5, '2026-02-12 05:07:21'),
+(41, 43, 8, 250, NULL, NULL, 5, '2026-02-12 05:07:34'),
+(42, 43, 4, 230, NULL, NULL, 5, '2026-02-12 05:07:46'),
+(43, 43, 6, 150, NULL, NULL, 5, '2026-02-12 05:07:59'),
+(44, 44, 7, 230, NULL, NULL, 5, '2026-02-12 05:09:46'),
+(45, 44, 8, 250, NULL, NULL, 5, '2026-02-12 05:09:59'),
+(46, 44, 4, 230, NULL, NULL, 5, '2026-02-12 05:10:13'),
+(47, 44, 6, 150, NULL, NULL, 5, '2026-02-12 05:10:27');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `car_files`
+--
+
+DROP TABLE IF EXISTS `car_files`;
+CREATE TABLE IF NOT EXISTS `car_files` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `car_id` int(11) NOT NULL COMMENT 'FK to cars_stock',
+  `category_id` int(11) NOT NULL COMMENT 'FK to car_file_categories',
+  `file_path` varchar(500) NOT NULL COMMENT 'Storage path to file',
+  `file_name` varchar(255) NOT NULL COMMENT 'Original filename',
+  `file_size` bigint(20) DEFAULT NULL COMMENT 'File size in bytes',
+  `file_type` varchar(100) DEFAULT NULL COMMENT 'MIME type',
+  `uploaded_by` int(11) NOT NULL COMMENT 'FK to users - who uploaded',
+  `uploaded_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `version` int(11) NOT NULL DEFAULT 1 COMMENT 'File version number',
+  `notes` text DEFAULT NULL COMMENT 'Additional notes about the file',
+  `visibility_scope` enum('public','department','role','private') DEFAULT NULL COMMENT 'Override category visibility, NULL = use category default',
+  `allowed_viewers` text DEFAULT NULL COMMENT 'JSON array of user_ids who can view, NULL = all',
+  `department_id` int(11) DEFAULT NULL COMMENT 'FK to departments if visibility is department-based',
+  `is_active` tinyint(1) NOT NULL DEFAULT 1 COMMENT '0=Deleted/Archived, 1=Active',
+  PRIMARY KEY (`id`),
+  KEY `idx_car_id` (`car_id`),
+  KEY `idx_category_id` (`category_id`),
+  KEY `idx_uploaded_by` (`uploaded_by`),
+  KEY `idx_uploaded_at` (`uploaded_at`),
+  KEY `idx_car_category` (`car_id`,`category_id`),
+  KEY `idx_is_active` (`is_active`)
+) ENGINE=InnoDB AUTO_INCREMENT=233 DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+--
+-- Dumping data for table `car_files`
+--
+
+INSERT INTO `car_files` (`id`, `car_id`, `category_id`, `file_path`, `file_name`, `file_size`, `file_type`, `uploaded_by`, `uploaded_at`, `version`, `notes`, `visibility_scope`, `allowed_viewers`, `department_id`, `is_active`) VALUES
+(1, 102, 5, 'cars/102/5/file_1770458634056.pdf', '#1--1. TCLU7888910.pdf', 4307411, 'application/pdf', 16, '2026-02-07 10:04:13', 1, NULL, NULL, NULL, NULL, 0),
+(2, 106, 5, 'cars/106/5/file_1770458683178.pdf', '#1--1. TCLU7888910.pdf', 4307411, 'application/pdf', 16, '2026-02-07 10:05:00', 1, NULL, NULL, NULL, NULL, 0),
+(3, 107, 5, 'cars/107/5/file_1770458710223.pdf', '#1--1. TCLU7888910.pdf', 4307411, 'application/pdf', 16, '2026-02-07 10:05:29', 1, NULL, NULL, NULL, NULL, 0),
+(4, 110, 5, 'cars/110/5/file_1770458772399.pdf', '#1--1. TCLU7888910.pdf', 4307411, 'application/pdf', 16, '2026-02-07 10:06:31', 1, NULL, NULL, NULL, NULL, 0),
+(5, 84, 5, 'cars/84/5/file_1770458836882.pdf', '#1--2. FFAU3943274.pdf', 4544050, 'application/pdf', 16, '2026-02-07 10:07:34', 1, NULL, NULL, NULL, NULL, 0),
+(6, 103, 5, 'cars/103/5/file_1770458965939.pdf', '#1--2. FFAU3943274.pdf', 4544050, 'application/pdf', 16, '2026-02-07 10:09:48', 1, NULL, NULL, NULL, NULL, 0),
+(7, 105, 4, 'cars/105/4/file_1770459009587.pdf', '#1--2. FFAU3943274.pdf', 4544050, 'application/pdf', 16, '2026-02-07 10:10:26', 1, NULL, NULL, NULL, NULL, 0),
+(8, 105, 5, 'cars/105/5/file_1770459014060.pdf', '#1--2. FFAU3943274.pdf', 4544050, 'application/pdf', 16, '2026-02-07 10:10:29', 1, NULL, NULL, NULL, NULL, 0),
+(9, 201, 5, 'cars/201/5/file_1770459045054.pdf', '#1--2. FFAU3943274.pdf', 4544050, 'application/pdf', 16, '2026-02-07 10:10:59', 1, NULL, NULL, NULL, NULL, 0),
+(10, 72, 5, 'cars/72/5/file_1770459109480.pdf', '#1--3. MUMU5203270.pdf', 4501109, 'application/pdf', 16, '2026-02-07 10:12:08', 1, NULL, NULL, NULL, NULL, 0),
+(11, 93, 5, 'cars/93/5/file_1770459152464.pdf', '#1--3. MUMU5203270.pdf', 4501109, 'application/pdf', 16, '2026-02-07 10:12:53', 1, NULL, NULL, NULL, NULL, 0),
+(12, 94, 5, 'cars/94/5/file_1770459179082.pdf', '#1--3. MUMU5203270.pdf', 4501109, 'application/pdf', 16, '2026-02-07 10:13:12', 1, NULL, NULL, NULL, NULL, 0),
+(13, 95, 5, 'cars/95/5/file_1770459201396.pdf', '#1--3. MUMU5203270.pdf', 4501109, 'application/pdf', 16, '2026-02-07 10:13:42', 1, NULL, NULL, NULL, NULL, 0),
+(14, 85, 5, 'cars/85/5/file_1770459268419.pdf', '#1--4. CAAU5596524.pdf', 4465627, 'application/pdf', 16, '2026-02-07 10:14:44', 1, NULL, NULL, NULL, NULL, 0),
+(15, 90, 5, 'cars/90/5/file_1770459302287.pdf', '#1--4. CAAU5596524.pdf', 4465627, 'application/pdf', 16, '2026-02-07 10:15:16', 1, NULL, NULL, NULL, NULL, 0),
+(16, 91, 5, 'cars/91/5/file_1770459325869.pdf', '#1--4. CAAU5596524.pdf', 4465627, 'application/pdf', 16, '2026-02-07 10:15:45', 1, NULL, NULL, NULL, NULL, 0),
+(17, 92, 5, 'cars/92/5/file_1770459364388.pdf', '#1--4. CAAU5596524.pdf', 4465627, 'application/pdf', 16, '2026-02-07 10:16:17', 1, NULL, NULL, NULL, NULL, 0),
+(18, 71, 5, 'cars/71/5/file_1770459413972.pdf', '#1--5. CAAU7899704.pdf', 4589864, 'application/pdf', 16, '2026-02-07 10:17:19', 1, NULL, NULL, NULL, NULL, 0),
+(19, 81, 5, 'cars/81/5/file_1770459453186.pdf', '#1--5. CAAU7899704.pdf', 4589864, 'application/pdf', 16, '2026-02-07 10:17:48', 1, NULL, NULL, NULL, NULL, 0),
+(20, 86, 5, 'cars/86/5/file_1770459512189.pdf', '#1--5. CAAU7899704.pdf', 4589864, 'application/pdf', 16, '2026-02-07 10:18:49', 1, NULL, NULL, NULL, NULL, 0),
+(21, 89, 5, 'cars/89/5/file_1770459624865.pdf', '#1--5. CAAU7899704.pdf', 4589864, 'application/pdf', 16, '2026-02-07 10:20:35', 1, NULL, NULL, NULL, NULL, 0),
+(22, 82, 5, 'cars/82/5/file_1770459751610.pdf', '#1--7. GESU6106972.pdf', 4473863, 'application/pdf', 16, '2026-02-07 10:22:50', 1, NULL, NULL, NULL, NULL, 0),
+(23, 97, 5, 'cars/97/5/file_1770459819912.pdf', '#1--7. GESU6106972.pdf', 4473863, 'application/pdf', 16, '2026-02-07 10:23:53', 1, NULL, NULL, NULL, NULL, 0),
+(24, 99, 5, 'cars/99/5/file_1770459870486.pdf', '#1--7. GESU6106972.pdf', 4473863, 'application/pdf', 16, '2026-02-07 10:24:44', 1, NULL, NULL, NULL, NULL, 0),
+(25, 100, 5, 'cars/100/5/file_1770459900352.pdf', '#1--7. GESU6106972.pdf', 4473863, 'application/pdf', 16, '2026-02-07 10:25:13', 1, NULL, NULL, NULL, NULL, 0),
+(26, 73, 5, 'cars/73/5/file_1770460064542.pdf', '#2--6. TCNU8929733.pdf', 4511278, 'application/pdf', 16, '2026-02-07 10:28:00', 1, NULL, NULL, NULL, NULL, 0),
+(27, 79, 5, 'cars/79/5/file_1770460097133.pdf', '#2--6. TCNU8929733.pdf', 4511278, 'application/pdf', 16, '2026-02-07 10:28:27', 1, NULL, NULL, NULL, NULL, 0),
+(28, 87, 5, 'cars/87/5/file_1770460136425.pdf', '#2--6. TCNU8929733.pdf', 4511278, 'application/pdf', 16, '2026-02-07 10:29:07', 1, NULL, NULL, NULL, NULL, 0),
+(29, 88, 5, 'cars/88/5/file_1770460183927.pdf', '#2--6. TCNU8929733.pdf', 4511278, 'application/pdf', 16, '2026-02-07 10:29:55', 1, NULL, NULL, NULL, NULL, 0),
+(30, 55, 5, 'cars/55/5/file_1770797448679.pdf', '8554.pdf', 3445159, 'application/pdf', 16, '2026-02-11 08:10:57', 1, NULL, NULL, NULL, NULL, 1),
+(31, 58, 5, 'cars/58/5/file_1770797509431.pdf', '3471.pdf', 3178287, 'application/pdf', 16, '2026-02-11 08:11:59', 1, NULL, NULL, NULL, NULL, 1),
+(32, 22, 5, 'cars/22/5/file_1770797557211.pdf', '8365.pdf', 3613386, 'application/pdf', 16, '2026-02-11 08:12:49', 1, NULL, NULL, NULL, NULL, 1),
+(33, 67, 5, 'cars/67/5/file_1770797613119.pdf', '8382.pdf', 3385873, 'application/pdf', 16, '2026-02-11 08:13:45', 1, NULL, NULL, NULL, NULL, 1),
+(34, 27, 5, 'cars/27/5/file_1770797646977.pdf', '8351.pdf', 3519350, 'application/pdf', 16, '2026-02-11 08:14:18', 1, NULL, NULL, NULL, NULL, 1),
+(35, 220, 5, 'cars/220/5/file_1770797693027.pdf', '8379.pdf', 4406558, 'application/pdf', 16, '2026-02-11 08:15:06', 1, NULL, NULL, NULL, NULL, 1),
+(36, 28, 5, 'cars/28/5/file_1770797733939.pdf', '8348.pdf', 3432318, 'application/pdf', 16, '2026-02-11 08:15:45', 1, NULL, NULL, NULL, NULL, 1),
+(37, 32, 5, 'cars/32/5/file_1770797773718.pdf', '8334.pdf', 3491798, 'application/pdf', 16, '2026-02-11 08:16:23', 1, NULL, NULL, NULL, NULL, 1),
+(38, 18, 5, 'cars/18/5/file_1770887920083.pdf', '236987.pdf', 3463182, 'application/pdf', 16, '2026-02-12 09:18:46', 1, NULL, NULL, NULL, NULL, 1),
+(39, 19, 5, 'cars/19/5/file_1770887949980.pdf', '236988.pdf', 3251691, 'application/pdf', 16, '2026-02-12 09:19:16', 1, NULL, NULL, NULL, NULL, 1),
+(40, 2, 5, 'cars/2/5/file_1770887976313.pdf', '236989.pdf', 3334846, 'application/pdf', 16, '2026-02-12 09:19:42', 1, NULL, NULL, NULL, NULL, 1),
+(41, 17, 5, 'cars/17/5/file_1770888003037.pdf', '236991.pdf', 3417326, 'application/pdf', 16, '2026-02-12 09:20:08', 1, NULL, NULL, NULL, NULL, 1),
+(42, 12, 5, 'cars/12/5/file_1770888034314.pdf', '237001.pdf', 3122794, 'application/pdf', 16, '2026-02-12 09:20:41', 1, NULL, NULL, NULL, NULL, 1),
+(43, 3, 5, 'cars/3/5/file_1770888058150.pdf', '237002.pdf', 3284785, 'application/pdf', 16, '2026-02-12 09:21:03', 1, NULL, NULL, NULL, NULL, 1),
+(44, 4, 5, 'cars/4/5/file_1770888087451.pdf', '237003.pdf', 3399487, 'application/pdf', 16, '2026-02-12 09:21:48', 1, NULL, NULL, NULL, NULL, 1),
+(45, 10, 5, 'cars/10/5/file_1770888126240.pdf', '237004.pdf', 3245558, 'application/pdf', 16, '2026-02-12 09:22:11', 1, NULL, NULL, NULL, NULL, 1),
+(46, 13, 5, 'cars/13/5/file_1770888158800.pdf', '236986.pdf', 3361048, 'application/pdf', 16, '2026-02-12 09:22:46', 1, NULL, NULL, NULL, NULL, 1),
+(47, 5, 5, 'cars/5/5/file_1770888186063.pdf', '236994.pdf', 3381223, 'application/pdf', 16, '2026-02-12 09:23:12', 1, NULL, NULL, NULL, NULL, 1),
+(48, 15, 5, 'cars/15/5/file_1770888209079.pdf', '236997.pdf', 3258502, 'application/pdf', 16, '2026-02-12 09:23:34', 1, NULL, NULL, NULL, NULL, 1),
+(49, 14, 5, 'cars/14/5/file_1770888238380.pdf', '237023.pdf', 3382473, 'application/pdf', 16, '2026-02-12 09:24:07', 1, NULL, NULL, NULL, NULL, 1),
+(50, 8, 5, 'cars/8/5/file_1770888266650.pdf', '236990.pdf', 3397042, 'application/pdf', 16, '2026-02-12 09:24:33', 1, NULL, NULL, NULL, NULL, 1),
+(51, 1, 5, 'cars/1/5/file_1770888291547.pdf', '237012.pdf', 3356776, 'application/pdf', 16, '2026-02-12 09:25:00', 1, NULL, NULL, NULL, NULL, 1),
+(52, 20, 5, 'cars/20/5/file_1770888317073.pdf', '237018.pdf', 3282044, 'application/pdf', 16, '2026-02-12 09:25:22', 1, NULL, NULL, NULL, NULL, 1),
+(53, 16, 5, 'cars/16/5/file_1770888342210.pdf', '237025.pdf', 3410386, 'application/pdf', 16, '2026-02-12 09:25:47', 1, NULL, NULL, NULL, NULL, 1),
+(54, 77, 5, 'cars/77/5/file_1772677957699.pdf', 'LLV2C3A26T0215730.pdf', 6518825, 'application/pdf', 13, '2026-03-05 02:32:54', 1, NULL, NULL, NULL, NULL, 1),
+(55, 107, 5, 'cars/107/5/file_1772678382320.pdf', '8435.pdf', 4730126, 'application/pdf', 16, '2026-03-05 02:40:02', 1, NULL, NULL, NULL, NULL, 1),
+(56, 102, 5, 'cars/102/5/file_1772678508801.pdf', '8436.pdf', 4991060, 'application/pdf', 16, '2026-03-05 02:42:03', 1, NULL, NULL, NULL, NULL, 1),
+(57, 106, 5, 'cars/106/5/file_1772678577139.pdf', '8437.pdf', 4493723, 'application/pdf', 16, '2026-03-05 02:43:09', 1, NULL, NULL, NULL, NULL, 1),
+(58, 110, 5, 'cars/110/5/file_1772678650979.pdf', '8438.pdf', 3315774, 'application/pdf', 16, '2026-03-05 02:44:19', 1, NULL, NULL, NULL, NULL, 1),
+(59, 201, 5, 'cars/201/5/file_1772678717720.pdf', '8431.pdf', 4926520, 'application/pdf', 16, '2026-03-05 02:45:30', 1, NULL, NULL, NULL, NULL, 1),
+(60, 84, 5, 'cars/84/5/file_1772678795385.pdf', '8432.pdf', 4931107, 'application/pdf', 16, '2026-03-05 02:46:48', 1, NULL, NULL, NULL, NULL, 1),
+(61, 103, 5, 'cars/103/5/file_1772678842956.pdf', '8433.pdf', 5135153, 'application/pdf', 16, '2026-03-05 02:47:37', 1, NULL, NULL, NULL, NULL, 1),
+(62, 105, 5, 'cars/105/5/file_1772678891406.pdf', '8434.pdf', 4757702, 'application/pdf', 16, '2026-03-05 02:48:22', 1, NULL, NULL, NULL, NULL, 1),
+(63, 72, 5, 'cars/72/5/file_1772678932294.pdf', '8427.pdf', 4744835, 'application/pdf', 16, '2026-03-05 02:49:18', 1, NULL, NULL, NULL, NULL, 1),
+(64, 93, 5, 'cars/93/5/file_1772679274199.pdf', '8428.pdf', 4790960, 'application/pdf', 16, '2026-03-05 02:54:45', 1, NULL, NULL, NULL, NULL, 1),
+(65, 95, 5, 'cars/95/5/file_1772679343212.pdf', '8429.pdf', 4853912, 'application/pdf', 16, '2026-03-05 02:55:59', 1, NULL, NULL, NULL, NULL, 1),
+(66, 94, 5, 'cars/94/5/file_1772679378335.pdf', '8430.pdf', 4406974, 'application/pdf', 16, '2026-03-05 02:56:27', 1, NULL, NULL, NULL, NULL, 1),
+(67, 92, 5, 'cars/92/5/file_1772679692109.pdf', '8423.pdf', 5108782, 'application/pdf', 16, '2026-03-05 03:01:44', 1, NULL, NULL, NULL, NULL, 1),
+(68, 91, 5, 'cars/91/5/file_1772679770258.pdf', '8424.pdf', 4852651, 'application/pdf', 16, '2026-03-05 03:03:01', 1, NULL, NULL, NULL, NULL, 1),
+(69, 90, 5, 'cars/90/5/file_1772679855508.pdf', '8425.pdf', 4675150, 'application/pdf', 16, '2026-03-05 03:04:24', 1, NULL, NULL, NULL, NULL, 1),
+(70, 85, 5, 'cars/85/5/file_1772679923160.pdf', '8426.pdf', 4812428, 'application/pdf', 16, '2026-03-05 03:05:32', 1, NULL, NULL, NULL, NULL, 1),
+(71, 71, 5, 'cars/71/5/file_1772679977966.pdf', '8419.pdf', 5154373, 'application/pdf', 16, '2026-03-05 03:06:28', 1, NULL, NULL, NULL, NULL, 1),
+(72, 81, 5, 'cars/81/5/file_1772680007380.pdf', '8420.pdf', 5158838, 'application/pdf', 16, '2026-03-05 03:06:58', 1, NULL, NULL, NULL, NULL, 1),
+(73, 86, 5, 'cars/86/5/file_1772680043102.pdf', '8421.pdf', 5076806, 'application/pdf', 16, '2026-03-05 03:07:35', 1, NULL, NULL, NULL, NULL, 1),
+(74, 89, 5, 'cars/89/5/file_1772680170504.pdf', '8422.pdf', 4802321, 'application/pdf', 16, '2026-03-05 03:09:54', 1, NULL, NULL, NULL, NULL, 1),
+(75, 214, 5, 'cars/214/5/file_1772680214755.pdf', 'LLV2C3A2XT0215729.pdf', 6516905, 'application/pdf', 13, '2026-03-05 03:10:21', 1, NULL, NULL, NULL, NULL, 1),
+(76, 97, 5, 'cars/97/5/file_1772680247055.pdf', '8415.pdf', 4854070, 'application/pdf', 16, '2026-03-05 03:10:59', 1, NULL, NULL, NULL, NULL, 1),
+(77, 204, 5, 'cars/204/5/file_1772680313424.pdf', 'LLV2C3A28T0215728.pdf', 6518060, 'application/pdf', 13, '2026-03-05 03:11:59', 1, NULL, NULL, NULL, NULL, 1),
+(78, 100, 5, 'cars/100/5/file_1772680303433.pdf', '8416.pdf', 4907192, 'application/pdf', 16, '2026-03-05 03:12:03', 1, NULL, NULL, NULL, NULL, 1),
+(79, 99, 5, 'cars/99/5/file_1772680347088.pdf', '8417.pdf', 4695318, 'application/pdf', 16, '2026-03-05 03:12:36', 1, NULL, NULL, NULL, NULL, 1),
+(80, 82, 5, 'cars/82/5/file_1772680385036.pdf', '8418.pdf', 4910293, 'application/pdf', 16, '2026-03-05 03:13:13', 1, NULL, NULL, NULL, NULL, 1),
+(81, 199, 5, 'cars/199/5/file_1772680390841.pdf', 'LLV2C3A26T0215727.pdf', 6514936, 'application/pdf', 13, '2026-03-05 03:13:17', 1, NULL, NULL, NULL, NULL, 1),
+(82, 87, 5, 'cars/87/5/file_1772680449034.pdf', '8411.pdf', 4590843, 'application/pdf', 16, '2026-03-05 03:14:25', 1, NULL, NULL, NULL, NULL, 1),
+(83, 88, 5, 'cars/88/5/file_1772680491848.pdf', '8412.pdf', 4818629, 'application/pdf', 16, '2026-03-05 03:15:08', 1, NULL, NULL, NULL, NULL, 1),
+(84, 212, 5, 'cars/212/5/file_1772680514547.pdf', 'LLV2C3A29T0215723.pdf', 6520639, 'application/pdf', 13, '2026-03-05 03:15:19', 1, NULL, NULL, NULL, NULL, 1),
+(85, 73, 5, 'cars/73/5/file_1772680539381.pdf', '8413.pdf', 4785844, 'application/pdf', 16, '2026-03-05 03:15:54', 1, NULL, NULL, NULL, NULL, 1),
+(86, 79, 5, 'cars/79/5/file_1772680565501.pdf', '8414.pdf', 4832736, 'application/pdf', 16, '2026-03-05 03:16:23', 1, NULL, NULL, NULL, NULL, 1),
+(87, 142, 1, 'cars/142/1/file_1772680641173.pdf', 'LLV2C3A20T0215724.pdf', 6519007, 'application/pdf', 13, '2026-03-05 03:17:27', 1, NULL, NULL, NULL, NULL, 1),
+(88, 96, 5, 'cars/96/5/file_1772680782257.pdf', 'LLV2C3A22T0215725.pdf', 6519856, 'application/pdf', 13, '2026-03-05 03:19:48', 1, NULL, NULL, NULL, NULL, 1),
+(89, 194, 1, 'cars/194/1/file_1772680897313.pdf', 'LLV2C3A24T0215726.pdf', 6516907, 'application/pdf', 13, '2026-03-05 03:21:43', 1, NULL, NULL, NULL, NULL, 1),
+(90, 202, 5, 'cars/202/5/file_1772681041614.pdf', 'LLV2C3A27T0215719.pdf', 6516793, 'application/pdf', 13, '2026-03-05 03:24:07', 1, NULL, NULL, NULL, NULL, 1),
+(91, 207, 5, 'cars/207/5/file_1772681148281.pdf', 'LLV2C3A23T0215720.pdf', 6519217, 'application/pdf', 13, '2026-03-05 03:25:54', 1, NULL, NULL, NULL, NULL, 1),
+(92, 193, 5, 'cars/193/5/file_1772681249372.pdf', 'LLV2C3A25T0215721.pdf', 6514278, 'application/pdf', 13, '2026-03-05 03:27:34', 1, NULL, NULL, NULL, NULL, 1),
+(93, 203, 5, 'cars/203/5/file_1772681424225.pdf', 'LLV2C3A27T0215722.pdf', 6512884, 'application/pdf', 13, '2026-03-05 03:30:29', 1, NULL, NULL, NULL, NULL, 1),
+(94, 108, 5, 'cars/108/5/file_1772681853334.pdf', 'LLV2C3A2XT0215715.pdf', 6513853, 'application/pdf', 13, '2026-03-05 03:37:39', 1, NULL, NULL, NULL, NULL, 1),
+(95, 123, 5, 'cars/123/5/file_1772681959502.pdf', 'LLV2C3A21T0215716.pdf', 6517259, 'application/pdf', 13, '2026-03-05 03:39:25', 1, NULL, NULL, NULL, NULL, 1),
+(96, 122, 5, 'cars/122/5/file_1772682056480.pdf', 'LLV2C3A23T0215717.pdf', 6518442, 'application/pdf', 13, '2026-03-05 03:41:02', 1, NULL, NULL, NULL, NULL, 1),
+(97, 98, 5, 'cars/98/5/file_1772682150820.pdf', 'LLV2C3A25T0215718.pdf', 6524159, 'application/pdf', 13, '2026-03-05 03:42:37', 1, NULL, NULL, NULL, NULL, 1),
+(98, 198, 5, 'cars/198/5/file_1772682321801.pdf', 'LLV2C3A22T0215711.pdf', 6517737, 'application/pdf', 13, '2026-03-05 03:45:27', 1, NULL, NULL, NULL, NULL, 1),
+(99, 78, 1, 'cars/78/1/file_1772682398626.pdf', 'LLV2C3A24T0215712.pdf', 6516297, 'application/pdf', 13, '2026-03-05 03:46:45', 1, NULL, NULL, NULL, NULL, 1),
+(100, 78, 5, 'cars/78/5/file_1772682411216.pdf', 'LLV2C3A24T0215712.pdf', 6516297, 'application/pdf', 13, '2026-03-05 03:46:57', 1, NULL, NULL, NULL, NULL, 1),
+(101, 213, 5, 'cars/213/5/file_1772682521403.pdf', 'LLV2C3A26T0215713.pdf', 6517225, 'application/pdf', 13, '2026-03-05 03:48:47', 1, NULL, NULL, NULL, NULL, 1),
+(102, 200, 5, 'cars/200/5/file_1772682612564.pdf', 'LLV2C3A28T0215714.pdf', 6515013, 'application/pdf', 13, '2026-03-05 03:50:19', 1, NULL, NULL, NULL, NULL, 1),
+(103, 195, 5, 'cars/195/5/file_1772682798802.pdf', 'LLV2C3A24T0215693.pdf', 6516231, 'application/pdf', 13, '2026-03-05 03:53:25', 1, NULL, NULL, NULL, NULL, 1),
+(104, 192, 5, 'cars/192/5/file_1772682913293.pdf', 'LLV2C3A26T0215694.pdf', 6530056, 'application/pdf', 13, '2026-03-05 03:55:20', 1, NULL, NULL, NULL, NULL, 1),
+(105, 196, 1, 'cars/196/1/file_1772683000719.pdf', 'LLV2C3A28T0215695.pdf', 6531565, 'application/pdf', 13, '2026-03-05 03:56:47', 1, NULL, NULL, NULL, NULL, 1),
+(106, 196, 5, 'cars/196/5/file_1772683007326.pdf', 'LLV2C3A28T0215695.pdf', 6531565, 'application/pdf', 13, '2026-03-05 03:56:54', 1, NULL, NULL, NULL, NULL, 1),
+(107, 197, 5, 'cars/197/5/file_1772683238340.pdf', 'LLV2C3A2XT0215696.pdf', 6531679, 'application/pdf', 13, '2026-03-05 04:00:45', 1, NULL, NULL, NULL, NULL, 1),
+(108, 130, 5, 'cars/130/5/file_1772688601349.pdf', 'LLV2C3A28T0215731.pdf', 6516598, 'application/pdf', 13, '2026-03-05 05:30:30', 1, NULL, NULL, NULL, NULL, 1),
+(109, 129, 5, 'cars/129/5/file_1772688781523.pdf', 'LLV2C3A2XT0215732.pdf', 6517140, 'application/pdf', 13, '2026-03-05 05:33:21', 1, NULL, NULL, NULL, NULL, 1),
+(110, 128, 5, 'cars/128/5/file_1772688944488.pdf', 'LLV2C3A21T0215733.pdf', 6516403, 'application/pdf', 13, '2026-03-05 05:35:59', 1, NULL, NULL, NULL, NULL, 1),
+(111, 175, 5, 'cars/175/5/file_1772689042405.pdf', 'LLV2C3A23T0215734.pdf', 6517207, 'application/pdf', 13, '2026-03-05 05:37:40', 1, NULL, NULL, NULL, NULL, 1),
+(112, 115, 5, 'cars/115/5/file_1772689196652.pdf', 'LLV2C3A22T0215689.pdf', 6531351, 'application/pdf', 13, '2026-03-05 05:40:19', 1, NULL, NULL, NULL, NULL, 1),
+(113, 76, 5, 'cars/76/5/file_1772689306867.pdf', 'LLV2C3A29T0215690.pdf', 6529947, 'application/pdf', 13, '2026-03-05 05:42:17', 1, NULL, NULL, NULL, NULL, 1),
+(114, 75, 5, 'cars/75/5/file_1772689414888.pdf', 'LLV2C3A20T0215691.pdf', 6531831, 'application/pdf', 13, '2026-03-05 05:43:58', 1, NULL, NULL, NULL, NULL, 1),
+(115, 74, 5, 'cars/74/5/file_1772689532815.pdf', 'LLV2C3A22T0215692.pdf', 6517640, 'application/pdf', 13, '2026-03-05 05:46:03', 1, NULL, NULL, NULL, NULL, 1),
+(116, 119, 5, 'cars/119/5/file_1772689837950.pdf', 'LLV2C3A25T0215685.pdf', 6528978, 'application/pdf', 13, '2026-03-05 05:50:46', 1, NULL, NULL, NULL, NULL, 1),
+(117, 118, 5, 'cars/118/5/file_1772689993615.pdf', 'LLV2C3A27T0215686.pdf', 6534231, 'application/pdf', 13, '2026-03-05 05:53:37', 1, NULL, NULL, NULL, NULL, 1),
+(118, 117, 5, 'cars/117/5/file_1772690110841.pdf', 'LLV2C3A29T0215687.pdf', 6529805, 'application/pdf', 13, '2026-03-05 05:55:29', 1, NULL, NULL, NULL, NULL, 1),
+(119, 116, 5, 'cars/116/5/file_1772690217318.pdf', 'LLV2C3A20T0215688.pdf', 6528440, 'application/pdf', 13, '2026-03-05 05:57:17', 1, NULL, NULL, NULL, NULL, 1),
+(120, 184, 5, 'cars/184/5/file_1772691655928.pdf', 'LLV2C3A2XT0215701.pdf', 8338251, 'application/pdf', 16, '2026-03-05 06:21:22', 1, NULL, NULL, NULL, NULL, 1),
+(121, 187, 5, 'cars/187/5/file_1772691829943.pdf', 'LLV2C3A21T0215697.pdf', 7000541, 'application/pdf', 16, '2026-03-05 06:24:16', 1, NULL, NULL, NULL, NULL, 1),
+(122, 186, 5, 'cars/186/5/file_1772692447763.pdf', 'LLV2C3A23T0215698.pdf', 8413230, 'application/pdf', 16, '2026-03-05 06:34:36', 1, NULL, NULL, NULL, NULL, 1),
+(123, 185, 5, 'cars/185/5/file_1772692509869.pdf', 'LLV2C3A28T0215700.pdf', 8363349, 'application/pdf', 16, '2026-03-05 06:35:32', 1, NULL, NULL, NULL, NULL, 1),
+(124, 131, 5, 'cars/131/5/file_1772693773478.pdf', 'LLV2C3A20T0215707.pdf', 7245299, 'application/pdf', 13, '2026-03-05 06:56:40', 1, NULL, NULL, NULL, NULL, 1),
+(125, 80, 5, 'cars/80/5/file_1772693827292.pdf', 'LLV2C3A20T0215710.pdf', 8193042, 'application/pdf', 13, '2026-03-05 06:57:32', 1, NULL, NULL, NULL, NULL, 1),
+(126, 178, 5, 'cars/178/5/file_1772693966150.pdf', 'LLV2C3A22T0215708.pdf', 8243402, 'application/pdf', 13, '2026-03-05 06:59:51', 1, NULL, NULL, NULL, NULL, 1),
+(127, 210, 5, 'cars/210/5/file_1772694012499.pdf', 'LLV2C3A24T0215709.pdf', 8217680, 'application/pdf', 13, '2026-03-05 07:00:42', 1, NULL, NULL, NULL, NULL, 1),
+(128, 188, 5, 'cars/188/5/file_1772694072041.pdf', 'LLV2C3A21T0215702.pdf', 7498788, 'application/pdf', 13, '2026-03-05 07:01:31', 1, NULL, NULL, NULL, NULL, 1),
+(129, 208, 5, 'cars/208/5/file_1772694205199.pdf', 'LLV2C3A23T0215703.pdf', 7123060, 'application/pdf', 13, '2026-03-05 07:03:47', 1, NULL, NULL, NULL, NULL, 1),
+(130, 189, 5, 'cars/189/5/file_1772694250305.pdf', 'LLV2C3A25T0215704.pdf', 8314845, 'application/pdf', 13, '2026-03-05 07:04:37', 1, NULL, NULL, NULL, NULL, 1),
+(131, 209, 5, 'cars/209/5/file_1772694295125.pdf', 'LLV2C3A27T0215705.pdf', 8291125, 'application/pdf', 13, '2026-03-05 07:05:27', 1, NULL, NULL, NULL, NULL, 1),
+(132, 205, 5, 'cars/205/5/file_1772694452657.pdf', 'LLV2C3A2XT0215682.pdf', 7615093, 'application/pdf', 13, '2026-03-05 07:07:50', 1, NULL, NULL, NULL, NULL, 1),
+(133, 121, 5, 'cars/121/5/file_1772694517549.pdf', 'LLV2C3A21T0215683.pdf', 7271202, 'application/pdf', 13, '2026-03-05 07:08:57', 1, NULL, NULL, NULL, NULL, 1),
+(134, 120, 5, 'cars/120/5/file_1772694561597.pdf', 'LLV2C3A23T0215684.pdf', 7657647, 'application/pdf', 13, '2026-03-05 07:09:44', 1, NULL, NULL, NULL, NULL, 1),
+(135, 83, 5, 'cars/83/5/file_1772694657210.pdf', 'LLV2C3A28T0215681.pdf', 7296250, 'application/pdf', 13, '2026-03-05 07:11:23', 1, NULL, NULL, NULL, NULL, 1),
+(136, 127, 5, 'cars/127/5/file_1772694867425.pdf', 'LLV2C3A26T0215677.pdf', 7393710, 'application/pdf', 13, '2026-03-05 07:14:56', 1, NULL, NULL, NULL, NULL, 1),
+(137, 125, 5, 'cars/125/5/file_1772694919900.pdf', 'LLV2C3A28T0215678.pdf', 7370212, 'application/pdf', 13, '2026-03-05 07:15:51', 1, NULL, NULL, NULL, NULL, 1),
+(138, 126, 5, 'cars/126/5/file_1772694981866.pdf', 'LLV2C3A28T0215678.pdf', 7370212, 'application/pdf', 13, '2026-03-05 07:16:47', 1, NULL, NULL, NULL, NULL, 0),
+(139, 126, 5, 'cars/126/5/file_1772694988318.pdf', 'LLV2C3A2XT0215679.pdf', 7346294, 'application/pdf', 13, '2026-03-05 07:16:50', 1, NULL, NULL, NULL, NULL, 1),
+(140, 124, 5, 'cars/124/5/file_1772695044546.pdf', 'LLV2C3A26T0215680.pdf', 7317760, 'application/pdf', 13, '2026-03-05 07:17:50', 1, NULL, NULL, NULL, NULL, 1),
+(141, 211, 5, 'cars/211/5/file_1772695187327.pdf', 'LLV2C3A29T0215673.pdf', 7462165, 'application/pdf', 13, '2026-03-05 07:20:14', 1, NULL, NULL, NULL, NULL, 1),
+(142, 109, 5, 'cars/109/5/file_1772695247377.pdf', 'LLV2C3A20T0215674.pdf', 7440717, 'application/pdf', 13, '2026-03-05 07:21:07', 1, NULL, NULL, NULL, NULL, 1),
+(143, 104, 5, 'cars/104/5/file_1772695365924.pdf', 'LLV2C3A220215675.pdf', 7416242, 'application/pdf', 13, '2026-03-05 07:23:16', 1, NULL, NULL, NULL, NULL, 1),
+(144, 206, 5, 'cars/206/5/file_1772695416918.pdf', 'LLV2C3A24T0215676.pdf', 7010598, 'application/pdf', 13, '2026-03-05 07:23:55', 1, NULL, NULL, NULL, NULL, 1),
+(145, 191, 5, 'cars/191/5/file_1772695459742.pdf', 'LLV2C3A27T0215669.pdf', 7380626, 'application/pdf', 13, '2026-03-05 07:24:44', 1, NULL, NULL, NULL, NULL, 1),
+(146, 190, 5, 'cars/190/5/file_1772695565095.pdf', 'LLV2C3A23T0215670.pdf', 7513481, 'application/pdf', 13, '2026-03-05 07:26:26', 1, NULL, NULL, NULL, NULL, 1),
+(147, 182, 5, 'cars/182/5/file_1772695607333.pdf', 'LLV2C3A25T0215671.pdf', 7587245, 'application/pdf', 13, '2026-03-05 07:27:12', 1, NULL, NULL, NULL, NULL, 1),
+(148, 173, 5, 'cars/173/5/file_1772695654837.pdf', 'LLV2C3A27T0215672.pdf', 7486463, 'application/pdf', 13, '2026-03-05 07:28:04', 1, NULL, NULL, NULL, NULL, 1),
+(149, 107, 4, 'cars/107/4/file_1773295658460.pdf', '8435.pdf', 2373821, 'application/pdf', 16, '2026-03-12 06:07:53', 1, NULL, NULL, NULL, NULL, 1),
+(150, 107, 3, 'cars/107/3/file_1773296007987.pdf', '8435.pdf', 2373821, 'application/pdf', 16, '2026-03-12 06:13:39', 1, NULL, NULL, NULL, NULL, 1),
+(151, 107, 2, 'cars/107/2/file_1773296026533.pdf', '8435.pdf', 2373821, 'application/pdf', 16, '2026-03-12 06:13:58', 1, NULL, NULL, NULL, NULL, 1),
+(152, 102, 4, 'cars/102/4/file_1773296286745.pdf', '8436.pdf', 2484202, 'application/pdf', 16, '2026-03-12 06:18:20', 1, NULL, NULL, NULL, NULL, 1),
+(153, 102, 2, 'cars/102/2/file_1773297273027.pdf', '8436.pdf', 2484202, 'application/pdf', 16, '2026-03-12 06:34:54', 1, NULL, NULL, NULL, NULL, 1),
+(154, 102, 3, 'cars/102/3/file_1773297300861.pdf', '8436.pdf', 2484202, 'application/pdf', 16, '2026-03-12 06:35:19', 1, NULL, NULL, NULL, NULL, 1),
+(155, 106, 2, 'cars/106/2/file_1773297372486.pdf', '8437.pdf', 2330558, 'application/pdf', 16, '2026-03-12 06:36:26', 1, NULL, NULL, NULL, NULL, 1),
+(156, 106, 3, 'cars/106/3/file_1773297376945.pdf', '8437.pdf', 2330558, 'application/pdf', 16, '2026-03-12 06:36:31', 1, NULL, NULL, NULL, NULL, 1),
+(157, 106, 4, 'cars/106/4/file_1773297380592.pdf', '8437.pdf', 2330558, 'application/pdf', 16, '2026-03-12 06:36:32', 1, NULL, NULL, NULL, NULL, 1),
+(158, 110, 4, 'cars/110/4/file_1773297432615.pdf', '8438.pdf', 2545998, 'application/pdf', 16, '2026-03-12 06:37:52', 1, NULL, NULL, NULL, NULL, 1),
+(159, 110, 3, 'cars/110/3/file_1773297525215.pdf', '8438.pdf', 2545998, 'application/pdf', 16, '2026-03-12 06:39:02', 1, NULL, NULL, NULL, NULL, 1),
+(160, 110, 2, 'cars/110/2/file_1773297535195.pdf', '8438.pdf', 2545998, 'application/pdf', 16, '2026-03-12 06:39:05', 1, NULL, NULL, NULL, NULL, 1),
+(161, 201, 2, 'cars/201/2/file_1773297571744.pdf', '8431.pdf', 2544235, 'application/pdf', 16, '2026-03-12 06:39:52', 1, NULL, NULL, NULL, NULL, 1),
+(162, 201, 3, 'cars/201/3/file_1773297578921.pdf', '8431.pdf', 2544235, 'application/pdf', 16, '2026-03-12 06:39:54', 1, NULL, NULL, NULL, NULL, 1),
+(163, 201, 4, 'cars/201/4/file_1773297760736.pdf', '8431.pdf', 2544235, 'application/pdf', 16, '2026-03-12 06:42:56', 1, NULL, NULL, NULL, NULL, 1),
+(164, 84, 2, 'cars/84/2/file_1773297801714.pdf', '8432.pdf', 2492269, 'application/pdf', 16, '2026-03-12 06:43:51', 1, NULL, NULL, NULL, NULL, 1),
+(165, 84, 3, 'cars/84/3/file_1773297804683.pdf', '8432.pdf', 2492269, 'application/pdf', 16, '2026-03-12 06:43:52', 1, NULL, NULL, NULL, NULL, 1),
+(166, 84, 4, 'cars/84/4/file_1773297806184.pdf', '8432.pdf', 2492269, 'application/pdf', 16, '2026-03-12 06:43:54', 1, NULL, NULL, NULL, NULL, 1),
+(167, 103, 2, 'cars/103/2/file_1773297957285.pdf', '8433.pdf', 2488016, 'application/pdf', 16, '2026-03-12 06:46:15', 1, NULL, NULL, NULL, NULL, 1),
+(168, 103, 3, 'cars/103/3/file_1773297961819.pdf', '8433.pdf', 2488016, 'application/pdf', 16, '2026-03-12 06:46:16', 1, NULL, NULL, NULL, NULL, 1),
+(169, 103, 4, 'cars/103/4/file_1773297964653.pdf', '8433.pdf', 2488016, 'application/pdf', 16, '2026-03-12 06:46:18', 1, NULL, NULL, NULL, NULL, 1),
+(170, 105, 2, 'cars/105/2/file_1773298002545.pdf', '8434.pdf', 2540069, 'application/pdf', 16, '2026-03-12 06:47:04', 1, NULL, NULL, NULL, NULL, 1),
+(171, 105, 3, 'cars/105/3/file_1773298006262.pdf', '8434.pdf', 2540069, 'application/pdf', 16, '2026-03-12 06:47:05', 1, NULL, NULL, NULL, NULL, 1),
+(172, 105, 4, 'cars/105/4/file_1773298011195.pdf', '8434.pdf', 2540069, 'application/pdf', 16, '2026-03-12 06:47:05', 1, NULL, NULL, NULL, NULL, 1),
+(173, 72, 3, 'cars/72/3/file_1773298067622.pdf', '8427.pdf', 2092127, 'application/pdf', 16, '2026-03-12 06:48:08', 1, NULL, NULL, NULL, NULL, 1),
+(174, 72, 4, 'cars/72/4/file_1773298071338.pdf', '8427.pdf', 2092127, 'application/pdf', 16, '2026-03-12 06:48:08', 1, NULL, NULL, NULL, NULL, 1),
+(175, 72, 2, 'cars/72/2/file_1773298065747.pdf', '8427.pdf', 2092127, 'application/pdf', 16, '2026-03-12 06:48:09', 1, NULL, NULL, NULL, NULL, 1),
+(176, 93, 4, 'cars/93/4/file_1773298145031.pdf', '8428.pdf', 2166769, 'application/pdf', 16, '2026-03-12 06:49:36', 1, NULL, NULL, NULL, NULL, 1),
+(177, 93, 3, 'cars/93/3/file_1773298147182.pdf', '8428.pdf', 2166769, 'application/pdf', 16, '2026-03-12 06:49:40', 1, NULL, NULL, NULL, NULL, 1),
+(178, 93, 2, 'cars/93/2/file_1773298569870.pdf', '8428.pdf', 2166769, 'application/pdf', 16, '2026-03-12 06:56:23', 1, NULL, NULL, NULL, NULL, 1),
+(179, 95, 2, 'cars/95/2/file_1773298626864.pdf', '8429.pdf', 2235783, 'application/pdf', 16, '2026-03-12 06:57:18', 1, NULL, NULL, NULL, NULL, 1),
+(180, 95, 4, 'cars/95/4/file_1773298630118.pdf', '8429.pdf', 2235783, 'application/pdf', 16, '2026-03-12 06:57:20', 1, NULL, NULL, NULL, NULL, 1),
+(181, 95, 3, 'cars/95/3/file_1773298636728.pdf', '8429.pdf', 2235783, 'application/pdf', 16, '2026-03-12 06:57:24', 1, NULL, NULL, NULL, NULL, 1),
+(182, 94, 4, 'cars/94/4/file_1773299126410.pdf', '8430.pdf', 2282768, 'application/pdf', 16, '2026-03-12 07:05:34', 1, NULL, NULL, NULL, NULL, 1),
+(183, 94, 3, 'cars/94/3/file_1773299130057.pdf', '8430.pdf', 2282768, 'application/pdf', 16, '2026-03-12 07:05:42', 1, NULL, NULL, NULL, NULL, 1),
+(184, 94, 2, 'cars/94/2/file_1773299132254.pdf', '8430.pdf', 2282768, 'application/pdf', 16, '2026-03-12 07:05:43', 1, NULL, NULL, NULL, NULL, 1),
+(185, 92, 2, 'cars/92/2/file_1773299187219.pdf', '8423.pdf', 2186361, 'application/pdf', 16, '2026-03-12 07:06:44', 1, NULL, NULL, NULL, NULL, 1),
+(186, 92, 4, 'cars/92/4/file_1773299191040.pdf', '8423.pdf', 2186361, 'application/pdf', 16, '2026-03-12 07:06:46', 1, NULL, NULL, NULL, NULL, 1),
+(187, 92, 3, 'cars/92/3/file_1773299193447.pdf', '8423.pdf', 2186361, 'application/pdf', 16, '2026-03-12 07:06:48', 1, NULL, NULL, NULL, NULL, 1),
+(188, 91, 3, 'cars/91/3/file_1773299260423.pdf', '8424.pdf', 2908833, 'application/pdf', 16, '2026-03-12 07:07:56', 1, NULL, NULL, NULL, NULL, 1),
+(189, 91, 2, 'cars/91/2/file_1773299258807.pdf', '8424.pdf', 2908833, 'application/pdf', 16, '2026-03-12 07:07:57', 1, NULL, NULL, NULL, NULL, 1),
+(190, 91, 4, 'cars/91/4/file_1773299263354.pdf', '8424.pdf', 2908833, 'application/pdf', 16, '2026-03-12 07:07:58', 1, NULL, NULL, NULL, NULL, 1),
+(191, 90, 3, 'cars/90/3/file_1773299318203.pdf', '8425.pdf', 2692363, 'application/pdf', 16, '2026-03-12 07:09:05', 1, NULL, NULL, NULL, NULL, 1),
+(192, 90, 4, 'cars/90/4/file_1773299315588.pdf', '8425.pdf', 2692363, 'application/pdf', 16, '2026-03-12 07:09:06', 1, NULL, NULL, NULL, NULL, 1),
+(193, 90, 2, 'cars/90/2/file_1773299320365.pdf', '8425.pdf', 2692363, 'application/pdf', 16, '2026-03-12 07:09:06', 1, NULL, NULL, NULL, NULL, 1),
+(194, 85, 2, 'cars/85/2/file_1773299376030.pdf', '8426.pdf', 2656649, 'application/pdf', 16, '2026-03-12 07:09:52', 1, NULL, NULL, NULL, NULL, 1),
+(195, 85, 4, 'cars/85/4/file_1773299380851.pdf', '8426.pdf', 2656649, 'application/pdf', 16, '2026-03-12 07:09:53', 1, NULL, NULL, NULL, NULL, 1),
+(196, 85, 3, 'cars/85/3/file_1773299378004.pdf', '8426.pdf', 2656649, 'application/pdf', 16, '2026-03-12 07:09:54', 1, NULL, NULL, NULL, NULL, 1),
+(197, 71, 2, 'cars/71/2/file_1773299483565.pdf', '8419.pdf', 2468830, 'application/pdf', 16, '2026-03-12 07:11:35', 1, NULL, NULL, NULL, NULL, 1),
+(198, 71, 3, 'cars/71/3/file_1773299485820.pdf', '8419.pdf', 2468830, 'application/pdf', 16, '2026-03-12 07:11:38', 1, NULL, NULL, NULL, NULL, 1),
+(199, 71, 4, 'cars/71/4/file_1773299486868.pdf', '8419.pdf', 2468830, 'application/pdf', 16, '2026-03-12 07:11:39', 1, NULL, NULL, NULL, NULL, 1),
+(200, 81, 2, 'cars/81/2/file_1773299530798.pdf', '8420.pdf', 2552210, 'application/pdf', 16, '2026-03-12 07:12:23', 1, NULL, NULL, NULL, NULL, 1),
+(201, 81, 3, 'cars/81/3/file_1773299534358.pdf', '8420.pdf', 2552210, 'application/pdf', 16, '2026-03-12 07:12:28', 1, NULL, NULL, NULL, NULL, 1),
+(202, 81, 4, 'cars/81/4/file_1773299536611.pdf', '8420.pdf', 2552210, 'application/pdf', 16, '2026-03-12 07:12:31', 1, NULL, NULL, NULL, NULL, 1),
+(203, 86, 2, 'cars/86/2/file_1773299598998.pdf', '8421.pdf', 2210241, 'application/pdf', 16, '2026-03-12 07:13:27', 1, NULL, NULL, NULL, NULL, 1),
+(204, 86, 4, 'cars/86/4/file_1773299613039.pdf', '8421.pdf', 2210241, 'application/pdf', 16, '2026-03-12 07:13:46', 1, NULL, NULL, NULL, NULL, 1),
+(205, 86, 3, 'cars/86/3/file_1773299610615.pdf', '8421.pdf', 2210241, 'application/pdf', 16, '2026-03-12 07:13:46', 1, NULL, NULL, NULL, NULL, 1),
+(206, 89, 2, 'cars/89/2/file_1773299644425.pdf', '8422.pdf', 2764037, 'application/pdf', 16, '2026-03-12 07:14:28', 1, NULL, NULL, NULL, NULL, 1),
+(207, 89, 3, 'cars/89/3/file_1773299647015.pdf', '8422.pdf', 2764037, 'application/pdf', 16, '2026-03-12 07:14:28', 1, NULL, NULL, NULL, NULL, 1),
+(208, 89, 4, 'cars/89/4/file_1773299650833.pdf', '8422.pdf', 2764037, 'application/pdf', 16, '2026-03-12 07:14:31', 1, NULL, NULL, NULL, NULL, 1),
+(209, 97, 4, 'cars/97/4/file_1773299726774.pdf', '8415.pdf', 3270147, 'application/pdf', 16, '2026-03-12 07:15:46', 1, NULL, NULL, NULL, NULL, 1),
+(210, 97, 2, 'cars/97/2/file_1773299724574.pdf', '8415.pdf', 3270147, 'application/pdf', 16, '2026-03-12 07:15:47', 1, NULL, NULL, NULL, NULL, 1),
+(211, 97, 3, 'cars/97/3/file_1773299731244.pdf', '8415.pdf', 3270147, 'application/pdf', 16, '2026-03-12 07:15:49', 1, NULL, NULL, NULL, NULL, 1),
+(212, 100, 4, 'cars/100/4/file_1773299775581.pdf', '8416.pdf', 2750651, 'application/pdf', 16, '2026-03-12 07:16:29', 1, NULL, NULL, NULL, NULL, 1),
+(213, 100, 2, 'cars/100/2/file_1773299779211.pdf', '8416.pdf', 2750651, 'application/pdf', 16, '2026-03-12 07:16:32', 1, NULL, NULL, NULL, NULL, 1),
+(214, 100, 3, 'cars/100/3/file_1773299778030.pdf', '8416.pdf', 2750651, 'application/pdf', 16, '2026-03-12 07:16:32', 1, NULL, NULL, NULL, NULL, 1),
+(215, 99, 3, 'cars/99/3/file_1773299818033.pdf', '8417.pdf', 2895060, 'application/pdf', 16, '2026-03-12 07:17:09', 1, NULL, NULL, NULL, NULL, 1),
+(216, 99, 4, 'cars/99/4/file_1773299820642.pdf', '8417.pdf', 2895060, 'application/pdf', 16, '2026-03-12 07:17:10', 1, NULL, NULL, NULL, NULL, 1),
+(217, 99, 2, 'cars/99/2/file_1773299825069.pdf', '8417.pdf', 2895060, 'application/pdf', 16, '2026-03-12 07:17:16', 1, NULL, NULL, NULL, NULL, 1),
+(218, 82, 4, 'cars/82/4/file_1773299863655.pdf', '8418.pdf', 3227531, 'application/pdf', 16, '2026-03-12 07:18:01', 1, NULL, NULL, NULL, NULL, 1),
+(219, 82, 3, 'cars/82/3/file_1773299861761.pdf', '8418.pdf', 3227531, 'application/pdf', 16, '2026-03-12 07:18:03', 1, NULL, NULL, NULL, NULL, 1),
+(220, 82, 2, 'cars/82/2/file_1773299860318.pdf', '8418.pdf', 3227531, 'application/pdf', 16, '2026-03-12 07:18:04', 1, NULL, NULL, NULL, NULL, 1),
+(221, 87, 2, 'cars/87/2/file_1773299931739.pdf', '8411.pdf', 2476489, 'application/pdf', 16, '2026-03-12 07:19:08', 1, NULL, NULL, NULL, NULL, 1),
+(222, 87, 3, 'cars/87/3/file_1773299934166.pdf', '8411.pdf', 2476489, 'application/pdf', 16, '2026-03-12 07:19:08', 1, NULL, NULL, NULL, NULL, 1),
+(223, 87, 4, 'cars/87/4/file_1773299935441.pdf', '8411.pdf', 2476489, 'application/pdf', 16, '2026-03-12 07:19:10', 1, NULL, NULL, NULL, NULL, 1),
+(224, 88, 2, 'cars/88/2/file_1773299973341.pdf', '8412.pdf', 2477508, 'application/pdf', 16, '2026-03-12 07:19:44', 1, NULL, NULL, NULL, NULL, 1),
+(225, 88, 3, 'cars/88/3/file_1773299975302.pdf', '8412.pdf', 2477508, 'application/pdf', 16, '2026-03-12 07:19:44', 1, NULL, NULL, NULL, NULL, 1),
+(226, 88, 4, 'cars/88/4/file_1773299977008.pdf', '8412.pdf', 2477508, 'application/pdf', 16, '2026-03-12 07:19:46', 1, NULL, NULL, NULL, NULL, 1),
+(227, 73, 2, 'cars/73/2/file_1773300029941.pdf', '8413.pdf', 2311607, 'application/pdf', 16, '2026-03-12 07:20:39', 1, NULL, NULL, NULL, NULL, 1),
+(228, 73, 3, 'cars/73/3/file_1773300032411.pdf', '8413.pdf', 2311607, 'application/pdf', 16, '2026-03-12 07:20:42', 1, NULL, NULL, NULL, NULL, 1),
+(229, 73, 4, 'cars/73/4/file_1773300034552.pdf', '8413.pdf', 2311607, 'application/pdf', 16, '2026-03-12 07:20:42', 1, NULL, NULL, NULL, NULL, 1),
+(230, 79, 2, 'cars/79/2/file_1773300083471.pdf', '8414.pdf', 2446772, 'application/pdf', 16, '2026-03-12 07:21:37', 1, NULL, NULL, NULL, NULL, 1),
+(231, 79, 3, 'cars/79/3/file_1773300085563.pdf', '8414.pdf', 2446772, 'application/pdf', 16, '2026-03-12 07:21:40', 1, NULL, NULL, NULL, NULL, 1),
+(232, 79, 4, 'cars/79/4/file_1773300088161.pdf', '8414.pdf', 2446772, 'application/pdf', 16, '2026-03-12 07:21:41', 1, NULL, NULL, NULL, NULL, 1);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `car_file_categories`
+--
+
+DROP TABLE IF EXISTS `car_file_categories`;
+CREATE TABLE IF NOT EXISTS `car_file_categories` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `category_name` varchar(255) NOT NULL,
+  `importance_level` tinyint(1) NOT NULL DEFAULT 3 COMMENT '1=Critical, 2=High, 3=Medium, 4=Low, 5=Optional',
+  `is_required` tinyint(1) NOT NULL DEFAULT 0 COMMENT '1=Required, 0=Optional',
+  `display_order` int(11) NOT NULL DEFAULT 0 COMMENT 'Order for UI display',
+  `description` text DEFAULT NULL,
+  `visibility_scope` enum('public','department','role','private') NOT NULL DEFAULT 'public' COMMENT 'Who can see files in this category',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `category_name` (`category_name`),
+  KEY `idx_importance` (`importance_level`),
+  KEY `idx_display_order` (`display_order`)
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+--
+-- Dumping data for table `car_file_categories`
+--
+
+INSERT INTO `car_file_categories` (`id`, `category_name`, `importance_level`, `is_required`, `display_order`, `description`, `visibility_scope`, `created_at`, `updated_at`) VALUES
+(1, 'Bill of Lading', 1, 1, 1, 'Bill of Lading document', 'public', '2025-12-25 17:59:15', '2025-12-25 17:59:15'),
+(2, 'Invoice', 2, 1, 2, 'Sell Invoice (PI)', 'public', '2025-12-25 17:59:15', '2025-12-25 17:59:15'),
+(3, 'Packing List', 2, 1, 3, 'Buy Packing List (PI)', 'public', '2025-12-25 17:59:15', '2025-12-25 17:59:15'),
+(4, 'Certificate of Origin', 3, 0, 4, 'COO Certificate', 'public', '2025-12-25 17:59:15', '2025-12-25 17:59:15'),
+(5, 'Certificate of Conformity', 3, 0, 5, 'COC Certificate', 'public', '2025-12-25 17:59:15', '2025-12-25 17:59:15');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `car_file_physical_tracking`
+--
+
+DROP TABLE IF EXISTS `car_file_physical_tracking`;
+CREATE TABLE IF NOT EXISTS `car_file_physical_tracking` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `car_file_id` int(11) NOT NULL COMMENT 'FK to car_files',
+  `current_holder_id` int(11) DEFAULT NULL COMMENT 'FK to users - who has physical copy now, NULL = available',
+  `previous_holder_id` int(11) DEFAULT NULL COMMENT 'FK to users - who had it before',
+  `custom_clearance_agent_id` int(11) DEFAULT NULL COMMENT 'FK to custom_clearance_agents - if checked out to agent',
+  `checkout_type` enum('user','client','custom_clearance_agent') NOT NULL DEFAULT 'user' COMMENT 'Type of checkout: user, client, or custom clearance agent',
+  `client_id` int(11) DEFAULT NULL COMMENT 'FK to clients - if checked out to client',
+  `checked_out_at` timestamp NULL DEFAULT NULL COMMENT 'When physical copy was taken',
+  `checked_in_at` timestamp NULL DEFAULT NULL COMMENT 'When returned, NULL if still out',
+  `transfer_notes` text DEFAULT NULL COMMENT 'Notes about the transfer',
+  `transferred_by` int(11) DEFAULT NULL COMMENT 'FK to users - who made the transfer',
+  `transferred_at` timestamp NULL DEFAULT NULL COMMENT 'When transfer was made',
+  `status` enum('available','checked_out','lost','archived') NOT NULL DEFAULT 'available',
+  `is_visible_to_holder_only` tinyint(1) NOT NULL DEFAULT 0 COMMENT '1=only holder+admin can see, 0=use file visibility rules',
+  `expected_return_date` date DEFAULT NULL COMMENT 'Expected return date for checked out files',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_car_file_id` (`car_file_id`),
+  KEY `idx_current_holder` (`current_holder_id`),
+  KEY `idx_status` (`status`),
+  KEY `idx_checked_out_at` (`checked_out_at`),
+  KEY `idx_car_file_status` (`car_file_id`,`status`),
+  KEY `idx_agent_id` (`custom_clearance_agent_id`),
+  KEY `idx_client_id` (`client_id`),
+  KEY `idx_checkout_type` (`checkout_type`),
+  KEY `fk_physical_tracking_previous_holder` (`previous_holder_id`),
+  KEY `fk_physical_tracking_transferred_by` (`transferred_by`)
+) ENGINE=InnoDB AUTO_INCREMENT=233 DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+--
+-- Dumping data for table `car_file_physical_tracking`
+--
+
+INSERT INTO `car_file_physical_tracking` (`id`, `car_file_id`, `current_holder_id`, `previous_holder_id`, `custom_clearance_agent_id`, `checkout_type`, `client_id`, `checked_out_at`, `checked_in_at`, `transfer_notes`, `transferred_by`, `transferred_at`, `status`, `is_visible_to_holder_only`, `expected_return_date`, `created_at`, `updated_at`) VALUES
+(1, 1, 16, NULL, NULL, 'user', NULL, '2026-02-07 10:04:13', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-07 10:04:13', '2026-02-07 10:04:13'),
+(2, 2, 16, NULL, NULL, 'user', NULL, '2026-02-07 10:05:00', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-07 10:05:00', '2026-02-07 10:05:00'),
+(3, 3, 16, NULL, NULL, 'user', NULL, '2026-02-07 10:05:29', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-07 10:05:29', '2026-02-07 10:05:29'),
+(4, 4, 16, NULL, NULL, 'user', NULL, '2026-02-07 10:06:31', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-07 10:06:31', '2026-02-07 10:06:31'),
+(5, 5, 16, NULL, NULL, 'user', NULL, '2026-02-07 10:07:34', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-07 10:07:34', '2026-02-07 10:07:34'),
+(6, 6, 16, NULL, NULL, 'user', NULL, '2026-02-07 10:09:48', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-07 10:09:48', '2026-02-07 10:09:48'),
+(7, 7, 16, NULL, NULL, 'user', NULL, '2026-02-07 10:10:26', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-07 10:10:26', '2026-02-07 10:10:26'),
+(8, 8, 16, NULL, NULL, 'user', NULL, '2026-02-07 10:10:29', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-07 10:10:29', '2026-02-07 10:10:29'),
+(9, 9, 16, NULL, NULL, 'user', NULL, '2026-02-07 10:10:59', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-07 10:10:59', '2026-02-07 10:10:59'),
+(10, 10, 16, NULL, NULL, 'user', NULL, '2026-02-07 10:12:08', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-07 10:12:08', '2026-02-07 10:12:08'),
+(11, 11, 16, NULL, NULL, 'user', NULL, '2026-02-07 10:12:53', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-07 10:12:53', '2026-02-07 10:12:53'),
+(12, 12, 16, NULL, NULL, 'user', NULL, '2026-02-07 10:13:12', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-07 10:13:12', '2026-02-07 10:13:12'),
+(13, 13, 16, NULL, NULL, 'user', NULL, '2026-02-07 10:13:42', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-07 10:13:42', '2026-02-07 10:13:42'),
+(14, 14, 16, NULL, NULL, 'user', NULL, '2026-02-07 10:14:44', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-07 10:14:44', '2026-02-07 10:14:44'),
+(15, 15, 16, NULL, NULL, 'user', NULL, '2026-02-07 10:15:16', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-07 10:15:16', '2026-02-07 10:15:16'),
+(16, 16, 16, NULL, NULL, 'user', NULL, '2026-02-07 10:15:45', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-07 10:15:45', '2026-02-07 10:15:45'),
+(17, 17, 16, NULL, NULL, 'user', NULL, '2026-02-07 10:16:17', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-07 10:16:17', '2026-02-07 10:16:17'),
+(18, 18, 16, NULL, NULL, 'user', NULL, '2026-02-07 10:17:19', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-07 10:17:19', '2026-02-07 10:17:19'),
+(19, 19, 16, NULL, NULL, 'user', NULL, '2026-02-07 10:17:48', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-07 10:17:48', '2026-02-07 10:17:48'),
+(20, 20, 16, NULL, NULL, 'user', NULL, '2026-02-07 10:18:49', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-07 10:18:49', '2026-02-07 10:18:49'),
+(21, 21, 16, NULL, NULL, 'user', NULL, '2026-02-07 10:20:35', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-07 10:20:35', '2026-02-07 10:20:35'),
+(22, 22, 16, NULL, NULL, 'user', NULL, '2026-02-07 10:22:50', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-07 10:22:50', '2026-02-07 10:22:50'),
+(23, 23, 16, NULL, NULL, 'user', NULL, '2026-02-07 10:23:53', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-07 10:23:53', '2026-02-07 10:23:53'),
+(24, 24, 16, NULL, NULL, 'user', NULL, '2026-02-07 10:24:44', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-07 10:24:44', '2026-02-07 10:24:44'),
+(25, 25, 16, NULL, NULL, 'user', NULL, '2026-02-07 10:25:13', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-07 10:25:13', '2026-02-07 10:25:13'),
+(26, 26, 16, NULL, NULL, 'user', NULL, '2026-02-07 10:28:00', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-07 10:28:00', '2026-02-07 10:28:00'),
+(27, 27, 16, NULL, NULL, 'user', NULL, '2026-02-07 10:28:27', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-07 10:28:27', '2026-02-07 10:28:27'),
+(28, 28, 16, NULL, NULL, 'user', NULL, '2026-02-07 10:29:07', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-07 10:29:07', '2026-02-07 10:29:07'),
+(29, 29, 16, NULL, NULL, 'user', NULL, '2026-02-07 10:29:55', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-07 10:29:55', '2026-02-07 10:29:55'),
+(30, 30, 16, NULL, NULL, 'user', NULL, '2026-02-11 08:10:57', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-11 08:10:57', '2026-02-11 08:10:57'),
+(31, 31, 16, NULL, NULL, 'user', NULL, '2026-02-11 08:11:59', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-11 08:11:59', '2026-02-11 08:11:59'),
+(32, 32, 16, NULL, NULL, 'user', NULL, '2026-02-11 08:12:49', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-11 08:12:49', '2026-02-11 08:12:49'),
+(33, 33, 16, NULL, NULL, 'user', NULL, '2026-02-11 08:13:45', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-11 08:13:45', '2026-02-11 08:13:45'),
+(34, 34, 16, NULL, NULL, 'user', NULL, '2026-02-11 08:14:18', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-11 08:14:18', '2026-02-11 08:14:18'),
+(35, 35, 16, NULL, NULL, 'user', NULL, '2026-02-11 08:15:06', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-11 08:15:06', '2026-02-11 08:15:06'),
+(36, 36, 16, NULL, NULL, 'user', NULL, '2026-02-11 08:15:45', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-11 08:15:45', '2026-02-11 08:15:45'),
+(37, 37, 16, NULL, NULL, 'user', NULL, '2026-02-11 08:16:23', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-11 08:16:23', '2026-02-11 08:16:23'),
+(38, 38, 16, NULL, NULL, 'user', NULL, '2026-02-12 09:18:46', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-12 09:18:46', '2026-02-12 09:18:46'),
+(39, 39, 16, NULL, NULL, 'user', NULL, '2026-02-12 09:19:16', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-12 09:19:16', '2026-02-12 09:19:16'),
+(40, 40, 16, NULL, NULL, 'user', NULL, '2026-02-12 09:19:42', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-12 09:19:42', '2026-02-12 09:19:42'),
+(41, 41, 16, NULL, NULL, 'user', NULL, '2026-02-12 09:20:08', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-12 09:20:08', '2026-02-12 09:20:08'),
+(42, 42, 16, NULL, NULL, 'user', NULL, '2026-02-12 09:20:41', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-12 09:20:41', '2026-02-12 09:20:41'),
+(43, 43, 16, NULL, NULL, 'user', NULL, '2026-02-12 09:21:03', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-12 09:21:03', '2026-02-12 09:21:03'),
+(44, 44, 16, NULL, NULL, 'user', NULL, '2026-02-12 09:21:48', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-12 09:21:48', '2026-02-12 09:21:48'),
+(45, 45, 16, NULL, NULL, 'user', NULL, '2026-02-12 09:22:11', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-12 09:22:11', '2026-02-12 09:22:11'),
+(46, 46, 16, NULL, NULL, 'user', NULL, '2026-02-12 09:22:46', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-12 09:22:46', '2026-02-12 09:22:46'),
+(47, 47, 16, NULL, NULL, 'user', NULL, '2026-02-12 09:23:12', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-12 09:23:12', '2026-02-12 09:23:12'),
+(48, 48, 16, NULL, NULL, 'user', NULL, '2026-02-12 09:23:34', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-12 09:23:34', '2026-02-12 09:23:34'),
+(49, 49, 16, NULL, NULL, 'user', NULL, '2026-02-12 09:24:07', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-12 09:24:07', '2026-02-12 09:24:07'),
+(50, 50, 16, NULL, NULL, 'user', NULL, '2026-02-12 09:24:33', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-12 09:24:33', '2026-02-12 09:24:33'),
+(51, 51, 16, NULL, NULL, 'user', NULL, '2026-02-12 09:25:00', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-12 09:25:00', '2026-02-12 09:25:00'),
+(52, 52, 16, NULL, NULL, 'user', NULL, '2026-02-12 09:25:22', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-12 09:25:22', '2026-02-12 09:25:22'),
+(53, 53, 16, NULL, NULL, 'user', NULL, '2026-02-12 09:25:47', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-02-12 09:25:47', '2026-02-12 09:25:47'),
+(54, 54, 13, NULL, NULL, 'user', NULL, '2026-03-05 02:32:54', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 02:32:54', '2026-03-05 02:32:54'),
+(55, 55, 16, NULL, NULL, 'user', NULL, '2026-03-05 02:40:02', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 02:40:02', '2026-03-05 02:40:02'),
+(56, 56, 16, NULL, NULL, 'user', NULL, '2026-03-05 02:42:03', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 02:42:03', '2026-03-05 02:42:03'),
+(57, 57, 16, NULL, NULL, 'user', NULL, '2026-03-05 02:43:09', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 02:43:09', '2026-03-05 02:43:09'),
+(58, 58, 16, NULL, NULL, 'user', NULL, '2026-03-05 02:44:19', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 02:44:19', '2026-03-05 02:44:19'),
+(59, 59, 16, NULL, NULL, 'user', NULL, '2026-03-05 02:45:30', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 02:45:30', '2026-03-05 02:45:30'),
+(60, 60, 16, NULL, NULL, 'user', NULL, '2026-03-05 02:46:48', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 02:46:48', '2026-03-05 02:46:48'),
+(61, 61, 16, NULL, NULL, 'user', NULL, '2026-03-05 02:47:37', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 02:47:37', '2026-03-05 02:47:37'),
+(62, 62, 16, NULL, NULL, 'user', NULL, '2026-03-05 02:48:22', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 02:48:22', '2026-03-05 02:48:22'),
+(63, 63, 16, NULL, NULL, 'user', NULL, '2026-03-05 02:49:18', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 02:49:18', '2026-03-05 02:49:18'),
+(64, 64, 16, NULL, NULL, 'user', NULL, '2026-03-05 02:54:45', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 02:54:45', '2026-03-05 02:54:45'),
+(65, 65, 16, NULL, NULL, 'user', NULL, '2026-03-05 02:55:59', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 02:55:59', '2026-03-05 02:55:59'),
+(66, 66, 16, NULL, NULL, 'user', NULL, '2026-03-05 02:56:27', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 02:56:27', '2026-03-05 02:56:27'),
+(67, 67, 16, NULL, NULL, 'user', NULL, '2026-03-05 03:01:44', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 03:01:44', '2026-03-05 03:01:44'),
+(68, 68, 16, NULL, NULL, 'user', NULL, '2026-03-05 03:03:01', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 03:03:01', '2026-03-05 03:03:01'),
+(69, 69, 16, NULL, NULL, 'user', NULL, '2026-03-05 03:04:24', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 03:04:24', '2026-03-05 03:04:24'),
+(70, 70, 16, NULL, NULL, 'user', NULL, '2026-03-05 03:05:32', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 03:05:32', '2026-03-05 03:05:32'),
+(71, 71, 16, NULL, NULL, 'user', NULL, '2026-03-05 03:06:28', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 03:06:28', '2026-03-05 03:06:28'),
+(72, 72, 16, NULL, NULL, 'user', NULL, '2026-03-05 03:06:58', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 03:06:58', '2026-03-05 03:06:58'),
+(73, 73, 16, NULL, NULL, 'user', NULL, '2026-03-05 03:07:35', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 03:07:35', '2026-03-05 03:07:35'),
+(74, 74, 16, NULL, NULL, 'user', NULL, '2026-03-05 03:09:54', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 03:09:54', '2026-03-05 03:09:54'),
+(75, 75, 13, NULL, NULL, 'user', NULL, '2026-03-05 03:10:21', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 03:10:21', '2026-03-05 03:10:21'),
+(76, 76, 16, NULL, NULL, 'user', NULL, '2026-03-05 03:10:59', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 03:10:59', '2026-03-05 03:10:59'),
+(77, 77, 13, NULL, NULL, 'user', NULL, '2026-03-05 03:11:59', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 03:11:59', '2026-03-05 03:11:59'),
+(78, 78, 16, NULL, NULL, 'user', NULL, '2026-03-05 03:12:03', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 03:12:03', '2026-03-05 03:12:03'),
+(79, 79, 16, NULL, NULL, 'user', NULL, '2026-03-05 03:12:36', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 03:12:36', '2026-03-05 03:12:36'),
+(80, 80, 16, NULL, NULL, 'user', NULL, '2026-03-05 03:13:13', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 03:13:13', '2026-03-05 03:13:13'),
+(81, 81, 13, NULL, NULL, 'user', NULL, '2026-03-05 03:13:17', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 03:13:17', '2026-03-05 03:13:17'),
+(82, 82, 16, NULL, NULL, 'user', NULL, '2026-03-05 03:14:25', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 03:14:25', '2026-03-05 03:14:25'),
+(83, 83, 16, NULL, NULL, 'user', NULL, '2026-03-05 03:15:08', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 03:15:08', '2026-03-05 03:15:08'),
+(84, 84, 13, NULL, NULL, 'user', NULL, '2026-03-05 03:15:19', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 03:15:19', '2026-03-05 03:15:19'),
+(85, 85, 16, NULL, NULL, 'user', NULL, '2026-03-05 03:15:54', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 03:15:54', '2026-03-05 03:15:54'),
+(86, 86, 16, NULL, NULL, 'user', NULL, '2026-03-05 03:16:23', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 03:16:23', '2026-03-05 03:16:23'),
+(87, 87, 13, NULL, NULL, 'user', NULL, '2026-03-05 03:17:27', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 03:17:27', '2026-03-05 03:17:27'),
+(88, 88, 13, NULL, NULL, 'user', NULL, '2026-03-05 03:19:48', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 03:19:48', '2026-03-05 03:19:48'),
+(89, 89, 13, NULL, NULL, 'user', NULL, '2026-03-05 03:21:43', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 03:21:43', '2026-03-05 03:21:43'),
+(90, 90, 13, NULL, NULL, 'user', NULL, '2026-03-05 03:24:07', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 03:24:07', '2026-03-05 03:24:07'),
+(91, 91, 13, NULL, NULL, 'user', NULL, '2026-03-05 03:25:54', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 03:25:54', '2026-03-05 03:25:54'),
+(92, 92, 13, NULL, NULL, 'user', NULL, '2026-03-05 03:27:34', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 03:27:34', '2026-03-05 03:27:34'),
+(93, 93, 13, NULL, NULL, 'user', NULL, '2026-03-05 03:30:29', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 03:30:29', '2026-03-05 03:30:29'),
+(94, 94, 13, NULL, NULL, 'user', NULL, '2026-03-05 03:37:39', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 03:37:39', '2026-03-05 03:37:39'),
+(95, 95, 13, NULL, NULL, 'user', NULL, '2026-03-05 03:39:25', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 03:39:25', '2026-03-05 03:39:25'),
+(96, 96, 13, NULL, NULL, 'user', NULL, '2026-03-05 03:41:02', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 03:41:02', '2026-03-05 03:41:02'),
+(97, 97, 13, NULL, NULL, 'user', NULL, '2026-03-05 03:42:37', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 03:42:37', '2026-03-05 03:42:37'),
+(98, 98, 13, NULL, NULL, 'user', NULL, '2026-03-05 03:45:27', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 03:45:27', '2026-03-05 03:45:27'),
+(99, 99, 13, NULL, NULL, 'user', NULL, '2026-03-05 03:46:45', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 03:46:45', '2026-03-05 03:46:45'),
+(100, 100, 13, NULL, NULL, 'user', NULL, '2026-03-05 03:46:57', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 03:46:57', '2026-03-05 03:46:57'),
+(101, 101, 13, NULL, NULL, 'user', NULL, '2026-03-05 03:48:47', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 03:48:47', '2026-03-05 03:48:47'),
+(102, 102, 13, NULL, NULL, 'user', NULL, '2026-03-05 03:50:19', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 03:50:19', '2026-03-05 03:50:19'),
+(103, 103, 13, NULL, NULL, 'user', NULL, '2026-03-05 03:53:25', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 03:53:25', '2026-03-05 03:53:25'),
+(104, 104, 13, NULL, NULL, 'user', NULL, '2026-03-05 03:55:20', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 03:55:20', '2026-03-05 03:55:20'),
+(105, 105, 13, NULL, NULL, 'user', NULL, '2026-03-05 03:56:47', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 03:56:47', '2026-03-05 03:56:47'),
+(106, 106, 13, NULL, NULL, 'user', NULL, '2026-03-05 03:56:54', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 03:56:54', '2026-03-05 03:56:54'),
+(107, 107, 13, NULL, NULL, 'user', NULL, '2026-03-05 04:00:45', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 04:00:45', '2026-03-05 04:00:45'),
+(108, 108, 13, NULL, NULL, 'user', NULL, '2026-03-05 05:30:30', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 05:30:30', '2026-03-05 05:30:30'),
+(109, 109, 13, NULL, NULL, 'user', NULL, '2026-03-05 05:33:21', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 05:33:21', '2026-03-05 05:33:21'),
+(110, 110, 13, NULL, NULL, 'user', NULL, '2026-03-05 05:35:59', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 05:35:59', '2026-03-05 05:35:59'),
+(111, 111, 13, NULL, NULL, 'user', NULL, '2026-03-05 05:37:40', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 05:37:40', '2026-03-05 05:37:40'),
+(112, 112, 13, NULL, NULL, 'user', NULL, '2026-03-05 05:40:19', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 05:40:19', '2026-03-05 05:40:19'),
+(113, 113, 13, NULL, NULL, 'user', NULL, '2026-03-05 05:42:17', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 05:42:17', '2026-03-05 05:42:17'),
+(114, 114, 13, NULL, NULL, 'user', NULL, '2026-03-05 05:43:58', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 05:43:58', '2026-03-05 05:43:58'),
+(115, 115, 13, NULL, NULL, 'user', NULL, '2026-03-05 05:46:03', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 05:46:03', '2026-03-05 05:46:03'),
+(116, 116, 13, NULL, NULL, 'user', NULL, '2026-03-05 05:50:46', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 05:50:46', '2026-03-05 05:50:46'),
+(117, 117, 13, NULL, NULL, 'user', NULL, '2026-03-05 05:53:37', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 05:53:37', '2026-03-05 05:53:37'),
+(118, 118, 13, NULL, NULL, 'user', NULL, '2026-03-05 05:55:29', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 05:55:29', '2026-03-05 05:55:29'),
+(119, 119, 13, NULL, NULL, 'user', NULL, '2026-03-05 05:57:17', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 05:57:17', '2026-03-05 05:57:17'),
+(120, 120, 16, NULL, NULL, 'user', NULL, '2026-03-05 06:21:22', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 06:21:22', '2026-03-05 06:21:22'),
+(121, 121, 16, NULL, NULL, 'user', NULL, '2026-03-05 06:24:16', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 06:24:16', '2026-03-05 06:24:16'),
+(122, 122, 16, NULL, NULL, 'user', NULL, '2026-03-05 06:34:36', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 06:34:36', '2026-03-05 06:34:36'),
+(123, 123, 16, NULL, NULL, 'user', NULL, '2026-03-05 06:35:32', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 06:35:32', '2026-03-05 06:35:32'),
+(124, 124, 13, NULL, NULL, 'user', NULL, '2026-03-05 06:56:40', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 06:56:40', '2026-03-05 06:56:40'),
+(125, 125, 13, NULL, NULL, 'user', NULL, '2026-03-05 06:57:32', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 06:57:32', '2026-03-05 06:57:32'),
+(126, 126, 13, NULL, NULL, 'user', NULL, '2026-03-05 06:59:51', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 06:59:51', '2026-03-05 06:59:51'),
+(127, 127, 13, NULL, NULL, 'user', NULL, '2026-03-05 07:00:42', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 07:00:42', '2026-03-05 07:00:42'),
+(128, 128, 13, NULL, NULL, 'user', NULL, '2026-03-05 07:01:31', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 07:01:31', '2026-03-05 07:01:31'),
+(129, 129, 13, NULL, NULL, 'user', NULL, '2026-03-05 07:03:47', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 07:03:47', '2026-03-05 07:03:47'),
+(130, 130, 13, NULL, NULL, 'user', NULL, '2026-03-05 07:04:37', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 07:04:37', '2026-03-05 07:04:37'),
+(131, 131, 13, NULL, NULL, 'user', NULL, '2026-03-05 07:05:27', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 07:05:27', '2026-03-05 07:05:27'),
+(132, 132, 13, NULL, NULL, 'user', NULL, '2026-03-05 07:07:50', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 07:07:50', '2026-03-05 07:07:50'),
+(133, 133, 13, NULL, NULL, 'user', NULL, '2026-03-05 07:08:57', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 07:08:57', '2026-03-05 07:08:57'),
+(134, 134, 13, NULL, NULL, 'user', NULL, '2026-03-05 07:09:44', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 07:09:44', '2026-03-05 07:09:44'),
+(135, 135, 13, NULL, NULL, 'user', NULL, '2026-03-05 07:11:23', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 07:11:23', '2026-03-05 07:11:23'),
+(136, 136, 13, NULL, NULL, 'user', NULL, '2026-03-05 07:14:56', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 07:14:56', '2026-03-05 07:14:56'),
+(137, 137, 13, NULL, NULL, 'user', NULL, '2026-03-05 07:15:51', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 07:15:51', '2026-03-05 07:15:51'),
+(138, 138, 13, NULL, NULL, 'user', NULL, '2026-03-05 07:16:47', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 07:16:47', '2026-03-05 07:16:47'),
+(139, 139, 13, NULL, NULL, 'user', NULL, '2026-03-05 07:16:50', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 07:16:50', '2026-03-05 07:16:50'),
+(140, 140, 13, NULL, NULL, 'user', NULL, '2026-03-05 07:17:50', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 07:17:50', '2026-03-05 07:17:50'),
+(141, 141, 13, NULL, NULL, 'user', NULL, '2026-03-05 07:20:14', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 07:20:14', '2026-03-05 07:20:14'),
+(142, 142, 13, NULL, NULL, 'user', NULL, '2026-03-05 07:21:07', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 07:21:07', '2026-03-05 07:21:07'),
+(143, 143, 13, NULL, NULL, 'user', NULL, '2026-03-05 07:23:16', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 07:23:16', '2026-03-05 07:23:16'),
+(144, 144, 13, NULL, NULL, 'user', NULL, '2026-03-05 07:23:55', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 07:23:55', '2026-03-05 07:23:55'),
+(145, 145, 13, NULL, NULL, 'user', NULL, '2026-03-05 07:24:44', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 07:24:44', '2026-03-05 07:24:44'),
+(146, 146, 13, NULL, NULL, 'user', NULL, '2026-03-05 07:26:26', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 07:26:26', '2026-03-05 07:26:26'),
+(147, 147, 13, NULL, NULL, 'user', NULL, '2026-03-05 07:27:12', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 07:27:12', '2026-03-05 07:27:12'),
+(148, 148, 13, NULL, NULL, 'user', NULL, '2026-03-05 07:28:04', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-05 07:28:04', '2026-03-05 07:28:04'),
+(149, 149, 16, NULL, NULL, 'user', NULL, '2026-03-12 06:07:53', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 06:07:53', '2026-03-12 06:07:53'),
+(150, 150, 16, NULL, NULL, 'user', NULL, '2026-03-12 06:13:39', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 06:13:39', '2026-03-12 06:13:39'),
+(151, 151, 16, NULL, NULL, 'user', NULL, '2026-03-12 06:13:58', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 06:13:58', '2026-03-12 06:13:58'),
+(152, 152, 16, NULL, NULL, 'user', NULL, '2026-03-12 06:18:20', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 06:18:20', '2026-03-12 06:18:20'),
+(153, 153, 16, NULL, NULL, 'user', NULL, '2026-03-12 06:34:54', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 06:34:54', '2026-03-12 06:34:54'),
+(154, 154, 16, NULL, NULL, 'user', NULL, '2026-03-12 06:35:19', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 06:35:19', '2026-03-12 06:35:19'),
+(155, 155, 16, NULL, NULL, 'user', NULL, '2026-03-12 06:36:26', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 06:36:26', '2026-03-12 06:36:26'),
+(156, 156, 16, NULL, NULL, 'user', NULL, '2026-03-12 06:36:31', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 06:36:31', '2026-03-12 06:36:31'),
+(157, 157, 16, NULL, NULL, 'user', NULL, '2026-03-12 06:36:32', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 06:36:32', '2026-03-12 06:36:32'),
+(158, 158, 16, NULL, NULL, 'user', NULL, '2026-03-12 06:37:52', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 06:37:52', '2026-03-12 06:37:52'),
+(159, 159, 16, NULL, NULL, 'user', NULL, '2026-03-12 06:39:02', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 06:39:02', '2026-03-12 06:39:02'),
+(160, 160, 16, NULL, NULL, 'user', NULL, '2026-03-12 06:39:05', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 06:39:05', '2026-03-12 06:39:05'),
+(161, 161, 16, NULL, NULL, 'user', NULL, '2026-03-12 06:39:52', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 06:39:52', '2026-03-12 06:39:52'),
+(162, 162, 16, NULL, NULL, 'user', NULL, '2026-03-12 06:39:54', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 06:39:54', '2026-03-12 06:39:54'),
+(163, 163, 16, NULL, NULL, 'user', NULL, '2026-03-12 06:42:56', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 06:42:56', '2026-03-12 06:42:56'),
+(164, 164, 16, NULL, NULL, 'user', NULL, '2026-03-12 06:43:51', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 06:43:51', '2026-03-12 06:43:51'),
+(165, 165, 16, NULL, NULL, 'user', NULL, '2026-03-12 06:43:52', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 06:43:52', '2026-03-12 06:43:52'),
+(166, 166, 16, NULL, NULL, 'user', NULL, '2026-03-12 06:43:54', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 06:43:54', '2026-03-12 06:43:54'),
+(167, 167, 16, NULL, NULL, 'user', NULL, '2026-03-12 06:46:15', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 06:46:15', '2026-03-12 06:46:15'),
+(168, 168, 16, NULL, NULL, 'user', NULL, '2026-03-12 06:46:16', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 06:46:16', '2026-03-12 06:46:16'),
+(169, 169, 16, NULL, NULL, 'user', NULL, '2026-03-12 06:46:18', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 06:46:18', '2026-03-12 06:46:18'),
+(170, 170, 16, NULL, NULL, 'user', NULL, '2026-03-12 06:47:04', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 06:47:04', '2026-03-12 06:47:04'),
+(171, 171, 16, NULL, NULL, 'user', NULL, '2026-03-12 06:47:05', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 06:47:05', '2026-03-12 06:47:05'),
+(172, 172, 16, NULL, NULL, 'user', NULL, '2026-03-12 06:47:05', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 06:47:05', '2026-03-12 06:47:05'),
+(173, 173, 16, NULL, NULL, 'user', NULL, '2026-03-12 06:48:08', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 06:48:08', '2026-03-12 06:48:08'),
+(174, 174, 16, NULL, NULL, 'user', NULL, '2026-03-12 06:48:08', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 06:48:08', '2026-03-12 06:48:08'),
+(175, 175, 16, NULL, NULL, 'user', NULL, '2026-03-12 06:48:09', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 06:48:09', '2026-03-12 06:48:09'),
+(176, 176, 16, NULL, NULL, 'user', NULL, '2026-03-12 06:49:36', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 06:49:36', '2026-03-12 06:49:36'),
+(177, 177, 16, NULL, NULL, 'user', NULL, '2026-03-12 06:49:40', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 06:49:40', '2026-03-12 06:49:40'),
+(178, 178, 16, NULL, NULL, 'user', NULL, '2026-03-12 06:56:23', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 06:56:23', '2026-03-12 06:56:23'),
+(179, 179, 16, NULL, NULL, 'user', NULL, '2026-03-12 06:57:18', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 06:57:18', '2026-03-12 06:57:18'),
+(180, 180, 16, NULL, NULL, 'user', NULL, '2026-03-12 06:57:20', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 06:57:20', '2026-03-12 06:57:20'),
+(181, 181, 16, NULL, NULL, 'user', NULL, '2026-03-12 06:57:24', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 06:57:24', '2026-03-12 06:57:24'),
+(182, 182, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:05:34', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:05:34', '2026-03-12 07:05:34'),
+(183, 183, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:05:42', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:05:42', '2026-03-12 07:05:42'),
+(184, 184, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:05:43', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:05:43', '2026-03-12 07:05:43'),
+(185, 185, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:06:44', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:06:44', '2026-03-12 07:06:44'),
+(186, 186, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:06:46', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:06:46', '2026-03-12 07:06:46'),
+(187, 187, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:06:48', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:06:48', '2026-03-12 07:06:48'),
+(188, 188, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:07:56', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:07:56', '2026-03-12 07:07:56'),
+(189, 189, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:07:57', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:07:57', '2026-03-12 07:07:57'),
+(190, 190, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:07:58', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:07:58', '2026-03-12 07:07:58'),
+(191, 191, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:09:05', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:09:05', '2026-03-12 07:09:05'),
+(192, 192, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:09:06', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:09:06', '2026-03-12 07:09:06'),
+(193, 193, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:09:06', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:09:06', '2026-03-12 07:09:06'),
+(194, 194, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:09:52', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:09:52', '2026-03-12 07:09:52'),
+(195, 195, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:09:53', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:09:53', '2026-03-12 07:09:53'),
+(196, 196, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:09:54', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:09:54', '2026-03-12 07:09:54'),
+(197, 197, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:11:35', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:11:35', '2026-03-12 07:11:35'),
+(198, 198, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:11:38', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:11:38', '2026-03-12 07:11:38'),
+(199, 199, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:11:39', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:11:39', '2026-03-12 07:11:39'),
+(200, 200, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:12:23', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:12:23', '2026-03-12 07:12:23'),
+(201, 201, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:12:28', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:12:28', '2026-03-12 07:12:28'),
+(202, 202, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:12:31', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:12:31', '2026-03-12 07:12:31'),
+(203, 203, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:13:27', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:13:27', '2026-03-12 07:13:27'),
+(204, 204, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:13:46', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:13:46', '2026-03-12 07:13:46'),
+(205, 205, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:13:46', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:13:46', '2026-03-12 07:13:46'),
+(206, 206, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:14:28', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:14:28', '2026-03-12 07:14:28'),
+(207, 207, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:14:28', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:14:28', '2026-03-12 07:14:28'),
+(208, 208, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:14:31', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:14:31', '2026-03-12 07:14:31'),
+(209, 209, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:15:46', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:15:46', '2026-03-12 07:15:46'),
+(210, 210, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:15:47', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:15:47', '2026-03-12 07:15:47'),
+(211, 211, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:15:49', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:15:49', '2026-03-12 07:15:49'),
+(212, 212, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:16:29', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:16:29', '2026-03-12 07:16:29'),
+(213, 213, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:16:32', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:16:32', '2026-03-12 07:16:32'),
+(214, 214, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:16:32', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:16:32', '2026-03-12 07:16:32'),
+(215, 215, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:17:09', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:17:09', '2026-03-12 07:17:09'),
+(216, 216, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:17:10', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:17:10', '2026-03-12 07:17:10'),
+(217, 217, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:17:16', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:17:16', '2026-03-12 07:17:16'),
+(218, 218, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:18:01', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:18:01', '2026-03-12 07:18:01'),
+(219, 219, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:18:03', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:18:03', '2026-03-12 07:18:03'),
+(220, 220, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:18:04', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:18:04', '2026-03-12 07:18:04'),
+(221, 221, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:19:08', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:19:08', '2026-03-12 07:19:08'),
+(222, 222, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:19:08', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:19:08', '2026-03-12 07:19:08'),
+(223, 223, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:19:10', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:19:10', '2026-03-12 07:19:10'),
+(224, 224, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:19:44', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:19:44', '2026-03-12 07:19:44'),
+(225, 225, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:19:44', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:19:44', '2026-03-12 07:19:44'),
+(226, 226, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:19:46', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:19:46', '2026-03-12 07:19:46'),
+(227, 227, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:20:39', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:20:39', '2026-03-12 07:20:39'),
+(228, 228, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:20:42', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:20:42', '2026-03-12 07:20:42'),
+(229, 229, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:20:42', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:20:42', '2026-03-12 07:20:42'),
+(230, 230, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:21:37', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:21:37', '2026-03-12 07:21:37'),
+(231, 231, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:21:40', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:21:40', '2026-03-12 07:21:40'),
+(232, 232, 16, NULL, NULL, 'user', NULL, '2026-03-12 07:21:41', NULL, 'File uploaded - uploader is initial holder', NULL, NULL, 'checked_out', 0, NULL, '2026-03-12 07:21:41', '2026-03-12 07:21:41');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `car_file_transfers`
+--
+
+DROP TABLE IF EXISTS `car_file_transfers`;
+CREATE TABLE IF NOT EXISTS `car_file_transfers` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `car_file_id` int(11) NOT NULL COMMENT 'FK to car_files',
+  `from_user_id` int(11) DEFAULT NULL COMMENT 'FK to users - who transferred from, NULL = available',
+  `to_user_id` int(11) DEFAULT NULL COMMENT 'FK to users - who received (NULL if transferred to agent or client)',
+  `from_agent_id` int(11) DEFAULT NULL COMMENT 'FK to custom_clearance_agents - if transferred from agent',
+  `to_agent_id` int(11) DEFAULT NULL COMMENT 'FK to custom_clearance_agents - if transferred to agent',
+  `from_client_name` varchar(255) DEFAULT NULL COMMENT 'Client name if transferred from client',
+  `to_client_name` varchar(255) DEFAULT NULL COMMENT 'Client name if transferred to client',
+  `transfer_type` enum('user_to_user','user_to_agent','agent_to_user','user_to_client','client_to_user') NOT NULL DEFAULT 'user_to_user',
+  `transfer_status` enum('pending','approved','rejected') NOT NULL DEFAULT 'approved' COMMENT 'Transfer status: pending (waiting approval), approved (completed), rejected (cancelled)',
+  `transferred_by` int(11) NOT NULL COMMENT 'FK to users - who performed the transfer',
+  `transferred_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `notes` text DEFAULT NULL COMMENT 'Transfer notes',
+  `return_expected_date` date DEFAULT NULL COMMENT 'Expected return date',
+  `returned_at` timestamp NULL DEFAULT NULL COMMENT 'When file was returned (checked in)',
+  `return_notes` text DEFAULT NULL COMMENT 'Return notes',
+  PRIMARY KEY (`id`),
+  KEY `idx_car_file_id` (`car_file_id`),
+  KEY `idx_from_user` (`from_user_id`),
+  KEY `idx_to_user` (`to_user_id`),
+  KEY `idx_transferred_by` (`transferred_by`),
+  KEY `idx_transferred_at` (`transferred_at`),
+  KEY `idx_returned_at` (`returned_at`),
+  KEY `idx_from_agent` (`from_agent_id`),
+  KEY `idx_to_agent` (`to_agent_id`),
+  KEY `idx_transfer_type` (`transfer_type`),
+  KEY `idx_transfer_status` (`transfer_status`)
+) ENGINE=InnoDB AUTO_INCREMENT=233 DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+--
+-- Dumping data for table `car_file_transfers`
+--
+
+INSERT INTO `car_file_transfers` (`id`, `car_file_id`, `from_user_id`, `to_user_id`, `from_agent_id`, `to_agent_id`, `from_client_name`, `to_client_name`, `transfer_type`, `transfer_status`, `transferred_by`, `transferred_at`, `notes`, `return_expected_date`, `returned_at`, `return_notes`) VALUES
+(1, 1, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-07 10:04:13', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(2, 2, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-07 10:05:00', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(3, 3, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-07 10:05:29', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(4, 4, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-07 10:06:31', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(5, 5, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-07 10:07:34', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(6, 6, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-07 10:09:48', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(7, 7, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-07 10:10:26', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(8, 8, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-07 10:10:29', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(9, 9, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-07 10:10:59', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(10, 10, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-07 10:12:08', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(11, 11, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-07 10:12:53', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(12, 12, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-07 10:13:12', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(13, 13, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-07 10:13:42', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(14, 14, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-07 10:14:44', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(15, 15, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-07 10:15:16', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(16, 16, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-07 10:15:45', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(17, 17, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-07 10:16:17', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(18, 18, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-07 10:17:19', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(19, 19, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-07 10:17:48', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(20, 20, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-07 10:18:49', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(21, 21, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-07 10:20:35', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(22, 22, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-07 10:22:50', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(23, 23, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-07 10:23:53', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(24, 24, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-07 10:24:44', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(25, 25, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-07 10:25:13', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(26, 26, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-07 10:28:00', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(27, 27, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-07 10:28:27', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(28, 28, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-07 10:29:07', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(29, 29, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-07 10:29:55', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(30, 30, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-11 08:10:57', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(31, 31, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-11 08:11:59', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(32, 32, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-11 08:12:49', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(33, 33, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-11 08:13:45', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(34, 34, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-11 08:14:18', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(35, 35, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-11 08:15:06', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(36, 36, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-11 08:15:45', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(37, 37, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-11 08:16:23', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(38, 38, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-12 09:18:46', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(39, 39, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-12 09:19:16', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(40, 40, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-12 09:19:42', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(41, 41, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-12 09:20:08', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(42, 42, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-12 09:20:41', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(43, 43, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-12 09:21:03', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(44, 44, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-12 09:21:48', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(45, 45, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-12 09:22:11', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(46, 46, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-12 09:22:46', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(47, 47, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-12 09:23:12', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(48, 48, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-12 09:23:34', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(49, 49, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-12 09:24:07', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(50, 50, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-12 09:24:33', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(51, 51, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-12 09:25:00', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(52, 52, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-12 09:25:22', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(53, 53, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-02-12 09:25:47', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(54, 54, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 02:32:54', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(55, 55, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-05 02:40:02', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(56, 56, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-05 02:42:03', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(57, 57, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-05 02:43:09', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(58, 58, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-05 02:44:19', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(59, 59, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-05 02:45:30', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(60, 60, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-05 02:46:48', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(61, 61, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-05 02:47:37', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(62, 62, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-05 02:48:23', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(63, 63, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-05 02:49:18', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(64, 64, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-05 02:54:45', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(65, 65, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-05 02:55:59', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(66, 66, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-05 02:56:27', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(67, 67, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-05 03:01:44', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(68, 68, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-05 03:03:01', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(69, 69, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-05 03:04:24', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(70, 70, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-05 03:05:32', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(71, 71, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-05 03:06:28', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(72, 72, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-05 03:06:58', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(73, 73, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-05 03:07:35', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(74, 74, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-05 03:09:54', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(75, 75, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 03:10:21', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(76, 76, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-05 03:10:59', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(77, 77, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 03:11:59', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(78, 78, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-05 03:12:03', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(79, 79, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-05 03:12:36', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(80, 80, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-05 03:13:13', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(81, 81, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 03:13:17', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(82, 82, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-05 03:14:25', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(83, 83, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-05 03:15:08', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(84, 84, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 03:15:19', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(85, 85, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-05 03:15:54', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(86, 86, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-05 03:16:23', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(87, 87, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 03:17:27', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(88, 88, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 03:19:48', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(89, 89, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 03:21:43', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(90, 90, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 03:24:07', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(91, 91, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 03:25:54', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(92, 92, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 03:27:34', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(93, 93, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 03:30:29', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(94, 94, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 03:37:39', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(95, 95, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 03:39:25', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(96, 96, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 03:41:02', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(97, 97, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 03:42:37', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(98, 98, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 03:45:27', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(99, 99, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 03:46:45', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(100, 100, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 03:46:57', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(101, 101, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 03:48:47', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(102, 102, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 03:50:19', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(103, 103, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 03:53:25', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(104, 104, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 03:55:20', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(105, 105, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 03:56:47', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(106, 106, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 03:56:54', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(107, 107, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 04:00:45', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(108, 108, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 05:30:30', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(109, 109, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 05:33:21', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(110, 110, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 05:35:59', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(111, 111, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 05:37:40', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(112, 112, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 05:40:19', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(113, 113, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 05:42:17', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(114, 114, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 05:43:58', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(115, 115, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 05:46:03', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(116, 116, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 05:50:46', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(117, 117, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 05:53:37', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(118, 118, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 05:55:29', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(119, 119, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 05:57:17', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(120, 120, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-05 06:21:22', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(121, 121, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-05 06:24:16', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(122, 122, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-05 06:34:36', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(123, 123, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-05 06:35:32', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(124, 124, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 06:56:40', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(125, 125, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 06:57:32', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(126, 126, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 06:59:51', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(127, 127, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 07:00:42', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(128, 128, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 07:01:31', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(129, 129, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 07:03:47', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(130, 130, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 07:04:37', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(131, 131, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 07:05:27', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(132, 132, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 07:07:50', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(133, 133, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 07:08:57', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(134, 134, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 07:09:44', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(135, 135, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 07:11:23', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(136, 136, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 07:14:56', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(137, 137, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 07:15:51', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(138, 138, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 07:16:47', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(139, 139, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 07:16:50', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(140, 140, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 07:17:50', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(141, 141, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 07:20:14', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(142, 142, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 07:21:07', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(143, 143, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 07:23:16', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(144, 144, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 07:23:55', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(145, 145, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 07:24:44', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(146, 146, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 07:26:26', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(147, 147, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 07:27:12', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(148, 148, NULL, 13, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 13, '2026-03-05 07:28:04', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(149, 149, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 06:07:53', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(150, 150, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 06:13:39', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(151, 151, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 06:13:58', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(152, 152, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 06:18:20', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(153, 153, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 06:34:54', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(154, 154, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 06:35:19', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(155, 155, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 06:36:26', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(156, 156, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 06:36:31', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(157, 157, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 06:36:32', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(158, 158, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 06:37:52', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(159, 159, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 06:39:02', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(160, 160, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 06:39:05', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(161, 161, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 06:39:52', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(162, 162, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 06:39:54', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(163, 163, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 06:42:56', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(164, 164, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 06:43:51', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(165, 165, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 06:43:52', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(166, 166, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 06:43:54', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(167, 167, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 06:46:15', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(168, 168, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 06:46:16', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(169, 169, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 06:46:18', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(170, 170, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 06:47:04', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(171, 171, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 06:47:05', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(172, 172, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 06:47:05', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(173, 174, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 06:48:08', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(174, 173, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 06:48:08', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(175, 175, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 06:48:09', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(176, 176, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 06:49:36', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(177, 177, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 06:49:40', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(178, 178, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 06:56:23', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(179, 179, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 06:57:18', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(180, 180, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 06:57:20', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(181, 181, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 06:57:24', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(182, 182, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:05:34', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(183, 183, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:05:42', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(184, 184, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:05:43', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(185, 185, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:06:44', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(186, 186, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:06:46', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(187, 187, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:06:48', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(188, 188, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:07:56', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(189, 189, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:07:57', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(190, 190, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:07:58', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(191, 191, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:09:05', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(192, 192, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:09:06', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(193, 193, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:09:06', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(194, 194, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:09:52', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(195, 195, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:09:53', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(196, 196, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:09:54', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(197, 197, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:11:35', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(198, 198, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:11:38', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(199, 199, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:11:39', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(200, 200, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:12:23', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(201, 201, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:12:28', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(202, 202, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:12:31', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(203, 203, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:13:27', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(204, 204, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:13:46', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(205, 205, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:13:46', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(206, 206, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:14:28', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(207, 207, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:14:28', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(208, 208, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:14:31', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(209, 209, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:15:46', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(210, 210, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:15:47', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(211, 211, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:15:49', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(212, 212, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:16:29', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(213, 213, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:16:32', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(214, 214, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:16:32', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(215, 215, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:17:09', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(216, 216, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:17:10', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(217, 217, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:17:16', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(218, 218, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:18:01', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(219, 219, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:18:03', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(220, 220, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:18:04', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(221, 221, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:19:08', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(222, 222, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:19:08', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(223, 223, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:19:10', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(224, 224, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:19:44', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(225, 225, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:19:44', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(226, 226, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:19:46', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(227, 227, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:20:39', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(228, 228, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:20:42', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(229, 229, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:20:42', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(230, 230, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:21:37', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(231, 231, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:21:40', 'File uploaded - uploader is initial holder', NULL, NULL, NULL),
+(232, 232, NULL, 16, NULL, NULL, NULL, NULL, 'user_to_user', 'approved', 16, '2026-03-12 07:21:41', 'File uploaded - uploader is initial holder', NULL, NULL, NULL);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `car_selections`
+--
+
 DROP TABLE IF EXISTS `car_selections`;
-DROP TABLE IF EXISTS `jobs`;
-DROP TABLE IF EXISTS `team_members`;
-DROP TABLE IF EXISTS `teams`;
-
--- ============================================
--- Create tables in correct dependency order
--- ============================================
-
--- Teams table (must be created first - referenced by jobs, team_members, and car_selections)
-CREATE TABLE IF NOT EXISTS `teams` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `name` varchar(255) NOT NULL COMMENT 'Team name',
-  `team_leader_id` int(11) NOT NULL COMMENT 'FK to users - team leader',
-  `description` text DEFAULT NULL COMMENT 'Team description',
-  `jobs_completed_count` int(11) NOT NULL DEFAULT 0 COMMENT 'Incremental count of completed jobs',
-  `is_active` tinyint(1) NOT NULL DEFAULT 1 COMMENT '1=Active, 0=Inactive',
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  KEY `idx_team_leader_id` (`team_leader_id`),
-  KEY `idx_is_active` (`is_active`),
-  KEY `idx_jobs_completed_count` (`jobs_completed_count`),
-  CONSTRAINT `fk_teams_team_leader` FOREIGN KEY (`team_leader_id`) REFERENCES `users` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 COMMENT='Teams with team leaders';
-
--- Team members table (users can only be in one team)
-CREATE TABLE IF NOT EXISTS `team_members` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `team_id` int(11) NOT NULL COMMENT 'FK to teams',
-  `user_id` int(11) NOT NULL COMMENT 'FK to users - UNIQUE constraint ensures one team per user',
-  `role` enum('member', 'deputy_leader') NOT NULL DEFAULT 'member' COMMENT 'Role in the team',
-  `joined_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'When user joined the team',
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `unique_user_team` (`user_id`),
-  KEY `idx_team_id` (`team_id`),
-  KEY `idx_user_id` (`user_id`),
-  CONSTRAINT `fk_team_members_team` FOREIGN KEY (`team_id`) REFERENCES `teams` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `fk_team_members_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 COMMENT='Team members - users can only be in one team at a time';
-
--- Jobs table (must be created after teams since jobs references teams)
-CREATE TABLE IF NOT EXISTS `jobs` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `name` varchar(255) NOT NULL COMMENT 'Job name',
-  `description` text DEFAULT NULL COMMENT 'Job description',
-  `category` varchar(100) DEFAULT NULL COMMENT 'Job category (loading, delivery, inspection, documentation, etc.)',
-  `estimated_duration_hours` int(11) DEFAULT NULL COMMENT 'Estimated duration in hours',
-  `is_active` tinyint(1) NOT NULL DEFAULT 1 COMMENT '1=Active, 0=Inactive',
-  `team_id` int(11) DEFAULT NULL COMMENT 'FK to teams - each job belongs to one team (one team can have multiple jobs)',
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  KEY `idx_is_active` (`is_active`),
-  KEY `idx_category` (`category`),
-  KEY `idx_name` (`name`),
-  KEY `idx_team_id` (`team_id`),
-  CONSTRAINT `fk_jobs_team` FOREIGN KEY (`team_id`) REFERENCES `teams` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 COMMENT='Jobs assigned to teams - one team can have multiple jobs, each job belongs to one team';
-
--- Insert default jobs
-INSERT IGNORE INTO `jobs` (`name`, `description`, `category`, `is_active`) VALUES
-('Loading', 'Load cars onto container/ship', 'loading', 1),
-('Delivery', 'Deliver cars to destination', 'delivery', 1),
-('Inspection', 'Inspect cars for quality/condition', 'inspection', 1),
-('Documentation', 'Prepare and process documents', 'documentation', 1),
-('Warehouse Management', 'Manage warehouse operations', 'warehouse', 1),
-('Custom Clearance', 'Handle custom clearance procedures', 'custom_clearance', 1);
-
--- Car selections table (references users, teams, and jobs)
 CREATE TABLE IF NOT EXISTS `car_selections` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `name` varchar(255) NOT NULL COMMENT 'Selection name',
   `description` text DEFAULT NULL COMMENT 'Selection description',
   `user_create_selection` int(11) NOT NULL COMMENT 'FK to users - who created the selection',
-  `selection_data` json DEFAULT NULL COMMENT 'JSON array of car IDs that were selected',
+  `selection_data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT 'JSON array of car IDs that were selected' CHECK (json_valid(`selection_data`)),
   `assigned_to_team` int(11) DEFAULT NULL COMMENT 'FK to teams - team assigned to work on this',
   `assigned_to_team_from_user_id` int(11) DEFAULT NULL COMMENT 'FK to users - who assigned to team',
   `assigned_at` datetime DEFAULT NULL COMMENT 'When assigned to team',
   `job_id` int(11) DEFAULT NULL COMMENT 'FK to jobs - what job the team needs to do',
   `job_done_on` datetime DEFAULT NULL COMMENT 'DateTime when job was completed',
-  `owned_by` json DEFAULT NULL COMMENT 'JSON array of user IDs - users who received this selection',
+  `owned_by` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT 'JSON array of user IDs - users who received this selection' CHECK (json_valid(`owned_by`)),
   `sent_by_user_id` int(11) DEFAULT NULL COMMENT 'FK to users - who sent the selection',
-  `status` enum('pending', 'in_progress', 'completed', 'cancelled') NOT NULL DEFAULT 'pending' COMMENT 'Selection status',
+  `status` enum('pending','in_progress','completed','cancelled') NOT NULL DEFAULT 'pending' COMMENT 'Selection status',
   `status_changed_at` datetime DEFAULT NULL COMMENT 'When the status was last changed',
-  `previous_status` enum('pending', 'in_progress', 'completed', 'cancelled') DEFAULT NULL COMMENT 'Previous status before change',
-  `priority` enum('low', 'medium', 'high', 'urgent') NOT NULL DEFAULT 'medium' COMMENT 'Priority level',
+  `previous_status` enum('pending','in_progress','completed','cancelled') DEFAULT NULL COMMENT 'Previous status before change',
+  `priority` enum('low','medium','high','urgent') NOT NULL DEFAULT 'medium' COMMENT 'Priority level',
   `due_date` datetime DEFAULT NULL COMMENT 'Optional deadline',
   `deadline` datetime DEFAULT NULL COMMENT 'Deadline for completing the selection',
   `notes` text DEFAULT NULL COMMENT 'Additional notes/comments',
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`),
   KEY `idx_user_create_selection` (`user_create_selection`),
   KEY `idx_assigned_to_team` (`assigned_to_team`),
@@ -113,73 +1591,1913 @@ CREATE TABLE IF NOT EXISTS `car_selections` (
   KEY `idx_due_date` (`due_date`),
   KEY `idx_deadline` (`deadline`),
   KEY `idx_assigned_at` (`assigned_at`),
-  KEY `idx_job_done_on` (`job_done_on`),
-  CONSTRAINT `fk_car_selections_creator` FOREIGN KEY (`user_create_selection`) REFERENCES `users` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
-  CONSTRAINT `fk_car_selections_team` FOREIGN KEY (`assigned_to_team`) REFERENCES `teams` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT `fk_car_selections_assigner` FOREIGN KEY (`assigned_to_team_from_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT `fk_car_selections_job` FOREIGN KEY (`job_id`) REFERENCES `jobs` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT `fk_car_selections_sender` FOREIGN KEY (`sent_by_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 COMMENT='Car selections with team assignments and job tracking';
+  KEY `idx_job_done_on` (`job_done_on`)
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci COMMENT='Car selections with team assignments and job tracking';
 
--- Selection ownership history table (references car_selections and users)
+--
+-- Dumping data for table `car_selections`
+--
+
+INSERT INTO `car_selections` (`id`, `name`, `description`, `user_create_selection`, `selection_data`, `assigned_to_team`, `assigned_to_team_from_user_id`, `assigned_at`, `job_id`, `job_done_on`, `owned_by`, `sent_by_user_id`, `status`, `status_changed_at`, `previous_status`, `priority`, `due_date`, `deadline`, `notes`, `created_at`, `updated_at`) VALUES
+(1, 'leo  GAC cars', 'push get cars , documents then load before holidays', 1, '[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70]', NULL, NULL, NULL, NULL, NULL, '[1,15,13]', NULL, 'pending', '2026-01-07 04:15:54', NULL, 'urgent', NULL, '2026-01-31 17:15:00', NULL, '2026-01-07 09:15:54', '2026-01-07 09:29:40'),
+(2, 'bruce ordee', 'get cars; documents and load', 1, '[71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111]', NULL, NULL, NULL, NULL, NULL, '[1,12,16]', NULL, 'pending', '2026-01-07 04:23:38', NULL, 'urgent', NULL, '2026-01-31 17:22:00', NULL, '2026-01-07 09:23:38', '2026-01-07 09:27:10');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `chat_groups`
+--
+
+DROP TABLE IF EXISTS `chat_groups`;
+CREATE TABLE IF NOT EXISTS `chat_groups` (
+  `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) DEFAULT NULL,
+  `description` text DEFAULT NULL,
+  `id_user_owner` int(11) DEFAULT NULL,
+  `id_client_owner` int(11) DEFAULT NULL,
+  `is_active` tinyint(1) DEFAULT 1,
+  PRIMARY KEY (`id`),
+  KEY `idx_id_client_owner` (`id_client_owner`)
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `chat_groups`
+--
+
+INSERT INTO `chat_groups` (`id`, `name`, `description`, `id_user_owner`, `id_client_owner`, `is_active`) VALUES
+(1, 'Selection: bruce ordee (ID: 2)', 'Group chat for selection: bruce ordee', 1, NULL, 1),
+(2, 'Selection: leo  GAC cars (ID: 1)', 'Group chat for selection: leo  GAC cars', 1, NULL, 1),
+(3, '[Facture de Vente #34 - MIM006050126034] CHANGE THE NAME', 'Chat group for task: [Facture de Vente #34 - MIM006050126034] CHANGE THE NAME', 5, NULL, 1),
+(4, '[é”€å”®è´¦å• #54 - SOF005110126054] sell bill 54, call client to update the contract', 'Chat group for task: [é”€å”®è´¦å• #54 - SOF005110126054] sell bill 54, call client to update the contract', 7, NULL, 1),
+(5, 'CANCEL ORDER -  MOUNI KAMEL', 'Chat group for task: CANCEL ORDER -  MOUNI KAMEL', 5, NULL, 1);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `chat_last_read_message`
+--
+
+DROP TABLE IF EXISTS `chat_last_read_message`;
+CREATE TABLE IF NOT EXISTS `chat_last_read_message` (
+  `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `id_group` int(11) DEFAULT NULL,
+  `id_user` int(11) DEFAULT NULL,
+  `id_client` int(11) DEFAULT NULL,
+  `id_last_read_message` int(11) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_group_user` (`id_group`,`id_user`),
+  KEY `idx_group_client` (`id_group`,`id_client`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `chat_messages`
+--
+
+DROP TABLE IF EXISTS `chat_messages`;
+CREATE TABLE IF NOT EXISTS `chat_messages` (
+  `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `id_chat_group` int(11) DEFAULT NULL,
+  `message_from_user_id` int(11) DEFAULT NULL,
+  `message_from_client_id` int(11) DEFAULT NULL,
+  `chat_replay_to_message_id` int(11) DEFAULT NULL,
+  `message` text DEFAULT NULL,
+  `time` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_message_from_client_id` (`message_from_client_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `chat_messages`
+--
+
+INSERT INTO `chat_messages` (`id`, `id_chat_group`, `message_from_user_id`, `message_from_client_id`, `chat_replay_to_message_id`, `message`, `time`) VALUES
+(1, 1, 1, NULL, NULL, 'hello everyone', '2026-01-07 14:31:11'),
+(2, 2, 1, NULL, NULL, 'hello Gac group', '2026-01-07 14:33:06');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `chat_read_by`
+--
+
+DROP TABLE IF EXISTS `chat_read_by`;
+CREATE TABLE IF NOT EXISTS `chat_read_by` (
+  `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `id_chat_message` int(11) DEFAULT NULL,
+  `id_user` int(11) DEFAULT NULL,
+  `id_client` int(11) DEFAULT NULL,
+  `read_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_id_client` (`id_client`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `chat_users`
+--
+
+DROP TABLE IF EXISTS `chat_users`;
+CREATE TABLE IF NOT EXISTS `chat_users` (
+  `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `id_user` int(11) DEFAULT NULL,
+  `id_client` int(11) DEFAULT NULL,
+  `id_chat_group` int(11) DEFAULT NULL,
+  `is_active` tinyint(1) DEFAULT 1,
+  PRIMARY KEY (`id`),
+  KEY `idx_id_client` (`id_client`)
+) ENGINE=InnoDB AUTO_INCREMENT=15 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `chat_users`
+--
+
+INSERT INTO `chat_users` (`id`, `id_user`, `id_client`, `id_chat_group`, `is_active`) VALUES
+(1, 1, NULL, 1, 1),
+(2, 12, NULL, 1, 1),
+(3, 16, NULL, 1, 1),
+(4, 5, NULL, 1, 1),
+(5, 1, NULL, 2, 1),
+(6, 15, NULL, 2, 1),
+(7, 13, NULL, 2, 1),
+(8, 5, NULL, 2, 1),
+(9, 6, NULL, 3, 1),
+(10, 5, NULL, 3, 1),
+(11, 5, NULL, 4, 1),
+(12, 7, NULL, 4, 1),
+(13, 7, NULL, 5, 1),
+(14, 5, NULL, 5, 1);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `clients`
+--
+
+DROP TABLE IF EXISTS `clients`;
+CREATE TABLE IF NOT EXISTS `clients` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `share_token` varchar(64) DEFAULT NULL,
+  `name` varchar(255) NOT NULL,
+  `address` varchar(255) DEFAULT NULL,
+  `email` varchar(255) DEFAULT NULL,
+  `mobiles` varchar(255) DEFAULT 'please provide mobile',
+  `id_copy_path` varchar(255) DEFAULT NULL,
+  `id_no` varchar(255) DEFAULT NULL,
+  `nin` varchar(40) DEFAULT NULL,
+  `is_broker` tinyint(1) DEFAULT 0,
+  `is_client` tinyint(1) DEFAULT NULL,
+  `notes` text DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `client_name_unic` (`name`,`id_no`),
+  UNIQUE KEY `id_no` (`id_no`),
+  UNIQUE KEY `idx_share_token` (`share_token`)
+) ENGINE=InnoDB AUTO_INCREMENT=339 DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+--
+-- Dumping data for table `clients`
+--
+
+INSERT INTO `clients` (`id`, `share_token`, `name`, `address`, `email`, `mobiles`, `id_copy_path`, `id_no`, `nin`, `is_broker`, `is_client`, `notes`) VALUES
+(1, NULL, 'MEHIDI LAKHDAR', '', '', '0656011694', 'ids/1.jpg', '187680322', '109950982006470007', 0, 1, 'MER251229001'),
+(2, NULL, 'TEFFAHI KHAYRA', '', '', '0673468565', 'ids/2.jpg', '305032851', '119960982004530007', 0, 1, 'MER251229001'),
+(3, NULL, 'LASMI ABDALLAH', '', '', '0659351246', 'ids/3.jpg', '314593502', '109870733001130006', 0, 1, 'MER251229001'),
+(4, NULL, 'LASMI MUSTAPHA', '', '', '0696598627', 'ids/4.jpg', '309114913', '109930227002500000', 0, 1, 'MER251229001'),
+(5, NULL, 'CHANANE IMAD', '', '', '0556898938', 'ids/5.jpg', '305995238', '109880303000010001', 0, 1, 'MER251229002-2'),
+(6, NULL, 'TOLLABINE OTHMANE', '', '', '0556878067', 'ids/6.jpg', '304805593', '109890297002440000', 0, 1, 'MER251229002-2'),
+(7, NULL, 'MAHIEDDINE ABDELKADER', '', '', '0559755732', 'ids/7.jpg', '106171983', '109860291002870007', 0, 1, 'MER251229002-1'),
+(8, NULL, 'INNAL NOURI', '', '', '0779427975', 'ids/8.jpg', '305951804', '109880751042850000', 0, 1, 'MER251229002-2'),
+(9, NULL, 'MAHIEDDINE MOUSSA', '', '', '0559755738', 'ids/9.jpg', '112953155', '109870291009880007', 0, 1, 'MER251229002-1'),
+(10, NULL, 'CHEKROUN MOHAMMED', '', '', '0774978192', 'ids/10.png', '116420462', '109820392029340005', 0, 1, ''),
+(11, NULL, 'INNAL BILEL', '', '', '0779427975', 'ids/11.jpg', '309432026', '109890781001070009', 0, 1, 'MER251229002-2'),
+(12, NULL, 'MEKHOUKH HALIM', '', '', '0542371280', 'ids/12.jpg', '403829518', '109840284030350006', 0, 1, 'MER251229002'),
+(13, NULL, 'HACHEMI MUSTAPHA NOURREDINE', 'TIARET', '', '0656137471', 'ids/13.jpeg', '302204040', '109990445028630000', 0, 1, ''),
+(14, NULL, 'OKRAF SALAH', 'EL BOUNI ANNABA', '', '0672480201', 'ids/14.pdf', '102639117', '109810841013990003', 0, 1, ''),
+(15, NULL, 'TIROUCHE ADEL ', 'CITE 20 AOUT 1955 CANSTANTINE', '', '0659117718', 'ids/15.jpeg', '106132924', '109770887141330008', 0, 1, ''),
+(16, NULL, 'DAOUDJI MOHAMMED AZZEDDINE', '', '', '0782192033', 'ids/16.png', '410185365', '109871042032040005', 0, 1, ''),
+(17, NULL, 'AKEZOUH SOUFIANE ABDELHAKIM', 'ORAN', '', '0775096747', 'ids/17.jpeg', '207843897', '109971136022480004', 0, 1, ''),
+(18, NULL, 'KLAAI DAHMANE', 'OUELAD AICH - BLIDA', '', '0696521055', 'ids/18.jpeg', '108458410', '109920899006020003', 0, 1, ''),
+(19, NULL, 'KESSIS MOHAMED', 'SETIF', '', '0772023573', 'ids/19.jpeg', '120404263', '109970725000560000', 0, 1, ''),
+(20, NULL, 'LAHOUAR Soufyane', 'Cite 1000 logements msila', 'atallah@merhab.com', '0770103402', 'ids/20.jpeg', '182278519', '109950995040210007', 1, 1, ''),
+(21, NULL, 'KAHIA Hocine', '6 rue AG lot 240 bordj bouarreridj', 'atallah@merhab.com', '0664223252', 'ids/21.jpeg', '132784288', '109481188021990007', 1, 1, ''),
+(22, NULL, 'ELOTTRI Aicha', 'hassi bahbah djelfa', 'atallah@merhab.com', '0779529852', 'ids/22.pdf', '303554466', '119870612014330002', 1, 1, ''),
+(23, NULL, 'DEMIM ADAM', 'AIN SAFRA', '', '0554580185', 'ids/23.jpg', '202710279', '109830402000220007', 0, 1, ''),
+(24, NULL, 'MAHFOUF NACEUR ', 'CITE JEMAA HOUCINE B 5 06 EL BOUNI ANNABA ', '', '0660041058', 'ids/24.pdf', '305109594', '109750113007200001', 0, 1, ''),
+(25, NULL, 'KOUADRIA SAMIR ', 'CITE DERAJI RJAM SIDI AMAR N 326', '', '0775141128', 'ids/25.pdf', '169415955', '109860847001910001', 0, 1, ''),
+(26, NULL, 'KOUADRIA AZZEDDINE ', 'SIDI AMAR ANNABA ', '', '0666522097', 'ids/26.pdf', '104369498', '109950846005900001', 0, 1, ''),
+(27, NULL, 'MOUNI KAMEL', '', '', '0671176727', 'ids/27.jpg', '116447853', '109791506005320005', 0, 1, ''),
+(28, NULL, 'MILAT FARES', '', '', '0770868751', 'ids/28.HEIC', '305244370', '109800887113100003', 0, 1, 'SOF005030126020'),
+(29, NULL, 'BENAYAD MOHAMED', 'TELEMCEN', '', '0671006777', 'ids/29.jpg', '402777496', '109780393002000002', 0, 1, ''),
+(30, NULL, 'ATAMNA SALAH', 'LOTS 1 BOUATI GUELMA', '', '0661561453', 'ids/30.pdf', '110706669', '109470654019800006', 0, 1, ''),
+(31, NULL, 'DRAI ABDERRAHIM', 'EL-AFFROUN - BLIDA', '', '0664067593', 'ids/31.jpeg', '305079752', '109860294001260006', 0, 1, ''),
+(32, NULL, 'DRAI MOHAMED AMINE', 'EL-AFFROUN - BLIDA', '', '0554675865', 'ids/32.jpeg', '308673897', '109950297002330000', 0, 1, ''),
+(40, NULL, 'MILLAT MOHAMED EL MEHDI', '', '', '0542764119', 'ids/40.jpg', '404281977', '100050887085890009', 0, 1, 'SOF005030126020'),
+(41, NULL, 'GRAINI OUALID', '', '', '0551640740', 'ids/41.jpg', '103965928', '109860887128110002', 0, 1, 'SOF005030126020'),
+(42, NULL, 'DJENHI SAAD EDDINE', '', '', '0561791282', 'ids/42.jpg', '412152013', '100030887093450007', 0, 1, 'SOF005030126020'),
+(43, NULL, 'BOUTEBBA HOSSEM EDDINE', 'KOLEA - TIPAZA', '', '0540334683', 'ids/43.pdf', '197134042', '109891381008750007', 0, 1, ''),
+(44, NULL, 'BOURENNANE AYOUB', '', '', '0541327507', 'ids/44.HEIC', '305583140', '109920284004370009', 0, 1, ''),
+(45, NULL, 'BENOUAKLIL MOHAMED', '', '', '0550326891', 'ids/45.HEIC', '307904063', '109960581018400305', 0, 1, ''),
+(46, NULL, 'SAHKI ABDELMADJID ', 'SOUK AHRAS ', '', '0663779966', 'ids/46.jpeg', '312513666', '109711338004440007', 0, 1, ''),
+(47, NULL, 'HAMIDI ABDELBAKI', '', '', '0698231012', 'ids/47.JPG', '314365741', '109810887109330000', 0, 1, ''),
+(48, NULL, 'RAHMANI AHMED', 'CHERAGA - ALGER', '', '0551723205', 'ids/48.jpeg', '416093063', '109680555114990004', 0, 1, ''),
+(49, NULL, 'BELHANI BILLEL ', 'CITE 508  LOGTS B A 7 N 307 SIDI AMAR ANNABA ', '', '0549818555', 'ids/49.pdf', '314155060', '109880841107420003', 0, 1, ''),
+(50, NULL, 'TEDJARI AHMED', 'SETIF', '', '0662441565', 'ids/50.jpeg', '169139048', '109880675015770004', 0, 1, ''),
+(51, NULL, 'BELKEFOUL MOHAMED', 'SETIF', '', '0662441565', 'ids/51.jpeg', '309555213', '109920675047720003', 0, 1, ''),
+(52, NULL, 'BOUCHAREB WEIL ', 'GUELMA ', '', '0670023627', 'ids/52.pdf', '176766352', '109950885000100001', 0, 1, ''),
+(53, NULL, 'DZIRI SIF-EDDINE', 'OULED RECHACHE KHENCHELA ', '', '0655334608', 'ids/53.pdf', '169684412', '109801308004030000', 0, 1, ''),
+(54, NULL, 'AMIMER MUSTAPHA-WALID', '7 COOPERATIVE EL FALAH GUE DE CONSTANTINE', '', '0557676231', 'ids/54.jpeg', '309369933', '109910581015730101', 0, 1, ''),
+(59, NULL, 'BELAID WAHID', '', '', '0616511030', 'ids/59.jpg', '196144821', '109961329011260006', 0, 1, ''),
+(60, NULL, 'BERKANI HOCINE', '', '', '0784192730', 'ids/60.jpg', '319018087', '109850855011580005', 0, 1, 'GEELY HAOYUE PRO'),
+(61, NULL, 'ARAB SAIFEDDINE', '', '', '0657697654', 'ids/61.pdf', '413167293', '109940847001090006', 0, 1, ''),
+(62, NULL, 'ZERROUK ABDELKADER', '', '', '0562786755', 'ids/62.pdf', '111876391', '109960841019260003', 0, 1, ''),
+(63, NULL, 'GHAZGHOUZ YOUCEF', '', '', '0772141494', 'ids/63.jpg', '307131627', '109930841052530004', 0, 1, ''),
+(64, NULL, 'MEKHOUKH YASSINE', '', '', '0542371280', 'ids/64.pdf', '190966021', '109910291022270006', 0, 1, ''),
+(65, NULL, 'TABET ANES', '', '', '0797385211', 'ids/65.jpg', '312742522', '100050887027630000', 0, 1, ''),
+(69, NULL, 'merhab tayeb', '', '', '0673457186', 'ids/69.jpg', '306917367', '109971049024370000', 0, 1, ''),
+(70, NULL, 'BOUDOUR NADIA', '16.RUE PHILIPPE DE CARNER BEAUSEJOUR', '', '0771361371', 'ids/70.pdf', '105027181', '119630841061850007', 0, 1, ''),
+(71, NULL, 'BOUZID RAYENNE', '', '', '0772141494', 'ids/71.jpg', '308084115', '110020841061010005', 0, 1, ''),
+(72, NULL, 'FERHANI MOHAMED FAOUZI', '', '', '0777814553', 'ids/72.jpg', '196792057', '109720841007210003', 0, 1, ''),
+(73, NULL, 'CHEIKH CHERIF', '', '', '0558179263', 'ids/73.jpg', '176964002', '109700841001140002', 0, 1, ''),
+(74, NULL, 'AIN BAZIZ ABDELHAMID', 'CITE 2000 LGTS OUED TERFA BAT A N32', '', '0775414067', 'ids/74.png', '116487614', '109810568000560008', 0, 1, ''),
+(75, NULL, 'ALI LAOUAR SABAR', '', '', '0552663908', 'ids/75.jpg', '312184948', '109820765005520007', 0, 1, ''),
+(76, NULL, 'ALI LAOUAR ASSAM', '', '', '0552663908', 'ids/76.jpg', '197251341', '109930784014220001', 0, 1, ''),
+(77, NULL, 'ABDENNOURI SAMIR', '', '', '0552663908', 'ids/77.jpg', '305959407', '209870786000190106', 0, 1, ''),
+(78, NULL, 'BOUDRA MOHAMED-EL AMINE', '', '', '0552663908', 'ids/78.pdf', '120897886', '109980784001650003', 0, 1, ''),
+(79, NULL, 'TOUBAL MOHAMMED', '', '', '0661133069', 'ids/79.jpg', '313028750', '109860784010200001', 0, 1, 'livan'),
+(80, NULL, 'GUIAS ZINEDDINE', '', '', '0552663908', 'ids/80.jpg', '166890162', '109860784013110009', 0, 1, 'LIVAN\n'),
+(81, NULL, 'karim skikda atelier', 'skikda', 'karim@me.com', '0552663908', NULL, NULL, NULL, 1, 0, ''),
+(82, NULL, 'ZRARI RABIE ', '', '', '0671231120', 'ids/82.pdf', '169496116', '109850841097040007', 0, 1, ''),
+(83, NULL, 'DOUI SOURIA', 'CitÃ© du martyr Ahmed Zahana,Oued Jar El Afroun - Blida', '', '0661286140', 'ids/83.pdf', '308577436', '119731437005140007', 0, 1, ''),
+(84, NULL, 'LAOUR MOKHTAR', 'SIDI YOUCEF BENI MEESOUS - ALGER', '', '0670059940', 'ids/84.jpeg', '116802807', '109880557008550009', 0, 1, ''),
+(85, NULL, 'BERBOUCHI KHALIL', '', '', '0663641674', 'ids/85.jpg', '186701466', '109890269001850000', 0, 1, ''),
+(87, NULL, 'DAOUDI AMMAR', '', '', '0671291655', 'ids/87.pdf', '102536293', '109881391000440004', 0, 1, ''),
+(88, NULL, 'BOUHADEF BELQASSIM', '', '', '0675663009', 'ids/88.jpg', '119027834', '109901516000670004', 0, 1, ''),
+(90, NULL, 'BOUDJEMA LOTFI ', '', '', '0782191463', 'ids/90.jpg', '197302825', '109920392006350000', 0, 1, ''),
+(91, NULL, 'BENZIDANE MAHIEDDINE', '', '', '0771001148', 'ids/91.jpg', '305410895', '129881110095820005', 0, 1, ''),
+(92, NULL, 'RENMILOUD RACHID', '', '', '0674647626', 'ids/92.jpg', '406546206', '129811110093500000', 0, 1, ''),
+(93, NULL, 'BEGUENANE SIDI MOHAMMED ELAMINE BENAOUMEUR ALI IBN ABI TALEB', '', '', '0555417312', 'ids/93.png', '105313831', '109771042031210006', 0, 1, 'gac middle grey add 5 wheel = 150 ; led 230'),
+(95, NULL, 'MEFTAH AHMED RIADH ALAA EDDINE', '', '', '0699801631', 'ids/95.pdf', '403193237', '109981042015990009', 0, 1, 'gac middle grey add 5 wheel = 150 ; led 230 '),
+(96, NULL, 'MERAD SARAH', '', '', '0552663908', 'ids/96.tiff', '117463688', '119860392018280006', 0, 1, 'Gac mid gray tire/ electric seat/ electric gate'),
+(97, NULL, 'BENZIDANE MAHIEDDINE', '', '', '0771001148', 'ids/97.tiff', '102257588', '129881110095820005', 0, 1, 'gac mid grey spare tire, electric seat+led'),
+(98, NULL, 'GHAZI ABDENACER', '', 'GHAZI.ABDENACER@GMAIL.COM', '0775642404', 'ids/98.tiff', '412102002', '109921110004060002', 0, 1, ''),
+(99, NULL, 'IKHLEF BRAHIM', 'CITE 84 LOGTS B6 N 10 AIN NAADJA - ALGER', '', '0671186652', 'ids/99.jpeg', '305592766', '109850152008860008', 0, 1, ''),
+(100, NULL, 'MAZOUDJ ABDALLAH', '', '', '0551919847', 'ids/100.jpg', '305193658', '109551052002130006', 0, 1, ''),
+(101, NULL, 'FAFI NOUREDDINE', 'CITE AHMED TERKHOCHE AIN NADJAA - ALGER', '', '0660490035', 'ids/101.jpeg', '104639220', '109800138007610008', 0, 1, ''),
+(102, NULL, 'LEBSIR LOKMANE', 'CITE 166 LOGTS BT B N 12 CHERAGA - ALGER', '', '0670119267', 'ids/102.jpeg', '411953545', '109870887041340007', 0, 1, ''),
+(103, NULL, 'CHEKIKENE SAHNOUN', 'EL ATTAF - AIN DEFLA', '', '0661232062', 'ids/103.jpeg', '102033417', '109581433002820008', 0, 1, ''),
+(104, NULL, 'DJOUDI MOHAMMED ABDEL ILLAH', '', '', '0657633131', 'ids/104.jpg', '314705829', '109911110108070008', 0, 1, ''),
+(105, NULL, 'AMER MEHALI SID AHMED', '', '', '0657511031', 'ids/105.jpg', '106708952', '109911110096010008', 0, 1, ''),
+(106, NULL, 'BENAOUF ZAIM', '', '', '0770806239', 'ids/106.jpg', '304557659', '109880192000650001', 0, 1, 'GS3'),
+(107, NULL, 'BELAID NORA', '', '', '0770806239', 'ids/107.jpg', '177034121', '119640555008220003', 0, 1, 'COOLRAY\nMERF024-BINYUE'),
+(108, NULL, 'KELLOUCHE DJAMEL', '', '', '0661531053', 'ids/108.jpg', '314866009', '129711110086800004', 0, 1, 'MERF022-BOYUE-0297'),
+(109, NULL, 'OULDSIBOUZIANE AMAL', '', '', '0661291365', 'ids/109.jpg', '312029192', '119760392013760003', 0, 1, 'MERF022-TIGGO 8 PLUS-6242'),
+(110, NULL, 'BENAISSA-TAHAR DJILALI', '', '', '0550536539', 'ids/110.jpg', '307925232', '109620063000650009', 0, 1, 'MERF023-TOYOTA-9913'),
+(111, NULL, 'OULDSIBOUZIANE HAMZA', '', '', '0771709914', 'ids/111.pdf', '107754727', '109440969000530009', 0, 1, 'MERF023-TIGGO 3X-6727'),
+(112, NULL, 'MENIKH MOHAMED AMINE', '', '', '0779427975', 'ids/112.jpg', '186559647', '109820887040540004', 0, 1, ''),
+(113, NULL, 'TIFOUR ABDELAAZIZ', 'OULED MOUSSA EL ATTAF AIN DEFLA', 'Seksaoui.i@gmail.com', '0670175844', 'ids/113.jpeg', '176405151', '109901431010010003', 0, 1, ''),
+(114, NULL, 'cheikh nabil', '', '', '0657113225', 'ids/114.jpg', '107582696', '109710841088510000', 0, 1, ''),
+(117, NULL, 'AINBAZIZ AHMED', '3 RUE DERANI MAAMAR SEKALA EL BIAR', '', '0792033161', 'ids/117.jpg', '107752780', '109790568010150000', 0, 1, ''),
+(118, NULL, 'MAHDI NOUR-EDDINE', '', '', '0791946505', 'ids/118.jpg', '197563924', '109601329010840002', 0, 1, 'SOF005060126035'),
+(119, NULL, 'MAHDI KHALED', '', '', '0799491761', 'ids/119.jpg', '312615667', '109951329019360008', 0, 1, 'SOF005060126035'),
+(120, NULL, 'KOUADRIA HACENE ', 'EL BOUNI ANNABA ', '', '0666522097', 'ids/120.pdf', '107729957', '109800841049870007', 0, 1, ''),
+(121, NULL, 'TALHA ZOUAOUI', '', '', '0660617522', 'ids/121.jpg', '103092968', '109640789017940001', 0, 1, ''),
+(122, NULL, 'MIR MOHAMMED', '', '', '0558167669', 'ids/122.jpg', '102821793', '209681454000200206', 0, 1, ''),
+(123, NULL, 'AZIZI AHMED ', 'GUELMA ', '', '0660202867', 'ids/123.pdf', '407164838', '109840882003380007', 0, 1, ''),
+(124, NULL, 'BOUKABRINE HADJER', 'VIEUX AIN NAADJA GUE DE CONSTANTINE - ALGER', '', '0655200721', 'ids/124.jpeg', '314008141', '119940581024000309', 0, 1, ''),
+(126, NULL, 'SAHNOUN BACHIR', '', '', '0792050621', 'ids/126.pdf', '403565275', '109661455001120000', 0, 1, ''),
+(130, NULL, 'RACHEDI MERIEM', '', '', '0540115820', 'ids/130.pdf', '154883719', '119800773022040002', 0, 1, ''),
+(131, NULL, 'ZELMAT FADILA', 'CITE BOUGARA BT 15 N 08 SIDI MOUSSA - ALGER', '', '0774214391', 'ids/131.jpeg', '176446970', '119710579028080002', 0, 1, ''),
+(132, NULL, 'HENNAOUI AHMED', 'OUELAD AICHE - BLIDA', '', '0774636355', 'ids/132.jpeg', '177445318', '109970911002720004', 0, 1, ''),
+(133, NULL, 'BOUGUERN HAOUES', '', '', '0552663908', 'ids/133.jpg', '169706929', '109850783001470005', 0, 1, 'livan'),
+(134, NULL, 'LASOUI AMEUR', '', '', '0552663908', 'ids/134.jpg', '315049500', '109860784006690009', 0, 1, 'LIVAN'),
+(143, NULL, 'ABDENOURI ABDELHAMID', '', '', '0552663908', 'ids/143.jpg', '302441948', '109830786005240006', 0, 1, 'LIVAN'),
+(148, NULL, 'BOUANINBA KARIM', '', '', '0660067042', 'ids/148.jpg', '154738858', '109820765030800002', 0, 1, 'LIVAN'),
+(149, NULL, 'BOUANINBA LOUBNA', '', '', '0661210270', 'ids/149.tiff', '121000816', '119930784007590005', 0, 1, 'livan'),
+(150, NULL, 'KAMRAOUI DJAMEL', '', '', '0659722016', 'ids/150.pdf', '168670729', '129701110091300000', 0, 1, ''),
+(151, NULL, 'BERBICHE SMAIL', '02 CITE MERIDJA SAOULA - ALGER', '', '0662439915', 'ids/151.jpeg', '103856702', '109750554031860007', 0, 1, ''),
+(152, NULL, 'NEHINAH MALIK ', 'GUELMA ', '', '0666910366', 'ids/152.pdf', '109095153', '109780853020980006', 0, 1, ''),
+(153, NULL, 'FISLI YASSINE ', 'AIN CHERCHER ', '', '0670380943', 'ids/153.pdf', '104102383', '109690759000390000', 0, 1, ''),
+(154, NULL, 'FRENDI SAMIR', 'Cite Imlel  BT 01 AZAZGA', 'atallah.noureddine@yahoo.fr', '0666747069', 'ids/154.pdf', '308961542', '109750526008220001', 1, 1, ''),
+(155, NULL, 'RAMOUCHE ABDERREZAK', '', '', '0553993543', 'ids/155.pdf', '404110026', '109721403005770006', 0, 1, ''),
+(156, NULL, 'TAHRAOUI YOUCEF', 'MOUZAIA - BLIDA', '', '0671480048', 'ids/156.jpeg', '187086113', '109920297005970007', 0, 1, ''),
+(157, NULL, 'BENBOUDA NASSIM ', 'SETIF ', '', '0663366679', 'ids/157.pdf', '105640992', '209920731000101000', 0, 1, ''),
+(158, NULL, 'BENGRID ZINE EDDINE', '', '', '0616511030', 'ids/158.jpg', '187169472', '109961329010560000', 0, 1, 'gs3 middle '),
+(159, NULL, 'ALLAL BILLAL', 'CITE AIN EL BARDA BOUGARA - BLIDA', '', '0668902382', 'ids/159.jpeg', '305781649', '109920308003580001', 0, 1, ''),
+(160, NULL, 'BOURAOUI ABDELKRIM ', 'EL KALA ', '', '0671946658', 'ids/160.pdf', '106244374', '109831241011690009', 0, 1, ''),
+(161, NULL, 'DAIRA ABLA', '', '', '0616511030', 'ids/161.tiff', '187476227', '119671329021880009', 0, 1, 'GS3 MID'),
+(162, NULL, 'BOURAOUI MILOUD ', 'EL TAREF EL KALA ', '', '0671946658', 'ids/162.jpeg', '305494563', '109710841040310002', 0, 1, ''),
+(163, NULL, 'ABADA AMIN', 'ZONE 4 No. 408 CHETIA CHLEF', '', '0672290880', 'ids/163.jpg', '109895298', '109860044009730009', 0, 1, ''),
+(164, NULL, 'REMILI YASSAMINA', '', '', '0662823075', 'ids/164.pdf', '169715234', '119870853031470005', 0, 1, ''),
+(165, NULL, 'BENLAHRECHE SOFIANE', 'LOG 50 HAMEM DBAGHE GUELMA', '', '0662823075', 'ids/165.pdf', '177697718', '109850887053580007', 0, 1, ''),
+(166, NULL, 'MILI MOHAMMED NADJIB', 'CHNINICHI MOHAMED GUELMA', '', '0672397963', 'ids/166.pdf', '186371773', '109830853035890000', 0, 1, ''),
+(167, NULL, 'HAFSI NEDJEM EDDINE ', 'EL DERAAN ', '', '0666273608', 'ids/167.pdf', '101048966', '109941248002130009', 0, 1, ''),
+(168, NULL, 'BENNESSAR HOCINE', 'CITE ZARHOUNI MOKHTAR BT 15 N 51 - ALGER', '', '0778392961', 'ids/168.jpeg', '104277596', '109660555143630005', 0, 1, ''),
+(169, NULL, 'MOSTEFAOUI REDHOUANE', 'EL MARSSA - ALGER', '', '0560979376', 'ids/169.jpeg', '108707631', '109860936000620008', 0, 1, ''),
+(170, NULL, 'LACHEB ISMAIL', '', '', '0555714876', 'ids/170.pdf', '400235644', '109841230009560009', 0, 1, 'LIVAN MT'),
+(171, NULL, 'BELBAH WALID', 'GUELMA', '', '0663245891', 'ids/171.pdf', '120775870', '109780853004050008', 0, 1, ''),
+(175, NULL, 'BEDJAOUI CHAOUCHE KARIMA', '', '', '0662409480', 'ids/175.jpg', '101649597', '119881110009250001', 0, 1, ''),
+(178, NULL, 'DAROUI LEHBIB', '', '', '0670464876', 'ids/178.pdf', '114908730', '209791235005580008', 0, 1, ''),
+(179, NULL, 'BOUSSAID HOUCINE', '', '', '0662562263', 'ids/179.jpg', '312283204', '109951110004540006', 0, 1, ''),
+(180, NULL, 'BENABBAS OUARDA ', 'ANNABA ', '', '0555529245', 'ids/180.pdf', '101402387', '119860841046950006', 0, 1, ''),
+(181, NULL, 'MENIKH CHOUAIB', '', '', '0794447224', 'ids/181.jpg', '186887788', '109830887081100005', 0, 1, ''),
+(182, NULL, 'KHALFALLAH FATIMA ZOHRA ', 'BOUMAHRA AHMED GUELMA ', '', '0670411580', 'ids/182.pdf', '122044449', '119760868002080008', 0, 1, ''),
+(183, NULL, 'ACHOUR MALIK', '', '', '0699303439', 'ids/183.pdf', '103375273', '109871230000780005', 0, 1, ''),
+(184, NULL, 'LACHEB MOHAMED CHAREF EDDINE', '', '', '0550197203', 'ids/184.pdf', '102229253', '109891241000250002', 0, 1, ''),
+(185, NULL, 'CHABBI BILLEL', 'ANNABA', 'CHABBI@me.com', '0777293208', NULL, NULL, NULL, 1, 0, ''),
+(186, NULL, 'CHABBI BILLEL', 'NOUVELLE VILLE ANNABA', '', '0777293208', 'ids/186.pdf', '102444477', '109910841077210008', 0, 1, ''),
+(187, NULL, 'MOSBAH MAHMOUD', 'SKIKDA', '', '0791356868', 'ids/187.jpg', '177294232', '109750784000180000', 0, 1, ''),
+(188, NULL, 'SELLAMI HICHAM', 'ANNABA', '', '0661520737', 'ids/188.pdf', '108417709', '109881234002010005', 0, 1, ''),
+(189, NULL, 'ZOUAOUI ABDEREZAK', 'CONSTANTINE', '', '0558545357', 'ids/189.pdf', '115390846', '109790887047710002', 0, 1, ''),
+(190, NULL, 'MEBARKI MOHAMMED', 'Domaine Amira Mohamed route de SoumÃ¢a N44 Boufarik blida', '', '0778152845', 'ids/190.jpg', '102946198', '209640152000890105', 0, 1, ''),
+(191, NULL, 'BENSAHLA MOHAMMED', 'EL BOUNI', '', '0557259974', 'ids/191.pdf', '315353481', '109421256007770306', 0, 1, ''),
+(192, NULL, 'KHELFI BRAHIM ', 'SIDI AMAR ANNABA ', '', '0775141128', 'ids/192.jpeg', '120129241', '100060848018390002', 0, 1, ''),
+(193, NULL, 'BRAHMI KHALED', 'BERRAHAL', '', '0673723576', 'ids/193.pdf', '106869957', '109900843000950009', 0, 1, ''),
+(194, NULL, 'OTMANI NABIL ', 'AADL N.2 19 B2 APPARTEMENT N.2 OULED FAYET CITY, ALGIERS PROVINCE ', 'novavoyage23@gmail.com', '0662733318', 'ids/194.jpg', '168983691', '109770367006460000', 0, 1, 'MERF001+2-LIVAN X3 PRO MANUAL WITH SUNROOF -211096'),
+(195, NULL, 'BENAOUF ZAIM', '100 LOGEMENTS N.5 , CHERIA CITY , TEBESSA PROVINCE ', 'novavoyage23@gmail.com', '0662733318', 'ids/195.jpg', '314825927', '109820367008350001', 0, 1, 'MERF001+2- LIVAN X3 PRO MANUAL WITH SUNROOF-211152'),
+(196, NULL, 'DJEDDI NADIR ', '100 LOGEMENTS N.5 , CHERIA CITY , TEBESSA PROVINCE ', 'novavoyage23@gmail.com', '0662733318', 'ids/196.jpg', '315243751', '109930364001960008', 0, 1, 'MERF001+2- LIVAN X3 PRO MANUAL WITH SUNROOF-211139'),
+(197, NULL, 'BOUSSAHIA NACER', '100 LOGEMENTS N.5 , CHERIA CITY , TEBESSA PROVINCE ', 'novavoyage23@gmail.com', '0662733318', 'ids/197.jpg', '168872968', '109600382001810006', 0, 1, 'MERF001+2- LIVAN X3 PRO MANUAL WITH SUNROOF-211108'),
+(198, NULL, 'AHMED SEGHIR MAKHLOUF', '', '', '0660674269', 'ids/198.jpg', '313298947', '109770784005110008', 0, 1, 'LIVAN'),
+(199, NULL, 'HATHOUT AMMAR', '', '', '0671153577', 'ids/199.pdf', '107383589', '109840784007660006', 0, 1, 'LIVAN'),
+(200, NULL, 'SAHI ANIS', '', '', '0660840060', 'ids/200.pdf', '187547344', '109870178038810008', 0, 1, 'SECOND PHONE NUMBER : 0660199080'),
+(201, NULL, 'BENAOUF YACINE', '', '', '0770806239', 'ids/201.jpg', '309319686', '100010571027640008', 0, 1, 'GS3 MID GREY'),
+(203, NULL, 'MERAZGUIA RAHMA', 'ECHATT EL TAREF', '', '0671728128', 'ids/203.pdf', '410632923', '119920841097610002', 0, 1, ''),
+(204, NULL, 'ZIANI BRAHIM', 'ECHATT EL TAREF', '', '0671728128', 'ids/204.pdf', '305528371', '109611335001760008', 0, 1, ''),
+(205, NULL, 'BOUNEMRA ZOUBIR', 'ECHATT EL TAREF', '', '0671728128', 'ids/205.pdf', '169789796', '109890788005070000', 0, 1, ''),
+(206, NULL, 'ZAIDI AMMAR', 'ECHATT EL TAREF', '', '0671728128', 'ids/206.pdf', '315714729', '109691335003610006', 0, 1, ''),
+(207, NULL, 'HAFSI ABDELHALIM', 'ECHATT EL TAREF', '', '0671728128', 'ids/207.pdf', '404800123', '109640841017690001', 0, 1, ''),
+(208, NULL, 'BENAMARA HAMZA', 'ECHATT EL TAREF', '', '0671728128', 'ids/208.pdf', '411072848', '109870841097770005', 0, 1, ''),
+(209, NULL, 'djemai fatima', '', '', '0793029938', 'ids/209.pdf', '197224485', '119901486008140005', 0, 1, ''),
+(210, NULL, 'AMRAOUI AHLEM', '', '', '0793029938', 'ids/210.pdf', '313323118', '119881486000160005', 0, 1, ''),
+(211, NULL, 'BENAMAR AYET ALLAH', '', '', '0793029938', 'ids/211.pdf', '313291638', '109801486003480002', 0, 1, ''),
+(212, NULL, 'HIFRI ATIKA', '', '', '0793029938', 'ids/212.pdf', '309506796', '119631486009130002', 0, 1, ''),
+(213, NULL, 'AMRAOUI ABDELHAKIM', '', '', '0793029938', 'ids/213.pdf', '102403313', '109921486000480000', 0, 1, ''),
+(218, NULL, 'YOUNES WALID', '', '', '0792197099', 'ids/218.jpg', '312662079', '109910784003530000', 0, 1, 'livan'),
+(219, NULL, 'LALLOUCHE MOHAMED', '', '', '0673752973', 'ids/219.pdf', '110771700', '109890784000940008', 0, 1, 'livan'),
+(220, NULL, 'GHERBI MESSAOUD', '', '', '0666392821', 'ids/220.pdf', '401152281', '109630784000210100', 0, 1, '79-livan'),
+(222, NULL, 'BECHATTA TOUNES', '', '', '0698231012', 'ids/222.jpg', '314936320', '119800719005320002', 0, 1, 'MERF024-TIGGO 5X'),
+(224, NULL, 'BOUSSERIEF NADJIBA', '', '', '0661190970', 'ids/224.png', '314911956', '119761404006470000', 0, 1, 'MERF025-BINRAY-9960'),
+(225, NULL, 'BENHEDHOUD AISSA', '', '', '0661190970', 'ids/225.png', '312607528', '109881262006790108', 0, 1, 'MERF025-BINRAY-6455'),
+(226, NULL, 'TOUATI IMENE', '', '', '0770106045', 'ids/226.pdf', '313752467', '119950395001740002', 0, 1, 'SECOND PHONE NUMBER 0560938956'),
+(227, NULL, 'AGHA NASSIM', 'BENI AMRANE - BOUMERDAS', '', '0554941946', 'ids/227.jpeg', '119162939', '109931218003580009', 0, 1, ''),
+(228, NULL, 'SAWAS NASSIM', '', '', '0770806239', 'ids/228.tiff', '196617475', '109900568009980000', 0, 1, ''),
+(229, NULL, 'BOUNEMRI HOUSSEM EDDINE', '', '', '0558545357', 'ids/229.pdf', '211600333', '109880773013130006', 0, 1, 'GS3 MID'),
+(230, NULL, 'GUERIOUN SOUHEILA', '', '', '0558545357', 'ids/230.pdf', '116288886', '119900887019820009', 0, 1, 'GS3 MID'),
+(231, NULL, 'BELMOKRE BILEL', '', '', '0558545357', 'ids/231.pdf', '414350425', '109850890005020007', 0, 1, 'GS3 MID'),
+(232, NULL, 'GUERIOUN BOUCHRA', '', '', '0558545357', 'ids/232.pdf', '405862171', '110010887088460006', 0, 1, 'GS3 MID'),
+(233, NULL, 'MOULAI ALI SAID', 'CITE MIHOUB 1 N 88 BARAKI - ALGER', '', '0562109602', 'ids/233.jpeg', '117911275', '109780581007630001', 0, 1, ''),
+(243, NULL, 'SEFRA MOHAMED', '', '', '0541264596', 'ids/243.jpg', '196237102', '109790899033700004', 0, 1, 'livan'),
+(244, NULL, 'BOUZEMLAL FATEH', '', '', '0541264596', 'ids/244.jpg', '305563575', '100040899036080005', 0, 1, 'livan'),
+(245, NULL, 'BENOTHMANE NOURI', '', '', '0541264596', 'ids/245.jpg', '302669964', '109880284015230000', 0, 1, 'livan'),
+(246, NULL, 'KARED AHCENE', '', '', '0771435884', 'ids/246.jpg', '169575646', '109680784000200001', 0, 1, 'livan '),
+(248, NULL, 'SOUILAH ABDELHAFID', 'BERRAHAL ANNABA', '', '0696142545', 'ids/248.pdf', '116501757', '109730843004520002', 0, 1, ''),
+(249, NULL, 'KERBOUA ABDELHAMID', '', '', '0770183803', 'ids/249.jpg', '186308251', '109920773020070007', 0, 1, ''),
+(252, NULL, 'OULARBI KELTHOUM', '', '', '0671728128', 'ids/252.tiff', '116815970', '119870757009450008', 0, 1, ''),
+(253, NULL, 'OUATOUAT ABDELMALEK', '', '', '0559320576', 'ids/253.jpg', '169473773', '109830784010500001', 0, 1, ''),
+(254, NULL, 'SOUILAH HAKIM', '', '', '0696142545', 'ids/254.pdf', '120280363', '109760843006350005', 0, 1, ''),
+(257, NULL, 'BETACHE FARES ', 'BERRAHAL ANNABA ', '', '0696142545', 'ids/257.pdf', '102272442', '109900843003070003', 0, 1, ''),
+(258, NULL, 'SOUILAH MOHAMED ALI ', 'BERRAHAL ANNABA', '', '0696142545', 'ids/258.pdf', '119178984', '100050843001780006', 0, 1, ''),
+(259, NULL, 'RAHMOUNI Abdelkader', 'Hai Ain dâ€™hab n 78 medea', 'atallah@MERHAB.COM', '0780374450', 'ids/259.pdf', '177259065', '109850899002500002', 0, 1, ''),
+(260, NULL, 'BAHMED AMINE', 'BERRHAL ANNABA', '', '0551750904', 'ids/260.jpeg', '304934296', '109900841084880001', 0, 1, ''),
+(261, NULL, 'SOUILAH MOHAMED RIDHA', 'BERRAHAL ANNABA', '', '0696142545', 'ids/261.pdf', '109443218', '109900843002400003', 0, 1, ''),
+(262, NULL, 'BENYAHIA AYOUB', 'CHEFFA BLIDA', '', '0660489181', 'ids/262.jpeg', '413203352', '100070925000350000', 0, 1, ''),
+(263, NULL, 'BENHEFFAF BELKHASEM NADJI', ' la nouvelle rue bloc 135 DJELFA', 'atallah@MERHAB.COM', '0550285709', 'ids/263.pdf', '303413806', '109930611028700001', 0, 1, ''),
+(264, NULL, 'HASSANI SARRA', '', '', '0671728128', 'ids/264.pdf', '308203237', '119890841010820007', 0, 1, 'GS3 BASIC'),
+(265, NULL, 'HAMLAOUI SALAH', 'AIN DEFLA CITY', '', '0667960497', 'ids/265.jpeg', '312345248', '109841415034890006', 0, 1, ''),
+(266, NULL, 'FATOUHI AMINE', '', '', '0674926440', 'ids/266.pdf', '168784306', '109681110116880008', 0, 1, ''),
+(267, NULL, 'MESBOUA SALIM', '', 'atallah.noureddine@yahoo.fr', '0550285709', 'ids/267.jpeg', '308209316', '100000309029040006', 0, 1, ''),
+(268, NULL, 'KERBOUA SAMIR', '', 'atallah.noureddine@yahoo.fr', '0550285709', 'ids/268.jpeg', '177334303', '109950309026480008', 0, 1, ''),
+(269, NULL, 'ABBAS Lycia', '', 'atallah.noureddine@yahoo.fr', '0550285709', 'ids/269.jpeg', '187099202', '119980571014010005', 0, 1, ''),
+(270, NULL, 'MESBOUA Ali sofiane', '', 'atallah.noureddine@yahoo.fr', '0550285709', 'ids/270.pdf', '304651172', '109960309020250009', 0, 1, ''),
+(271, NULL, 'MESBOUA Ali sofiane', NULL, 'atallah.noureddine@yahoo.fr', '0550285709', NULL, NULL, NULL, 1, 0, NULL),
+(272, NULL, 'REZZIK MOULOUD', '', '', '0662375998', 'ids/272.pdf', '111069069', '109840526013520009', 0, 1, 'MERF026-LIVAN-LLV2C3A28T0213686'),
+(273, NULL, 'BAHI HASSANE', '', '', '0662375998', 'ids/273.jpg', '302578712', '109791335002680009', 0, 1, 'MERF026-KAIYI-LUYJB1G28SA014064'),
+(274, NULL, 'REZZIK SAID', '', '', '0662375998', 'ids/274.pdf', '309256860', '100020539009520009', 0, 1, 'MERF026-LIVAN-LLV2C3A21T0208474'),
+(275, NULL, 'ATIK REZIKA', '', 'abdeloptical@yahoo.fr', '0610467184', 'ids/275.png', '403045712', '119340531003380004', 0, 1, 'MERF027-VIN:LJNTGUCY3TN428017'),
+(276, NULL, 'REZZIK YACINE', '', '', '0662375998', 'ids/276.png', '309124533', '100060539003040005', 0, 1, 'MERF026-LIVAN-LLV2C3A26T0213685'),
+(277, NULL, 'BERRACHED AMAR', '', 'abdeloptical@yahoo.fr', '0610467184', 'ids/277.png', '108114450', '109431206006290002', 0, 1, 'MERF027-VIN: LJNTGUCY6TN427878'),
+(279, NULL, 'BENABDI SAMIR', '', '', '0655537136', 'ids/279.jpg', '177176598', '109881512000290004', 0, 1, ''),
+(280, NULL, 'TOLBI BILAL', '', '', '0655537136', 'ids/280.jpg', '315065022', '109870853030040008', 0, 1, ''),
+(281, NULL, 'AKKÐžUCHE NOUREDDINE', '', '', '0655537136', 'ids/281.jpg', '172120615', '109850064010320006', 0, 1, ''),
+(282, NULL, 'TAFER DALILA', '', '', '0655537136', 'ids/282.jpg', '182282212', '119870487013090000', 0, 1, ''),
+(283, NULL, 'ACHI ABDELKARIM', '', '', '0791591151', 'ids/283.png', '203191569', '109830251003060005', 0, 1, 'gs3 mid'),
+(284, NULL, 'MERHAB MOHAMED', '', '', '0552663908', 'ids/284.png', '309656615', '100021042010960008', 0, 1, ''),
+(285, NULL, 'RAHMANI FAOUZI', 'GHARDAIA', '', '0660609330', 'ids/285.jpeg', '303194551', '109871501007870001', 0, 1, ''),
+(286, NULL, 'FOUDI SOUFTANE', '', '', '0552663908', 'ids/286.jpg', '166179029', '109810320025020000', 0, 1, 'GS3 BAS'),
+(287, NULL, 'BOUDERMIME ABDERREZAK', '', '', '0552663908', 'ids/287.jpg', '307562058', '109800788009200008', 0, 1, 'LIVAN'),
+(288, NULL, 'BELLAGHOUATI RAMDANE', 'GHARDAIA', '', '0660609330', 'ids/288.jpeg', '182150512', '109671491000210102', 0, 1, ''),
+(289, NULL, 'BOUKEFA IMADEDDINE', 'COOPIRATIVE AIN ABDALLAH - BOUMERDAS', '', '0561439171', 'ids/289.jpeg', '101637379', '109870090018620002', 0, 1, ''),
+(290, NULL, 'BOUKEFA KHADIDJA', 'COOPIRATIVE AIN ABDALLAH - BOUMERDAS', '', '0670042111', 'ids/290.jpeg', '187365512', '119950354003880001', 0, 1, ''),
+(291, NULL, 'BENOUDINA LYES', 'LES FRERS FERAT CANSTANTINE', '', '0795151732', 'ids/291.jpeg', '315916328', '109870887176980007', 0, 1, ''),
+(292, NULL, 'GUESMI OUSSAMA', 'TAKBOU MEDEA DOOR75 26000', '', '0675106134', 'ids/292.pdf', '197318476', '109890899015140004', 0, 1, ''),
+(293, NULL, 'BAZAZ BILEL', '', '', '0553899982', 'ids/293.jpg', '169479476', '109850088012440009', 1, 1, ''),
+(294, NULL, 'GUITOUN NOUR EL ISLEM', '', '', '0542628386', 'ids/294.pdf', '304551445', '100000117024800005', 0, 1, ''),
+(295, NULL, 'MOUSSAOUI AHMED', '', '', '0542628386', 'ids/295.pdf', '102064187', '109930088011220000', 0, 1, ''),
+(296, NULL, 'BADIS ATHMANE', '', '', '0542628386', 'ids/296.pdf', '197121342', '109640088003130002', 0, 1, ''),
+(297, NULL, 'BAZAZ DJAMAI', '', '', '0542628386', 'ids/297.jpeg', '155597531', '109520088009280004', 0, 1, ''),
+(298, NULL, 'HADJ KADDOUR NASR-EDDINE', '', '', '0776164542', 'ids/298.png', '105796971', '129841110002460001', 0, 1, ''),
+(305, NULL, 'Nour Bouguerra', NULL, 'info@merhab.com', '0655919354', NULL, NULL, NULL, 1, 0, NULL),
+(306, NULL, 'BOUGUERRA NOUR', '', '', '0665919354', 'ids/306.jpg', '303142290', '109870757020500006', 0, 1, ''),
+(307, NULL, 'BOURIHANE KHALED', '', '', '0776348880', 'ids/307.jpg', '315298315', '109841383002680009', 0, 1, ''),
+(308, NULL, 'GRABSI MOUSAAB', '', '', '0655919354', 'ids/308.pdf', '176558269', '109890773008000006', 0, 1, ''),
+(309, NULL, 'ZERROUNE ABDESSAMED', '', '', '0671344386', 'ids/309.pdf', '302810489', '109860152028580006', 0, 1, ''),
+(310, NULL, 'REZZIK ABDERAHMANE', '', '', '0662375998', 'ids/310.pdf', '108987934', '109650526005630005', 0, 1, 'LLV2C3A23S0204389'),
+(311, NULL, 'MEZERKET DJAMILA', '', '', '0662375998', 'ids/311.pdf', '407624563', '119780526000850006', 0, 1, 'LLV2C3A28S0204386'),
+(312, NULL, 'REZZIK OUARDIA', '', '', '0662375998', 'ids/312.pdf', '309073515', '110000539013590009', 0, 1, 'LLV2C3A28T0212604'),
+(313, NULL, 'REZZIK MUSTAPHA', '', '', '0662375998', 'ids/313.pdf', '309083358', '109720539013990002', 0, 1, 'LLV2C3A24T0212602'),
+(315, NULL, 'TRIAI NABIL', '', '', '0775719739', 'ids/315.png', '168825387', '109940855005200000', 0, 1, ''),
+(316, NULL, 'AMRAOUI ABDERREZZAK', '', '', '0773678328', 'ids/316.jpg', '119377130', '109521489023570009', 0, 1, ''),
+(317, NULL, 'BENTRARI BRAHIM', '', '', '0793029938', 'ids/317.png', '110247225', '109651489002970008', 0, 1, ''),
+(318, NULL, 'BENICHOU FATIHA', '', '', '0793029938', 'ids/318.png', '117522321', '119691486007210001', 0, 1, ''),
+(319, NULL, 'ABBASTURKI WAFAA', '75 TAKBOU MEDEA 26000', '', '0775106134', 'ids/319.jpeg', '197318318', '119920899007330004', 0, 1, 'Sec number 0781246044'),
+(320, NULL, 'GRABSI SALAH', '', '', '0655919354', 'ids/320.jpg', '169818287', '109610856001870001', 0, 1, ''),
+(321, NULL, 'GRABSI ABDALLAH', '', '', '0655919354', 'ids/321.jpg', '176724370', '109720870002420002', 0, 1, ''),
+(322, NULL, 'DAHMOUN HOUARI', '', '', '0668066498', 'ids/322.jpg', '305994069', '109921042032860006', 0, 1, ''),
+(323, NULL, 'OULD CHIKH CHAHINEZ', '', '', '0668066498', 'ids/323.jpg', '306629357', '110001058000220008', 0, 1, ''),
+(324, NULL, 'GHOURI FARID ', 'EL TAREF ', '', '0656153497', 'ids/324.pdf', '114624023', '109851231001890003', 0, 1, ''),
+(327, NULL, 'BELHAMITI ILYES', '', '', '0670118822', 'ids/327.png', '100971013', '109881110110510005', 0, 1, ''),
+(328, NULL, 'HERIDA OUAHIBA', 'EL AOUANA JIJEL 18000', '', '0541296535', 'ids/328.jpeg', '117701022', '119750648002950000', 0, 1, ''),
+(329, NULL, 'DEKKAR ALI', 'BORDJ MENAIL BOUMERDES', '', '0782091943', 'ids/329.jpeg', '410958300', '109871206046310007', 0, 1, ''),
+(330, NULL, 'BENABDELKADER CHAREF HICHEM', '', '', '0659865584', 'ids/330.jpg', '312808736', '129761110118880007', 0, 1, ''),
+(331, NULL, 'BOUSSAHA MOURAD', '', '', '0662733318', 'ids/331.jpg', '169256246', '109830367012970008', 0, 1, 'æ›´æ–°æ”¶è´§äººï¼šMERF001+2-LIVAN X3 PRO MANUAL WITH SUNROOF -211096'),
+(332, NULL, 'BELKHENE MERYEM ', 'CITE LES FRERES RAHABI B 29 N 4 GUELMA ', '', '0662229991', 'ids/332.pdf', '177505553', '119870853027510004', 0, 1, ''),
+(333, NULL, 'SERHANE HASSEN', 'ROUIBA ALGIERS 16000', '', '0663607001', 'ids/333.jpeg', '101489277', '109850593005720002', 0, 1, ''),
+(334, NULL, 'MOSTEFA-SARI BRAHIM', 'KHEMIS MELIANA AIN DEFLA 44004', '', '0552030511', 'ids/334.jpeg', '314650880', '109781420001140007', 0, 1, ''),
+(335, NULL, 'BOUNAB ABDELHAKIM', 'M\'SILA', '', '0553164156', 'ids/335.jpeg', '203314877', '109910995040770009', 0, 1, '');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `colors`
+--
+
+DROP TABLE IF EXISTS `colors`;
+CREATE TABLE IF NOT EXISTS `colors` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `color` varchar(255) DEFAULT NULL,
+  `hexa` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `color` (`color`),
+  UNIQUE KEY `hexa` (`hexa`)
+) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+--
+-- Dumping data for table `colors`
+--
+
+INSERT INTO `colors` (`id`, `color`, `hexa`) VALUES
+(1, 'WHITE', '#ffffff'),
+(2, 'BLACK', '#050505'),
+(3, 'GRINARDO', '#828580'),
+(4, 'GREY', '#8b8989'),
+(5, 'CHAMILION', '#7b647d'),
+(6, 'PEARLY WHITE', '#fbf9f9'),
+(7, 'SILVER', '#c0c0c0'),
+(8, '', '#430a0a');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `containers`
+--
+
+DROP TABLE IF EXISTS `containers`;
+CREATE TABLE IF NOT EXISTS `containers` (
+  `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `name` varchar(30) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `nm` (`name`)
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+--
+-- Dumping data for table `containers`
+--
+
+INSERT INTO `containers` (`id`, `name`) VALUES
+(3, '20 FEET'),
+(2, '40 FEET'),
+(1, '40 FEET HQ');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `custom_clearance_agents`
+--
+
+DROP TABLE IF EXISTS `custom_clearance_agents`;
+CREATE TABLE IF NOT EXISTS `custom_clearance_agents` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) NOT NULL COMMENT 'Agent name or company name',
+  `contact_person` varchar(255) DEFAULT NULL COMMENT 'Contact person name',
+  `phone` varchar(50) DEFAULT NULL COMMENT 'Phone number',
+  `email` varchar(255) DEFAULT NULL COMMENT 'Email address',
+  `address` text DEFAULT NULL COMMENT 'Physical address',
+  `license_number` varchar(100) DEFAULT NULL COMMENT 'License or registration number',
+  `notes` text DEFAULT NULL COMMENT 'Additional notes',
+  `is_active` tinyint(1) NOT NULL DEFAULT 1 COMMENT '1=Active, 0=Inactive',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_is_active` (`is_active`),
+  KEY `idx_name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `dbs`
+--
+
+DROP TABLE IF EXISTS `dbs`;
+CREATE TABLE IF NOT EXISTS `dbs` (
+  `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `db_code` varchar(255) DEFAULT NULL,
+  `db_host_start` date DEFAULT NULL,
+  `db_host_end` date DEFAULT NULL,
+  `serv_host_start` date DEFAULT NULL,
+  `serv_host_end` date DEFAULT NULL,
+  `db_host_cost_per_month` double DEFAULT NULL,
+  `serv_host_cost_per_month` double DEFAULT NULL,
+  `files_dir` varchar(255) DEFAULT NULL,
+  `js_dir` varchar(255) DEFAULT NULL,
+  `db_name` varchar(255) DEFAULT NULL,
+  `is_created` int(11) DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `name` (`db_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `db_updates`
+--
+
+DROP TABLE IF EXISTS `db_updates`;
+CREATE TABLE IF NOT EXISTS `db_updates` (
+  `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `sql` text NOT NULL,
+  `from_version` int(11) NOT NULL,
+  `current_version` int(11) NOT NULL,
+  `description` text DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `defaults`
+--
+
+DROP TABLE IF EXISTS `defaults`;
+CREATE TABLE IF NOT EXISTS `defaults` (
+  `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `rate` decimal(10,2) DEFAULT NULL,
+  `freight_small` decimal(10,2) DEFAULT NULL,
+  `freight_big` decimal(10,2) DEFAULT NULL,
+  `alert_unloaded_after_days` int(11) DEFAULT NULL,
+  `alert_not_arrived_after_days` int(11) DEFAULT NULL,
+  `alert_no_licence_after_days` int(11) DEFAULT NULL,
+  `alert_no_docs_sent_after_days` int(11) DEFAULT NULL,
+  `max_unpayed_sell_bills` int(11) DEFAULT 3,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=latin1 COLLATE=latin1_general_ci;
+
+--
+-- Dumping data for table `defaults`
+--
+
+INSERT INTO `defaults` (`id`, `rate`, `freight_small`, `freight_big`, `alert_unloaded_after_days`, `alert_not_arrived_after_days`, `alert_no_licence_after_days`, `alert_no_docs_sent_after_days`, `max_unpayed_sell_bills`) VALUES
+(1, 253.50, 2000.00, 2500.00, 10, 7, 9, 20, 5);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `discharge_ports`
+--
+
+DROP TABLE IF EXISTS `discharge_ports`;
+CREATE TABLE IF NOT EXISTS `discharge_ports` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `discharge_port` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `discharge_port` (`discharge_port`)
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+--
+-- Dumping data for table `discharge_ports`
+--
+
+INSERT INTO `discharge_ports` (`id`, `discharge_port`) VALUES
+(1, 'ALGIERS'),
+(2, 'ANNABA'),
+(8, 'bejaia'),
+(7, 'DJENDJEN'),
+(6, 'GHAZAOUET'),
+(3, 'MOSTAGANEM'),
+(4, 'ORAN'),
+(5, 'SKIKDA');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `jobs`
+--
+
+DROP TABLE IF EXISTS `jobs`;
+CREATE TABLE IF NOT EXISTS `jobs` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) NOT NULL COMMENT 'Job name',
+  `description` text DEFAULT NULL COMMENT 'Job description',
+  `category` varchar(100) DEFAULT NULL COMMENT 'Job category (loading, delivery, inspection, documentation, etc.)',
+  `estimated_duration_hours` int(11) DEFAULT NULL COMMENT 'Estimated duration in hours',
+  `is_active` tinyint(1) NOT NULL DEFAULT 1 COMMENT '1=Active, 0=Inactive',
+  `team_id` int(11) DEFAULT NULL COMMENT 'FK to teams - each job belongs to one team (one team can have multiple jobs)',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_is_active` (`is_active`),
+  KEY `idx_category` (`category`),
+  KEY `idx_name` (`name`),
+  KEY `idx_team_id` (`team_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci COMMENT='Jobs assigned to teams - one team can have multiple jobs, each job belongs to one team';
+
+--
+-- Dumping data for table `jobs`
+--
+
+INSERT INTO `jobs` (`id`, `name`, `description`, `category`, `estimated_duration_hours`, `is_active`, `team_id`, `created_at`, `updated_at`) VALUES
+(1, 'Loading', 'Load cars onto container/ship', 'loading', NULL, 1, NULL, '2025-12-25 17:59:15', '2025-12-25 17:59:15'),
+(2, 'Delivery', 'Deliver cars to destination', 'delivery', NULL, 1, NULL, '2025-12-25 17:59:15', '2025-12-25 17:59:15'),
+(3, 'Inspection', 'Inspect cars for quality/condition', 'inspection', NULL, 1, NULL, '2025-12-25 17:59:15', '2025-12-25 17:59:15'),
+(4, 'Documentation', 'Prepare and process documents', 'documentation', NULL, 1, NULL, '2025-12-25 17:59:15', '2025-12-25 17:59:15'),
+(5, 'Warehouse Management', 'Manage warehouse operations', 'warehouse', NULL, 1, NULL, '2025-12-25 17:59:15', '2025-12-25 17:59:15'),
+(6, 'Custom Clearance', 'Handle custom clearance procedures', 'custom_clearance', NULL, 1, NULL, '2025-12-25 17:59:15', '2025-12-25 17:59:15');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `loaded_containers`
+--
+
+DROP TABLE IF EXISTS `loaded_containers`;
+CREATE TABLE IF NOT EXISTS `loaded_containers` (
+  `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `id_loading` int(11) DEFAULT NULL,
+  `id_container` int(11) DEFAULT NULL,
+  `ref_container` varchar(255) DEFAULT NULL,
+  `date_departed` date DEFAULT NULL,
+  `note` text DEFAULT NULL,
+  `date_loaded` date DEFAULT NULL,
+  `date_on_board` date DEFAULT NULL,
+  `so` varchar(255) DEFAULT NULL,
+  `is_released` tinyint(1) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=49 DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+--
+-- Dumping data for table `loaded_containers`
+--
+
+INSERT INTO `loaded_containers` (`id`, `id_loading`, `id_container`, `ref_container`, `date_departed`, `note`, `date_loaded`, `date_on_board`, `so`, `is_released`) VALUES
+(1, 1, 1, 'TCLU7888910', NULL, '4 livan MT', NULL, NULL, '181AN0266254544M1', 0),
+(2, 1, 1, 'FFAU3943274', NULL, '4 livan MT', NULL, NULL, '181AN0266254549M1', 0),
+(3, 1, 1, 'MSMU5203270', NULL, '4 livam MT', NULL, NULL, '181AN0266254551M1', 0),
+(4, 1, 1, 'CAAU5596524', NULL, '4 livan MT', NULL, NULL, '181AN0266254565M1', 0),
+(5, 1, 1, 'CAAU7899704', '2026-01-23', '4 livan MT', NULL, NULL, '181AN0266254568M1', 0),
+(6, 2, 1, 'TCNU8929733', NULL, '4 livan MT', NULL, NULL, '181AN0266262683M1', 0),
+(7, 1, 1, 'GESU6106972', '2026-01-23', '4 livan MT', NULL, NULL, '181AN0266260227M1', 0),
+(8, 3, 1, 'TCNU8957680', NULL, '4 gs3 mid', NULL, NULL, 'GGZ2879352', 0),
+(9, 4, 1, 'TGBU7427622', '2026-01-27', '4 livan MT', NULL, NULL, '181AN0266233076M1', 0),
+(10, 4, 1, 'MSMU8812305', '2026-01-27', '4 livan MT', NULL, NULL, '181AN0266233077M1', 0),
+(11, 4, 1, 'MSBU5551312', '2026-01-27', '4 livan MT ', NULL, NULL, '181AN0266265886M1', 0),
+(12, 4, 1, 'MSNU9804083', '2026-01-27', '4 livan MT', NULL, NULL, '181AN0266265894M1', 0),
+(13, 4, 1, 'MSBU5148755', NULL, '4 livan-MT ', NULL, NULL, '181AN0266265898M1', 0),
+(14, 4, 1, 'MSMU4330218', '2026-01-27', '4 livan MT', NULL, NULL, '181AN0266266449M1', 0),
+(15, 5, 1, 'CLHU8987248', '2026-01-27', '4 livan MT', NULL, NULL, '181AN0266233020M1', 0),
+(16, 5, 1, 'TGBU9750547', '2026-01-27', '4 livan MT ', NULL, NULL, '181AN0266254602M1', 0),
+(17, 5, 1, 'MEDU7473266', '2026-01-27', '4 livan MT', NULL, NULL, '181AN0266265902M1', 0),
+(18, 5, 1, 'MSMU5638458', '2026-01-27', '4 livan MT', NULL, NULL, '181AN0266277103M1', 0),
+(19, 6, 1, 'TGBU7987036', '2026-01-27', '4 livan MT', NULL, NULL, '181AN0266271449M1', 0),
+(20, 6, 1, 'MEDU4937620', '2026-01-27', NULL, NULL, NULL, '181AN0266265909M1', 0),
+(21, 7, 1, 'TLLU4802720', '2026-02-01', 'gs3 mid', NULL, NULL, 'GGZ2879268', 0),
+(22, 7, 1, 'SELU4530381', '2026-02-01', 'gs3 mid', NULL, NULL, 'GGZ2879381', 0),
+(23, 7, 1, 'TCNU3553176', NULL, 'gs3 mid', NULL, NULL, 'GGZ2879382', 0),
+(24, 8, 1, 'SEGU6377710', '2026-02-01', 'gs3 mid', NULL, NULL, 'GGZ2879424', 0),
+(25, 8, 1, 'TRHU7689082', '2026-02-01', 'gs3 mid', NULL, NULL, 'GGZ2879425', 0),
+(26, 8, 1, 'CMAU5958552', '2026-02-01', '4 gs3 mid', NULL, '2026-03-05', 'GGZ2879413', 0),
+(27, 8, 1, 'CMAU8862217', '2026-02-01', 'gs3 mid', NULL, NULL, 'GGZ2879422', 0),
+(28, 8, 1, 'CMAU9817589', '2026-02-01', 'gs3 mid', NULL, NULL, 'GGZ2879423', 0),
+(29, 9, 1, 'BEAU4149880', '2026-02-01', 'gs3 mid', NULL, NULL, 'GGZ2879437', 0),
+(30, 9, 1, 'CMAU6216157', '2026-02-01', 'gs3 mid', NULL, NULL, 'GGZ2879439', 0),
+(31, 9, 1, 'UETU7119523', '2026-02-01', 'gs3 mid', NULL, NULL, 'GGZ2879440', 0),
+(32, 4, 1, 'CAXU9374068', '2026-01-27', '4 livan MT', NULL, NULL, '181AN0266233075M1', 0),
+(33, 10, 1, 'SLSU8007390', '2026-02-03', '4 livan MT', NULL, NULL, '181AN0266271431M1', 0),
+(34, 10, 1, 'MSNU6504800', '2026-02-10', '4 livan MT', NULL, NULL, '181AN0266277086M1', 0),
+(35, 11, 1, 'TIIU7247954', '2026-02-17', '4 gs3 MT', NULL, NULL, 'GGZ2890240', 0),
+(36, 12, 1, 'GESU6104985', '2026-02-17', '4 gs3 MT', NULL, NULL, 'GGZ2890236', 0),
+(37, 12, 1, 'TCLU1513520', '2026-02-17', '4 gs3 mt', NULL, NULL, 'GGZ2890237', 0),
+(38, 13, 1, 'ECMU5458328', '2026-02-17', '4 gs3 MT', NULL, NULL, 'GGZ2890253', 0),
+(39, 10, 1, 'FFAU6603597', '2026-02-18', '4 livan MT', NULL, NULL, '181AN0266287209M1', 0),
+(40, 12, 1, 'GESU6872915', '2026-02-17', '4 gs3 mid', NULL, NULL, 'GGZ2890235', 0),
+(41, 11, 1, 'CMAU6669256', '2026-02-17', '4 gs3 mid', NULL, NULL, 'GGZ2890251', 0),
+(42, 14, 1, 'HMMU4654165', '2026-02-18', '2 car ', NULL, NULL, 'HDMUSHAF57192000', 0),
+(43, 15, 1, 'HMMU4906375', '2026-02-23', '1 mason', NULL, NULL, 'SZPF01834700', 0),
+(44, 16, 1, 'MSNU9685580', '2026-03-10', 'SARL FIDELITY INTERNATIONAL SHIPPING COMPANY', '2026-03-07', NULL, '181AN0266317799M1', 0),
+(45, 17, 1, 'TEMU6466434', '2026-02-10', 'merf24/25', NULL, NULL, 'GGZ2881816', 0),
+(46, 18, 1, 'CARU9765386', NULL, 'M&M MIITZER &MUNCH ALGERIE SPA', NULL, NULL, '181BN26M0411367M1', 0),
+(47, 19, 1, NULL, NULL, NULL, NULL, NULL, '267267664', 0),
+(48, 20, 1, NULL, NULL, NULL, NULL, NULL, NULL, 0);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `loading`
+--
+
+DROP TABLE IF EXISTS `loading`;
+CREATE TABLE IF NOT EXISTS `loading` (
+  `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `date_loading` date DEFAULT NULL,
+  `id_shipping_line` int(11) DEFAULT NULL,
+  `freight` decimal(10,0) DEFAULT NULL,
+  `id_loading_port` int(11) DEFAULT NULL,
+  `id_discharge_port` int(11) DEFAULT NULL,
+  `EDD` date DEFAULT NULL,
+  `date_loaded` date DEFAULT NULL,
+  `note` text DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=21 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `loading`
+--
+
+INSERT INTO `loading` (`id`, `date_loading`, `id_shipping_line`, `freight`, `id_loading_port`, `id_discharge_port`, `EDD`, `date_loaded`, `note`) VALUES
+(1, '2026-01-08', 4, 4800, 1, 2, NULL, NULL, '6 dudu'),
+(2, '2026-01-14', 4, 4800, 1, 2, NULL, NULL, '1 dudu'),
+(3, '2026-01-18', 2, 5500, 1, 6, NULL, NULL, '1 ZHONGCHUAN'),
+(4, '2026-01-24', 4, 4800, 1, 2, NULL, NULL, '7 dudu'),
+(5, '2026-01-26', 4, 4800, 1, 5, NULL, NULL, '4 dudu'),
+(6, '2026-01-26', 4, 4800, 1, 4, '2026-01-27', NULL, '2 dudu'),
+(7, '2026-01-26', 2, 5300, 1, 5, '2026-02-01', NULL, '3 zhongchuan'),
+(8, '2026-01-26', 2, 5300, 1, 2, NULL, NULL, '5 zhongchuan'),
+(9, '2026-01-26', 2, 5300, 1, 4, NULL, NULL, '3 zhongchuan'),
+(10, '2026-01-31', 4, 4800, 1, 2, NULL, NULL, '3 dudu'),
+(11, '2026-02-03', 2, 5100, 1, 4, '2026-02-17', NULL, '2 zhongchuan'),
+(12, '2026-02-03', 2, 5100, 1, 2, '2026-02-17', NULL, '3 zhongchuan'),
+(13, '2026-02-03', 2, 5100, 1, 5, '2026-02-17', NULL, '1 zhongchuan'),
+(14, '2026-02-12', 6, 4500, 2, 4, '2026-02-18', '2026-02-10', '1 mason'),
+(15, '2026-02-12', 6, 4600, 1, 2, NULL, NULL, '1 mason'),
+(16, '2026-03-07', 4, 4700, 1, 2, NULL, NULL, '1 zhongchuan'),
+(17, '2026-03-07', 2, 5300, 1, 5, NULL, NULL, '1 zhongchuan'),
+(18, '2026-03-10', 4, 5200, 1, 4, NULL, NULL, '1 mason'),
+(19, '2026-03-10', 5, 5800, 1, 8, '2026-03-22', NULL, '1 zhongchuan'),
+(20, '2026-03-11', 4, 4800, 1, 2, '2026-03-22', NULL, '1 dudu');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `loading_ports`
+--
+
+DROP TABLE IF EXISTS `loading_ports`;
+CREATE TABLE IF NOT EXISTS `loading_ports` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `loading_port` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `loading_port` (`loading_port`)
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+--
+-- Dumping data for table `loading_ports`
+--
+
+INSERT INTO `loading_ports` (`id`, `loading_port`) VALUES
+(1, 'NANSHA'),
+(2, 'SHANGHAI');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `login`
+--
+
+DROP TABLE IF EXISTS `login`;
+CREATE TABLE IF NOT EXISTS `login` (
+  `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user` varchar(255) DEFAULT NULL,
+  `pass` text DEFAULT NULL,
+  `active` int(11) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `permissions`
+--
+
+DROP TABLE IF EXISTS `permissions`;
+CREATE TABLE IF NOT EXISTS `permissions` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `permission_name` varchar(50) NOT NULL,
+  `description` text DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `permission_name` (`permission_name`)
+) ENGINE=InnoDB AUTO_INCREMENT=40 DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+--
+-- Dumping data for table `permissions`
+--
+
+INSERT INTO `permissions` (`id`, `permission_name`, `description`) VALUES
+(1, 'can_manage_users', 'Can create, edit, and delete users'),
+(2, 'can_manage_roles', 'Can create, edit, and delete roles'),
+(3, 'can_manage_permissions', 'Can manage role permissions'),
+(4, 'is_exchange_sender', 'Can send exchange requests'),
+(5, 'is_exchange_receiver', 'Can receive exchange requests'),
+(6, 'can_manage_cars', 'Can manage cars inventory'),
+(7, 'can_edit_cars_prop', 'Can edit car properties'),
+(8, 'can_edit_vin', 'Can edit vehicle identification number (VIN)'),
+(9, 'can_edit_car_client_name', 'Can edit car client name'),
+(10, 'can_edit_cars_sell_price', 'Can edit car sell price'),
+(11, 'can_edit_cars_sell_rate', 'Can edit car sell rate'),
+(12, 'can_edit_cars_discharge_port', 'Can edit car discharge port'),
+(13, 'can_upload_car_files', 'Can upload car files'),
+(14, 'can_edit_cars_ports', 'Can edit car ports'),
+(15, 'can_edit_car_money', 'Can edit car money/financial information'),
+(16, 'can_receive_car', 'Can receive cars'),
+(17, 'can_edit_car_documents', 'Can edit car documents'),
+(18, 'can_load_car', 'Can load cars'),
+(19, 'can_edit_sell_payments', 'Can edit sell payments'),
+(20, 'can_delete_sell_paymets', 'Can delete sell payments'),
+(21, 'can_c_sell_payments', 'Can create sell payments'),
+(22, 'can_delete_sell_bill', 'Can delete sell bills'),
+(23, 'can_edit_sell_bill', 'Can edit sell bills'),
+(24, 'can_access_cashier', 'Can access cashier functions'),
+(25, 'can_purchase_cars', 'Can purchase cars'),
+(26, 'can_sell_cars', 'Can sell cars'),
+(27, 'can_c_car_stock', 'Can create car stock entries'),
+(28, 'can_assign_to_tmp_clients', 'Can assign cars to temporary clients'),
+(29, 'can_change_car_color', 'Can change car color'),
+(30, 'can_c_other_users_sells', 'Can create other users sells'),
+(31, 'can_unassign_cars', 'Can unassign cars'),
+(32, 'can_hide_car', 'Can hide cars'),
+(33, 'can_confirm_payment', 'Can confirm payment for sell bills and cars'),
+(34, 'can_c_alerts', 'Can view alerts banner'),
+(35, 'can_c_cars_alerts', 'Can view car-related alerts (unloaded, not arrived, no license, no docs sent)'),
+(36, 'can_c_sell_bill_payemts_alert', 'Can view sell bill payment alerts (unconfirmed, not paid, not fully paid)'),
+(37, 'can_c_freight', 'Can view freight information'),
+(38, 'can_c_fob_price', 'Can view FOB price information'),
+(39, 'can_c_cfr_prices', 'Can view CFR prices information');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `priorities`
+--
+
+DROP TABLE IF EXISTS `priorities`;
+CREATE TABLE IF NOT EXISTS `priorities` (
+  `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `priority` varchar(255) DEFAULT NULL,
+  `id_color` int(11) DEFAULT NULL,
+  `power` int(11) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `priority` (`priority`)
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `priorities`
+--
+
+INSERT INTO `priorities` (`id`, `priority`, `id_color`, `power`) VALUES
+(1, 'very important', NULL, 3),
+(2, 'urgent', NULL, 4),
+(3, 'important', NULL, 2);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `rates`
+--
+
+DROP TABLE IF EXISTS `rates`;
+CREATE TABLE IF NOT EXISTS `rates` (
+  `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `rate` decimal(10,2) DEFAULT NULL,
+  `created_on` timestamp NULL DEFAULT NULL,
+  `id_user` int(11) DEFAULT NULL,
+  `notes` text DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `roles`
+--
+
+DROP TABLE IF EXISTS `roles`;
+CREATE TABLE IF NOT EXISTS `roles` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `role_name` varchar(50) NOT NULL,
+  `description` text DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `role_name` (`role_name`)
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+--
+-- Dumping data for table `roles`
+--
+
+INSERT INTO `roles` (`id`, `role_name`, `description`) VALUES
+(1, 'admin', 'Administrator role with full system access'),
+(2, 'seller', ''),
+(3, 'ishaq', ''),
+(4, 'docs', '');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `role_permissions`
+--
+
+DROP TABLE IF EXISTS `role_permissions`;
+CREATE TABLE IF NOT EXISTS `role_permissions` (
+  `role_id` int(11) NOT NULL,
+  `permission_id` int(11) NOT NULL,
+  PRIMARY KEY (`role_id`,`permission_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+--
+-- Dumping data for table `role_permissions`
+--
+
+INSERT INTO `role_permissions` (`role_id`, `permission_id`) VALUES
+(1, 6),
+(1, 7),
+(1, 8),
+(1, 12),
+(1, 13),
+(1, 14),
+(1, 16),
+(1, 17),
+(1, 18),
+(1, 21),
+(1, 27),
+(1, 30),
+(1, 32),
+(2, 6),
+(2, 10),
+(2, 11),
+(2, 12),
+(2, 14),
+(2, 15),
+(2, 19),
+(2, 21),
+(2, 26),
+(2, 27),
+(2, 32),
+(3, 4),
+(3, 6),
+(3, 10),
+(3, 11),
+(3, 12),
+(3, 14),
+(3, 15),
+(3, 21),
+(3, 24),
+(3, 26),
+(3, 27),
+(3, 30),
+(3, 32),
+(3, 33),
+(3, 34),
+(3, 36),
+(4, 6),
+(4, 7),
+(4, 8),
+(4, 9),
+(4, 13),
+(4, 14),
+(4, 16),
+(4, 17),
+(4, 18),
+(4, 21),
+(4, 26),
+(4, 27),
+(4, 28),
+(4, 29),
+(4, 30),
+(4, 32),
+(4, 34),
+(4, 35);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `selection_comments`
+--
+
+DROP TABLE IF EXISTS `selection_comments`;
+CREATE TABLE IF NOT EXISTS `selection_comments` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `selection_id` int(11) NOT NULL COMMENT 'FK to car_selections',
+  `user_id` int(11) NOT NULL COMMENT 'FK to users - who commented',
+  `comment` text NOT NULL COMMENT 'Comment text',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_selection_id` (`selection_id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci COMMENT='Comments and updates on selections';
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `selection_ownership_history`
+--
+
+DROP TABLE IF EXISTS `selection_ownership_history`;
 CREATE TABLE IF NOT EXISTS `selection_ownership_history` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `selection_id` int(11) NOT NULL COMMENT 'FK to car_selections',
   `user_id` int(11) NOT NULL COMMENT 'FK to users - user involved in the action',
-  `action` enum('sent', 'received', 'transferred') NOT NULL COMMENT 'Type of action',
+  `action` enum('sent','received','transferred') NOT NULL COMMENT 'Type of action',
   `from_user_id` int(11) DEFAULT NULL COMMENT 'FK to users - who sent (nullable)',
   `to_user_id` int(11) DEFAULT NULL COMMENT 'FK to users - who received (nullable)',
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   KEY `idx_selection_id` (`selection_id`),
   KEY `idx_user_id` (`user_id`),
   KEY `idx_action` (`action`),
   KEY `idx_from_user_id` (`from_user_id`),
   KEY `idx_to_user_id` (`to_user_id`),
-  KEY `idx_created_at` (`created_at`),
-  CONSTRAINT `fk_ownership_history_selection` FOREIGN KEY (`selection_id`) REFERENCES `car_selections` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `fk_ownership_history_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
-  CONSTRAINT `fk_ownership_history_from_user` FOREIGN KEY (`from_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT `fk_ownership_history_to_user` FOREIGN KEY (`to_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 COMMENT='Track ownership changes and transfers of selections';
+  KEY `idx_created_at` (`created_at`)
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci COMMENT='Track ownership changes and transfers of selections';
 
--- Selection comments table (references car_selections and users)
-CREATE TABLE IF NOT EXISTS `selection_comments` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `selection_id` int(11) NOT NULL COMMENT 'FK to car_selections',
-  `user_id` int(11) NOT NULL COMMENT 'FK to users - who commented',
-  `comment` text NOT NULL COMMENT 'Comment text',
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+--
+-- Dumping data for table `selection_ownership_history`
+--
+
+INSERT INTO `selection_ownership_history` (`id`, `selection_id`, `user_id`, `action`, `from_user_id`, `to_user_id`, `created_at`) VALUES
+(1, 2, 12, 'sent', 1, 12, '2026-01-07 09:27:11'),
+(2, 2, 16, 'sent', 1, 16, '2026-01-07 09:27:12'),
+(3, 1, 13, 'sent', 1, 13, '2026-01-07 09:27:43');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `sell_bill`
+--
+
+DROP TABLE IF EXISTS `sell_bill`;
+CREATE TABLE IF NOT EXISTS `sell_bill` (
+  `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `id_broker` int(11) DEFAULT NULL,
+  `date_sell` date DEFAULT NULL,
+  `notes` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `id_user` int(11) DEFAULT NULL,
+  `path_pi` varchar(255) DEFAULT NULL,
+  `bill_ref` varchar(255) DEFAULT NULL,
+  `is_batch_sell` tinyint(1) DEFAULT 0,
+  `payment_confirmed` tinyint(1) DEFAULT 0 COMMENT 'Payment confirmed status - only admins or users with can_confirm_payment permission can set to true',
+  `payment_confirmed_by_user_id` int(11) DEFAULT NULL COMMENT 'ID of user who confirmed the payment',
+  `time_created` timestamp NULL DEFAULT NULL,
+  `edited_by` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT 'JSON array tracking edits: [{"id_user": int, "timestamp": "datetime"}]' CHECK (json_valid(`edited_by`)),
   PRIMARY KEY (`id`),
-  KEY `idx_selection_id` (`selection_id`),
-  KEY `idx_user_id` (`user_id`),
-  KEY `idx_created_at` (`created_at`),
-  CONSTRAINT `fk_comments_selection` FOREIGN KEY (`selection_id`) REFERENCES `car_selections` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `fk_comments_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 COMMENT='Comments on selections';
+  KEY `idx_payment_confirmed` (`payment_confirmed`),
+  KEY `idx_payment_confirmed_by_user_id` (`payment_confirmed_by_user_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=175 DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 
--- ============================================
--- Trigger to increment jobs_completed_count
--- ============================================
-DELIMITER $$
+--
+-- Dumping data for table `sell_bill`
+--
 
-DROP TRIGGER IF EXISTS trg_increment_team_jobs_completed$$
+INSERT INTO `sell_bill` (`id`, `id_broker`, `date_sell`, `notes`, `id_user`, `path_pi`, `bill_ref`, `is_batch_sell`, `payment_confirmed`, `payment_confirmed_by_user_id`, `time_created`, `edited_by`) VALUES
+(1, 8, '2025-12-29', '[{\"id_user\":null,\"note\":\"FOB -MER20151229002\",\"timestamp\":\"2026-01-18 16:53:53\"}]', 5, NULL, 'SOF005291225001', 0, 0, NULL, '2025-12-29 10:12:54', '[{\"id_user\":5,\"timestamp\":\"2026-01-09 07:57:57\"},{\"id_user\":5,\"timestamp\":\"2026-01-18 16:54:26\"}]'),
+(2, 10, '2025-12-30', '', 8, NULL, 'ADM001301225002', 0, 1, NULL, '2025-12-30 19:05:17', NULL),
+(3, NULL, '2025-12-31', '', 5, NULL, 'SOF005311225003', 0, 0, NULL, '2025-12-31 04:34:40', NULL),
+(5, 13, '2025-12-31', '', 17, NULL, 'BIL017311225005', 0, 0, NULL, '2025-12-31 09:54:09', NULL),
+(6, 14, '2025-12-31', '', 6, NULL, 'MIM006311225006', 0, 0, NULL, '2025-12-31 13:21:14', NULL),
+(10, 17, '2025-12-31', '', 7, NULL, 'BIL017311225010', 0, 0, NULL, '2025-12-31 14:30:54', NULL),
+(12, 18, '2025-12-31', '', 17, NULL, 'BIL017311225012', 0, 1, 3, '2025-12-31 15:20:39', NULL),
+(13, 19, '2025-12-31', '', 17, NULL, 'BIL017311225013', 0, 1, 3, '2025-12-31 17:26:03', NULL),
+(15, 23, '2026-01-01', '', 11, NULL, 'BEL011010126015', 0, 0, NULL, '2026-01-01 10:52:59', NULL),
+(16, 24, '2026-01-01', '', 6, NULL, 'MIM006010126016', 0, 0, NULL, '2026-01-01 11:27:06', NULL),
+(17, 25, '2026-01-01', '', 6, NULL, 'MIM006010126017', 0, 0, NULL, '2026-01-01 13:40:38', NULL),
+(18, 26, '2026-01-01', '', 6, NULL, 'MIM006010126018', 0, 0, NULL, '2026-01-01 13:54:55', NULL),
+(20, 28, '2026-01-03', '[{\"id_user\":null,\"note\":\"with spare tyre\",\"timestamp\":\"2026-01-03 02:39:31\"},{\"id_user\":5,\"note\":\"FOB\",\"timestamp\":\"2026-01-18 10:31:43\"}]', 5, NULL, 'SOF005030126020', 0, 0, NULL, '2026-01-03 07:39:31', NULL),
+(21, 29, '2026-01-03', '', 11, NULL, 'BEL011030126021', 0, 0, NULL, '2026-01-03 09:35:00', NULL),
+(22, 30, '2026-01-03', '', 6, NULL, 'MIM006030126022', 0, 0, NULL, '2026-01-03 11:08:20', NULL),
+(23, 31, '2026-01-03', '', 17, NULL, 'BIL017030126023', 0, 0, NULL, '2026-01-03 13:58:05', NULL),
+(26, 46, '2026-01-04', '', 6, NULL, 'MIM006040126026', 0, 0, NULL, '2026-01-04 12:43:05', NULL),
+(30, 49, '2026-01-04', '', 6, NULL, 'MIM006040126030', 0, 0, NULL, '2026-01-04 14:53:10', NULL),
+(31, 43, '2026-01-04', '', 3, NULL, 'ISH003040126031', 0, 0, NULL, '2026-01-04 17:48:28', NULL),
+(33, 52, '2026-01-05', '', 6, NULL, 'MIM006050126033', 0, 0, NULL, '2026-01-05 10:09:55', NULL),
+(34, 53, '2026-01-05', '', 6, NULL, 'MIM006050126034', 0, 0, NULL, '2026-01-05 10:16:52', NULL),
+(35, 59, '2026-01-06', '[{\"id_user\":5,\"note\":\"FOB WITH MODIFY\",\"timestamp\":\"2026-01-18 12:26:08\"}]', 5, NULL, 'SOF005060126035', 0, 0, NULL, '2026-01-06 04:11:44', '[{\"id_user\":5,\"timestamp\":\"2026-01-18 12:26:24\"}]'),
+(36, 63, '2026-01-06', '[{\"id_user\":null,\"note\":\"3 livan 1 haoyue\",\"timestamp\":\"2026-01-06 00:21:51\"},{\"id_user\":1,\"note\":\"4 livan must in same container\",\"timestamp\":\"2026-01-16 22:55:30\"}]', 5, NULL, 'SOF005060126036', 0, 1, 1, '2026-01-06 05:21:51', '[{\"id_user\":1,\"timestamp\":\"2026-01-16 22:55:38\"}]'),
+(37, 65, '2026-01-06', '[{\"id_user\":null,\"note\":\"with modity\",\"timestamp\":\"2026-01-12 03:08:52\"}]', 5, NULL, 'SOF005060126037', 0, 0, NULL, '2026-01-06 07:49:14', '[{\"id_user\":5,\"timestamp\":\"2026-01-12 03:08:59\"}]'),
+(38, 69, '2026-01-06', '', 7, NULL, 'MOH007050126038', 0, 0, NULL, '2026-01-06 10:16:47', NULL),
+(39, 70, '2026-01-06', '', 6, NULL, 'MIM006060126039', 0, 0, NULL, '2026-01-06 10:45:09', NULL),
+(40, 47, '2026-01-07', '[{\"id_user\":null,\"note\":\"fob paid, ç”µå°¾é—¨/åŽå¤‡ç®±æ ¼ç‰©æ¿\",\"timestamp\":\"2026-01-18 13:42:24\"}]', 5, NULL, 'SOF005070126040', 0, 0, NULL, '2026-01-07 11:54:51', '[{\"id_user\":5,\"timestamp\":\"2026-01-18 13:42:32\"}]'),
+(41, 63, '2026-01-07', NULL, 5, NULL, 'SOF005070126041', 0, 0, NULL, '2026-01-07 12:23:13', NULL),
+(42, 74, '2026-01-07', NULL, 3, NULL, 'ISH003070126042', 0, 0, NULL, '2026-01-07 13:22:22', NULL),
+(44, 82, '2026-01-08', NULL, 6, NULL, 'MIM006080126044', 0, 0, NULL, '2026-01-08 09:04:15', NULL),
+(45, 83, '2026-01-10', NULL, 17, NULL, 'BIL017100126045', 0, 0, NULL, '2026-01-10 11:57:53', NULL),
+(46, 85, '2026-01-11', NULL, 7, NULL, 'MOH007100126046', 0, 0, NULL, '2026-01-11 10:48:14', NULL),
+(48, 87, '2026-01-11', NULL, 7, NULL, 'ADM001110126048', 0, 0, NULL, '2026-01-11 11:47:33', NULL),
+(49, 88, '2026-01-11', NULL, 7, NULL, 'MOH007100126049', 0, 0, NULL, '2026-01-11 11:52:32', NULL),
+(50, 90, '2026-01-11', NULL, 7, NULL, 'MOH007100126050', 0, 0, NULL, '2026-01-11 13:24:28', NULL),
+(52, 93, '2026-01-11', NULL, 7, NULL, 'SOF005110126052', 0, 0, NULL, '2026-01-11 15:37:04', '[{\"id_user\":1,\"timestamp\":\"2026-01-13 09:25:30\"}]'),
+(53, 95, '2026-01-11', NULL, 5, NULL, 'SOF005110126053', 0, 0, NULL, '2026-01-11 15:58:27', NULL),
+(54, 96, '2026-01-11', '[{\"id_user\":5,\"note\":\"with modity\",\"timestamp\":\"2026-01-11 16:35:41\"}]', 5, NULL, 'SOF005110126054', 0, 0, NULL, '2026-01-11 16:35:43', NULL),
+(56, 91, '2026-01-11', '[{\"id_user\":5,\"note\":\"with modify\",\"timestamp\":\"2026-01-11 16:57:24\"}]', 5, NULL, 'SOF005110126056', 0, 0, NULL, '2026-01-11 16:57:25', NULL),
+(57, 98, '2026-01-11', NULL, 5, NULL, 'SOF005110126057', 0, 0, NULL, '2026-01-11 17:06:25', NULL),
+(58, 100, '2026-01-12', NULL, 7, NULL, 'MOH007110126058', 0, 0, NULL, '2026-01-12 09:44:32', NULL),
+(59, 101, '2026-01-12', NULL, 17, NULL, 'BIL017120126059', 0, 0, NULL, '2026-01-12 09:44:53', NULL),
+(60, 84, '2026-01-12', NULL, 17, NULL, 'BIL017120126060', 0, 0, NULL, '2026-01-12 10:05:49', NULL),
+(61, 102, '2026-01-12', NULL, 17, NULL, 'BIL017120126061', 0, 0, NULL, '2026-01-12 10:39:41', NULL),
+(62, 103, '2026-01-12', NULL, 3, NULL, 'ISH003120126062', 0, 0, NULL, '2026-01-12 13:21:53', NULL),
+(63, 104, '2026-01-12', NULL, 7, NULL, 'MOH007110126063', 0, 1, 7, '2026-01-12 16:20:19', NULL),
+(64, 105, '2026-01-12', NULL, 7, NULL, 'MOH007110126064', 0, 0, NULL, '2026-01-12 17:22:08', NULL),
+(65, 106, '2026-01-13', NULL, 5, NULL, 'SOF005130126065', 0, 0, NULL, '2026-01-13 07:52:35', '[{\"id_user\":5,\"timestamp\":\"2026-01-13 07:53:26\"},{\"id_user\":5,\"timestamp\":\"2026-01-20 12:30:47\"}]'),
+(67, 117, '2026-01-13', '[{\"id_user\":3,\"note\":\"PLEASE LOAD THE CAR WITH ISH003070126042\",\"timestamp\":\"2026-01-13 12:54:20\"}]', 3, NULL, 'ISH003130126067', 0, 0, NULL, '2026-01-13 12:54:21', NULL),
+(69, 120, '2026-01-14', NULL, 6, NULL, 'MIM006140126069', 0, 0, NULL, '2026-01-14 09:11:59', NULL),
+(71, 122, '2026-01-14', NULL, 11, NULL, 'BEL011140126071', 0, 0, NULL, '2026-01-14 11:39:23', NULL),
+(73, 124, '2026-01-14', NULL, 17, NULL, 'BIL017140126073', 0, 0, NULL, '2026-01-14 12:35:40', NULL),
+(74, 126, '2026-01-15', NULL, 7, NULL, 'MOH007140126074', 0, 1, 7, '2026-01-15 09:38:53', NULL),
+(76, 130, '2026-01-15', NULL, 7, NULL, 'MOH007140126076', 0, 1, 7, '2026-01-15 12:05:46', NULL),
+(77, 131, '2026-01-15', NULL, 17, NULL, 'BIL017150126077', 0, 0, NULL, '2026-01-15 13:34:10', NULL),
+(78, 132, '2026-01-17', NULL, 17, NULL, 'BIL017170126078', 0, 0, NULL, '2026-01-17 12:01:42', NULL),
+(79, 148, '2026-01-17', NULL, 5, NULL, 'SOF005170126079', 0, 0, NULL, '2026-01-17 13:28:49', '[{\"id_user\":5,\"timestamp\":\"2026-01-17 13:47:02\"}]'),
+(80, 150, '2026-01-18', NULL, 7, NULL, 'MOH007170126080', 0, 1, 7, '2026-01-18 10:02:12', NULL),
+(81, 151, '2026-01-18', NULL, 17, NULL, 'BIL017180126081', 0, 0, NULL, '2026-01-18 10:38:57', NULL),
+(82, 152, '2026-01-18', NULL, 6, NULL, 'MIM006180126082', 0, 0, NULL, '2026-01-18 10:43:30', NULL),
+(84, 153, '2026-01-18', NULL, 6, NULL, 'MIM006180126084', 0, 0, NULL, '2026-01-18 10:57:16', NULL),
+(85, 154, '2026-01-18', NULL, 4, NULL, 'ATE004180126085', 0, 0, NULL, '2026-01-18 11:16:16', NULL),
+(86, 156, '2026-01-18', NULL, 17, NULL, 'BIL017180126086', 0, 0, NULL, '2026-01-18 11:45:36', NULL),
+(87, 155, '2026-01-18', '[{\"id_user\":6,\"note\":\"THIS PRICE IS REC BY MERHAB\",\"timestamp\":\"2026-01-18 11:48:31\"}]', 6, NULL, 'MIM006180126087', 0, 0, NULL, '2026-01-18 11:48:32', NULL),
+(88, 157, '2026-01-18', NULL, 6, NULL, 'MIM006180126088', 0, 0, NULL, '2026-01-18 12:04:45', NULL),
+(89, 159, '2026-01-18', NULL, 17, NULL, 'BIL017180126089', 0, 0, NULL, '2026-01-18 12:20:36', NULL),
+(90, 160, '2026-01-18', NULL, 6, NULL, 'MIM006180126090', 0, 0, NULL, '2026-01-18 12:22:26', NULL),
+(91, 162, '2026-01-18', NULL, 6, NULL, 'MIM006180126091', 0, 0, NULL, '2026-01-18 12:31:07', NULL),
+(92, 163, '2026-01-18', NULL, 17, NULL, 'BIL017180126092', 0, 0, NULL, '2026-01-18 12:37:55', NULL),
+(93, 164, '2026-01-18', NULL, 6, NULL, 'MIM006180126093', 0, 0, NULL, '2026-01-18 13:08:00', NULL),
+(94, 165, '2026-01-18', NULL, 6, NULL, 'MIM006180126094', 0, 0, NULL, '2026-01-18 13:29:16', NULL),
+(95, 166, '2026-01-18', NULL, 6, NULL, 'MIM006180126095', 0, 0, NULL, '2026-01-18 13:49:01', NULL),
+(96, 167, '2026-01-18', NULL, 6, NULL, 'MIM006180126096', 0, 0, NULL, '2026-01-18 14:18:29', NULL),
+(97, 170, '2026-01-18', NULL, 5, NULL, 'SOF005180126097', 0, 0, NULL, '2026-01-18 14:56:17', NULL),
+(98, 168, '2026-01-18', NULL, 17, NULL, 'BIL017180126098', 0, 0, NULL, '2026-01-18 15:00:08', NULL),
+(99, 171, '2026-01-18', NULL, 6, NULL, 'MIM006180126099', 0, 0, NULL, '2026-01-18 15:01:45', NULL),
+(100, 169, '2026-01-18', NULL, 17, NULL, 'BIL017180126100', 0, 0, NULL, '2026-01-18 15:05:32', NULL),
+(101, 175, '2026-01-18', NULL, 7, NULL, 'MOH007170126101', 0, 1, 7, '2026-01-18 15:08:26', NULL),
+(103, 179, '2026-01-18', NULL, 7, NULL, 'MOH007170126103', 0, 1, 7, '2026-01-18 15:50:25', NULL),
+(104, 180, '2026-01-18', NULL, 6, NULL, 'MIM006180126104', 0, 0, NULL, '2026-01-18 15:56:06', NULL),
+(105, 182, '2026-01-18', NULL, 6, NULL, 'MIM006180126105', 0, 0, NULL, '2026-01-18 16:10:36', NULL),
+(107, 188, '2026-01-19', NULL, 6, NULL, 'MIM006190126107', 0, 0, NULL, '2026-01-19 10:14:48', NULL),
+(108, 189, '2026-01-19', '[{\"id_user\":6,\"note\":\"ALL IN ONE CONTAINER\",\"timestamp\":\"2026-01-19 10:53:38\"}]', 6, NULL, 'MIM006190126108', 0, 0, NULL, '2026-01-19 10:53:39', NULL),
+(109, 190, '2026-01-19', NULL, 6, NULL, 'MIM006190126109', 0, 0, NULL, '2026-01-19 15:20:06', NULL),
+(110, 191, '2026-01-19', NULL, 6, NULL, 'MIM006190126110', 0, 0, NULL, '2026-01-19 15:38:02', NULL),
+(111, 192, '2026-01-19', NULL, 6, NULL, 'MIM006190126111', 0, 0, NULL, '2026-01-19 15:47:41', NULL),
+(112, 193, '2026-01-19', NULL, 6, NULL, 'MIM006190126112', 0, 0, NULL, '2026-01-19 16:10:00', NULL),
+(113, 200, '2026-01-20', NULL, 7, NULL, 'MOH007190126113', 0, 0, NULL, '2026-01-20 11:30:28', NULL),
+(114, 203, '2026-01-21', NULL, 6, NULL, 'MIM006210126114', 0, 0, NULL, '2026-01-21 09:55:26', NULL),
+(115, 204, '2026-01-21', NULL, 6, NULL, 'MIM006210126115', 0, 0, NULL, '2026-01-21 14:46:07', NULL),
+(116, 205, '2026-01-21', NULL, 6, NULL, 'MIM006210126116', 0, 0, NULL, '2026-01-21 14:56:16', NULL),
+(117, 206, '2026-01-21', NULL, 6, NULL, 'MIM006210126117', 0, 0, NULL, '2026-01-21 15:23:45', NULL),
+(118, 207, '2026-01-21', NULL, 6, NULL, 'MIM006210126118', 0, 0, NULL, '2026-01-21 15:48:58', NULL),
+(119, 208, '2026-01-21', NULL, 6, NULL, 'MIM006210126119', 0, 0, NULL, '2026-01-21 17:09:17', NULL),
+(121, 213, '2026-01-22', NULL, 7, NULL, 'MOH007210126121', 0, 0, NULL, '2026-01-22 09:28:56', NULL),
+(122, 226, '2026-01-25', NULL, 7, NULL, 'MOH007240126122', 0, 0, NULL, '2026-01-25 09:27:27', NULL),
+(123, 227, '2026-01-25', NULL, 17, NULL, 'BIL017250126123', 0, 0, NULL, '2026-01-25 13:11:06', NULL),
+(124, 233, '2026-01-26', NULL, 17, NULL, 'BIL017260126124', 0, 0, NULL, '2026-01-26 12:02:12', NULL),
+(125, 245, '2026-01-27', '[{\"id_user\":5,\"note\":\"3 livan\",\"timestamp\":\"2026-01-27 10:31:05\"}]', 5, NULL, 'SOF005270126125', 0, 0, NULL, '2026-01-27 10:31:06', NULL),
+(126, 248, '2026-01-29', NULL, 6, NULL, 'MIM006290126126', 0, 0, NULL, '2026-01-29 08:20:34', NULL),
+(127, 208, '2026-01-31', NULL, 5, NULL, 'SOF005310126127', 0, 0, NULL, '2026-01-31 06:45:09', NULL),
+(128, 254, '2026-01-31', '[{\"id_user\":5,\"note\":\"mimo\",\"timestamp\":\"2026-01-31 09:42:31\"}]', 5, NULL, 'SOF005310126128', 0, 0, NULL, '2026-01-31 09:42:33', '[{\"id_user\":1,\"timestamp\":\"2026-01-31 13:16:01\"},{\"id_user\":5,\"timestamp\":\"2026-02-01 03:25:02\"}]'),
+(131, 259, '2026-01-31', NULL, 4, NULL, 'ATE004310126131', 0, 0, NULL, '2026-01-31 12:33:51', NULL),
+(132, 261, '2026-02-01', NULL, 6, NULL, 'MIM006010226132', 0, 0, NULL, '2026-02-01 11:39:31', NULL),
+(134, 208, '2026-02-02', NULL, 5, NULL, 'SOF005020226134', 0, 0, NULL, '2026-02-02 14:43:47', NULL),
+(135, 265, '2026-02-05', NULL, 17, NULL, 'BIL017050226135', 0, 0, NULL, '2026-02-05 09:26:06', NULL),
+(136, 266, '2026-02-05', NULL, 7, NULL, 'MOH007040226136', 0, 0, NULL, '2026-02-05 09:29:45', NULL),
+(139, 270, '2026-02-05', NULL, 4, NULL, 'ATE004050226139', 0, 0, NULL, '2026-02-05 11:16:59', NULL),
+(141, 267, '2026-02-05', NULL, 4, NULL, 'ATE004050226141', 0, 0, NULL, '2026-02-05 13:30:23', NULL),
+(142, 268, '2026-02-05', NULL, 4, NULL, 'ATE004050226142', 0, 0, NULL, '2026-02-05 13:34:30', NULL),
+(143, 269, '2026-02-05', NULL, 4, NULL, 'ATE004050226143', 0, 0, NULL, '2026-02-05 13:37:59', NULL),
+(144, 280, '2026-02-12', '[{\"id_user\":5,\"note\":\"FOB\",\"timestamp\":\"2026-02-12 04:57:44\"}]', 5, NULL, 'SOF005120226144', 0, 0, NULL, '2026-02-12 04:57:46', '[{\"id_user\":5,\"timestamp\":\"2026-02-12 05:28:47\"}]'),
+(145, 275, '2026-02-12', '[{\"id_user\":5,\"note\":\"shipping merf027\",\"timestamp\":\"2026-02-12 07:31:27\"}]', 5, NULL, 'SOF005120226145', 0, 0, NULL, '2026-02-12 05:54:24', '[{\"id_user\":5,\"timestamp\":\"2026-02-12 07:31:14\"},{\"id_user\":5,\"timestamp\":\"2026-02-12 07:31:34\"}]'),
+(146, 272, '2026-02-12', '[{\"id_user\":5,\"note\":\"shipping merf026\",\"timestamp\":\"2026-02-12 07:32:13\"}]', 5, NULL, 'SOF005120226146', 0, 0, NULL, '2026-02-12 07:25:09', '[{\"id_user\":5,\"timestamp\":\"2026-02-12 07:31:59\"},{\"id_user\":5,\"timestamp\":\"2026-02-12 07:32:19\"}]'),
+(147, 285, '2026-02-12', '[{\"id_user\":2,\"note\":\"BAHAZ CLIENT\",\"timestamp\":\"2026-02-14 10:36:26\"}]', 17, NULL, 'BIL017120226147', 0, 0, NULL, '2026-02-12 10:59:06', '[{\"id_user\":2,\"timestamp\":\"2026-02-14 10:36:34\"}]'),
+(149, 288, '2026-02-14', '[{\"id_user\":17,\"note\":\"BAHAZ CLIENT\",\"timestamp\":\"2026-02-14 10:35:29\"}]', 17, NULL, 'BIL017140226149', 0, 0, NULL, '2026-02-14 10:35:29', NULL),
+(150, 289, '2026-02-14', NULL, 17, NULL, 'BIL017140226150', 0, 0, NULL, '2026-02-14 13:20:55', NULL),
+(151, 291, '2026-02-17', NULL, 3, NULL, 'MIM006170226151', 0, 0, NULL, '2026-02-17 11:08:21', '[{\"id_user\":2,\"timestamp\":\"2026-02-22 10:12:07\"},{\"id_user\":2,\"timestamp\":\"2026-02-23 09:45:50\"}]'),
+(152, 283, '2026-02-21', NULL, 4, NULL, 'ATE004210226152', 0, 0, NULL, '2026-02-21 10:56:32', NULL),
+(153, 292, '2026-03-04', NULL, 3, NULL, 'ISH003040326153', 0, 0, NULL, '2026-03-04 13:10:17', NULL),
+(154, 284, '2026-03-05', NULL, 7, NULL, 'MOH007050326154', 0, 0, NULL, '2026-03-05 08:19:16', NULL),
+(155, 293, '2026-03-05', NULL, 6, NULL, 'MIM006050326155', 0, 1, NULL, '2026-03-05 22:38:54', NULL),
+(156, 298, '2026-03-06', NULL, 7, NULL, 'MOH007060326156', 0, 0, NULL, '2026-03-06 13:30:59', NULL),
+(157, 305, '2026-03-06', NULL, 5, NULL, 'SOF005060326157', 1, 0, NULL, '2026-03-06 15:30:38', NULL),
+(158, 272, '2026-03-07', '[{\"id_user\":5,\"note\":\"MERF-021 shipping\",\"timestamp\":\"2026-03-07 05:00:19\"}]', 5, NULL, 'SOF005070326158', 0, 0, NULL, '2026-03-07 05:00:20', NULL),
+(159, 315, '2026-03-07', NULL, 5, NULL, 'SOF005070326159', 1, 0, NULL, '2026-03-07 07:09:39', NULL),
+(160, 225, '2026-03-07', '[{\"id_user\":5,\"note\":\"merf025\",\"timestamp\":\"2026-03-07 09:58:47\"}]', 5, NULL, 'SOF005070326160', 0, 0, NULL, '2026-03-07 09:58:48', NULL),
+(161, 213, '2026-03-08', NULL, 7, NULL, 'MOH007080326161', 0, 0, NULL, '2026-03-08 07:19:52', NULL),
+(162, 322, '2026-03-08', NULL, 7, NULL, 'MOH007080326162', 0, 0, NULL, '2026-03-08 11:46:57', NULL),
+(163, 324, '2026-03-08', NULL, 6, NULL, 'MIM006080326163', 0, 0, NULL, '2026-03-08 13:47:25', NULL),
+(164, 327, '2026-03-09', NULL, 7, NULL, 'MOH007090326164', 0, 0, NULL, '2026-03-09 08:44:04', NULL),
+(165, 329, '2026-03-09', NULL, 3, NULL, 'ISH003090326165', 0, 0, NULL, '2026-03-09 11:37:04', NULL),
+(166, 328, '2026-03-09', NULL, 3, NULL, 'ISH003090326166', 0, 0, NULL, '2026-03-09 11:38:45', NULL),
+(167, 330, '2026-03-09', NULL, 7, NULL, 'MOH007090326167', 0, 0, NULL, '2026-03-09 11:39:42', NULL),
+(168, 108, '2026-03-10', '[{\"id_user\":5,\"note\":\"MERF022/023\",\"timestamp\":\"2026-03-10 08:41:27\"}]', 5, NULL, 'SOF005100326168', 0, 0, NULL, '2026-03-10 08:40:52', '[{\"id_user\":5,\"timestamp\":\"2026-03-10 08:41:36\"}]'),
+(169, 309, '2026-03-10', '[{\"id_user\":5,\"note\":\"fob\",\"timestamp\":\"2026-03-10 09:41:10\"}]', 5, NULL, 'SOF005100326169', 1, 0, NULL, '2026-03-10 09:41:12', NULL),
+(170, 332, '2026-03-10', NULL, 6, NULL, 'MIM006100326170', 0, 0, NULL, '2026-03-10 10:01:12', NULL),
+(171, 319, '2026-03-10', NULL, 3, NULL, 'ISH003100326171', 0, 0, NULL, '2026-03-10 10:14:09', NULL),
+(172, 333, '2026-03-10', NULL, 3, NULL, 'ISH003100326172', 0, 0, NULL, '2026-03-10 10:24:05', NULL),
+(173, 334, '2026-03-11', NULL, 3, NULL, 'ISH003110326173', 0, 0, NULL, '2026-03-11 09:24:34', NULL),
+(174, 335, '2026-03-11', NULL, 17, NULL, 'BIL017110326174', 0, 0, NULL, '2026-03-11 12:31:54', NULL);
 
-CREATE TRIGGER trg_increment_team_jobs_completed
-AFTER UPDATE ON `car_selections`
-FOR EACH ROW
-BEGIN
-  -- Only increment if status changed to 'completed' and job_done_on is set
-  IF NEW.status = 'completed' 
-     AND OLD.status != 'completed' 
-     AND NEW.job_done_on IS NOT NULL
-     AND NEW.assigned_to_team IS NOT NULL THEN
-    UPDATE `teams`
-    SET `jobs_completed_count` = `jobs_completed_count` + 1
-    WHERE `id` = NEW.assigned_to_team;
-  END IF;
-END$$
+-- --------------------------------------------------------
 
-DELIMITER ;
+--
+-- Table structure for table `sell_payments`
+--
 
+DROP TABLE IF EXISTS `sell_payments`;
+CREATE TABLE IF NOT EXISTS `sell_payments` (
+  `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `id_sell_bill` int(11) DEFAULT NULL,
+  `amount_usd` decimal(10,2) DEFAULT NULL,
+  `amount_da` decimal(10,2) DEFAULT NULL,
+  `rate` decimal(10,2) DEFAULT NULL,
+  `date` date DEFAULT NULL,
+  `path_swift` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `id_user` int(11) DEFAULT NULL,
+  `notes` text DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=183 DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+--
+-- Dumping data for table `sell_payments`
+--
+
+INSERT INTO `sell_payments` (`id`, `id_sell_bill`, `amount_usd`, `amount_da`, `rate`, `date`, `path_swift`, `id_user`, `notes`) VALUES
+(1, 4, 10756.97, 2700000.00, 251.00, '2025-12-31', 'payments_swift/swift_payment_4_2025-12-31_09-42-08_10756.97USD_1767174128669.jpeg', 3, ''),
+(2, 5, 10756.97, 2700000.00, 251.00, '2025-12-31', 'payments_swift/swift_payment_5_2025-12-31_10-12-51_10756.97USD_1767175971762.jpeg', 17, ''),
+(3, 6, 9362.55, 2350000.00, 251.00, '2025-12-31', 'payments_swift/swift_payment_6_2025-12-31_13-37-25_9362.55USD_1767188245232.pdf', 6, ''),
+(4, 13, 9362.55, 2350000.00, 251.00, '2025-12-31', 'payments_swift/swift_payment_13_2025-12-31_17-42-45_9362.55USD_1767202965514.jpg', 3, ''),
+(5, 16, 9362.55, 2350000.00, 251.00, '2026-01-01', 'payments_swift/swift_payment_16_2026-01-01_11-37-33_9362.55USD_1767267453405.pdf', 6, ''),
+(6, 15, 11600.00, 3132000.00, 270.00, '2026-01-01', 'payments_swift/swift_payment_15_2026-01-01_11-56-35_11600USD_1767268595762.jpg', 11, ''),
+(7, 2, 10557.77, 2650000.27, 251.00, '2026-01-01', 'payments_swift/swift_payment_2_2026-01-01_12-38-11_10557.77USD_1767271091239.png', 1, ''),
+(8, 17, 9362.55, 2350000.00, 251.00, '2026-01-01', 'payments_swift/swift_payment_17_2026-01-01_14-03-02_9362.55USD_1767276182694.pdf', 6, ''),
+(9, 18, 9362.55, 2350000.00, 251.00, '2026-01-01', 'payments_swift/swift_payment_18_2026-01-01_14-07-06_9362.55USD_1767276426887.pdf', 6, ''),
+(10, 20, 8218.00, 2062718.00, 251.00, '2026-01-03', 'payments_swift/swift_payment_20_2026-01-03_08-06-57_8218USD_1767427617701.jpg', 5, 'euro7000=$8218'),
+(11, 12, 9362.55, 2350000.00, 251.00, '2025-12-31', 'payments_swift/swift_payment_12_2026-01-03_10-06-51_9362.55USD_1767434811863.jpeg', 17, ''),
+(12, 21, 11600.00, 2900000.00, 250.00, '2026-01-03', 'payments_swift/swift_payment_21_2026-01-03_10-30-07_11600USD_1767436207336.jpg', 11, ''),
+(13, 23, 9561.75, 2400000.00, 251.00, '2026-01-03', 'payments_swift/swift_payment_23_2026-01-03_14-48-31_9561.75USD_1767451711672.jpeg', 17, ''),
+(14, 22, 9163.35, 2300000.00, 251.00, '2026-01-04', 'payments_swift/swift_payment_22_2026-01-24_12-19-15_9163.35USD_1769257155863.pdf', 6, ''),
+(15, 31, 9362.55, 2350000.00, 251.00, '2026-01-04', 'payments_swift/swift_payment_31_2026-01-04_20-01-35_9362.55USD_1767556895024.jpeg', 3, ''),
+(16, 26, 9362.55, 2350000.00, 251.00, '2026-01-05', 'payments_swift/swift_payment_26_2026-01-05_14-45-12_9362.55USD_1767624312671.pdf', 6, ''),
+(17, 34, 9362.55, 2350000.00, 251.00, '2026-01-06', 'payments_swift/swift_payment_34_2026-01-06_09-51-06_9362.55USD_1767693066037.pdf', 6, ''),
+(18, 38, 9362.55, 2350000.00, 251.00, '2026-01-06', 'payments_swift/swift_payment_38_2026-01-06_10-42-42_9362.55USD_1767696162187.pdf', 7, ''),
+(19, 39, 9362.55, 2350000.00, 251.00, '2026-01-06', 'payments_swift/swift_payment_39_2026-01-06_11-26-44_9362.55USD_1767698804017.pdf', 6, ''),
+(21, 41, 8120.00, 2038120.00, 251.00, '2026-01-07', 'payments_swift/swift_payment_41_2026-01-07_12-36-01_8120USD_1767789361683.jpg', 5, '7000'),
+(23, 37, 10508.57, 2637650.00, 251.00, '2026-01-08', 'payments_swift/swift_payment_37_2026-01-08_04-16-45_105085.66USD_1767845805065.jpg', 5, ''),
+(24, 44, 9362.55, 2350000.00, 251.00, '2026-01-08', 'payments_swift/swift_payment_44_2026-01-08_09-44-53_9362.55USD_1767865493691.pdf', 6, ''),
+(25, 42, 9362.55, 2350000.00, 251.00, '2026-01-08', 'payments_swift/swift_payment_42_2026-01-08_11-32-21_9362.55USD_1767871941689.jpeg', 17, ''),
+(26, 33, 9362.55, 2350000.00, 251.00, '2026-01-10', 'payments_swift/swift_payment_33_2026-01-10_08-46-16_9362.55USD_1768034776839.pdf', 6, ''),
+(27, 45, 9362.55, 2350000.00, 251.00, '2026-01-10', 'payments_swift/swift_payment_45_2026-01-10_12-18-18_9362.55USD_1768047498168.jpeg', 17, ''),
+(28, 46, 10278.88, 2580000.00, 251.00, '2026-01-11', 'payments_swift/swift_payment_46_2026-01-11_11-32-22_10278.88USD_1768131142065.pdf', 7, ''),
+(29, 23, 4581.67, 1150000.00, 251.00, '2026-01-11', 'payments_swift/swift_payment_23_2026-01-11_11-53-26_4581.67USD_1768132406381.jpeg', 17, ''),
+(30, 49, 11360.00, 2880000.00, 253.50, '2026-01-11', 'payments_swift/swift_payment_49_2026-01-11_12-41-40_11474.10USD_1768135300036.pdf', 7, ''),
+(31, 50, 5139.44, 1290000.00, 251.00, '2026-01-11', 'payments_swift/swift_payment_50_2026-01-11_13-45-35_5139.44USD_1768139135231.pdf', 7, ''),
+(33, 54, 5128.21, 1300000.00, 253.50, '2026-01-11', 'payments_swift/swift_payment_54_2026-01-11_16-48-14_5128.21USD_1768150094571.pdf', 7, ''),
+(34, 56, 3944.77, 1000000.00, 253.50, '2026-01-11', 'payments_swift/swift_payment_56_2026-01-11_17-44-50_3944.77USD_1768153490624.pdf', 7, ''),
+(35, 57, 5917.16, 1500000.00, 253.50, '2026-01-11', 'payments_swift/swift_payment_57_2026-01-11_17-59-22_5917.16USD_1768154362591.pdf', 7, ''),
+(36, 1, 8248.00, 2070248.00, 251.00, '2026-01-12', 'payments_swift/swift_payment_1_2026-01-12_03-53-12_8248USD_1768189992824.jpg', 5, 'euro 7000'),
+(37, 58, 500.00, 126750.00, 253.50, '2026-01-12', 'payments_swift/swift_payment_58_2026-01-12_09-51-52_500USD_1768211512280.jpg', 7, ''),
+(38, 58, 7854.44, 1991100.00, 253.50, '2026-01-12', 'payments_swift/swift_payment_58_2026-01-12_10-15-35_7854.44USD_1768212935512.pdf', 7, ''),
+(39, 58, 500.00, 126750.00, 253.50, '2026-01-12', 'payments_swift/swift_payment_58_2026-01-12_10-16-08_500USD_1768212968543.pdf', 7, ''),
+(40, 57, 5443.79, 1380000.00, 253.50, '2026-01-12', 'payments_swift/swift_payment_57_2026-01-12_10-44-57_5443.79USD_1768214697998.pdf', 7, ''),
+(41, 59, 22721.90, 5760001.65, 253.50, '2026-01-12', 'payments_swift/swift_payment_59_2026-01-12_11-26-37_22721.9USD_1768217197837.jpeg', 17, ''),
+(42, 60, 9270.22, 2350000.77, 253.50, '2026-01-12', 'payments_swift/swift_payment_60_2026-01-12_11-27-58_9270.22USD_1768217278975.jpeg', 17, ''),
+(43, 48, 788.95, 200000.00, 253.50, '2026-01-12', 'payments_swift/swift_payment_48_2026-01-12_11-37-47_788.95USD_1768217867760.jpg', 7, ''),
+(44, 48, 1577.91, 400000.00, 253.50, '2026-01-12', 'payments_swift/swift_payment_48_2026-01-12_11-45-04_1577.91USD_1768218304406.pdf', 7, ''),
+(45, 61, 9270.22, 2350000.00, 253.50, '2026-01-12', 'payments_swift/swift_payment_61_2026-01-12_12-05-10_9270.22USD_1768219510548.jpeg', 17, ''),
+(46, 62, 9072.98, 2300000.00, 253.50, '2026-01-12', 'payments_swift/swift_payment_62_2026-01-12_14-19-06_9270.22USD_1768227546230.jpeg', 17, ''),
+(47, 63, 11360.95, 2880000.00, 253.50, '2026-01-12', 'payments_swift/swift_payment_63_2026-01-14_11-27-56_11360.95USD_1768390076331.pdf', 7, ''),
+(48, 64, 10177.51, 2580000.00, 253.50, '2026-01-12', 'payments_swift/swift_payment_64_2026-01-12_17-33-24_10177.51USD_1768239204292.pdf', 7, ''),
+(50, 36, 57919.62, 14700000.00, 253.80, '2026-01-13', 'payments_swift/swift_payment_36_2026-01-13_09-49-15_57919.62USD_1768297755340.jpg', 1, ''),
+(51, 1, 9948.78, 2525000.00, 253.80, '2026-01-13', 'payments_swift/swift_payment_1_2026-01-13_10-03-06_9948.78USD_1768298586093.jpg', 1, 'MENIKH MOHAMED AMINE'),
+(52, 1, 9850.28, 2500000.00, 253.80, '2026-01-13', 'payments_swift/swift_payment_1_2026-01-13_10-04-26_9850.28USD_1768298666341.jpg', 1, ''),
+(53, 3, 10030.00, 2545614.00, 253.80, '2026-01-13', 'payments_swift/swift_payment_3_2026-01-13_10-30-57_10030USD_1768300257045.pdf', 1, ''),
+(54, 10, 9362.55, 2376215.19, 253.80, '2026-01-13', 'payments_swift/swift_payment_10_2026-01-13_10-58-03_9362.55USD_1768301883433.png', 1, ''),
+(55, 67, 9270.22, 2350000.77, 253.50, '2026-01-13', 'payments_swift/swift_payment_67_2026-01-13_13-12-57_9270.22USD_1768309977535.jpeg', 17, ''),
+(56, 62, 9072.98, 2300000.43, 253.50, '2026-01-13', 'payments_swift/swift_payment_62_2026-01-13_13-15-33_9072.98USD_1768310133436.jpeg', 17, ''),
+(57, 48, 6311.64, 1600000.00, 253.50, '2026-01-13', 'payments_swift/swift_payment_48_2026-01-13_16-01-34_6311.64USD_1768320094581.png', 1, ''),
+(58, 40, 7650.00, 1939275.00, 253.50, '2026-01-14', 'payments_swift/swift_payment_40_2026-01-14_07-01-47_7650USD_1768374107640.jpg', 5, '6600 EURO'),
+(59, 35, 5796.00, 1469286.00, 253.50, '2026-01-14', 'payments_swift/swift_payment_35_2026-01-14_07-06-39_6035USD_1768374399055.jpg', 5, ''),
+(60, 1, 19527.19, 4956000.00, 253.80, '2026-01-14', 'payments_swift/swift_payment_1_2026-01-14_09-11-23_19527.19USD_1768381883682.jpeg', 5, 'MAHIEDDINE MOUSSA'),
+(61, 1, 34188.34, 8677000.00, 253.80, '2026-01-14', 'payments_swift/swift_payment_1_2026-01-14_09-25-31_34188.34USD_1768382731248.jpg', 5, 'CHANANE IMAD'),
+(62, 69, 9270.22, 2326825.22, 251.00, '2026-01-14', 'payments_swift/swift_payment_69_2026-01-14_14-13-30_9362.55USD_1768400010840.pdf', 6, ''),
+(63, 48, 1972.39, 500000.00, 253.50, '2026-01-14', 'payments_swift/swift_payment_48_2026-01-14_16-07-55_1972.39USD_1768406875863.pdf', 7, ''),
+(64, 74, 11360.95, 2880000.00, 253.50, '2026-01-15', 'payments_swift/swift_payment_74_2026-01-15_10-09-00_11360.95USD_1768471740815.pdf', 7, ''),
+(65, 73, 9171.60, 2325000.60, 253.50, '2026-01-15', 'payments_swift/swift_payment_73_2026-01-15_10-58-21_9171.6USD_1768474701038.jpeg', 17, ''),
+(66, 77, 9270.22, 2350000.77, 253.50, '2026-01-15', 'payments_swift/swift_payment_77_2026-01-15_14-04-22_9270.22USD_1768485862614.jpeg', 17, ''),
+(67, 48, 1065.09, 270000.00, 253.50, '2026-01-15', 'payments_swift/swift_payment_48_2026-01-15_15-03-40_1065.09USD_1768489420434.pdf', 7, ''),
+(69, 36, 9400.00, 2350000.00, 250.00, '2026-01-16', 'payments_swift/swift_payment_36_2026-01-16_22-51-23_9400.00USD_1768603883526.jpg', 1, ''),
+(70, 78, 5917.16, 1500000.00, 253.50, '2026-01-17', 'payments_swift/swift_payment_78_2026-01-17_14-11-40_9270.22USD_1768659100100.jpeg', 17, ''),
+(71, 20, 25918.10, 6500000.00, 250.80, '2026-01-18', 'payments_swift/swift_payment_20_2026-01-18_10-37-36_25969.87USD_1768732656480.jpg', 5, 'to mimo'),
+(72, 81, 9072.98, 2300000.43, 253.50, '2026-01-18', 'payments_swift/swift_payment_81_2026-01-18_10-58-52_9072.98USD_1768733932711.jpeg', 17, ''),
+(73, 83, 113833.99, 2880000.00, 25.30, '2026-01-18', 'payments_swift/swift_payment_83_2026-01-18_11-39-07_113833.99USD_1768736347215.pdf', 6, ''),
+(74, 84, 11360.95, 2880000.00, 253.50, '2026-01-18', 'payments_swift/swift_payment_84_2026-01-18_11-41-34_11360.95USD_1768736494554.pdf', 6, ''),
+(75, 82, 9072.98, 2300000.00, 253.50, '2026-01-18', 'payments_swift/swift_payment_82_2026-01-18_11-47-18_9072.98USD_1768736838922.pdf', 6, ''),
+(76, 87, 9980.28, 2530000.00, 253.50, '2026-01-18', 'payments_swift/swift_payment_87_2026-01-18_12-12-58_9980.28USD_1768738378036.pdf', 6, ''),
+(77, 87, 9980.28, 2530000.00, 253.50, '2026-01-18', 'payments_swift/swift_payment_87_2026-01-18_12-15-27_9980.28USD_1768738527874.pdf', 6, ''),
+(78, 88, 9072.98, 2300000.00, 253.50, '2026-01-18', 'payments_swift/swift_payment_88_2026-01-18_12-17-06_9072.98USD_1768738626558.pdf', 6, ''),
+(79, 90, 11360.95, 2880000.00, 253.50, '2026-01-18', 'payments_swift/swift_payment_90_2026-01-18_16-56-33_11360.95USD_1768755393448.pdf', 6, ''),
+(80, 93, 9072.98, 2300000.00, 253.50, '2026-01-18', 'payments_swift/swift_payment_93_2026-01-19_09-59-38_9072.98USD_1768816778649.pdf', 6, ''),
+(81, 23, 3187.25, 800000.00, 251.00, '2026-01-18', 'payments_swift/swift_payment_23_2026-01-18_13-36-55_3187.25USD_1768743415746.jpeg', 17, ''),
+(82, 40, 3500.00, 881300.00, 251.80, '2026-01-18', 'payments_swift/swift_payment_40_2026-01-18_13-40-24_3500USD_1768743624664.jpg', 5, 'share with 6035'),
+(83, 94, 114741.04, 2880000.00, 25.10, '2026-01-18', 'payments_swift/swift_payment_94_2026-01-18_13-42-54_114741.04USD_1768743774155.pdf', 6, ''),
+(84, 3, 20060.00, 5075180.00, 253.00, '2026-01-18', 'payments_swift/swift_payment_3_2026-01-18_13-42-53_20060USD_1768743773594.jpg', 1, ''),
+(85, 35, 32802.00, 8259543.60, 251.80, '2026-01-18', 'payments_swift/swift_payment_35_2026-01-18_13-44-57_32802USD_1768743897162.jpg', 5, 'share with 6040 order'),
+(87, 80, 11360.95, 2880000.00, 253.50, '2026-01-18', 'payments_swift/swift_payment_80_2026-01-18_14-03-18_11360.95USD_1768744998159.pdf', 7, ''),
+(88, 95, 10138.07, 2570000.00, 253.50, '2026-01-18', 'payments_swift/swift_payment_95_2026-01-18_17-03-23_10138.07USD_1768755803387.pdf', 6, ''),
+(89, 91, 9072.98, 2300000.00, 253.50, '2026-01-18', 'payments_swift/swift_payment_91_2026-01-18_16-39-30_9072.98USD_1768754370587.pdf', 6, ''),
+(90, 65, 14751.00, 3720000.00, 252.20, '2026-01-18', 'payments_swift/swift_payment_65_2026-01-18_14-39-54_14761.90USD_1768747194542.jpg', 5, ''),
+(91, 86, 10177.51, 2579998.79, 253.50, '2026-01-18', 'payments_swift/swift_payment_86_2026-01-18_14-56-05_10177.51USD_1768748165234.jpeg', 17, ''),
+(92, 89, 9072.98, 2300000.43, 253.50, '2026-01-18', 'payments_swift/swift_payment_89_2026-01-18_14-58-41_9072.98USD_1768748321847.jpeg', 17, ''),
+(93, 96, 11474.10, 2880000.00, 251.00, '2026-01-18', 'payments_swift/swift_payment_96_2026-01-18_15-01-08_11474.10USD_1768748468199.pdf', 6, ''),
+(94, 99, 9800.00, 2484300.00, 253.50, '2026-01-18', 'payments_swift/swift_payment_99_2026-01-18_15-31-53_9800USD_1768750313964.pdf', 6, ''),
+(95, 101, 11360.95, 2880000.00, 253.50, '2026-01-18', 'payments_swift/swift_payment_101_2026-01-18_15-33-45_11360.95USD_1768750425461.pdf', 7, ''),
+(96, 30, 9163.35, 2300000.00, 251.00, '2026-01-18', 'payments_swift/swift_payment_30_2026-01-18_15-39-26_9072.98USD_1768750766817.pdf', 6, ''),
+(97, 104, 11360.95, 2880000.00, 253.50, '2026-01-18', 'payments_swift/swift_payment_104_2026-01-19_12-55-00_11360.95USD_1768827300540.pdf', 6, ''),
+(98, 103, 9072.98, 2300000.00, 253.50, '2026-01-18', 'payments_swift/swift_payment_103_2026-01-18_16-14-55_9072.98USD_1768752895522.pdf', 7, ''),
+(99, 98, 3944.77, 1000000.00, 253.50, '2026-01-18', 'payments_swift/swift_payment_98_2026-01-18_16-25-45_10177.51USD_1768753545506.jpeg', 17, ''),
+(100, 92, 9072.98, 2300000.43, 253.50, '2026-01-18', 'payments_swift/swift_payment_92_2026-01-18_16-30-01_9072.98USD_1768753801045.jpeg', 17, ''),
+(101, 100, 10177.51, 2579998.79, 253.50, '2026-01-18', 'payments_swift/swift_payment_100_2026-01-18_16-31-39_10177.51USD_1768753899371.jpeg', 17, ''),
+(102, 52, 10950.69, 2776000.00, 253.50, '2026-01-18', 'payments_swift/swift_payment_52_2026-01-18_16-57-50_10950.69USD_1768755470609.pdf', 7, ''),
+(103, 53, 1972.39, 500000.00, 253.50, '2026-01-18', 'payments_swift/swift_payment_53_2026-01-18_17-07-49_1972.39USD_1768756069113.pdf', 7, ''),
+(104, 65, 9329.00, 2341579.00, 251.00, '2026-01-18', 'payments_swift/swift_payment_65_2026-01-18_17-17-39_9329USD_1768756659338.jpg', 5, '8000euro'),
+(105, 76, 9163.35, 2300000.00, 251.00, '2026-01-18', 'payments_swift/swift_payment_76_2026-01-18_17-34-23_15936.25USD_1768757663112.pdf', 1, '2300000 for livan left for gac orders SOF005291225001'),
+(106, 1, 3187.25, 800000.00, 251.00, '2026-01-18', 'payments_swift/swift_payment_1_2026-01-18_17-39-21_3187.25USD_1768757961244.pdf', 1, '2300000 for livan order SOF005291225001 '),
+(107, 79, 86294.82, 21660000.00, 251.00, '2026-01-18', 'payments_swift/swift_payment_79_2026-01-18_18-22-07_86294.82USD_1768760527956.pdf', 1, ''),
+(108, 107, 11360.95, 2880000.00, 253.50, '2026-01-19', 'payments_swift/swift_payment_107_2026-01-19_10-44-26_11360.95USD_1768819466602.pdf', 6, ''),
+(109, 108, 23668.64, 6000000.00, 253.50, '2026-01-19', 'payments_swift/swift_payment_108_2026-01-19_11-46-14_23668.64USD_1768823174227.pdf', 6, ''),
+(110, 105, 11360.95, 2851598.45, 251.00, '2026-01-19', 'payments_swift/swift_payment_105_2026-01-19_12-49-24_11474.10USD_1768826964256.pdf', 6, ''),
+(111, 78, 3353.06, 850000.71, 253.50, '2026-01-19', 'payments_swift/swift_payment_78_2026-01-19_15-06-04_3353.06USD_1768835164996.jpeg', 17, ''),
+(112, 98, 6232.74, 1579999.59, 253.50, '2026-01-19', 'payments_swift/swift_payment_98_2026-01-19_15-31-53_6232.74USD_1768836713702.jpeg', 17, ''),
+(113, 110, 8964.14, 2250000.00, 253.50, '2026-01-19', 'payments_swift/swift_payment_110_2026-01-19_15-46-08_8964.14USD_1768837568677.pdf', 6, ''),
+(114, 111, 8875.74, 2250000.00, 253.50, '2026-01-19', 'payments_swift/swift_payment_111_2026-01-20_10-43-13_8875.74USD_1768905793567.pdf', 6, ''),
+(115, 109, 11360.95, 2880000.00, 253.50, '2026-01-20', 'payments_swift/swift_payment_109_2026-01-20_10-27-31_11360.95USD_1768904851192.pdf', 6, ''),
+(116, 71, 12150.00, 3080025.00, 250.00, '2026-01-20', 'payments_swift/swift_payment_71_2026-01-20_11-40-38_12150USD_1768909238839.jpg', 11, ''),
+(117, 113, 11510.85, 2918000.00, 253.50, '2026-01-20', 'payments_swift/swift_payment_113_2026-01-20_11-42-18_11510.85USD_1768909338463.pdf', 7, ''),
+(118, 65, 3260.44, 820000.00, 251.50, '2026-01-21', 'payments_swift/swift_payment_65_2026-01-21_01-14-58_3260.44USD_1768958098922.jpg', 5, ''),
+(119, 35, 10200.00, 2524500.00, 247.50, '2026-01-21', 'payments_swift/swift_payment_35_2026-01-21_01-28-59_10200.00USD_1768958939099.jpg', 5, ''),
+(120, 114, 10098.62, 2560000.00, 253.50, '2026-01-21', 'payments_swift/swift_payment_114_2026-01-21_14-45-34_10098.62USD_1769006734048.pdf', 6, ''),
+(121, 115, 8678.50, 2200000.00, 253.50, '2026-01-21', 'payments_swift/swift_payment_115_2026-01-21_14-51-51_8678.50USD_1769007111909.pdf', 6, ''),
+(122, 116, 8678.50, 2200000.00, 253.50, '2026-01-21', 'payments_swift/swift_payment_116_2026-01-21_15-11-48_8678.50USD_1769008308783.pdf', 6, ''),
+(123, 117, 8678.50, 2200000.00, 253.50, '2026-01-21', 'payments_swift/swift_payment_117_2026-01-21_15-33-20_8678.50USD_1769009600352.pdf', 6, ''),
+(124, 118, 8678.50, 2200000.00, 253.50, '2026-01-21', 'payments_swift/swift_payment_118_2026-01-21_15-59-56_8678.50USD_1769011196381.pdf', 6, ''),
+(125, 119, 10098.62, 2560000.00, 253.50, '2026-01-21', 'payments_swift/swift_payment_119_2026-01-21_17-15-03_10098.62USD_1769015703652.pdf', 6, ''),
+(126, 21, 150.00, 37500.00, 250.00, '2026-01-22', 'payments_swift/swift_payment_21_2026-01-22_08-27-30_150USD_1769070450174.jpg', 11, ''),
+(127, 15, 380.00, 95000.00, 250.00, '2026-01-22', 'payments_swift/swift_payment_15_2026-01-22_08-28-54_380USD_1769070534332.jpg', 11, ''),
+(128, 121, 25246.55, 6400000.00, 253.50, '2026-01-22', 'payments_swift/swift_payment_121_2026-01-22_10-08-55_25246.55USD_1769076535896.pdf', 7, ''),
+(129, 85, 9090.91, 2300000.00, 253.00, '2026-01-22', 'payments_swift/swift_payment_85_2026-01-22_11-39-59_9090.91USD_1769081999692.pdf', 4, ''),
+(130, 97, 40478.09, 10160000.00, 251.00, '2026-01-23', 'payments_swift/swift_payment_97_2026-01-23_02-18-05_4047.81USD_1769134685150.pdf', 5, 'to mimo'),
+(131, 35, -7998.00, -1950806.00, 247.00, '2026-01-24', 'payments_swift/swift_payment_35_2026-01-24_08-09-23_-7998USD_1769242163421.jpg', 5, 'money refund'),
+(132, 3, 10030.00, 2507500.00, 250.00, '2026-01-24', 'payments_swift/swift_payment_3_2026-01-24_18-28-30_10030.00USD_1769279310802.jpeg', 3, ''),
+(133, 122, 11834.32, 3000000.00, 253.50, '2026-01-25', 'payments_swift/swift_payment_122_2026-01-25_09-55-37_11834.32USD_1769334937460.pdf', 7, ''),
+(134, 70, 12100.00, 3025000.00, 250.00, '2026-01-25', 'payments_swift/swift_payment_70_2026-01-25_11-07-28_12100USD_1769339248830.jpg', 11, ''),
+(135, 65, 8109.56, 2027390.00, 250.00, '2026-01-25', 'payments_swift/swift_payment_65_2026-01-25_15-58-01_8109.56USD_1769356681010.jpeg', 3, ''),
+(136, 123, 5917.16, 1500000.00, 253.50, '2026-01-25', 'payments_swift/swift_payment_123_2026-01-25_16-10-09_6000.00USD_1769357409905.jpeg', 3, ''),
+(137, 112, 9072.98, 2300000.00, 253.50, '2026-01-26', 'payments_swift/swift_payment_112_2026-01-26_08-40-38_9072.98USD_1769416838081.pdf', 6, ''),
+(138, 124, 10177.51, 2580000.00, 253.50, '2026-01-26', 'payments_swift/swift_payment_124_2026-01-26_12-20-11_10177.51USD_1769430011148.jpeg', 17, ''),
+(139, 125, 8806.00, 2175082.00, 247.00, '2026-01-27', 'payments_swift/swift_payment_125_2026-01-27_10-39-07_8806USD_1769510347142.jpg', 5, '7500 euro'),
+(140, 126, 36291.92, 9200000.00, 253.50, '2026-01-29', 'payments_swift/swift_payment_126_2026-01-31_14-19-19_36291.92USD_1769869159097.pdf', 6, ''),
+(141, 127, 8906.88, 2200000.00, 247.00, '2026-01-31', 'payments_swift/swift_payment_127_2026-01-31_06-48-25_8906.88USD_1769842105788.jpg', 5, ''),
+(142, 128, 9514.17, 2350000.00, 247.00, '2026-01-31', 'payments_swift/swift_payment_128_2026-01-31_14-11-18_9514.17USD_1769868678245.pdf', 6, ''),
+(143, 54, 7061.14, 1790000.00, 253.50, '2026-01-31', 'payments_swift/swift_payment_54_2026-01-31_16-42-44_7061.14USD_1769877764871.pdf', 7, ''),
+(144, 132, 9072.98, 2300000.00, 253.50, '2026-02-01', 'payments_swift/swift_payment_132_2026-02-01_11-44-44_9072.98USD_1769946284686.pdf', 6, ''),
+(145, 50, 5488.17, 1391250.00, 253.50, '2026-02-01', 'payments_swift/swift_payment_50_2026-02-01_14-21-46_5488.17USD_1769955706041.jpeg', 7, ''),
+(146, 133, 11676.53, 2960000.35, 253.50, '2026-02-01', 'payments_swift/swift_payment_133_2026-02-01_16-55-55_11676.53USD_1769964955432.jpeg', 17, ''),
+(147, 131, 9072.26, 2300000.00, 253.52, '2026-02-01', 'payments_swift/swift_payment_131_2026-02-01_16-57-56_9072.26USD_1769965076051.pdf', 4, ''),
+(148, 85, 709.09, 179399.77, 253.00, '2026-02-01', 'payments_swift/swift_payment_85_2026-02-01_17-40-30_709.09USD_1769967630113.pdf', 4, ''),
+(149, 131, 0.72, 182.16, 253.00, '2026-02-01', 'payments_swift/swift_payment_131_2026-02-01_17-46-52_0.72USD_1769968012540.pdf', 4, ''),
+(150, 1, 9236.95, 2300000.00, 249.00, '2026-02-02', 'payments_swift/swift_payment_1_2026-02-02_05-21-01_9236.95USD_1770009661460.jpg', 5, 'car id 198'),
+(151, 134, 10240.00, 2560000.00, 250.00, '2026-02-04', 'payments_swift/swift_payment_134_2026-02-04_09-05-57_10240.00USD_1770195957953.jpg', 5, 'to mimo'),
+(153, 135, 7889.55, 2000000.00, 253.50, '2026-02-05', 'payments_swift/swift_payment_135_2026-02-05_11-56-47_7889.55USD_1770292607295.jpeg', 17, ''),
+(154, 139, 9072.98, 2300000.00, 253.50, '2026-02-05', 'payments_swift/swift_payment_139_2026-02-05_13-25-00_9072.98USD_1770297900653.pdf', 4, ''),
+(155, 141, 9072.98, 2300000.00, 253.50, '2026-02-05', 'payments_swift/swift_payment_141_2026-02-05_13-32-25_9072.98USD_1770298345836.pdf', 4, ''),
+(156, 142, 9072.98, 2300000.00, 253.50, '2026-02-05', 'payments_swift/swift_payment_142_2026-02-05_13-36-54_9072.98USD_1770298614953.pdf', 4, ''),
+(157, 143, 9072.98, 2300000.00, 253.50, '2026-02-05', 'payments_swift/swift_payment_143_2026-02-05_13-40-03_9072.98USD_1770298803205.pdf', 4, ''),
+(158, 136, 11755.42, 2980000.00, 253.50, '2026-02-10', 'payments_swift/swift_payment_136_2026-02-10_09-37-02_11755.42USD_1770716222861.pdf', 7, ''),
+(159, 125, 14959.51, 3695000.00, 247.00, '2026-02-12', 'payments_swift/swift_payment_125_2026-02-12_09-45-01_14959.51USD_1770889501788.pdf', 3, ''),
+(160, 150, 21932.94, 5560000.00, 253.50, '2026-02-15', 'payments_swift/swift_payment_150_2026-02-15_11-58-01_21932.94USD_1771156681854.jpeg', 17, ''),
+(161, 152, 11242.60, 2850000.00, 253.50, '2026-02-21', 'payments_swift/swift_payment_152_2026-02-21_11-05-09_11242.60USD_1771671909407.jpg', 4, ''),
+(162, 108, 21775.16, 5520000.00, 253.50, '2026-02-21', 'payments_swift/swift_payment_108_2026-02-21_12-25-54_21775.15USD_1771676754858.pdf', 6, ''),
+(163, 151, 10650.89, 2700000.00, 253.50, '2026-02-21', 'payments_swift/swift_payment_151_2026-02-21_12-33-33_10650.89USD_1771677213099.pdf', 6, ''),
+(164, 123, 3155.82, 800000.00, 253.50, '2026-02-22', 'payments_swift/swift_payment_123_2026-02-22_11-01-06_3072.98USD_1771758066378.jpeg', 17, ''),
+(165, 135, 3865.88, 980000.00, 253.50, '2026-03-02', 'payments_swift/swift_payment_135_2026-03-02_11-39-10_3865.88USD_1772451550837.jpeg', 17, ''),
+(166, 35, 5900.00, 1469100.00, 249.00, '2026-03-02', 'payments_swift/swift_payment_35_2026-03-02_12-42-49_5900USD_1772455369545.jpg', 5, ''),
+(167, 153, 11485.94, 2860000.00, 249.00, '2026-03-04', 'payments_swift/swift_payment_153_2026-03-04_13-30-26_11485.94USD_1772631026587.jpeg', 17, ''),
+(168, 155, 43786.98, 11100000.00, 253.50, '2026-03-05', 'payments_swift/swift_payment_155_2026-03-05_23-47-17_43786.98USD_1772754437045.pdf', 6, ''),
+(169, 156, 10848.13, 2750000.00, 253.50, '2026-03-06', 'payments_swift/swift_payment_156_2026-03-06_14-07-37_10848.13USD_1772806057727.jpg', 7, ''),
+(170, 161, 19644.97, 4980000.00, 253.50, '2026-03-08', 'payments_swift/swift_payment_161_2026-03-08_09-34-55_19644.97USD_1772962495177.jpg', 7, ''),
+(171, 162, 17357.00, 4400000.00, 253.50, '2026-03-08', 'payments_swift/swift_payment_162_2026-03-10_12-11-40_17357.00USD_1773144700936.pdf', 7, ''),
+(172, 155, 9072.98, 2300000.00, 253.50, '2026-03-08', 'payments_swift/swift_payment_155_2026-03-08_14-23-14_9072.98USD_1772979794574.pdf', 6, ''),
+(173, 163, 9072.98, 2300000.43, 253.50, '2026-03-08', 'payments_swift/swift_payment_163_2026-03-08_14-31-29_9072.98USD_1772980289573.pdf', 6, ''),
+(174, 165, 9200.00, 2300000.00, 250.00, '2026-03-09', 'payments_swift/swift_payment_165_2026-03-09_14-08-00_9200.00USD_1773065280519.jpeg', 3, ''),
+(175, 166, 9200.00, 2300000.00, 250.00, '2026-03-09', 'payments_swift/swift_payment_166_2026-03-09_14-09-24_9200.00USD_1773065364990.jpeg', 3, ''),
+(176, 170, 9072.98, 2300000.00, 253.50, '2026-03-10', 'payments_swift/swift_payment_170_2026-03-10_10-15-33_9072.98USD_1773137733560.pdf', 6, ''),
+(177, 173, 9120.00, 2280000.00, 250.00, '2026-03-11', 'payments_swift/swift_payment_173_2026-03-11_09-51-01_9120.00USD_1773222661057.pdf', 3, ''),
+(179, 172, 7200.00, 1800000.00, 250.00, '2026-03-07', 'payments_swift/swift_payment_172_2026-03-11_11-35-12_7200.00USD_1773228912826.jpeg', 3, ''),
+(180, 171, 9880.00, 2470000.00, 250.00, '2026-03-11', 'payments_swift/swift_payment_171_2026-03-11_11-38-01_9880.00USD_1773229081080.jpeg', 3, ''),
+(181, 174, 9200.00, 2300000.00, 250.00, '2026-03-11', 'payments_swift/swift_payment_174_2026-03-11_13-10-47_9200.00USD_1773234647399.jpeg', 17, ''),
+(182, 172, 2000.00, 500000.00, 250.00, '2026-03-09', 'payments_swift/swift_payment_172_2026-03-11_13-35-31_2000.00USD_1773236131785.jpeg', 3, '');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `shipping_lines`
+--
+
+DROP TABLE IF EXISTS `shipping_lines`;
+CREATE TABLE IF NOT EXISTS `shipping_lines` (
+  `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `name` (`name`)
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+--
+-- Dumping data for table `shipping_lines`
+--
+
+INSERT INTO `shipping_lines` (`id`, `name`) VALUES
+(1, 'AKK'),
+(2, 'CMA'),
+(3, 'COSCO'),
+(6, 'HMM'),
+(5, 'MEARSK'),
+(4, 'MSC');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `suppliers`
+--
+
+DROP TABLE IF EXISTS `suppliers`;
+CREATE TABLE IF NOT EXISTS `suppliers` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) DEFAULT NULL,
+  `contact_info` text DEFAULT NULL,
+  `notes` text DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `supplier_name_unic` (`name`)
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+--
+-- Dumping data for table `suppliers`
+--
+
+INSERT INTO `suppliers` (`id`, `name`, `contact_info`, `notes`) VALUES
+(1, 'leo', '', ''),
+(2, 'bruce', '', ''),
+(3, 'SHC', 'MR.LIN ', 'SHANGHAOCHE'),
+(4, 'CHINESE ALI', '', ''),
+(6, 'mimo', '', '');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `tasks`
+--
+
+DROP TABLE IF EXISTS `tasks`;
+CREATE TABLE IF NOT EXISTS `tasks` (
+  `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `id_user_create` int(11) DEFAULT NULL,
+  `id_user_receive` int(11) DEFAULT NULL,
+  `date_create` datetime DEFAULT NULL,
+  `date_declare_done` datetime DEFAULT NULL,
+  `date_confirm_done` datetime DEFAULT NULL,
+  `id_user_confirm_done` int(11) DEFAULT NULL,
+  `id_priority` int(11) DEFAULT NULL,
+  `title` varchar(255) DEFAULT NULL,
+  `desciption` text DEFAULT NULL,
+  `notes` text DEFAULT NULL,
+  `is_task_for_car` tinyint(1) DEFAULT 0,
+  `is_task_for_transfer` tinyint(1) DEFAULT 0,
+  `is_task_for_supplier` tinyint(1) DEFAULT 0,
+  `is_task_for_client` tinyint(1) DEFAULT 0,
+  `is_task_for_user` tinyint(1) DEFAULT 0,
+  `id_chat_grroup` int(11) DEFAULT NULL,
+  `assigned_users_ids` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `subject_ids` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ;
+
+--
+-- Dumping data for table `tasks`
+--
+
+INSERT INTO `tasks` (`id`, `id_user_create`, `id_user_receive`, `date_create`, `date_declare_done`, `date_confirm_done`, `id_user_confirm_done`, `id_priority`, `title`, `desciption`, `notes`, `is_task_for_car`, `is_task_for_transfer`, `is_task_for_supplier`, `is_task_for_client`, `is_task_for_user`, `id_chat_grroup`, `assigned_users_ids`, `subject_ids`) VALUES
+(1, 11, NULL, '2026-01-03 09:57:56', NULL, NULL, NULL, 1, '[Facture de Vente #21 - BEL011030126021] SUPPLEMENT', 'ROUX DE SCOURS + CRIQUE', '', 0, 0, 0, 0, 0, NULL, '[5,1]', NULL),
+(2, 11, NULL, '2026-01-03 10:00:30', NULL, NULL, NULL, 1, '[Facture de Vente #21 - BEL011030126021] SUPPLEMENT', 'ROUX DE SECOURS + CRIQUE', '', 0, 0, 0, 0, 0, NULL, '[1,5]', NULL),
+(3, 11, NULL, '2026-01-03 10:06:37', NULL, NULL, NULL, 1, '[Facture de Vente #15 - BEL011010126015] SUPPLEMENT', 'SIEGE ELECTRIQUE +ROUE DE SECOURS', '', 0, 0, 0, 0, 0, NULL, '[1,5]', NULL),
+(7, 5, NULL, '2026-01-08 03:12:14', NULL, NULL, NULL, 3, '[cars] #109 car-no mostaganam port', 'please contact client. we don\'t send to mostaganam\n\næ±½è½¦ID: #109', '', 1, 0, 0, 0, 0, NULL, '[7,1,2]', '[109]'),
+(8, 7, 5, '2026-01-11 12:00:01', NULL, NULL, NULL, 1, '[Sell Bill #49 - MOH007100126049] EDIT CAR', 'LA MALLE ARRIERE ELECTRIQUE', '', 0, 0, 0, 0, 0, NULL, '[5]', NULL),
+(9, 5, NULL, '2026-01-11 17:20:22', NULL, NULL, NULL, 2, '[é”€å”®è´¦å• #54 - SOF005110126054] sell bill 54, call client to update the contract', 'total CFR amount is udpated', '', 0, 0, 0, 0, 0, NULL, '[1,7]', NULL),
+(10, 5, NULL, '2026-01-11 17:22:32', '2026-01-15 10:01:48', NULL, NULL, 2, '[é”€å”®è´¦å• #49 - MOH007100126049] sell bill 49 - call client to update the invoice', 'CFR total amount is updated', '', 0, 0, 0, 0, 0, NULL, '[1,7]', NULL),
+(11, 11, NULL, '2026-01-14 09:59:38', NULL, NULL, NULL, 1, '[Facture de Vente #70 - BEL011140126070] SUPPLEMENT', 'ROUX DE SECOURS', '', 0, 0, 0, 0, 0, NULL, '[5,1]', NULL),
+(12, 1, 5, '2026-01-15 07:06:45', '2026-01-16 07:56:47', NULL, NULL, 2, '[Sell Bill #68 - ADM001130126068] was to skikda changed to annaba', 'was to skikda changed to annaba', '', 0, 0, 0, 0, 0, NULL, '[5]', NULL),
+(13, 1, 5, '2026-01-16 22:54:50', '2026-01-18 17:50:03', NULL, NULL, 2, '[Sell Bill #36 - SOF005060126036] be sure this 4 livans in same container', '', '', 0, 0, 0, 0, 0, NULL, '[5]', NULL),
+(14, 6, 5, '2026-01-17 10:35:38', '2026-01-18 17:49:27', NULL, NULL, 2, '[Facture de Vente #72 - MIM006140126072] ORDER CANCEL', 'CANCEL THIS ORDER', '', 0, 0, 0, 0, 0, NULL, '[5]', NULL),
+(15, 7, NULL, '2026-01-26 12:51:03', NULL, NULL, NULL, 2, 'CANCEL ORDER', 'CANCEL THE ORDER OF MOH007100126051.customer can\'t pay', '', 0, 0, 0, 0, 0, NULL, '[12,3]', NULL),
+(16, 7, NULL, '2026-01-29 11:22:04', '2026-02-06 04:22:04', NULL, NULL, 2, 'CANCEL ORDER -  MOUNI KAMEL', 'Order for Mouni Kamel cancelled due to non-payment', '', 0, 0, 0, 0, 0, NULL, '[5,1,12]', NULL),
+(17, 3, NULL, '2026-03-11 12:40:40', NULL, NULL, NULL, 3, '[Facture de Vente #173 - ISH003110326173] EDIT THIS RECIPE CLIENT DID DEPOSIT', 'Small mistake with this client recipe in system please edit this recipe and put 1900000', '', 0, 0, 0, 0, 0, NULL, '[1,5]', NULL);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `teams`
+--
+
+DROP TABLE IF EXISTS `teams`;
+CREATE TABLE IF NOT EXISTS `teams` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) NOT NULL COMMENT 'Team name',
+  `team_leader_id` int(11) NOT NULL COMMENT 'FK to users - team leader',
+  `description` text DEFAULT NULL COMMENT 'Team description',
+  `jobs_completed_count` int(11) NOT NULL DEFAULT 0 COMMENT 'Incremental count of completed jobs',
+  `is_active` tinyint(1) NOT NULL DEFAULT 1 COMMENT '1=Active, 0=Inactive',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_team_leader_id` (`team_leader_id`),
+  KEY `idx_is_active` (`is_active`),
+  KEY `idx_jobs_completed_count` (`jobs_completed_count`)
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci COMMENT='Teams with team leaders';
+
+--
+-- Dumping data for table `teams`
+--
+
+INSERT INTO `teams` (`id`, `name`, `team_leader_id`, `description`, `jobs_completed_count`, `is_active`, `created_at`, `updated_at`) VALUES
+(1, 'sandy team', 15, NULL, 0, 1, '2026-01-07 09:16:57', '2026-01-07 09:16:57'),
+(2, 'ali team', 12, NULL, 0, 1, '2026-01-07 09:24:38', '2026-01-07 09:24:38');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `team_members`
+--
+
+DROP TABLE IF EXISTS `team_members`;
+CREATE TABLE IF NOT EXISTS `team_members` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `team_id` int(11) NOT NULL COMMENT 'FK to teams',
+  `user_id` int(11) NOT NULL COMMENT 'FK to users - UNIQUE constraint ensures one team per user',
+  `role` enum('member','deputy_leader') NOT NULL DEFAULT 'member' COMMENT 'Role in the team',
+  `joined_at` timestamp NOT NULL DEFAULT current_timestamp() COMMENT 'When user joined the team',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_user_team` (`user_id`),
+  KEY `idx_team_id` (`team_id`),
+  KEY `idx_user_id` (`user_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=26 DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci COMMENT='Team members - users can only be in one team at a time';
+
+--
+-- Dumping data for table `team_members`
+--
+
+INSERT INTO `team_members` (`id`, `team_id`, `user_id`, `role`, `joined_at`, `created_at`, `updated_at`) VALUES
+(1, 1, 15, 'member', '2026-01-07 09:19:39', '2026-01-07 09:19:39', '2026-01-07 09:19:39'),
+(23, 1, 13, 'member', '2026-01-07 09:53:32', '2026-01-07 09:53:32', '2026-01-07 09:53:32'),
+(24, 2, 12, 'member', '2026-01-07 09:53:48', '2026-01-07 09:53:48', '2026-01-07 09:53:48'),
+(25, 2, 16, 'member', '2026-01-07 09:54:08', '2026-01-07 09:54:08', '2026-01-07 09:54:08');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `tracking`
+--
+
+DROP TABLE IF EXISTS `tracking`;
+CREATE TABLE IF NOT EXISTS `tracking` (
+  `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `container_ref` varchar(255) DEFAULT NULL,
+  `tracking` varchar(255) DEFAULT NULL,
+  `time` timestamp NULL DEFAULT NULL,
+  `id_user` int(11) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `container_ref` (`container_ref`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `transfers`
+--
+
+DROP TABLE IF EXISTS `transfers`;
+CREATE TABLE IF NOT EXISTS `transfers` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id_user_do_transfer` int(11) NOT NULL,
+  `date_do_transfer` datetime NOT NULL,
+  `amount_sending_da` decimal(10,2) NOT NULL,
+  `rate` decimal(10,2) NOT NULL,
+  `id_user_receive_transfer` int(11) DEFAULT NULL,
+  `amount_received_usd` decimal(10,2) DEFAULT 0.00,
+  `date_receive` datetime DEFAULT NULL,
+  `details_transfer` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `notes` text DEFAULT NULL,
+  `receiver_notes` text DEFAULT NULL,
+  `id_bank` int(11) DEFAULT NULL,
+  `ref_pi_transfer` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `id_user_do_transfer` (`id_user_do_transfer`)
+) ;
+
+--
+-- Dumping data for table `transfers`
+--
+
+INSERT INTO `transfers` (`id`, `id_user_do_transfer`, `date_do_transfer`, `amount_sending_da`, `rate`, `id_user_receive_transfer`, `amount_received_usd`, `date_receive`, `details_transfer`, `notes`, `receiver_notes`, `id_bank`, `ref_pi_transfer`) VALUES
+(1, 3, '2026-01-29 00:00:00', 27080000.00, 254.40, NULL, 106446.54, NULL, NULL, '900K FROM TOUHAMI', NULL, 1, NULL);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `transfers_inter`
+--
+
+DROP TABLE IF EXISTS `transfers_inter`;
+CREATE TABLE IF NOT EXISTS `transfers_inter` (
+  `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `amount` decimal(10,2) DEFAULT NULL,
+  `date_transfer` date DEFAULT NULL,
+  `from_user_id` int(11) DEFAULT NULL,
+  `to_user_id` int(11) DEFAULT NULL,
+  `id_admin_confirm` int(11) DEFAULT NULL,
+  `notes` text DEFAULT NULL,
+  `date_received` date DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+--
+-- Dumping data for table `transfers_inter`
+--
+
+INSERT INTO `transfers_inter` (`id`, `amount`, `date_transfer`, `from_user_id`, `to_user_id`, `id_admin_confirm`, `notes`, `date_received`) VALUES
+(1, 32988000.00, '2026-03-01', 7, 3, 7, 'from oran office to ishaq', '2026-01-24'),
+(2, 36000000.00, '2026-06-01', 7, 3, 7, 'from oran office to ishaq', '2026-01-24'),
+(3, 10000000.00, '2026-12-01', 7, 3, 7, 'from oran office to ishak', '2026-01-24'),
+(4, 20000000.00, '2026-12-01', 7, 3, 7, 'from oran office to ishak', '2026-01-24'),
+(5, 27080000.00, '2025-12-14', 3, 1, NULL, '106450 X 254.4', NULL),
+(6, 25200000.00, '2026-01-03', 3, 1, NULL, '100 000 USD X 252', NULL),
+(7, 39974000.00, '2026-01-06', 3, 1, NULL, '158 000 X 253', NULL),
+(8, 25330000.00, '2026-01-13', 3, 1, NULL, '100 000 X 253', NULL),
+(9, 19617000.00, '2026-01-29', 3, 1, NULL, '78 000 X 251.5', NULL);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `transfer_details`
+--
+
+DROP TABLE IF EXISTS `transfer_details`;
+CREATE TABLE IF NOT EXISTS `transfer_details` (
+  `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `id_transfer` int(11) DEFAULT NULL,
+  `amount` decimal(10,2) DEFAULT NULL,
+  `date` datetime DEFAULT NULL,
+  `client_name` varchar(255) DEFAULT NULL,
+  `client_mobile` varchar(255) DEFAULT NULL,
+  `rate` decimal(10,2) DEFAULT NULL,
+  `description` varchar(255) DEFAULT NULL,
+  `notes` text DEFAULT NULL,
+  `id_client` int(11) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `upgrades`
+--
+
+DROP TABLE IF EXISTS `upgrades`;
+CREATE TABLE IF NOT EXISTS `upgrades` (
+  `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `description` varchar(255) DEFAULT NULL,
+  `notes` text DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `upgrades`
+--
+
+INSERT INTO `upgrades` (`id`, `description`, `notes`) VALUES
+(3, 'spare wheel', NULL),
+(4, 'LED EMBIANCE', NULL),
+(5, 'LA MALLE ARRIERE ELECTRIQUE', NULL),
+(6, 'spare tire', NULL),
+(7, 'Electric seat', NULL),
+(8, 'Electric tailgate', NULL);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `users`
+--
+
+DROP TABLE IF EXISTS `users`;
+CREATE TABLE IF NOT EXISTS `users` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `username` varchar(50) NOT NULL,
+  `email` varchar(100) NOT NULL,
+  `password` varchar(255) NOT NULL,
+  `role_id` int(11) NOT NULL,
+  `max_unpayed_created_bills` int(11) DEFAULT 0,
+  `is_diffrent_company` tinyint(1) DEFAULT 0 COMMENT 'Flag to indicate if user has different company assets',
+  `path_logo` varchar(500) DEFAULT NULL COMMENT 'Path to company logo file',
+  `path_letter_head` varchar(500) DEFAULT NULL COMMENT 'Path to letterhead file',
+  `path_stamp` varchar(500) DEFAULT NULL COMMENT 'Path to stamp/gml2 file',
+  `path_contract_terms` varchar(500) DEFAULT NULL COMMENT 'Path to contract terms JSON file',
+  `id_bank_account` int(10) UNSIGNED DEFAULT NULL COMMENT 'Foreign key to banks table',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `username` (`username`),
+  UNIQUE KEY `email` (`email`),
+  KEY `idx_id_bank_account` (`id_bank_account`)
+) ENGINE=InnoDB AUTO_INCREMENT=20 DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+--
+-- Dumping data for table `users`
+--
+
+INSERT INTO `users` (`id`, `username`, `email`, `password`, `role_id`, `max_unpayed_created_bills`, `is_diffrent_company`, `path_logo`, `path_letter_head`, `path_stamp`, `path_contract_terms`, `id_bank_account`) VALUES
+(1, 'admin', 'admin@example.com', '$2y$10$b0xA38Uyw9MyYCd.ngw7B.Z2Dwh.dQd.Sy5V3PqBYNz2bNpMdPzxS', 1, 5, 0, NULL, NULL, NULL, NULL, NULL),
+(2, 'affane', 'merhabn78@gmail.com', '$2y$10$K5KwQuvXePKuiO9.lvrCju2puGXD9KAPP7G48l/ZCG.Yk74CxlQTS', 1, 0, 0, NULL, NULL, NULL, NULL, NULL),
+(3, 'ishaq', 'ishaq@me.com', '$2y$10$YNk.6kIOWTxvie6EFAkJTOJwUkIMeSR/FX6fX10mWz17ICU/bQy12', 3, 5, 0, NULL, NULL, NULL, NULL, NULL),
+(4, 'atellah', 'atellah@me.com', '$2y$10$hpgiimNcxPIgVGIu6kD6d.elAKghISij8keHYzhiDKWyNqn17LTui', 2, 0, 0, NULL, NULL, NULL, NULL, NULL),
+(5, 'sofia', 'sofia@me.com', '$2y$10$TYWqqL9CzyOW0Iv8PGqB/.AtXaRlWMhtt8KLeCYnNwAoJJcYHHC5G', 1, 0, 0, NULL, NULL, NULL, NULL, NULL),
+(6, 'mimo', 'mimo@me.com', '$2y$10$H8rrSQNZGDhgDu2/HJ3BAOEYvzMyj5E9CGmCrDC1356ROeSMTn5K6', 3, 5, 0, NULL, NULL, NULL, NULL, NULL),
+(7, 'mohamed', 'mohamed@me.com', '$2y$10$z1MDeFf87ihSr1aIdOwjLeNGR5Y5oTFhRwamLQ4wGn8tl/OoAF7DC', 1, 0, 0, NULL, NULL, NULL, NULL, NULL),
+(8, 'boukabous', 'boukabous@me.com', '$2y$10$8BOpAsufVRlk1Vx7y03H1.dEmjx6ZMF5Yy3wcy8gn3cZJgI8R7Qza', 2, 0, 0, NULL, NULL, NULL, NULL, NULL),
+(9, 'kamel', 'kamel@me.com', '$2y$10$km4ON6uKR0KaDSS7b68dqOPeW86QtT7RFi042dVZh8qFzq42LVFXa', 2, 0, 0, NULL, NULL, NULL, NULL, NULL),
+(10, 'bahaz', 'bahaz@me.com', '$2y$10$ta/ZAtzpxUni44sgg0EcnOZbvcbJi5m370YfR59/3odQDUh/R/0iu', 2, 0, 0, NULL, NULL, NULL, NULL, NULL),
+(11, 'belgroun', 'belgroun@me.com', '$2y$10$4DxNnO7I1gW3y9ZLFk0SZOzhgNIRCpsB7sk8cp.kGjQv8oE3CLLhi', 2, 0, 0, NULL, NULL, NULL, NULL, NULL),
+(12, 'ali', 'ali@me.com', '$2y$10$vGVfYLn4Alje2rEFIUV3ouUiFIUnH.wtBlBo4PXIGPkOEdhsGCmVy', 4, 0, 0, NULL, NULL, NULL, NULL, NULL),
+(13, 'sharon', 'sharon@me.com', '$2y$10$/N.FQHvypzKeSXdabNpgA.sWK479sogKORjhm8dPohI8VzOpt5OF2', 4, 0, 0, NULL, NULL, NULL, NULL, NULL),
+(14, 'zohra', 'zohra@me.com', '$2y$10$IFpZN5.FPwanSmD20AkUROfHKogAb49rd11YkWFyXxTti1XVLPbSS', 4, 0, 0, NULL, NULL, NULL, NULL, NULL),
+(15, 'sandy', 'sindy@me.com', '$2y$10$GlrOowRVqm3KvhcWGBFBI.5UgIk6QSmE4M.qehpnr7j2nAE25Q616', 4, 0, 0, NULL, NULL, NULL, NULL, NULL),
+(16, 'ava', 'eva@me.com', '$2y$10$C/9ne2z4STefvMBXmfahHeXmgycLwRPDd9Oe29MyQnblEUKi1xMe6', 4, 0, 0, NULL, NULL, NULL, NULL, NULL),
+(17, 'bilal', 'bilal@me.com', '$2y$10$0ScNAehVPKxfcr5lR9tKxumLAWn.wZDNj9l2JSdLbofIIRn.hXsYu', 3, 0, 0, NULL, NULL, NULL, NULL, NULL),
+(18, 'Abdelgd', 'hguendouze@icloud.com', '$2y$10$Lyu49bPk1ecNnrGl.zYrIOBQ3V6IyjfXr8226Gyza0b1v3U6zZPgW', 2, 0, 1, 'logo/logo_1767783925291.png', 'letter_head/letter_head_1767783925846.png', 'stamp/stamp_1767783926644.png', NULL, NULL),
+(19, 'amrane', 'amrane@me.com', '$2y$10$jcqmBGD1oeI8Spa/W2h1ce02l741qUn6GcteT5IBZTLgWx6sulNLi', 2, 0, 1, 'logo/logo_1769006486037.png', 'letter_head/letter_head_1769006487824.png', 'stamp/stamp_1769006489369.png', NULL, NULL);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `versions`
+--
+
+DROP TABLE IF EXISTS `versions`;
+CREATE TABLE IF NOT EXISTS `versions` (
+  `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `version` int(11) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+--
+-- Dumping data for table `versions`
+--
+
+INSERT INTO `versions` (`id`, `version`) VALUES
+(1, 25);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `warehouses`
+--
+
+DROP TABLE IF EXISTS `warehouses`;
+CREATE TABLE IF NOT EXISTS `warehouses` (
+  `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `warhouse_name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `notes` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+--
+-- Constraints for dumped tables
+--
+
+--
+-- Constraints for table `car_files`
+--
+ALTER TABLE `car_files`
+  ADD CONSTRAINT `fk_car_files_car` FOREIGN KEY (`car_id`) REFERENCES `cars_stock` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_car_files_category` FOREIGN KEY (`category_id`) REFERENCES `car_file_categories` (`id`),
+  ADD CONSTRAINT `fk_car_files_uploaded_by` FOREIGN KEY (`uploaded_by`) REFERENCES `users` (`id`);
+
+--
+-- Constraints for table `car_file_physical_tracking`
+--
+ALTER TABLE `car_file_physical_tracking`
+  ADD CONSTRAINT `fk_physical_tracking_current_holder` FOREIGN KEY (`current_holder_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `fk_physical_tracking_file` FOREIGN KEY (`car_file_id`) REFERENCES `car_files` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_physical_tracking_previous_holder` FOREIGN KEY (`previous_holder_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `fk_physical_tracking_transferred_by` FOREIGN KEY (`transferred_by`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `fk_tracking_agent` FOREIGN KEY (`custom_clearance_agent_id`) REFERENCES `custom_clearance_agents` (`id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `fk_tracking_client` FOREIGN KEY (`client_id`) REFERENCES `clients` (`id`) ON DELETE SET NULL;
+
+--
+-- Constraints for table `car_file_transfers`
+--
+ALTER TABLE `car_file_transfers`
+  ADD CONSTRAINT `fk_transfers_file` FOREIGN KEY (`car_file_id`) REFERENCES `car_files` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_transfers_from_agent` FOREIGN KEY (`from_agent_id`) REFERENCES `custom_clearance_agents` (`id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `fk_transfers_from_user` FOREIGN KEY (`from_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `fk_transfers_to_agent` FOREIGN KEY (`to_agent_id`) REFERENCES `custom_clearance_agents` (`id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `fk_transfers_to_user` FOREIGN KEY (`to_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `fk_transfers_transferred_by` FOREIGN KEY (`transferred_by`) REFERENCES `users` (`id`);
+
+--
+-- Constraints for table `car_selections`
+--
+ALTER TABLE `car_selections`
+  ADD CONSTRAINT `fk_car_selections_assigner` FOREIGN KEY (`assigned_to_team_from_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_car_selections_creator` FOREIGN KEY (`user_create_selection`) REFERENCES `users` (`id`) ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_car_selections_job` FOREIGN KEY (`job_id`) REFERENCES `jobs` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_car_selections_sender` FOREIGN KEY (`sent_by_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_car_selections_team` FOREIGN KEY (`assigned_to_team`) REFERENCES `teams` (`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+--
+-- Constraints for table `jobs`
+--
+ALTER TABLE `jobs`
+  ADD CONSTRAINT `fk_jobs_team` FOREIGN KEY (`team_id`) REFERENCES `teams` (`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+--
+-- Constraints for table `selection_comments`
+--
+ALTER TABLE `selection_comments`
+  ADD CONSTRAINT `fk_comments_selection` FOREIGN KEY (`selection_id`) REFERENCES `car_selections` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_comments_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON UPDATE CASCADE;
+
+--
+-- Constraints for table `selection_ownership_history`
+--
+ALTER TABLE `selection_ownership_history`
+  ADD CONSTRAINT `fk_ownership_history_from_user` FOREIGN KEY (`from_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_ownership_history_selection` FOREIGN KEY (`selection_id`) REFERENCES `car_selections` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_ownership_history_to_user` FOREIGN KEY (`to_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_ownership_history_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON UPDATE CASCADE;
+
+--
+-- Constraints for table `sell_bill`
+--
+ALTER TABLE `sell_bill`
+  ADD CONSTRAINT `fk_sell_bill_payment_confirmed_by_user` FOREIGN KEY (`payment_confirmed_by_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL;
+
+--
+-- Constraints for table `teams`
+--
+ALTER TABLE `teams`
+  ADD CONSTRAINT `fk_teams_team_leader` FOREIGN KEY (`team_leader_id`) REFERENCES `users` (`id`) ON UPDATE CASCADE;
+
+--
+-- Constraints for table `team_members`
+--
+ALTER TABLE `team_members`
+  ADD CONSTRAINT `fk_team_members_team` FOREIGN KEY (`team_id`) REFERENCES `teams` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_team_members_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+--
+-- Constraints for table `transfers`
+--
+ALTER TABLE `transfers`
+  ADD CONSTRAINT `transfers_ibfk_1` FOREIGN KEY (`id_user_do_transfer`) REFERENCES `users` (`id`);
+
+--
+-- Constraints for table `users`
+--
+ALTER TABLE `users`
+  ADD CONSTRAINT `fk_users_bank_account` FOREIGN KEY (`id_bank_account`) REFERENCES `banks` (`id`) ON DELETE SET NULL;
+SET FOREIGN_KEY_CHECKS=1;
+COMMIT;
+
+/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
+/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
+/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;

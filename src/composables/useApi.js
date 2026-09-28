@@ -76,13 +76,18 @@ const getBasePath = () => {
 
 const BASE_PATH = getBasePath()
 
-// Set API base URL based on environment
-// For local/LAN: use same hostname as page (so 192.168.x.x:5173 calls 192.168.x.x:8000)
-// PHP built-in server runs from project root → /api/ maps to api/ folder
-// For production: use same host (and port) as current page, under /api
-const API_BASE_URL = isLocalhost
-  ? `${protocol}//${hostname}:8000/api`
-  : `${protocol}//${hostname}${window.location.port ? `:${window.location.port}` : ''}/api`
+// Set API base URL.
+// Default: derive from the host serving the page. On local/LAN the PHP built-in
+// server runs on :8000, in production the web server exposes api/ under the same
+// host, so the app works from any domain without a code change.
+// Override with VITE_API_BASE_URL when you need to bypass that, e.g. during
+// tunnel development:  VITE_API_BASE_URL=http://localhost:8000/api npx vite
+// A .env.local override is untracked, so this stays out of commits by default.
+const API_BASE_URL =
+  import.meta.env?.VITE_API_BASE_URL ||
+  (isLocalhost
+    ? `${protocol}//${hostname}:8000/api`
+    : `${protocol}//${hostname}${window.location.port ? `:${window.location.port}` : ''}/api`)
 
 const API_URL = `${API_BASE_URL}/api.php`
 const UPLOAD_URL = `${API_BASE_URL}/upload.php`
