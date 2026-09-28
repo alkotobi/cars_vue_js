@@ -111,6 +111,7 @@
                           v-if="canDeleteNote(note)"
                           @click="handleDelete(index)"
                           class="btn-delete"
+                          :disabled="saving"
                           :title="t('sellBills.delete_note') || 'Delete Note'"
                         >
                           <i class="fas fa-trash"></i>
@@ -280,10 +281,11 @@ const handleSaveEdit = async (index) => {
 
 const handleDelete = async (index) => {
   const confirmMessage = t('sellBills.confirm_delete_note') || 'Are you sure you want to delete this note?'
+  if (saving.value) return
   if (!confirm(confirmMessage)) {
     return
   }
-  
+
   saving.value = true
   try {
     localNotes.value.splice(index, 1)
