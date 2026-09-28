@@ -300,14 +300,14 @@ const showStockAlert = async () => {
           </label>
           <input type="number" id="edit-qty" v-model="editingDetail.QTY" min="1" required />
           <div
-            v-if="qtyDelta > 0"
+            v-if="isStockUpdated && qtyDelta > 0"
             class="qty-hint"
             :style="{ color: 'var(--success, #16a34a)' }"
           >
             {{ t('buy.detailsTable.qtyIncreaseHint', { count: qtyDelta }) }}
           </div>
           <div
-            v-else-if="qtyDelta < 0"
+            v-else-if="isStockUpdated && qtyDelta < 0"
             class="qty-hint"
             :style="{ color: 'var(--danger, #dc2626)' }"
           >

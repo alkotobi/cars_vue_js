@@ -635,9 +635,10 @@ if (isset($postData['action'])) {
                 $conn->beginTransaction();
                 $inTransaction = true;
 
-                $billStmt = $conn->prepare('SELECT id FROM buy_bill WHERE id = ? FOR UPDATE');
+                $billStmt = $conn->prepare('SELECT id, is_stock_updated FROM buy_bill WHERE id = ? FOR UPDATE');
                 $billStmt->execute([$billId]);
-                if (!$billStmt->fetch(PDO::FETCH_ASSOC)) {
+                $bill = $billStmt->fetch(PDO::FETCH_ASSOC);
+                if (!$bill) {
                     apiErrorDie('bill_not_found');
                 }
 
@@ -653,12 +654,38 @@ if (isset($postData['action'])) {
                     apiErrorDie('detail_locked');
                 }
 
-                $currentCars = countDetailCars($conn, $detailId);
-
                 $updateStmt = $conn->prepare(
                     'UPDATE buy_details SET QTY = ?, amount = ?, year = ?, month = ?, price_sell = ?, notes = ?, is_used_car = ?, is_big_car = ? WHERE id = ?'
                 );
                 $updateStmt->execute([$newQty, $amount, $year, $month, $priceSell, $notes, $isUsed, $isBig, $detailId]);
+
+                // Cars only exist once the bill has been expanded. On a pending bill
+                // this edit must not create them: "Update Stock" is the only action
+                // that turns QTY into cars_stock rows, otherwise saving a QTY on a
+                // pending bill silently does the expansion and leaves the bill pending
+                // with cars already attached (which then trips the stock_rows_exist
+                // guard on the real Update Stock click).
+                if ((int)$bill['is_stock_updated'] !== 1) {
+                    $billAmountStmt = $conn->prepare(
+                        'UPDATE buy_bill SET amount = (SELECT COALESCE(SUM(amount * QTY), 0) FROM buy_details WHERE id_buy_bill = ?) WHERE id = ?'
+                    );
+                    $billAmountStmt->execute([$billId, $billId]);
+
+                    $conn->commit();
+                    $inTransaction = false;
+
+                    echo json_encode([
+                        'success' => true,
+                        'message' => 'Buy detail updated successfully',
+                        'createdCount' => 0,
+                        'createdCars' => [],
+                        'removedCount' => 0,
+                        'removedCarIds' => [],
+                    ]);
+                    exit;
+                }
+
+                $currentCars = countDetailCars($conn, $detailId);
 
                 // Propagate the snapshot fields to this detail's cars. Safe: we have
                 // already confirmed none of them are committed.
