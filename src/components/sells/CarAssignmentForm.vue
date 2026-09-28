@@ -2,6 +2,7 @@
 import { ref, onMounted, watch, computed, nextTick } from 'vue'
 import { useEnhancedI18n } from '../../composables/useI18n'
 import { useApi } from '../../composables/useApi'
+import { useSubmitGuard } from '../../composables/useSubmitGuard'
 import { ElSelect, ElOption, ElButton } from 'element-plus'
 import 'element-plus/dist/index.css'
 import NotesTable from '../shared/NotesTable.vue'
@@ -45,7 +46,9 @@ const carDetails = ref(null)
 
 // Add loading state for form submission
 const isSubmitting = ref(false)
-const isProcessing = ref(false)
+// isProcessing was declared but never assigned true, so every :disabled
+// bound to it was inert. The guard registry is now that source of truth.
+const { guard, isBusy } = useSubmitGuard()
 
 const formData = ref({
   id_client: null,
@@ -466,7 +469,7 @@ const calculatedCfrDaForDisplay = computed(() => {
 })
 
 // Assign car with collected data
-const assignCar = async () => {
+const assignCar = guard('assign-car', async () => {
   // Prevent multiple submissions
   if (isSubmitting.value) {
     return
@@ -622,7 +625,7 @@ const assignCar = async () => {
     loading.value = false
     isSubmitting.value = false
   }
-}
+})
 
 // Validate form before submission
 const validateForm = () => {
@@ -880,7 +883,7 @@ watch(() => props.visible, (newVal) => {
       <!-- Loading Overlay -->
       <div v-if="loading" class="loading-overlay">
         <i class="fas fa-spinner fa-spin fa-2x"></i>
-        <span>{{ isProcessing ? 'Assigning car...' : 'Loading...' }}</span>
+        <span>{{ isBusy('assign-car') ? 'Assigning car...' : 'Loading...' }}</span>
       </div>
 
       <div class="form-header">
@@ -1090,7 +1093,7 @@ watch(() => props.visible, (newVal) => {
                 type="button"
                 @click="handleManageNotes"
                 class="btn-manage-notes"
-                :disabled="isProcessing"
+                :disabled="isBusy('assign-car')"
               >
                 <i class="fas fa-edit"></i>
                 {{ t('sellBills.manage_notes') }}
@@ -1111,7 +1114,7 @@ watch(() => props.visible, (newVal) => {
                   type="button"
                   @click="handleUpgrades"
                   class="btn-manage-upgrades"
-                  :disabled="isProcessing || !carId"
+                  :disabled="isBusy('assign-car') || !carId"
                 >
                   <i class="fas fa-wrench"></i>
                   {{ t('carStock.upgrades') || 'Manage Upgrades' }}
@@ -1167,7 +1170,7 @@ watch(() => props.visible, (newVal) => {
               <i class="fas fa-times"></i>
               {{ t('sellBills.cancel') }}
             </button>
-            <button type="submit" class="assign-btn" :disabled="isProcessing">
+            <button type="submit" class="assign-btn" :disabled="isBusy('assign-car')">
               <i class="fas fa-save"></i>
               {{ isProcessing ? t('sellBills.assigning_car') : t('sellBills.assign_car') }}
             </button>
