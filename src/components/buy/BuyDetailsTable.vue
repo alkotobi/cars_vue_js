@@ -42,15 +42,24 @@ const isProcessing = ref(false)
 const isEditingDetail = ref(false)
 const isDeletingDetail = ref(false)
 
-const confirmDelete = (detailId, isStockUpdated) => {
-  if (isStockUpdated) {
-    alert(t('buy.detailsTable.cannotDeleteDetailsStockUpdated'))
+const confirmDelete = (detail) => {
+  if (!props.isAdmin) {
+    alert(t('buy.detailsTable.adminOnly'))
+    return
+  }
+  if (detail.locked) {
+    alert(t('buy.detailsTable.detailLocked'))
     return
   }
   if (isDeletingDetail.value) return // Prevent double-click
-  if (confirm(t('buy.detailsTable.confirmDeleteDetail'))) {
+
+  const message = t('buy.detailsTable.confirmDeleteDetailWithCars', {
+    count: detail.carsCount || 0,
+  })
+
+  if (confirm(message)) {
     isDeletingDetail.value = true
-    emit('delete-detail', detailId)
+    emit('delete-detail', detail.id)
     // Reset after a short delay to allow the parent to handle the deletion
     setTimeout(() => {
       isDeletingDetail.value = false
@@ -59,18 +68,49 @@ const confirmDelete = (detailId, isStockUpdated) => {
 }
 
 const openEditDialog = (detail) => {
+  if (!props.isAdmin) {
+    alert(t('buy.detailsTable.adminOnly'))
+    return
+  }
+  if (detail.locked) {
+    alert(t('buy.detailsTable.detailLocked'))
+    return
+  }
   if (isEditingDetail.value) return // Prevent double-click
   isEditingDetail.value = true
   editingDetail.value = { ...detail }
+  originalQty.value = Number(detail.QTY) || 0
   showEditDialog.value = true
 }
 
+const originalQty = ref(0)
+const isSavingEdit = ref(false)
+
+const qtyDelta = computed(() => {
+  if (!editingDetail.value) return 0
+  return (Number(editingDetail.value.QTY) || 0) - originalQty.value
+})
+
 const handleEditSubmit = () => {
-  isEditingDetail.value = false
+  if (isSavingEdit.value) return // Prevent double submission
+  isSavingEdit.value = true
+  // Keep the dialog open until the parent closes it on success, so a server-side
+  // refusal (not admin, detail locked) leaves the admin's edits intact.
   emit('update-detail', editingDetail.value)
-  showEditDialog.value = false
-  editingDetail.value = null
+  setTimeout(() => {
+    isSavingEdit.value = false
+  }, 1000)
 }
+
+defineExpose({
+  closeEditDialog: () => {
+    isEditingDetail.value = false
+    isSavingEdit.value = false
+    showEditDialog.value = false
+    editingDetail.value = null
+    originalQty.value = 0
+  },
+})
 
 const showStockAlert = async () => {
   if (!props.buyDetails.length) {
@@ -202,12 +242,14 @@ const showStockAlert = async () => {
             <button
               @click="openEditDialog(detail)"
               class="edit-btn"
-              :class="{ disabled: detail.is_stock_updated || isEditingDetail }"
-              :disabled="detail.is_stock_updated || isEditingDetail"
+              :class="{ disabled: !isAdmin || detail.locked || isEditingDetail }"
+              :disabled="!isAdmin || detail.locked || isEditingDetail"
               :title="
-                detail.is_stock_updated
-                  ? 'Cannot edit - Stock has been updated'
-                  : 'Edit this detail'
+                !isAdmin
+                  ? t('buy.detailsTable.adminOnlyTitle')
+                  : detail.locked
+                    ? t('buy.detailsTable.detailLockedTitle')
+                    : t('buy.detailsTable.edit')
               "
             >
               <i v-if="isEditingDetail" class="fas fa-spinner fa-spin"></i>
@@ -215,14 +257,16 @@ const showStockAlert = async () => {
               {{ isEditingDetail ? t('buy.detailsTable.processing') : t('buy.detailsTable.edit') }}
             </button>
             <button
-              @click="confirmDelete(detail.id, detail.is_stock_updated)"
+              @click="confirmDelete(detail)"
               class="delete-btn"
-              :class="{ disabled: detail.is_stock_updated || isDeletingDetail }"
-              :disabled="detail.is_stock_updated || isDeletingDetail"
+              :class="{ disabled: !isAdmin || detail.locked || isDeletingDetail }"
+              :disabled="!isAdmin || detail.locked || isDeletingDetail"
               :title="
-                detail.is_stock_updated
-                  ? 'Cannot delete - Stock has been updated'
-                  : 'Delete this detail'
+                !isAdmin
+                  ? t('buy.detailsTable.adminOnlyTitle')
+                  : detail.locked
+                    ? t('buy.detailsTable.detailLockedTitle')
+                    : t('buy.detailsTable.delete')
               "
             >
               <i v-if="isDeletingDetail" class="fas fa-spinner fa-spin"></i>
@@ -255,6 +299,20 @@ const showStockAlert = async () => {
             {{ t('buy.detailsTable.quantity') }}
           </label>
           <input type="number" id="edit-qty" v-model="editingDetail.QTY" min="1" required />
+          <div
+            v-if="qtyDelta > 0"
+            class="qty-hint"
+            :style="{ color: 'var(--success, #16a34a)' }"
+          >
+            {{ t('buy.detailsTable.qtyIncreaseHint', { count: qtyDelta }) }}
+          </div>
+          <div
+            v-else-if="qtyDelta < 0"
+            class="qty-hint"
+            :style="{ color: 'var(--danger, #dc2626)' }"
+          >
+            {{ t('buy.detailsTable.qtyDecreaseHint', { count: -qtyDelta }) }}
+          </div>
         </div>
 
         <div class="form-group">

@@ -48,13 +48,6 @@ const isProcessingTask = ref(false)
 const user = ref(JSON.parse(localStorage.getItem('user')))
 const isAdmin = computed(() => user.value?.role_id === 1)
 
-// Computed property to check if bill is pending (not stock updated)
-const isBillPending = computed(() => {
-  if (!selectedBill.value) return false
-  const stockUpdated = selectedBill.value.is_stock_updated
-  return stockUpdated == 0 || stockUpdated === null || stockUpdated === '0'
-})
-
 // Toolbar action methods
 // Stock expansion is owned by BuyDetailsTable.showStockAlert, which calls the
 // create_stock_from_details action so the QTY expansion runs in one server-side
@@ -570,9 +563,27 @@ const fetchBuyBills = async () => {
 }
 
 const fetchBuyDetails = async (billId) => {
+  const committedCarPredicate = `
+      cs.id_buy_details = bd.id AND (
+        (cs.vin IS NOT NULL AND TRIM(cs.vin) <> '')
+        OR (cs.id_sell IS NOT NULL)
+        OR (cs.id_client IS NOT NULL)
+        OR (cs.id_port_loading IS NOT NULL)
+        OR (cs.id_port_discharge IS NOT NULL)
+        OR (cs.date_loding IS NOT NULL)
+        OR (cs.container_ref IS NOT NULL AND TRIM(cs.container_ref) <> '')
+        OR (cs.id_loaded_container IS NOT NULL)
+        OR (cs.date_assigned IS NOT NULL)
+        OR (cs.payment_confirmed != 0)
+        OR EXISTS (SELECT 1 FROM car_files cf WHERE cf.car_id = cs.id)
+      )
+  `
+
   const result = await callApi({
     query: `
-      SELECT bd.*, cn.car_name, c.color, bb.is_stock_updated
+      SELECT bd.*, cn.car_name, c.color, bb.is_stock_updated,
+        (SELECT COUNT(*) FROM cars_stock cs WHERE ${committedCarPredicate}) AS locked_cars,
+        (SELECT COUNT(*) FROM cars_stock cs WHERE cs.id_buy_details = bd.id) AS cars_count
       FROM buy_details bd
       LEFT JOIN cars_names cn ON bd.id_car_name = cn.id
       LEFT JOIN colors c ON bd.id_color = c.id
@@ -582,7 +593,12 @@ const fetchBuyDetails = async (billId) => {
     params: [billId],
   })
   if (result.success) {
-    buyDetails.value = result.data
+    buyDetails.value = result.data.map((d) => ({
+      ...d,
+      locked: Number(d.locked_cars) > 0,
+      carsCount: Number(d.cars_count) || 0,
+      is_stock_updated: Number(d.is_stock_updated),
+    }))
   } else {
     console.error('Error fetching details:', result.error)
   }
@@ -701,44 +717,65 @@ onMounted(() => {
 
 const handleDeleteDetail = async (detailId) => {
   const result = await callApi({
-    query: 'DELETE FROM buy_details WHERE id = ?',
-    params: [detailId],
+    action: 'delete_buy_detail',
+    bill_id: selectedBill.value.id,
+    detail_id: detailId,
+    user_id: user.value?.id,
   })
 
   if (result.success) {
-    await updateBillAmount(selectedBill.value.id) // Update bill amount
+    if (result.removedCarIds?.length) {
+      carStockTableRef.value?.removeCarsToMemory(result.removedCarIds)
+    }
+    buyDetailsTableRef.value?.closeEditDialog()
     await fetchBuyDetails(selectedBill.value.id)
     await fetchBuyBills() // Refresh bills to show updated amount
   } else {
-    alert(t('failed_delete_detail'))
+    if (result.code === 'not_admin') {
+      alert(t('buy.detailsTable.adminOnly'))
+    } else if (result.code === 'detail_locked') {
+      alert(t('buy.detailsTable.detailLocked'))
+    } else {
+      alert(t('failed_delete_detail') + ': ' + (result.error || ''))
+    }
     console.error('Error deleting detail:', result.error)
   }
 }
 
 const handleUpdateDetail = async (updatedDetail) => {
   const result = await callApi({
-    query: `
-      UPDATE buy_details 
-      SET QTY = ?, amount = ?, year = ?, month = ?, price_sell = ?, is_big_car = ?
-      WHERE id = ?
-    `,
-    params: [
-      updatedDetail.QTY,
-      updatedDetail.amount,
-      updatedDetail.year,
-      updatedDetail.month,
-      updatedDetail.price_sell,
-      updatedDetail.is_big_car ? 1 : 0,
-      updatedDetail.id,
-    ],
+    action: 'update_buy_detail',
+    bill_id: selectedBill.value.id,
+    detail_id: updatedDetail.id,
+    user_id: user.value?.id,
+    QTY: updatedDetail.QTY,
+    amount: updatedDetail.amount,
+    year: updatedDetail.year,
+    month: updatedDetail.month,
+    price_sell: updatedDetail.price_sell,
+    notes: updatedDetail.notes,
+    is_used_car: updatedDetail.is_used_car ? 1 : 0,
+    is_big_car: updatedDetail.is_big_car ? 1 : 0,
   })
 
   if (result.success) {
-    await updateBillAmount(selectedBill.value.id)
+    if (result.createdCars?.length) {
+      await handleCarsCreated(result.createdCars)
+    }
+    if (result.removedCarIds?.length) {
+      carStockTableRef.value?.removeCarsToMemory(result.removedCarIds)
+    }
+    buyDetailsTableRef.value?.closeEditDialog()
     await fetchBuyDetails(selectedBill.value.id)
     await fetchBuyBills()
   } else {
-    alert(t('failed_update_detail'))
+    if (result.code === 'not_admin') {
+      alert(t('buy.detailsTable.adminOnly'))
+    } else if (result.code === 'detail_locked') {
+      alert(t('buy.detailsTable.detailLocked'))
+    } else {
+      alert(t('failed_update_detail') + ': ' + (result.error || ''))
+    }
     console.error('Error updating detail:', result.error)
   }
 }
@@ -882,7 +919,7 @@ const saveNotes = async (newNotes) => {
         <BuyDetailsTable
           ref="buyDetailsTableRef"
           id="buy-details-table"
-          v-if="selectedBill && isBillPending"
+          v-if="selectedBill"
           :buyDetails="buyDetails"
           :isAdmin="isAdmin"
           @add-detail="showAddDetailDialog = true"

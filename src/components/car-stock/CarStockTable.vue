@@ -2977,6 +2977,14 @@ defineExpose({
     // Apply current filters to update the display
     fetchCarsStock()
   },
+  removeCarsToMemory: (carIds) => {
+    if (!carIds?.length) return
+
+    const idSet = new Set(carIds)
+    allCars.value = allCars.value.filter((car) => !idSet.has(car.id))
+
+    fetchCarsStock()
+  },
 })
 
 // In the handler for the refresh event (called by the toolbar):
