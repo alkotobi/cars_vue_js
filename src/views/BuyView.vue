@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useEnhancedI18n } from '../composables/useI18n'
-import { useApi } from '../composables/useApi'
+import { useApi, apiErrorText } from '../composables/useApi'
 import BuyBillsTable from '../components/buy/BuyBillsTable.vue'
 import BuyDetailsTable from '../components/buy/BuyDetailsTable.vue'
 import CarStockTable from '../components/car-stock/CarStockTable.vue'
@@ -731,13 +731,7 @@ const handleDeleteDetail = async (detailId) => {
     await fetchBuyDetails(selectedBill.value.id)
     await fetchBuyBills() // Refresh bills to show updated amount
   } else {
-    if (result.code === 'not_admin') {
-      alert(t('buy.detailsTable.adminOnly'))
-    } else if (result.code === 'detail_locked') {
-      alert(t('buy.detailsTable.detailLocked'))
-    } else {
-      alert(t('failed_delete_detail') + ': ' + (result.error || ''))
-    }
+    alert(apiErrorText(t, result) || t('failed_delete_detail'))
     console.error('Error deleting detail:', result.error)
   }
 }
@@ -769,13 +763,7 @@ const handleUpdateDetail = async (updatedDetail) => {
     await fetchBuyDetails(selectedBill.value.id)
     await fetchBuyBills()
   } else {
-    if (result.code === 'not_admin') {
-      alert(t('buy.detailsTable.adminOnly'))
-    } else if (result.code === 'detail_locked') {
-      alert(t('buy.detailsTable.detailLocked'))
-    } else {
-      alert(t('failed_update_detail') + ': ' + (result.error || ''))
-    }
+    alert(apiErrorText(t, result) || t('failed_update_detail'))
     console.error('Error updating detail:', result.error)
   }
 }

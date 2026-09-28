@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, useAttrs } from 'vue'
-import { useApi } from '../../composables/useApi'
+import { useApi, apiErrorText } from '../../composables/useApi'
 import { useEnhancedI18n } from '../../composables/useI18n'
 
 // Get all attributes passed to the component
@@ -144,7 +144,7 @@ const showStockAlert = async () => {
         emit('cars-created', result.createdCars || [])
       } else {
         console.error('Error updating stock:', result.error)
-        alert(t('buy.detailsTable.errorUpdatingStock') + ': ' + (result.error || ''))
+        alert(apiErrorText(t, result) || t('buy.detailsTable.errorUpdatingStock'))
       }
     } catch (err) {
       console.error('Error updating stock:', err)

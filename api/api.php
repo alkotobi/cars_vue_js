@@ -164,6 +164,21 @@ function countDetailCars($conn, $detailId) {
     return (int)$row['cnt'];
 }
 
+// Emit an error payload carrying a stable machine-readable `code` so the client
+// can translate it into the active locale. Never include a raw English message
+// when a code exists: the client maps `code` -> i18n key.
+function apiErrorDie($code, $status = 200, $meta = null) {
+    if ($status) {
+        http_response_code($status);
+    }
+    $payload = ['success' => false, 'code' => $code, 'error' => $code];
+    if ($meta !== null) {
+        $payload['meta'] = $meta;
+    }
+    echo json_encode($payload);
+    exit;
+}
+
 // Function to execute multi-statement SQL query
 function executeMultiQuery($sql, $params = []) {
     try {
@@ -443,16 +458,12 @@ if (isset($postData['action'])) {
             // top of it. Details are read here by bill id rather than trusted from the
             // client, so the inserted rows are derived from committed data.
             if (!isset($postData['bill_id'])) {
-                http_response_code(400);
-                echo json_encode(['success' => false, 'error' => 'bill_id is required']);
-                exit;
+                apiErrorDie('invalid_request', 400);
             }
 
             $billId = intval($postData['bill_id']);
             if ($billId <= 0) {
-                http_response_code(400);
-                echo json_encode(['success' => false, 'error' => 'Invalid bill_id']);
-                exit;
+                apiErrorDie('invalid_request', 400);
             }
 
             $createdCars = [];
@@ -474,10 +485,10 @@ if (isset($postData['action'])) {
                 $bill = $billStmt->fetch(PDO::FETCH_ASSOC);
 
                 if (!$bill) {
-                    throw new Exception('Buy bill not found');
+                    apiErrorDie('bill_not_found');
                 }
                 if ((int)$bill['is_stock_updated'] === 1) {
-                    throw new Exception('Stock has already been updated for this bill');
+                    apiErrorDie('stock_already_updated');
                 }
 
                 $detailStmt = $conn->prepare(
@@ -488,7 +499,7 @@ if (isset($postData['action'])) {
                 $details = $detailStmt->fetchAll(PDO::FETCH_ASSOC);
 
                 if (empty($details)) {
-                    throw new Exception('No purchase details to process');
+                    apiErrorDie('no_details');
                 }
 
                 // Refuse to expand if this bill already has stock rows. Covers the case
@@ -503,11 +514,14 @@ if (isset($postData['action'])) {
                 $existing = $existingStmt->fetchAll(PDO::FETCH_ASSOC);
 
                 if (!empty($existing)) {
-                    $parts = [];
+                    $detailParts = [];
                     foreach ($existing as $row) {
-                        $parts[] = "detail {$row['id_buy_details']}: {$row['cnt']}";
+                        $detailParts[] = [
+                            'id' => intval($row['id_buy_details']),
+                            'count' => intval($row['cnt']),
+                        ];
                     }
-                    throw new Exception('Stock rows already exist for this bill (' . implode(', ', $parts) . ')');
+                    apiErrorDie('stock_rows_exist', 200, ['details' => $detailParts]);
                 }
 
                 $insertStmt = $conn->prepare(
@@ -519,7 +533,12 @@ if (isset($postData['action'])) {
                 foreach ($details as $detail) {
                     $qty = intval($detail['QTY']);
                     if ($qty <= 0) {
-                        throw new Exception('Detail ' . $detail['id'] . ' has an invalid quantity');
+                        // This is the only refusal that can happen after rows have
+                        // already been inserted, so roll back explicitly instead of
+                        // relying on the connection closing to release the transaction.
+                        $conn->rollBack();
+                        $inTransaction = false;
+                        apiErrorDie('invalid_detail_qty', 200, ['detailId' => intval($detail['id'])]);
                     }
 
                     for ($i = 0; $i < $qty; $i++) {
@@ -573,9 +592,7 @@ if (isset($postData['action'])) {
             // against the actual cars_stock count for the detail, not the stored QTY.
             foreach (['bill_id', 'detail_id', 'user_id'] as $requiredKey) {
                 if (!isset($postData[$requiredKey])) {
-                    http_response_code(400);
-                    echo json_encode(['success' => false, 'error' => "$requiredKey is required"]);
-                    exit;
+                    apiErrorDie('invalid_request', 400);
                 }
             }
 
@@ -584,15 +601,12 @@ if (isset($postData['action'])) {
             $userId = intval($postData['user_id']);
 
             if ($billId <= 0 || $detailId <= 0 || $userId <= 0) {
-                http_response_code(400);
-                echo json_encode(['success' => false, 'error' => 'Invalid ids']);
-                exit;
+                apiErrorDie('invalid_request', 400);
             }
 
             $qtyValue = isset($postData['QTY']) ? $postData['QTY'] : null;
             if ($qtyValue === null || intval($qtyValue) < 1) {
-                echo json_encode(['success' => false, 'code' => 'invalid_qty', 'error' => 'Invalid quantity']);
-                exit;
+                apiErrorDie('invalid_qty');
             }
             $newQty = intval($qtyValue);
 
@@ -615,8 +629,7 @@ if (isset($postData['action'])) {
                 }
 
                 if (!isAdminUser($conn, $userId)) {
-                    echo json_encode(['success' => false, 'code' => 'not_admin', 'error' => 'Only admin can edit buy details']);
-                    exit;
+                    apiErrorDie('not_admin');
                 }
 
                 $conn->beginTransaction();
@@ -625,7 +638,7 @@ if (isset($postData['action'])) {
                 $billStmt = $conn->prepare('SELECT id FROM buy_bill WHERE id = ? FOR UPDATE');
                 $billStmt->execute([$billId]);
                 if (!$billStmt->fetch(PDO::FETCH_ASSOC)) {
-                    throw new Exception('Buy bill not found');
+                    apiErrorDie('bill_not_found');
                 }
 
                 $detailStmt = $conn->prepare('SELECT id, QTY, price_sell, notes, is_used_car, is_big_car, id_color FROM buy_details WHERE id = ? AND id_buy_bill = ?');
@@ -633,16 +646,11 @@ if (isset($postData['action'])) {
                 $detail = $detailStmt->fetch(PDO::FETCH_ASSOC);
 
                 if (!$detail) {
-                    throw new Exception('Buy detail not found');
+                    apiErrorDie('detail_not_found');
                 }
 
                 if (countCommittedCars($conn, $detailId) > 0) {
-                    echo json_encode([
-                        'success' => false,
-                        'code' => 'detail_locked',
-                        'error' => 'Cannot edit a buy detail whose cars are committed',
-                    ]);
-                    exit;
+                    apiErrorDie('detail_locked');
                 }
 
                 $currentCars = countDetailCars($conn, $detailId);
@@ -732,9 +740,7 @@ if (isset($postData['action'])) {
             // presence is itself a committed state, so the cascade never fires.
             foreach (['bill_id', 'detail_id', 'user_id'] as $requiredKey) {
                 if (!isset($postData[$requiredKey])) {
-                    http_response_code(400);
-                    echo json_encode(['success' => false, 'error' => "$requiredKey is required"]);
-                    exit;
+                    apiErrorDie('invalid_request', 400);
                 }
             }
 
@@ -743,9 +749,7 @@ if (isset($postData['action'])) {
             $userId = intval($postData['user_id']);
 
             if ($billId <= 0 || $detailId <= 0 || $userId <= 0) {
-                http_response_code(400);
-                echo json_encode(['success' => false, 'error' => 'Invalid ids']);
-                exit;
+                apiErrorDie('invalid_request', 400);
             }
 
             $removedCarIds = [];
@@ -758,8 +762,7 @@ if (isset($postData['action'])) {
                 }
 
                 if (!isAdminUser($conn, $userId)) {
-                    echo json_encode(['success' => false, 'code' => 'not_admin', 'error' => 'Only admin can delete buy details']);
-                    exit;
+                    apiErrorDie('not_admin');
                 }
 
                 $conn->beginTransaction();
@@ -768,22 +771,17 @@ if (isset($postData['action'])) {
                 $billStmt = $conn->prepare('SELECT id FROM buy_bill WHERE id = ? FOR UPDATE');
                 $billStmt->execute([$billId]);
                 if (!$billStmt->fetch(PDO::FETCH_ASSOC)) {
-                    throw new Exception('Buy bill not found');
+                    apiErrorDie('bill_not_found');
                 }
 
                 $detailStmt = $conn->prepare('SELECT id FROM buy_details WHERE id = ? AND id_buy_bill = ?');
                 $detailStmt->execute([$detailId, $billId]);
                 if (!$detailStmt->fetch(PDO::FETCH_ASSOC)) {
-                    throw new Exception('Buy detail not found');
+                    apiErrorDie('detail_not_found');
                 }
 
                 if (countCommittedCars($conn, $detailId) > 0) {
-                    echo json_encode([
-                        'success' => false,
-                        'code' => 'detail_locked',
-                        'error' => 'Cannot delete a buy detail whose cars are committed',
-                    ]);
-                    exit;
+                    apiErrorDie('detail_locked');
                 }
 
                 // Collect the car ids being deleted for the client before removing them.
