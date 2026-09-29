@@ -38,15 +38,15 @@
         }
 
         function getApiBase() {
-          // Old production API: https://www.merhab.com/api (kept for reference/reuse)
-          if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-            return 'http://localhost:8000/api'
-          }
-          // The API ships with the app, so it lives under the same mount point
-          // ('/cars/api' in production) — there is no api/ at the domain root.
-          // Resolve against the document URL so './' cannot glue a stray '.' onto
-          // the hostname, and so deep links like /cars/cars-stock still resolve.
-          return new URL(getBasePath() + 'api', window.location.href).href
+          // The API ships inside the app folder, so it is <origin><base>api —
+          // e.g. https://host/cars/api for an app in /cars/. This is the same
+          // rule as resolveApiBaseUrl() in src/utils/basePath.js, which the app
+          // itself uses; keep the two in step. Do NOT treat a LAN IP as a dev
+          // box here: a server deployed on 192.168.x.x has its API next to it,
+          // not on :8000. Only the Vite dev server (which serves from /) differs,
+          // and it has no trailing base, so getBasePath() + 'api' resolves
+          // correctly for it too.
+          return new URL(getBasePath() + 'api', window.location.href).href;
         }
 
         function getFileUrl(path, baseDirectory) {

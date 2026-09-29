@@ -61,6 +61,39 @@ try {
     );
     $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     
+    // Resolve the on-disk path of db_code.json for a database row.
+    //
+    // db_code.json is per server: it names the database this deployment talks
+    // to, so it is written on the server rather than shipped in the build (see
+    // deploy/deploy.sh). It lives in the app folder, which is where the app
+    // fetches it from (<mount>db_code.json). An empty js_dir therefore means
+    // "the app root", not "unconfigured" — that is the default the deploy guide
+    // seeds, and rejecting it made this file uneditable in production.
+    // Returns null when the resolved path would escape the app root.
+    function resolveDbCodeJsonPath($jsDir) {
+        $base = realpath(__DIR__ . '/..');
+        if ($base === false) {
+            return null;
+        }
+        $base = rtrim($base, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+
+        $jsDir = trim((string)$jsDir);
+        $jsDir = str_replace('\\', '/', $jsDir);
+        $jsDir = trim($jsDir, '/');
+
+        $path = $base . ($jsDir !== '' ? $jsDir . '/' : '') . 'db_code.json';
+
+        // Defence in depth: never let a crafted js_dir write outside the app.
+        $real = realpath($path);
+        if ($real !== false && strpos($real, $base) !== 0) {
+            return null;
+        }
+        if (strpos($path, $base) !== 0 || strpos($path, '..') !== false) {
+            return null;
+        }
+        return $path;
+    }
+
     // Helper function to format Unix directory path
     function formatUnixPath($path) {
         if (empty($path)) {
@@ -1533,17 +1566,12 @@ try {
                 }
                 
                 $jsDir = trim($db['js_dir'] ?? '');
-                if (empty($jsDir)) {
-                    $response['message'] = 'js_dir is not configured for this database';
+                // An empty js_dir means the app root (see resolveDbCodeJsonPath).
+                $filePath = resolveDbCodeJsonPath($jsDir);
+                if ($filePath === null) {
+                    $response['message'] = 'Invalid js_dir for this database';
                     break;
                 }
-                
-                // Remove leading slash if present
-                $jsDir = ltrim($jsDir, '/');
-                $jsDir = rtrim($jsDir, '/');
-                
-                // Construct the full file path
-                $filePath = __DIR__ . '/../' . $jsDir . '/db_code.json';
                 
                 // Debug logging
                 error_log('[read_db_code_json] Database ID: ' . $databaseId);
@@ -1655,18 +1683,13 @@ try {
                 }
                 
                 $jsDir = trim($db['js_dir'] ?? '');
-                if (empty($jsDir)) {
-                    $response['message'] = 'js_dir is not configured for this database';
+                // An empty js_dir means the app root (see resolveDbCodeJsonPath).
+                $filePath = resolveDbCodeJsonPath($jsDir);
+                if ($filePath === null) {
+                    $response['message'] = 'Invalid js_dir for this database';
                     break;
                 }
-                
-                // Remove leading slash if present
-                $jsDir = ltrim($jsDir, '/');
-                $jsDir = rtrim($jsDir, '/');
-                
-                // Construct the full directory and file path
-                $dirPath = __DIR__ . '/../' . $jsDir;
-                $filePath = $dirPath . '/db_code.json';
+                $dirPath = dirname($filePath);
                 
                 // Get the real path for security check
                 $realBasePath = realpath(__DIR__ . '/../');

@@ -1,3 +1,4 @@
+import { existsSync, rmSync } from 'node:fs'
 import { fileURLToPath, URL } from 'node:url'
 
 import { defineConfig } from 'vite'
@@ -21,6 +22,25 @@ const removeVendorPreload = () => {
   }
 }
 
+// db_code.json is PER SERVER, not per build: it names the database a deployment
+// talks to. public/db_code.json exists so `npm run dev` works locally, but it
+// must never reach dist/ — deploying it would point every client at this
+// machine's database. deploy/deploy.sh writes the real one on the server and
+// fails the deploy if this file leaks into a build.
+const removeDbCode = () => {
+  return {
+    name: 'remove-db-code-json',
+    apply: 'build',
+    closeBundle() {
+      const target = fileURLToPath(new URL('./dist/db_code.json', import.meta.url))
+      if (existsSync(target)) {
+        rmSync(target)
+        this.warn('removed dist/db_code.json (per-server file, written by deploy/deploy.sh)')
+      }
+    },
+  }
+}
+
 // Get environment
 const isProduction = process.env.NODE_ENV === 'production'
 
@@ -35,7 +55,7 @@ export default defineConfig({
   // @vue/devtools-kit at config load, which touches localStorage and throws
   // "localStorage.getItem is not a function" under the Node build, breaking
   // `vite build` and `vitest`. Re-add it once the plugin is fixed or pinned.
-  plugins: [vue(), removeVendorPreload()],
+  plugins: [vue(), removeVendorPreload(), removeDbCode()],
   test: {
     globals: true,
     environment: 'node',
