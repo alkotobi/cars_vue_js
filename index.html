@@ -3,20 +3,33 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
     <meta charset="UTF-8">
-    <!--
-      No <base> tag on purpose. The built index.html references its entry
-      script relatively ("./index.<hash>.js"), and a relative URL is resolved
-      against the document URL, which already yields the right directory for
-      every deployment: '/' on a root deploy, '/cars/' when served from
-      /cars/, and '/mig_26/' on a deep link such as /mig_26/login (the last
-      segment is treated as a file, so the base is its parent).
+      <!--
+        The entry script below is referenced relatively ("./index.<hash>.js") and
+        this file ships no base element, because the app folder is per-client and
+        unknown at build time: one dist/ serves /cars/, /mig_26/ and any other
+        folder, and baking the name in would break the rest.
 
-      Injecting a <base> element here is what broke production: any base
-      computed from window.location.pathname mis-detected the /cars/ mount as
-      a route named /cars, resolved to '/', and made every asset 404. The
-      authoritative mount point for JS consumers now comes from
-      src/utils/basePath.js, which reads import.meta.url.
-    -->
+        A relative URL resolves against the document, which is correct at depth 1
+        only. On a deep link such as /cars/sell-bills/5 the browser would request
+        /cars/sell-bills/index.<hash>.js, miss, and be served this file with
+        Content-Type: text/html -- "Failed to load module script ... text/html" on
+        every route with a path parameter, presenting as a blank tab while the
+        page still returned 200.
+
+        So nginx injects the base when serving this shell, via sub_filter on the
+        charset meta tag below (deploy/nginx-app.conf.template). That keeps one
+        build portable to any folder.
+
+        CONSEQUENCE: the charset meta tag directly above is the anchor for that
+        injection, and this file is what the rule matches. Removing or reformatting
+        it breaks every deep link. If you see the MIME error, check that the served
+        HTML still contains a base element. See DEPLOYMENT.md 6.1.
+
+        Do NOT reintroduce a base computed from window.location.pathname: /cars/ is
+        the mount, but /cars is also a route, so a pathname heuristic mis-detects
+        it and resolves to '/'. The mount point for JS consumers comes from
+        src/utils/basePath.js, which reads import.meta.url.
+      -->
     <link rel="icon" href="./logo_default.png" type="image/png" id="favicon-link">
     <link rel="apple-touch-icon" href="./logo_default.png" id="apple-touch-link">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
