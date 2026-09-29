@@ -1,6 +1,6 @@
 <script setup>
-import { ref, computed, nextTick } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, nextTick, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useEnhancedI18n } from '../composables/useI18n'
 import CarsStock from './CarsStock.vue'
 import ClientsView from './ClientsView.vue'
@@ -22,6 +22,7 @@ import FinishedOrdersTable from '../components/FinishedOrdersTable.vue'
 import ContainersRefList from '@/components/containers/ContainersRefList.vue'
 
 const router = useRouter()
+const route = useRoute()
 const { t } = useEnhancedI18n()
 const activeView = ref(null)
 
@@ -79,37 +80,36 @@ const toggleSidebar = () => {
   sidebarCollapsed.value = !sidebarCollapsed.value
 }
 
+// Document title per tab, shared by navigateTo and the ?view= deep link below.
+const VIEW_TITLES = {
+  buy: 'Purchase Management - Cars System',
+  sell: 'Sell Cars - Cars System',
+  'sell-bills': 'Sell Bills - Cars System',
+  stock: 'Car Stock - Cars System',
+  models: 'Car Models - Cars System',
+  colors: 'Car Colors - Cars System',
+  'discharge-ports': 'Discharge Ports - Cars System',
+  'loading-ports': 'Loading Ports - Cars System',
+  clients: 'Clients Management - Cars System',
+  brokers: 'Brokers Management - Cars System',
+  suppliers: 'Suppliers Management - Cars System',
+  warehouses: 'Warehouses Management - Cars System',
+  containers: 'Containers Management - Cars System',
+  'containers-ref': 'Containers Reference - Cars System',
+  teams: 'Teams Management - Cars System',
+  statistics: 'Statistics - Cars System',
+  load: 'Loading Management - Cars System',
+  'loading-inquiry': 'Loading Inquiry - Cars System',
+  tracking: 'Car Tracking - Cars System',
+}
+
 const navigateTo = async (view) => {
   if (isProcessing.value[view]) return
   isProcessing.value[view] = true
   try {
     activeView.value = view
     closeMobileNav()
-
-    // Set appropriate page title based on the view
-    const titles = {
-      buy: 'Purchase Management - Cars System',
-      sell: 'Sell Cars - Cars System',
-      'sell-bills': 'Sell Bills - Cars System',
-      stock: 'Car Stock - Cars System',
-      models: 'Car Models - Cars System',
-      colors: 'Car Colors - Cars System',
-      'discharge-ports': 'Discharge Ports - Cars System',
-      'loading-ports': 'Loading Ports - Cars System',
-      clients: 'Clients Management - Cars System',
-      brokers: 'Brokers Management - Cars System',
-      suppliers: 'Suppliers Management - Cars System',
-      warehouses: 'Warehouses Management - Cars System',
-      containers: 'Containers Management - Cars System',
-      'containers-ref': 'Containers Reference - Cars System',
-      teams: 'Teams Management - Cars System',
-      statistics: 'Statistics - Cars System',
-      load: 'Loading Management - Cars System',
-      'loading-inquiry': 'Loading Inquiry - Cars System',
-      tracking: 'Car Tracking - Cars System',
-    }
-
-    document.title = titles[view] || 'Cars Management - Cars System'
+    document.title = VIEW_TITLES[view] || 'Cars Management - Cars System'
   } finally {
     isProcessing.value[view] = false
   }
@@ -296,6 +296,47 @@ const handleTrackingClick = async () => {
     isProcessing.value.tracking = false
   }
 }
+
+// Tabs are component state, not routes, so nothing outside this view had a URL
+// that could point at one. TaskForm links from a task to the entity it is about
+// (e.g. /cars?view=suppliers); without this it hit the catch-all route and
+// bounced the user to '/'. Each entry mirrors the permission its sidebar button
+// is gated on, so a deep link cannot reach a tab the user cannot open by hand.
+// A Map, not an object: it keeps inherited keys like ?view=toString out.
+const DEEP_LINK_VIEWS = new Map([
+  ['buy', () => canPurchaseCars.value],
+  ['sell-bills', () => canSellCars.value],
+  ['models', () => canPurchaseCars.value],
+  ['colors', () => canPurchaseCars.value],
+  ['discharge-ports', () => canPurchaseCars.value],
+  ['loading-ports', () => canPurchaseCars.value],
+  ['suppliers', () => canPurchaseCars.value],
+  ['warehouses', () => canPurchaseCars.value],
+  ['containers', () => canPurchaseCars.value],
+  ['clients', () => canSellCars.value],
+  ['brokers', () => canSellCars.value],
+  ['load', () => canLoadCar.value],
+  ['loading-inquiry', () => canLoadCar.value],
+  ['statistics', () => isAdmin.value],
+  ['teams', () => true],
+  ['tracking', () => true],
+])
+
+// A watch, not onMounted: the common caller is TaskForm's entity link, which
+// pushes this query from inside CarsView itself (the suppliers tab is showing
+// when its task form is open). Same route, new query, no remount - onMounted
+// would never run again.
+watch(
+  () => route.query.view,
+  (requested) => {
+    if (typeof requested !== 'string') return
+    const isAllowed = DEEP_LINK_VIEWS.get(requested)
+    if (!isAllowed?.()) return
+    activeView.value = requested
+    document.title = VIEW_TITLES[requested] || 'Cars Management - Cars System'
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
