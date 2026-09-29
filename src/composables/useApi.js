@@ -1,12 +1,12 @@
 import { ref } from 'vue'
-import { getBasePath as sharedGetBasePath } from '../utils/basePath'
+import {
+  getBasePath as sharedGetBasePath,
+  resolveApiBaseUrl,
+} from '../utils/basePath'
 
 // Get the current hostname and protocol
 const hostname = window.location.hostname
 const protocol = window.location.protocol
-// Treat localhost and local LAN IPs as development (use local API)
-const isLocalhost =
-  hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.')
 
 // Detect base path from current location (e.g., '/mig_26/' or '/')
 // This allows the app to work from any subdirectory or root
@@ -15,21 +15,34 @@ const getBasePath = () => sharedGetBasePath()
 
 const BASE_PATH = getBasePath()
 
-// Set API base URL.
-// Default: derive from the host serving the page. On local/LAN the PHP built-in
-// server runs on :8000, in production the web server exposes api/ under the same
-// host, so the app works from any domain without a code change.
-// The mount path is part of the URL: the app is served from /cars/ and so is its
-// API (/cars/api/api.php). Building the base from the host alone produced
-// https://host/api/api.php, which 404s — there is no api/ at the domain root.
-// Override with VITE_API_BASE_URL when you need to bypass that, e.g. during
-// tunnel development:  VITE_API_BASE_URL=http://localhost:8000/api npx vite
+// "Are we running against a local dev box?" Gates behaviour that must not apply
+// in production: the artificial request delay, the relaxed Accept headers, and
+// skipping cookie verification.
+//
+// This is derived from import.meta.env.DEV — the same signal resolveApiBaseUrl
+// uses — rather than from the hostname. The previous check treated any
+// 192.168.* address as local, which silently disabled cookie verification on a
+// server genuinely deployed on a LAN. Note it used to be a bare `hostname ===`
+// test and was briefly removed during the API-URL refactor while four call sites
+// below still referenced it, which threw ReferenceError on every API call.
+const isLocalhost = Boolean(import.meta.env?.DEV)
+
+// Set API base URL. The API ships inside the app folder, so it is derived from
+// the mount point: <origin><basePath>api. That makes it correct for any folder
+// name, any domain and any IP without a rebuild. Only `npm run dev` differs —
+// there PHP runs on :8000 — and that is detected from import.meta.env.DEV
+// rather than from the hostname, so a server on a LAN address is not mistaken
+// for a dev box. Override with VITE_API_BASE_URL to point somewhere else
+// entirely, e.g. a tunnel:  VITE_API_BASE_URL=http://localhost:8000/api npx vite
 // A .env.local override is untracked, so this stays out of commits by default.
-const API_BASE_URL =
-  import.meta.env?.VITE_API_BASE_URL ||
-  (isLocalhost
-    ? `${protocol}//${hostname}:8000/api`
-    : `${protocol}//${hostname}${window.location.port ? `:${window.location.port}` : ''}${BASE_PATH}api`)
+const API_BASE_URL = resolveApiBaseUrl({
+  override: import.meta.env?.VITE_API_BASE_URL,
+  protocol,
+  hostname,
+  port: window.location.port,
+  basePath: BASE_PATH,
+  isDev: import.meta.env.DEV,
+})
 
 const API_URL = `${API_BASE_URL}/api.php`
 const UPLOAD_URL = `${API_BASE_URL}/upload.php`
@@ -43,7 +56,13 @@ let config_promise = null
 let current_upload_path = null
 
 // Function to load configuration from db_code.json
-// This file is in the public folder and will be accessible at ./db_code.json (same folder as index.html)
+// db_code.json is PER SERVER, not per build: it names the database this
+// deployment talks to, so it is fetched at runtime from <mount>db_code.json
+// rather than compiled in. That is what lets a single dist/ serve many clients,
+// each against its own database. deploy/deploy.sh writes it on the server and
+// excludes it from the rsync; the copy in public/ is a local development default
+// and is never deployed, since a stale one silently points a client at the
+// wrong database.
 // No caching - always fetches fresh data
 async function loadConfig() {
   // Return existing promise if already loading (to prevent concurrent requests)
@@ -60,8 +79,14 @@ async function loadConfig() {
       const dbCodeUrl = `${currentBasePath}db_code.json`
       const response = await fetch(dbCodeUrl)
       if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(`Failed to load db_code.json: ${response.status} ${response.statusText}`)
+        // A 404 means the per-server file was never written. Name the fix
+        // instead of surfacing a bare status the operator cannot act on.
+        throw new Error(
+          response.status === 404
+            ? `db_code.json not found at ${dbCodeUrl}. This file is per server and is not part ` +
+                `of the build - run: ./deploy/deploy.sh <folder> <host> <db_code>`
+            : `Failed to load db_code.json: ${response.status} ${response.statusText}`,
+        )
       }
 
       // Check content type before parsing
@@ -1093,6 +1118,7 @@ export function apiErrorText(t, result) {
     invalid_request: 'buy.detailsTable.invalidRequest',
     not_admin: 'buy.detailsTable.adminOnly',
     detail_locked: 'buy.detailsTable.detailLocked',
+    qty_below_committed: 'buy.detailsTable.qtyBelowCommitted',
     invalid_qty: 'buy.detailsTable.invalidQty',
     bill_not_found: 'buy.detailsTable.billNotFound',
     detail_not_found: 'buy.detailsTable.detailNotFound',
@@ -1113,6 +1139,13 @@ export function apiErrorText(t, result) {
     }
     case 'invalid_detail_qty':
       return t(key, { id: result?.meta?.detailId })
+    case 'qty_below_committed':
+      return t(key, {
+        requested: result?.meta?.requested || 0,
+        removable: result?.meta?.removable || 0,
+        committed: result?.meta?.committed || 0,
+        min: result?.meta?.minQty || 0,
+      })
     default:
       return t(key)
   }
