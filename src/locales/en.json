@@ -2252,6 +2252,8 @@
       "invalidDetailQty": "Detail {id} has an invalid quantity",
       "qtyIncreaseHint": "{count} new car(s) will be created",
       "qtyDecreaseHint": "{count} car(s) will be removed",
+      "qtyBelowCommittedHint": "Cannot remove {count} car(s) - only untouched cars are removed, and this line already has {min} committed. Lower the quantity to {min} or more.",
+      "qtyBelowCommitted": "Quantity too low: removing {requested} car(s) would need more than the {removable} untouched car(s) in this line. {committed} car(s) are already in progress, so the minimum is {min}.",
       "noDetailsToProcess": "No details to process",
       "confirmUpdateStock": "Are you sure you want to update the stock? This action cannot be undone.",
       "stockSuccessfullyUpdated": "Stock has been successfully updated",

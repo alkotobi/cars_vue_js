@@ -1964,6 +1964,8 @@
       "invalidDetailQty": "明细 {id} 的数量无效",
       "qtyIncreaseHint": "将创建 {count} 辆新车",
       "qtyDecreaseHint": "将移除 {count} 辆车",
+      "qtyBelowCommittedHint": "无法移除 {count} 辆车 - 只能移除未使用的车，而该行已有 {min} 辆已占用的车。请将数量降至 {min} 或更多。",
+      "qtyBelowCommitted": "数量过少：移除 {requested} 辆车超出了该行 {removable} 辆未使用车的数量。已有 {committed} 辆车正在处理中，因此最低数量为 {min}。",
       "noDetailsToProcess": "没有要处理的详情",
       "confirmUpdateStock": "您确定要更新库存吗？此操作无法撤销。",
       "stockSuccessfullyUpdated": "库存已成功更新",

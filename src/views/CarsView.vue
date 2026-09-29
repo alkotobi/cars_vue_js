@@ -202,8 +202,13 @@ const handleReturnToMain = () => {
 }
 
 const getCarStockUrl = () => {
+  // router.resolve() already returns an absolute path WITH the router base
+  // applied (base '/cars/' + route '/cars/stock' -> '/cars/cars/stock'). Passing
+  // that back through new URL(..., location.href) re-resolved the already-prefixed
+  // path against the document, producing /cars/cars/cars/stock and a blank tab.
+  // Only the origin is missing, so add just that.
   const resolved = router.resolve({ name: 'cars-stock' })
-  return new URL(resolved.href, window.location.href).href
+  return new URL(resolved.href, window.location.origin).href
 }
 
 const openCarsStockInNewWindow = async () => {

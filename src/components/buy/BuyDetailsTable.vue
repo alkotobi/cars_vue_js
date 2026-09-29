@@ -72,23 +72,33 @@ const openEditDialog = (detail) => {
     alert(t('buy.detailsTable.adminOnly'))
     return
   }
-  if (detail.locked) {
-    alert(t('buy.detailsTable.detailLocked'))
-    return
-  }
   if (isEditingDetail.value) return // Prevent double-click
   isEditingDetail.value = true
   editingDetail.value = { ...detail }
   originalQty.value = Number(detail.QTY) || 0
+  // How many of this detail's cars are committed. The QTY can still be raised
+  // freely, but it cannot be cut below this many, because the surplus is only
+  // ever taken from untouched cars.
+  committedCars.value = Number(detail.committedCars) || 0
   showEditDialog.value = true
 }
 
 const originalQty = ref(0)
+const committedCars = ref(0)
 const isSavingEdit = ref(false)
 
 const qtyDelta = computed(() => {
   if (!editingDetail.value) return 0
   return (Number(editingDetail.value.QTY) || 0) - originalQty.value
+})
+
+// Lowering QTY only ever removes untouched cars, so a cut deeper than the
+// committed count cannot be satisfied. Warn in the dialog instead of letting the
+// admin fill in the form only to have the server refuse it.
+const qtyBelowCommitted = computed(() => {
+  if (!isStockUpdated.value) return false
+  if (qtyDelta.value >= 0) return false
+  return (Number(editingDetail.value?.QTY) || 0) < committedCars.value
 })
 
 const handleEditSubmit = () => {
@@ -109,6 +119,7 @@ defineExpose({
     showEditDialog.value = false
     editingDetail.value = null
     originalQty.value = 0
+    committedCars.value = 0
   },
 })
 
@@ -242,14 +253,10 @@ const showStockAlert = async () => {
             <button
               @click="openEditDialog(detail)"
               class="edit-btn"
-              :class="{ disabled: !isAdmin || detail.locked || isEditingDetail }"
-              :disabled="!isAdmin || detail.locked || isEditingDetail"
+              :class="{ disabled: !isAdmin || isEditingDetail }"
+              :disabled="!isAdmin || isEditingDetail"
               :title="
-                !isAdmin
-                  ? t('buy.detailsTable.adminOnlyTitle')
-                  : detail.locked
-                    ? t('buy.detailsTable.detailLockedTitle')
-                    : t('buy.detailsTable.edit')
+                !isAdmin ? t('buy.detailsTable.adminOnlyTitle') : t('buy.detailsTable.edit')
               "
             >
               <i v-if="isEditingDetail" class="fas fa-spinner fa-spin"></i>
@@ -311,7 +318,17 @@ const showStockAlert = async () => {
             class="qty-hint"
             :style="{ color: 'var(--danger, #dc2626)' }"
           >
-            {{ t('buy.detailsTable.qtyDecreaseHint', { count: -qtyDelta }) }}
+            <template v-if="qtyBelowCommitted">
+              {{
+                t('buy.detailsTable.qtyBelowCommittedHint', {
+                  count: -qtyDelta,
+                  min: committedCars,
+                })
+              }}
+            </template>
+            <template v-else>
+              {{ t('buy.detailsTable.qtyDecreaseHint', { count: -qtyDelta }) }}
+            </template>
           </div>
         </div>
 
@@ -553,7 +570,11 @@ button:disabled {
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1000;
+  /* Above the sticky stock toolbar (z-index 1000). At equal z-index the later
+     element in DOM order wins, and CarStockTable renders after this table, so
+     the toolbar would otherwise paint over the dialog. 2000 is the value the
+     other modals in the car-stock area already use. */
+  z-index: 2000;
 }
 
 .dialog {

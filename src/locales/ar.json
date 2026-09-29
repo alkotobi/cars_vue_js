@@ -2201,6 +2201,8 @@
       "invalidDetailQty": "التفصيل {id} يحتوي على كمية غير صالحة",
       "qtyIncreaseHint": "سيتم إنشاء {count} سيارة جديدة",
       "qtyDecreaseHint": "سيتم حذف {count} سيارة",
+      "qtyBelowCommittedHint": "لا يمكن حذف {count} سيارة - يتم حذف السيارات غير المستخدمة فقط، وهذا البند يحتوي بالفعل على {min} سيارة ملتزمة. خفّض الكمية إلى {min} أو أكثر.",
+      "qtyBelowCommitted": "الكمية منخفضة جداً: حذف {requested} سيارة يتطلب أكثر من {removable} سيارة غير مستخدمة في هذا البند. عدد {committed} سيارة قيد المعالجة بالفعل، لذلك الحد الأدنى هو {min}.",
       "noDetailsToProcess": "لا توجد تفاصيل للمعالجة",
       "confirmUpdateStock": "هل أنت متأكد من تحديث المخزون؟ لا يمكن التراجع عن هذا الإجراء.",
       "stockSuccessfullyUpdated": "تم تحديث المخزون بنجاح",

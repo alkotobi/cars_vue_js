@@ -2250,6 +2250,8 @@
       "invalidDetailQty": "Le détail {id} a une quantité invalide",
       "qtyIncreaseHint": "{count} nouvelle(s) voiture(s) seront créée(s)",
       "qtyDecreaseHint": "{count} voiture(s) seront supprimée(s)",
+      "qtyBelowCommittedHint": "Impossible de supprimer {count} voiture(s) - seules les voitures inutilisées sont supprimées, et cette ligne contient déjà {min} voiture(s) engagée(s). Réduisez la quantité à {min} ou plus.",
+      "qtyBelowCommitted": "Quantité trop faible : supprimer {requested} voiture(s) dépasserait les {removable} voiture(s) inutilisée(s) de cette ligne. {committed} voiture(s) sont déjà en cours, le minimum est donc {min}.",
       "noDetailsToProcess": "Aucun détail à traiter",
       "confirmUpdateStock": "Êtes-vous sûr de vouloir mettre à jour le stock ? Cette action ne peut pas être annulée.",
       "stockSuccessfullyUpdated": "Le stock a été mis à jour avec succès",

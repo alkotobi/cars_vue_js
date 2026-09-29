@@ -3,11 +3,24 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useEnhancedI18n } from '../composables/useI18n'
 import { useApi } from '../composables/useApi'
+import { getBasePath, resolveApiBaseUrl } from '../utils/basePath'
 const router = useRouter()
 const { t } = useEnhancedI18n()
 const user = ref(null)
 const latestRate = ref(null)
 const { callApi } = useApi()
+// The backup UI lives in the api/ folder next to the app, so it is resolved the
+// same way the API itself is. It was a hardcoded https://world-automobile.com/
+// cars/api/... link, which 404'd for every other client: different host or a
+// different folder name.
+const backupWebUrl = `${resolveApiBaseUrl({
+  override: import.meta.env?.VITE_API_BASE_URL,
+  protocol: window.location.protocol,
+  hostname: window.location.hostname,
+  port: window.location.port,
+  basePath: getBasePath(),
+  isDev: import.meta.env.DEV,
+})}/backup_simple_web.php`
 // Add loading and processing states
 const loading = ref(false)
 const isProcessing = ref({
@@ -324,7 +337,7 @@ const formatDate = (dateString) => {
       </button>
       <a
         v-if="isAdmin"
-        href="https://world-automobile.com/cars/api/backup_simple_web.php"
+        :href="backupWebUrl"
         target="_blank"
         class="action-btn backup-web-btn"
         style="text-decoration: none"

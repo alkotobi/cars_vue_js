@@ -104,6 +104,7 @@
 
 <script setup>
 import { ref, defineEmits } from 'vue'
+import { getBasePath, resolveApiBaseUrl } from '@/utils/basePath'
 
 const emit = defineEmits(['login-success'])
 
@@ -119,16 +120,17 @@ const isSignup = ref(false)
 
 // Get API base URL
 const getApiBaseUrl = () => {
-  const hostname = window.location.hostname
-  const isLocalhost =
-    hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.')
-  // Derive the API from the host serving the page: on local/LAN the PHP server
-  // runs on :8000, in production the web server exposes api/ under the same host.
-  const protocol = window.location.protocol
-  const port = window.location.port
-  return isLocalhost
-    ? `${protocol}//${hostname}:8000/api`
-    : `${protocol}//${hostname}${port ? `:${port}` : ''}/api`
+  // Resolved centrally: the API lives inside the app folder, so it must include
+  // the mount point. This copy built https://host/api with no folder, which 404s
+  // on every /folder deploy, and treated any 192.168.* host as a dev box.
+  return resolveApiBaseUrl({
+    override: import.meta.env?.VITE_API_BASE_URL,
+    protocol: window.location.protocol,
+    hostname: window.location.hostname,
+    port: window.location.port,
+    basePath: getBasePath(),
+    isDev: import.meta.env.DEV,
+  })
 }
 
 const toggleMode = () => {

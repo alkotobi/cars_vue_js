@@ -584,6 +584,9 @@ const fetchBuyDetails = async (billId) => {
     buyDetails.value = result.data.map((d) => ({
       ...d,
       locked: Number(d.locked_cars) > 0,
+      // How many of this line's cars are committed. Editing is still allowed,
+      // but QTY cannot be cut below this, since only untouched cars are removed.
+      committedCars: Number(d.locked_cars) || 0,
       carsCount: Number(d.cars_count) || 0,
       is_stock_updated: Number(d.is_stock_updated),
     }))

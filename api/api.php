@@ -492,8 +492,13 @@ if (isset($postData['action'])) {
                 }
 
                 $detailStmt = $conn->prepare(
-                    'SELECT id, QTY, price_sell, notes, is_used_car, is_big_car, id_color
-                     FROM buy_details WHERE id_buy_bill = ?'
+                    'SELECT bd.id, bd.QTY, bd.price_sell, bd.notes, bd.is_used_car, bd.is_big_car, bd.id_color,
+                            cn.car_name, clr.color, clr.hexa, bb.bill_ref AS buy_bill_ref, bb.date_buy
+                     FROM buy_details bd
+                     LEFT JOIN cars_names cn ON bd.id_car_name = cn.id
+                     LEFT JOIN colors clr ON bd.id_color = clr.id
+                     LEFT JOIN buy_bill bb ON bd.id_buy_bill = bb.id
+                     WHERE bd.id_buy_bill = ?'
                 );
                 $detailStmt->execute([$billId]);
                 $details = $detailStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -560,6 +565,13 @@ if (isset($postData['action'])) {
                             'is_big_car' => $detail['is_big_car'],
                             'id_color' => $detail['id_color'],
                             'buy_bill_id' => $billId,
+                            // Joined fields the grid needs; it reads these from
+                            // cars_names/colors, so it cannot fill them itself.
+                            'car_name' => $detail['car_name'],
+                            'color' => $detail['color'],
+                            'hexa' => $detail['hexa'],
+                            'buy_bill_ref' => $detail['buy_bill_ref'],
+                            'date_buy' => $detail['date_buy'],
                         ];
                     }
                 }
@@ -642,16 +654,12 @@ if (isset($postData['action'])) {
                     apiErrorDie('bill_not_found');
                 }
 
-                $detailStmt = $conn->prepare('SELECT id, QTY, price_sell, notes, is_used_car, is_big_car, id_color FROM buy_details WHERE id = ? AND id_buy_bill = ?');
+                $detailStmt = $conn->prepare('SELECT bd.id, bd.QTY, bd.price_sell, bd.notes, bd.is_used_car, bd.is_big_car, bd.id_color, cn.car_name, clr.color, clr.hexa, bb.bill_ref AS buy_bill_ref, bb.date_buy FROM buy_details bd LEFT JOIN cars_names cn ON bd.id_car_name = cn.id LEFT JOIN colors clr ON bd.id_color = clr.id LEFT JOIN buy_bill bb ON bd.id_buy_bill = bb.id WHERE bd.id = ? AND bd.id_buy_bill = ?');
                 $detailStmt->execute([$detailId, $billId]);
                 $detail = $detailStmt->fetch(PDO::FETCH_ASSOC);
 
                 if (!$detail) {
                     apiErrorDie('detail_not_found');
-                }
-
-                if (countCommittedCars($conn, $detailId) > 0) {
-                    apiErrorDie('detail_locked');
                 }
 
                 $updateStmt = $conn->prepare(
@@ -686,11 +694,13 @@ if (isset($postData['action'])) {
                 }
 
                 $currentCars = countDetailCars($conn, $detailId);
+                $committedCars = countCommittedCars($conn, $detailId);
 
-                // Propagate the snapshot fields to this detail's cars. Safe: we have
-                // already confirmed none of them are committed.
+                // Propagate the snapshot fields to this detail's cars, but only to the
+                // untouched ones. A committed car is mid-workflow downstream and must
+                // keep the price/notes it was actually purchased with.
                 $propagateStmt = $conn->prepare(
-                    'UPDATE cars_stock SET price_cell = ?, notes = ?, is_used_car = ?, is_big_car = ? WHERE id_buy_details = ?'
+                    'UPDATE cars_stock cs SET cs.price_cell = ?, cs.notes = ?, cs.is_used_car = ?, cs.is_big_car = ? WHERE cs.id_buy_details = ? AND NOT (' . isCommittedCarSql() . ')'
                 );
                 $propagateStmt->execute([$priceSell, $notes, $isUsed, $isBig, $detailId]);
 
@@ -711,16 +721,44 @@ if (isset($postData['action'])) {
                             'is_big_car' => $isBig,
                             'id_color' => $detail['id_color'],
                             'buy_bill_id' => $billId,
+                            // The grid reads these from joined tables, so the client
+                            // cannot fill them in itself. Without them a freshly
+                            // created car renders as a blank row.
+                            'car_name' => $detail['car_name'],
+                            'color' => $detail['color'],
+                            'hexa' => $detail['hexa'],
+                            'buy_bill_ref' => $detail['buy_bill_ref'],
+                            'date_buy' => $detail['date_buy'],
                         ];
                     }
                 } elseif ($delta < 0) {
-                    // Remove the surplus cars, most recently created first. Select the
-                    // ids before deleting so the client can drop them from memory.
+                    // Reducing QTY removes cars, but only the ones nothing depends on.
+                    // Committed cars (VIN, sold, client, ports, loading, files, payment)
+                    // stay: they are real, in-progress work and deleting one to satisfy a
+                    // number would destroy the workflow. If the requested cut reaches
+                    // past the untouched cars, refuse with the real numbers rather than
+                    // quietly keeping the old QTY.
                     $idsToRemove = (-$delta);
+                    $removableCars = $currentCars - $committedCars;
+
+                    if ($idsToRemove > $removableCars) {
+                        $conn->rollBack();
+                        $inTransaction = false;
+                        apiErrorDie('qty_below_committed', 200, [
+                            'requested' => $idsToRemove,
+                            'removable' => max(0, $removableCars),
+                            'committed' => $committedCars,
+                            'minQty' => $committedCars,
+                        ]);
+                    }
+
+                    // Take the most recently created untouched cars first. The
+                    // NOT(...) keeps committed cars out of the candidate set entirely,
+                    // so the LIMIT can only ever select cars that are safe to drop.
                     // $idsToRemove is a validated integer; LIMIT must be inlined
                     // because PDO emulated prepares would quote a bound value.
                     $idsStmt = $conn->prepare(
-                        "SELECT id FROM cars_stock WHERE id_buy_details = ? ORDER BY id DESC LIMIT {$idsToRemove}"
+                        "SELECT cs.id FROM cars_stock cs WHERE cs.id_buy_details = ? AND NOT (" . isCommittedCarSql() . ") ORDER BY cs.id DESC LIMIT {$idsToRemove}"
                     );
                     $idsStmt->execute([$detailId]);
                     $idsToDelete = [];

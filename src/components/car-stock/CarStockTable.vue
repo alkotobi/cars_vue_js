@@ -2799,6 +2799,10 @@ const loadInitialCarsData = async () => {
           cs.id_client,
           cs.id_port_loading,
           cs.id_port_discharge,
+          cs.id_loaded_container,
+          cs.date_assigned,
+          cs.payment_confirmed,
+          EXISTS (SELECT 1 FROM car_files cf WHERE cf.car_id = cs.id) AS has_files,
           cs.id_buy_details,
           cs.date_send_documents,
           cs.id_sell_pi,
@@ -2994,15 +2998,15 @@ defineExpose({
       date_pay_freight: null,
       is_batch: 0,
       client_name: null,
-      car_name: null,
-      color: null,
-      hexa: null,
+      car_name: carData.car_name ?? null,
+      color: carData.color ?? null,
+      hexa: carData.hexa ?? null,
       loading_port: null,
       discharge_port: null,
       buy_price: carData.price_cell,
-      date_buy: null,
+      date_buy: carData.date_buy ?? null,
       warehouse_name: null,
-      buy_bill_ref: null,
+      buy_bill_ref: carData.buy_bill_ref ?? null,
       sell_bill_ref: null,
       is_used_car: carData.is_used_car,
       is_big_car: carData.is_big_car,
@@ -3042,11 +3046,28 @@ const handleDeleteCars = async () => {
     alert(t('carStock.no_cars_selected_for_deletion'))
     return
   }
+  // A car can only be deleted while nothing downstream depends on it. This is the
+  // same list of signals the buy-detail lock uses (see isCommittedCarSql() in
+  // api.php), so both screens agree on what "untouched" means.
+  // Note the sold column is `id_sell`: `id_sell_bill` lives on sell_bill and
+  // sell_payments and is not selected here, so testing it was always undefined
+  // and let sold cars through.
+  const isDeletable = (car) =>
+    !car.vin &&
+    !car.id_sell &&
+    !car.id_client &&
+    !car.id_port_loading &&
+    !car.id_port_discharge &&
+    !car.date_loding &&
+    !car.container_ref &&
+    !car.id_loaded_container &&
+    !car.date_assigned &&
+    !car.payment_confirmed &&
+    !car.has_files
+
   // Find cars that do not meet the deletion criteria
   const notDeletable = sortedCars.value.filter(
-    (car) =>
-      selectedCars.value.has(car.id) &&
-      (car.vin || car.id_client || car.container_ref || car.id_sell_bill),
+    (car) => selectedCars.value.has(car.id) && !isDeletable(car),
   )
   if (notDeletable.length > 0) {
     alert(
@@ -3060,12 +3081,7 @@ const handleDeleteCars = async () => {
   if (!confirm(t('carStock.confirm_delete_selected_cars'))) return
   // Get cars to delete
   const carsToDelete = sortedCars.value.filter(
-    (car) =>
-      selectedCars.value.has(car.id) &&
-      !car.vin &&
-      !car.id_client &&
-      !car.container_ref &&
-      !car.id_sell_bill,
+    (car) => selectedCars.value.has(car.id) && isDeletable(car),
   )
   const idsToDelete = carsToDelete.map((car) => car.id)
   // Delete from database

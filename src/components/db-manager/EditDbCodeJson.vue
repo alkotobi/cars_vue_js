@@ -21,7 +21,7 @@
             Editing <strong>db_code.json</strong> for database <strong>{{ database?.db_code }}</strong>
           </p>
           <p class="info-text" style="margin-bottom: 1rem;">
-            Location: <code>{{ database?.js_dir }}/db_code.json</code>
+            Location: <code>{{ dbCodeJsonPath }}</code>
           </p>
           <div class="form-group">
             <label for="json-content-input">JSON Content *</label>
@@ -50,7 +50,7 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 
 const props = defineProps({
   show: {
@@ -68,6 +68,14 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['close', 'saved'])
+
+// An empty js_dir means the app root, which is where the app fetches this file
+// from (<mount>db_code.json). Showing the raw value would render a bare
+// "/db_code.json" and read as a misconfiguration.
+const dbCodeJsonPath = computed(() => {
+  const dir = (props.database?.js_dir || '').trim().replace(/^\/+|\/+$/g, '')
+  return `${dir ? `${dir}/` : ''}db_code.json (app root)`
+})
 
 const jsonContent = ref('')
 const loading = ref(false)

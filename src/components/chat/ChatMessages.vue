@@ -2,6 +2,7 @@
 import { ref, onMounted, watch, nextTick, computed } from 'vue'
 import { useApi } from '../../composables/useApi'
 import { useEnhancedI18n } from '../../composables/useI18n'
+import { getBasePath } from '../../utils/basePath'
 
 const { t } = useEnhancedI18n()
 
@@ -2043,7 +2044,9 @@ const startRecording = async () => {
   try {
     // Check if we're on HTTPS (required for microphone access)
     if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
-      throw new Error('Microphone access requires HTTPS. Please use https://world-automobile.com/cars')
+      // Report the address actually in use. The old message named a hardcoded
+      // host+folder, which was wrong on every other client's deployment.
+      throw new Error(`Microphone access requires HTTPS. Please use ${window.location.origin}${getBasePath()}`)
     }
 
     // Check if MediaRecorder is supported
