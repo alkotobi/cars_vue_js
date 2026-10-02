@@ -1,6 +1,9 @@
 {
   "app": {
     "title": "Car Management System",
+    "recollectionNote": "From the model's own memory, not checked against any register. It may be out of date.",
+    "courtsQuestion": "Does this supplier have any court cases?",
+    "credibleQuestion": "Is this supplier credible?",
     "subtitle": "Manage your car inventory efficiently",
     "loading": "Loading...",
     "error": "An error occurred",
@@ -104,7 +107,8 @@
   },
   "common": {
     "cancel": "Cancel",
-    "language": "Language"
+    "language": "Language",
+    "close": "Close"
   },
   "car": {
     "vin": "VIN",
@@ -2649,5 +2653,56 @@
     "error_saving": "Error saving upgrade: {error}",
     "error_deleting": "Error deleting upgrade: {error}",
     "showing_count": "Showing {count} upgrade(s)"
+  },
+  "supplierCredibility": {
+    "title": "Supplier credibility",
+    "credibleQuestion": "Is this supplier credible?",
+    "courtsQuestion": "Does this supplier have any court cases?",
+    "recollectionNote": "From the model's own memory, not checked against any register. It may be out of date.",
+    "column": "Credibility",
+    "run": "Check credibility",
+    "runAgain": "Check again",
+    "running": "Asking the model. This takes a few seconds...",
+    "loading": "Loading past checks...",
+    "neverChecked": "This supplier has not been checked yet.",
+    "neverCheckedShort": "Not checked",
+    "disclaimer": "A second opinion from the supplier's name alone. The model cannot search any registry or court record, so this is not a verified check, a credit rating, or a guarantee.",
+    "dbSchemaOutdated": "This server has not been updated for the credibility feature yet. Ask your admin to run the latest database migration.",
+    "redFlags": "Red flags",
+    "riskLabel": "Risk",
+    "confidenceLabel": "Confidence",
+    "checkedAt": "Checked",
+    "model": "Model",
+    "requestedBy": "Requested by",
+    "history": "Earlier checks",
+    "risk": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High"
+    },
+    "confidence": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High"
+    },
+    "errors": {
+      "loadFailed": "Failed to load credibility scores",
+      "historyFailed": "Failed to load past checks",
+      "assessFailed": "Failed to run the credibility check",
+      "notAuthenticated": "Your session has expired. Sign in again.",
+      "notAdmin": "Only an admin can run credibility checks.",
+      "invalidCredentials": "Wrong username or password.",
+      "supplierNotFound": "That supplier no longer exists.",
+      "dbUnavailable": "The database is not reachable right now.",
+      "dbSchemaOutdated": "This server is missing a database update. Ask an administrator to apply the supplier credibility migrations.",
+      "credibilityDisabled": "Supplier credibility checks are switched off on this server.",
+      "aiNotConfigured": "No AI key is configured on this server. Set ai_api_key in api/config.local.php.",
+      "aiTimeout": "The AI endpoint did not answer in time.",
+      "aiHttpError": "The AI endpoint returned an error.",
+      "aiBadResponse": "The AI answer could not be read as JSON.",
+      "aiRateLimited": "The model is busy right now. Wait a moment and try again.",
+      "aiAuthFailed": "This server's AI key was rejected. Check ai_api_key in api/config.local.php.",
+      "aiEmptyResponse": "The model used its whole reply without answering. Try again."
+    }
   }
 }

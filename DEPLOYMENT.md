@@ -189,6 +189,62 @@ printf '{ "db_code": "%s" }\n' "$DB_CODE" | ssh -i ~/.ssh/cars_deploy root@$HOST
 | `api/config.local.php` | **per server** | DB password; git-ignored, never deployed |
 | nginx vhost | **per server** | the only place the folder name appears |
 
+`api/config.local.php` also holds the optional `ai_base_url` / `ai_api_key` /
+`ai_model` keys behind the supplier credibility button (any OpenAI-compatible
+endpoint: OpenAI, DeepSeek, OpenRouter, Ollama). They are per-server for the same
+reason the DB password is: one build serves many clients, and the key belongs to
+the machine holding it. Leave them empty and the feature reports "not configured
+on this server" rather than failing. The same values can come from `AI_API_KEY`,
+`AI_BASE_URL` and `AI_MODEL`.
+
+`ai_base_url` is the API **root** (`https://openrouter.ai/api/v1`), not the full
+endpoint: `api/lib/ai_client.php` appends `/chat/completions` itself.
+
+### Switching the credibility feature off
+
+Two independent switches, and it takes both to hide the feature completely:
+
+| Switch | Where | Effect |
+|---|---|---|
+| `CREDIBILITY_ENABLED` | `src/lib/featureFlags.js` (compile-time) | hides the column, the row-menu entry, the modal; makes no API call |
+| `credibility_enabled` | `api/config.local.php` (per server, default `1`) | every credibility endpoint answers `credibility_disabled` |
+
+The server-side one is the guarantee. It runs inside the handlers after the admin
+check, so a cached bundle, a stale tab or a direct call to `api.php` cannot spend
+money on a model the operator has switched off — which the UI flag alone cannot
+prevent, because a flag in a bundle is only a request not to render a button.
+
+Set `'credibility_enabled' => '0'` per server. The default is `1` so that
+upgrading a working server never switches the feature off by surprise; the value
+also comes from `CREDIBILITY_ENABLED` in the environment, and anything
+unrecognised falls back to the default rather than guessing, so a typo cannot
+silently enable it. Neither switch deletes anything: the component, composable,
+endpoint, styles and translations all stay in place and tested.
+
+To verify a server is really off, with an admin token and no model call:
+
+```sh
+curl -s -X POST https://<host>/<folder>/api/api.php \
+  -H 'Content-Type: application/json' \
+  -d '{"action":"get_supplier_credibility_latest","token":"<admin api_token>"}'
+# {"success":false,"code":"credibility_disabled","error":"credibility_disabled"}
+```
+
+The endpoint reads a JSON body (`action`, not `query` — `query` is the separate
+raw-SQL entry point) and the token is the `api_token` column on `users`.
+
+A check blocks until the model answers, so expect the request to take as long as
+the slowest model you would point it at — 10-30s is normal, and a free model
+sharing a rate-limited pool can be slower still. `ai_client.php` raises PHP's own
+execution limit for the call, but if your host overrides that per request (nginx
+`fastcgi_read_timeout`, or a hard PHP-FPM pool limit) the user gets a gateway
+error instead of a clean "the model is busy" message. Both `AI_TIMEOUT` (default
+60) and the button's own timeout are worth raising on slow models.
+
+Free and shared models are rate-limited upstream, which surfaces as
+`ai_rate_limited` with a retry button; a key the provider refuses surfaces as
+`ai_auth_failed`, which is deliberately not retryable.
+
 `db_code.json` is fetched at runtime from `<mount>db_code.json`, so it is *not*
 compiled in. The `remove-db-code-json` Vite plugin deletes it from `dist/` on every
 build — the copy in `public/` is a local `npm run dev` default only. Without that, a
@@ -428,3 +484,57 @@ max_input_time = 600
   build is shared; nothing else is.
 - Full DB dumps: `mysqldump merhab_cars` → `api/backups/`.
 - `git push origin feature-from-e9dcfaf` → `github.com/ekotobi/cars_vue_js.git`.
+
+## Supplier credibility: what it can and cannot tell you
+
+> **Currently switched off, on both layers.** `CREDIBILITY_ENABLED` in
+> `src/lib/featureFlags.js` is `false`, so the column, the row-menu entry, the modal
+> and the background fetch are all hidden; `credibility_enabled` in
+> `api/config.local.php` is `'0'`, so the endpoints refuse as well. Nothing was
+> deleted: the component, composable, endpoint, styles and translations are all still
+> in place and tested. See "Switching the credibility feature off" above for how to
+> turn each layer back on. The UI flag is a compile-time constant on purpose - see the
+> file for why - so it needs a rebuild and redeploy like any other change.
+
+The check sends the model **the supplier's name and nothing else**, then asks two
+questions: is this supplier credible, and does it have any court cases.
+
+Answering the second question honestly is the whole difficulty. A language model
+has no internet access, no company register and no court register, so asking it
+to "do a full search" does not produce a search - it produces a confident,
+specific, fabricated lawsuit against a real company. On a screen someone uses to
+decide whether to send cars and money, that is the worst output this feature
+could produce.
+
+So the prompt requires the model to:
+
+- never imply it looked anything up, and never say it did a search;
+- reason from the name itself, which is real analysis (country, legal form,
+  whether it names a legal entity or only a trading label);
+- use its own memory only for companies it genuinely knows, and label that as
+  recollection - the modal then marks the court answer as unverified;
+- answer "I cannot check this and do not recall anything" when unsure, which
+  counts as a complete answer.
+
+Observed behaviour, verified against the live model:
+
+| Supplier | Question 2 answer |
+|---|---|
+| Weifang Century Sovereign Automobile Sales Co., Ltd | "I have no knowledge of any court cases involving this company, and I cannot verify its legal history." |
+| ChongQin huanyu | "I have no information about any court cases ... cannot recall any from my training data." |
+| Toyota Motor Corporation | Answers from memory, labelled as recollection: recalls related to vehicle safety recalls and regulatory settlements. |
+
+If real registry or litigation data is ever required, it has to come from a
+provider that sells it, wired in as its own action with a citation. It cannot be
+made reliable by a longer prompt here.
+
+Existing databases need the two answer columns:
+
+```bash
+mysql -u USER -p DBNAME < api/migrations/024_court_records_answer.sql
+```
+
+It is idempotent. Until it is applied, the action returns
+`db_schema_outdated` with a message naming the migration, rather than a fatal
+error on the missing column.
+

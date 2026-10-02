@@ -104,7 +104,8 @@
   },
   "common": {
     "cancel": "Annuler",
-    "language": "Langue"
+    "language": "Langue",
+    "close": "Fermer"
   },
   "car": {
     "vin": "VIN",
@@ -2523,5 +2524,56 @@
     "failedToLeaveGroup": "Échec de la sortie du groupe",
     "errorLeavingGroup": "Erreur lors de la sortie du groupe",
     "youHaveLeftThisGroup": "Vous avez quitté ce groupe et ne pouvez pas envoyer de messages."
+  },
+  "supplierCredibility": {
+    "title": "Fiabilité du fournisseur",
+    "recollectionNote": "Issu de la mémoire du modèle, sans vérification auprès d'un registre. Les informations peuvent être obsolètes.",
+    "courtsQuestion": "Ce fournisseur a-t-il des affaires judiciaires ?",
+    "credibleQuestion": "Ce fournisseur est-il fiable ?",
+    "column": "Fiabilité",
+    "run": "Vérifier la fiabilité",
+    "runAgain": "Revérifier",
+    "running": "Question en cours au modèle. Cela prend quelques secondes...",
+    "loading": "Chargement des vérifications précédentes...",
+    "neverChecked": "Ce fournisseur n'a pas encore été vérifié.",
+    "neverCheckedShort": "Non vérifié",
+    "disclaimer": "Un second avis fondé sur le seul nom du fournisseur. Le modèle ne peut consulter aucun registre ni dossier judiciaire : ce n'est donc ni une vérification, ni une notation de crédit, ni une garantie.",
+    "dbSchemaOutdated": "Ce serveur n'a pas encore été mis à jour pour la fonction de crédibilité. Demandez à un administrateur d'exécuter la dernière migration de base de données.",
+    "redFlags": "Points d'alerte",
+    "riskLabel": "Risque",
+    "confidenceLabel": "Confiance",
+    "checkedAt": "Vérifié le",
+    "model": "Modèle",
+    "requestedBy": "Demandé par",
+    "history": "Vérifications précédentes",
+    "risk": {
+      "low": "Faible",
+      "medium": "Moyen",
+      "high": "Élevé"
+    },
+    "confidence": {
+      "low": "Faible",
+      "medium": "Moyen",
+      "high": "Élevée"
+    },
+    "errors": {
+      "loadFailed": "Échec du chargement des scores de fiabilité",
+      "historyFailed": "Échec du chargement des vérifications précédentes",
+      "assessFailed": "Échec de la vérification de fiabilité",
+      "notAuthenticated": "Votre session a expiré. Reconnectez-vous.",
+      "notAdmin": "Seul un administrateur peut lancer une vérification.",
+      "invalidCredentials": "Nom d'utilisateur ou mot de passe incorrect.",
+      "supplierNotFound": "Ce fournisseur n'existe plus.",
+      "dbUnavailable": "La base de données est injoignable pour le moment.",
+      "dbSchemaOutdated": "Ce serveur n'a pas reçu une mise à jour de la base de données. Demandez à un administrateur d'appliquer les migrations de fiabilité.",
+      "credibilityDisabled": "Les vérifications de fiabilité des fournisseurs sont désactivées sur ce serveur.",
+      "aiNotConfigured": "Aucune clé IA n'est configurée sur ce serveur. Renseignez ai_api_key dans api/config.local.php.",
+      "aiTimeout": "Le service IA n'a pas répondu à temps.",
+      "aiHttpError": "Le service IA a renvoyé une erreur.",
+      "aiBadResponse": "La réponse de l'IA n'a pas pu être lue comme du JSON.",
+      "aiRateLimited": "Le modèle est occupé. Patientez un instant et réessayez.",
+      "aiAuthFailed": "La clé IA de ce serveur a été refusée. Vérifiez ai_api_key dans api/config.local.php.",
+      "aiEmptyResponse": "Le modèle a consommé toute sa réponse sans répondre. Réessayez."
+    }
   }
 }

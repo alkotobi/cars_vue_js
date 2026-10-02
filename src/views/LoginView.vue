@@ -53,60 +53,35 @@ const login = async () => {
     isProcessing.value = true // Start processing
     error.value = '' // Clear previous errors
 
-    // Get user and verify credentials
+    // The server verifies the password and hands back a token. This used to
+    // SELECT the user row (hash included) and call `verify_password` from the
+    // browser, which meant the hashes were readable through the generic query
+    // endpoint and every request after login was trusted on the client's word.
+    // The token in the stored user is what api/lib/auth.php checks.
     const result = await callApi({
-      query: `SELECT u.id, u.username, u.role_id, u.password, u.is_diffrent_company, u.path_logo, u.path_letter_head, u.path_stamp, u.id_bank_account, r.role_name 
-              FROM users u 
-              JOIN roles r ON u.role_id = r.id 
-              WHERE u.username = ?`,
-      params: [username.value],
+      action: 'login',
+      username: username.value,
+      password: password.value,
     })
-    console.log('User query result:', result)
 
-    if (result.success && result.data.length > 0) {
-      const user = result.data[0]
-      console.log('User data:', user)
-
-      // Verify password
-      const verifyResult = await callApi({
-        action: 'verify_password',
-        password: password.value,
-        hash: user.password,
-      })
-      console.log('Password verification result:', verifyResult)
-
-      if (verifyResult.success) {
-        // Changed this line to only check success
-        // Get user permissions
-        const permissionsResult = await callApi({
-          query: `SELECT p.permission_name, p.description 
-                  FROM permissions p 
-                  JOIN role_permissions rp ON p.id = rp.permission_id 
-                  WHERE rp.role_id = ?`,
-          params: [user.role_id],
-        })
-
-        // Store user data without the password hash
-        const { password: _, ...userData } = user
-        const userInfo = {
-          ...userData,
-          permissions: permissionsResult.success ? permissionsResult.data : [],
-        }
-
-        localStorage.setItem('user', JSON.stringify(userInfo))
-
-        // Clear logo cache by updating assets version to force reload
-        const STORAGE_KEY = 'assets_version'
-        localStorage.setItem(STORAGE_KEY, Date.now().toString())
-
-        // Dispatch custom events for header to update
-        window.dispatchEvent(new CustomEvent('userLogin'))
-        window.dispatchEvent(new CustomEvent('forceUpdateTasks'))
-
-        router.push('/cars')
-      } else {
-        error.value = t('auth.invalidCredentials')
+    if (result.success && result.token && result.user) {
+      const userInfo = {
+        ...result.user,
+        token: result.token,
+        permissions: result.user.permissions || [],
       }
+
+      localStorage.setItem('user', JSON.stringify(userInfo))
+
+      // Clear logo cache by updating assets version to force reload
+      const STORAGE_KEY = 'assets_version'
+      localStorage.setItem(STORAGE_KEY, Date.now().toString())
+
+      // Dispatch custom events for header to update
+      window.dispatchEvent(new CustomEvent('userLogin'))
+      window.dispatchEvent(new CustomEvent('forceUpdateTasks'))
+
+      router.push('/cars')
     } else {
       error.value = t('auth.invalidCredentials')
     }
@@ -177,6 +152,17 @@ const changePassword = async () => {
     })
 
     if (updateResult.success) {
+      // A token minted before the password changed must stop working, or the
+      // old password and anything captured with it would still be good for a
+      // session. Best-effort: a failed call must not hide the success message.
+      const currentToken = (() => {
+        const userStr = localStorage.getItem('user')
+        return userStr ? JSON.parse(userStr)?.token : null
+      })()
+      if (currentToken) {
+        callApi({ action: 'logout', token: currentToken }).catch(() => {})
+      }
+
       successMessage.value = t('auth.passwordChangeSuccess')
       showChangePassword.value = false
       newPassword.value = ''

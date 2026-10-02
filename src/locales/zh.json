@@ -104,7 +104,8 @@
   },
   "common": {
     "cancel": "取消",
-    "language": "语言"
+    "language": "语言",
+    "close": "关闭"
   },
   "car": {
     "vin": "车架号",
@@ -2215,5 +2216,56 @@
     "failedToLeaveGroup": "离开群组失败",
     "errorLeavingGroup": "离开群组时出错",
     "youHaveLeftThisGroup": "您已离开此群组，无法发送消息。"
+  },
+  "supplierCredibility": {
+    "title": "供应商可信度",
+    "recollectionNote": "来自模型自身的记忆，未经任何登记记录核实。信息可能已过时。",
+    "courtsQuestion": "这家供应商是否有诉讼记录？",
+    "credibleQuestion": "这家供应商是否可信？",
+    "column": "可信度",
+    "run": "检查可信度",
+    "runAgain": "重新检查",
+    "running": "正在询问模型，需要几秒钟...",
+    "loading": "正在加载历史检查...",
+    "neverChecked": "尚未检查该供应商。",
+    "neverCheckedShort": "未检查",
+    "disclaimer": "仅依据供应商名称给出的第二意见。模型无法查询任何登记或法院记录，因此这不是经过核实的检查、不是信用评级，也不构成担保。",
+    "dbSchemaOutdated": "此服务器尚未为可信度功能更新。请让管理员运行最新的数据库迁移。",
+    "redFlags": "风险提示",
+    "riskLabel": "风险",
+    "confidenceLabel": "置信度",
+    "checkedAt": "检查时间",
+    "model": "模型",
+    "requestedBy": "发起人",
+    "history": "历史检查",
+    "risk": {
+      "low": "低",
+      "medium": "中",
+      "high": "高"
+    },
+    "confidence": {
+      "low": "低",
+      "medium": "中",
+      "high": "高"
+    },
+    "errors": {
+      "loadFailed": "无法加载可信度评分",
+      "historyFailed": "无法加载历史检查",
+      "assessFailed": "无法执行可信度检查",
+      "notAuthenticated": "登录状态已过期，请重新登录。",
+      "notAdmin": "只有管理员可以执行可信度检查。",
+      "invalidCredentials": "用户名或密码错误。",
+      "supplierNotFound": "该供应商已不存在。",
+      "dbUnavailable": "当前无法连接数据库。",
+      "dbSchemaOutdated": "此服务器缺少数据库更新。请让管理员应用供应商可信度迁移。",
+      "credibilityDisabled": "本服务器已停用供应商可信度检查。",
+      "aiNotConfigured": "此服务器未配置 AI 密钥。请在 api/config.local.php 中设置 ai_api_key。",
+      "aiTimeout": "AI 服务响应超时。",
+      "aiHttpError": "AI 服务返回了错误。",
+      "aiBadResponse": "无法将 AI 响应解析为 JSON。",
+      "aiRateLimited": "模型当前繁忙，请稍后重试。",
+      "aiAuthFailed": "此服务器的 AI 密钥被拒绝。请检查 api/config.local.php 中的 ai_api_key。",
+      "aiEmptyResponse": "模型用完了回复额度却没有给出答案，请重试。"
+    }
   }
 }

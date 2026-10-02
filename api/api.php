@@ -2679,6 +2679,34 @@ if (isset($postData['action'])) {
             }
             exit;
     
+        // Login and supplier credibility checks live in their own modules; this
+        // switch only dispatches. Required here rather than at the top of the
+        // file so an unused module costs nothing on every other action.
+        case 'login':
+            require_once __DIR__ . '/actions/auth.php';
+            handle_login($postData);
+            exit;
+
+        case 'logout':
+            require_once __DIR__ . '/actions/auth.php';
+            handle_logout($postData);
+            exit;
+
+        case 'assess_supplier_credibility':
+            require_once __DIR__ . '/actions/supplier_credibility.php';
+            handle_assess_supplier_credibility($postData);
+            exit;
+
+        case 'get_supplier_credibility_checks':
+            require_once __DIR__ . '/actions/supplier_credibility.php';
+            handle_get_supplier_credibility_checks($postData);
+            exit;
+
+        case 'get_supplier_credibility_latest':
+            require_once __DIR__ . '/actions/supplier_credibility.php';
+            handle_get_supplier_credibility_latest($postData);
+            exit;
+
         default:
             http_response_code(400);
             echo json_encode(['success' => false, 'error' => 'Invalid action']);

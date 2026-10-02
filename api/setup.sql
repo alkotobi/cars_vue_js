@@ -204,6 +204,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   `username` varchar(50) NOT NULL,
   `email` varchar(100) NOT NULL,
   `password` varchar(255) NOT NULL,
+  `api_token` varchar(64) DEFAULT NULL COMMENT 'Token sent by useApi; checked server-side by lib/auth.php',
   `role_id` int(11) NOT NULL,
   `max_unpayed_created_bills` int(11) DEFAULT '0',
   `is_diffrent_company` tinyint(1) DEFAULT 0 COMMENT 'Flag to indicate if user has different company assets',
@@ -670,6 +671,32 @@ CREATE TABLE IF NOT EXISTS `suppliers` (
   UNIQUE KEY `supplier_name_unic` (`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
+-- Supplier credibility checks: every run is kept, so a score that moves between
+-- two checks stays visible. utf8mb4 because the summary and red flags come back
+-- from the model in the reader's language. Cascade on delete: a check reads one
+-- supplier's fields, and a deleted supplier has no fields left to re-read.
+CREATE TABLE IF NOT EXISTS `supplier_credibility_checks` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `id_supplier` int NOT NULL COMMENT 'FK to suppliers',
+  `score` tinyint unsigned NOT NULL DEFAULT 0 COMMENT '0-100, higher means lower risk',
+  `risk_level` enum('low','medium','high') NOT NULL DEFAULT 'medium',
+  `summary` text NOT NULL,
+  `court_records` text DEFAULT NULL COMMENT 'The court-cases answer. No data source: the model has no court register access, so this is labelled recollection or an explicit "cannot check", never a lookup',
+  `courts_basis` varchar(20) DEFAULT NULL COMMENT 'Basis claimed for court_records: recollection or no_information. Anything else is normalised away before insert',
+  `red_flags` longtext NOT NULL COMMENT 'JSON array of short strings',
+  `confidence` enum('low','medium','high') NOT NULL DEFAULT 'low' COMMENT 'How much the input limited the conclusion',
+  `model` varchar(100) NOT NULL DEFAULT '' COMMENT 'Model that produced the answer',
+  `lang` varchar(8) NOT NULL DEFAULT 'en',
+  `id_user` int DEFAULT NULL COMMENT 'Admin who ran the check',
+  `date_create` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_supplier_date` (`id_supplier`, `date_create`),
+  KEY `idx_id_user` (`id_user`),
+  CONSTRAINT `chk_credibility_red_flags_json` CHECK (JSON_VALID(`red_flags`)),
+  CONSTRAINT `chk_credibility_score_range` CHECK (`score` BETWEEN 0 AND 100),
+  CONSTRAINT `fk_credibility_supplier` FOREIGN KEY (`id_supplier`) REFERENCES `suppliers` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- Tasks table
 CREATE TABLE IF NOT EXISTS `tasks` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
@@ -1126,3 +1153,15 @@ DELIMITER ;
 -- ALTER TABLE banks ADD COLUMN IF NOT EXISTS path_letter_head varchar(500) DEFAULT NULL COMMENT 'Path to letterhead image file' AFTER logo_path;
 -- ALTER TABLE banks ADD COLUMN IF NOT EXISTS path_stamp varchar(500) DEFAULT NULL COMMENT 'Path to stamp image file' AFTER path_letter_head;
 
+-- Migration: add api_token to users (server-side API tokens for the login action)
+-- Existing DBs: run api/migrations/021_users_api_token.sql, which is idempotent.
+-- ALTER TABLE users ADD COLUMN IF NOT EXISTS api_token varchar(64) DEFAULT NULL COMMENT 'Token sent by useApi' AFTER password;
+-- ALTER TABLE users ADD INDEX IF NOT EXISTS idx_api_token (api_token);
+
+
+-- Migration: store the model's court-records answer
+-- Both columns are now part of the CREATE TABLE above, so a fresh install needs
+-- nothing extra. An existing DB created before that still needs the migration:
+--   Existing DBs: run api/migrations/024_court_records_answer.sql, which is idempotent.
+-- ALTER TABLE supplier_credibility_checks ADD COLUMN IF NOT EXISTS court_records text DEFAULT NULL AFTER summary;
+-- ALTER TABLE supplier_credibility_checks ADD COLUMN IF NOT EXISTS courts_basis varchar(20) DEFAULT NULL AFTER court_records;
