@@ -627,6 +627,25 @@ CREATE TABLE IF NOT EXISTS `role_permissions` (
   PRIMARY KEY (`role_id`,`permission_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
+-- Grant the admin role every permission.
+--
+-- Without this a fresh install has no role_permissions rows at all: admin can
+-- still act, because api.php short-circuits role_id = 1 past hasPermission(), but
+-- RolesCrud reads this table to draw the permission matrix, so every box comes up
+-- unticked and saving the role would strip the admin's permissions. An existing
+-- database has these 39 rows because they were inserted by hand.
+--
+-- Selected by role_name rather than by id on purpose. Role and permission ids are
+-- not guaranteed to line up between a fresh install and an existing database, so
+-- a hardcoded id pair can attach the wrong permissions without erroring.
+-- INSERT IGNORE plus the composite primary key on (role_id, permission_id) makes
+-- re-running this a no-op.
+INSERT IGNORE INTO `role_permissions` (`role_id`, `permission_id`)
+SELECT r.`id`, p.`id`
+FROM `roles` r
+CROSS JOIN `permissions` p
+WHERE r.`role_name` = 'admin';
+
 
 -- Sell bill table
 CREATE TABLE IF NOT EXISTS `sell_bill` (

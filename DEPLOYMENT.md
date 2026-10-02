@@ -640,3 +640,51 @@ not already existing, so they are safe to re-run and they no-op once applied.
 
 Verified by running both orders against the same database and getting identical
 results, and by re-running each several times: 13 brands, 35 names, none NULL.
+
+### Migration 028: car-name delete guards in the database
+
+CarModelsView refuses to delete a brand or car name that is still referenced, and
+lists what is referencing it. That check runs in the browser, so it is a
+convenience rather than a guarantee: sending `DELETE FROM cars_names WHERE id = ?`
+straight to the API skips it, because `api/api.php` executes caller-supplied SQL
+without authenticating the caller (see [SECURITY.md](SECURITY.md)).
+
+Verified against a scratch copy with the browser check bypassed. A car name with
+one `buy_details` row and two `car_name_media` rows deleted with no error at all:
+
+```
+DELETE FROM cars_names WHERE id = 4  ->  succeeded, no error
+buy_details rows still pointing at id 4 afterwards: 1
+car_name_media rows for id 4: 0   (cascaded away, files left on disk)
+```
+
+Migration 028 puts both guarantees in the schema:
+
+- `buy_details.id_car_name` gains `ON DELETE RESTRICT`. It had no foreign key,
+  which is why the delete above left a dangling row.
+- `car_name_media.car_name_id` changes from `ON DELETE CASCADE` to `RESTRICT`, so
+  deleting a car name can no longer destroy media rows and strand the files.
+
+`RESTRICT` rather than `CASCADE` on purpose. Cascading destroys purchase history,
+and the files on disk survive the rows either way, so the right answer is to
+refuse the delete and let a human decide.
+
+```bash
+mysql -u USER -p DBNAME < api/migrations/028_car_name_delete_guards.sql
+```
+
+Before adding the foreign key it clears `buy_details.id_car_name` values that
+point at a deleted car name, keeping the purchase row and dropping only a link
+that was already dangling. The count of affected rows is printed by the migration
+rather than done silently; on the database this was written for it was zero. The
+migration reports the two constraints it owns when it finishes, discovers any
+existing constraint from `information_schema` rather than dropping it by a
+hardcoded name, and is safe to re-run.
+
+`cars_names.id_brand` is still unconstrained, so deleting a brand remains a
+browser-only check. Adding that foreign key needs a decision first: brands are
+referenced by `cars_names`, and unlike car names there is no obvious case for
+cascading a brand delete through every model under it.
+
+A car name that nothing references still deletes normally, which is the point —
+the constraint blocks the unsafe case only.
