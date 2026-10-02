@@ -1,10 +1,3 @@
-
-diff --git a/src/views/CarNamesView.vue b/src/views/CarNamesView.vue
-new file mode 100644
-index 0000000..ef9e863
---- /dev/null
-++ b/src/views/CarNamesView.vue
-@@ -0,0 +1,159 @@
 <template>
   <div class="car-names-view">
     <CarNamesToolbar
@@ -91,20 +84,22 @@ import { useSubmitGuard } from '../composables/useSubmitGuard'
 const { msgBox, notify, notifyError, onConfirm, onCancel, onClose } = useNotify()
 const { safeApi, uploadFile, getFileUrl } = useSafeApi()
 const { guard, isBusy } = useSubmitGuard()
-const brandsApi = useBrands({ notify, onBrandsChanged: fetchCarNames })
-const brandsApiDeps = brandsApi({ safeApi, uploadFile, getFileUrl })
-const brands = brandsApiDeps.brands
-const loadingBrands = brandsApiDeps.loading
-const brandsError = brandsApiDeps.error
-const fetchBrands = brandsApiDeps.fetchBrands
-const carNamesApi = useCarNames({ notify })
-const cApi = carNamesApi({ safeApi })
-const carNames = cApi.carNames
-const loadingCarNames = cApi.loading
-const carNamesError = cApi.error
-const fetchCarNames = cApi.fetchCarNames
+const brandsApiFactory = useBrands({ notify, onBrandsChanged: fetchCarNames })
+const brandsApi = brandsApiFactory({ safeApi, uploadFile, getFileUrl })
+const brands = brandsApi.brands
+const loadingBrands = brandsApi.loading
+const brandsError = brandsApi.error
+const fetchBrands = brandsApi.fetchBrands
+const carNamesApiFactory = useCarNames({ notify })
+const carNamesApi = carNamesApiFactory({ safeApi })
+const carNames = carNamesApi.carNames
+const loadingCarNames = carNamesApi.loading
+const carNamesError = carNamesApi.error
+const fetchCarNames = carNamesApi.fetchCarNames
 
-async function fetchBoth() { await Promise.all([fetchBrands(), fetchCarNames()]) }
+async function fetchBoth() {
+  await Promise.all([fetchBrands(), fetchCarNames()])
+}
 
 const showBrandsModal = ref(false)
 const showBrandForm = ref(false)
@@ -119,48 +114,137 @@ const brandPinName = ref('')
 const user = ref(null)
 const isAdmin = computed(() => user.value?.role_id === 1)
 
-const visibleCarNames = computed(() => filterCarNames(carNames.value, filterQuery.value, { brandId: brandPinId.value }))
+const visibleCarNames = computed(() =>
+  filterCarNames(carNames.value, filterQuery.value, { brandId: brandPinId.value })
+)
 
-function toggleBrandsModal() { showBrandsModal.value = !showBrandsModal.value }
-function closeBrandsModal() { showBrandsModal.value = false }
-function openAddBrand() { editingBrand.value = null; showBrandForm.value = true }
-function openEditBrand(b) { editingBrand.value = { ...b }; showBrandForm.value = true }
-function closeBrandForm() { showBrandForm.value = false; editingBrand.value = null }
-function openAddCarName() { editingCarName.value = null; showCarNameForm.value = true }
-function openEditCarName(cn) { editingCarName.value = { ...cn }; showCarNameForm.value = true }
-function closeCarNameForm() { showCarNameForm.value = false; editingCarName.value = null }
-function openMedia(cn) { mediaCarName.value = { ...cn } }
-function closeMedia() { mediaCarName.value = null }
-function pinBrand(b) { brandPinId.value = b.id; brandPinName.value = b.brand || ''; filterQuery.value = '' }
-function clearBrandPin() { brandPinId.value = null; brandPinName.value = '' }
+function toggleBrandsModal() {
+  showBrandsModal.value = !showBrandsModal.value
+}
+function closeBrandsModal() {
+  showBrandsModal.value = false
+}
+function openAddBrand() {
+  editingBrand.value = null
+  showBrandForm.value = true
+}
+function openEditBrand(b) {
+  editingBrand.value = { ...b }
+  showBrandForm.value = true
+}
+function closeBrandForm() {
+  showBrandForm.value = false
+  editingBrand.value = null
+}
+function openAddCarName() {
+  editingCarName.value = null
+  showCarNameForm.value = true
+}
+function openEditCarName(cn) {
+  editingCarName.value = { ...cn }
+  showCarNameForm.value = true
+}
+function closeCarNameForm() {
+  showCarNameForm.value = false
+  editingCarName.value = null
+}
+function openMedia(cn) {
+  mediaCarName.value = { ...cn }
+}
+function closeMedia() {
+  mediaCarName.value = null
+}
+function pinBrand(b) {
+  brandPinId.value = b.id
+  brandPinName.value = b.brand || ''
+  filterQuery.value = ''
+}
+function clearBrandPin() {
+  brandPinId.value = null
+  brandPinName.value = ''
+}
 
-const addBrand = guard('add-brand', async (p) => { const r = await brandsApiDeps.addBrand(p); if (r.success) closeBrandForm(); return r })
-const updateBrand = guard('update-brand', async (p) => { const r = await brandsApiDeps.updateBrand({ ...p, editingBrandLogoFile: p.logoFile }); if (r.success) closeBrandForm(); return r })
-const deleteBrand = guard('delete-brand', async (b) => { await brandsApiDeps.deleteBrand(b) })
-const addCarName = guard('add-car-name', async (p) => { const r = await cApi.addCarName(p); if (r.success) closeCarNameForm(); return r })
-const updateCarName = guard('update-car-name', async (p) => { const r = await cApi.updateCarName(p); if (r.success) closeCarNameForm(); return r })
-const deleteCarName = guard('delete-car-name', async (cn) => { await cApi.deleteCarName(cn) })
+const addBrand = guard('add-brand', async (p) => {
+  const r = await brandsApi.addBrand(p)
+  if (r.success) closeBrandForm()
+  return r
+})
+const updateBrand = guard('update-brand', async (p) => {
+  const r = await brandsApi.updateBrand({ ...p, editingBrandLogoFile: p.logoFile })
+  if (r.success) closeBrandForm()
+  return r
+})
+const deleteBrand = guard('delete-brand', async (b) => {
+  await brandsApi.deleteBrand(b)
+})
+const addCarName = guard('add-car-name', async (p) => {
+  const r = await carNamesApi.addCarName(p)
+  if (r.success) closeCarNameForm()
+  return r
+})
+const updateCarName = guard('update-car-name', async (p) => {
+  const r = await carNamesApi.updateCarName(p)
+  if (r.success) closeCarNameForm()
+  return r
+})
+const deleteCarName = guard('delete-car-name', async (cn) => {
+  await carNamesApi.deleteCarName(cn)
+})
 
-function handleBrandSave(p) { if (editingBrand.value && editingBrand.value.id) updateBrand({ ...p, id: editingBrand.value.id }) else addBrand(p) }
-function handleCarNameSave(p) { if (editingCarName.value && editingCarName.value.id) updateCarName({ ...p, id: editingCarName.value.id }) else addCarName(p) }
+function handleBrandSave(p) {
+  if (editingBrand.value && editingBrand.value.id) {
+    updateBrand({ ...p, id: editingBrand.value.id })
+  } else {
+    addBrand(p)
+  }
+}
+function handleCarNameSave(p) {
+  if (editingCarName.value && editingCarName.value.id) {
+    updateCarName({ ...p, id: editingCarName.value.id })
+  } else {
+    addCarName(p)
+  }
+}
 
 function onKeydown(e) {
   if (msgBox.value.show) return
   if (mediaCarName.value) return
   if (showCarNameForm.value) return
   if (showBrandForm.value) return
-  if (showBrandsModal.value) { if (e.key === 'Escape') { e.preventDefault(); closeBrandsModal() } return }
-  if (e.key === 'Escape') { if (brandPinId.value) { e.preventDefault(); clearBrandPin() } }
+  if (showBrandsModal.value) {
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      closeBrandsModal()
+    }
+    return
+  }
+  if (e.key === 'Escape') {
+    if (brandPinId.value) {
+      e.preventDefault()
+      clearBrandPin()
+    }
+  }
 }
+
 onMounted(async () => {
   window.addEventListener('keydown', onKeydown)
   const userStr = localStorage.getItem('user')
   if (!userStr) return
-  try { user.value = JSON.parse(userStr) } catch { await notifyError('Session problem','Saved login could not be read.','Log out and log in again.'); return }
+  try {
+    user.value = JSON.parse(userStr)
+  } catch (err) {
+    await notifyError('Session problem', 'Saved login could not be read.', 'Log out and log in again.')
+    return
+  }
   await fetchBoth()
 })
-onUnmounted(() => { window.removeEventListener('keydown', onKeydown) })
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', onKeydown)
+})
 </script>
 <style scoped>
-.car-names-view{padding:20px}
+.car-names-view {
+  padding: 20px;
+}
 </style>
