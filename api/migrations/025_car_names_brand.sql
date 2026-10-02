@@ -38,10 +38,12 @@ SET cn.id_brand = b.id WHERE cn.car_name = 'A3';
 UPDATE `cars_names` cn JOIN `brands` b ON b.brand = 'CHANGAN'
 SET cn.id_brand = b.id WHERE cn.car_name = 'CHANGAN CS75 PLUS';
 
--- CHERRY is the spelling this app uses for Chery. The brand row itself is
--- probably the typo - see DEPLOYMENT.md - but it is the only Chery row there
--- is, and 'CHERY TIGGO 3X' has to land somewhere.
-UPDATE `cars_names` cn JOIN `brands` b ON b.brand = 'CHERRY'
+-- Chery. Joins on IN ('CHERY','CHERRY') rather than a single value because
+-- migration 026 renames the brand row from the misspelled 'CHERRY' to 'CHERY',
+-- and 025 may run before or after it. A single-value join would match nothing on
+-- a renamed database and leave all eight names NULL with no error - the same
+-- silent failure documented on the KIA statement below.
+UPDATE `cars_names` cn JOIN `brands` b ON b.brand IN ('CHERY', 'CHERRY')
 SET cn.id_brand = b.id WHERE cn.car_name IN (
   'CHERRY TIGO 7', 'CHERY TIGGO 3X', 'TIGO 3',
   'COOLRAY FULL NOT SPORT', 'COOLRAY SPORT',
@@ -77,10 +79,17 @@ SET cn.id_brand = b.id WHERE cn.car_name IN (
 -- no longer flagged as a guess.
 UPDATE `cars_names` cn JOIN `brands` b ON b.brand = 'VW'
 SET cn.id_brand = b.id WHERE cn.car_name IN (
-  'GOLF 300TSI R-LINE', 'GOLF R-LINE (FULL OPTION)', 'JETTA VS5',
+  'GOLF 300TSI R-LINE', 'GOLF R-LINE (FULL OPTION)',
   'T-CROSS', 'T-ROC STARLIGHT', 'T-ROC WITH PACKAKE', 'TIGUAN L',
   'TACOUA', 'THARU BASIC', 'THARU MID', 'THARU TOP'
 );
+
+-- 'JETTA VS5' is NOT here. It looks like a VW model and was originally mapped to
+-- VW, but migration 026 establishes that JETTA is a brand in its own right, so
+-- it is mapped there instead - after that migration, since running this first
+-- would put it under the old 'JETA' row.
+UPDATE `cars_names` cn JOIN `brands` b ON b.brand IN ('JETTA', 'JETA')
+SET cn.id_brand = b.id WHERE cn.car_name = 'JETTA VS5';
 
 -- Confirmed by the operator.
 

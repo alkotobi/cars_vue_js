@@ -559,15 +559,15 @@ marque wrong, and the whole VW group is prefixed `T-` without ever saying VW.
 
 | Brand | Count | Names |
 |---|---|---|
-| VW | 11 | GOLF 300TSI R-LINE, GOLF R-LINE (FULL OPTION), JETTA VS5, T-CROSS, T-ROC ×2, TIGUAN L, TACOUA, THARU ×3 |
-| CHERRY | 8 | CHERRY TIGO 7, CHERY TIGGO 3X, TIGO 3, COOLRAY ×5 |
+| VW | 10 | GOLF 300TSI R-LINE, GOLF R-LINE (FULL OPTION), T-CROSS, T-ROC ×2, TIGUAN L, TACOUA, THARU ×3 |
+| CHERY | 8 | CHERRY TIGO 7, CHERY TIGGO 3X, TIGO 3, COOLRAY ×5 |
 | KIA | 4 | K3, KX1…, SELTOS LUXERY BLACK ROOF, SONET BLACK ROOF |
-| JETOUR | 1 | DASHING PRO 1.6 DCT |
-| GEELY | 2 | EMGRAND ×2 |
 | MG | 2 | MG5 BASE AUTO, MG5 MAN |
-| AUDI / CHANGAN / FREIGHT / SKODA | 1 each | A3, CHANGAN CS75 PLUS, FREIGHT, KAMIQ GT |
-| PEUGEOT | 1 | 2008 |
+| GEELY | 2 | EMGRAND ×2 |
 | LIVAN | 2 | LIVAN AUTO, LIVAN MAN |
+| JETTA | 1 | JETTA VS5 |
+| JETOUR | 1 | DASHING PRO 1.6 DCT |
+| AUDI / CHANGAN / FREIGHT / SKODA / PEUGEOT | 1 each | A3, CHANGAN CS75 PLUS, FREIGHT, KAMIQ GT, 2008 |
 
 Three of these started out as guesses and have since been confirmed by the
 operator, so the earlier "worth checking" caveat no longer applies:
@@ -585,24 +585,43 @@ AUTO_INCREMENT, so it is a no-op where LIVAN already exists). That has to happen
 so with no LIVAN row both names would have joined against nothing and stayed NULL
 - silently, with no error to notice.
 
-Two things worth fixing while you are in there, both untouched here because they
-rename data rather than relate it:
+Two brand names were misspelled, and migration 026 renames both. They are
+renames rather than new rows, so ids 3 and 6 are untouched and everything already
+pointing at them keeps working:
 
-- The `CHERRY` brand row is almost certainly a typo for **CHERY**. There is also
-  a brand row `JETA` (id 6) alongside the real marque `JETOUR` (id 7) — `JETA`
-  looks like a typo for Jetta, which is a **VW** model, and `JETTA VS5` is mapped
-  to VW on that basis.
+- `CHERRY` → **CHERY**, the actual marque.
+- `JETA` → **JETTA**, a brand in its own right sitting next to the unrelated real
+  marque `JETOUR` (id 7).
+
+The second one also moves a car. `JETTA VS5` was mapped to VW because Jetta is a
+VW model and `JETA` looked like a mangled `Jetta` — but `JETA` was a mangled
+`JETTA`, a separate brand, so the car belongs to JETTA and VW drops from 11 names
+to 10. That is why migration 025 no longer lists it.
+
+Each rename is guarded on the corrected name not already existing, because
+`brands.brand` is UNIQUE and an unguarded UPDATE would abort with a duplicate-key
+error and leave the second rename unapplied. Where both spellings are present the
+migration skips rather than merging two marques; that needs a human.
+
+One name is still left alone, because it is a car rather than a brand and
+renaming one is the operator's call:
+
 - `SELTOS LUXERY BLACK ROOF` is misspelled in `setup.sql` (`LUXERY` for `LUXURY`).
   The migration matches the stored spelling on purpose: an equality test against
-  the corrected spelling matches no rows and fails silently.
+  the corrected spelling matches no rows and fails silently. The brand is KIA,
+  which is correct.
 
-Existing databases need:
+Existing databases need both, in either order:
 
 ```bash
 mysql -u USER -p DBNAME < api/migrations/025_car_names_brand.sql
+mysql -u USER -p DBNAME < api/migrations/026_brand_renames.sql
 ```
 
-It is idempotent (verified over five consecutive runs: 13 brands, one of them
-LIVAN, 35 names, none NULL), joins on brand *name* rather than a hardcoded id,
-and is already folded into the `cars_names` seed in `api/setup.sql` for fresh
-installs.
+Order does not matter, and that is deliberate: 025 joins on
+`IN ('CHERY','CHERRY')` and `IN ('JETTA','JETA')` so it is correct whether or not
+the rename has happened yet. A single-value join would match nothing on a renamed
+database and leave the names NULL with no error.
+
+Verified by running both orders against the same database and getting identical
+results, and by re-running each several times: 13 brands, 35 names, none NULL.
