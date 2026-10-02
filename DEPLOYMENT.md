@@ -538,3 +538,59 @@ It is idempotent. Until it is applied, the action returns
 `db_schema_outdated` with a message naming the migration, rather than a fatal
 error on the missing column.
 
+## Car names were not attached to any brand
+
+`cars_names.id_brand` was NULL for all 35 default car names, so Car Models
+(`src/views/CarModelsView.vue`) rendered a blank Brand on every row and nothing
+could group or filter models by marque. Adding a car was unaffected, because
+`CarStockForm.vue` loads names with a plain `SELECT id, car_name` and never joins
+or filters on brand.
+
+The brands were worked out from the model rather than from the name, because the
+names are unreliable: `TIGO 3` is a Chery Tiggo, `CHERY TIGGO 3X` spells the
+marque wrong, and the whole VW group is prefixed `T-` without ever saying VW.
+
+| Brand | Count | Names |
+|---|---|---|
+| VW | 11 | GOLF 300TSI R-LINE, GOLF R-LINE (FULL OPTION), JETTA VS5, T-CROSS, T-ROC ×2, TIGUAN L, **TACOUA**, **THARU ×3** |
+| CHERRY | 8 | CHERRY TIGO 7, CHERY TIGGO 3X, TIGO 3, COOLRAY ×5 |
+| KIA | 4 | K3, KX1…, SELTOS LUXERY BLACK ROOF, SONET BLACK ROOF |
+| GEELY | 3 | **DASHING PRO 1.6 DCT**, EMGRAND ×2 |
+| MG | 2 | MG5 BASE AUTO, MG5 MAN |
+| AUDI / CHANGAN / FREIGHT / SKODA | 1 each | A3, CHANGAN CS75 PLUS, FREIGHT, KAMIQ GT |
+| PEUGEOT | 1 | 2008 |
+| LIVAN | 2 | LIVAN AUTO, LIVAN MAN |
+
+Bold entries are the ones to check. `TACOUA` and the three `THARU`s match no
+known model and were placed with VW only because they cluster with the VW `T-`
+names; if they were meant to be something else (Karoq, Teramont) the brand is
+wrong. `DASHING PRO` could not be placed with confidence.
+
+`LIVAN AUTO` and `LIVAN MAN` are LIVAN cars, but there was no LIVAN row in
+`brands`, so the migration creates one (`INSERT IGNORE`, brand is UNIQUE, id is
+AUTO_INCREMENT, so it is a no-op where LIVAN already exists). That has to happen
+*before* the update: the update joins `cars_names` to `brands` on the brand name,
+so with no LIVAN row both names would have joined against nothing and stayed NULL
+- silently, with no error to notice.
+
+Two things worth fixing while you are in there, both untouched here because they
+rename data rather than relate it:
+
+- The `CHERRY` brand row is almost certainly a typo for **CHERY**. There is also
+  a brand row `JETA` (id 6) alongside the real marque `JETOUR` (id 7) — `JETA`
+  looks like a typo for Jetta, which is a **VW** model, and `JETTA VS5` is mapped
+  to VW on that basis.
+- `SELTOS LUXERY BLACK ROOF` is misspelled in `setup.sql` (`LUXERY` for `LUXURY`).
+  The migration matches the stored spelling on purpose: an equality test against
+  the corrected spelling matches no rows and fails silently.
+
+Existing databases need:
+
+```bash
+mysql -u USER -p DBNAME < api/migrations/025_car_names_brand.sql
+```
+
+It is idempotent (verified over five consecutive runs: 13 brands, one of them
+LIVAN, 35 names, none NULL), joins on brand *name* rather than a hardcoded id,
+and is already folded into the `cars_names` seed in `api/setup.sql` for fresh
+installs.

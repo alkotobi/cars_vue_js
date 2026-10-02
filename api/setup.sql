@@ -95,6 +95,10 @@ INSERT IGNORE INTO `brands` (`brand`) VALUES
 ('JETA'),
 ('JETOUR'),
 ('KIA'),
+-- Added by migration 025_car_names_brand.sql: the two LIVAN car names need a
+-- brand row to point at. Not in the original seed, so a fresh install otherwise
+-- ships them with a NULL brand.
+('LIVAN'),
 ('MG'),
 ('PEUGEOT'),
 ('SKODA'),
@@ -159,42 +163,56 @@ CREATE TABLE IF NOT EXISTS `cars_names` (
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 -- Insert default car names (all uppercase)
-INSERT IGNORE INTO `cars_names` (`car_name`) VALUES
-('2008'),
-('A3'),
-('CHANGAN CS75 PLUS'),
-('CHERRY TIGO 7'),
-('CHERY TIGGO 3X'),
-('COOLRAY FULL NOT SPORT'),
-('COOLRAY SPORT'),
-('COOLRAY SUPER AUTO NO SUNROOF'),
-('COOLRAY SUPER AUTO WITH SUNROOF'),
-('COOLRAY SUPER MANUAL'),
-('DASHING PRO 1.6 DCT'),
-('EMGRAND MAN'),
-('EMGRAND USED CAR'),
-('FREIGHT'),
-('GOLF 300TSI R-LINE'),
-('GOLF R-LINE (FULL OPTION)'),
-('JETTA VS5'),
-('K3'),
-('KAMIQ GT'),
-('KX1 20251.4LCVT SUNROOFEDITION'),
-('LIVAN AUTO'),
-('LIVAN MAN'),
-('MG5 BASE AUTO'),
-('MG5 MAN'),
-('SELTOS LUXERY BLACK ROOF'),
-('SONET BLACK ROOF'),
-('T-CROSS'),
-('T-ROC STARLIGHT'),
-('T-ROC WITH PACKAKE'),
-('TACOUA'),
-('THARU BASIC'),
-('THARU MID'),
-('THARU TOP'),
-('TIGO 3'),
-('TIGUAN L');
+-- Insert default car names (all uppercase)
+--
+-- id_brand is seeded here too, which it was not before: without it Car Models
+-- (src/views/CarModelsView.vue) showed a blank Brand on every default name and
+-- nothing could group models by marque. api/migrations/025_car_names_brand.sql
+-- does the same for databases that already exist.
+--
+-- The brand is resolved by name, so a brand row that is missing or renamed
+-- leaves id_brand NULL instead of pointing at the wrong id.
+--
+-- Every name is attached to a brand. The LOW-confidence rows - DASHING PRO,
+-- TACOUA and the three THARUs - are flagged in that migration. Note that
+-- 'LIVAN AUTO'/'LIVAN MAN' resolve only because the LIVAN brand row is seeded
+-- above; without it these subqueries would yield NULL and fail silently.
+INSERT IGNORE INTO `cars_names` (`car_name`, `id_brand`) VALUES
+('2008', (SELECT id FROM brands WHERE brand = 'PEUGEOT')),
+('A3', (SELECT id FROM brands WHERE brand = 'AUDI')),
+('CHANGAN CS75 PLUS', (SELECT id FROM brands WHERE brand = 'CHANGAN')),
+('CHERRY TIGO 7', (SELECT id FROM brands WHERE brand = 'CHERRY')),
+('CHERY TIGGO 3X', (SELECT id FROM brands WHERE brand = 'CHERRY')),
+('COOLRAY FULL NOT SPORT', (SELECT id FROM brands WHERE brand = 'CHERRY')),
+('COOLRAY SPORT', (SELECT id FROM brands WHERE brand = 'CHERRY')),
+('COOLRAY SUPER AUTO NO SUNROOF', (SELECT id FROM brands WHERE brand = 'CHERRY')),
+('COOLRAY SUPER AUTO WITH SUNROOF', (SELECT id FROM brands WHERE brand = 'CHERRY')),
+('COOLRAY SUPER MANUAL', (SELECT id FROM brands WHERE brand = 'CHERRY')),
+('DASHING PRO 1.6 DCT', (SELECT id FROM brands WHERE brand = 'GEELY')),
+('EMGRAND MAN', (SELECT id FROM brands WHERE brand = 'GEELY')),
+('EMGRAND USED CAR', (SELECT id FROM brands WHERE brand = 'GEELY')),
+('FREIGHT', (SELECT id FROM brands WHERE brand = 'FREIGHT')),
+('GOLF 300TSI R-LINE', (SELECT id FROM brands WHERE brand = 'VW')),
+('GOLF R-LINE (FULL OPTION)', (SELECT id FROM brands WHERE brand = 'VW')),
+('JETTA VS5', (SELECT id FROM brands WHERE brand = 'VW')),
+('K3', (SELECT id FROM brands WHERE brand = 'KIA')),
+('KAMIQ GT', (SELECT id FROM brands WHERE brand = 'SKODA')),
+('KX1 20251.4LCVT SUNROOFEDITION', (SELECT id FROM brands WHERE brand = 'KIA')),
+('LIVAN AUTO', (SELECT id FROM brands WHERE brand = 'LIVAN')),
+('LIVAN MAN', (SELECT id FROM brands WHERE brand = 'LIVAN')),
+('MG5 BASE AUTO', (SELECT id FROM brands WHERE brand = 'MG')),
+('MG5 MAN', (SELECT id FROM brands WHERE brand = 'MG')),
+('SELTOS LUXERY BLACK ROOF', (SELECT id FROM brands WHERE brand = 'KIA')),
+('SONET BLACK ROOF', (SELECT id FROM brands WHERE brand = 'KIA')),
+('T-CROSS', (SELECT id FROM brands WHERE brand = 'VW')),
+('T-ROC STARLIGHT', (SELECT id FROM brands WHERE brand = 'VW')),
+('T-ROC WITH PACKAKE', (SELECT id FROM brands WHERE brand = 'VW')),
+('TACOUA', (SELECT id FROM brands WHERE brand = 'VW')),
+('THARU BASIC', (SELECT id FROM brands WHERE brand = 'VW')),
+('THARU MID', (SELECT id FROM brands WHERE brand = 'VW')),
+('THARU TOP', (SELECT id FROM brands WHERE brand = 'VW')),
+('TIGO 3', (SELECT id FROM brands WHERE brand = 'CHERRY')),
+('TIGUAN L', (SELECT id FROM brands WHERE brand = 'VW'));
 
 -- Users table
 -- Defined early: car_name_media, upgrades, car_apgrades and sell_bill all hold
