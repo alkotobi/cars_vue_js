@@ -173,8 +173,7 @@ CREATE TABLE IF NOT EXISTS `cars_names` (
 -- The brand is resolved by name, so a brand row that is missing or renamed
 -- leaves id_brand NULL instead of pointing at the wrong id.
 --
--- Every name is attached to a brand. The LOW-confidence rows - DASHING PRO,
--- TACOUA and the three THARUs - are flagged in that migration. Note that
+-- Every name is attached to a brand, all confirmed by the operator. Note that
 -- 'LIVAN AUTO'/'LIVAN MAN' resolve only because the LIVAN brand row is seeded
 -- above; without it these subqueries would yield NULL and fail silently.
 INSERT IGNORE INTO `cars_names` (`car_name`, `id_brand`) VALUES
@@ -188,7 +187,7 @@ INSERT IGNORE INTO `cars_names` (`car_name`, `id_brand`) VALUES
 ('COOLRAY SUPER AUTO NO SUNROOF', (SELECT id FROM brands WHERE brand = 'CHERRY')),
 ('COOLRAY SUPER AUTO WITH SUNROOF', (SELECT id FROM brands WHERE brand = 'CHERRY')),
 ('COOLRAY SUPER MANUAL', (SELECT id FROM brands WHERE brand = 'CHERRY')),
-('DASHING PRO 1.6 DCT', (SELECT id FROM brands WHERE brand = 'GEELY')),
+('DASHING PRO 1.6 DCT', (SELECT id FROM brands WHERE brand = 'JETOUR')),
 ('EMGRAND MAN', (SELECT id FROM brands WHERE brand = 'GEELY')),
 ('EMGRAND USED CAR', (SELECT id FROM brands WHERE brand = 'GEELY')),
 ('FREIGHT', (SELECT id FROM brands WHERE brand = 'FREIGHT')),
@@ -809,8 +808,10 @@ CREATE TABLE IF NOT EXISTS `versions` (
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 -- Insert default version (must match currentAppVersion in src/composables/useVersionCheck.js)
+-- 25, not 26. currentAppVersion is 25, so seeding 26 here made every fresh
+-- install come up reporting a version mismatch against the app.
 INSERT IGNORE INTO `versions` (`id`, `version`) VALUES
-(1, 26);
+(1, 25);
 
 -- Warehouses table
 CREATE TABLE IF NOT EXISTS `warehouses` (
