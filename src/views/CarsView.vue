@@ -630,51 +630,6 @@ watch(
   margin-bottom: 12px;
 }
 
-.tab-bar {
-  display: flex;
-  gap: 4px;
-  background: #e2e8f0;
-  padding: 4px;
-  border-radius: 8px;
-  flex-wrap: wrap;
-}
-
-.tab-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  cursor: pointer;
-  font-size: 0.9em;
-  color: #475569;
-  transition: all 0.15s ease;
-}
-
-.tab-btn:hover {
-  background: rgba(255, 255, 255, 0.8);
-  color: #1e293b;
-}
-
-.tab-btn.active {
-  background: white;
-  color: #1e293b;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
-}
-
-.tab-close {
-  margin-left: 4px;
-  padding: 2px;
-  font-size: 0.75em;
-  opacity: 0.7;
-}
-
-.tab-close:hover {
-  opacity: 1;
-  color: #dc2626;
-}
 
 .sidebar {
   width: 220px;
