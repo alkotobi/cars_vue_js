@@ -43,9 +43,13 @@ SET cn.id_brand = b.id WHERE cn.car_name = 'CHANGAN CS75 PLUS';
 -- and 025 may run before or after it. A single-value join would match nothing on
 -- a renamed database and leave all eight names NULL with no error - the same
 -- silent failure documented on the KIA statement below.
+-- 'CHERRY TIGO 7' is listed in both spellings because migration 027 renames it
+-- to 'CHERY TIGO 7', and this migration may run before or after. Listing only the
+-- corrected spelling would leave the row NULL on a database that has not been
+-- renamed yet, with no error.
 UPDATE `cars_names` cn JOIN `brands` b ON b.brand IN ('CHERY', 'CHERRY')
 SET cn.id_brand = b.id WHERE cn.car_name IN (
-  'CHERRY TIGO 7', 'CHERY TIGGO 3X', 'TIGO 3',
+  'CHERY TIGO 7', 'CHERRY TIGO 7', 'CHERY TIGGO 3X', 'TIGO 3',
   'COOLRAY FULL NOT SPORT', 'COOLRAY SPORT',
   'COOLRAY SUPER AUTO NO SUNROOF', 'COOLRAY SUPER AUTO WITH SUNROOF',
   'COOLRAY SUPER MANUAL'
@@ -63,11 +67,12 @@ SET cn.id_brand = b.id WHERE cn.car_name = 'KAMIQ GT';
 UPDATE `cars_names` cn JOIN `brands` b ON b.brand = 'KIA'
 SET cn.id_brand = b.id WHERE cn.car_name IN (
   'K3', 'KX1 20251.4LCVT SUNROOFEDITION',
-  -- Spelled 'LUXERY' in the data, not 'LUXURY'. Match the stored value exactly:
-  -- an equality test against the corrected spelling matches nothing at all, and
-  -- this statement fails silently. The typo itself is left alone - fixing it
-  -- would rename a car, which is the operator's call, not a migration's.
-  'SELTOS LUXERY BLACK ROOF', 'SONET BLACK ROOF'
+  -- 'SELTOS LUXERY BLACK ROOF' is the historical misspelling, corrected to
+  -- LUXURY by migration 027. Both spellings are listed so this works either side
+  -- of that rename: an equality test against a single spelling matches nothing on
+  -- the other side of it, and fails silently. The first version of this migration
+  -- used only the corrected spelling and matched zero rows here.
+  'SELTOS LUXURY BLACK ROOF', 'SELTOS LUXERY BLACK ROOF', 'SONET BLACK ROOF'
 );
 
 -- The VW group: the "T-" prefix is VW's, never says VW, and the GOLFs say it

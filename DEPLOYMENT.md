@@ -560,8 +560,8 @@ marque wrong, and the whole VW group is prefixed `T-` without ever saying VW.
 | Brand | Count | Names |
 |---|---|---|
 | VW | 10 | GOLF 300TSI R-LINE, GOLF R-LINE (FULL OPTION), T-CROSS, T-ROC ×2, TIGUAN L, TACOUA, THARU ×3 |
-| CHERY | 8 | CHERRY TIGO 7, CHERY TIGGO 3X, TIGO 3, COOLRAY ×5 |
-| KIA | 4 | K3, KX1…, SELTOS LUXERY BLACK ROOF, SONET BLACK ROOF |
+| CHERY | 8 | CHERY TIGO 7, CHERY TIGGO 3X, TIGO 3, COOLRAY ×5 |
+| KIA | 4 | K3, KX1…, SELTOS LUXURY BLACK ROOF, SONET BLACK ROOF |
 | MG | 2 | MG5 BASE AUTO, MG5 MAN |
 | GEELY | 2 | EMGRAND ×2 |
 | LIVAN | 2 | LIVAN AUTO, LIVAN MAN |
@@ -603,25 +603,34 @@ Each rename is guarded on the corrected name not already existing, because
 error and leave the second rename unapplied. Where both spellings are present the
 migration skips rather than merging two marques; that needs a human.
 
-One name is still left alone, because it is a car rather than a brand and
-renaming one is the operator's call:
+Two car names are also misspelled, and unlike a brand these are referenced only
+by id — `buy_details.id_car_name` and `car_name_media.car_name_id` — so correcting
+them renames a row without touching anything else. Migration 027 fixes both:
 
-- `SELTOS LUXERY BLACK ROOF` is misspelled in `setup.sql` (`LUXERY` for `LUXURY`).
-  The migration matches the stored spelling on purpose: an equality test against
-  the corrected spelling matches no rows and fails silently. The brand is KIA,
-  which is correct.
+- `CHERRY TIGO 7` → `CHERY TIGO 7`
+- `SELTOS LUXERY BLACK ROOF` → `SELTOS LUXURY BLACK ROOF`
+
+So migration 025 matches **both** spellings of these two. It previously matched
+only the misspelled spelling on purpose, which meant the corrected spelling had
+to stay wrong; and it would have been a silent no-op against the corrected
+spelling, since an equality test that matches no rows raises nothing. Matching
+both is what lets 025 and 027 run in either order.
 
 Existing databases need both, in either order:
 
 ```bash
 mysql -u USER -p DBNAME < api/migrations/025_car_names_brand.sql
 mysql -u USER -p DBNAME < api/migrations/026_brand_renames.sql
+mysql -u USER -p DBNAME < api/migrations/027_car_name_typos.sql
 ```
 
 Order does not matter, and that is deliberate: 025 joins on
-`IN ('CHERY','CHERRY')` and `IN ('JETTA','JETA')` so it is correct whether or not
-the rename has happened yet. A single-value join would match nothing on a renamed
-database and leave the names NULL with no error.
+`IN ('CHERY','CHERRY')` and `IN ('JETTA','JETA')`, and matches both spellings of
+the two misspelled car names, so it is correct whether or not the renames have
+happened yet. A single-value join would match nothing on a renamed database and
+leave the names NULL with no error — the same applies to a single-spelling
+`IN` list for the car names. 026 and 027 are each guarded on the corrected value
+not already existing, so they are safe to re-run and they no-op once applied.
 
 Verified by running both orders against the same database and getting identical
 results, and by re-running each several times: 13 brands, 35 names, none NULL.
