@@ -32,6 +32,45 @@ const carNamesError = ref('')
 
 const isAdmin = computed(() => user.value?.role_id === 1)
 
+// ---------------------------------------------------------------------------
+// Tabs and brand filter
+//
+// Brands and car names used to stack on one page: 13 brand rows above 35 car name
+// rows, each with its own header and action buttons, which is a lot of scrolling to
+// reach the second table. They are now separate tabs.
+//
+// The car name list is kept because the relationship between the two is worth
+// exploiting: clicking a brand opens the car names filtered to it, which is how you
+// answer "which models does this marque have" without reading the Brand column.
+// ---------------------------------------------------------------------------
+const activeTab = ref('brands')
+const brandFilterId = ref(null)
+
+// Resolved from brands rather than captured at click time, so the chip label
+// follows a rename instead of showing the old name.
+const brandFilterName = computed(() => {
+  if (brandFilterId.value === null) return ''
+  return brands.value.find((b) => b.id === brandFilterId.value)?.brand || ''
+})
+
+// Filters on id_brand, the id, not the brand name. Renaming a brand refetches both
+// lists, so a name-based filter would silently stop matching after a rename.
+// A null id_brand is an unassigned name and must never match a brand filter,
+// otherwise those names become unreachable while a filter is set.
+const filteredCarNames = computed(() => {
+  if (brandFilterId.value === null) return carNames.value
+  return carNames.value.filter((cn) => cn.id_brand === brandFilterId.value)
+})
+
+const viewModelsOfBrand = (brand) => {
+  brandFilterId.value = brand.id
+  activeTab.value = 'carNames'
+}
+
+const clearBrandFilter = () => {
+  brandFilterId.value = null
+}
+
 const newBrand = ref({
   brand: '',
   logoFile: null
@@ -797,7 +836,28 @@ onUnmounted(() => {
 
 <template>
   <div class="models-view">
-    <div class="section">
+    <div class="tab-bar" role="tablist" aria-label="Brands and car names">
+      <button
+        class="tab-btn"
+        :class="{ active: activeTab === 'brands' }"
+        role="tab"
+        :aria-selected="activeTab === 'brands'"
+        @click="activeTab = 'brands'"
+      >
+        Brands <span class="tab-count">{{ brands.length }}</span>
+      </button>
+      <button
+        class="tab-btn"
+        :class="{ active: activeTab === 'carNames' }"
+        role="tab"
+        :aria-selected="activeTab === 'carNames'"
+        @click="activeTab = 'carNames'"
+      >
+        Car Names <span class="tab-count">{{ filteredCarNames.length }}</span>
+      </button>
+    </div>
+
+    <div class="section" v-if="activeTab === 'brands'">
       <div class="header">
         <h2>Brands Management</h2>
         <button @click="showAddBrandDialog = true" class="add-btn">Add Brand</button>
@@ -823,7 +883,18 @@ onUnmounted(() => {
           <tr v-else-if="brands.length === 0">
             <td colspan="3" class="table-status">No brands yet.</td>
           </tr>
-          <tr v-for="brand in brands" v-else :key="brand.id">
+          <tr
+            v-for="brand in brands"
+            v-else
+            :key="brand.id"
+            class="brand-row"
+            tabindex="0"
+            role="button"
+            :aria-label="`View models of ${brand.brand}`"
+            @click="viewModelsOfBrand(brand)"
+            @keydown.enter.prevent="viewModelsOfBrand(brand)"
+            @keydown.space.prevent="viewModelsOfBrand(brand)"
+          >
             <td>
               <img 
                 v-if="brand.logo_path" 
@@ -835,10 +906,10 @@ onUnmounted(() => {
             </td>
             <td>{{ brand.brand }}</td>
             <td>
-              <button @click="editBrand(brand)" class="btn edit-btn">Edit</button>
+              <button @click.stop="editBrand(brand)" class="btn edit-btn">Edit</button>
               <button 
                 v-if="isAdmin"
-                @click="deleteBrand(brand)" 
+                @click.stop="deleteBrand(brand)" 
                 class="btn delete-btn" :disabled="isBusy('delete-brand')">Delete</button>
             </td>
           </tr>
@@ -846,10 +917,14 @@ onUnmounted(() => {
       </table>
     </div>
 
-    <div class="section">
+    <div class="section" v-if="activeTab === 'carNames'">
       <div class="header">
         <h2>Car Names Management</h2>
         <button @click="showAddCarNameDialog = true" class="add-btn">Add Car Name</button>
+      </div>
+      <div v-if="brandFilterId !== null" class="filter-chip">
+        <span>Showing models of <strong>{{ brandFilterName }}</strong></span>
+        <button type="button" class="filter-clear" @click="clearBrandFilter">Show all</button>
       </div>
       <table class="data-table">
         <thead>
@@ -874,7 +949,13 @@ onUnmounted(() => {
           <tr v-else-if="carNames.length === 0">
             <td colspan="5" class="table-status">No car names yet.</td>
           </tr>
-          <tr v-for="carName in carNames" v-else :key="carName.id">
+          <tr v-else-if="filteredCarNames.length === 0">
+            <td colspan="5" class="table-status">
+              {{ brandFilterName }} has no models.
+              <button class="btn retry-btn" @click="clearBrandFilter">Show all</button>
+            </td>
+          </tr>
+          <tr v-for="carName in filteredCarNames" v-else :key="carName.id">
             <td>{{ carName.car_name }}</td>
             <td>
               <span v-if="carName.brand">{{ carName.brand }}</span>
@@ -1152,6 +1233,97 @@ onUnmounted(() => {
   padding: 20px;
 }
 
+/* Tab bar. Ported from CarsView.vue, where the same rules exist but are unused:
+   that copy is in a scoped block, so it cannot reach this component. */
+.tab-bar {
+  display: flex;
+  gap: 4px;
+  background: #e2e8f0;
+  padding: 4px;
+  border-radius: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.9em;
+  color: #475569;
+  transition: all 0.15s ease;
+}
+
+.tab-btn:hover {
+  background: rgba(255, 255, 255, 0.8);
+  color: #1e293b;
+}
+
+.tab-btn.active {
+  background: white;
+  color: #1e293b;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.tab-count {
+  display: inline-block;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.07);
+  font-size: 0.85em;
+  line-height: 1.5;
+}
+
+.tab-btn.active .tab-count {
+  background: #e2e8f0;
+}
+
+/* Clickable brand row. The whole row drills into that brand's models, so it needs
+   the pointer and a visible focus ring for keyboard users: tabindex and the
+   keydown handlers are on the <tr>, and without an outline the focus position
+   would be invisible. */
+.brand-row {
+  cursor: pointer;
+}
+
+.brand-row:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: -2px;
+}
+
+.filter-chip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 20px;
+  padding: 8px 12px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  color: #1e40af;
+}
+
+.filter-clear {
+  border: none;
+  background: transparent;
+  color: #2563eb;
+  cursor: pointer;
+  font-size: 0.9rem;
+  text-decoration: underline;
+  padding: 0;
+}
+
+.filter-clear:hover {
+  color: #1d4ed8;
+}
+
 .section {
   margin-bottom: 40px;
 }
@@ -1297,10 +1469,18 @@ onUnmounted(() => {
   resize: vertical;
 }
 
-.dialog-actions {
+/* Dialog action rows. The four dialogs in this view are siblings, so they share
+   one rule: flex, right-aligned, with the same gap and top margin. Both class
+   names appear in the template and .dialog-buttons is the repo-wide convention
+   (BuyView.vue, BuyDetailsTable.vue, BuyBillPaymentsView.vue all define it);
+   previously this view used it without defining it, so the Add and Edit Car Name
+   button rows had no flex layout at all and the buttons stacked. */
+.dialog-actions,
+.dialog-buttons {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 12px;
+  margin-top: 24px;
 }
 
 .checkbox-field {
