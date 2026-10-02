@@ -84,18 +84,18 @@ import { useSubmitGuard } from '../composables/useSubmitGuard'
 const { msgBox, notify, notifyError, onConfirm, onCancel, onClose } = useNotify()
 const { safeApi, uploadFile, getFileUrl } = useSafeApi()
 const { guard, isBusy } = useSubmitGuard()
-const brandsApiFactory = useBrands({ notify, onBrandsChanged: fetchCarNames })
-const brandsApi = brandsApiFactory({ safeApi, uploadFile, getFileUrl })
-const brands = brandsApi.brands
-const loadingBrands = brandsApi.loading
-const brandsError = brandsApi.error
-const fetchBrands = brandsApi.fetchBrands
 const carNamesApiFactory = useCarNames({ notify })
 const carNamesApi = carNamesApiFactory({ safeApi })
 const carNames = carNamesApi.carNames
 const loadingCarNames = carNamesApi.loading
 const carNamesError = carNamesApi.error
 const fetchCarNames = carNamesApi.fetchCarNames
+const brandsApiFactory = useBrands({ notify, onBrandsChanged: () => fetchCarNames() })
+const brandsApi = brandsApiFactory({ safeApi, uploadFile, getFileUrl })
+const brands = brandsApi.brands
+const loadingBrands = brandsApi.loading
+const brandsError = brandsApi.error
+const fetchBrands = brandsApi.fetchBrands
 
 async function fetchBoth() {
   await Promise.all([fetchBrands(), fetchCarNames()])
