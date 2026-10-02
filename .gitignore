@@ -44,6 +44,10 @@ dist_old/
 
 # Backup files
 backups/
-mig*/
+# Root-anchored: these are the local scratch migration folders, NOT
+# api/migrations/. Unanchored, 'mig*/' also swallowed api/migrations/, so every
+# migration added since 020 was silently ignored by git and never committed -
+# while DEPLOYMENT.md tells operators to run them by path.
+/mig*/
 build/
 build*/
