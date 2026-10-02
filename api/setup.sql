@@ -159,7 +159,11 @@ CREATE TABLE IF NOT EXISTS `cars_names` (
   `cbm` decimal(10,0) DEFAULT NULL,
   `gw` decimal(10,0) DEFAULT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `car_name` (`car_name`)
+  UNIQUE KEY `car_name` (`car_name`),
+  KEY `idx_cars_names_id_brand` (`id_brand`),
+  CONSTRAINT `fk_cars_names_brand`
+    FOREIGN KEY (`id_brand`) REFERENCES `brands` (`id`)
+    ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 -- Car name delete guard on buy_details.
