@@ -162,7 +162,24 @@ CREATE TABLE IF NOT EXISTS `cars_names` (
   UNIQUE KEY `car_name` (`car_name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
--- Insert default car names (all uppercase)
+-- Car name delete guard on buy_details.
+--
+-- Added here rather than inside the buy_details CREATE TABLE above because
+-- buy_details is created before cars_names, and MySQL rejects a foreign key whose
+-- referenced table does not exist yet (errno 150). That ordering is most likely why
+-- the column was never constrained. Migration 028 adds the same constraint to
+-- existing databases.
+--
+-- ON DELETE RESTRICT: CarModelsView refuses to delete a car name that still has
+-- purchase history, but that check is in the browser and the API does not
+-- authenticate its caller (see SECURITY.md), so without this constraint a direct
+-- DELETE leaves a buy_details row pointing at a car name that no longer exists.
+ALTER TABLE `buy_details`
+  ADD INDEX `idx_buy_details_id_car_name` (`id_car_name`),
+  ADD CONSTRAINT `fk_buy_details_car_name`
+    FOREIGN KEY (`id_car_name`) REFERENCES `cars_names` (`id`)
+    ON DELETE RESTRICT;
+
 -- Insert default car names (all uppercase)
 --
 -- id_brand is seeded here too, which it was not before: without it Car Models
@@ -260,7 +277,7 @@ CREATE TABLE IF NOT EXISTS `car_name_media` (
   KEY `idx_uploaded_at` (`uploaded_at`),
   KEY `idx_media_type` (`media_type`),
   KEY `idx_is_active` (`is_active`),
-  CONSTRAINT `fk_car_name_media_car_name` FOREIGN KEY (`car_name_id`) REFERENCES `cars_names` (`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_car_name_media_car_name` FOREIGN KEY (`car_name_id`) REFERENCES `cars_names` (`id`) ON DELETE RESTRICT,
   CONSTRAINT `fk_car_name_media_uploaded_by` FOREIGN KEY (`uploaded_by`) REFERENCES `users` (`id`) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 -- Cars stock table
@@ -616,9 +633,23 @@ CREATE TABLE IF NOT EXISTS `roles` (
   UNIQUE KEY `role_name` (`role_name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
--- Insert default role
+-- Insert default roles
+--
+-- Both are seeded because a fresh install otherwise has no non-admin role to hand
+-- out. users.role_id is a plain int with no foreign key to roles (the only foreign
+-- key on users points at banks), so nothing stops role_id 1 being written and
+-- role 1 is admin, which makes every user created through the app an admin.
+--
+-- Inserted in this order so admin gets role_id 1, which is what the seeded admin
+-- user relies on. That user is inserted earlier in this file, before this table
+-- exists, and so relies on admin landing on id 1 on a fresh install.
+--
+-- 'user' is granted no permissions. api.php treats role_id = 1 as having every
+-- permission, and the seeded role_permissions rows below grant the same set to
+-- admin explicitly, so a non-admin role starts with nothing and inherits nothing.
 INSERT IGNORE INTO `roles` (`role_name`, `description`) VALUES
-('admin', 'Administrator role with full system access');
+('admin', 'Administrator role with full system access'),
+('user', 'Regular user with limited access');
 
 -- Role permissions table
 CREATE TABLE IF NOT EXISTS `role_permissions` (

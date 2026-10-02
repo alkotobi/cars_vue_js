@@ -673,6 +673,16 @@ refuse the delete and let a human decide.
 mysql -u USER -p DBNAME < api/migrations/028_car_name_delete_guards.sql
 ```
 
+Only existing databases need this. `api/setup.sql` already declares both
+constraints, so a fresh install gets them without running 028; running it against
+a fresh install anyway is a no-op.
+
+`api/setup.sql` builds `buy_details` before `cars_names`, and MySQL rejects a
+foreign key whose referenced table does not exist yet, so the `buy_details`
+constraint is added as an `ALTER TABLE` immediately after `cars_names` is created.
+That ordering is the likely reason the column was never constrained in the first
+place.
+
 Before adding the foreign key it clears `buy_details.id_car_name` values that
 point at a deleted car name, keeping the purchase row and dropping only a link
 that was already dangling. The count of affected rows is printed by the migration
