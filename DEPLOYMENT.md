@@ -485,6 +485,12 @@ max_input_time = 600
 - Full DB dumps: `mysqldump merhab_cars` → `api/backups/`.
 - `git push origin feature-from-e9dcfaf` → `github.com/ekotobi/cars_vue_js.git`.
 
+> **Unresolved security findings.** `api/api.php` executes caller-supplied SQL with no
+> authentication and no permission check, under `Access-Control-Allow-Origin: *`, and the
+> client-side `is_admin` flag bypasses every permission check in that file. See
+> [`SECURITY.md`](SECURITY.md) for the details, affected line numbers and remediation
+> order. Nothing there has been fixed yet.
+
 ## Supplier credibility: what it can and cannot tell you
 
 > **Currently switched off, on both layers.** `CREDIBILITY_ENABLED` in
