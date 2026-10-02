@@ -559,19 +559,24 @@ marque wrong, and the whole VW group is prefixed `T-` without ever saying VW.
 
 | Brand | Count | Names |
 |---|---|---|
-| VW | 11 | GOLF 300TSI R-LINE, GOLF R-LINE (FULL OPTION), JETTA VS5, T-CROSS, T-ROC ×2, TIGUAN L, **TACOUA**, **THARU ×3** |
+| VW | 11 | GOLF 300TSI R-LINE, GOLF R-LINE (FULL OPTION), JETTA VS5, T-CROSS, T-ROC ×2, TIGUAN L, TACOUA, THARU ×3 |
 | CHERRY | 8 | CHERRY TIGO 7, CHERY TIGGO 3X, TIGO 3, COOLRAY ×5 |
 | KIA | 4 | K3, KX1…, SELTOS LUXERY BLACK ROOF, SONET BLACK ROOF |
-| GEELY | 3 | **DASHING PRO 1.6 DCT**, EMGRAND ×2 |
+| JETOUR | 1 | DASHING PRO 1.6 DCT |
+| GEELY | 2 | EMGRAND ×2 |
 | MG | 2 | MG5 BASE AUTO, MG5 MAN |
 | AUDI / CHANGAN / FREIGHT / SKODA | 1 each | A3, CHANGAN CS75 PLUS, FREIGHT, KAMIQ GT |
 | PEUGEOT | 1 | 2008 |
 | LIVAN | 2 | LIVAN AUTO, LIVAN MAN |
 
-Bold entries are the ones to check. `TACOUA` and the three `THARU`s match no
-known model and were placed with VW only because they cluster with the VW `T-`
-names; if they were meant to be something else (Karoq, Teramont) the brand is
-wrong. `DASHING PRO` could not be placed with confidence.
+Three of these started out as guesses and have since been confirmed by the
+operator, so the earlier "worth checking" caveat no longer applies:
+
+- `TACOUA` and the three `THARU`s match no model that could be identified from
+  the name. They were provisionally placed with VW because they cluster with the
+  VW `T-` names and nothing else claims that prefix. **Confirmed: VW.**
+- `DASHING PRO 1.6 DCT` could not be placed at all, and GEELY was a guess on
+  lineage. **Confirmed: JETOUR**, which is what it now maps to.
 
 `LIVAN AUTO` and `LIVAN MAN` are LIVAN cars, but there was no LIVAN row in
 `brands`, so the migration creates one (`INSERT IGNORE`, brand is UNIQUE, id is

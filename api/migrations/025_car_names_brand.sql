@@ -14,8 +14,9 @@
 -- safe on a server whose brand ids were never 1-12. Re-running changes nothing:
 -- it is a plain UPDATE, not an INSERT.
 --
--- Entries marked LOW below are inferences from the model's lineage, not from the
--- text. They are the ones worth eyeballing.
+-- Nothing in the mapping below is left as an unverified guess. The names that
+-- started out as inferences - TACOUA, the three THARUs and DASHING PRO - have
+-- since been confirmed by the operator, and the comments say which.
 
 -- ---- The one brand that has to be created first ----
 --
@@ -31,7 +32,6 @@
 INSERT IGNORE INTO `brands` (`brand`) VALUES ('LIVAN');
 
 -- ---- Certain: the marque is stated in the name, or the model is unambiguous ----
-
 UPDATE `cars_names` cn JOIN `brands` b ON b.brand = 'AUDI'
 SET cn.id_brand = b.id WHERE cn.car_name = 'A3';
 
@@ -70,17 +70,24 @@ SET cn.id_brand = b.id WHERE cn.car_name IN (
 
 -- The VW group: the "T-" prefix is VW's, never says VW, and the GOLFs say it
 -- nowhere at all.
+--
+-- TACOUA and the three THARUs match no model I could identify. I had placed them
+-- here on weak evidence - they cluster with the VW "T-" names and nothing else in
+-- the list claims that prefix. The operator has since confirmed VW, so they are
+-- no longer flagged as a guess.
 UPDATE `cars_names` cn JOIN `brands` b ON b.brand = 'VW'
 SET cn.id_brand = b.id WHERE cn.car_name IN (
   'GOLF 300TSI R-LINE', 'GOLF R-LINE (FULL OPTION)', 'JETTA VS5',
-  'T-CROSS', 'T-ROC STARLIGHT', 'T-ROC WITH PACKAKE', 'TIGUAN L'
+  'T-CROSS', 'T-ROC STARLIGHT', 'T-ROC WITH PACKAKE', 'TIGUAN L',
+  'TACOUA', 'THARU BASIC', 'THARU MID', 'THARU TOP'
 );
 
--- ---- LOW: inferred from the model's lineage, worth confirming ----
+-- Confirmed by the operator.
 
--- LOW: could not place this name with confidence. Geely is the best fit among
--- the brands present.
-UPDATE `cars_names` cn JOIN `brands` b ON b.brand = 'GEELY'
+-- 'DASHING PRO 1.6 DCT' was mapped to Geely as a guess: I could not identify the
+-- model and picked the marque that looked closest by lineage. It is in fact a
+-- JETOUR, so this replaces that guess rather than adding a new one.
+UPDATE `cars_names` cn JOIN `brands` b ON b.brand = 'JETOUR'
 SET cn.id_brand = b.id WHERE cn.car_name = 'DASHING PRO 1.6 DCT';
 
 -- Emgrand is definitively a Geely model.
@@ -90,15 +97,3 @@ SET cn.id_brand = b.id WHERE cn.car_name IN ('EMGRAND MAN', 'EMGRAND USED CAR');
 -- LIVAN is stated in the name, and the brand row above makes this resolve.
 UPDATE `cars_names` cn JOIN `brands` b ON b.brand = 'LIVAN'
 SET cn.id_brand = b.id WHERE cn.car_name IN ('LIVAN AUTO', 'LIVAN MAN');
-
--- LOW: 'TACOUA' matches no known model. It sits alphabetically inside the VW
--- T- family and nothing else in the list claims that prefix, so VW is the
--- likely owner, but this is a guess at a typo.
-UPDATE `cars_names` cn JOIN `brands` b ON b.brand = 'VW'
-SET cn.id_brand = b.id WHERE cn.car_name = 'TACOUA';
-
--- LOW: 'THARU' matches no known model either. Same reasoning as TACOUA: it
--- clusters with the VW T- names. If these are meant to be something else -
--- Karoq, Teramont - the brand needs correcting.
-UPDATE `cars_names` cn JOIN `brands` b ON b.brand = 'VW'
-SET cn.id_brand = b.id WHERE cn.car_name IN ('THARU BASIC', 'THARU MID', 'THARU TOP');
