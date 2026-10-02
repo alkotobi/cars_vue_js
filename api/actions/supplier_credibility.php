@@ -68,6 +68,51 @@ function supplier_credibility_require_enabled(): void
 }
 
 /**
+ * Refuse to run against a database that predates migration 024.
+ *
+ * Without this the failure mode is a PHP fatal: PDO sends a statement to MySQL
+ * at prepare time, so the INSERT in the assess handler dies on
+ * "Unknown column 'court_records'" before anything can catch it, and the admin
+ * sees a stack trace or a blank 500. Naming the migration instead turns a
+ * deploy-order mistake into one sentence they can act on.
+ *
+ * The check is an INFORMATION_SCHEMA lookup rather than a try/catch because the
+ * two read endpoints do not select these columns at all, so on a server missing
+ * 024 they would answer 200 and the feature would look healthy right up until
+ * someone pressed Assess. Failing all three keeps the state honest.
+ *
+ * Cached per request: three handlers, one lookup, and a static is safe because a
+ * request is the only thing that lives long enough for the schema to change
+ * underneath it.
+ */
+function supplier_credibility_require_schema($conn): void
+{
+    static $ok = null;
+
+    if ($ok !== null) {
+        return;
+    }
+
+    try {
+        $stmt = $conn->prepare(
+            'SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE()
+               AND TABLE_NAME = ?
+               AND COLUMN_NAME IN (?, ?)'
+        );
+        $stmt->execute(['supplier_credibility_checks', 'court_records', 'courts_basis']);
+        $ok = ((int) $stmt->fetchColumn() === 2);
+    } catch (PDOException $e) {
+        error_log('supplier_credibility_require_schema: ' . $e->getMessage());
+        apiErrorDie('db_schema_outdated');
+    }
+
+    if (!$ok) {
+        apiErrorDie('db_schema_outdated');
+    }
+}
+
+/**
  * Run a new check for one supplier. Admin only: it spends money.
  *
  * @param array<string,mixed> $postData
@@ -77,6 +122,7 @@ function handle_assess_supplier_credibility(array $postData): void
     $conn = supplier_credibility_connection();
     $user = require_api_admin($conn, $postData);
     supplier_credibility_require_enabled();
+    supplier_credibility_require_schema($conn);
 
     $supplierId = (int) ($postData['supplier_id'] ?? 0);
     if ($supplierId <= 0) {
@@ -118,6 +164,7 @@ function handle_get_supplier_credibility_checks(array $postData): void
     $conn = supplier_credibility_connection();
     require_api_admin($conn, $postData);
     supplier_credibility_require_enabled();
+    supplier_credibility_require_schema($conn);
 
     $supplierId = (int) ($postData['supplier_id'] ?? 0);
     if ($supplierId <= 0) {
@@ -153,6 +200,7 @@ function handle_get_supplier_credibility_latest(array $postData): void
     $conn = supplier_credibility_connection();
     require_api_admin($conn, $postData);
     supplier_credibility_require_enabled();
+    supplier_credibility_require_schema($conn);
 
     $stmt = $conn->query(
         'SELECT c.id_supplier, c.id, c.score, c.risk_level, c.summary, c.red_flags,
@@ -191,10 +239,10 @@ function supplier_credibility_load($conn, int $supplierId): ?array
         );
         $stmt->execute([$supplierId]);
     } catch (PDOException $e) {
-        // A server deployed before its migrations were run fails here on the
-        // missing column, and left alone that is a fatal error with a stack
-        // trace. Naming the migration turns a deploy-order mistake into one
-        // sentence an admin can act on.
+        // Belt and braces behind supplier_credibility_require_schema(). This query
+        // selects only long-standing suppliers columns, so in practice this fires
+        // when the suppliers table itself is absent or renamed rather than when
+        // migration 024 is missing - that case is caught up front.
         error_log('supplier_credibility_load: ' . $e->getMessage());
         apiErrorDie('db_schema_outdated');
     }

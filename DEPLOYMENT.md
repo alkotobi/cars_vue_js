@@ -534,9 +534,16 @@ Existing databases need the two answer columns:
 mysql -u USER -p DBNAME < api/migrations/024_court_records_answer.sql
 ```
 
-It is idempotent. Until it is applied, the action returns
-`db_schema_outdated` with a message naming the migration, rather than a fatal
-error on the missing column.
+It is idempotent, so re-running it on a server that already has the columns is a
+no-op that prints `Column ... already exists`.
+
+Until it is applied, all three credibility endpoints return
+`db_schema_outdated`, rather than a PHP fatal on `Unknown column
+'court_records'`. That check is an INFORMATION_SCHEMA lookup
+(`supplier_credibility_require_schema()`), not a try/catch: the two read
+endpoints never select these columns, so on a server missing 024 they would
+answer `200` and the feature would look healthy until someone pressed Assess.
+Verified by dropping the column and calling all three.
 
 ## Car names were not attached to any brand
 
