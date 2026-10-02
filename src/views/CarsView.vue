@@ -6,7 +6,7 @@ import CarsStock from './CarsStock.vue'
 import ClientsView from './ClientsView.vue'
 import BrokersView from './BrokersView.vue'
 import SuppliersView from './SuppliersView.vue'
-import CarModelsView from './CarModelsView.vue'
+import CarNamesView from './CarNamesView.vue'
 import ColorsView from './ColorsView.vue'
 import DischargePortsView from './DischargePortsView.vue'
 import LoadingPortsView from './LoadingPortsView.vue'
@@ -592,7 +592,7 @@ watch(
             <CarsStock v-if="activeView === 'stock'" :key="'stock'" />
             <BuyView v-if="currentView === 'buy'" :key="'buy'" />
             <SellBillsView v-if="currentView === 'sell-bills'" :key="'sell-bills'" />
-            <CarModelsView v-if="currentView === 'models'" :key="'models'" />
+            <CarNamesView v-if="currentView === 'models'" :key="'models'" />
           <ColorsView v-if="currentView === 'colors'" :key="'colors'" />
           <DischargePortsView v-if="currentView === 'discharge-ports'" :key="'discharge-ports'" />
           <LoadingPortsView v-if="currentView === 'loading-ports'" :key="'loading-ports'" />
