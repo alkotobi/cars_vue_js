@@ -187,7 +187,7 @@ ALTER TABLE `buy_details`
 -- Insert default car names (all uppercase)
 --
 -- id_brand is seeded here too, which it was not before: without it Car Models
--- (src/views/CarModelsView.vue) showed a blank Brand on every default name and
+-- (src/views/CarNamesView.vue) showed a blank Brand on every default name and
 -- nothing could group models by marque. api/migrations/025_car_names_brand.sql
 -- does the same for databases that already exist.
 --

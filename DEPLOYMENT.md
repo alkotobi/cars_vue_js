@@ -554,7 +554,7 @@ Verified by dropping the column and calling all three.
 ## Car names were not attached to any brand
 
 `cars_names.id_brand` was NULL for all 35 default car names, so Car Models
-(`src/views/CarModelsView.vue`) rendered a blank Brand on every row and nothing
+(`src/views/CarNamesView.vue`) rendered a blank Brand on every row and nothing
 could group or filter models by marque. Adding a car was unaffected, because
 `CarStockForm.vue` loads names with a plain `SELECT id, car_name` and never joins
 or filters on brand.

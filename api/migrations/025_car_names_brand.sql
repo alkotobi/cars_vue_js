@@ -2,7 +2,7 @@
 -- Migration: attach the default car names to their brands
 -- ============================================
 -- cars_names.id_brand was NULL for every default name, so Car Models
--- (src/views/CarModelsView.vue) rendered a blank Brand for all of them, and
+-- (src/views/CarNamesView.vue) rendered a blank Brand for all of them, and
 -- nothing in the app could group or filter models by marque.
 --
 -- The brand was worked out from the model itself, not from the string, because

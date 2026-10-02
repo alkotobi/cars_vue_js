@@ -4,7 +4,7 @@ Open, not yet fixed. Recorded here so they are tracked rather than living only i
 chat log. Nothing in this document has been remediated; do not read it as a
 description of the current state of a fix.
 
-Found 2026-10-03 while reviewing `src/views/CarModelsView.vue`. Every finding
+Found 2026-10-03 while reviewing `src/views/CarNamesView.vue`. Every finding
 below is in the shared API layer, not in that view, so fixing the view did not
 address any of them.
 
@@ -36,7 +36,7 @@ page a logged-in user's browser visits.
 ### Client-side admin checks protect nothing
 
 Views gate destructive buttons on a value read from `localStorage`. For example
-`src/views/CarModelsView.vue` computes `isAdmin` from `localStorage.getItem('user')`
+`src/views/CarNamesView.vue` computes `isAdmin` from `localStorage.getItem('user')`
 and hides Delete buttons when it is false. The hidden request can simply be sent
 directly. This pattern is used across the app, not just that view.
 
@@ -164,7 +164,7 @@ curl -s -X POST http://127.0.0.1:8123/api.php -H 'Content-Type: application/json
 
 ## Related
 
-`CarModelsView.vue` was hardened separately: deletes that would orphan rows are
+`CarNamesView.vue` was hardened separately: deletes that would orphan rows are
 now refused with the referencing records listed, failures surface in a dialog
 instead of the console, and brand/car-name validation is enforced. That work is
 data-integrity and UX only. **It does not mitigate anything in this document**,
