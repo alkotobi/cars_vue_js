@@ -216,7 +216,8 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { getBasePath as sharedGetBasePath, resolveApiBaseUrl } from '@/utils/basePath'
-import { useApi } from '@/composables/useApi'
+import { useApi, getStoredToken } from '@/composables/useApi'
+import { readJsonResponse } from '@/utils/readJsonResponse'
 
 const { updateAssetsVersion } = useApi()
 
@@ -267,7 +268,7 @@ const loadConfiguration = async () => {
     if (!dbCodeResponse.ok) {
       throw new Error('Failed to load db_code.json')
     }
-    const dbCodeData = await dbCodeResponse.json()
+    const dbCodeData = await readJsonResponse(dbCodeResponse, `${basePath}db_code.json`)
 
     if (!dbCodeData.db_code) {
       throw new Error('db_code not found in db_code.json')
@@ -421,7 +422,7 @@ const ensureFolderExists = async () => {
       }),
     })
 
-    const result = await response.json()
+    const result = await readJsonResponse(response, `${getApiBaseUrl()}/api.php`)
     if (!result.success) {
       throw new Error(result.message || 'Failed to ensure folder exists')
     }
@@ -486,12 +487,19 @@ const uploadFiles = async () => {
         formData.append('destination_folder', '') // Upload to root of the directory
         formData.append('custom_filename', fileNames[fileType]) // Use exact filename (will replace if exists)
 
+        // upload.php rejects unauthenticated callers; sending the token as a form
+        // field is what lets it accept the request at all.
+        const authToken = getStoredToken()
+        if (authToken) {
+          formData.append('token', authToken)
+        }
+
         const uploadResponse = await fetch(`${getApiBaseUrl()}/upload.php`, {
           method: 'POST',
           body: formData,
         })
 
-        const uploadResult = await uploadResponse.json()
+        const uploadResult = await readJsonResponse(uploadResponse, `${getApiBaseUrl()}/upload.php`)
 
         if (uploadResult.success) {
           uploadResults.value[fileType] = {

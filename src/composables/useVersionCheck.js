@@ -2,7 +2,7 @@ import { ref, onMounted } from 'vue'
 import { useApi } from './useApi'
 
 export const useVersionCheck = () => {
-  const { callApi } = useApi()
+  const { getDbVersion } = useApi()
   const currentAppVersion = ref(25) // Update this when you make breaking changes
   const dbVersion = ref(null)
   const isLoading = ref(true)
@@ -12,14 +12,14 @@ export const useVersionCheck = () => {
     try {
       isLoading.value = true
 
-      const result = await callApi({
-        query: 'SELECT version FROM versions ORDER BY id DESC LIMIT 1',
-        params: [],
-        requiresAuth: true,
-      })
+      // A named action, not the SQL passthrough. DatabaseVersionCheck is mounted
+      // unconditionally in App.vue, so this runs on /login before anyone has
+      // logged in and has to keep working with no token - the action is public for
+      // that reason and returns a single version integer.
+      const version = await getDbVersion()
 
-      if (result.success && result.data.length > 0) {
-        dbVersion.value = result.data[0].version
+      if (version !== null && version !== undefined) {
+        dbVersion.value = version
 
         // Compare versions
         console.log(

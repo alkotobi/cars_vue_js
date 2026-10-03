@@ -1,4 +1,5 @@
 <script setup>
+import { escapeHtml, rawHtml } from '../../utils/escapeHtml'
 import { ref, onMounted, computed, watch } from 'vue'
 import { useEnhancedI18n } from '../../composables/useI18n'
 import { useApi } from '../../composables/useApi'
@@ -1389,7 +1390,7 @@ const generateBatchPrintReport = async (billsData) => {
       </style>
     </head>
     <body>
-      ${letterheadHtml}
+      ${rawHtml(letterheadHtml)}
   `
 
   billsData.forEach(({ bill, cars }) => {
@@ -1397,9 +1398,9 @@ const generateBatchPrintReport = async (billsData) => {
       <div class="bill-section">
         
         <div class="bill-header">
-          <h2>${translations.sellBill} #${bill.id}</h2>
+          <h2>${escapeHtml(translations.sellBill)} #${escapeHtml(bill.id)}</h2>
           <div style="display: flex; justify-content: space-between;">
-            <span><strong>${translations.reference}:</strong> ${bill.bill_ref || 'N/A'}</span>
+            <span><strong>${escapeHtml(translations.reference)}:</strong> ${escapeHtml(bill.bill_ref || 'N/A')}</span>
             <span><strong>${translations.date}:</strong> ${new Date(bill.date_sell).toLocaleDateString()}</span>
           </div>
         </div>
@@ -1407,22 +1408,22 @@ const generateBatchPrintReport = async (billsData) => {
         <div class="bill-info">
           <div class="info-group">
             <div class="info-row">
-              <span class="info-label">${translations.broker}:</span>
-              <span>${bill.broker_name || 'N/A'}</span>
+              <span class="info-label">${escapeHtml(translations.broker)}:</span>
+              <span>${escapeHtml(bill.broker_name || 'N/A')}</span>
             </div>
             <div class="info-row">
-              <span class="info-label">${translations.address}:</span>
-              <span>${bill.broker_address || 'N/A'}</span>
+              <span class="info-label">${escapeHtml(translations.address)}:</span>
+              <span>${escapeHtml(bill.broker_address || 'N/A')}</span>
             </div>
             <div class="info-row">
-              <span class="info-label">${translations.mobile}:</span>
-              <span>${bill.broker_mobile || 'N/A'}</span>
+              <span class="info-label">${escapeHtml(translations.mobile)}:</span>
+              <span>${escapeHtml(bill.broker_mobile || 'N/A')}</span>
             </div>
           </div>
           <div class="info-group">
             <div class="info-row">
-              <span class="info-label">${translations.createdBy}:</span>
-              <span>${bill.created_by || 'N/A'}</span>
+              <span class="info-label">${escapeHtml(translations.createdBy)}:</span>
+              <span>${escapeHtml(bill.created_by || 'N/A')}</span>
             </div>
             <div class="info-row">
               <span class="info-label">${translations.carsCount}:</span>
@@ -1472,13 +1473,13 @@ const generateBatchPrintReport = async (billsData) => {
           <tr>
             <td class="text-center col-num">${carIndex + 1}</td>
             <td class="col-car">
-              <div>${car.car_name || 'N/A'}</div>
-              ${car.upgrades && car.upgrades.length > 0 ? `<div class="upgrades-line">${formatCarUpgradesForBatch(car.upgrades)}</div>` : ''}
+              <div>${escapeHtml(car.car_name || 'N/A')}</div>
+              ${car.upgrades && car.upgrades.length > 0 ? `<div class="upgrades-line">${escapeHtml(formatCarUpgradesForBatch(car.upgrades))}</div>` : ''}
             </td>
-            <td class="col-color">${car.color_name || 'N/A'}</td>
-            <td class="col-vin">${car.vin || 'N/A'}</td>
-            <td class="col-client">${car.client_name || 'N/A'}</td>
-            <td class="col-port">${car.port_name || 'N/A'}</td>
+            <td class="col-color">${escapeHtml(car.color_name || 'N/A')}</td>
+            <td class="col-vin">${escapeHtml(car.vin || 'N/A')}</td>
+            <td class="col-client">${escapeHtml(car.client_name || 'N/A')}</td>
+            <td class="col-port">${escapeHtml(car.port_name || 'N/A')}</td>
             <td class="text-right col-price">$${priceUsd.toFixed(2)}</td>
             <td class="text-right col-freight">$${freightUsd.toFixed(2)}</td>
             <td class="text-right col-cfr">${cfrDa.toFixed(2)}</td>

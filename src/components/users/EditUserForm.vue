@@ -49,7 +49,8 @@ const fetchRoles = async () => {
 // Initialize form data from user prop (loads bank when id_bank_account exists)
 const initializeForm = async () => {
   if (!props.user) return
-  const isDifferentCompany = props.user.is_diffrent_company === 1 ||
+  const isDifferentCompany =
+    props.user.is_diffrent_company === 1 ||
     props.user.is_diffrent_company === true ||
     props.user.is_diffrent_company === '1'
 
@@ -68,7 +69,8 @@ const initializeForm = async () => {
   }
   if (props.user.id_bank_account) {
     const bankResult = await callApi({
-      query: 'SELECT company_name, company_address, bank_name, swift_code, bank_account, bank_address, mobile, email, website, notes, logo_path FROM banks WHERE id = ?',
+      query:
+        'SELECT company_name, company_address, bank_name, swift_code, bank_account, bank_address, mobile, email, website, notes, logo_path FROM banks WHERE id = ?',
       params: [props.user.id_bank_account],
     })
     if (bankResult.success && bankResult.data?.length > 0) {
@@ -119,9 +121,11 @@ const handleSubmit = async () => {
       error.value = 'Company name is required for different company users'
       return
     }
-    const hasLogo = logoFile.value || (formData.value.logo_path && formData.value.logo_path.trim() !== '')
+    const hasLogo =
+      logoFile.value || (formData.value.logo_path && formData.value.logo_path.trim() !== '')
     if (!hasLogo) {
-      error.value = 'Logo is required for different company users. Please select or drop an image file.'
+      error.value =
+        'Logo is required for different company users. Please select or drop an image file.'
       return
     }
   }
@@ -197,10 +201,12 @@ const handleSubmit = async () => {
 
     // If there's a password to update, do it in a separate call
     if (formData.value.password && formData.value.password.trim()) {
+      // Was `action: 'hash_password'` with the whole
+      // "UPDATE users SET password = ? WHERE id = ?" as a string.
       const passwordResult = await callApi({
-        query: 'UPDATE users SET password = ? WHERE id = ?',
-        params: [formData.value.password, props.user.id],
-        action: 'hash_password',
+        action: 'set_user_password',
+        user_id: props.user.id,
+        password: formData.value.password,
       })
       if (!passwordResult.success) {
         error.value = passwordResult.error || 'Failed to update password'
@@ -290,9 +296,13 @@ const clearLogo = () => {
 }
 
 // Watch for user prop changes
-watch(() => props.user, () => {
-  initializeForm()
-}, { immediate: true })
+watch(
+  () => props.user,
+  () => {
+    initializeForm()
+  },
+  { immediate: true },
+)
 
 onMounted(() => {
   fetchRoles()
@@ -367,12 +377,7 @@ onMounted(() => {
               <i class="fas fa-shield-alt"></i>
               Role
             </label>
-            <select
-              id="role_id"
-              v-model="formData.role_id"
-              class="form-select"
-              :disabled="loading"
-            >
+            <select id="role_id" v-model="formData.role_id" class="form-select" :disabled="loading">
               <option value="">Select a role (optional)</option>
               <option v-for="role in roles" :key="role.id" :value="role.id">
                 {{ role.role_name }}
@@ -434,7 +439,12 @@ onMounted(() => {
                     />
                     <template v-if="logoPreviewUrl">
                       <img :src="logoPreviewUrl" alt="Logo" class="logo-preview" />
-                      <button type="button" class="logo-clear-btn" title="Remove logo" @click.stop="clearLogo">
+                      <button
+                        type="button"
+                        class="logo-clear-btn"
+                        title="Remove logo"
+                        @click.stop="clearLogo"
+                      >
                         <i class="fas fa-times"></i>
                       </button>
                     </template>
@@ -1013,4 +1023,3 @@ onMounted(() => {
   background-color: #2563eb;
 }
 </style>
-

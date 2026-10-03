@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useApi } from '../../composables/useApi'
 import { BASE_PATH } from '../../composables/useApi'
+import { readJsonResponse } from '@/utils/readJsonResponse'
 
 const { callApi } = useApi()
 const loading = ref(false)
@@ -39,7 +40,7 @@ const loadContractTerms = async () => {
       throw new Error('Failed to load contract terms')
     }
     
-    const data = await response.json()
+    const data = await readJsonResponse(response, termsUrl)
     contractTerms.value = data.terms || []
     enabledLanguages.value = data.enabledLanguages || {
       english: false,

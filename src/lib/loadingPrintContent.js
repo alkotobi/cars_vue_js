@@ -4,6 +4,7 @@
  */
 
 import { getDefaultPrintOptions } from './loadingPrintOptions.js'
+import { escapeHtml, rawHtml } from '../utils/escapeHtml.js'
 
 /**
  * Build the CSS block for the print document (shared by all outputs).
@@ -194,19 +195,19 @@ function buildLoadingInfoBlock(loadingRecord) {
         </div>
         <div class="info-group">
           <div class="info-label">Shipping Line:</div>
-          <div class="info-value">${loadingRecord.shipping_line_name || 'Not set'}</div>
+          <div class="info-value">${escapeHtml(loadingRecord.shipping_line_name || 'Not set')}</div>
         </div>
         <div class="info-group">
           <div class="info-label">Freight:</div>
-          <div class="info-value">${loadingRecord.freight ? `$${loadingRecord.freight}` : 'Not set'}</div>
+          <div class="info-value">${escapeHtml(loadingRecord.freight ? `$${loadingRecord.freight}` : 'Not set')}</div>
         </div>
         <div class="info-group">
           <div class="info-label">Loading Port:</div>
-          <div class="info-value">${loadingRecord.loading_port_name || 'Not set'}</div>
+          <div class="info-value">${escapeHtml(loadingRecord.loading_port_name || 'Not set')}</div>
         </div>
         <div class="info-group">
           <div class="info-label">Discharge Port:</div>
-          <div class="info-value">${loadingRecord.discharge_port_name || 'Not set'}</div>
+          <div class="info-value">${escapeHtml(loadingRecord.discharge_port_name || 'Not set')}</div>
         </div>
         <div class="info-group">
           <div class="info-label">EDD:</div>
@@ -218,7 +219,7 @@ function buildLoadingInfoBlock(loadingRecord) {
         </div>
         <div class="info-group">
           <div class="info-label">Notes:</div>
-          <div class="info-value">${loadingRecord.note || 'No notes'}</div>
+          <div class="info-value">${escapeHtml(loadingRecord.note || 'No notes')}</div>
         </div>
       </div>
   `
@@ -271,41 +272,43 @@ function buildCarRow(car, keys, getFileUrl) {
   const cells = []
   for (const k of keys) {
     if (k === 'carId') {
-      cells.push(`<td>#${car.id}</td>`)
+      cells.push(`<td>#${escapeHtml(car.id)}</td>`)
     } else if (k === 'carName') {
-      cells.push(`<td>${car.car_name || 'N/A'}</td>`)
+      cells.push(`<td>${escapeHtml(car.car_name || 'N/A')}</td>`)
     } else if (k === 'color') {
-      cells.push(`<td>${car.color || 'N/A'}</td>`)
+      cells.push(`<td>${escapeHtml(car.color || 'N/A')}</td>`)
     } else if (k === 'vin') {
-      cells.push(`<td>${car.vin || 'N/A'}</td>`)
+      cells.push(`<td>${escapeHtml(car.vin || 'N/A')}</td>`)
     } else if (k === 'paymentStatus') {
-      cells.push(`<td>${car.payment_status || '-'}</td>`)
+      cells.push(`<td>${escapeHtml(car.payment_status || '-')}</td>`)
     } else if (k === 'client') {
       const imgHtml =
         car.id_copy_path && getFileUrl
-          ? `<img src="${getFileUrl(car.id_copy_path)}" alt="Client ID" class="client-id-image" onerror="this.style.display='none'" />`
+          ? `<img src="${escapeHtml(getFileUrl(car.id_copy_path))}" alt="Client ID" class="client-id-image" onerror="this.style.display='none'" />`
           : ''
       const mobileHtml =
         car.client_mobiles && car.client_mobiles !== 'please provide mobile'
-          ? `<div class="client-mobile"><i class="fas fa-phone"></i> <strong>Mobile:</strong> ${car.client_mobiles}</div>`
+          ? `<div class="client-mobile"><i class="fas fa-phone"></i> <strong>Mobile:</strong> ${escapeHtml(car.client_mobiles)}</div>`
           : ''
-      const ninHtml = car.client_nin ? `<div class="client-nin">${car.client_nin}</div>` : ''
+      const ninHtml = car.client_nin ? `<div class="client-nin">${escapeHtml(car.client_nin)}</div>` : ''
       cells.push(
         `<td>
           <div class="client-info">
-            ${imgHtml}
+            ${rawHtml(imgHtml)}
             <div class="client-details">
-              <div class="client-name">${car.client_name || 'N/A'}</div>
-              ${mobileHtml}
-              <div class="client-id-no">${car.client_id_no || 'No ID'}</div>
-              ${ninHtml}
+              <div class="client-name">${escapeHtml(car.client_name || 'N/A')}</div>
+              ${rawHtml(mobileHtml)}
+              <div class="client-id-no">${escapeHtml(car.client_id_no || 'No ID')}</div>
+              ${rawHtml(ninHtml)}
             </div>
           </div>
         </td>`
       )
     }
   }
-  return `<tr>${cells.join('')}</tr>`
+  // Trusted: cells are the <td> markup assembled above, with every field in them
+  // escaped at the point it was interpolated.
+  return `<tr>${rawHtml(cells.join(''))}</tr>`
 }
 
 /**
@@ -375,7 +378,9 @@ export function generatePrintContent(
 
   const containersHtml = containers
     .map((container) => {
-      const containerTitle = `Container: ${container.name || 'Unnamed'} ${container.ref_container ? `(${container.ref_container})` : ''}${container.so ? ` - SO: ${container.so}` : ''}${container.is_released ? ' - RELEASED' : ''} - Loading #${loadingRecord.id} - Container #${container.id}`
+      const containerTitle = escapeHtml(
+        `Container: ${container.name || 'Unnamed'} ${container.ref_container ? `(${container.ref_container})` : ''}${container.so ? ` - SO: ${container.so}` : ''}${container.is_released ? ' - RELEASED' : ''} - Loading #${loadingRecord.id} - Container #${container.id}`
+      )
       let tableHtml
       if (container.cars.length === 0) {
         tableHtml =
@@ -384,14 +389,16 @@ export function generatePrintContent(
         tableHtml =
           '<p style="text-align: center; color: #666; font-style: italic;">No columns selected for print.</p>'
       } else {
-        const headerRow = `<tr>${carHeaders.map((h) => `<th>${h}</th>`).join('')}</tr>`
+        // Labels are literals plus a translated string; escaping costs nothing and
+        // keeps a bad translation from becoming markup.
+        const headerRow = `<tr>${carHeaders.map((h) => `<th>${escapeHtml(h)}</th>`).join('')}</tr>`
         const bodyRows = container.cars
           .map((car) => buildCarRow(car, carKeys, getFileUrl))
           .join('')
         tableHtml = `
             <table class="cars-table">
-              <thead>${headerRow}</thead>
-              <tbody>${bodyRows}</tbody>
+              <thead>${rawHtml(headerRow)}</thead>
+              <tbody>${rawHtml(bodyRows)}</tbody>
             </table>
           `
       }
@@ -400,7 +407,7 @@ export function generatePrintContent(
           <div class="container-header">
             <div class="container-title">${containerTitle}</div>
           </div>
-          ${tableHtml}
+          ${rawHtml(tableHtml)}
         </div>
       `
     })
@@ -413,21 +420,21 @@ export function generatePrintContent(
     <!DOCTYPE html>
     <html>
     <head>
-      <title>Loading Record #${loadingRecord.id} - Print</title>
-      <style>${getPrintStyles()}</style>
+      <title>Loading Record #${escapeHtml(loadingRecord.id)} - Print</title>
+      <style>${rawHtml(getPrintStyles())}</style>
     </head>
     <body>
-      ${letterheadHtml}
+      ${rawHtml(letterheadHtml)}
       <div class="header">
-        <h1>Loading Record #${loadingRecord.id}</h1>
+        <h1>Loading Record #${escapeHtml(loadingRecord.id)}</h1>
         <p>Generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}</p>
       </div>
 
-      ${loadingInfoHtml}
+      ${rawHtml(loadingInfoHtml)}
 
-      ${containersHtml}
+      ${rawHtml(containersHtml)}
 
-      ${summaryHtml}
+      ${rawHtml(summaryHtml)}
     </body>
     </html>
   `

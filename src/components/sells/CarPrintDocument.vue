@@ -5,6 +5,7 @@ import { useEnhancedI18n } from '../../composables/useI18n'
 import { useApi } from '../../composables/useApi'
 import { useInvoiceCompanyInfo } from '../../composables/useInvoiceCompanyInfo'
 import PrintReportHeader from './PrintReportHeader.vue'
+import { readJsonResponse } from '@/utils/readJsonResponse'
 
 const { t } = useEnhancedI18n()
 const props = defineProps({
@@ -74,7 +75,7 @@ const loadContractTerms = async () => {
       enabledLanguages.value = { english: true, chinese: true } // Default fallback
       return
     }
-    const data = await response.json()
+    const data = await readJsonResponse(response, termsUrl)
     contractTerms.value = data.terms || []
     enabledLanguages.value = data.enabledLanguages || { english: true, chinese: true } // Default fallback
   } catch (err) {

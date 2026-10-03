@@ -641,7 +641,7 @@ watch(
   gap: 20px;
   transition: width 0.3s ease;
   position: relative;
-  z-index: 9999;
+  z-index: 1010;
 }
 
 .sidebar.collapsed {
@@ -968,7 +968,7 @@ h2 {
   position: fixed;
   top: 20px;
   left: 20px;
-  z-index: 10000;
+  z-index: 1020;
 }
 
 .mobile-nav-btn {
@@ -996,7 +996,7 @@ h2 {
   right: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.5);
-  z-index: 999;
+  z-index: 1000;
 }
 
 /* Responsive Design */
@@ -1011,7 +1011,7 @@ h2 {
 
   .mobile-nav-overlay {
     display: block;
-    z-index: 9998;
+    z-index: 1000;
   }
 
   .sidebar {
@@ -1020,7 +1020,7 @@ h2 {
     left: -280px;
     height: 100vh;
     width: 280px;
-    z-index: 9999;
+    z-index: 1010;
     transition: left 0.3s ease;
     overflow-y: auto;
   }
@@ -1168,7 +1168,7 @@ h2 {
   position: fixed;
   top: 20px;
   left: 20px;
-  z-index: 10000;
+  z-index: 1020;
 }
 
 .mobile-nav-btn {
@@ -1196,7 +1196,7 @@ h2 {
   right: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.5);
-  z-index: 999;
+  z-index: 1000;
 }
 
 /* Responsive Design */
@@ -1211,7 +1211,7 @@ h2 {
 
   .mobile-nav-overlay {
     display: block;
-    z-index: 9998;
+    z-index: 1000;
   }
 
   .sidebar {
@@ -1220,7 +1220,7 @@ h2 {
     left: -280px;
     height: 100vh;
     width: 280px;
-    z-index: 9999;
+    z-index: 1010;
     transition: left 0.3s ease;
     overflow-y: auto;
   }

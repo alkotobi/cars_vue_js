@@ -160,6 +160,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { getBasePath, resolveApiBaseUrl } from '@/utils/basePath'
+import { readJsonResponse } from '@/utils/readJsonResponse'
 
 const updates = ref([])
 const loading = ref(false)
@@ -200,7 +201,7 @@ const fetchUpdates = async () => {
   error.value = ''
   try {
     const response = await fetch(`${getApiBaseUrl()}/db_manager_api.php?action=get_db_updates`)
-    const result = await response.json()
+    const result = await readJsonResponse(response, `${getApiBaseUrl()}/db_manager_api.php?action=get_db_updates`)
 
     if (result.success) {
       updates.value = result.data || []
@@ -277,7 +278,7 @@ const saveUpdate = async () => {
       body: JSON.stringify(body),
     })
 
-    const result = await response.json()
+    const result = await readJsonResponse(response, `${getApiBaseUrl()}/db_manager_api.php`)
 
     if (result.success) {
       successMessage.value = result.message || 'Update saved successfully'
@@ -329,7 +330,7 @@ const deleteUpdate = async () => {
       }),
     })
 
-    const result = await response.json()
+    const result = await readJsonResponse(response, `${getApiBaseUrl()}/db_manager_api.php`)
 
     if (result.success) {
       successMessage.value = result.message || 'Update deleted successfully'

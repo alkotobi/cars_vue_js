@@ -1,11 +1,11 @@
 <script setup>
 import { ref } from 'vue'
-import { useApi } from '../../composables/useApi'
+import { useApi, colorErrorText } from '../../composables/useApi'
 import { useEnhancedI18n } from '@/composables/useI18n'
 import AddItemDialog from './AddItemDialog.vue'
 
 const { t } = useEnhancedI18n()
-const { callApi } = useApi()
+const { createColor } = useApi()
 
 const props = defineProps({
   show: {
@@ -71,32 +71,29 @@ const handleSave = async () => {
   error.value = null
 
   try {
-    const result = await callApi({
-      query: `
-        INSERT INTO colors (color, hexa)
-        VALUES (?, ?)
-      `,
-      params: [
-        newColor.value.color.trim(),
-        newColor.value.hexa && newColor.value.hexa.trim() !== '' ? newColor.value.hexa.trim().toUpperCase() : null,
-      ],
+    // Goes through api/actions/colors.php rather than an INSERT on the generic
+    // query passthrough, which runs whatever SQL it is handed with no auth gate.
+    // The server owns the duplicate check now (colors.color and colors.hexa are
+    // both UNIQUE), so this no longer has to interpret a MySQL error to tell the
+    // user that the colour they picked is already on the list.
+    const result = await createColor({
+      color: newColor.value.color.trim(),
+      hexa:
+        newColor.value.hexa && newColor.value.hexa.trim() !== ''
+          ? newColor.value.hexa.trim().toUpperCase()
+          : null,
     })
 
-    if (result.success) {
-      const savedHexa = newColor.value.hexa && newColor.value.hexa.trim() !== '' 
-        ? newColor.value.hexa.trim().toUpperCase() 
-        : null
-      emit('saved', {
-        id: result.lastInsertId,
-        color: newColor.value.color.trim(),
-        hexa: savedHexa,
-      })
-      handleClose()
-    } else {
-      error.value = result.error || t('carStockForm.failedToAddColor') || 'Failed to add color'
-    }
+    emit('saved', {
+      id: result.lastInsertId,
+      color: result.color,
+      hexa: result.hexa,
+    })
+    handleClose()
   } catch (err) {
-    error.value = err.message || t('carStockForm.failedToAddColor') || 'Failed to add color'
+    error.value =
+      colorErrorText(t, err) || t('carStockForm.failedToAddColor') || 'Failed to add color'
+    console.error('AddColorDialog.handleSave', err)
   } finally {
     loading.value = false
   }

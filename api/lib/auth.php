@@ -8,8 +8,31 @@
 // first credential this codebase can actually check server-side, so endpoints
 // that spend money or return bulk data gate on these helpers.
 //
-// Loaded from api.php only: the guards below call apiErrorDie() from there, and
-// say so loudly rather than duplicating the response shape.
+// The guards below prefer apiErrorDie() from api.php when it is loaded, so the
+// response shape stays identical there. Standalone endpoints (upload.php,
+// db_manager_api.php, invitations.php, ...) get the same JSON shape from
+// api_auth_fail() instead, which is why these helpers are usable outside api.php.
+
+/**
+ * Emit a guard failure and end the request.
+ *
+ * Delegates to apiErrorDie() when api.php is the entry point, so the response
+ * shape is byte-identical there. Standalone files have no apiErrorDie(), and
+ * silently skipping the exit would leave the endpoint unauthenticated, so they
+ * fall back to the same `{success:false, code, error}` envelope.
+ */
+function api_auth_fail(string $code): void
+{
+    if (function_exists('apiErrorDie')) {
+        apiErrorDie($code);
+    }
+
+    if (!headers_sent()) {
+        header('Content-Type: application/json');
+    }
+    echo json_encode(['success' => false, 'code' => $code, 'error' => $code]);
+    exit;
+}
 
 /**
  * Resolve the caller from their API token.
@@ -44,8 +67,8 @@ function api_token_user($conn, $token): ?array
 }
 
 /**
- * Gate an action on a valid token belonging to an admin. Exits the request with
- * not_authenticated / not_admin when it does not hold.
+ * Gate an action on a valid token, whatever role it belongs to. Exits the
+ * request with not_authenticated when there is not one.
  *
  * The status stays 200, as it does everywhere else in api.php: useApi retries
  * any 403/429 three times with backoff (it was written to get past bot
@@ -53,21 +76,35 @@ function api_token_user($conn, $token): ?array
  * would turn one clear message into a 7-second retry storm. The client
  * distinguishes the outcome from the `code` field either way.
  *
+ * This is the floor for anything that reads or writes a row: it is strictly more
+ * than the caller sending *a* token, because the token has to resolve to a real
+ * user. Note it says nothing about permission - an endpoint serving reference
+ * data every user needs should ask for this, not require_api_admin().
+ *
+ * @return array{id:int,username:string,role_id:int} the authenticated user
+ */
+function require_api_user($conn, array $postData): array
+{
+    $user = api_token_user($conn, $postData['token'] ?? '');
+    if (!$user) {
+        api_auth_fail('not_authenticated');
+    }
+
+    return $user;
+}
+
+/**
+ * Gate an action on a valid token belonging to an admin. Exits the request with
+ * not_authenticated / not_admin when it does not hold.
+ *
  * @return array{id:int,username:string,role_id:int} the authenticated admin
  */
 function require_api_admin($conn, array $postData): array
 {
-    if (!function_exists('apiErrorDie')) {
-        throw new RuntimeException('require_api_admin() must be called from api.php');
-    }
-
-    $user = api_token_user($conn, $postData['token'] ?? '');
-    if (!$user) {
-        apiErrorDie('not_authenticated');
-    }
+    $user = require_api_user($conn, $postData);
 
     if ((int) $user['role_id'] !== 1) {
-        apiErrorDie('not_admin');
+        api_auth_fail('not_admin');
     }
 
     return $user;

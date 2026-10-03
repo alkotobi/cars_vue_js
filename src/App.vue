@@ -20,7 +20,6 @@ const hideAlertsRoutes = [
   '/login',
   '/print',
   '/print-car',
-  '/advanced-sql',
   '/alert-cars',
   '/clients',
 ]

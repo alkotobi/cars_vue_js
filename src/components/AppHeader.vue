@@ -245,7 +245,6 @@ const currentPageName = computed(() => {
     'sell-bills': t('navigation.sellBills'),
     'buy-payments': t('navigation.buyPayments'),
     params: t('navigation.params'),
-    'advanced-sql': t('navigation.advancedSql'),
     'transfers-list': t('navigation.transfersList'),
     cars: t('navigation.cars'),
     'cars-stock': t('navigation.carsStock'),
@@ -720,6 +719,23 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+/*
+ * Stacking scale. Only the page-chrome tiers live here; modal overlays keep their
+ * own higher values (10000+) and stay above the header on purpose, so an open
+ * dialog dims and covers the header rather than being covered by it.
+ *
+ *   900   alerts bar (AlertsView)
+ *  1000   off-canvas drawer backdrop
+ *  1010   off-canvas drawer itself
+ *  1020   the button that opens the drawer
+ *  1100   app header  <- top of the page chrome
+ * 10000   modal / dialog overlays
+ *
+ * The drawer tiers used to be 9998/9999/10000, which put them over the header's
+ * 1001: on a phone the nav drawer and its toggle covered the logo, chat, tasks and
+ * logout. The old comment here claimed 1001 was "above dialog overlays", which was
+ * never true - the overlays are at 10000.
+ */
 .app-header {
   background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
   color: white;
@@ -730,7 +746,7 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   width: 100%;
-  z-index: 1001; /* Increased to be above dialog overlays */
+  z-index: 1100;
 }
 
 .header-content {

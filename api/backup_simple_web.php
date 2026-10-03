@@ -6,6 +6,31 @@
 ini_set('display_errors', 0);
 error_reporting(0);
 
+require_once __DIR__ . '/lib/cors.php';
+require_once __DIR__ . '/lib/backup_dump.php';
+
+api_send_cors_headers();
+
+// Require an admin before anything on this page runs.
+//
+// The file had no authentication at all, and the database name it takes from
+// $_POST['database'] was interpolated straight into a `mysqldump ... $dbname >
+// $filepath` shell string with no escapeshellarg() anywhere, so an anonymous
+// POST of `database=x;id>/tmp/pwned` was remote code execution as the web user.
+// The same injection was reachable a second time through
+// auto_backup_database.txt, which persisted the payload for a later cron run.
+api_require_backup_admin();
+
+// Escape text before printing it into this HTML page.
+//
+// The status messages below interpolate database names, some of which come from
+// request input and some from the registry. Every <select> on this page already
+// used htmlspecialchars(); these four status blocks did not, and were a stored
+// XSS via auto_backup_database.txt. Keep newlines readable, escape everything else.
+function bs_escape($text) {
+    return nl2br(htmlspecialchars((string)$text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'));
+}
+
 // Function to get list of available databases
 function getAvailableDatabases() {
     try {
@@ -90,10 +115,11 @@ function createAutomaticBackup($selectedDbName = null) {
         $filepath = $backup_dir . '/' . $filename;
         
         // Try mysqldump
-        $command = "mysqldump --host=$host --user=$username --password=$password $dbname > $filepath 2>&1";
-        $output = [];
-        $return_var = 0;
-        exec($command, $output, $return_var);
+        // Was: "mysqldump --host=$host --user=$username --password=$password $dbname > $filepath 2>&1"
+        // with no escaping anywhere. Here $dbname is the caller's choice of
+        // database and is persisted to auto_backup_database.txt for the cron
+        // path to replay, so the injection fired twice.
+        $return_var = backup_mysqldump($dbname, $filepath, $db_config) ? 0 : 1;
         
         if ($return_var !== 0 || !file_exists($filepath) || filesize($filepath) === 0) {
             // Use PHP method
@@ -217,6 +243,19 @@ if (isset($_POST['set_interval'])) {
     $new_interval = intval($_POST['interval_seconds']);
     $selectedDbForAuto = isset($_POST['auto_backup_database']) ? $_POST['auto_backup_database'] : null;
     
+    // Validate before it is persisted or echoed. This value used to be written to
+    // auto_backup_database.txt and then printed through nl2br() (which is not an
+    // escaper) into the page and, on the status read-back, into every later load -
+    // a stored XSS reachable without a token, since the file had no auth at all.
+    if ($selectedDbForAuto !== null && $selectedDbForAuto !== '') {
+        try {
+            $selectedDbForAuto = backup_assert_valid_db_name((string)$selectedDbForAuto);
+        } catch (InvalidArgumentException $e) {
+            $selectedDbForAuto = null;
+            $interval_error = 'Invalid database name.';
+        }
+    }
+    
     if ($new_interval > 0) {
         $interval_file = '../backups/backup_interval.txt';
         file_put_contents($interval_file, $new_interval);
@@ -323,10 +362,9 @@ if (isset($_POST['create_backup'])) {
         $password = $db_config['pass'];
         
         // Try mysqldump
-        $command = "mysqldump --host=$host --user=$username --password=$password $dbname > $filepath 2>&1";
-        $output = [];
-        $return_var = 0;
-        exec($command, $output, $return_var);
+        // Escaped and validated in backup_mysqldump(); this value came straight
+        // from $_POST['database'] and used to be injected into the shell.
+        $return_var = backup_mysqldump($dbname, $filepath, $db_config) ? 0 : 1;
         
         if ($return_var !== 0 || !file_exists($filepath) || filesize($filepath) === 0) {
             // Use PHP method
@@ -578,25 +616,25 @@ if (file_exists($last_auto_backup_file)) {
         
         <?php if (isset($success_message)): ?>
             <div class="status success">
-                <?php echo nl2br($success_message); ?>
+                <?php echo bs_escape($success_message); ?>
             </div>
         <?php endif; ?>
         
         <?php if (isset($error_message)): ?>
             <div class="status error">
-                <?php echo nl2br($error_message); ?>
+                <?php echo bs_escape($error_message); ?>
             </div>
         <?php endif; ?>
         
         <?php if (isset($interval_success)): ?>
             <div class="status success">
-                <?php echo nl2br($interval_success); ?>
+                <?php echo bs_escape($interval_success); ?>
             </div>
         <?php endif; ?>
         
         <?php if (isset($interval_error)): ?>
             <div class="status error">
-                <?php echo nl2br($interval_error); ?>
+                <?php echo bs_escape($interval_error); ?>
             </div>
         <?php endif; ?>
         
@@ -604,8 +642,8 @@ if (file_exists($last_auto_backup_file)) {
             <strong>🕒 Automatic Backup Status:</strong><br>
             <?php 
             $currentAutoDb = $auto_backup_database ? $auto_backup_database : (isset($availableDatabases[0]) ? $availableDatabases[0]['name'] : 'N/A');
-            echo "Database: $currentAutoDb\n";
-            echo nl2br($auto_backup_status); 
+            echo bs_escape("Database: $currentAutoDb");
+            echo bs_escape($auto_backup_status); 
             ?>
             <div id="backup-countdown" style="margin-top: 10px; font-weight: bold; color: #007bff;">
                 Calculating countdown...

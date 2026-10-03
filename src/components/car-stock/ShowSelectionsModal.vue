@@ -1,4 +1,5 @@
 <script setup>
+import { escapeHtml, rawHtml } from '../../utils/escapeHtml'
 import { ref, computed, onMounted, watch } from 'vue'
 import { useEnhancedI18n } from '@/composables/useI18n'
 import { useApi } from '../../composables/useApi'
@@ -644,13 +645,13 @@ const handlePrintWithOptions = async (printData) => {
 
     const contentBeforeTable = `
       <div style="margin: 20px 0; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #3b82f6; border-radius: 4px;">
-        <p><strong>${t('carStock.selection_name') || 'Selection Name'}:</strong> ${selection.name}</p>
-        ${selection.description ? `<p><strong>${t('carStock.description') || 'Description'}:</strong></p><div style="white-space: pre-wrap; margin-left: 20px; margin-top: 5px; margin-bottom: 10px;">${selection.description}</div>` : ''}
-        <p><strong>${t('carStock.status') || 'Status'}:</strong> ${t(`carStock.status_${selection.status}`) || selection.status}</p>
-        <p><strong>${t('carStock.priority') || 'Priority'}:</strong> ${t(`carStock.priority_${selection.priority}`) || selection.priority}</p>
+        <p><strong>${escapeHtml(t('carStock.selection_name') || 'Selection Name')}:</strong> ${escapeHtml(selection.name)}</p>
+        ${selection.description ? `<p><strong>${escapeHtml(t('carStock.description') || 'Description')}:</strong></p><div style="white-space: pre-wrap; margin-left: 20px; margin-top: 5px; margin-bottom: 10px;">${escapeHtml(selection.description)}</div>` : ''}
+        <p><strong>${t('carStock.status') || 'Status'}:</strong> ${escapeHtml(t(`carStock.status_${selection.status}`) || selection.status)}</p>
+        <p><strong>${t('carStock.priority') || 'Priority'}:</strong> ${escapeHtml(t(`carStock.priority_${selection.priority}`) || selection.priority)}</p>
         ${selection.deadline ? `<p><strong>${t('carStock.deadline') || 'Deadline'}:</strong> ${formatDate(selection.deadline)}</p>` : ''}
         <p><strong>${t('carStock.created_at') || 'Created'}:</strong> ${formatDate(selection.created_at)}</p>
-        ${coreContent ? `<div style="margin-top: 15px; padding: 10px; background-color: #eff6ff; border-left: 3px solid #3b82f6; border-radius: 4px; white-space: pre-wrap;">${coreContent}</div>` : ''}
+        ${coreContent ? `<div style="margin-top: 15px; padding: 10px; background-color: #eff6ff; border-left: 3px solid #3b82f6; border-radius: 4px; white-space: pre-wrap;">${escapeHtml(coreContent)}</div>` : ''}
       </div>
     `
 
@@ -702,15 +703,15 @@ const handlePrintWithOptions = async (printData) => {
             <span><strong>${t('carStock.date') || 'Date'}:</strong> ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
           </div>
           <div class="report-ref">
-            <span><strong>REF:</strong> ${generateRef()}</span>
+            <span><strong>REF:</strong> ${escapeHtml(generateRef())}</span>
           </div>
-          <h1 class="report-title">${title}</h1>
-          ${contentBeforeTable}
+          <h1 class="report-title">${escapeHtml(title)}</h1>
+          ${rawHtml(contentBeforeTable)}
           <div class="table-container">
             <table class="report-table">
               <thead>
                 <tr>
-                  ${columns.map((col) => `<th class="table-header">${col.label}</th>`).join('')}
+                  ${columns.map((col) => `<th class="table-header">${escapeHtml(col.label)}</th>`).join('')}
                 </tr>
               </thead>
               <tbody>
@@ -748,7 +749,7 @@ const handlePrintWithOptions = async (printData) => {
                             }
                           } else if (value !== null && value !== undefined) {
                             if (col.key === 'client_id_picture' && value) {
-                              displayValue = `<img src="${getFileUrl(value)}" alt="Client ID" style="max-width: 100px; max-height: 60px; object-fit: contain;" />`
+                              displayValue = `<img src="${escapeHtml(getFileUrl(value))}" alt="Client ID" style="max-width: 100px; max-height: 60px; object-fit: contain;" />`
                             } else if (col.key.includes('date') && value) {
                               displayValue = new Date(value).toLocaleDateString()
                             } else if (
@@ -761,10 +762,12 @@ const handlePrintWithOptions = async (printData) => {
                                 displayValue = parseFloat(value).toLocaleString()
                               }
                             } else {
-                              displayValue = value.toString()
+                              // Stored column content. Escaped here rather than at
+                              // the <td>: the branch above builds an <img> on purpose.
+                              displayValue = escapeHtml(value.toString())
                             }
                           }
-                          return `<td class="table-cell">${displayValue}</td>`
+                          return `<td class="table-cell">${rawHtml(displayValue)}</td>`
                         })
                         return `<tr class="table-row">${cells.join('')}</tr>`
                       })
@@ -808,7 +811,7 @@ const handlePrintWithOptions = async (printData) => {
                         return `
                           <tr class="group-header-row">
                             <td colspan="${columns.length}" class="group-header-cell">
-                              <strong>${groupLabel}: ${groupValue}</strong> (${groupCars.length} car${groupCars.length === 1 ? '' : 's'})
+                              <strong>${escapeHtml(groupLabel)}: ${escapeHtml(groupValue)}</strong> (${groupCars.length} car${groupCars.length === 1 ? '' : 's'})
                             </td>
                           </tr>
                           ${groupCars
@@ -846,7 +849,7 @@ const handlePrintWithOptions = async (printData) => {
                                   }
                                 } else if (value !== null && value !== undefined) {
                                   if (col.key === 'client_id_picture' && value) {
-                                    displayValue = `<img src="${getFileUrl(value)}" alt="Client ID" style="max-width: 100px; max-height: 60px; object-fit: contain;" />`
+                                    displayValue = `<img src="${escapeHtml(getFileUrl(value))}" alt="Client ID" style="max-width: 100px; max-height: 60px; object-fit: contain;" />`
                                   } else if (col.key.includes('date') && value) {
                                     displayValue = new Date(value).toLocaleDateString()
                                   } else if (
@@ -859,10 +862,12 @@ const handlePrintWithOptions = async (printData) => {
                                       displayValue = parseFloat(value).toLocaleString()
                                     }
                                   } else {
-                                    displayValue = value.toString()
+                                    // Stored column content. Escaped here rather than at
+                                    // the <td>: the branch above builds an <img> on purpose.
+                                    displayValue = escapeHtml(value.toString())
                                   }
                                 }
-                                return `<td class="table-cell">${displayValue}</td>`
+                                return `<td class="table-cell">${rawHtml(displayValue)}</td>`
                               })
                               return `<tr class="table-row">${cells.join('')}</tr>`
                             })
@@ -875,7 +880,7 @@ const handlePrintWithOptions = async (printData) => {
               </tbody>
             </table>
           </div>
-          ${contentAfterTable}
+          ${rawHtml(contentAfterTable)}
         </div>
       </body>
       </html>

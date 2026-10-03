@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import { readJsonResponse } from '@/utils/readJsonResponse'
 import {
   getBasePath as sharedGetBasePath,
   resolveApiBaseUrl,
@@ -55,6 +56,22 @@ let config_promise = null
 // This allows getFileUrl to work synchronously while using the correct base_directory
 let current_upload_path = null
 
+// Read the API token out of localStorage, tolerating a corrupt value.
+//
+// router/index.js and a dozen components parse this key unguarded, so a partial
+// write turns a bad session into an unhandled throw during navigation. Callers
+// that only need the token should use this rather than JSON.parse themselves.
+export function getStoredToken() {
+  try {
+    const raw = localStorage.getItem('user')
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    return parsed && typeof parsed.token === 'string' ? parsed.token : null
+  } catch {
+    return null
+  }
+}
+
 // Function to load configuration from db_code.json
 // db_code.json is PER SERVER, not per build: it names the database this
 // deployment talks to, so it is fetched at runtime from <mount>db_code.json
@@ -98,7 +115,7 @@ async function loadConfig() {
         )
       }
 
-      const data = await response.json()
+      const data = await readJsonResponse(response, dbCodeUrl)
 
       // Check if db_code exists
       if (data.db_code) {
@@ -121,7 +138,7 @@ async function loadConfig() {
               `API returned non-JSON response. Check if ${DB_MANAGER_API_URL} exists.`,
             )
           }
-          const dbResult = await dbResponse.json()
+          const dbResult = await readJsonResponse(dbResponse, DB_MANAGER_API_URL)
 
           if (dbResult.success && dbResult.data) {
             // Use db_name and files_dir from dbs table
@@ -210,23 +227,36 @@ export const useApi = () => {
     error.value = null
 
     try {
+      // Send the token whenever we have one.
+      //
+      // This used to be `data.requiresAuth ? user : null`, so any call that forgot
+      // to opt in went out anonymous - and the API trusted that, so it mattered.
+      // Now the token rides along on everything: the server decides what a request
+      // is allowed, and a call site no longer has to remember to ask for a token.
+      // Calls from /login, /settings and a share link still send nothing, because
+      // there is no user in localStorage to take one from.
+      //
+      // Read *before* the delay below. It used to sit after the await, so logout
+      // read localStorage ~1s after LogoutButton had already cleared it and went
+      // out with token: undefined - the session stayed valid server-side.
+      const storedToken = getStoredToken()
+
+      // An explicitly-passed token wins. `{...data, token: stored}` used to
+      // overwrite it, which silently defeated the logout path above.
+      const requestToken = data.token ?? storedToken
+
       // Add a small random delay to make requests look more human-like (only on production)
       if (retryCount === 0 && !isLocalhost) {
         const delay = Math.random() * 1000 + 500 // 500-1500ms delay
         await new Promise((resolve) => setTimeout(resolve, delay))
       }
 
-      // Get user token if not a public route
-      const user = !data.requiresAuth ? null : localStorage.getItem('user')
-      const userData = user ? JSON.parse(user) : null
-
-      // Load database name from db_code.json
-      const db_name = await loadDbName()
-
+      // No dbname: the server picks its database from db_code.json now. It used to
+      // read one off this request, which let a caller aim the API's credentials at
+      // any database on the host. Sending it was never more than decoration.
       const requestData = {
         ...data,
-        token: userData?.token,
-        dbname: db_name,
+        token: requestToken,
       }
 
       // Removed: console.log('API call to:', API_URL, 'with data:', requestData)
@@ -280,7 +310,7 @@ export const useApi = () => {
         )
       }
 
-      const result = await response.json()
+      const result = await readJsonResponse(response, API_URL)
       // Removed: console.log('API result:', result)
       return result
     } catch (err) {
@@ -316,6 +346,14 @@ export const useApi = () => {
       formData.append('destination_folder', destinationFolder)
       if (customFilename) {
         formData.append('custom_filename', customFilename)
+      }
+      // upload.php is authenticated (it used to serve and store files with no
+      // auth at all, which let anyone write a .php webshell or read
+      // config.local.php). A form body cannot carry the X-Api-Token header a
+      // file:// <img> cannot set, so the token rides as a field here.
+      const uploadToken = getStoredToken()
+      if (uploadToken) {
+        formData.append('token', uploadToken)
       }
 
       // Add timeout to prevent hanging
@@ -356,7 +394,7 @@ export const useApi = () => {
         throw new Error(`Server returned non-JSON response: ${text.substring(0, 200)}`)
       }
 
-      const result = await response.json()
+      const result = await readJsonResponse(response, UPLOAD_URL)
       // Removed: console.log('Upload result:', result)
 
       if (!result.success) {
@@ -436,6 +474,10 @@ export const useApi = () => {
           if (baseDirectory) {
             url.searchParams.set('base_directory', baseDirectory)
           }
+          const token = getStoredToken()
+          if (token) {
+            url.searchParams.set('token', token)
+          }
           return url.toString()
         }
       } catch (err) {
@@ -463,6 +505,14 @@ export const useApi = () => {
     const url = new URL(UPLOAD_URL)
     url.searchParams.set('path', processedPath)
     url.searchParams.set('base_directory', cleanBaseDirectory)
+    // upload.php now requires a token on the GET branch too. An <img src> cannot
+    // send a header, so it has to travel in the query string - which means it can
+    // land in an access log. That is the cost of closing the unauthenticated
+    // arbitrary-file-read hole without moving every asset behind an API route.
+    const token = getStoredToken()
+    if (token) {
+      url.searchParams.set('token', token)
+    }
     return url.toString()
   }
 
@@ -477,9 +527,6 @@ export const useApi = () => {
     try {
       // Removed: console.log('Attempting to handle cookie verification...')
 
-      // Load database name from db_code.json
-      const db_name = await loadDbName()
-
       // First, try to access the API endpoint to establish cookies
       const mainPageResponse = await fetch(API_URL, {
         method: 'POST',
@@ -488,7 +535,7 @@ export const useApi = () => {
           Accept: 'application/json, text/plain, */*',
           'Accept-Language': 'en-US,en;q=0.9',
         },
-        body: JSON.stringify({ action: 'ping', dbname: db_name }),
+        body: JSON.stringify({ action: 'ping' }),
       })
 
       // Removed: console.log('Main page response status:', mainPageResponse.status)
@@ -1051,6 +1098,122 @@ export const useApi = () => {
     throw new Error(result.error || 'Failed to delete agent')
   }
 
+  // Colors CRUD.
+  //
+  // These deliberately do NOT go through the generic {query, params} passthrough
+  // like the rest of this file. That path in api/api.php executes whatever SQL it
+  // is handed and its only gate is a special case for payment_confirmed writes,
+  // so an INSERT or DELETE on colors was reachable by anyone who could reach the
+  // endpoint - the admin v-if in the component was never a check. These call the
+  // token-gated handlers in api/actions/colors.php instead.
+  //
+  // Reads and writes need a valid token; delete_color is admin-only server-side.
+  // Colours are reference data every user picks from when entering a car, which
+  // is why create/update are not admin-only the way delete is.
+  //
+  // Each helper throws on failure, carrying the server's `code` and `meta` on the
+  // error so colorErrorText() can still translate it - a duplicate colour or an
+  // in-use refusal is the expected failure here, not an exception.
+  const getColors = async () => {
+    const result = await callApi({ action: 'get_colors', requiresAuth: true })
+    if (result.success) {
+      return result.colors || []
+    }
+    throw apiFailure(result, 'Failed to fetch colors')
+  }
+
+  const createColor = async ({ color, hexa }) => {
+    const result = await callApi({
+      action: 'create_color',
+      color,
+      hexa,
+      requiresAuth: true,
+    })
+    if (!result.success) {
+      throw apiFailure(result, 'Failed to create color')
+    }
+    return result
+  }
+
+  const updateColor = async (id, { color, hexa }) => {
+    const result = await callApi({
+      action: 'update_color',
+      id,
+      color,
+      hexa,
+      requiresAuth: true,
+    })
+    if (!result.success) {
+      throw apiFailure(result, 'Failed to update color')
+    }
+    return result
+  }
+
+  const deleteColor = async (id) => {
+    const result = await callApi({ action: 'delete_color', id, requiresAuth: true })
+    if (!result.success) {
+      throw apiFailure(result, 'Failed to delete color')
+    }
+    return result
+  }
+
+  // Container GPS tracking. Replaces execute_sql, which ran caller-supplied SQL
+  // with no authentication - and the map popup's version of it wrote a literal
+  // id_user: 1, so every save was attributed to whoever held id 1.
+  //
+  // getContainerTracking() with no refs covers every container; pass refs for a
+  // subset. Returns rows newest-first per container.
+  const getContainerTracking = async (containerRefs = null) => {
+    const payload = { action: 'get_container_tracking' }
+    if (Array.isArray(containerRefs)) {
+      payload.container_refs = containerRefs
+    }
+
+    const result = await callApi(payload)
+    if (!result.success) {
+      throw apiFailure(result, 'Failed to load container tracking')
+    }
+    return result.tracking || []
+  }
+
+  // coords is a "lat,lng" string, or null to clear the recorded position.
+  // id_user is resolved from the token server-side.
+  const saveContainerTracking = async (containerRef, coords = null) => {
+    const result = await callApi({
+      action: 'save_container_tracking',
+      container_ref: containerRef,
+      tracking: coords,
+    })
+    if (!result.success) {
+      throw apiFailure(result, 'Failed to save container tracking')
+    }
+    return result
+  }
+
+  // The /clients/:token share page. Public by design - the share_token is the
+  // credential - so it makes one round trip instead of four.
+  const getClientShareData = async (shareToken) => {
+    const result = await callApi({ action: 'get_client_share_data', share_token: shareToken })
+    if (!result.success) {
+      throw apiFailure(result, 'Failed to load shared client data')
+    }
+    return {
+      client: result.client || null,
+      cars: result.cars || [],
+      files: result.files || [],
+      tracking: result.tracking || [],
+    }
+  }
+
+  // The version dialog renders on /login, so this cannot require a session.
+  const getDbVersion = async () => {
+    const result = await callApi({ action: 'get_db_version' })
+    if (!result.success) {
+      throw apiFailure(result, 'Failed to read database version')
+    }
+    return result.version || null
+  }
+
   // Rollback checkout (admin only)
   const rollbackCheckout = async (fileId, notes = null) => {
     const user = getCurrentUser()
@@ -1104,9 +1267,40 @@ export const useApi = () => {
     createCustomClearanceAgent,
     updateCustomClearanceAgent,
     deleteCustomClearanceAgent,
+    // Colors
+    getColors,
+    createColor,
+    updateColor,
+    deleteColor,
+    // Container tracking
+    getContainerTracking,
+    saveContainerTracking,
+    // Public share page / version dialog
+    getClientShareData,
+    getDbVersion,
     error,
     loading,
   }
+}
+
+/**
+ * Build an Error that still carries the server's machine-readable failure.
+ *
+ * apiErrorDie() answers with { success: false, code, meta }. callApi returns that
+ * payload untouched, so a helper that throws has to copy `code`/`meta` onto the
+ * error or the caller is left with an opaque string and no way to tell a
+ * duplicate colour from a database outage. colorErrorText() reads the same two
+ * properties apiErrorText() does, which is why this works for both.
+ */
+function apiFailure(result, fallbackMessage) {
+  const err = new Error(result?.error || fallbackMessage)
+  if (result?.code) {
+    err.code = result.code
+  }
+  if (result?.meta) {
+    err.meta = result.meta
+  }
+  return err
 }
 
 // to locale keys so raw English never reaches the UI. Unknown codes (DB-level
@@ -1146,6 +1340,53 @@ export function apiErrorText(t, result) {
         committed: result?.meta?.committed || 0,
         min: result?.meta?.minQty || 0,
       })
+    default:
+      return t(key)
+  }
+}
+
+/**
+ * Translate a failure from api/actions/colors.php into the reader's language.
+ *
+ * Separate from apiErrorText() because the two shared codes mean something
+ * different in each place: not_admin here is about a colour, not a buy detail,
+ * so reusing buy.detailsTable.adminOnly ("Only an admin can edit or delete buy
+ * details") on the colours screen would name the wrong screen. Same contract as
+ * apiErrorText(): unknown codes return '' so the caller falls back to its own
+ * generic translated message and keeps the raw text in the console.
+ *
+ * @param {Function} t vue-i18n translate
+ * @param {{code?: string, meta?: object}|Error|null} result an apiFailure()
+ *        error, or the raw {success: false, code, meta} payload
+ * @returns {string} '' when the code is not one we know
+ */
+export function colorErrorText(t, result) {
+  const code = result?.code
+  const keys = {
+    not_authenticated: 'colorsView.errors.notAuthenticated',
+    not_admin: 'colorsView.errors.notAdmin',
+    color_name_required: 'colorsView.errors.nameRequired',
+    color_name_too_long: 'colorsView.errors.nameTooLong',
+    color_invalid_hexa: 'colorsView.errors.invalidHexa',
+    color_not_found: 'colorsView.errors.notFound',
+    color_save_failed: 'colorsView.errors.saveFailed',
+    color_in_use: 'colorsView.errors.inUse',
+    color_exists: 'colorsView.errors.duplicateColor',
+    db_unavailable: 'colorsView.errors.dbUnavailable',
+    db_schema_outdated: 'colorsView.errors.schemaOutdated',
+  }
+  const key = keys[code]
+  if (!key) return ''
+  switch (code) {
+    // colors.color and colors.hexa are two independent UNIQUE keys, and saying
+    // which one collided is the difference between a user fixing the row and
+    // guessing which field to change.
+    case 'color_exists':
+      return result?.meta?.field === 'hexa'
+        ? t('colorsView.errors.duplicateHexa')
+        : t('colorsView.errors.duplicateColor')
+    case 'color_in_use':
+      return t('colorsView.errors.inUseDetail', { count: result?.meta?.count || 0 })
     default:
       return t(key)
   }

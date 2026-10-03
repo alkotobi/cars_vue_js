@@ -1,16 +1,30 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
-import { useApi } from '../composables/useApi'
+import { useApi, colorErrorText } from '../composables/useApi'
 import { useSubmitGuard } from '../composables/useSubmitGuard'
+import { useEnhancedI18n } from '../composables/useI18n'
 
+const { t } = useEnhancedI18n()
+const { getColors, createColor, updateColor, deleteColor } = useApi()
 const { guard, isBusy } = useSubmitGuard()
+
 const colors = ref([])
-const { callApi, error } = useApi()
+const isLoading = ref(false)
+const loadFailed = ref(false)
+const pageError = ref(null)
+const statusMessage = ref(null)
+const dialogError = ref(null)
+
 const showAddDialog = ref(false)
 const showEditDialog = ref(false)
 const editingColor = ref(null)
+
 const user = ref(null)
 
+// Delete is the only admin-gated action, and the button mirrors that rather than
+// replacing it: create_color / update_color accept any signed-in user because a
+// colour is picked while entering a car, while delete_color is admin-only in
+// api/actions/colors.php. Hiding the button is a courtesy; the server refuses it.
 const isAdmin = computed(() => user.value?.role_id === 1)
 
 const newColor = ref({
@@ -18,105 +32,178 @@ const newColor = ref({
   hexa: '#000000',
 })
 
+// colors.hexa is a free-text varchar, so a row can hold something the browser's
+// colour input cannot represent - binding that to <input type="color"> snaps the
+// picker to #000000 and a save would overwrite the stored value with no sign it
+// ever existed. The value is shown as text as well as a swatch so a bad value is
+// visible and fixable rather than silently replaced.
+const HEX_PATTERN = /^#[0-9A-Fa-f]{6}$/
+
+const isHexValid = (value) => HEX_PATTERN.test((value || '').trim())
+
 const fetchColors = async () => {
-  const result = await callApi({
-    query: 'SELECT * FROM colors ORDER BY color ASC',
-    params: [],
-  })
-  if (result.success) {
-    colors.value = result.data
+  isLoading.value = true
+  loadFailed.value = false
+  try {
+    colors.value = await getColors()
+  } catch (err) {
+    loadFailed.value = true
+    pageError.value = colorErrorText(t, err) || t('colorsView.errors.loadFailed')
+    console.error('fetchColors', err)
+  } finally {
+    isLoading.value = false
+  }
+}
+
+// One funnel for the three writes. Keeps the dialog open on failure so the typed
+// values are not lost, and turns every refusal into a visible line instead of the
+// silent no-op this view used to be: callApi rejects on transport errors, and a
+// duplicate colour comes back as {success: false} - both were being discarded.
+const runWrite = async (work) => {
+  pageError.value = null
+  statusMessage.value = null
+  try {
+    await work()
+    await fetchColors()
+    return true
+  } catch (err) {
+    pageError.value = colorErrorText(t, err) || t('colorsView.errors.saveFailed')
+    console.error('colors write', err)
+    return false
   }
 }
 
 const addColor = guard('add', async () => {
-  const result = await callApi({
-    query: 'INSERT INTO colors (color, hexa) VALUES (?, ?)',
-    params: [newColor.value.color, newColor.value.hexa],
-  })
-  if (result.success) {
+  dialogError.value = null
+  const ok = await runWrite(() => createColor({ ...newColor.value }))
+  if (ok) {
     showAddDialog.value = false
     newColor.value = { color: '', hexa: '#000000' }
-    await fetchColors()
+    statusMessage.value = t('colorsView.added')
   }
 })
 
-const editColor = (color) => {
+const openEditDialog = (color) => {
   editingColor.value = { ...color }
+  dialogError.value = null
   showEditDialog.value = true
 }
 
-const updateColor = guard('update', async () => {
-  const result = await callApi({
-    query: 'UPDATE colors SET color = ?, hexa = ? WHERE id = ?',
-    params: [editingColor.value.color, editingColor.value.hexa, editingColor.value.id],
-  })
-  if (result.success) {
+const saveEdit = guard('update', async () => {
+  dialogError.value = null
+  const ok = await runWrite(() => updateColor(editingColor.value.id, { ...editingColor.value }))
+  if (ok) {
     showEditDialog.value = false
     editingColor.value = null
-    await fetchColors()
+    statusMessage.value = t('colorsView.updated')
   }
 })
 
-const deleteColor = guard('delete', async (color) => {
-  if (confirm('Are you sure you want to delete this color?')) {
-    const result = await callApi({
-      query: 'DELETE FROM colors WHERE id = ?',
-      params: [color.id],
-    })
-    if (result.success) {
-      await fetchColors()
-    }
+// confirm() runs before the guarded call, not inside it. Inside, the guard holds
+// the key for as long as the modal is open, so every row's button reads
+// "Deleting..." and is disabled while the user is still being asked.
+const confirmDelete = (color) => {
+  if (!window.confirm(t('colorsView.confirmDelete', { name: color.color }))) {
+    return
+  }
+  removeColor(color)
+}
+
+const removeColor = guard('delete', async (color) => {
+  await runWrite(() => deleteColor(color.id))
+  if (!pageError.value) {
+    statusMessage.value = t('colorsView.deleted', { name: color.color })
   }
 })
 
-onMounted(() => {
+const closeAddDialog = () => {
+  showAddDialog.value = false
+  dialogError.value = null
+  newColor.value = { color: '', hexa: '#000000' }
+}
+
+const closeEditDialog = () => {
+  showEditDialog.value = false
+  dialogError.value = null
+  editingColor.value = null
+}
+
+onMounted(async () => {
   const userStr = localStorage.getItem('user')
   if (userStr) {
-    user.value = JSON.parse(userStr)
-    fetchColors()
+    try {
+      user.value = JSON.parse(userStr)
+    } catch {
+      user.value = null
+    }
   }
+  await fetchColors()
 })
 </script>
 
 <template>
   <div class="colors-view">
     <div class="header">
-      <h2>Colors Management</h2>
-      <button @click="showAddDialog = true" class="add-btn">Add Color</button>
+      <h2>{{ t('colorsView.title') }}</h2>
+      <button @click="showAddDialog = true" class="add-btn">{{ t('colorsView.addColor') }}</button>
     </div>
+
+    <p v-if="pageError" class="banner banner-error" role="alert">{{ pageError }}</p>
+    <p v-if="statusMessage" class="banner banner-ok" role="status">{{ statusMessage }}</p>
+
     <div class="content">
       <table class="colors-table">
         <thead>
           <tr>
-            <th>Color Name</th>
-            <th>Color Preview</th>
-            <th>Hex Code</th>
-            <th>Actions</th>
+            <th>{{ t('colorsView.colorName') }}</th>
+            <th>{{ t('colorsView.colorPreview') }}</th>
+            <th>{{ t('colorsView.hexCode') }}</th>
+            <th>{{ t('colorsView.actions') }}</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="color in colors" :key="color.id">
-            <td>{{ color.color }}</td>
-            <td>
-              <div
-                class="color-preview"
-                :style="{ backgroundColor: color.hexa || '#000000' }"
-                :title="color.hexa || '#000000'"
-              ></div>
-            </td>
-            <td>{{ color.hexa || 'N/A' }}</td>
-            <td>
-              <button @click="editColor(color)" class="btn edit-btn">Edit</button>
-              <button
-                v-if="isAdmin"
-                @click="deleteColor(color)"
-                class="btn delete-btn"
-                :disabled="isBusy('delete')"
-              >
-                {{ isBusy('delete') ? 'Deleting...' : 'Delete' }}
+          <tr v-if="isLoading">
+            <td colspan="4" class="muted">{{ t('colorsView.loading') }}</td>
+          </tr>
+          <tr v-else-if="loadFailed">
+            <td colspan="4" class="muted">
+              {{ t('colorsView.loadFailed') }}
+              <button class="btn retry-btn" @click="fetchColors">
+                {{ t('colorsView.retry') }}
               </button>
             </td>
           </tr>
+          <tr v-else-if="!colors.length">
+            <td colspan="4" class="muted">{{ t('colorsView.noColors') }}</td>
+          </tr>
+          <template v-else>
+            <tr v-for="color in colors" :key="color.id">
+              <td>{{ color.color }}</td>
+              <td>
+                <div
+                  class="color-preview"
+                  :style="{ backgroundColor: isHexValid(color.hexa) ? color.hexa : 'transparent' }"
+                  :title="color.hexa || ''"
+                ></div>
+              </td>
+              <td>
+                <span class="hex-code">{{ color.hexa || t('colorsView.notSet') }}</span>
+              </td>
+              <td>
+                <button @click="openEditDialog(color)" class="btn edit-btn">
+                  {{ t('colorsView.edit') }}
+                </button>
+                <button
+                  v-if="isAdmin"
+                  @click="confirmDelete(color)"
+                  class="btn delete-btn"
+                  :disabled="isBusy('delete')"
+                >
+                  {{ isBusy('delete') ? t('colorsView.deleting') : t('colorsView.delete') }}
+                </button>
+              </td>
+            </tr>
+          </template>
         </tbody>
       </table>
     </div>
@@ -124,47 +211,61 @@ onMounted(() => {
     <!-- Add Color Dialog -->
     <div v-if="showAddDialog" class="dialog-overlay">
       <div class="dialog">
-        <h3>Add New Color</h3>
+        <h3>{{ t('colorsView.addTitle') }}</h3>
+        <p v-if="dialogError" class="banner banner-error" role="alert">{{ dialogError }}</p>
         <div class="form-group">
-          <label>Color Name:</label>
-          <input v-model="newColor.color" placeholder="Color Name" class="input-field" />
+          <label>{{ t('colorsView.colorName') }}:</label>
+          <input
+            v-model="newColor.color"
+            :placeholder="t('colorsView.colorNamePlaceholder')"
+            class="input-field"
+          />
         </div>
         <div class="form-group">
-          <label>Color Picker:</label>
+          <label>{{ t('colorsView.colorPicker') }}:</label>
           <div class="color-picker-container">
             <input type="color" v-model="newColor.hexa" class="color-picker" />
-            <span class="hex-display">{{ newColor.hexa }}</span>
+            <input v-model="newColor.hexa" class="hex-input input-field" maxlength="7" />
           </div>
         </div>
         <div class="dialog-actions">
           <button @click="addColor" class="btn save-btn" :disabled="isBusy('add')">
-            {{ isBusy('add') ? 'Saving...' : 'Save' }}
+            {{ isBusy('add') ? t('colorsView.saving') : t('colorsView.save') }}
           </button>
-          <button @click="showAddDialog = false" class="btn cancel-btn">Cancel</button>
+          <button @click="closeAddDialog" class="btn cancel-btn">
+            {{ t('colorsView.cancel') }}
+          </button>
         </div>
       </div>
     </div>
 
     <!-- Edit Color Dialog -->
-    <div v-if="showEditDialog" class="dialog-overlay">
+    <div v-if="showEditDialog && editingColor" class="dialog-overlay">
       <div class="dialog">
-        <h3>Edit Color</h3>
+        <h3>{{ t('colorsView.editTitle') }}</h3>
+        <p v-if="dialogError" class="banner banner-error" role="alert">{{ dialogError }}</p>
         <div class="form-group">
-          <label>Color Name:</label>
-          <input v-model="editingColor.color" placeholder="Color Name" class="input-field" />
+          <label>{{ t('colorsView.colorName') }}:</label>
+          <input
+            v-model="editingColor.color"
+            :placeholder="t('colorsView.colorNamePlaceholder')"
+            class="input-field"
+          />
         </div>
         <div class="form-group">
-          <label>Color Picker:</label>
+          <label>{{ t('colorsView.colorPicker') }}:</label>
           <div class="color-picker-container">
             <input type="color" v-model="editingColor.hexa" class="color-picker" />
-            <span class="hex-display">{{ editingColor.hexa }}</span>
+            <input v-model="editingColor.hexa" class="hex-input input-field" maxlength="7" />
           </div>
         </div>
         <div class="dialog-actions">
-          <button @click="updateColor" class="btn save-btn" :disabled="isBusy('update')">
-            {{ isBusy('update') ? 'Saving...' : 'Save' }}
+          <button @click="saveEdit" class="btn save-btn" :disabled="isBusy('update')">
+            {{ isBusy('update') ? t('colorsView.saving') : t('colorsView.save') }}
           </button>
-          <button @click="showEditDialog = false" class="btn cancel-btn">Cancel</button>
+          <button @click="closeEditDialog" class="btn cancel-btn">
+            {{ t('colorsView.cancel') }}
+          </button>
         </div>
       </div>
     </div>
@@ -205,6 +306,30 @@ onMounted(() => {
   background-color: #f5f5f5;
 }
 
+.muted {
+  color: #6b7280;
+  text-align: center;
+}
+
+.banner {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.banner-error {
+  color: #991b1b;
+  background-color: #fee2e2;
+  border: 1px solid #fecaca;
+}
+
+.banner-ok {
+  color: #065f46;
+  background-color: #d1fae5;
+  border: 1px solid #a7f3d0;
+}
+
 .add-btn {
   padding: 8px 16px;
   background-color: #10b981;
@@ -225,6 +350,12 @@ onMounted(() => {
 .btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.retry-btn {
+  margin-left: 8px;
+  background-color: #3b82f6;
+  color: white;
 }
 
 .edit-btn {
@@ -293,6 +424,11 @@ onMounted(() => {
   display: inline-block;
 }
 
+.hex-code {
+  font-family: monospace;
+  font-size: 14px;
+}
+
 .color-picker-container {
   display: flex;
   align-items: center;
@@ -305,15 +441,20 @@ onMounted(() => {
   border: none;
   border-radius: 4px;
   cursor: pointer;
+  padding: 0;
+  background: none;
 }
 
-.hex-display {
+.color-picker::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.color-picker::-webkit-color-swatch {
+  border: 1px solid #ddd;
+}
+
+.hex-input {
   font-family: monospace;
-  font-size: 14px;
-  color: #374151;
-  background-color: #f3f4f6;
-  padding: 8px 12px;
-  border-radius: 4px;
-  border: 1px solid #d1d5db;
+  text-transform: uppercase;
 }
 </style>

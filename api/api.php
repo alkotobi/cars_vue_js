@@ -1,14 +1,25 @@
 <?php
-header('Access-Control-Allow-Origin: *');
+// Report everything to the error log, but never to the response body.
+//
+// This file is only ever consumed by JSON.parse(), so a stray warning printed
+// ahead of the payload breaks the whole response - the browser sees
+// `Unexpected token '<'` and the actual cause is nowhere in the message. That is
+// not hypothetical: a warning here hid behind exactly that error while the
+// payment_confirmed gate was mis-classifying a read as a write.
+//
+// display_errors defaults to 1 on a lot of PHP builds, so this has to be set
+// rather than assumed. error_reporting stays at E_ALL, so nothing is lost - it
+// goes to error_log, which is where a production failure belongs. backup.php and
+// upload.php already did this; api.php did not.
+error_reporting(E_ALL);
+ini_set('display_errors', '0');
+
+require_once __DIR__ . '/lib/cors.php';
+api_send_cors_headers();
 header('Content-Type: application/json');
-header('Access-Control-Allow-Methods: POST, OPTIONS');
-header('Access-Control-Allow-Headers: Access-Control-Allow-Headers,Content-Type,Access-Control-Allow-Methods,Authorization,X-Requested-With');
 
 // Handle preflight OPTIONS request
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit;
-}
+api_handle_preflight();
 
 // Only accept POST requests
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -17,26 +28,69 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 // Include database configuration
-require_once 'config.php';
+require_once __DIR__ . '/config.php';
 
-// Get POST data early to check for database name
+// require_api_user() / require_api_admin() guard the caller-supplied SQL endpoint
+// at the bottom of this file, so the helpers have to exist from here on.
+require_once __DIR__ . '/lib/auth.php';
+// app_db_name() backs getDbConfig() and must be loaded before the first query.
+require_once __DIR__ . '/lib/appdb.php';
+
+// The decoded request body. Read once, at the top, because the action gate below,
+// getDbConfig() and every handler in the switch all work from it.
 $postData = json_decode(file_get_contents('php://input'), true);
 
-// Function to get database configuration (uses POST dbname if provided, otherwise uses config.php)
+// Resolve the real database name for this deployment, server-side.
+//
+// @return string|null null when there is no db_code.json or it does not resolve, in
+//         which case getDbConfig() falls back to config.php.
+function resolveDbNameFromCode(): ?string
+{
+    // app_db_code() reads db_code.json and validates the shape; app_db_name() walks
+    // the merhab_databases registry for it. Both live in lib/appdb.php so that this
+    // file and every standalone endpoint resolve the same database - two code paths
+    // here would be two chances to disagree about which database is being served.
+    return app_db_name();
+}
+
+// Function to get database configuration
+//
+// The database this server serves is decided here, on the server, from the
+// per-deployment db_code.json that deploy/deploy.sh writes. It used to come from
+// the request instead: the browser read db_code.json (it sits in the webroot),
+// asked db_manager_api.php to turn the code into a real name, and posted that name
+// as `dbname`, which this function used verbatim. Anyone could post any name, so a
+// caller could aim the API's own credentials at a database it was never meant to
+// touch.
+//
+// The POST `dbname` is ignored. See resolveDbNameFromCode() below.
 function getDbConfig() {
-    global $db_config, $postData;
-    
-    // If POST data contains dbname, use it; otherwise use default from config
-    if ($postData && isset($postData['dbname']) && !empty($postData['dbname'])) {
-        return [
+    static $resolved = null;
+
+    // Cached: this runs on every query, and re-reading the file plus opening a
+    // second connection per request would be absurd overhead for a value that
+    // cannot change while the process is running.
+    if ($resolved !== null) {
+        return $resolved;
+    }
+
+    global $db_config;
+
+    $dbName = resolveDbNameFromCode();
+    if ($dbName !== null) {
+        $resolved = [
             'host' => $db_config['host'],
             'user' => $db_config['user'],
             'pass' => $db_config['pass'],
-            'dbname' => $postData['dbname']
+            'dbname' => $dbName
         ];
+        return $resolved;
     }
-    
-    return $db_config;
+
+    // No db_code.json, or it does not resolve. Fall back to config.php rather than
+    // failing every request: a developer running against a single database should
+    // not need the per-server file that only a real deployment has.
+    return $resolved = $db_config;
 }
 
 // Function to establish database connection
@@ -52,6 +106,28 @@ function getConnection($config) {
     } catch(PDOException $e) {
         return ['error' => $e->getMessage()];
     }
+}
+
+// Strip the comments and whitespace that can legally precede the first SQL token.
+//
+// Used to decide whether a statement needs a permission check. This is not a SQL
+// parser and does not need to be: the only question is "does this statement start
+// with something other than UPDATE", and leading /* */, -- and # comments are the
+// only way to move the verb away from byte 0 without changing what it means.
+function api_strip_leading_sql($sql) {
+    $sql = (string)$sql;
+    $guard = 0;
+
+    do {
+        $before = $sql;
+        $sql = ltrim($sql);
+        $sql = preg_replace('/^\/\*.*?\*\//s', '', $sql);   // /* block comment */
+        $sql = preg_replace('/^--[^\n]*/', '', $sql);      // -- line comment
+        $sql = preg_replace('/^#[^\n]*/', '', $sql);       // # line comment
+        $sql = ltrim($sql);
+    } while ($sql !== $before && ++$guard < 100);
+
+    return $sql;
 }
 
 // Function to execute SQL query and return appropriate result
@@ -179,148 +255,64 @@ function apiErrorDie($code, $status = 200, $meta = null) {
     exit;
 }
 
-// Function to execute multi-statement SQL query
-function executeMultiQuery($sql, $params = []) {
-    try {
-        $conn = getConnection(getDbConfig());
-        
-        if (is_array($conn) && isset($conn['error'])) {
-            throw new Exception($conn['error']);
-        }
-
-        // Split the SQL into individual statements
-        $statements = array_filter(array_map('trim', explode(';', $sql)));
-        $results = [];
-        $lastResult = null;
-        $totalAffectedRows = 0;
-        $totalResults = 0;
-
-        foreach ($statements as $statement) {
-            if (empty($statement)) continue;
-            
-            $stmt = $conn->prepare($statement);
-            $stmt->execute($params);
-            
-            // Determine query type
-            $queryType = strtoupper(substr(trim($statement), 0, 6));
-            
-            switch($queryType) {
-                case 'SELECT':
-                    $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                    $lastResult = ['type' => 'SELECT', 'data' => $data];
-                    $totalResults += count($data);
-                    break;
-                case 'INSERT':
-                    $lastResult = ['type' => 'INSERT', 'lastInsertId' => $conn->lastInsertId(), 'affectedRows' => $stmt->rowCount()];
-                    $totalAffectedRows += $stmt->rowCount();
-                    break;
-                case 'UPDATE':
-                case 'DELETE':
-                    $lastResult = ['type' => $queryType, 'affectedRows' => $stmt->rowCount()];
-                    $totalAffectedRows += $stmt->rowCount();
-                    break;
-                case 'SET':
-                case 'START':
-                case 'COMMIT':
-                case 'ROLLBACK':
-                    $lastResult = ['type' => $queryType, 'success' => true];
-                    break;
-                default:
-                    $lastResult = ['type' => 'OTHER', 'success' => true];
-            }
-            
-            $results[] = $lastResult;
-        }
-
-        // Return the last SELECT result as the main data, or success status
-        if ($lastResult && $lastResult['type'] === 'SELECT') {
-            return [
-                'success' => true, 
-                'results' => $lastResult['data'], 
-                'allResults' => $results,
-                'totalAffectedRows' => $totalAffectedRows,
-                'totalResults' => $totalResults
-            ];
-        } else {
-            return [
-                'success' => true, 
-                'message' => 'Multi-statement executed successfully', 
-                'allResults' => $results,
-                'totalAffectedRows' => $totalAffectedRows,
-                'totalResults' => $totalResults
-            ];
-        }
-        
-    } catch(Exception $e) {
-        return ['success' => false, 'error' => $e->getMessage()];
-    }
-}
+// Actions reachable without a session.
+//
+// Everything else needs a token. The list is a literal on purpose: it is the whole
+// unauthenticated surface of this file, so it should be readable at a glance and
+// should not be derivable from anything a caller controls. Anything genuinely
+// public gets its own entry here rather than a flag on a gated path - a
+// client-sent "public" marker would be a bypass for the gate.
+const PUBLIC_ACTIONS = [
+    // Cookie/bot verification, called before login.
+    'ping',
+    // The credential exchange itself.
+    'login',
+    // Self-service password change for a user who cannot log in yet. It requires
+    // the current password, verified server-side.
+    'change_password_with_credentials',
+    // /clients/:token share link - the token in the path is the credential.
+    'get_client_share_data',
+    // Version dialog, mounted unconditionally in App.vue including on /login.
+    'get_db_version',
+];
 
 // Check if this is a special action request
 if (isset($postData['action'])) {
+    // Everything else needs a session. A dozen actions in the switch below used to
+    // decide what to do by reading $postData['is_admin'], which any caller can
+    // simply set; gating the whole switch turns those checks into a question about
+    // a real user rather than about a claim. A token verified server-side is the
+    // only thing in this codebase that says who the caller is.
+    //
+    // $currentUser is the answer, and the only answer. Handlers used to re-derive
+    // the caller from the payload - $postData['user_id'], $postData['is_admin'],
+    // $postData['performed_by'], $postData['transferred_by'] - so a request could
+    // present its own valid token *and* name somebody else, and the authorisation
+    // check then passed for the name in the body. Read identity from $currentUser,
+    // never from $postData.
+    if (!in_array($postData['action'], PUBLIC_ACTIONS, true)) {
+        $gateConn = getConnection(getDbConfig());
+        if (is_array($gateConn) && isset($gateConn['error'])) {
+            error_log('action gate: ' . $gateConn['error']);
+            apiErrorDie('db_unavailable');
+        }
+        $currentUser = require_api_user($gateConn, $postData);
+    }
+
     switch($postData['action']) {
         case 'ping':
             // Simple ping action for cookie verification
             echo json_encode(['success' => true, 'message' => 'pong']);
             exit;
             
-        case 'execute_sql':
-            // Check if user is admin (you may need to implement proper session/auth check)
-            // For now, we'll add basic security measures
-            if (!isset($postData['query']) || empty($postData['query'])) {
-                http_response_code(400);
-                echo json_encode(['success' => false, 'message' => 'SQL query is required']);
-                exit;
-            }
-            
-            $query = $postData['query'];
-            $params = isset($postData['params']) ? $postData['params'] : [];
-            
-            // Basic security: prevent multiple statements
-            if (strpos($query, ';') !== false && strpos($query, ';') !== strlen($query) - 1) {
-                http_response_code(400);
-                echo json_encode(['success' => false, 'message' => 'Multiple statements not allowed']);
-                exit;
-            }
-            
-            // Execute the query with parameters
-            $result = executeQuery($query, $params);
-            
-            if ($result['success']) {
-                if (isset($result['data'])) {
-                    echo json_encode(['success' => true, 'results' => $result['data']]);
-                } else if (isset($result['affectedRows'])) {
-                    echo json_encode(['success' => true, 'affectedRows' => $result['affectedRows']]);
-                } else if (isset($result['lastInsertId'])) {
-                    echo json_encode(['success' => true, 'lastInsertId' => $result['lastInsertId']]);
-                } else {
-                    echo json_encode(['success' => true, 'message' => 'Query executed successfully']);
-                }
-            } else {
-                echo json_encode(['success' => false, 'message' => $result['error']]);
-            }
-            exit;
-
-        case 'execute_multi_sql':
-            // Handle multi-statement SQL queries
-            if (!isset($postData['query']) || empty($postData['query'])) {
-                http_response_code(400);
-                echo json_encode(['success' => false, 'message' => 'SQL query is required']);
-                exit;
-            }
-            
-            $query = $postData['query'];
-            $params = isset($postData['params']) ? $postData['params'] : [];
-            
-            // Execute the multi-statement query
-            $result = executeMultiQuery($query, $params);
-            
-            if ($result['success']) {
-            echo json_encode($result);
-            } else {
-                echo json_encode(['success' => false, 'message' => $result['error']]);
-            }
-            exit;
+        // Two arbitrary-statement endpoints used to sit here. One ran whatever
+        // statement the request carried behind a semicolon check that
+        // `SELECT 1; DROP TABLE users` slipped past; its sibling split on ';' and ran
+        // the batch with no check at all. Neither looked at a token, so both were
+        // reachable by anyone who could reach the server - and ClientDetailsView,
+        // which the router exempts from authentication for share-token clients, called
+        // the first one. Callers now use named actions in api/actions/; see
+        // src/views/advancedSqlRemoval.spec.js.
 
         case 'get_unique_containers_ref':
             // Get all unique, non-null containers_ref from cars_stock table
@@ -334,52 +326,15 @@ if (isset($postData['action'])) {
             }
             exit;
 
-        case 'verify_password':
-            if (!isset($postData['password']) || !isset($postData['hash'])) {
-                http_response_code(400);
-                echo json_encode(['success' => false, 'error' => 'Missing password or hash']);
-                exit;
-            }
-            
-            $isValid = password_verify($postData['password'], $postData['hash']);
-            echo json_encode(['success' => $isValid]);
-            exit;
-
-        case 'hash_password':
-            if (!isset($postData['query']) || !isset($postData['params']) || count($postData['params']) !== 2) {
-                http_response_code(400);
-                echo json_encode(['success' => false, 'error' => 'Invalid parameters for password update']);
-                exit;
-            }
-
-            // Hash the password (first parameter)
-            $hashedPassword = password_hash($postData['params'][0], PASSWORD_DEFAULT);
-            
-            // Replace the plain password with hashed password in params
-            $postData['params'][0] = $hashedPassword;
-            
-            // Execute the update query with hashed password
-            $result = executeQuery($postData['query'], $postData['params']);
-            echo json_encode($result);
-            exit;
-
-            case 'insert_user':
-                if (!isset($postData['query']) ||!isset($postData['params']) || count($postData['params'])!== 7) {
-                    http_response_code(400);
-                    echo json_encode(['success' => false, 'error' => 'Invalid parameters for user creation']);
-                    exit;
-                }
-
-                // Hash the password (third parameter - index 2)
-                $hashedPassword = password_hash($postData['params'][2], PASSWORD_DEFAULT);
-                
-                // Replace the plain password with hashed password in params
-                $postData['params'][2] = $hashedPassword;
-                
-                // Execute the insert query with hashed password
-                $result = executeQuery($postData['query'], $postData['params']);
-                echo json_encode($result);
-                exit;
+        // verify_password, hash_password and insert_user used to sit here. They read
+        // the statement off the payload - hash_password took
+        // `UPDATE users SET password = ? WHERE username = ?` straight from the login
+        // form - so "named action" bought nothing: any caller could rewrite any
+        // account's password. verify_password was worse, answering "does this password
+        // match this hash" for any pair, which is a free offline-cracking oracle for
+        // anyone holding a stolen hash. The replacements are handle_create_user,
+        // handle_change_own_password and handle_set_user_password in
+        // actions/users.php, each gated on a token and, where relevant, an admin.
 
         case 'assign_multiple_vins':
             if (!isset($postData['assignments']) || !is_array($postData['assignments'])) {
@@ -610,7 +565,13 @@ if (isset($postData['action'])) {
 
             $billId = intval($postData['bill_id']);
             $detailId = intval($postData['detail_id']);
-            $userId = intval($postData['user_id']);
+            // The caller is whoever the token resolved to at the action gate, not
+            // whoever the request body says. This read $postData['user_id'] and then
+            // treated it as the subject of the permission check below, so a non-admin
+            // could send user_id: 1 (the seeded admin) and pass. isAdminUser() and
+            // hasPermission() answer "is user N allowed", which is not the same
+            // question as "is the caller allowed".
+            $userId = (int) $currentUser['id'];
 
             if ($billId <= 0 || $detailId <= 0 || $userId <= 0) {
                 apiErrorDie('invalid_request', 400);
@@ -811,7 +772,13 @@ if (isset($postData['action'])) {
 
             $billId = intval($postData['bill_id']);
             $detailId = intval($postData['detail_id']);
-            $userId = intval($postData['user_id']);
+            // The caller is whoever the token resolved to at the action gate, not
+            // whoever the request body says. This read $postData['user_id'] and then
+            // treated it as the subject of the permission check below, so a non-admin
+            // could send user_id: 1 (the seeded admin) and pass. isAdminUser() and
+            // hasPermission() answer "is user N allowed", which is not the same
+            // question as "is the caller allowed".
+            $userId = (int) $currentUser['id'];
 
             if ($billId <= 0 || $detailId <= 0 || $userId <= 0) {
                 apiErrorDie('invalid_request', 400);
@@ -901,7 +868,13 @@ if (isset($postData['action'])) {
             }
 
             $billId = intval($postData['bill_id']);
-            $userId = intval($postData['user_id']);
+            // The caller is whoever the token resolved to at the action gate, not
+            // whoever the request body says. This read $postData['user_id'] and then
+            // treated it as the subject of the permission check below, so a non-admin
+            // could send user_id: 1 (the seeded admin) and pass. isAdminUser() and
+            // hasPermission() answer "is user N allowed", which is not the same
+            // question as "is the caller allowed".
+            $userId = (int) $currentUser['id'];
 
             if ($billId <= 0 || $userId <= 0) {
                 apiErrorDie('invalid_request', 400);
@@ -1003,15 +976,24 @@ if (isset($postData['action'])) {
 
         case 'get_car_files':
             // Get files for a specific car with permission checking
-            if (!isset($postData['car_id']) || !isset($postData['user_id'])) {
+            if (!isset($postData['car_id'])) {
                 http_response_code(400);
                 echo json_encode(['success' => false, 'error' => 'car_id and user_id are required']);
                 exit;
             }
             
             $carId = intval($postData['car_id']);
-            $userId = intval($postData['user_id']);
-            $isAdmin = isset($postData['is_admin']) ? (bool)$postData['is_admin'] : false;
+            // The caller is whoever the token resolved to at the action gate, not
+            // whoever the request body says. This read $postData['user_id'] and then
+            // treated it as the subject of the permission check below, so a non-admin
+            // could send user_id: 1 (the seeded admin) and pass. isAdminUser() and
+            // hasPermission() answer "is user N allowed", which is not the same
+            // question as "is the caller allowed".
+            $userId = (int) $currentUser['id'];
+            // Derived from the verified token, not from the payload. Read as
+            // `(bool)$postData['is_admin']` this was a field the caller sets, and the
+            // permission checks it guards were skipped entirely by sending true.
+            $isAdmin = ((int) $currentUser['role_id'] === 1);
             
             try {
                 $conn = getConnection(getDbConfig());
@@ -1138,8 +1120,7 @@ if (isset($postData['action'])) {
             // Create a new file record (after upload)
             // Automatically assigns the uploader as the first owner
             if (!isset($postData['car_id']) || !isset($postData['category_id']) || 
-                !isset($postData['file_path']) || !isset($postData['file_name']) ||
-                !isset($postData['uploaded_by'])) {
+                !isset($postData['file_path']) || !isset($postData['file_name'])) {
                 http_response_code(400);
                 echo json_encode(['success' => false, 'error' => 'Missing required fields']);
                 exit;
@@ -1153,7 +1134,9 @@ if (isset($postData['action'])) {
                 
                 $conn->beginTransaction();
                 
-                $uploadedBy = intval($postData['uploaded_by']);
+                // The uploader is the caller. Read from the payload this was forgeable:
+                // any user could claim the upload was somebody else's.
+                $uploadedBy = (int) $currentUser['id'];
                 $carId = intval($postData['car_id']);
                 $categoryId = intval($postData['category_id']);
                 
@@ -1257,15 +1240,24 @@ if (isset($postData['action'])) {
 
         case 'delete_car_file':
             // Delete a file (admin only) - deletes both database record and physical file
-            if (!isset($postData['file_id']) || !isset($postData['user_id'])) {
+            if (!isset($postData['file_id'])) {
                 http_response_code(400);
                 echo json_encode(['success' => false, 'error' => 'file_id and user_id are required']);
                 exit;
             }
             
             $fileId = intval($postData['file_id']);
-            $userId = intval($postData['user_id']);
-            $isAdmin = isset($postData['is_admin']) ? (bool)$postData['is_admin'] : false;
+            // The caller is whoever the token resolved to at the action gate, not
+            // whoever the request body says. This read $postData['user_id'] and then
+            // treated it as the subject of the permission check below, so a non-admin
+            // could send user_id: 1 (the seeded admin) and pass. isAdminUser() and
+            // hasPermission() answer "is user N allowed", which is not the same
+            // question as "is the caller allowed".
+            $userId = (int) $currentUser['id'];
+            // Derived from the verified token, not from the payload. Read as
+            // `(bool)$postData['is_admin']` this was a field the caller sets, and the
+            // permission checks it guards were skipped entirely by sending true.
+            $isAdmin = ((int) $currentUser['role_id'] === 1);
             
             try {
                 $conn = getConnection(getDbConfig());
@@ -1427,11 +1419,10 @@ if (isset($postData['action'])) {
                     throw new Exception('File tracking record not found');
                 }
                 
-                // Verify that the current user is the current holder
-                $performedBy = isset($postData['performed_by']) ? intval($postData['performed_by']) : null;
-                if (!$performedBy) {
-                    throw new Exception('performed_by is required');
-                }
+                // Verify that the current user is the current holder.
+                // The comment said "the current user" but the code read it off the
+                // payload, so the check below ran against whoever the body named.
+                $performedBy = (int) $currentUser['id'];
                 
                 // Check if file is available (shouldn't happen after upload, but handle it)
                 if ($tracking['status'] === 'available') {
@@ -1555,14 +1546,20 @@ if (isset($postData['action'])) {
 
         case 'rollback_checkout':
             // Rollback a checkout/transfer operation (admin only, and only for transfers/checkouts, not initial upload)
-            if (!isset($postData['file_id']) || !isset($postData['user_id'])) {
+            if (!isset($postData['file_id'])) {
                 http_response_code(400);
                 echo json_encode(['success' => false, 'error' => 'file_id and user_id are required']);
                 exit;
             }
             
             $fileId = intval($postData['file_id']);
-            $userId = intval($postData['user_id']); // Admin user ID
+            // The caller is whoever the token resolved to at the action gate, not
+            // whoever the request body says. This read $postData['user_id'] and then
+            // treated it as the subject of the permission check below, so a non-admin
+            // could send user_id: 1 (the seeded admin) and pass. isAdminUser() and
+            // hasPermission() answer "is user N allowed", which is not the same
+            // question as "is the caller allowed".
+            $userId = (int) $currentUser['id'];
             $notes = isset($postData['notes']) ? $postData['notes'] : 'Rollback checkout (admin)';
             
             try {
@@ -1778,14 +1775,20 @@ if (isset($postData['action'])) {
 
         case 'checkin_physical_copy':
             // Check in a physical copy
-            if (!isset($postData['file_id']) || !isset($postData['user_id'])) {
+            if (!isset($postData['file_id'])) {
                 http_response_code(400);
                 echo json_encode(['success' => false, 'error' => 'file_id and user_id are required']);
                 exit;
             }
             
             $fileId = intval($postData['file_id']);
-            $userId = intval($postData['user_id']);
+            // The caller is whoever the token resolved to at the action gate, not
+            // whoever the request body says. This read $postData['user_id'] and then
+            // treated it as the subject of the permission check below, so a non-admin
+            // could send user_id: 1 (the seeded admin) and pass. isAdminUser() and
+            // hasPermission() answer "is user N allowed", which is not the same
+            // question as "is the caller allowed".
+            $userId = (int) $currentUser['id'];
             $notes = isset($postData['notes']) ? $postData['notes'] : null;
             
             try {
@@ -1842,7 +1845,7 @@ if (isset($postData['action'])) {
         case 'transfer_physical_copy':
             // Transfer physical copy from one user to another (creates pending transfer)
             if (!isset($postData['file_id']) || !isset($postData['from_user_id']) || 
-                !isset($postData['to_user_id']) || !isset($postData['transferred_by'])) {
+                !isset($postData['to_user_id'])) {
                 http_response_code(400);
                 echo json_encode(['success' => false, 'error' => 'Missing required fields']);
                 exit;
@@ -1851,7 +1854,9 @@ if (isset($postData['action'])) {
             $fileId = intval($postData['file_id']);
             $fromUserId = intval($postData['from_user_id']);
             $toUserId = intval($postData['to_user_id']);
-            $transferredBy = intval($postData['transferred_by']);
+            // The actor is the caller. This value was passed straight to
+            // hasPermission() below, so naming user_id 1 granted admin permissions.
+            $transferredBy = (int) $currentUser['id'];
             $notes = isset($postData['notes']) ? $postData['notes'] : null;
             $expectedReturnDate = isset($postData['expected_return_date']) ? $postData['expected_return_date'] : null;
             
@@ -1949,14 +1954,20 @@ if (isset($postData['action'])) {
 
         case 'approve_transfer':
             // Approve a pending transfer
-            if (!isset($postData['transfer_id']) || !isset($postData['user_id'])) {
+            if (!isset($postData['transfer_id'])) {
                 http_response_code(400);
                 echo json_encode(['success' => false, 'error' => 'transfer_id and user_id are required']);
                 exit;
             }
             
             $transferId = intval($postData['transfer_id']);
-            $userId = intval($postData['user_id']);
+            // The caller is whoever the token resolved to at the action gate, not
+            // whoever the request body says. This read $postData['user_id'] and then
+            // treated it as the subject of the permission check below, so a non-admin
+            // could send user_id: 1 (the seeded admin) and pass. isAdminUser() and
+            // hasPermission() answer "is user N allowed", which is not the same
+            // question as "is the caller allowed".
+            $userId = (int) $currentUser['id'];
             $notes = isset($postData['notes']) ? $postData['notes'] : null;
             
             try {
@@ -2051,14 +2062,20 @@ if (isset($postData['action'])) {
 
         case 'reject_transfer':
             // Reject a pending transfer
-            if (!isset($postData['transfer_id']) || !isset($postData['user_id'])) {
+            if (!isset($postData['transfer_id'])) {
                 http_response_code(400);
                 echo json_encode(['success' => false, 'error' => 'transfer_id and user_id are required']);
                 exit;
             }
             
             $transferId = intval($postData['transfer_id']);
-            $userId = intval($postData['user_id']);
+            // The caller is whoever the token resolved to at the action gate, not
+            // whoever the request body says. This read $postData['user_id'] and then
+            // treated it as the subject of the permission check below, so a non-admin
+            // could send user_id: 1 (the seeded admin) and pass. isAdminUser() and
+            // hasPermission() answer "is user N allowed", which is not the same
+            // question as "is the caller allowed".
+            $userId = (int) $currentUser['id'];
             $notes = isset($postData['notes']) ? $postData['notes'] : null;
             
             try {
@@ -2105,13 +2122,13 @@ if (isset($postData['action'])) {
 
         case 'get_pending_transfers':
             // Get pending transfers for the current user
-            if (!isset($postData['user_id'])) {
-                http_response_code(400);
-                echo json_encode(['success' => false, 'error' => 'user_id is required']);
-                exit;
-            }
-            
-            $userId = intval($postData['user_id']);
+            // The caller is whoever the token resolved to at the action gate, not
+            // whoever the request body says. This read $postData['user_id'] and then
+            // treated it as the subject of the permission check below, so a non-admin
+            // could send user_id: 1 (the seeded admin) and pass. isAdminUser() and
+            // hasPermission() answer "is user N allowed", which is not the same
+            // question as "is the caller allowed".
+            $userId = (int) $currentUser['id'];
             
             try {
                 $conn = getConnection(getDbConfig());
@@ -2208,15 +2225,24 @@ if (isset($postData['action'])) {
 
         case 'get_file_transfer_history':
             // Get transfer history for a file
-            if (!isset($postData['file_id']) || !isset($postData['user_id'])) {
+            if (!isset($postData['file_id'])) {
                 http_response_code(400);
                 echo json_encode(['success' => false, 'error' => 'file_id and user_id are required']);
                 exit;
             }
             
             $fileId = intval($postData['file_id']);
-            $userId = intval($postData['user_id']);
-            $isAdmin = isset($postData['is_admin']) ? (bool)$postData['is_admin'] : false;
+            // The caller is whoever the token resolved to at the action gate, not
+            // whoever the request body says. This read $postData['user_id'] and then
+            // treated it as the subject of the permission check below, so a non-admin
+            // could send user_id: 1 (the seeded admin) and pass. isAdminUser() and
+            // hasPermission() answer "is user N allowed", which is not the same
+            // question as "is the caller allowed".
+            $userId = (int) $currentUser['id'];
+            // Derived from the verified token, not from the payload. Read as
+            // `(bool)$postData['is_admin']` this was a field the caller sets, and the
+            // permission checks it guards were skipped entirely by sending true.
+            $isAdmin = ((int) $currentUser['role_id'] === 1);
             
             try {
                 $conn = getConnection(getDbConfig());
@@ -2260,9 +2286,13 @@ if (isset($postData['action'])) {
 
         case 'create_file_category':
             // Create a new file category (admin only)
-            if (!isset($postData['category_name']) || !isset($postData['is_admin']) || !$postData['is_admin']) {
+            // Admin, decided by the token verified at the action gate. This used to be
+            // `!$postData['is_admin']` - a field the caller sets, so sending true was
+            // all that stood between the internet and these writes.
+            require_api_admin($gateConn, $postData);
+            if (!isset($postData['category_name'])) {
                 http_response_code(400);
-                echo json_encode(['success' => false, 'error' => 'Admin access required']);
+                echo json_encode(['success' => false, 'error' => 'Category name is required']);
                 exit;
             }
             
@@ -2284,9 +2314,13 @@ if (isset($postData['action'])) {
 
         case 'update_file_category':
             // Update a file category (admin only)
-            if (!isset($postData['category_id']) || !isset($postData['is_admin']) || !$postData['is_admin']) {
+            // Admin, decided by the token verified at the action gate. This used to be
+            // `!$postData['is_admin']` - a field the caller sets, so sending true was
+            // all that stood between the internet and these writes.
+            require_api_admin($gateConn, $postData);
+            if (!isset($postData['category_id'])) {
                 http_response_code(400);
-                echo json_encode(['success' => false, 'error' => 'Admin access required']);
+                echo json_encode(['success' => false, 'error' => 'Category id is required']);
                 exit;
             }
             
@@ -2329,9 +2363,13 @@ if (isset($postData['action'])) {
 
         case 'delete_file_category':
             // Delete a file category (admin only)
-            if (!isset($postData['category_id']) || !isset($postData['is_admin']) || !$postData['is_admin']) {
+            // Admin, decided by the token verified at the action gate. This used to be
+            // `!$postData['is_admin']` - a field the caller sets, so sending true was
+            // all that stood between the internet and these writes.
+            require_api_admin($gateConn, $postData);
+            if (!isset($postData['category_id'])) {
                 http_response_code(400);
-                echo json_encode(['success' => false, 'error' => 'Admin access required']);
+                echo json_encode(['success' => false, 'error' => 'Category id is required']);
                 exit;
             }
             
@@ -2354,13 +2392,13 @@ if (isset($postData['action'])) {
 
         case 'get_my_physical_copies':
             // Get all physical copies currently held by a user
-            if (!isset($postData['user_id'])) {
-                http_response_code(400);
-                echo json_encode(['success' => false, 'error' => 'user_id is required']);
-                exit;
-            }
-            
-            $userId = intval($postData['user_id']);
+            // The caller is whoever the token resolved to at the action gate, not
+            // whoever the request body says. This read $postData['user_id'] and then
+            // treated it as the subject of the permission check below, so a non-admin
+            // could send user_id: 1 (the seeded admin) and pass. isAdminUser() and
+            // hasPermission() answer "is user N allowed", which is not the same
+            // question as "is the caller allowed".
+            $userId = (int) $currentUser['id'];
             
             $query = "SELECT 
                 cf.*,
@@ -2426,11 +2464,10 @@ if (isset($postData['action'])) {
 
         case 'create_custom_clearance_agent':
             // Create a new custom clearance agent (admin only)
-            if (!isset($postData['is_admin']) || !$postData['is_admin']) {
-                http_response_code(400);
-                echo json_encode(['success' => false, 'error' => 'Admin access required']);
-                exit;
-            }
+            // Admin, decided by the token verified at the action gate. This used to be
+            // `!$postData['is_admin']` - a field the caller sets, so sending true was
+            // all that stood between the internet and these writes.
+            require_api_admin($gateConn, $postData);
 
             $name = isset($postData['name']) ? trim($postData['name']) : '';
             if (empty($name)) {
@@ -2460,11 +2497,10 @@ if (isset($postData['action'])) {
 
         case 'update_custom_clearance_agent':
             // Update a custom clearance agent (admin only)
-            if (!isset($postData['is_admin']) || !$postData['is_admin']) {
-                http_response_code(400);
-                echo json_encode(['success' => false, 'error' => 'Admin access required']);
-                exit;
-            }
+            // Admin, decided by the token verified at the action gate. This used to be
+            // `!$postData['is_admin']` - a field the caller sets, so sending true was
+            // all that stood between the internet and these writes.
+            require_api_admin($gateConn, $postData);
 
             if (!isset($postData['id'])) {
                 http_response_code(400);
@@ -2523,11 +2559,10 @@ if (isset($postData['action'])) {
 
         case 'delete_custom_clearance_agent':
             // Soft delete a custom clearance agent (admin only)
-            if (!isset($postData['is_admin']) || !$postData['is_admin']) {
-                http_response_code(400);
-                echo json_encode(['success' => false, 'error' => 'Admin access required']);
-                exit;
-            }
+            // Admin, decided by the token verified at the action gate. This used to be
+            // `!$postData['is_admin']` - a field the caller sets, so sending true was
+            // all that stood between the internet and these writes.
+            require_api_admin($gateConn, $postData);
 
             if (!isset($postData['id'])) {
                 http_response_code(400);
@@ -2543,11 +2578,10 @@ if (isset($postData['action'])) {
 
         case 'save_contract_terms':
             // Save contract terms to public/contract_terms.json (admin only)
-            if (!isset($postData['is_admin']) || !$postData['is_admin']) {
-                http_response_code(403);
-                echo json_encode(['success' => false, 'error' => 'Admin access required']);
-                exit;
-            }
+            // Admin, decided by the token verified at the action gate. This used to be
+            // `!$postData['is_admin']` - a field the caller sets, so sending true was
+            // all that stood between the internet and these writes.
+            require_api_admin($gateConn, $postData);
 
             if (!isset($postData['content'])) {
                 http_response_code(400);
@@ -2707,6 +2741,73 @@ if (isset($postData['action'])) {
             handle_get_supplier_credibility_latest($postData);
             exit;
 
+        // The share page is public by design: the share_token in the path is the
+        // credential, which is why this one is in PUBLIC_ACTIONS above.
+        case 'get_client_share_data':
+            require_once __DIR__ . '/actions/client_share.php';
+            handle_get_client_share_data($postData);
+            exit;
+
+        // See the note on PUBLIC_ACTIONS: DatabaseVersionCheck is mounted
+        // unconditionally in App.vue, so this runs on /login too.
+        case 'get_db_version':
+            require_once __DIR__ . '/actions/version.php';
+            handle_get_db_version();
+            exit;
+
+        case 'get_colors':
+            require_once __DIR__ . '/actions/colors.php';
+            handle_get_colors($postData);
+            exit;
+
+        case 'create_color':
+            require_once __DIR__ . '/actions/colors.php';
+            handle_create_color($postData);
+            exit;
+
+        case 'update_color':
+            require_once __DIR__ . '/actions/colors.php';
+            handle_update_color($postData);
+            exit;
+
+        case 'delete_color':
+            require_once __DIR__ . '/actions/colors.php';
+            handle_delete_color($postData);
+            exit;
+
+        case 'get_container_tracking':
+            require_once __DIR__ . '/actions/containers.php';
+            handle_get_container_tracking($postData);
+            exit;
+
+        case 'save_container_tracking':
+            require_once __DIR__ . '/actions/containers.php';
+            handle_save_container_tracking($postData);
+            exit;
+
+        case 'create_user':
+            require_once __DIR__ . '/actions/users.php';
+            handle_create_user($postData);
+            exit;
+
+        case 'change_own_password':
+            require_once __DIR__ . '/actions/users.php';
+            handle_change_own_password($postData);
+            exit;
+
+        case 'set_user_password':
+            require_once __DIR__ . '/actions/users.php';
+            handle_set_user_password($postData);
+            exit;
+
+        // Public for the same reason as login itself: this is the recovery path for
+        // a user who cannot authenticate. It requires the current password, which
+        // the handler verifies server-side.
+        case 'change_password_with_credentials':
+            require_once __DIR__ . '/actions/users.php';
+            handle_change_password_with_credentials($postData);
+            exit;
+
         default:
             http_response_code(400);
             echo json_encode(['success' => false, 'error' => 'Invalid action']);
@@ -2715,6 +2816,18 @@ if (isset($postData['action'])) {
 }
 
 // Regular query handling
+//
+// This path sits outside the switch above, so the action gate never sees it: a
+// request carrying `query` with no `action` walked straight past authentication.
+// Anything genuinely public must be its own action, not a flag on this path: a
+// client-sent "public" marker would be a bypass for this gate.
+$passthroughConn = getConnection(getDbConfig());
+if (is_array($passthroughConn) && isset($passthroughConn['error'])) {
+    error_log('query passthrough: ' . $passthroughConn['error']);
+    apiErrorDie('db_unavailable');
+}
+$passthroughUser = require_api_user($passthroughConn, $postData);
+
 if (!isset($postData['query']) || empty($postData['query'])) {
     http_response_code(400);
     echo json_encode(['success' => false, 'error' => 'Query is required']);
@@ -2726,20 +2839,45 @@ $query = $postData['query'];
 $params = isset($postData['params']) ? $postData['params'] : [];
 
 // Check if query is updating payment_confirmed column - requires permission check
-$queryUpper = strtoupper(trim($query));
-$isPaymentConfirmedUpdate = (strpos($queryUpper, 'UPDATE') === 0 && (strpos($queryUpper, 'PAYMENT_CONFIRMED') !== false || strpos($queryUpper, '`payment_confirmed`') !== false));
+//
+// This used to be a plain prefix sniff on the raw string:
+//
+//     strpos($queryUpper, 'UPDATE') === 0 && strpos($queryUpper, 'PAYMENT_CONFIRMED') !== false
+//
+// which a single leading comment defeats - `/*x*/ UPDATE sell_bill SET
+// payment_confirmed = 1 ...` puts UPDATE at byte 5, so the whole permission block
+// below was skipped and the query ran anyway.
+//
+// So classify against the statement with its leading comments and whitespace
+// removed. That is the only reason this is not just strpos() again: the verb has to
+// be the first real token, and a comment in front of it must not hide it.
+//
+// $queryUpper must stay defined for the rest of this block - the checks inside it
+// classify the statement further (is it a sell_bill update, is it the simple
+// payment_confirmed-only form). Deriving it from the stripped SQL also makes those
+// inner prefix tests comment-proof for free.
+$queryUpper = strtoupper(api_strip_leading_sql(trim($query)));
 
-if ($isPaymentConfirmedUpdate) {
-    // Require user_id and is_admin for payment_confirmed updates
-    if (!isset($postData['user_id']) || !isset($postData['is_admin'])) {
-        http_response_code(400);
-        echo json_encode(['success' => false, 'error' => 'User authentication required for payment confirmation updates']);
-        exit;
-    }
-    
-    $userId = intval($postData['user_id']);
-    $isAdmin = isset($postData['is_admin']) ? (bool)$postData['is_admin'] : false;
-    
+// UPDATE, INSERT and REPLACE can all set payment_confirmed. The original sniff
+// only recognised UPDATE, so `INSERT INTO sell_bill (payment_confirmed) VALUES (1)`
+// wrote the column with no permission check at all. Widen the verb set - the
+// permission gate below runs before the shape detection, and anything that is not
+// a sell_bill UPDATE simply falls through to normal execution once the gate passes.
+$isPaymentConfirmedWrite = (
+    preg_match('/^(UPDATE|INSERT|REPLACE)\b/', $queryUpper) === 1
+    && strpos($queryUpper, 'PAYMENT_CONFIRMED') !== false
+);
+
+if ($isPaymentConfirmedWrite) {
+    // Identify the caller from the token verified above, not from the request.
+    //
+    // This used to read `user_id` and `is_admin` off the payload: send is_admin: true
+    // and the hasPermission() check below was skipped entirely, so any caller could
+    // mark payments confirmed. $passthroughUser comes from require_api_user(), which
+    // matched the token against users.api_token.
+    $userId = (int) $passthroughUser['id'];
+    $isAdmin = ((int) $passthroughUser['role_id'] === 1);
+
     try {
         $conn = getConnection(getDbConfig());
         if (is_array($conn) && isset($conn['error'])) {

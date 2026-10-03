@@ -101,12 +101,6 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
-      path: '/advanced-sql',
-      name: 'advanced-sql',
-      component: () => import('../views/AdvancedSqlView.vue'),
-      meta: { requiresAdmin: true },
-    },
-    {
       path: '/transfers-list',
       name: 'transfers-list',
       component: () => import('../views/TransfersListView.vue'),

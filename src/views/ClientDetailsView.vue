@@ -8,7 +8,7 @@ import ChatModal from '../components/ChatModal.vue'
 import { useCarClientChat } from '../composables/useCarClientChat'
 
 const route = useRoute()
-const { callApi, error, getFileUrl } = useApi()
+const { getClientShareData, error, getFileUrl } = useApi()
 const { t, locale, availableLocales } = useEnhancedI18n()
 const { createOrGetCarClientChatGroup } = useCarClientChat()
 const client = ref(null)
@@ -205,45 +205,6 @@ const initializeMaps = async () => {
   }, 200) // Increased timeout to ensure DOM is ready
 }
 
-const fetchCarLocations = async () => {
-  try {
-    // Get all container references from client cars
-    const containerRefs = clientCars.value
-      .filter((car) => car.container_ref)
-      .map((car) => car.container_ref)
-
-    if (containerRefs.length === 0) return
-
-    // Fetch tracking data for all container references
-    const trackingResult = await callApi({
-      action: 'execute_sql',
-      query: `
-        SELECT container_ref, tracking, time, id_user 
-        FROM tracking 
-        WHERE container_ref IN (${containerRefs.map(() => '?').join(',')})
-      `,
-      params: containerRefs,
-      requiresAuth: false,
-    })
-
-    if (trackingResult.success) {
-      const locations = {}
-      trackingResult.results.forEach((track) => {
-        if (track.tracking) {
-          const [lat, lng] = track.tracking.split(',').map((coord) => parseFloat(coord))
-          if (!isNaN(lat) && !isNaN(lng)) {
-            locations[track.container_ref] = { lat, lng, time: track.time, user: track.id_user }
-          }
-        }
-      })
-      carLocations.value = locations
-      console.log('Car locations loaded:', carLocations.value)
-    }
-  } catch (err) {
-    console.error('Error fetching car locations:', err)
-  }
-}
-
 // Watch for changes in carLocations and initialize maps
 watch(
   carLocations,
@@ -265,112 +226,62 @@ watch(googleMapsLoaded, async (loaded) => {
 const fetchClientDetails = async () => {
   isLoading.value = true
   try {
-    // First, get client ID from token
-    const clientLookupResult = await callApi({
-      query: `
-        SELECT id FROM clients WHERE share_token = ?
-      `,
-      params: [route.params.token],
-      requiresAuth: false,
-    })
+    // One round trip. This screen is exempt from authentication in the router so a
+    // client can be shown their own cars from a link, and it used to make five
+    // caller-supplied-SQL calls to do it with requiresAuth: false - which, before
+    // the passthrough was closed, meant arbitrary SQL was reachable from a link
+    // with nobody logged in. The share_token is now the credential on a single
+    // read-only action, and the server scopes every query to the client it
+    // resolves from that token.
+    const data = await getClientShareData(route.params.token)
 
-    if (!clientLookupResult.success || !clientLookupResult.data || clientLookupResult.data.length === 0) {
+    if (!data.client) {
       error.value = 'Client not found or invalid link'
       isLoading.value = false
       return
     }
 
-    const clientId = clientLookupResult.data[0].id
+    client.value = data.client
+    clientCars.value = data.cars
 
-    const [clientResult, carsResult] = await Promise.all([
-      callApi({
-        query: `
-          SELECT 
-            c.id,
-            c.name,
-            c.email,
-            c.mobiles,
-            c.id_no,
-            c.address,
-            c.is_broker,
-            COUNT(cs.id) as cars_count
-          FROM clients c
-          LEFT JOIN cars_stock cs ON c.id = cs.id_client
-          WHERE c.share_token = ?
-          GROUP BY c.id
-        `,
-        params: [route.params.token],
-        requiresAuth: false,
-      }),
-      callApi({
-        query: `
-          SELECT 
-            cs.*,
-            w.warhouse_name as warehouse_name,
-            bd.amount as buy_price,
-            bd.year,
-            bd.is_used_car,
-            bd.is_big_car,
-            cn.car_name as model,
-            b.brand,
-            c.color,
-            dp.discharge_port,
-            cs.container_ref,
-            COALESCE(
-              (SELECT SUM(sp.amount_da) 
-               FROM sell_bill sb 
-               JOIN sell_payments sp ON sp.id_sell_bill = sb.id 
-               WHERE sb.id = cs.id_sell),
-              0
-            ) as total_paid,
-            CASE 
-              WHEN cs.id_client IS NOT NULL THEN 'Reserved'
-              ELSE 'Available'
-            END as status
-          FROM cars_stock cs
-          LEFT JOIN warehouses w ON cs.id_warehouse = w.id
-          LEFT JOIN buy_details bd ON cs.id_buy_details = bd.id
-          LEFT JOIN cars_names cn ON bd.id_car_name = cn.id
-          LEFT JOIN brands b ON cn.id_brand = b.id
-          LEFT JOIN colors c ON bd.id_color = c.id
-          LEFT JOIN discharge_ports dp ON cs.id_port_discharge = dp.id
-          WHERE cs.id_client = ? AND cs.hidden = 0
-          ORDER BY cs.in_wharhouse_date DESC, cs.id DESC
-        `,
-        params: [clientId],
-        requiresAuth: false,
-      }),
-    ])
-
-    console.log('Client Result:', clientResult)
-    console.log('Cars Result:', carsResult)
-
-    if (clientResult.success && clientResult.data.length > 0) {
-      client.value = clientResult.data[0]
-    } else {
-      error.value = 'Client not found'
+    if (data.files.length > 0) {
+      const filesByCar = {}
+      data.files.forEach((file) => {
+        if (!filesByCar[file.car_id]) {
+          filesByCar[file.car_id] = []
+        }
+        filesByCar[file.car_id].push(file)
+      })
+      carFilesMap.value = filesByCar
     }
 
-    if (carsResult.success) {
-      clientCars.value = carsResult.data
-      console.log('Processed Cars:', clientCars.value)
+    applyTracking(data.tracking)
 
-      // Load Google Maps and fetch car locations
-      await loadGoogleMapsAPI()
-      await fetchCarLocations()
+    // Load Google Maps
+    await loadGoogleMapsAPI()
 
-      // Fetch car files for all cars
-      await fetchCarFiles()
-
-      // Create chat groups for each car
-      await createChatGroupsForCars()
-    }
+    // Create chat groups for each car
+    await createChatGroupsForCars()
   } catch (err) {
     console.error('Error fetching client details:', err)
     error.value = 'Failed to load client details'
   } finally {
     isLoading.value = false
   }
+}
+
+// "lat,lng" strings keyed by container_ref. Records that do not parse are dropped
+// rather than rendered at 0,0.
+const applyTracking = (rows) => {
+  const locations = {}
+  rows.forEach((track) => {
+    if (!track.tracking) return
+    const [lat, lng] = track.tracking.split(',').map((coord) => parseFloat(coord))
+    if (!isNaN(lat) && !isNaN(lng)) {
+      locations[track.container_ref] = { lat, lng, time: track.time, user: track.id_user }
+    }
+  })
+  carLocations.value = locations
 }
 
 const formatCurrency = (value) => {
@@ -405,53 +316,6 @@ const formatContainerRef = (containerRef) => {
   return containerRef
 }
 
-// Fetch car files from car_files table
-const fetchCarFiles = async () => {
-  if (!clientCars.value || clientCars.value.length === 0) return
-
-  try {
-    const carIds = clientCars.value.map((car) => car.id)
-    if (carIds.length === 0) return
-
-    const result = await callApi({
-      query: `
-        SELECT 
-          cf.id,
-          cf.car_id,
-          cf.category_id,
-          cf.file_path,
-          cf.file_name,
-          cf.file_size,
-          cf.file_type,
-          cf.uploaded_at,
-          cfc.category_name,
-          cfc.display_order
-        FROM car_files cf
-        INNER JOIN car_file_categories cfc ON cf.category_id = cfc.id
-        WHERE cf.car_id IN (${carIds.map(() => '?').join(',')}) 
-          AND cf.is_active = 1
-        ORDER BY cf.car_id, cfc.display_order, cf.uploaded_at DESC
-      `,
-      params: carIds,
-      requiresAuth: false,
-    })
-
-    if (result.success && result.data) {
-      // Group files by car_id
-      const filesByCar = {}
-      result.data.forEach((file) => {
-        if (!filesByCar[file.car_id]) {
-          filesByCar[file.car_id] = []
-        }
-        filesByCar[file.car_id].push(file)
-      })
-      carFilesMap.value = filesByCar
-    }
-  } catch (err) {
-    console.error('Error fetching car files:', err)
-  }
-}
-
 // Get files for a specific car
 const getCarFiles = (carId) => {
   return carFilesMap.value[carId] || []
@@ -479,18 +343,14 @@ const createChatGroupsForCars = async () => {
   try {
     for (const car of clientCars.value) {
       // Generate car name: "Brand Model" or "Model" or "Car ID"
-      const carName = car.brand && car.model
-        ? `${car.brand} ${car.model}`
-        : car.model || car.brand || `Car ${car.id}`
+      const carName =
+        car.brand && car.model
+          ? `${car.brand} ${car.model}`
+          : car.model || car.brand || `Car ${car.id}`
 
       // Create or get chat group for this car
       // Note: We don't need to track users found here as it's just initialization
-      await createOrGetCarClientChatGroup(
-        client.value.id,
-        client.value.name,
-        car.id,
-        carName
-      )
+      await createOrGetCarClientChatGroup(client.value.id, client.value.name, car.id, carName)
     }
     console.log('Chat groups created/verified for all cars')
   } catch (err) {
@@ -508,29 +368,30 @@ const refreshChatGroupsAndOpenChat = async () => {
 
   try {
     let totalUsersFound = 0
-    
+
     // Refresh all chat groups for each car (this will check for new users)
     for (const car of clientCars.value) {
       // Generate car name: "Brand Model" or "Model" or "Car ID"
-      const carName = car.brand && car.model
-        ? `${car.brand} ${car.model}`
-        : car.model || car.brand || `Car ${car.id}`
+      const carName =
+        car.brand && car.model
+          ? `${car.brand} ${car.model}`
+          : car.model || car.brand || `Car ${car.id}`
 
       // Re-run createOrGetCarClientChatGroup to check for new users
       const result = await createOrGetCarClientChatGroup(
         client.value.id,
         client.value.name,
         car.id,
-        carName
+        carName,
       )
-      
+
       if (result && result.usersFound) {
         totalUsersFound += result.usersFound
       }
     }
-    
+
     console.log('Chat groups refreshed, checking for new users completed')
-    
+
     // Show informational message if no users found
     if (totalUsersFound === 0) {
       ElMessage({
@@ -813,11 +674,16 @@ onMounted(() => {
 
               <!-- Car Files from car_files table -->
               <div
-                v-if="getCarFiles(car.id).length > 0 || car.path_documents || car.sell_pi_path || car.buy_pi_path"
+                v-if="
+                  getCarFiles(car.id).length > 0 ||
+                  car.path_documents ||
+                  car.sell_pi_path ||
+                  car.buy_pi_path
+                "
                 class="car-documents"
               >
                 <h5>{{ t('clientDetails.documents') }}</h5>
-                
+
                 <!-- Uploaded Documents (from car_files table) -->
                 <div v-if="getCarFiles(car.id).length > 0" class="uploaded-documents">
                   <div
@@ -843,7 +709,10 @@ onMounted(() => {
                 </div>
 
                 <!-- Legacy Documents (from car_stock columns) -->
-                <div v-if="car.path_documents || car.sell_pi_path || car.buy_pi_path" class="legacy-documents">
+                <div
+                  v-if="car.path_documents || car.sell_pi_path || car.buy_pi_path"
+                  class="legacy-documents"
+                >
                   <div class="document-links">
                     <a
                       v-if="car.path_documents"
@@ -900,11 +769,7 @@ onMounted(() => {
           </button>
         </div>
         <div class="chat-modal-content">
-          <ChatModal
-            v-if="client"
-            :client-id="client.id"
-            :client-name="client.name"
-          />
+          <ChatModal v-if="client" :client-id="client.id" :client-name="client.name" />
         </div>
       </div>
     </div>

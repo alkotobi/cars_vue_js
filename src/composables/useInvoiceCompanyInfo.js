@@ -7,6 +7,7 @@
  * (banks.logo_path or default logo). Use it in SellBillPrintDocument, CarPrintDocument, batch print, CarStock, Cashier reports.
  */
 import { useApi } from './useApi'
+import { escapeHtml } from '../utils/escapeHtml'
 
 // In-memory cache so logo survives when sessionStorage is isolated (e.g. CrossDev print WebView)
 let printLogoDataUrlMemory = ''
@@ -207,17 +208,12 @@ export function useInvoiceCompanyInfo() {
   const iconWebsite = `<svg style="${iconStyle}" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>`
 
   function buildLetterheadHtml(logoUrl, companyName, companyAddress, contactItems) {
-    const escape = (s) => {
-      if (s == null || s === '') return ''
-      return String(s)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-    }
-    const name = escape(companyName)
-    const address = escape(companyAddress)
-    const logoSrc = logoUrl ? ` src="${escape(logoUrl)}"` : ''
+    // The shared escaper, not a local copy. This one had grown its own `escape`
+    // that covered & < > " but not ', and two escapers in one codebase is two
+    // things to keep in step - see utils/escapeHtml.js.
+    const name = escapeHtml(companyName)
+    const address = escapeHtml(companyAddress)
+    const logoSrc = logoUrl ? ` src="${escapeHtml(logoUrl)}"` : ''
     const addressLine = address
       ? `<div style="font-size:0.8rem;line-height:1.3;margin-bottom:4px;color:#444">${iconAddress}<span>${address}</span></div>`
       : ''
@@ -228,7 +224,7 @@ export function useInvoiceCompanyInfo() {
         .map(
           (item, idx) => {
             const icon = iconByType[item.type] || ''
-            return `${idx > 0 ? '<span style="margin:0 6px;opacity:0.7">|</span>' : ''}${icon}<span>${escape(item.value)}</span>`
+            return `${idx > 0 ? '<span style="margin:0 6px;opacity:0.7">|</span>' : ''}${icon}<span>${escapeHtml(item.value)}</span>`
           }
         )
         .join('')

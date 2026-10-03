@@ -2,6 +2,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useApi } from '../../composables/useApi'
 import { useInvoiceCompanyInfo } from '../../composables/useInvoiceCompanyInfo'
+import { escapeHtml } from '../../utils/escapeHtml'
 import UserTransactionsTable from './UserTransactionsTable.vue'
 
 const { callApi, getAssets } = useApi()
@@ -367,7 +368,7 @@ const printUsersList = async () => {
     </head>
     <body>
       <div class="letterhead">
-        <img src="${letterHeadUrl.value}" alt="Company Letterhead">
+        <img src="${escapeHtml(letterHeadUrl.value)}" alt="Company Letterhead">
       </div>
       
       <div class="report-header">
@@ -410,7 +411,7 @@ const printUsersList = async () => {
               (user, index) => `
             <tr>
               <td>${index + 1}</td>
-              <td>${user.username}</td>
+              <td>${escapeHtml(user.username)}</td>
               <td class="amount-cell money-in">${formatCurrency(user.total_money_in)}</td>
               <td class="amount-cell money-out">${formatCurrency(user.total_money_out)}</td>
               <td class="amount-cell ${user.balance >= 0 ? 'positive' : 'negative'}">${formatCurrency(user.balance)}</td>
@@ -424,7 +425,7 @@ const printUsersList = async () => {
       <div class="footer">
         <p>This is a computer-generated users list.</p>
         <p>Generated on ${new Date().toLocaleString()}</p>
-        ${searchTerm.value ? `<p><strong>Note:</strong> This list shows filtered results for "${searchTerm.value}".</p>` : ''}
+        ${searchTerm.value ? `<p><strong>Note:</strong> This list shows filtered results for "${escapeHtml(searchTerm.value)}".</p>` : ''}
       </div>
     </body>
     </html>

@@ -195,7 +195,7 @@ import { useApi } from '@/composables/useApi'
 import GoogleMapPopup from './GoogleMapPopup.vue'
 
 const { t } = useI18n()
-const { callApi } = useApi()
+const { getContainerTracking } = useApi()
 
 const containersRef = ref([])
 const loading = ref(false)
@@ -301,53 +301,16 @@ const fetchContainersRef = async () => {
   error.value = null
 
   try {
-    // First get unique container references
-    const containersResult = await callApi({
-      action: 'execute_sql',
-      query:
-        'SELECT DISTINCT container_ref FROM cars_stock WHERE container_ref IS NOT NULL ORDER BY container_ref',
-    })
+    // One call instead of two execute_sql calls plus an N+1 loop: the server does
+    // the DISTINCT container_ref scan and the latest-position join together, so a
+    // fleet of 200 containers is 1 request rather than 201.
+    const rows = await getContainerTracking()
 
-    if (containersResult.success) {
-      const containerRefs = containersResult.results || []
-
-      // Get tracking data for each container reference
-      const trackingPromises = containerRefs.map(async (container) => {
-        const trackingResult = await callApi({
-          action: 'execute_sql',
-          query: `
-            SELECT t.*, u.username 
-            FROM tracking t 
-            LEFT JOIN users u ON t.id_user = u.id 
-            WHERE t.container_ref = ? 
-            ORDER BY t.time DESC 
-            LIMIT 1
-          `,
-          params: [container.container_ref],
-        })
-
-        if (trackingResult.success && trackingResult.results.length > 0) {
-          return {
-            ...container,
-            ...trackingResult.results[0],
-          }
-        } else {
-          return {
-            ...container,
-            tracking: null,
-            time: null,
-            id_user: null,
-            username: null,
-          }
-        }
-      })
-
-      containersRef.value = await Promise.all(trackingPromises)
-    } else {
-      error.value = containersResult.message || t('containersRef.failedToLoad')
-    }
+    containersRef.value = rows
   } catch (err) {
-    error.value = t('containersRef.errorLoading', { message: err.message })
+    error.value = err?.code
+      ? t('containersRef.errorLoading', { message: err.code })
+      : t('containersRef.errorLoading', { message: err.message })
   } finally {
     loading.value = false
   }

@@ -1,6 +1,7 @@
 <script setup>
 import { ref, watch, computed } from 'vue'
 import { useApi } from '../../composables/useApi'
+import { escapeHtml } from '../../utils/escapeHtml'
 import { useInvoiceCompanyInfo } from '../../composables/useInvoiceCompanyInfo'
 
 const props = defineProps({
@@ -491,7 +492,7 @@ const printTransactionsList = async () => {
     </head>
     <body>
       <div class="letterhead">
-        <img src="${letterHeadUrl.value}" alt="Company Letterhead">
+        <img src="${escapeHtml(letterHeadUrl.value)}" alt="Company Letterhead">
       </div>
       
       <div class="report-header">
@@ -502,7 +503,7 @@ const printTransactionsList = async () => {
       <div class="summary-info">
         <div class="summary-item">
           <span class="summary-label">User</span>
-          <span class="summary-value">${props.selectedUser.username}</span>
+          <span class="summary-value">${escapeHtml(props.selectedUser.username)}</span>
         </div>
         <div class="summary-item">
           <span class="summary-label">Total Transactions</span>
@@ -551,7 +552,7 @@ const printTransactionsList = async () => {
                 ${transaction.type === 'out' ? formatCurrency(transaction.amount) : '-'}
               </td>
               <td class="amount-cell ${transaction.balance >= 0 ? 'positive' : 'negative'}">${formatCurrency(transaction.balance)}</td>
-              <td class="notes-cell">${transaction.notes || 'No notes'}</td>
+              <td class="notes-cell">${escapeHtml(transaction.notes || 'No notes')}</td>
             </tr>
           `,
             )
@@ -729,7 +730,7 @@ const printTransactionReceipt = async (transaction) => {
     </head>
     <body>
       <div class="letterhead">
-        <img src="${letterHeadUrl.value}" alt="Company Letterhead">
+        <img src="${escapeHtml(letterHeadUrl.value)}" alt="Company Letterhead">
       </div>
       
       <div class="receipt-title">TRANSACTION RECEIPT</div>
@@ -737,7 +738,7 @@ const printTransactionReceipt = async (transaction) => {
       <div class="receipt-details">
         <div class="detail-row">
           <span class="detail-label">Receipt ID:</span>
-          <span class="detail-value">#${transaction.id}</span>
+          <span class="detail-value">#${escapeHtml(transaction.id)}</span>
         </div>
         <div class="detail-row">
           <span class="detail-label">Date:</span>
@@ -745,7 +746,7 @@ const printTransactionReceipt = async (transaction) => {
         </div>
         <div class="detail-row">
           <span class="detail-label">User:</span>
-          <span class="detail-value">${props.selectedUser.username}</span>
+          <span class="detail-value">${escapeHtml(props.selectedUser.username)}</span>
         </div>
         <div class="detail-row">
           <span class="detail-label">Type:</span>
@@ -753,7 +754,7 @@ const printTransactionReceipt = async (transaction) => {
         </div>
         <div class="detail-row">
           <span class="detail-label">Source:</span>
-          <span class="detail-value">${getSourceLabel(transaction.source)}</span>
+          <span class="detail-value">${escapeHtml(getSourceLabel(transaction.source))}</span>
         </div>
         <div class="detail-row">
           <span class="detail-label">Previous Balance:</span>
@@ -777,7 +778,7 @@ const printTransactionReceipt = async (transaction) => {
           ? `
         <div class="notes-section">
           <div class="notes-label">Notes:</div>
-          <div class="notes-content">${transaction.notes}</div>
+          <div class="notes-content">${escapeHtml(transaction.notes)}</div>
         </div>
       `
           : ''

@@ -2,11 +2,10 @@
 // Start output buffering to prevent any output before headers
 ob_start();
 
-// Set CORS headers first, before any output
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Accept, Authorization, X-Requested-With');
-header('Access-Control-Max-Age: 86400'); // Cache preflight for 24 hours
+// Set CORS headers first, before any output.
+// Same-origin only - see lib/cors.php for why the wildcard was removed.
+require_once __DIR__ . '/lib/cors.php';
+api_send_cors_headers();
 header('Content-Type: application/json');
 
 // Handle preflight OPTIONS request
@@ -213,10 +212,7 @@ try {
         if (ob_get_level()) {
             ob_end_clean();
         }
-        header('Access-Control-Allow-Origin: *');
-        header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-        header('Access-Control-Allow-Headers: Content-Type, Accept, Authorization, X-Requested-With');
-        header('Access-Control-Expose-Headers: Content-Disposition');
+        api_send_cors_headers();
         header('Content-Type: ' . $contentType);
         header('Content-Disposition: attachment; filename="' . $filename . '"');
         header('Cache-Control: no-cache, must-revalidate');
@@ -226,7 +222,62 @@ try {
     
     // Handle different actions
     $action = $inputData['action'] ?? '';
-    
+
+    // Authentication gate.
+    //
+    // This file used to have none. Its login/signup actions never gated anything,
+    // so every action below was reachable by an anonymous POST - including run_sql
+    // (arbitrary SQL against every tenant database), update_structure (executes
+    // stored SQL), backup_databases (full dumps), delete_database and
+    // prepare_upload_folder (recursive delete of an attacker-chosen directory).
+    // An attacker only had to chain create_database with run_sql to read the users
+    // table, and from there every password hash and api_token.
+    //
+    // Only get_database_by_code stays open: loadConfig() calls it at boot, before
+    // anyone has logged in, to turn this server's db_code.json into a real
+    // database name and files_dir. It reveals one registry row and nothing else.
+    // migrations/030_drop_adv_sql.sql removed an identical execute_sql action for
+    // exactly this reason; this file reintroduced it under a new name.
+    $PUBLIC_ACTIONS = ['get_database_by_code'];
+
+    if (!in_array($action, $PUBLIC_ACTIONS, true)) {
+        require_once __DIR__ . '/config.php';
+        require_once __DIR__ . '/lib/auth.php';
+
+        $authFailure = static function (string $message): void {
+            if (ob_get_level()) {
+                ob_end_clean();
+            }
+            if (!headers_sent()) {
+                header('Content-Type: application/json');
+            }
+            echo json_encode(['success' => false, 'message' => $message]);
+            exit;
+        };
+
+        require_once __DIR__ . '/lib/appdb.php';
+
+        $appDbName = app_db_name();
+        if ($appDbName === null) {
+            $authFailure('App database could not be resolved');
+        }
+
+        try {
+            $appConn = new PDO(
+                "mysql:host={$db_config['host']};dbname={$appDbName}",
+                $db_config['user'],
+                $db_config['pass']
+            );
+            $appConn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        } catch (PDOException $e) {
+            error_log('db_manager_api.php auth: ' . $e->getMessage());
+            $authFailure('App database unavailable');
+        }
+
+        // Exits the request with not_authenticated / not_admin when it does not hold.
+        require_api_admin($appConn, $inputData);
+    }
+
     switch ($action) {
         case 'test':
             // Test connection
@@ -1940,9 +1991,7 @@ try {
 
 // Ensure headers are sent (re-send CORS headers in case of error)
 if (!headers_sent()) {
-    header('Access-Control-Allow-Origin: *');
-    header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-    header('Access-Control-Allow-Headers: Content-Type, Accept, Authorization, X-Requested-With');
+    api_send_cors_headers();
     header('Content-Type: application/json');
 }
 

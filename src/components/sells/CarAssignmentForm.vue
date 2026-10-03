@@ -320,7 +320,7 @@ const fetchCarDetails = async () => {
           cs.notes,
           cn.car_name,
           clr.color,
-          bd.price_sell as buy_price
+          bd.amount as buy_price
         FROM cars_stock cs
         LEFT JOIN buy_details bd ON cs.id_buy_details = bd.id
         LEFT JOIN cars_names cn ON bd.id_car_name = cn.id
@@ -785,15 +785,24 @@ const handleClose = () => {
   emit('close')
 }
 
-// Calculate potential profit
+// Estimated profit: cars_stock.price_cell - buy_details.amount
+//
+// The cost side is what was actually paid for the car. It used to be
+// bd.price_sell, which is a different column on buy_details and not the amount
+// that left the bank - so the figure shown was not the margin.
+//
+// Freight is deliberately not subtracted. It is stored per car on this form, but
+// it is a cost of getting the car sold rather than part of what the car cost, and
+// including it made the number disagree with the two fields above it.
 const calculateProfit = () => {
   if (!carDetails.value?.buy_price || !formData.value.price_cell) return t('sellBills.notAvailable')
 
   const buyPrice = parseFloat(carDetails.value.buy_price)
   const sellPrice = parseFloat(formData.value.price_cell)
-  const freightCost = formData.value.freight ? parseFloat(formData.value.freight) : 0
 
-  return (sellPrice - buyPrice - freightCost).toFixed(2)
+  if (isNaN(buyPrice) || isNaN(sellPrice)) return t('sellBills.notAvailable')
+
+  return (sellPrice - buyPrice).toFixed(2)
 }
 
 // New client functionality
@@ -1045,11 +1054,17 @@ watch(() => props.visible, (newVal) => {
                 :class="{ 'default-value': formData.freight !== null }"
               />
               <span v-if="formData.freight !== null" class="default-badge">
-                {{ t('sellBills.default') }} ({{
+                <!--
+                  The locale strings already read "Default (Small Car)" /
+                  "Default (Big Car)". This used to wrap them in
+                  t('sellBills.default') + parentheses as well, which rendered
+                  "Default (Default (Small Car))".
+                -->
+                {{
                   carDetails?.is_big_car
                     ? t('sellBills.default_big_car')
                     : t('sellBills.default_small_car')
-                }})
+                }}
               </span>
             </div>
           </div>
@@ -1077,7 +1092,7 @@ watch(() => props.visible, (newVal) => {
           </div>
         </div>
 
-        <div class="form-row full-width">
+        <div class="form-row full-width even-columns">
           <div class="form-group">
             <label>
               <i class="fas fa-sticky-note"></i>
@@ -1100,9 +1115,7 @@ watch(() => props.visible, (newVal) => {
               </button>
             </div>
           </div>
-        </div>
 
-        <div class="form-row full-width">
           <div class="form-group">
             <label>
               <i class="fas fa-wrench"></i>
@@ -1132,10 +1145,8 @@ watch(() => props.visible, (newVal) => {
               </div>
             </div>
           </div>
-        </div>
 
-        <div v-if="can_assign_to_tmp_clients" class="form-row full-width">
-          <div class="form-group">
+          <div v-if="can_assign_to_tmp_clients" class="form-group">
             <label class="checkbox-label">
               <input
                 type="checkbox"
@@ -1164,18 +1175,16 @@ watch(() => props.visible, (newVal) => {
           </div>
         </div>
 
-        <div class="form-row full-width">
-          <div class="form-actions">
-            <button type="button" @click="handleClose" class="cancel-btn">
-              <i class="fas fa-times"></i>
-              {{ t('sellBills.cancel') }}
-            </button>
-            <button type="submit" class="assign-btn" :disabled="isBusy('assign-car')">
-              <i class="fas fa-save"></i>
-              {{ isProcessing ? t('sellBills.assigning_car') : t('sellBills.assign_car') }}
-            </button>
-          </div>
-        </div>
+        <div class="form-actions-buttons">
+              <button type="button" @click="handleClose" class="cancel-btn">
+                <i class="fas fa-times"></i>
+                {{ t('sellBills.cancel') }}
+              </button>
+              <button type="submit" class="assign-btn" :disabled="isBusy('assign-car')">
+                <i class="fas fa-save"></i>
+                {{ isProcessing ? t('sellBills.assigning_car') : t('sellBills.assign_car') }}
+              </button>
+            </div>
       </form>
     </div>
   </div>
@@ -1341,10 +1350,18 @@ input {
 
 .form-actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
   gap: 10px;
   margin-top: 0;
   width: 100%;
+}
+
+/* Holds the Cancel / Assign Car pair and centres the pair as a unit. */
+.form-actions-buttons {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
 }
 
 .cancel-btn {
@@ -1446,9 +1463,51 @@ input {
   grid-column: 1 / -1;
 }
 
+/*
+ * Notes / Upgrades / Temporary client share one line instead of taking three
+ * stacked full-width rows.
+ *
+ * Flex rather than grid-template-columns: repeat(3, 1fr) because the temporary
+ * client group is behind v-if="can_assign_to_tmp_clients". Without that permission
+ * there are only two children, and a 3-column grid would leave a dead third slot
+ * and squeeze the other two into 2/3 of the width. flex: 1 1 0 divides the row
+ * evenly between whichever groups are actually present, so 2 children get 50/50
+ * and 3 get 33/33/33.
+ */
+.form-content .form-row.even-columns {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.form-content .form-row.even-columns > .form-group {
+  flex: 1 1 0;
+  /* Without this a long unbroken value (a note, a currency figure) sets the flex
+     base and the siblings stop being equal width. */
+  min-width: 0;
+}
+
+/*
+ * Not an even 3-way split after all: the notes group holds a 4-column table whose
+ * cells carry fixed widths (60px number + 150px user + 180px timestamp, plus cell
+ * padding), so it needs roughly 520px, while upgrades is one button and temporary
+ * client is one checkbox. Equal thirds of a 900px form would give notes ~270px and
+ * let the table overflow across its siblings, so notes takes the larger share and
+ * the other two share what is left. It still scrolls horizontally inside its own
+ * column when a note is long enough to need it -- see .notes-table-container in
+ * shared/NotesTable.vue, which is what stops the spill.
+ */
+.form-content .form-row.even-columns > .form-group:first-child {
+  flex-grow: 2.4;
+}
+
 @media (max-width: 768px) {
   .form-content .form-row {
     grid-template-columns: 1fr;
+  }
+
+  .form-content .form-row.even-columns {
+    flex-direction: column;
   }
 }
 
@@ -1518,7 +1577,7 @@ textarea {
 
 .form-actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
   gap: 1rem;
   margin-top: 1rem;
 }

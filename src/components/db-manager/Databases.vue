@@ -712,6 +712,8 @@
 import { ref, computed, onMounted } from 'vue'
 import EditDbCodeJson from './EditDbCodeJson.vue'
 import { getBasePath, resolveApiBaseUrl } from '@/utils/basePath'
+import { getStoredToken } from '@/composables/useApi'
+import { readJsonResponse } from '@/utils/readJsonResponse'
 
 const databases = ref([])
 const loading = ref(false)
@@ -811,7 +813,7 @@ const fetchDatabases = async () => {
   error.value = ''
   try {
     const response = await fetch(`${getApiBaseUrl()}/db_manager_api.php?action=get_databases`)
-    const result = await response.json()
+    const result = await readJsonResponse(response, `${getApiBaseUrl()}/db_manager_api.php`)
 
     if (result.success) {
       databases.value = result.data || []
@@ -909,7 +911,7 @@ const saveDatabase = async () => {
       body: JSON.stringify(cleanPayload),
     })
 
-    const result = await response.json()
+    const result = await readJsonResponse(response, `${getApiBaseUrl()}/db_manager_api.php`)
 
     if (result.success) {
       successMessage.value = editingDatabase.value
@@ -984,7 +986,7 @@ const confirmCreateTables = async () => {
       }),
     })
 
-    const result = await response.json()
+    const result = await readJsonResponse(response, `${getApiBaseUrl()}/db_manager_api.php`)
 
     if (result.success) {
       successMessage.value = result.message || 'Tables created successfully'
@@ -1024,7 +1026,7 @@ const deleteDatabase = async () => {
       }),
     })
 
-    const result = await response.json()
+    const result = await readJsonResponse(response, `${getApiBaseUrl()}/db_manager_api.php`)
 
     if (result.success) {
       successMessage.value = 'Database deleted successfully'
@@ -1103,7 +1105,7 @@ const updateStructure = async () => {
       }),
     })
 
-    const result = await response.json()
+    const result = await readJsonResponse(response, `${getApiBaseUrl()}/db_manager_api.php`)
 
     if (result.success) {
       successMessage.value = result.message || 'Structure updated successfully'
@@ -1254,7 +1256,7 @@ const backupSelectedDatabases = async () => {
       return
     }
 
-    const result = await response.json()
+    const result = await readJsonResponse(response, `${getApiBaseUrl()}/db_manager_api.php`)
     error.value = result.message || 'Failed to create backup'
   } catch (err) {
     error.value = 'An error occurred while creating the backup'
@@ -1287,7 +1289,7 @@ const confirmRunSql = async () => {
       }),
     })
 
-    const result = await response.json()
+    const result = await readJsonResponse(response, `${getApiBaseUrl()}/db_manager_api.php`)
 
     if (result.success) {
       runSqlResults.value = result.data || []
@@ -1333,7 +1335,7 @@ const confirmUpdateVersion = async () => {
       }),
     })
 
-    const result = await response.json()
+    const result = await readJsonResponse(response, `${getApiBaseUrl()}/db_manager_api.php`)
 
     if (result.success) {
       successMessage.value =
@@ -1512,7 +1514,7 @@ const confirmUpdatePhp = async () => {
         }),
       })
 
-      const checkResult = await checkResponse.json()
+      const checkResult = await readJsonResponse(checkResponse, `${getApiBaseUrl()}/api.php`)
 
       if (checkResult.success && checkResult.data) {
         // Filter to only files that actually exist
@@ -1600,12 +1602,19 @@ const confirmUpdatePhp = async () => {
         formData.append('destination_folder', '') // Upload to root of api folder
         formData.append('custom_filename', file.name) // Keep original filename (will replace if exists)
 
+        // upload.php is authenticated and treats `api` as an admin-only write
+        // target, so the token has to be on the request.
+        const authToken = getStoredToken()
+        if (authToken) {
+          formData.append('token', authToken)
+        }
+
         const uploadResponse = await fetch(`${getApiBaseUrl()}/upload.php`, {
           method: 'POST',
           body: formData,
         })
 
-        const uploadResult = await uploadResponse.json()
+        const uploadResult = await readJsonResponse(uploadResponse, `${getApiBaseUrl()}/upload.php`)
 
         if (uploadResult.success) {
           fileResult.error = null
@@ -1702,7 +1711,7 @@ const confirmUploadCode = async () => {
           }),
         })
 
-        const prepareResult = await prepareResponse.json()
+        const prepareResult = await readJsonResponse(prepareResponse, `${getApiBaseUrl()}/db_manager_api.php`)
 
         if (!prepareResult.success) {
           const errorMsg = prepareResult.message || 'Failed to prepare folder'
@@ -1748,7 +1757,7 @@ const confirmUploadCode = async () => {
                 }),
               })
 
-              const checkResult = await checkResponse.json()
+              const checkResult = await readJsonResponse(checkResponse, `${getApiBaseUrl()}/db_manager_api.php`)
 
               if (checkResult.success && checkResult.data && checkResult.data.exists) {
                 shouldSkip = true
@@ -1793,12 +1802,18 @@ const confirmUploadCode = async () => {
           formData.append('destination_folder', '') // Upload to root of js_dir
           formData.append('custom_filename', file.name) // Keep original filename
 
+          // Authenticated write target - see the note on the `api` upload above.
+          const authToken = getStoredToken()
+          if (authToken) {
+            formData.append('token', authToken)
+          }
+
           const uploadResponse = await fetch(`${getApiBaseUrl()}/upload.php`, {
             method: 'POST',
             body: formData,
           })
 
-          const uploadResult = await uploadResponse.json()
+          const uploadResult = await readJsonResponse(uploadResponse, `${getApiBaseUrl()}/upload.php`)
 
           if (uploadResult.success) {
             uploadedFiles.push({

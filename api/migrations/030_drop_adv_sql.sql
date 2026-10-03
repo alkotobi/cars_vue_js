@@ -1,0 +1,30 @@
+-- ============================================
+-- Migration: drop adv_sql, the Advanced SQL feature's template store
+-- ============================================
+-- The Advanced SQL screen (src/views/AdvancedSqlView.vue) is removed. It let an
+-- admin type arbitrary SQL in the browser and POST it to the `execute_multi_sql`
+-- action, and it kept saved templates in this table.
+--
+-- Both halves of that are gone with it: the view, its /advanced-sql route and the
+-- Params button that linked to it, and the `execute_multi_sql` case plus the
+-- executeMultiQuery() helper behind it. Nothing else referenced either - the
+-- remaining `execute_sql` callers (containers and client details) never used the
+-- multi-statement variant.
+--
+-- Why remove rather than gate: executeQuery()/executeMultiQuery() prepare and
+-- execute the statement BEFORE inspecting its first six characters, so the
+-- SELECT/INSERT/UPDATE/DELETE switch only shaped the JSON response. A DROP or an
+-- UPDATE against users took effect and then answered "Invalid query type".
+-- execute_multi_sql was worse still - unlike execute_sql it applied no
+-- semicolon check at all, so it ran a batch of statements in one request. The
+-- screen was admin-gated in the router and again in onMounted, but both of those
+-- are client-side: api.php has no global authentication, so the endpoint was
+-- reachable by anyone who could reach the server.
+--
+-- Dropping the table is the last piece. Nothing reads it now; leaving it would
+-- keep a store of arbitrary SQL statements sitting in the database for no reason.
+-- Any templates saved there are intentionally discarded - re-create them by hand
+-- if one is ever genuinely missed.
+--
+-- Safe to run more than once.
+DROP TABLE IF EXISTS `adv_sql`;

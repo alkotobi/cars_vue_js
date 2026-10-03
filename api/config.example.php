@@ -13,6 +13,11 @@ return [
     'db_pass' => '',
     'db_name' => 'merhab_cars',
 
+    // Required only to run api/install.php. There is deliberately no default: an
+    // empty value makes the installer refuse, so forgetting to set it fails
+    // closed. Pass it as the X-Install-Key header, then delete install.php.
+    'install_key' => '',
+
     // Any OpenAI-compatible endpoint: OpenAI, DeepSeek, OpenRouter, Ollama, ...
     // The value is the API root, without /chat/completions, which is appended.
     'ai_base_url' => '',

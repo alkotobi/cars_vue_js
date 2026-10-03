@@ -43,19 +43,6 @@ CREATE TABLE IF NOT EXISTS `db_updates` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
--- Advanced SQL table
-CREATE TABLE IF NOT EXISTS `adv_sql` (
-  `id` int unsigned NOT NULL AUTO_INCREMENT,
-  `stmt` text,
-  `desc` varchar(255) DEFAULT NULL,
-  `params` text CHARACTER SET utf8mb4 COLLATE utf8mb4_bin,
-  `param_values` text CHARACTER SET utf8mb4 COLLATE utf8mb4_bin,
-  `name` varchar(255) DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  CONSTRAINT `adv_sql_chk_1` CHECK (json_valid(`params`)),
-  CONSTRAINT `adv_sql_chk_2` CHECK (json_valid(`param_values`))
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;
-
 -- Banks table
 CREATE TABLE IF NOT EXISTS `banks` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,

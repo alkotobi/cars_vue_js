@@ -1,6 +1,43 @@
 <?php
+// One-shot schema installer.
+//
+// This file used to be reachable by anyone, at any time, with a plain GET: it ran
+// the whole DDL set against the live database, and on an empty one seeded an
+// `admin` account with the password `123`. Nothing gated it in PHP - the only
+// protection was `deny all` for /api/install.php in deploy/nginx-app.conf.template,
+// so any deployment not using that exact rendered file (Apache, LiteSpeed) had it
+// open, and the app's whole role model reads the table this file rewrites.
+//
+// Two guards below: an explicit install key, and a refusal to touch a database
+// that already has a schema. Delete this file once the install succeeds.
+
 header('Content-Type: application/json');
 require_once __DIR__ . '/config.php';
+
+/**
+ * The install key.
+ *
+ * Set INSTALL_KEY in api/config.local.php before installing. There is deliberately
+ * no default: an empty key means "refuse", so forgetting to set it fails closed
+ * and loudly rather than leaving a public installer.
+ */
+function install_required_key(): string
+{
+    global $configLocal;
+    return isset($configLocal['install_key']) ? trim((string)$configLocal['install_key']) : '';
+}
+
+$installKey = install_required_key();
+$providedKey = $_SERVER['HTTP_X_INSTALL_KEY'] ?? ($_POST['install_key'] ?? ($_GET['install_key'] ?? ''));
+
+if ($installKey === '' || !is_string($providedKey) || !hash_equals($installKey, $providedKey)) {
+    http_response_code(403);
+    echo json_encode([
+        'success' => false,
+        'error' => 'Installer is locked. Set install_key in config.local.php and pass it as the X-Install-Key header.'
+    ]);
+    exit;
+}
 
 try {
     $pdo = new PDO(
@@ -13,6 +50,22 @@ try {
     // Create database if not exists
     $pdo->exec("CREATE DATABASE IF NOT EXISTS $db_name CHARACTER SET utf8 COLLATE utf8_general_ci");
     $pdo->exec("USE $db_name");
+
+    // Refuse to re-run against a database that is already installed.
+    //
+    // Beyond the security angle this fixes a plain bug: nine of the CREATE TABLE
+    // statements below omit IF NOT EXISTS, so a re-run aborted at `tracking` with
+    // "table already exists" - a half-finished install could never be completed by
+    // running it again. Re-running is never the fix; apply api/migrations/*.sql.
+    $existingTables = $pdo->query("SHOW TABLES")->fetchAll(PDO::FETCH_COLUMN);
+    if (!empty($existingTables)) {
+        http_response_code(409);
+        echo json_encode([
+            'success' => false,
+            'error' => 'Database is not empty - refusing to re-run the installer. Apply api/migrations/*.sql instead.'
+        ]);
+        exit;
+    }
 
     // Create banks table
     $pdo->exec("CREATE TABLE IF NOT EXISTS `banks` (
@@ -153,15 +206,6 @@ try {
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;");
 
-    $pdo->exec("CREATE TABLE `adv_sql` (
-    `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
-    `name` varchar(255) NOT NULL,
-    `stmt` text DEFAULT NULL,
-    `desc` text DEFAULT NULL,
-    `params` text CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`params`)),
-    `param_values` text CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`param_values`)),
-    PRIMARY KEY (`id`)
-  ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;");
     // Create buy_details table
     $pdo->exec("CREATE TABLE IF NOT EXISTS `buy_details` (
         `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -557,12 +601,26 @@ try {
     ");
     $stmt->execute();
 
-    // Create default admin user if not exists
-    $defaultPassword = password_hash('123', PASSWORD_DEFAULT);
+    // Create the initial admin account.
+    //
+    // This used to be a hardcoded password_hash('123'), and combined with the
+    // ungated installer above it meant a fresh install - or any empty database -
+    // shipped with a publicly known admin login. The password is now supplied by
+    // the operator and printed exactly once, so there is nothing to guess.
+    $adminPassword = $_POST['admin_password'] ?? ($_GET['admin_password'] ?? '');
+    if (!is_string($adminPassword) || strlen($adminPassword) < 12) {
+        http_response_code(400);
+        echo json_encode([
+            'success' => false,
+            'error' => 'Set admin_password (12+ characters) to create the initial admin account.'
+        ]);
+        exit;
+    }
+
     $stmt = $pdo->prepare("INSERT IGNORE INTO users (username, email, password, role_id) VALUES 
         ('admin', 'admin@example.com', ?, (SELECT id FROM roles WHERE role_name = 'admin'))
     ");
-    $stmt->execute([$defaultPassword]);
+    $stmt->execute([password_hash($adminPassword, PASSWORD_DEFAULT)]);
 
     // Assign all permissions to admin role
     $stmt = $pdo->prepare("INSERT IGNORE INTO role_permissions (role_id, permission_id)

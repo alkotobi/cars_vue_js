@@ -1,4 +1,5 @@
 <script setup>
+import { escapeHtml } from '../../utils/escapeHtml'
 import { ref, computed, onMounted } from 'vue'
 import { useApi } from '../../composables/useApi'
 import { useInvoiceCompanyInfo } from '../../composables/useInvoiceCompanyInfo'
@@ -141,9 +142,14 @@ const getCarValue = (car, columnKey) => {
   // Handle different data types
   if (value === null || value === undefined) return '-'
 
-  // Handle client ID picture - render as image
+  // Handle client ID picture - render as image.
+  //
+  // The caller feeds this to v-html (for this column) or to a text interpolation
+  // (for every other), so the function has to be safe under both. The markup below
+  // is ours; the stored path is escaped before it goes into the src attribute, and
+  // the default branch escapes the value rather than returning it raw.
   if (columnKey === 'client_id_picture' && value) {
-    return `<img src="${getFileUrl(value)}" alt="Client ID" style="max-width: 100px; max-height: 60px; object-fit: contain;" />`
+    return `<img src="${escapeHtml(getFileUrl(value))}" alt="Client ID" style="max-width: 100px; max-height: 60px; object-fit: contain;" />`
   }
 
   // Handle dates
@@ -156,7 +162,7 @@ const getCarValue = (car, columnKey) => {
     return parseFloat(value).toLocaleString()
   }
 
-  return value.toString()
+  return escapeHtml(value.toString())
 }
 </script>
 

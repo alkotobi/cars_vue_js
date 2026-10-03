@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useApi } from '../../composables/useApi'
+import { escapeHtml } from '../../utils/escapeHtml'
 import { useInvoiceCompanyInfo } from '../../composables/useInvoiceCompanyInfo'
 
 const { callApi, getAssets } = useApi()
@@ -345,7 +346,7 @@ const printExpensesList = async () => {
     </head>
     <body>
       <div class="letterhead">
-        <img src="${letterHeadUrl.value}" alt="Company Letterhead">
+        <img src="${escapeHtml(letterHeadUrl.value)}" alt="Company Letterhead">
       </div>
       
       <div class="report-header">
@@ -364,7 +365,7 @@ const printExpensesList = async () => {
         </div>
         <div class="summary-item">
           <span class="summary-label">User</span>
-          <span class="summary-value">${currentUser.value?.username || 'N/A'}</span>
+          <span class="summary-value">${escapeHtml(currentUser.value?.username || 'N/A')}</span>
         </div>
         <div class="summary-item">
           <span class="summary-label">Date Range</span>
@@ -393,9 +394,9 @@ const printExpensesList = async () => {
             <tr>
               <td>${index + 1}</td>
               <td>${formatDate(expense.date_transfer)}</td>
-              ${isAdmin.value ? `<td>${expense.username || 'Unknown'}</td>` : ''}
+              ${isAdmin.value ? `<td>${escapeHtml(expense.username || 'Unknown')}</td>` : ''}
               <td class="amount-cell">${formatCurrency(expense.amount)}</td>
-              <td class="notes-cell">${expense.notes || 'No notes'}</td>
+              <td class="notes-cell">${escapeHtml(expense.notes || 'No notes')}</td>
               <td>#${expense.id}</td>
             </tr>
           `,
@@ -573,7 +574,7 @@ const printReceipt = async (expense) => {
     </head>
     <body>
       <div class="letterhead">
-        <img src="${letterHeadUrl.value || ''}" alt="Company Letterhead">
+        <img src="${escapeHtml(letterHeadUrl.value || '')}" alt="Company Letterhead">
       </div>
       
       <div class="receipt-header">
@@ -584,7 +585,7 @@ const printReceipt = async (expense) => {
       <div class="expense-details">
         <div class="detail-row">
           <span class="detail-label">Receipt ID:</span>
-          <span class="detail-value">#${expense.id}</span>
+          <span class="detail-value">#${escapeHtml(expense.id)}</span>
         </div>
         
         <div class="detail-row">
@@ -594,7 +595,7 @@ const printReceipt = async (expense) => {
         
         <div class="detail-row">
           <span class="detail-label">User:</span>
-          <span class="detail-value">${currentUser.value?.username || 'N/A'}</span>
+          <span class="detail-value">${escapeHtml(currentUser.value?.username || 'N/A')}</span>
         </div>
       </div>
       
@@ -608,7 +609,7 @@ const printReceipt = async (expense) => {
           ? `
         <div class="notes-section">
           <div class="notes-label">Notes:</div>
-          <div class="notes-content">${expense.notes}</div>
+          <div class="notes-content">${escapeHtml(expense.notes)}</div>
         </div>
       `
           : ''

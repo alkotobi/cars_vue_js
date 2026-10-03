@@ -51,6 +51,7 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
+import { readJsonResponse } from '@/utils/readJsonResponse'
 
 const props = defineProps({
   show: {
@@ -142,7 +143,7 @@ const loadJsonFile = async () => {
     console.log('[EditDbCodeJson] Response status:', response.status)
     console.log('[EditDbCodeJson] Response ok:', response.ok)
 
-    const result = await response.json()
+    const result = await readJsonResponse(response, `${props.apiBaseUrl}/db_manager_api.php`)
     console.log('[EditDbCodeJson] API result:', result)
     console.log('[EditDbCodeJson] API result.data:', result.data)
     console.log('[EditDbCodeJson] File exists:', result.data?.exists)
@@ -214,7 +215,7 @@ const handleSave = async () => {
       }),
     })
 
-    const result = await response.json()
+    const result = await readJsonResponse(response, `${props.apiBaseUrl}/db_manager_api.php`)
 
     if (result.success) {
       emit('saved', result.message || 'db_code.json saved successfully')

@@ -54,7 +54,8 @@ const handleSubmit = async () => {
       return
     }
     if (!logoFile.value) {
-      error.value = 'Logo is required for different company users. Please select or drop an image file.'
+      error.value =
+        'Logo is required for different company users. Please select or drop an image file.'
       return
     }
   }
@@ -102,18 +103,14 @@ const handleSubmit = async () => {
     }
 
     const result = await callApi({
-      query:
-        'INSERT INTO users (username, email, password, role_id, max_unpayed_created_bills, is_diffrent_company, id_bank_account) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      params: [
-        formData.value.username,
-        formData.value.email,
-        formData.value.password,
-        formData.value.role_id || null,
-        formData.value.max_unpayed_created_bills || 0,
-        formData.value.is_diffrent_company ? 1 : 0,
-        bankId,
-      ],
-      action: 'insert_user', // Tell API to hash the password before inserting
+      action: 'create_user',
+      username: formData.value.username,
+      email: formData.value.email,
+      password: formData.value.password,
+      role_id: formData.value.role_id || null,
+      max_unpayed_created_bills: formData.value.max_unpayed_created_bills || 0,
+      is_diffrent_company: formData.value.is_diffrent_company ? 1 : 0,
+      id_bank_account: bankId,
     })
 
     if (result.success) {
@@ -323,7 +320,8 @@ onMounted(() => {
           </span>
         </label>
         <p class="form-hint">
-          Enable to link this user to a company record (bank). A new bank row is created and is not set active.
+          Enable to link this user to a company record (bank). A new bank row is created and is not
+          set active.
         </p>
       </div>
 
@@ -348,7 +346,12 @@ onMounted(() => {
                 />
                 <template v-if="logoPreviewUrl">
                   <img :src="logoPreviewUrl" alt="Logo" class="logo-preview" />
-                  <button type="button" class="logo-clear-btn" title="Remove logo" @click.stop="clearLogo">
+                  <button
+                    type="button"
+                    class="logo-clear-btn"
+                    title="Remove logo"
+                    @click.stop="clearLogo"
+                  >
                     <i class="fas fa-times"></i>
                   </button>
                 </template>

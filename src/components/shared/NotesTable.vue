@@ -100,6 +100,12 @@ const formatTimestamp = (timestamp) => {
 <style scoped>
 .notes-table-container {
   margin-top: 1rem;
+  /* The table's cells carry fixed widths, so the table has a natural minimum
+     width (~520px). In a narrow container it would otherwise spill out and
+     overlap whatever sits beside it; CarAssignmentForm renders this in a third
+     of the form row, so clamp it here and scroll instead of overflowing. */
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 .notes-table-header {

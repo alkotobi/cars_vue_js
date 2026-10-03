@@ -116,45 +116,24 @@ const changePassword = async () => {
     isProcessing.value = true // Start processing
     error.value = '' // Clear previous errors
 
-    // First verify current credentials
-    const result = await callApi({
-      query: `SELECT u.id, u.username, u.role_id, u.password, r.role_name 
-              FROM users u 
-              JOIN roles r ON u.role_id = r.id 
-              WHERE u.username = ?`,
-      params: [username.value],
-    })
-
-    if (!result.success || !result.data.length) {
-      error.value = t('auth.invalidCredentials')
-      return
-    }
-
-    const user = result.data[0]
-
-    // Verify current password
-    const verifyResult = await callApi({
-      action: 'verify_password',
-      password: password.value,
-      hash: user.password,
-    })
-
-    if (!verifyResult.success) {
-      error.value = t('auth.currentPasswordIncorrect')
-      return
-    }
-
-    // Update password with proper hashing
+    // One call that verifies the current password and writes the new one server-side.
+    //
+    // This was three anonymous calls: a SELECT that shipped the stored bcrypt hash
+    // to the browser, `verify_password` to compare it over there, and
+    // `UPDATE users SET password = ? WHERE username = ?` with the username read
+    // straight off the form. Anyone could rewrite anyone's password, and anyone
+    // could ask for a hash.
     const updateResult = await callApi({
-      query: `UPDATE users SET password = ? WHERE username = ?`,
-      params: [newPassword.value, username.value],
-      action: 'hash_password', // This tells the API to hash the password before updating
+      action: 'change_password_with_credentials',
+      username: username.value,
+      current_password: password.value,
+      new_password: newPassword.value,
     })
 
     if (updateResult.success) {
-      // A token minted before the password changed must stop working, or the
-      // old password and anything captured with it would still be good for a
-      // session. Best-effort: a failed call must not hide the success message.
+      // The action rotates api_token server-side, so the token this tab is holding
+      // is already dead. Logging out is best-effort and must not hide the success
+      // message.
       const currentToken = (() => {
         const userStr = localStorage.getItem('user')
         return userStr ? JSON.parse(userStr)?.token : null

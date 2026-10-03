@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useApi } from '../../composables/useApi'
+import { escapeHtml } from '../../utils/escapeHtml'
 import { useInvoiceCompanyInfo } from '../../composables/useInvoiceCompanyInfo'
 import TransferForm from './TransferForm.vue'
 
@@ -384,7 +385,7 @@ const printTransferReceipt = async (transfer) => {
     </head>
     <body>
       <div class="letterhead">
-        <img src="${letterHeadUrl.value}" alt="Company Letterhead">
+        <img src="${escapeHtml(letterHeadUrl.value)}" alt="Company Letterhead">
       </div>
       
       <div class="receipt-title">INTERNAL TRANSFER RECEIPT</div>
@@ -392,7 +393,7 @@ const printTransferReceipt = async (transfer) => {
       <div class="receipt-info">
         <div class="info-row">
           <span class="info-label">Transfer ID:</span>
-          <span class="info-value">Transfer #${transfer.id}</span>
+          <span class="info-value">Transfer #${escapeHtml(transfer.id)}</span>
         </div>
         <div class="info-row">
           <span class="info-label">Date:</span>
@@ -400,18 +401,18 @@ const printTransferReceipt = async (transfer) => {
         </div>
         <div class="info-row">
           <span class="info-label">From User:</span>
-          <span class="info-value">${transfer.from_username}</span>
+          <span class="info-value">${escapeHtml(transfer.from_username)}</span>
         </div>
         <div class="info-row">
           <span class="info-label">To User:</span>
-          <span class="info-value">${transfer.to_username}</span>
+          <span class="info-value">${escapeHtml(transfer.to_username)}</span>
         </div>
         ${
           transfer.notes
             ? `
         <div class="info-row">
           <span class="info-label">Notes:</span>
-          <span class="info-value">${transfer.notes}</span>
+          <span class="info-value">${escapeHtml(transfer.notes)}</span>
         </div>
         `
             : ''
@@ -444,7 +445,7 @@ const printTransferReceipt = async (transfer) => {
           ? `
       <div class="status-section status-admin">
         <div class="status-label">🛡 Admin Confirmed</div>
-        <div>Confirmed by: ${transfer.admin_username || 'Admin'}</div>
+        <div>Confirmed by: ${escapeHtml(transfer.admin_username || 'Admin')}</div>
       </div>
       `
           : `

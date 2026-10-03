@@ -598,7 +598,10 @@ const handleNotFullyPaidClick = () => {
   top: 70px;
   left: 0;
   right: 0;
-  z-index: 999;
+  /* Above the CarsView side toolbar (z-index: 1010), which at 999 painted over
+     this bar instead. Kept below the app header (z-index: 1100), because this bar
+     sits at top: 70px directly beneath it and must not cover the header. */
+  z-index: 1030;
 }
 
 .alerts-view.refreshing {

@@ -105,6 +105,7 @@
 <script setup>
 import { ref, defineEmits } from 'vue'
 import { getBasePath, resolveApiBaseUrl } from '@/utils/basePath'
+import { readJsonResponse } from '@/utils/readJsonResponse'
 
 const emit = defineEmits(['login-success'])
 
@@ -166,7 +167,7 @@ const login = async () => {
       }),
     })
 
-    const result = await response.json()
+    const result = await readJsonResponse(response, `${getApiBaseUrl()}/db_manager_api.php`)
 
     if (result.success) {
       successMessage.value = 'Login successful!'
@@ -227,7 +228,7 @@ const signup = async () => {
       }),
     })
 
-    const result = await response.json()
+    const result = await readJsonResponse(response, `${getApiBaseUrl()}/db_manager_api.php`)
 
     if (result.success) {
       successMessage.value = 'Sign up successful! You can now login.'

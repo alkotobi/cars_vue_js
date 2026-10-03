@@ -56,8 +56,8 @@ export default {
     }
   },
   setup() {
-    const { callApi } = useApi()
-    return { callApi }
+    const { saveContainerTracking } = useApi()
+    return { saveContainerTracking }
   },
   async mounted() {
     await this.loadGoogleMapsAPI()
@@ -258,33 +258,13 @@ export default {
 
     async saveTrackingLocation() {
       try {
-        const trackingData = {
-          container_ref: this.containerRef,
-          tracking: `${this.selectedLocation.lat.toFixed(6)},${this.selectedLocation.lng.toFixed(6)}`,
-          time: new Date().toISOString().slice(0, 19).replace('T', ' '), // MySQL timestamp format
-          id_user: 1, // You can get this from user session if available
-        }
+        const coords = `${this.selectedLocation.lat.toFixed(6)},${this.selectedLocation.lng.toFixed(6)}`
 
-        // Use INSERT ... ON DUPLICATE KEY UPDATE to handle duplicates
-        const sql = `
-          INSERT INTO tracking (container_ref, tracking, time, id_user) 
-          VALUES (?, ?, ?, ?) 
-          ON DUPLICATE KEY UPDATE 
-          tracking = VALUES(tracking), 
-          time = VALUES(time), 
-          id_user = VALUES(id_user)
-        `
-
-        const result = await this.callApi({
-          action: 'execute_sql',
-          query: sql,
-          params: [
-            trackingData.container_ref,
-            trackingData.tracking,
-            trackingData.time,
-            trackingData.id_user,
-          ],
-        })
+        // One named action that upserts on container_ref and stamps time = NOW()
+        // and id_user from the token. The old execute_sql call hardcoded
+        // id_user: 1, so every saved position was attributed to user 1 whoever
+        // actually made it.
+        const result = await this.saveContainerTracking(this.containerRef, coords)
 
         if (result.success) {
           alert(

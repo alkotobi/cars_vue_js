@@ -119,7 +119,15 @@ export default defineConfig({
       },
     },
     manifest: true,
-    sourcemap: true,
+    // Off unless asked for. These maps are the whole unminified application: every
+    // source file, every API path, every route and every secret-shaped string,
+    // reconstructed from a fetch of /assets/<chunk>.js.map. `true` publishes them as
+    // a normal file next to each chunk and adds the sourceMappingURL comment;
+    // 'inline' is worse, since it embeds all of it in the bundle itself.
+    //
+    // `npm run build` is the deploy build, so the default has to be the safe one -
+    // a debug build stays available as `VITE_SOURCEMAP=true npm run build`.
+    sourcemap: process.env.VITE_SOURCEMAP === 'true',
     chunkSizeWarningLimit: 1000, // Increase warning limit to 1MB
   },
 })

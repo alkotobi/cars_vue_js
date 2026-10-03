@@ -1,4 +1,5 @@
 <script setup>
+import { escapeHtml, rawHtml } from '../../utils/escapeHtml'
 import { ref, reactive, onMounted, computed, watch, onUnmounted, nextTick } from 'vue'
 import { useEnhancedI18n } from '@/composables/useI18n'
 import { useApi } from '../../composables/useApi'
@@ -570,7 +571,7 @@ const handlePrintWithOptions = async (printData) => {
   if (printOptionsActionType.value === 'print') {
     title = subject || t('carStock.car_stock_report')
     contentBeforeTable = `
-      ${coreContent ? `<div style="margin: 20px 0; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #3b82f6; border-radius: 4px; white-space: pre-wrap;">${coreContent}</div>` : ''}
+      ${coreContent ? `<div style="margin: 20px 0; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #3b82f6; border-radius: 4px; white-space: pre-wrap;">${escapeHtml(coreContent)}</div>` : ''}
     `
     contentAfterTable = `
       <p><strong>${t('carStock.total_cars')}</strong> ${cars.length}</p>
@@ -582,7 +583,7 @@ const handlePrintWithOptions = async (printData) => {
       <p>${t('carStock.loading_order_contains_cars', { count: cars.length })}</p>
       <p>${t('carStock.loading_order_generated_on', { date: new Date().toLocaleDateString() })}</p>
       <div style="margin: 20px 0; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #059669; border-radius: 4px;">
-        ${t('carStock.core_content')} ${coreContent || t('carStock.no_core_content_found')}
+        ${escapeHtml(t('carStock.core_content'))} ${escapeHtml(coreContent || t('carStock.no_core_content_found'))}
       </div>
     `
     contentAfterTable = `
@@ -633,7 +634,7 @@ const handleLoadingOrderWithOptions = async (data) => {
   // Generate loading order content based on action type
   let title = subject || 'Loading Order Report'
   let contentBeforeTable = `
-    ${coreContent ? `<div style="margin: 20px 0; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #059669; border-radius: 4px; white-space: pre-wrap;">${coreContent}</div>` : ''}
+    ${coreContent ? `<div style="margin: 20px 0; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #059669; border-radius: 4px; white-space: pre-wrap;">${escapeHtml(coreContent)}</div>` : ''}
   `
   let contentAfterTable = `
     <p><strong>Total Cars for Loading:</strong> ${cars.length}</p>
@@ -746,7 +747,7 @@ const printReport = async (reportData) => {
     <!DOCTYPE html>
     <html>
     <head>
-      <title>${title}</title>
+      <title>${escapeHtml(title)}</title>
       <style>
         body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
         .print-report { max-width: 210mm; margin: 0 auto; }
@@ -767,20 +768,20 @@ const printReport = async (reportData) => {
     </head>
     <body>
       <div class="print-report">
-        ${letterheadHtml}
+        ${rawHtml(letterheadHtml)}
         <div class="report-date">
           <span><strong>Date:</strong> ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
         </div>
         <div class="report-ref">
-          <span><strong>REF:</strong> ${generateRef()}</span>
+          <span><strong>REF:</strong> ${escapeHtml(generateRef())}</span>
         </div>
-        <h1 class="report-title">${title}</h1>
-        ${contentBeforeTable ? `<div class="content-before-table">${contentBeforeTable}</div>` : ''}
+        <h1 class="report-title">${escapeHtml(title)}</h1>
+        ${contentBeforeTable ? `<div class="content-before-table">${rawHtml(contentBeforeTable)}</div>` : ''}
         <div class="table-container">
           <table class="report-table">
             <thead>
               <tr>
-                ${columns.map((col) => `<th class="table-header">${col.label}</th>`).join('')}
+                ${columns.map((col) => `<th class="table-header">${escapeHtml(col.label)}</th>`).join('')}
               </tr>
             </thead>
             <tbody>
@@ -794,7 +795,7 @@ const printReport = async (reportData) => {
                       let displayValue = '-'
                       if (value !== null && value !== undefined) {
                         if (col.key === 'client_id_picture' && value) {
-                          displayValue = `<img src="${getFileUrl(value)}" alt="Client ID" style="max-width: 100px; max-height: 60px; object-fit: contain;" />`
+                          displayValue = `<img src="${escapeHtml(getFileUrl(value))}" alt="Client ID" style="max-width: 100px; max-height: 60px; object-fit: contain;" />`
                         } else if (col.key.includes('date') && value) {
                           displayValue = new Date(value).toLocaleDateString()
                         } else if (
@@ -805,10 +806,13 @@ const printReport = async (reportData) => {
                         ) {
                           displayValue = parseFloat(value).toLocaleString()
                         } else {
-                          displayValue = value.toString()
+                          // Stored column content - a car name, a client, a note.
+                          // Escaped here rather than at the <td>, because the branch
+                          // above deliberately produces an <img> tag instead.
+                          displayValue = escapeHtml(value.toString())
                         }
                       }
-                      return `<td class="table-cell">${displayValue}</td>`
+                      return `<td class="table-cell">${rawHtml(displayValue)}</td>`
                     })
                     .join('')}
                 </tr>
@@ -818,7 +822,7 @@ const printReport = async (reportData) => {
             </tbody>
           </table>
         </div>
-        ${contentAfterTable ? `<div class="content-after-table">${contentAfterTable}</div>` : ''}
+        ${contentAfterTable ? `<div class="content-after-table">${rawHtml(contentAfterTable)}</div>` : ''}
       </div>
     </body>
     </html>
@@ -1098,12 +1102,15 @@ const handleDocumentClick = async (event, path, documentName) => {
       const response = await fetch(fileUrl, { method: 'HEAD' })
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }))
+        // A HEAD response has no body by definition, so parsing one here could
+        // only ever fail - the .catch() below always won and `error` was
+        // permanently the string 'Unknown error'. Log the status instead; that is
+        // the only thing a HEAD can tell us.
         console.error('Document not found:', {
           documentName,
           path,
           fileUrl,
-          error: errorData,
+          status: `${response.status} ${response.statusText}`,
         })
         // Don't prevent default - let user see the error page
       }
