@@ -22,18 +22,90 @@ $response = [
     'data' => null
 ];
 
+// ---------------------------------------------------------------------------
+// DB-manager token helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * A valid bcrypt hash of a value nobody knows, used to keep a failed login slow
+ * when the username does not exist. Same construction as AUTH_DUMMY_HASH in
+ * api/actions/auth.php.
+ */
+const DBM_DUMMY_HASH = '$2y$10$usesomesillystringfore7hnbRJHxXVLeakoG8K30oukPsA.ztMG';
+
+/**
+ * The unauthenticated surface of this file, and nothing else.
+ *
+ * get_database_by_code is called by loadConfig() at boot, before anyone has
+ * logged in, to turn this server's db_code.json into a real database name and
+ * files_dir. login and signup are the credential exchange itself.
+ *
+ * Everything else - run_sql, delete_database, backup_databases,
+ * prepare_upload_folder, update_structure - requires a `login`.api_token.
+ *
+ * A literal rather than a flag on the gated path: a caller-sent "public" marker
+ * would be a bypass, exactly as in api/api.php's PUBLIC_ACTIONS.
+ */
+const DBM_PUBLIC_ACTIONS = ['get_database_by_code', 'login', 'signup'];
+
+//
+// These authenticate against the registry's `login` table, deliberately not
+// against the tenant app's `users` table that lib/auth.php reads. See the gate
+// further down for why the two realms are kept apart.
+
+/**
+ * Resolve the caller from their DB-manager token.
+ *
+ * @return array{id:int,user:string,active:int}|null null when the token is
+ *         missing, unknown, or names a deactivated account.
+ */
+function dbm_token_user(PDO $conn, string $token): ?array
+{
+    if ($token === '') {
+        return null;
+    }
+
+    try {
+        $stmt = $conn->prepare('SELECT id, user, active FROM login WHERE api_token = ? LIMIT 1');
+        $stmt->execute([$token]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        // A registry predating api/migrations/031_login_api_token.sql has no such
+        // column. That must read as "no token" rather than as a 500 that leaks SQL.
+        error_log('dbm_token_user: ' . $e->getMessage());
+        return null;
+    }
+
+    if (!$row || (int) $row['active'] !== 1) {
+        return null;
+    }
+
+    return $row;
+}
+
+/** A fresh 32-byte token, hex encoded to fit login.api_token VARCHAR(64). */
+function dbm_new_token(): string
+{
+    return bin2hex(random_bytes(32));
+}
+
 // Wrap everything in try-catch to ensure headers are always sent
 try {
     // Include database configuration
     if (!file_exists(__DIR__ . '/db_manager_config.php')) {
         throw new Exception('db_manager_config.php file not found');
     }
-    require_once __DIR__ . '/db_manager_config.php';
-    
+    require_once __DIR__ . '/db_manager_config.php';    
     // Check if config is loaded
     if (!isset($db_manager_config)) {
         throw new Exception('Database configuration not loaded');
     }
+
+    // The provisioning library: the folder-name rules every action below enforces, and
+    // the steps behind the provision_tenant / deploy_app_to_tenant actions. Loaded
+    // here rather than inside the actions so a missing file fails at request time with
+    // a clear reason instead of as an undefined function halfway through a switch case.
+    require_once __DIR__ . '/lib/tenant-provision.php';
     
     // Use config values
     $db_host = $db_manager_config['host'];
@@ -44,10 +116,17 @@ try {
     $method = $_SERVER['REQUEST_METHOD'];
     
     // Get POST/GET data
+    //
+    // The `??` fallback only rescues a *parse failure* on an array-shaped body. A
+    // body of `123` or `"x"` decodes to an int/string, which is not null, so it
+    // survives the coalesce and every `is_array($inputData)`-style guard further
+    // down is silently skipped while `$inputData['action']` reads as offset 123.
+    // Reject anything that is not an object-shaped payload instead of guessing.
     $inputData = [];
     if ($method === 'POST') {
         $rawInput = file_get_contents('php://input');
-        $inputData = json_decode($rawInput, true) ?? $_POST;
+        $decoded = json_decode((string) $rawInput, true);
+        $inputData = is_array($decoded) ? $decoded : $_POST;
     } elseif ($method === 'GET') {
         $inputData = $_GET;
     }
@@ -113,6 +192,466 @@ try {
         return $path;
     }
     
+    // Whether this installation has ONE shared api/ or a copy per tenant.
+    //
+    // Both layouts are supported (api/lib/appdb.php resolves a tenant from the request
+    // in the first and from its own location in the second), and which one this is
+    // decides whether provisioning writes an api/ into each tenant folder.
+    //
+    // The answer comes from tenant_has_shared_api(), which probes the filesystem and
+    // honours an override in /etc/cars-deploy.json. It used to be worked out here by
+    // comparing api_dir against this file's parent, which was wrong for the layout
+    // this server actually runs: for a shared /var/www/api it compared /var/www/api
+    // with /var/www, said "not shared", and gave every client its own 68-file copy of
+    // the API - quietly reverting the one-copy design on the one machine where it
+    // matters, and with nothing in the logs to say so.
+    function dbm_has_shared_api() {
+        return function_exists('tenant_has_shared_api') ? tenant_has_shared_api() : false;
+    }
+
+    // Whether this client has anything on disk or in the database yet.
+    //
+    // The line between "a row an operator just added" and "a live client" is
+    // exactly where the operations that cannot be undone belong: provisioning,
+    // renaming, deleting. An empty row is a draft and can be edited freely.
+    function dbm_is_provisioned(PDO $conn, string $dbName) {
+        $dirs = dbm_tenant_dirs($dbName);
+        $webroot = dbm_deployment_root();
+
+        if (is_dir($webroot . '/' . $dirs['app_folder']) || is_dir($webroot . '/' . $dirs['files_folder'])) {
+            return true;
+        }
+
+        $stmt = $conn->prepare('SELECT is_created FROM dbs WHERE db_name = ?');
+        $stmt->execute([$dbName]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return $row !== false && (int) $row['is_created'] === 1;
+    }
+
+    // The database name a provisioning request is for.
+    //
+    // Accepts the name or the row id, because the screen has both and the id is what
+    // a list row carries.
+    function dbm_requested_db_name(PDO $conn, array $inputData) {
+        $name = trim((string) ($inputData['db_name'] ?? ''));
+        if ($name !== '') {
+            return $name;
+        }
+
+        $id = (int) ($inputData['id'] ?? 0);
+        if ($id <= 0) {
+            return '';
+        }
+
+        $stmt = $conn->prepare('SELECT db_name FROM dbs WHERE id = ?');
+        $stmt->execute([$id]);
+        $found = $stmt->fetchColumn();
+
+        return $found === false ? '' : (string) $found;
+    }
+
+    // Reject database names that cannot be used safely.
+    //
+    // The name is chosen by whoever fills in the create form and ends up in three
+    // places that are not parameterisable: `CREATE DATABASE`, the PDO DSN, and - the
+    // reason the accepted set is now so narrow - the tenant's folders and URL.
+    //
+    //   * The DSN is semicolon-delimited, so a name holding a `;` would silently
+    //     truncate into a different dbname, and a backtick would end the quoted
+    //     identifier in the DDL.
+    //   * dbm_tenant_dirs() derives an nginx location and a folder name from this
+    //     string. A space or a `$` is legal in MySQL and impossible to use in an
+    //     unquoted nginx path, so accepting them here only moved the failure to
+    //     provisioning time, where it looks like a server problem.
+    //
+    // So the accepted set is what deploy/render-nginx.sh already accepted for a folder
+    // name, and it is the same pattern the provisioning library enforces
+    // (api/lib/tenant-provision.php). Delegating to it means the screen and the
+    // provisioning cannot disagree about what a legal client name is.
+    function dbm_validate_database_name(string $dbName) {
+        if (!function_exists('tenant_assert_valid_db_name')) {
+            return ['error' => 'Tenant provisioning library is missing (api/lib/tenant-provision.php).'];
+        }
+
+        try {
+            tenant_assert_valid_db_name($dbName);
+        } catch (Throwable $e) {
+            return ['error' => $e->getMessage()];
+        }
+
+        return [];
+    }
+
+    // The folders and URL prefix a client database gets, derived from its name.
+    //
+    // Derived rather than typed into the form, which is the whole point: a row whose
+    // js_dir and db_name disagree is a tenant whose app is served from one place and
+    // whose uploads are written to another, and nothing on the screen shows that. The
+    // form still sends them, so a hand-edited value that disagrees is reported rather
+    // than silently overwritten.
+    //
+    // @return array{js_dir:string,files_dir:string,app_folder:string,files_folder:string}
+    function dbm_tenant_dirs(string $dbName) {
+        return [
+            'js_dir' => '/' . $dbName,
+            'files_dir' => '/' . tenant_files_dir_name($dbName),
+            'app_folder' => basename('/' . $dbName),
+            'files_folder' => basename('/' . tenant_files_dir_name($dbName)),
+        ];
+    }
+
+    // Reject a name that collides with another row under a case-insensitive
+    // comparison, and reject a folder that already belongs to a different database.
+    //
+    // Both halves matter on Linux, where `Acme_Cars` and `acme_cars` are two folders
+    // and two databases, but MySQL's default collation treats their names as equal in
+    // a WHERE clause and the registry is read that way. Two rows that a lookup cannot
+    // tell apart resolve to whichever one the server happens to return first, and the
+    // symptom is one client seeing another's data.
+    //
+    // @return string|null an error message, or null when the name is free
+    function dbm_assert_name_available(PDO $conn, string $dbName, ?int $exceptId = null) {
+        // LOWER() on both sides, not the column's own collation and not BINARY.
+        //
+        // The column collation already compares case-insensitively, which is the
+        // behaviour being guarded against, so relying on it would make this check
+        // depend on a server default nobody set deliberately. BINARY would be the
+        // opposite mistake: it matches only byte-identical names, so `MIG_27` and
+        // `mig_27` would both be accepted - which is exactly the pair that has to be
+        // refused.
+        $stmt = $conn->prepare('SELECT id, db_name FROM dbs WHERE LOWER(db_name) = LOWER(?)' . ($exceptId !== null ? ' AND id <> ?' : ''));
+        $params = $exceptId !== null ? [$dbName, $exceptId] : [$dbName];
+        $stmt->execute($params);
+
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $other = (string) $row['db_name'];
+            return sprintf(
+                "A database called '%s' is already registered (row %d). '%s' and '%s' are the same name on a case-insensitive filesystem lookup, so only one of them can exist.",
+                $other,
+                (int) $row['id'],
+                $other,
+                $dbName
+            );
+        }
+
+        // A folder of that name belonging to a different database is the same problem
+        // seen from the disk side.
+        $webroot = dbm_deployment_root();
+        foreach (dbm_tenant_dirs($dbName) as $key => $folder) {
+            if ($key !== 'app_folder' && $key !== 'files_folder') {
+                continue;
+            }
+            if (!is_dir($webroot . '/' . $folder)) {
+                continue;
+            }
+
+            $owner = dbm_folder_owner($webroot . '/' . $folder);
+            if ($owner !== null && strcasecmp($owner, $dbName) !== 0) {
+                return sprintf(
+                    "The folder %s/%s already belongs to the database '%s'. Delete or rename it before registering '%s'.",
+                    basename($webroot),
+                    $folder,
+                    $owner,
+                    $dbName
+                );
+            }
+        }
+
+        return null;
+    }
+
+    // Which registered database owns a folder, by reading the db_code.json in it.
+    //
+    // The app folder names its database in db_code.json, so that file is the record
+    // of who a folder belongs to. Returns null when the folder holds no db_code.json
+    // or names a database that is not registered.
+    function dbm_folder_owner(string $folder) {
+        $file = rtrim($folder, '/') . '/db_code.json';
+        if (!is_file($file)) {
+            return null;
+        }
+
+        $decoded = json_decode((string) @file_get_contents($file), true);
+        $code = is_array($decoded) ? trim((string) ($decoded['db_code'] ?? '')) : '';
+        if ($code === '') {
+            return null;
+        }
+
+        global $conn;
+        $stmt = $conn->prepare('SELECT db_name FROM dbs WHERE db_code = ?');
+        $stmt->execute([$code]);
+        $owner = $stmt->fetchColumn();
+
+        return $owner === false ? null : (string) $owner;
+    }
+
+    // Where tenant folders live: the parent of the folder holding api/, when api/ is
+    // shared by every tenant, and the app folder itself otherwise.
+    //
+    // With one shared api/ a tenant's app folder and its upload folder are siblings of
+    // api/, which is what app_deployment_root() in api/lib/appdb.php assumes too.
+    // Without it - a per-tenant copy of api/, the local layout - they sit inside the
+    // app folder.
+    function dbm_deployment_root() {
+        $apiRoot = realpath(__DIR__ . '/..');
+
+        if ($apiRoot === false) {
+            return __DIR__ . '/..';
+        }
+
+        $serverConfig = function_exists('tenant_server_config') ? tenant_server_config() : [];
+        $sharedApiDir = isset($serverConfig['api_dir']) ? (string) $serverConfig['api_dir'] : '';
+        $isShared = $sharedApiDir !== '' && realpath($sharedApiDir) === $apiRoot;
+
+        return $isShared ? dirname($apiRoot) : $apiRoot;
+    }
+
+    // Open a connection to the database named in the registry, creating it first if it
+    // is not there yet.
+    //
+    // Returns ['conn' => PDO] on success, or ['error' => string] with a message meant
+    // for the person clicking the button rather than for a log file.
+    //
+    // db_name is free text from the create form, so pressing Create on a name that has
+    // never existed used to fail with the raw driver string
+    // "SQLSTATE[HY000] [1049] Unknown database 'mig_27'" - which named neither what
+    // went wrong nor what to do about it. Creating the database is what the button is
+    // for, so do that instead, and keep the raw driver text in the log rather than
+    // returning it to a browser.
+    function dbm_connect_target(string $dbName) {
+        $nameCheck = dbm_validate_database_name($dbName);
+        if (isset($nameCheck['error'])) {
+            return ['error' => $nameCheck['error']];
+        }
+
+        try {
+            $config = dbm_target_credentials();
+        } catch (Throwable $e) {
+            error_log('dbm_connect_target: no API credentials: ' . $e->getMessage());
+            return ['error' => 'The API database credentials are not configured on this server.'];
+        }
+
+        try {
+            $serverConn = new PDO("mysql:host={$config['host']}", $config['user'], $config['pass']);
+            $serverConn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+            // IF NOT EXISTS keeps this idempotent: pressing Create on a database that is
+            // already there - which is the normal case for re-running against an existing
+            // tenant - must not fail or reset it. The name is backtick-quoted as well as
+            // validated, so nothing here can terminate the identifier early.
+            $serverConn->exec(sprintf('CREATE DATABASE IF NOT EXISTS `%s`', str_replace('`', '``', $dbName)));
+        } catch (PDOException $e) {
+            error_log("dbm_connect_target: cannot create '$dbName': " . $e->getMessage());
+            return ['error' => sprintf(
+                "Could not create database '%s' using the API's credentials. Check that the MySQL user is allowed to create databases.",
+                $dbName
+            )];
+        }
+
+        try {
+            $conn = new PDO(
+                "mysql:host={$config['host']};dbname={$dbName}",
+                $config['user'],
+                $config['pass']
+            );
+            $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            return ['conn' => $conn];
+        } catch (PDOException $e) {
+            error_log("dbm_connect_target: cannot open '$dbName': " . $e->getMessage());
+            return ['error' => sprintf(
+                "Created database '%s' but could not open it. Check the database name and the API's credentials.",
+                $dbName
+            )];
+        }
+    }
+
+    // Credentials used to reach tenant databases: the API's own, since the DB manager
+    // operates across every tenant rather than as any one of them.
+    function dbm_target_credentials() {
+        // A plain `require`, not `require_once`, and the global checked first.
+        //
+        // config.php assigns `$db_config` in the scope that includes it. When another
+        // action has already loaded it at top level, that lands in $GLOBALS and
+        // require_once is a no-op. But create_tables can be the first thing to need it,
+        // and then the include happens *inside this function* - putting $db_config in
+        // function scope, where `global $db_config` finds nothing. That produced
+        // "Access denied for user ''@'localhost'" and turned every target database into
+        // "Could not verify the database list". config.php only builds an array from the
+        // environment, so re-running it is harmless.
+        if (isset($GLOBALS['db_config']) && is_array($GLOBALS['db_config'])) {
+            return $GLOBALS['db_config'];
+        }
+
+        require __DIR__ . '/config.php';
+        return $db_config;
+    }
+
+    // Which statements from setup.sql are worth sending to the server.
+    //
+    // CREATE TABLE and INSERT are the tables and their seed rows. DROP TRIGGER and
+    // CREATE TRIGGER are the two triggers at the end of the file, which the Create button
+    // used to skip entirely: they sit inside `DELIMITER $$` blocks, so the statement
+    // splitter shredded them and then dropped what was left. DROP has to come first so
+    // that re-running Create against a tenant that already has the triggers succeeds
+    // instead of failing with "trigger already exists".
+    //
+    // ALTER matters just as much. setup.sql carries one, and it is the only thing that
+    // puts a foreign key on buy_details.id_car_name - the file has to add it after the
+    // fact because buy_details is created before the cars_names it points at. With ALTER
+    // missing from this list the statement was filtered out silently: the database
+    // reported success, and the only symptom was a constraint that was never there.
+    function dbm_is_setup_statement($stmt) {
+        foreach (['CREATE TABLE', 'CREATE TRIGGER', 'DROP TRIGGER', 'ALTER TABLE', 'INSERT'] as $keyword) {
+            if (stripos($stmt, $keyword) !== false) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Split a .sql file into executable statements, semicolons included.
+    //
+    // The previous version stripped comments with preg_replace, collapsed all whitespace,
+    // and then did explode(';'). That is only safe for SQL without interesting string
+    // literals, and setup.sql has several:
+    //
+    //   COMMENT 'Token sent by the db-manager UI; checked server-side in ...'
+    //   COMMENT 'MIME type (image/* or video/*)'
+    //
+    // The first cuts a statement in half at the semicolon, so the second half arrives as
+    // its own "statement" starting mid-quote - which is where
+    // "You have an error in your SQL syntax ... near ''Token sent by the d" came from.
+    // The second loses text to the block-comment stripper, leaving an unbalanced quote.
+    // Both fail silently in the sense that the other 68 tables still get created, so the
+    // Create button reports partial success.
+    //
+    // So this walks the file once, tracking whether it is inside a single-quoted string
+    // (honouring \' escapes and '' doubling), a backtick identifier, a -- line comment,
+    // or a /* */ block comment, and only treats a semicolon as a separator at depth zero.
+    // String literals are passed through verbatim so the column comments stay intact.
+    function dbm_extract_sql_statements($sql) {
+        $statements = [];
+        $current = '';
+        $len = strlen($sql);
+        $inString = false;
+        $inIdentifier = false;
+        $inLineComment = false;
+        $inBlockComment = false;
+        $delimiter = ';';
+
+        for ($i = 0; $i < $len; $i++) {
+            $char = $sql[$i];
+            $next = $i + 1 < $len ? $sql[$i + 1] : '';
+
+            if ($inLineComment) {
+                if ($char === "\n") {
+                    $inLineComment = false;
+                    $current .= $char;
+                }
+                continue;
+            }
+
+            if ($inBlockComment) {
+                if ($char === '*' && $next === '/') {
+                    $inBlockComment = false;
+                    $i++;
+                } elseif ($char === "\n") {
+                    // Keep newlines so line numbers in MySQL errors stay meaningful.
+                    $current .= $char;
+                }
+                continue;
+            }
+
+            if ($inString) {
+                $current .= $char;
+                if ($char === '\\' && $next !== '') {
+                    // Backslash escape: consume the escaped character verbatim.
+                    $current .= $next;
+                    $i++;
+                } elseif ($char === "'") {
+                    if ($next === "'") {
+                        // '' is an escaped quote, not the end of the literal.
+                        $current .= $next;
+                        $i++;
+                    } else {
+                        $inString = false;
+                    }
+                }
+                continue;
+            }
+
+            if ($inIdentifier) {
+                $current .= $char;
+                if ($char === '`') {
+                    $inIdentifier = false;
+                }
+                continue;
+            }
+
+            // Not inside a string, identifier, or comment.
+            if ($char === "'") {
+                $inString = true;
+                $current .= $char;
+                continue;
+            }
+
+            if ($char === '`') {
+                $inIdentifier = true;
+                $current .= $char;
+                continue;
+            }
+
+            if ($char === '-' && $next === '-') {
+                $inLineComment = true;
+                $i++;
+                continue;
+            }
+
+            if ($char === '/' && $next === '*') {
+                $inBlockComment = true;
+                $i++;
+                continue;
+            }
+
+            // `DELIMITER $$` is a mysql CLI directive, not SQL, and PDO cannot run it.
+            // setup.sql uses it to fence the BEGIN...END bodies of the two triggers: the
+            // semicolons inside those bodies are statement syntax, not separators. Honour
+            // the directive by switching what counts as a separator, and drop the line
+            // itself so it is never sent to the server.
+            if (($i === 0 || $sql[$i - 1] === "\n") && substr($sql, $i, 9) === 'DELIMITER' && trim($current) === '') {
+                $eol = strpos($sql, "\n", $i);
+                $line = $eol === false ? substr($sql, $i) : substr($sql, $i, $eol - $i);
+                if (preg_match('/^DELIMITER\s+(\S+)\s*$/i', trim($line), $dm)) {
+                    $delimiter = $dm[1];
+                    $i = $eol === false ? $len : $eol;
+                    continue;
+                }
+            }
+
+            $delimLen = strlen($delimiter);
+            if ($delimLen > 0 && substr($sql, $i, $delimLen) === $delimiter) {
+                $stmt = trim($current);
+                if ($stmt !== '' && dbm_is_setup_statement($stmt)) {
+                    $statements[] = $stmt . ';';
+                }
+                $current = '';
+                $i += $delimLen - 1;
+                continue;
+            }
+
+            $current .= $char;
+        }
+
+        // Trailing statement with no terminating semicolon.
+        $stmt = trim($current);
+        if ($stmt !== '' && (dbm_is_setup_statement($stmt))) {
+            $statements[] = $stmt . ';';
+        }
+
+        return $statements;
+    }
+
     // Helper function to validate Unix directory path
     function isValidUnixPath($path) {
         if (empty($path)) {
@@ -233,49 +772,51 @@ try {
     // An attacker only had to chain create_database with run_sql to read the users
     // table, and from there every password hash and api_token.
     //
-    // Only get_database_by_code stays open: loadConfig() calls it at boot, before
-    // anyone has logged in, to turn this server's db_code.json into a real
-    // database name and files_dir. It reveals one registry row and nothing else.
-    // migrations/030_drop_adv_sql.sql removed an identical execute_sql action for
-    // exactly this reason; this file reintroduced it under a new name.
-    $PUBLIC_ACTIONS = ['get_database_by_code'];
+    // The credential is this realm's own `login` row, not the tenant app's
+    // `users.api_token`. That is not a detail: this table lives in the registry
+    // next to `dbs` and guards host-level operations with host-level credentials,
+    // so it is deliberately a separate trust domain from the app.
+    //
+    // It was briefly gated on the *app* admin token instead, which is a bootstrap
+    // deadlock rather than a security posture: `login`/`signup` were inside the
+    // gate, and those are the only way to obtain the credential the UI checks for
+    // (localStorage `db_manager_user`) before it renders anything at all. Every
+    // call site then failed closed with an empty token, so the whole DB manager
+    // was unreachable for everyone, admins included. See api/migrations/031 for
+    // the `login`.api_token column this reads.
+    //
+    // Public actions:
+    //   get_database_by_code - loadConfig() calls it at boot, before anyone has
+    //     logged in, to turn this server's db_code.json into a real database name
+    //     and files_dir. It reveals one registry row and nothing else.
+    //   login / signup      - the credential exchange itself. Public by necessity.
+    //     migrations/030_drop_adv_sql.sql removed an identical execute_sql action
+    //     for exactly this reason; this file reintroduced it under a new name.
+    //
+    // signup being open is not an escalation path: it inserts with `active = 0`
+    // (see the case below), so a new account cannot do anything until someone
+    // activates it in the registry by hand.
+    if (!in_array($action, DBM_PUBLIC_ACTIONS, true)) {
+        $token = isset($inputData['token']) && is_string($inputData['token'])
+            ? trim($inputData['token'])
+            : '';
 
-    if (!in_array($action, $PUBLIC_ACTIONS, true)) {
-        require_once __DIR__ . '/config.php';
-        require_once __DIR__ . '/lib/auth.php';
-
-        $authFailure = static function (string $message): void {
+        $identity = dbm_token_user($conn, $token);
+        if ($identity === null) {
+            // Deliberately the same envelope this file already uses, with `message`
+            // populated. api_auth_fail() in lib/auth.php emits {success, code,
+            // error} instead, and every caller in src/components/db-manager reads
+            // result.message - so borrowing that helper made a dead API look like a
+            // generic "Login failed" with no indication of why.
             if (ob_get_level()) {
                 ob_end_clean();
             }
             if (!headers_sent()) {
                 header('Content-Type: application/json');
             }
-            echo json_encode(['success' => false, 'message' => $message]);
+            echo json_encode(['success' => false, 'message' => 'Not authenticated. Sign in to the database manager.']);
             exit;
-        };
-
-        require_once __DIR__ . '/lib/appdb.php';
-
-        $appDbName = app_db_name();
-        if ($appDbName === null) {
-            $authFailure('App database could not be resolved');
         }
-
-        try {
-            $appConn = new PDO(
-                "mysql:host={$db_config['host']};dbname={$appDbName}",
-                $db_config['user'],
-                $db_config['pass']
-            );
-            $appConn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        } catch (PDOException $e) {
-            error_log('db_manager_api.php auth: ' . $e->getMessage());
-            $authFailure('App database unavailable');
-        }
-
-        // Exits the request with not_authenticated / not_admin when it does not hold.
-        require_api_admin($appConn, $inputData);
     }
 
     switch ($action) {
@@ -316,6 +857,12 @@ try {
             $hashedPassword = password_hash($pass, PASSWORD_DEFAULT);
             
             // Insert new user (active = 0, will be activated manually later)
+            //
+            // This is why signup can sit outside the auth gate without being an
+            // escalation path: the row it creates holds no api_token, and
+            // dbm_token_user() rejects active != 1 before anything else looks at
+            // it. Activation is a manual edit in the registry, which is the point -
+            // this screen cannot grant itself access to host-level credentials.
             $insertStmt = $conn->prepare("INSERT INTO login (user, pass, active) VALUES (?, ?, 0)");
             if ($insertStmt->execute([$user, $hashedPassword])) {
                 $response['success'] = true;
@@ -330,42 +877,75 @@ try {
             break;
             
         case 'login':
-            // Login user
+            // Log in and mint this realm's session token.
+            //
+            // The token is the whole reason this case exists in its current shape:
+            // it is the credential every other action in this file is now gated on,
+            // and it is stored client-side as localStorage `db_manager_user`, which
+            // LoginSignup.vue writes wholesale from `data` - so adding `token` here
+            // is all the UI needs to start presenting it.
+            //
+            // A new token replaces any previous one, matching handle_login() in
+            // api/actions/auth.php: one live token per user, and a second sign-in
+            // quietly invalidates the first.
             $user = trim($inputData['user'] ?? '');
             $pass = $inputData['pass'] ?? '';
-            
+
             if (empty($user) || empty($pass)) {
                 $response['message'] = 'Username and password are required';
                 break;
             }
-            
+
             // Get user from database
             $stmt = $conn->prepare("SELECT id, user, pass, active FROM login WHERE user = ?");
             $stmt->execute([$user]);
             $userData = $stmt->fetch(PDO::FETCH_ASSOC);
-            
-            if (!$userData) {
+
+            // Verify against a dummy hash when the username is unknown, so a missing
+            // user and a wrong password take the same time.
+            $hash = $userData['pass'] ?? DBM_DUMMY_HASH;
+            $valid = password_verify((string) $pass, $hash);
+
+            // One message for unknown-user, deactivated and wrong-password alike.
+            // These were three distinct replies, which made this a free oracle for
+            // "does this username exist and is it enabled?" against a table that
+            // guards host-level credentials.
+            if (!$userData || !$valid || (int) $userData['active'] !== 1) {
                 $response['message'] = 'Invalid username or password';
                 break;
             }
-            
-            // Check if user is active
-            if ($userData['active'] != 1) {
-                $response['message'] = 'Account is not active';
-                break;
+
+            $token = dbm_new_token();
+            $issueStmt = $conn->prepare('UPDATE login SET api_token = ? WHERE id = ?');
+            $issueStmt->execute([$token, $userData['id']]);
+
+            $response['success'] = true;
+            $response['message'] = 'Login successful';
+            $response['data'] = [
+                'id' => $userData['id'],
+                'user' => $userData['user'],
+                'token' => $token
+            ];
+            break;
+
+        case 'logout':
+            // Drop the caller's token server-side.
+            //
+            // DbManagerSidebar.vue used to clear localStorage and nothing else, which
+            // left the token live server-side until the next sign-in overwrote it -
+            // a shared machine kept a working credential nobody could see. A missing
+            // or unknown token is still a success: the caller's intent is to hold
+            // no token, which is already true.
+            $logoutToken = isset($inputData['token']) && is_string($inputData['token'])
+                ? trim($inputData['token'])
+                : '';
+            if ($logoutToken !== '') {
+                $logoutStmt = $conn->prepare('UPDATE login SET api_token = NULL WHERE api_token = ?');
+                $logoutStmt->execute([$logoutToken]);
             }
-            
-            // Verify password
-            if (password_verify($pass, $userData['pass'])) {
-                $response['success'] = true;
-                $response['message'] = 'Login successful';
-                $response['data'] = [
-                    'id' => $userData['id'],
-                    'user' => $userData['user']
-                ];
-            } else {
-                $response['message'] = 'Invalid username or password';
-            }
+
+            $response['success'] = true;
+            $response['message'] = 'Logged out';
             break;
             
         case 'get_databases':
@@ -440,6 +1020,22 @@ try {
                 $response['message'] = 'DB Name is required';
                 break;
             }
+
+            // The name becomes a folder, a URL prefix and an nginx location, so it is
+            // held to the same rule the deploy scripts use.
+            $nameCheck = dbm_validate_database_name($db_name);
+            if (isset($nameCheck['error'])) {
+                $response['message'] = $nameCheck['error'];
+                break;
+            }
+
+            // Two rows that differ only in case are two folders and two databases on
+            // Linux but one name to every lookup the app makes.
+            $nameTaken = dbm_assert_name_available($conn, $db_name);
+            if ($nameTaken !== null) {
+                $response['message'] = $nameTaken;
+                break;
+            }
             
             // Auto-generate db_code from db_name + server timestamp
             $timestamp = time();
@@ -467,19 +1063,22 @@ try {
             $serv_host_start = !empty($inputData['serv_host_start']) ? $inputData['serv_host_start'] : null;
             $serv_host_end = !empty($inputData['serv_host_end']) ? $inputData['serv_host_end'] : null;
             $serv_host_cost = !empty($inputData['serv_host_cost_per_month']) ? floatval($inputData['serv_host_cost_per_month']) : null;
-            
-            // Format and validate Unix directory paths
-            $files_dir = !empty($inputData['files_dir']) ? formatUnixPath(trim($inputData['files_dir'])) : null;
-            $js_dir = !empty($inputData['js_dir']) ? formatUnixPath(trim($inputData['js_dir'])) : null;
-            
-            // Validate paths if provided
-            if ($files_dir !== null && !isValidUnixPath($files_dir)) {
-                $response['message'] = 'Invalid Files Directory path format. Must be a valid Unix path (e.g., /path/to/directory)';
-                break;
+
+            // The folders are derived from the database name, not taken from the form.
+            // What the form sent is only reported, so a hand-edited value is visible
+            // rather than silently discarded.
+            $dirs = dbm_tenant_dirs($db_name);
+            $files_dir = $dirs['files_dir'];
+            $js_dir = $dirs['js_dir'];
+
+            $submittedJs = trim((string) ($inputData['js_dir'] ?? ''), '/');
+            $submittedFiles = trim((string) ($inputData['files_dir'] ?? ''), '/');
+            $notes = [];
+            if ($submittedJs !== '' && $submittedJs !== $dirs['app_folder']) {
+                $notes[] = sprintf("js_dir was %s; set to %s", $dirs['js_dir'], $dirs['js_dir']);
             }
-            if ($js_dir !== null && !isValidUnixPath($js_dir)) {
-                $response['message'] = 'Invalid JS Directory path format. Must be a valid Unix path (e.g., /path/to/directory)';
-                break;
+            if ($submittedFiles !== '' && $submittedFiles !== $dirs['files_folder']) {
+                $notes[] = sprintf("files_dir was %s; set to %s", $dirs['files_dir'], $dirs['files_dir']);
             }
             
             $insertStmt = $conn->prepare("INSERT INTO dbs (db_code, db_name, db_host_start, db_host_end, db_host_cost_per_month, serv_host_start, serv_host_end, serv_host_cost_per_month, files_dir, js_dir) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
@@ -488,9 +1087,15 @@ try {
                 $response['success'] = true;
                 $response['message'] = 'Database created successfully';
                 $response['data'] = [
-                    'id' => $conn->lastInsertId(),
+                    'id' => (int) $conn->lastInsertId(),
                     'db_code' => $db_code,
-                    'db_name' => $db_name
+                    'db_name' => $db_name,
+                    'js_dir' => $js_dir,
+                    'files_dir' => $files_dir,
+                    'notes' => $notes,
+                    // The row exists but nothing has been created on disk yet, so the
+                    // UI can point at the Provision button straight away.
+                    'next_step' => 'provision_tenant'
                 ];
             } else {
                 $response['message'] = 'Failed to create database';
@@ -520,9 +1125,21 @@ try {
                 $response['message'] = 'DB Name is required';
                 break;
             }
+
+            $nameCheck = dbm_validate_database_name($db_name);
+            if (isset($nameCheck['error'])) {
+                $response['message'] = $nameCheck['error'];
+                break;
+            }
+
+            $nameTaken = dbm_assert_name_available($conn, $db_name, $id);
+            if ($nameTaken !== null) {
+                $response['message'] = $nameTaken;
+                break;
+            }
             
             // Get existing db_code (it cannot be changed)
-            $getStmt = $conn->prepare("SELECT db_code FROM dbs WHERE id = ?");
+            $getStmt = $conn->prepare("SELECT db_code, db_name FROM dbs WHERE id = ?");
             $getStmt->execute([$id]);
             $existing = $getStmt->fetch(PDO::FETCH_ASSOC);
             
@@ -533,6 +1150,31 @@ try {
             }
             
             $db_code = $existing['db_code'];
+            $notes = [];
+
+            // Renaming a deployed client is not a row edit.
+            //
+            // The folders are named after the database (dbm_tenant_dirs), so a new name
+            // is a different folder and a different URL - the old folder keeps serving
+            // the old URL with a db_code.json in it, and the row now describes neither.
+            // Refuse it once anything exists on disk or in the database, and say what to
+            // do instead.
+            // The OLD name, not the new one: the question is whether this client is
+            // already deployed. Testing the proposed name instead would let a
+            // deployed client be renamed to any unused name, which is the one thing
+            // this guard exists to stop.
+            if ((string) $existing['db_name'] !== $db_name && dbm_is_provisioned($conn, (string) $existing['db_name'])) {
+                $response['message'] = sprintf(
+                    "'%s' has already been provisioned, so it cannot be renamed to '%s': the folders, the "
+                    . "URL and db_code.json are all named after the old one. Provision a new database instead, "
+                    . "or rename the %s/ and %s/ folders and rewrite db_code.json by hand.",
+                    $existing['db_name'],
+                    $db_name,
+                    $existing['db_name'],
+                    tenant_files_dir_name((string) $existing['db_name'])
+                );
+                break;
+            }
             
             // Prepare data
             $db_host_start = !empty($inputData['db_host_start']) ? $inputData['db_host_start'] : null;
@@ -541,26 +1183,33 @@ try {
             $serv_host_start = !empty($inputData['serv_host_start']) ? $inputData['serv_host_start'] : null;
             $serv_host_end = !empty($inputData['serv_host_end']) ? $inputData['serv_host_end'] : null;
             $serv_host_cost = !empty($inputData['serv_host_cost_per_month']) ? floatval($inputData['serv_host_cost_per_month']) : null;
-            
-            // Format and validate Unix directory paths
-            $files_dir = !empty($inputData['files_dir']) ? formatUnixPath(trim($inputData['files_dir'])) : null;
-            $js_dir = !empty($inputData['js_dir']) ? formatUnixPath(trim($inputData['js_dir'])) : null;
-            
-            // Validate paths if provided
-            if ($files_dir !== null && !isValidUnixPath($files_dir)) {
-                $response['message'] = 'Invalid Files Directory path format. Must be a valid Unix path (e.g., /path/to/directory)';
-                break;
+
+            // Derived from the database name, for the same reason as create_database.
+            $dirs = dbm_tenant_dirs($db_name);
+            $files_dir = $dirs['files_dir'];
+            $js_dir = $dirs['js_dir'];
+
+            $submittedJs = trim((string) ($inputData['js_dir'] ?? ''), '/');
+            $submittedFiles = trim((string) ($inputData['files_dir'] ?? ''), '/');
+            if ($submittedJs !== '' && $submittedJs !== $dirs['app_folder']) {
+                $notes[] = sprintf("js_dir was %s; set to %s", $dirs['js_dir'], $dirs['js_dir']);
             }
-            if ($js_dir !== null && !isValidUnixPath($js_dir)) {
-                $response['message'] = 'Invalid JS Directory path format. Must be a valid Unix path (e.g., /path/to/directory)';
-                break;
+            if ($submittedFiles !== '' && $submittedFiles !== $dirs['files_folder']) {
+                $notes[] = sprintf("files_dir was %s; set to %s", $dirs['files_dir'], $dirs['files_dir']);
             }
-            
+
             $updateStmt = $conn->prepare("UPDATE dbs SET db_code = ?, db_name = ?, db_host_start = ?, db_host_end = ?, db_host_cost_per_month = ?, serv_host_start = ?, serv_host_end = ?, serv_host_cost_per_month = ?, files_dir = ?, js_dir = ? WHERE id = ?");
             
             if ($updateStmt->execute([$db_code, $db_name, $db_host_start, $db_host_end, $db_host_cost, $serv_host_start, $serv_host_end, $serv_host_cost, $files_dir, $js_dir, $id])) {
                 $response['success'] = true;
                 $response['message'] = 'Database updated successfully';
+                $response['data'] = [
+                    'id' => $id,
+                    'db_name' => $db_name,
+                    'js_dir' => $js_dir,
+                    'files_dir' => $files_dir,
+                    'notes' => $notes,
+                ];
             } else {
                 $response['message'] = 'Failed to update database';
             }
@@ -641,52 +1290,20 @@ try {
                 break;
             }
             
-            // Parse SQL file to extract CREATE TABLE statements
-            // Remove comments
-            $setupSql = preg_replace('/--.*$/m', '', $setupSql); // Remove single-line comments
-            $setupSql = preg_replace('/\/\*.*?\*\//s', '', $setupSql); // Remove multi-line comments
-            
-            // Normalize whitespace (replace multiple whitespace with single space, but preserve newlines within statements)
-            $setupSql = preg_replace('/\s+/', ' ', $setupSql);
-            
-            // Split by semicolons and filter for CREATE TABLE and INSERT statements
-            $statements = array_filter(
-                array_map('trim', explode(';', $setupSql)),
-                function($stmt) {
-                    $stmt = trim($stmt);
-                    return !empty($stmt) && (stripos($stmt, 'CREATE TABLE') !== false || stripos($stmt, 'INSERT') !== false);
-                }
-            );
-            
-            // Add semicolons back to statements (they were removed by explode)
-            $statements = array_map(function($stmt) {
-                return trim($stmt) . ';';
-            }, $statements);
-            
+            // Parse SQL file to extract CREATE TABLE and INSERT statements
+            $statements = dbm_extract_sql_statements($setupSql);
             if (empty($statements)) {
-                $response['message'] = 'No CREATE TABLE statements found in setup.sql';
+                $response['message'] = 'No CREATE TABLE or INSERT statements found in setup.sql';
                 break;
             }
             
             // Get database credentials from config.php
-            require_once __DIR__ . '/config.php';
-            $targetDbHost = $db_config['host'];
-            $targetDbUser = $db_config['user'];
-            $targetDbPass = $db_config['pass'];
-            $targetDbName = $dbInfo['db_name'];
-            
-            // Connect to target database
-            try {
-                $targetConn = new PDO(
-                    "mysql:host={$targetDbHost};dbname={$targetDbName}",
-                    $targetDbUser,
-                    $targetDbPass
-                );
-                $targetConn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-            } catch (PDOException $e) {
-                $response['message'] = 'Failed to connect to target database: ' . $e->getMessage();
+            $target = dbm_connect_target(trim((string) $dbInfo['db_name']));
+            if (isset($target['error'])) {
+                $response['message'] = $target['error'];
                 break;
             }
+            $targetConn = $target['conn'];
             
             // Execute CREATE TABLE statements
             $executedCount = 0;
@@ -696,12 +1313,22 @@ try {
                     $targetConn->exec($statement);
                     $executedCount++;
                 } catch (PDOException $e) {
-                    $errors[] = $e->getMessage();
+                    // Keep the driver text out of the response. It carries SQLSTATE codes
+                    // and the server's own error wording, which is noise in the UI and
+                    // tells the reader nothing they can act on - the log has it.
+                    error_log(sprintf(
+                        "create_tables: statement %d failed on '%s': %s",
+                        $executedCount + count($errors) + 1,
+                        $dbInfo['db_name'],
+                        $e->getMessage()
+                    ));
+                    $errors[] = sprintf('statement %d was rejected by MySQL', $executedCount + count($errors) + 1);
                 }
             }
             
             if (!empty($errors) && $executedCount === 0) {
-                $response['message'] = 'Failed to create tables: ' . implode('; ', $errors);
+                error_log('create_tables: every statement failed for ' . $dbInfo['db_name']);
+                $response['message'] = 'No statement could be applied: ' . implode('; ', $errors);
                 break;
             }
             
@@ -860,7 +1487,9 @@ try {
                 }
                 
                 $response['success'] = true;
-                $response['message'] = "Successfully created {$executedCount} table(s)";
+                // Counted in statements, not tables: the run also applies the setup.sql
+                // INSERTs and the two triggers, so "table(s)" would have overstated it.
+                $response['message'] = "Successfully ran {$executedCount} statement(s) from setup.sql";
                 
                 // Add directory creation status
                 if (!empty($directoriesCreated)) {
@@ -880,13 +1509,311 @@ try {
                 
                 // Add table creation errors if any
                 if (!empty($errors)) {
-                    $response['message'] .= ' (some table errors occurred: ' . implode('; ', $errors) . ')';
+                    $response['message'] .= ' (' . count($errors) . ' statement(s) failed: ' . implode('; ', $errors) . ')';
                 }
             } else {
                 $response['message'] = 'Tables created but failed to update is_created flag';
             }
             break;
             
+        case 'tenant_status':
+            // What exists for a client and what is missing, without changing anything.
+            // The Provision screen renders this as its checklist, so the button is only
+            // pressed once the operator can see what it will do.
+            $statusName = dbm_requested_db_name($conn, $inputData);
+            $statusCheck = dbm_validate_database_name($statusName);
+            if (isset($statusCheck['error'])) {
+                $response['message'] = $statusCheck['error'];
+                break;
+            }
+
+            try {
+                $statusTarget = dbm_target_credentials();
+                $response['data'] = tenant_status([
+                    'db_name' => $statusName,
+                    'app_creds' => $statusTarget,
+                    'registry_creds' => $db_manager_config,
+                    'webroot' => dbm_deployment_root(),
+                    'shared_api' => dbm_has_shared_api(),
+                ]);
+                $response['success'] = true;
+                $response['message'] = $response['data']['ready']
+                    ? 'This client is fully provisioned.'
+                    : 'Not provisioned yet: ' . implode(', ', $response['data']['blocking']);
+            } catch (Throwable $e) {
+                error_log('tenant_status: ' . $e->getMessage());
+                $response['message'] = 'Could not read the tenant status: ' . $e->getMessage();
+            }
+            break;
+
+        case 'provision_tenant':
+            // The whole onboarding, from the browser: database, schema, reference
+            // data, folders, db_code.json and the build. This is the action that lets a
+            // new client be set up without shell access to the server.
+            $provisionName = dbm_requested_db_name($conn, $inputData);
+            $provisionCheck = dbm_validate_database_name($provisionName);
+            if (isset($provisionCheck['error'])) {
+                $response['message'] = $provisionCheck['error'];
+                break;
+            }
+
+            $provisionLog = [];
+            try {
+                $provisionTarget = dbm_target_credentials();
+
+                // Where the reference data comes from, in order: the request, then the
+                // server config. Without the config fallback this defaults to the app
+                // database, which on this machine is a live tenant - and the template
+                // check then refuses the run with a message about client data, which
+                // is correct but is a confusing way to learn that no template is
+                // configured.
+                $seedSource = trim((string) ($inputData['seed_source'] ?? ''));
+                if ($seedSource === '') {
+                    $seedSource = trim((string) tenant_server_config()['template_database']);
+                }
+                $seedSource = $seedSource === '' ? null : $seedSource;
+
+                $report = tenant_provision([
+                    'db_name' => $provisionName,
+                    'app_creds' => $provisionTarget,
+                    'registry_creds' => $db_manager_config,
+                    'webroot' => dbm_deployment_root(),
+                    'seed_source' => $seedSource,
+                    'force' => !empty($inputData['force']),
+                    'deploy_app' => !array_key_exists('deploy_app', $inputData) || !empty($inputData['deploy_app']),
+                    'shared_api' => dbm_has_shared_api(),
+                    'log' => static function (string $line) use (&$provisionLog): void {
+                        $provisionLog[] = $line;
+                    },
+                ]);
+
+                // Mark it created, which is what the other actions read to decide
+                // whether this is a live client or a draft row.
+                $markStmt = $conn->prepare('UPDATE dbs SET is_created = 1 WHERE db_name = ?');
+                $markStmt->execute([$provisionName]);
+
+                $response['success'] = true;
+                $response['message'] = sprintf('Provisioned %s. Serve it at %s', $provisionName, $report['url_path']);
+                $response['data'] = ['report' => $report, 'log' => $provisionLog];
+            } catch (Throwable $e) {
+                // The log goes back with the failure: a provisioning run that stops at
+                // "duplicate column" needs the lines above it to be diagnosable, and
+                // the server's error_log is not something the operator can see.
+                error_log('provision_tenant: ' . $e->getMessage());
+                $response['message'] = $e->getMessage();
+                $response['data'] = ['log' => $provisionLog];
+            }
+            break;
+
+        case 'deploy_app_to_tenant':
+            // Re-copy the current build into one client's folder. Separate from
+            // provisioning because it is the action taken after every release, and it
+            // must not touch a database.
+            $deployName = dbm_requested_db_name($conn, $inputData);
+            $deployCheck = dbm_validate_database_name($deployName);
+            if (isset($deployCheck['error'])) {
+                $response['message'] = $deployCheck['error'];
+                break;
+            }
+
+            $deployLog = [];
+            try {
+                $serverConfig = tenant_server_config();
+                $plan = tenant_plan([
+                    'db_name' => $deployName,
+                    'webroot' => dbm_deployment_root(),
+                    'shared_api' => dbm_has_shared_api(),
+                ]);
+
+                tenant_deploy_app($plan, (string) $serverConfig['canonical_build'], static function (string $line) use (&$deployLog): void {
+                    $deployLog[] = $line;
+                });
+
+                $response['success'] = true;
+                $response['message'] = sprintf('Deployed the current build to %s.', $plan['app_folder']);
+                $response['data'] = ['plan' => $plan, 'log' => $deployLog];
+            } catch (Throwable $e) {
+                error_log('deploy_app_to_tenant: ' . $e->getMessage());
+                $response['message'] = $e->getMessage();
+                $response['data'] = ['log' => $deployLog];
+            }
+            break;
+
+        case 'reload_nginx':
+            // Re-generate the server block list from the registry and reload nginx.
+            //
+            // This is the one action the web user cannot do itself, because writing
+            // into /etc/nginx and signalling the master process are root operations.
+            // It is delegated to a root-owned script through a sudoers rule that names
+            // that one path with no arguments, so this action cannot become a way to
+            // run anything else as root:
+            //
+            //   www-data ALL=(root) NOPASSWD: /usr/local/bin/cars-nginx-render
+            //
+            // The path comes from the root-owned /etc/cars-deploy.json, never from the
+            // request, and it is executed as an argument array with no shell, so there
+            // is nothing here for a caller to interpolate into.
+            $serverConfig = tenant_server_config();
+            $renderCommand = (string) $serverConfig['render_command'];
+
+            if ($renderCommand === '' || !is_file($renderCommand)) {
+                $response['message'] = sprintf(
+                    'The nginx renderer is not installed: %s does not exist. It is the one root-owned '
+                    . 'part of this setup - see DEPLOYMENT.md, "One-time server setup".',
+                    $renderCommand === '' ? '(no render_command configured)' : $renderCommand
+                );
+                break;
+            }
+
+            $sudoPath = trim((string) (shell_exec('command -v sudo 2>/dev/null') ?? ''));
+            if ($sudoPath === '') {
+                $response['message'] = 'sudo is not installed, so nginx cannot be reloaded from here. Reload it over SSH.';
+                break;
+            }
+
+            $descriptors = [1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
+            // -n: never prompt. A web request that blocks on a password prompt would
+            // hang until the PHP timeout, and the operator would see nothing.
+            $renderProcess = @proc_open(
+                [$sudoPath, '-n', $renderCommand],
+                $descriptors,
+                $renderPipes,
+                null,
+                ['PATH' => getenv('PATH') ?: '/usr/bin:/bin', 'HOME' => getenv('HOME') ?: '/tmp']
+            );
+
+            if (!is_resource($renderProcess)) {
+                error_log('reload_nginx: could not start ' . $renderCommand);
+                $response['message'] = 'Could not run the nginx renderer.';
+                break;
+            }
+
+            $renderOut = stream_get_contents($renderPipes[1]);
+            fclose($renderPipes[1]);
+            $renderErr = stream_get_contents($renderPipes[2]);
+            fclose($renderPipes[2]);
+            $renderCode = proc_close($renderProcess);
+
+            if ($renderCode === 0) {
+                $response['success'] = true;
+                $response['message'] = 'nginx configuration regenerated and reloaded.';
+                $response['data'] = ['output' => trim($renderOut)];
+            } else {
+                // The renderer runs `nginx -t` before installing anything, so a
+                // non-zero exit means the configuration was NOT replaced and the
+                // running server is untouched. Saying so matters: an operator who
+                // assumed otherwise would go looking for a broken site instead.
+                error_log('reload_nginx: ' . $renderErr);
+                $renderMessage = 'nginx was not reloaded; the running configuration is unchanged.';
+                if (trim($renderErr) !== '') {
+                    $renderMessage .= ' The renderer said: ' . trim($renderErr);
+                }
+                $response['message'] = $renderMessage;
+                $response['data'] = ['output' => trim($renderOut), 'error' => trim($renderErr), 'exit_code' => $renderCode];
+            }
+            break;
+
+        case 'deployment_config':
+            // Whether the one-time server setup is in place, and what it says.
+            //
+            // Read-only and safe to call before anything exists, which is the point: it
+            // is how the screen tells an operator "this server has not been set up yet"
+            // instead of letting them press Provision and get a folder-permission error.
+            $serverConfig = tenant_server_config();
+            $renderCommand = (string) $serverConfig['render_command'];
+            $webroot = dbm_deployment_root();
+
+            // These are grouped by what they actually block, because lumping them
+            // together as one boolean made the wizard unusable on any machine that
+            // is not the production server - and the two halves have nothing to do
+            // with each other:
+            //
+            //   provision - provisioning runs as the web user and creates a database,
+            //               folders and db_code.json. It never needs root, so a
+            //               missing nginx setup must not stop it.
+            //   nginx     - only this needs root, and it is the one step with effects
+            //               beyond the client being set up.
+            //   warn      - does not block either. Worth saying out loud because being
+            //               wrong is quiet: a wrong shared-api answer gives every
+            //               client a private api/ and the next deploy updates one of
+            //               them, and a missing canonical build skips the file copy.
+            //
+            // Before this split, `render script` and `server_name` gated Provision,
+            // so on a dev machine the button was permanently disabled and the flow
+            // could only be exercised by calling the API by hand - which is how the
+            // DB manager managed to be completely unreachable in production while
+            // every test passed.
+            // The file that actually answered, not a hardcoded /etc path: on a dev
+            // machine that is a file in the repository, and telling someone to edit
+            // /etc/cars-deploy.json - which they cannot write without sudo - is a
+            // dead end dressed as an instruction.
+            $configWhere = (string) ($serverConfig['config_path'] ?? '') ?: 'the server config';
+            $notSet = static fn (string $key): string => $key === ''
+                ? 'not set in ' . $configWhere
+                : $key;
+
+            $checks = [
+                [
+                    'name' => 'render script',
+                    'needs' => 'nginx',
+                    'ok' => $renderCommand !== '' && is_file($renderCommand),
+                    'detail' => $renderCommand,
+                ],
+                [
+                    'name' => 'server_name',
+                    'needs' => 'nginx',
+                    'ok' => (string) $serverConfig['server_name'] !== '',
+                    'detail' => $notSet((string) $serverConfig['server_name']),
+                ],
+                [
+                    'name' => 'canonical build',
+                    'needs' => 'warn',
+                    'ok' => (string) $serverConfig['canonical_build'] !== '' && is_dir((string) $serverConfig['canonical_build']),
+                    'detail' => $notSet((string) $serverConfig['canonical_build']),
+                ],
+                [
+                    // Without one, every provisioning run falls back to the app
+                    // database and is refused by the template check.
+                    'name' => 'template database',
+                    'needs' => 'provision',
+                    'ok' => (string) $serverConfig['template_database'] !== '',
+                    'detail' => $notSet((string) $serverConfig['template_database']),
+                ],
+                [
+                    // The web user has to be able to create a tenant's folders.
+                    'name' => 'webroot writable',
+                    'needs' => 'provision',
+                    'ok' => is_writable($webroot),
+                    'detail' => $webroot,
+                ],
+                [
+                    'name' => 'shared api/',
+                    'needs' => 'warn',
+                    'ok' => dbm_has_shared_api(),
+                    'detail' => dbm_has_shared_api() ? 'one api/ serves every tenant' : 'each tenant has its own api/ copy',
+                ],
+            ];
+
+            $unmet = static fn (string $needs): array => array_values(array_map(
+                static fn (array $c): string => $c['name'],
+                array_filter($checks, static fn (array $c): bool => $c['needs'] === $needs && !$c['ok'])
+            ));
+
+            $response['success'] = true;
+            $response['data'] = [
+                'config' => $serverConfig,
+                'webroot' => $webroot,
+                'shared_api' => dbm_has_shared_api(),
+                'checks' => $checks,
+                // Only the checks provisioning itself depends on. See above.
+                'ready' => $unmet('provision') === [],
+                'unmet' => $unmet('provision'),
+                'nginx_ready' => $unmet('nginx') === [],
+                'nginx_unmet' => $unmet('nginx'),
+                'warnings' => $unmet('warn'),
+            ];
+            break;
+
         case 'get_db_updates':
             // Get all db_updates
             $stmt = $conn->prepare("SELECT * FROM db_updates ORDER BY from_version ASC, current_version ASC");
@@ -1788,6 +2715,81 @@ try {
             }
             break;
             
+        case 'check_api_files_exist':
+            // Report which of these names already exist in the api folder, so the
+            // build uploader can warn before overwriting config.php and friends.
+            //
+            // Moved here from api/api.php, where it was gated on the *app* token
+            // while being driven by the *db-manager* realm - a combination that
+            // left the caller unable to present any credential it held. Its real
+            // damage was not the 401 though: Databases.vue treated `success: false`
+            // as "nothing exists" rather than as "I could not find out", so the
+            // overwrite prompt was skipped entirely and protected files were
+            // replaced silently. The caller now also fails safe; see
+            // confirmProtectedOverwrite() there.
+            if (!isset($inputData['file_names']) || !is_array($inputData['file_names'])) {
+                $response['message'] = 'file_names array is required';
+                break;
+            }
+
+            $apiDir = __DIR__;
+
+            try {
+                // Resolve the api directory once and prove it is inside the app root,
+                // so the containment check below is comparing real paths rather
+                // than a string that merely looks contained.
+                $realBasePath = realpath(__DIR__ . '/..');
+                if ($realBasePath === false) {
+                    throw new Exception('Invalid base directory');
+                }
+                $realBasePath = rtrim($realBasePath, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+
+                $resolvedApiDir = realpath($apiDir);
+                if ($resolvedApiDir === false) {
+                    throw new Exception('Invalid api directory');
+                }
+                $resolvedApiDir = rtrim($resolvedApiDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+                if (strpos($resolvedApiDir, $realBasePath) !== 0) {
+                    throw new Exception('Directory traversal attempt detected');
+                }
+
+                $results = [];
+                foreach ($inputData['file_names'] as $fileName) {
+                    if (!is_string($fileName)) {
+                        continue;
+                    }
+
+                    // basename() alone collapses any path component; the containment
+                    // re-check afterwards is what actually decides the answer, since
+                    // it runs against realpath() rather than the requested string.
+                    $sanitized = basename($fileName);
+                    if ($sanitized === '' || $sanitized === '.' || $sanitized === '..') {
+                        continue;
+                    }
+
+                    $resolvedFilePath = realpath($apiDir . '/' . $sanitized);
+                    $exists = false;
+                    if ($resolvedFilePath !== false) {
+                        $resolvedFileDir = dirname($resolvedFilePath);
+                        $resolvedFileDir = rtrim($resolvedFileDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+                        if (strpos($resolvedFileDir, $resolvedApiDir) === 0) {
+                            $exists = is_file($resolvedFilePath);
+                        }
+                    }
+
+                    // Keyed by the name the caller asked about, which is what the
+                    // caller filters on.
+                    $results[$fileName] = $exists;
+                }
+
+                $response['success'] = true;
+                $response['message'] = 'Checked ' . count($results) . ' file(s)';
+                $response['data'] = $results;
+            } catch (Exception $e) {
+                $response['message'] = 'Error checking files: ' . $e->getMessage();
+            }
+            break;
+
         case 'check_file_exists':
             // Check if a file exists in js_dir
             $databaseId = intval($inputData['database_id'] ?? 0);

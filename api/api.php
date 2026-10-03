@@ -38,7 +38,20 @@ require_once __DIR__ . '/lib/appdb.php';
 
 // The decoded request body. Read once, at the top, because the action gate below,
 // getDbConfig() and every handler in the switch all work from it.
+//
+// The is_array() guard is load-bearing, not defensive tidiness. A body that is not
+// a JSON object - malformed, or a bare `123` / `"x"` / `null` - decodes to null or
+// a scalar rather than throwing. `isset($postData['action'])` is then false, so the
+// whole switch is skipped and control reaches require_api_user($conn, $postData)
+// below, whose second parameter is a non-nullable `array`. That is an uncaught
+// TypeError: a fatal, not an exception this file can shape into JSON. With
+// display_errors off the client received an empty body and HTTP 500, which
+// readJsonResponse() then reported as "returned an empty body" - naming neither
+// the endpoint's contract nor the TypeError underneath it.
 $postData = json_decode(file_get_contents('php://input'), true);
+if (!is_array($postData)) {
+    apiErrorDie('invalid_request', 400);
+}
 
 // Resolve the real database name for this deployment, server-side.
 //
@@ -1153,35 +1166,27 @@ if (isset($postData['action'])) {
                     $existingFileId = $existingFile['id'];
                     $existingFilePath = $existingFile['file_path'];
                     
-                    // Get base directory for file deletion
-                    $baseDirectory = 'mig_files'; // Default
-                    try {
-                        $configQuery = "SELECT js_dir FROM dbs LIMIT 1";
-                        $configStmt = $conn->prepare($configQuery);
-                        $configStmt->execute();
-                        $dbConfig = $configStmt->fetch(PDO::FETCH_ASSOC);
-                        if ($dbConfig && isset($dbConfig['js_dir'])) {
-                            $jsDir = $dbConfig['js_dir'];
-                            $dbCodeJsonPath = __DIR__ . '/../' . $jsDir . '/db_code.json';
-                            if (file_exists($dbCodeJsonPath)) {
-                                $dbCodeContent = file_get_contents($dbCodeJsonPath);
-                                $dbCodeData = json_decode($dbCodeContent, true);
-                                if ($dbCodeData && isset($dbCodeData['files_dir'])) {
-                                    $baseDirectory = $dbCodeData['files_dir'];
-                                }
-                            }
-                        }
-                    } catch (Exception $e) {
-                        error_log('Could not get base directory: ' . $e->getMessage());
-                    }
-                    
-                    // Delete physical file if it exists
-                    $baseDirectory = str_replace('..', '', $baseDirectory);
-                    $baseDirectory = ltrim($baseDirectory, '/');
-                    $baseDirectory = rtrim($baseDirectory, '/');
-                    $existingFilePath = str_replace('..', '', $existingFilePath);
-                    $existingFilePath = ltrim($existingFilePath, '/');
-                    $fullFilePath = __DIR__ . '/../' . $baseDirectory . '/' . $existingFilePath;
+// Get base directory for file deletion.
+                    //
+                    // Per tenant, from the registry: this is where the browser wrote
+                    // the file (src/composables/useApi.js reads the same row). It used
+                    // to be read with `SELECT js_dir FROM dbs LIMIT 1` on the TENANT
+                    // connection, where that table is created by setup.sql but never
+                    // written to - so it always came back empty and every delete went
+                    // looking in mig_files, whichever deployment it was.
+                    $baseDirectory = app_db_files_dir() ?? 'mig_files';
+
+                // Delete physical file if it exists
+                $baseDirectory = str_replace('..', '', $baseDirectory);
+                $baseDirectory = ltrim($baseDirectory, '/');
+                $baseDirectory = rtrim($baseDirectory, '/');
+                $existingFilePath = str_replace('..', '', $existingFilePath);
+                $existingFilePath = ltrim($existingFilePath, '/');
+                    // app_deployment_root(), not __DIR__ . '/..': the registry records
+                    // files_dir next to the app folder (<root>/mig_27_files), so for a
+                    // tenant this is the parent, while for a single-app install it is
+                    // the app folder itself.
+                    $fullFilePath = app_deployment_root() . '/' . $baseDirectory . '/' . $existingFilePath;
                     
                     if (file_exists($fullFilePath)) {
                         @unlink($fullFilePath);
@@ -1283,30 +1288,12 @@ if (isset($postData['action'])) {
                 
                 $filePath = $file['file_path'];
                 
-                // Get base directory from db_code.json or use default
-                $baseDirectory = 'mig_files'; // Default
-                try {
-                    $configQuery = "SELECT js_dir FROM dbs LIMIT 1";
-                    $configStmt = $conn->prepare($configQuery);
-                    $configStmt->execute();
-                    $dbConfig = $configStmt->fetch(PDO::FETCH_ASSOC);
-                    if ($dbConfig && isset($dbConfig['js_dir'])) {
-                        // Try to read db_code.json to get files_dir
-                        $jsDir = $dbConfig['js_dir'];
-                        $dbCodeJsonPath = __DIR__ . '/../' . $jsDir . '/db_code.json';
-                        if (file_exists($dbCodeJsonPath)) {
-                            $dbCodeContent = file_get_contents($dbCodeJsonPath);
-                            $dbCodeData = json_decode($dbCodeContent, true);
-                            if ($dbCodeData && isset($dbCodeData['files_dir'])) {
-                                $baseDirectory = $dbCodeData['files_dir'];
-                            }
-                        }
-                    }
-                } catch (Exception $e) {
-                    // Use default if we can't get it
-                    error_log('Could not get base directory from db_code.json: ' . $e->getMessage());
-                }
-                
+                // Get base directory from the registry, or fall back to the historical default.
+                // See the note on the same lookup in add_car_file: the tenant's own
+                // `dbs` table is empty on every install, so reading it answered
+                // nothing and every delete looked in mig_files.
+                $baseDirectory = app_db_files_dir() ?? 'mig_files';
+
                 // Construct full file path
                 $baseDirectory = str_replace('..', '', $baseDirectory);
                 $baseDirectory = ltrim($baseDirectory, '/');
@@ -1315,7 +1302,7 @@ if (isset($postData['action'])) {
                 $filePath = str_replace('..', '', $filePath);
                 $filePath = ltrim($filePath, '/');
                 
-                $fullFilePath = __DIR__ . '/../' . $baseDirectory . '/' . $filePath;
+                $fullFilePath = app_deployment_root() . '/' . $baseDirectory . '/' . $filePath;
                 
                 // Begin transaction
                 $conn->beginTransaction();
@@ -2651,67 +2638,16 @@ if (isset($postData['action'])) {
             }
             exit;
     
-        case 'check_api_files_exist':
-            // Check if files exist in the api folder
-            if (!isset($postData['file_names']) || !is_array($postData['file_names'])) {
-                http_response_code(400);
-                echo json_encode(['success' => false, 'error' => 'file_names array is required']);
-                exit;
-            }
-
-            try {
-                $fileNames = $postData['file_names'];
-                $apiDir = __DIR__; // Current directory is the api folder
-                
-                // Get the real path for security check
-                $realBasePath = realpath(__DIR__ . '/../');
-                if ($realBasePath === false) {
-                    throw new Exception('Invalid base directory');
-                }
-                $realBasePath = rtrim($realBasePath, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
-                
-                // Verify api directory is within base path
-                $resolvedApiDir = realpath($apiDir);
-                if ($resolvedApiDir === false) {
-                    throw new Exception('Invalid api directory');
-                }
-                $resolvedApiDir = rtrim($resolvedApiDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
-                if (strpos($resolvedApiDir, $realBasePath) !== 0) {
-                    throw new Exception('Directory traversal attempt detected');
-                }
-                
-                $results = [];
-                foreach ($fileNames as $fileName) {
-                    // Sanitize filename
-                    $sanitizedFileName = basename($fileName);
-                    $sanitizedFileName = str_replace('..', '', $sanitizedFileName);
-                    
-                    // Construct file path
-                    $filePath = $apiDir . '/' . $sanitizedFileName;
-                    
-                    // Verify file path is within api directory
-                    $resolvedFilePath = realpath($filePath);
-                    $exists = false;
-                    if ($resolvedFilePath !== false) {
-                        $resolvedFileDir = dirname($resolvedFilePath);
-                        $resolvedFileDir = rtrim($resolvedFileDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
-                        if (strpos($resolvedFileDir, $resolvedApiDir) === 0) {
-                            $exists = file_exists($filePath);
-                        }
-                    }
-                    
-                    $results[$fileName] = $exists;
-                }
-                
-                echo json_encode([
-                    'success' => true,
-                    'data' => $results
-                ]);
-            } catch (Exception $e) {
-                http_response_code(500);
-                echo json_encode(['success' => false, 'error' => 'Error checking files: ' . $e->getMessage()]);
-            }
-            exit;
+        // check_api_files_exist used to live here. It answers "does this file exist in
+        // the api folder", which is a question about the deployment rather than about
+        // the tenant's data, and its only caller is the DB manager's build uploader
+        // (Databases.vue). Sitting in this file it sat behind the *app* token while
+        // being driven by the *db-manager* realm, so it could not be given a token its
+        // caller actually holds - and because its failure was a `success: false`
+        // rather than a thrown error, the caller silently skipped the "these files
+        // will replace existing files" prompt instead of falling back to it. It now
+        // lives in db_manager_api.php alongside the other deployment actions, gated
+        // on login.api_token. See the case there.
     
         // Login and supplier credibility checks live in their own modules; this
         // switch only dispatches. Required here rather than at the top of the

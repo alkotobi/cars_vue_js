@@ -51,7 +51,7 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { readJsonResponse } from '@/utils/readJsonResponse'
+import { dbManagerRequest } from '@/composables/useDbManagerApi'
 
 const props = defineProps({
   show: {
@@ -123,29 +123,17 @@ const loadJsonFile = async () => {
   error.value = ''
 
   try {
-    const requestBody = {
-      action: 'read_db_code_json',
-      database_id: props.database.id,
-    }
-    console.log('[EditDbCodeJson] Fetching db_code.json with:', requestBody)
-    console.log('[EditDbCodeJson] API URL:', `${props.apiBaseUrl}/db_manager_api.php`)
     console.log('[EditDbCodeJson] js_dir:', props.database.js_dir)
     console.log('[EditDbCodeJson] Expected file path:', `${props.database.js_dir}/db_code.json`)
 
-    const response = await fetch(`${props.apiBaseUrl}/db_manager_api.php`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody),
-    })
+    // baseUrl is passed through so this component honours the api-base-url prop it is
+    // given rather than re-resolving a URL of its own.
+    const result = await dbManagerRequest(
+      'read_db_code_json',
+      { database_id: props.database.id },
+      { baseUrl: props.apiBaseUrl },
+    )
 
-    console.log('[EditDbCodeJson] Response status:', response.status)
-    console.log('[EditDbCodeJson] Response ok:', response.ok)
-
-    const result = await readJsonResponse(response, `${props.apiBaseUrl}/db_manager_api.php`)
-    console.log('[EditDbCodeJson] API result:', result)
-    console.log('[EditDbCodeJson] API result.data:', result.data)
     console.log('[EditDbCodeJson] File exists:', result.data?.exists)
     if (result.data?.debug) {
       console.log('[EditDbCodeJson] Debug info:', result.data.debug)
@@ -203,19 +191,11 @@ const handleSave = async () => {
   error.value = ''
 
   try {
-    const response = await fetch(`${props.apiBaseUrl}/db_manager_api.php`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        action: 'write_db_code_json',
-        database_id: props.database.id,
-        content: parsedContent,
-      }),
-    })
-
-    const result = await readJsonResponse(response, `${props.apiBaseUrl}/db_manager_api.php`)
+    const result = await dbManagerRequest(
+      'write_db_code_json',
+      { database_id: props.database.id, content: parsedContent },
+      { baseUrl: props.apiBaseUrl },
+    )
 
     if (result.success) {
       emit('saved', result.message || 'db_code.json saved successfully')

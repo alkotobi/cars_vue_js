@@ -217,6 +217,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { getBasePath as sharedGetBasePath, resolveApiBaseUrl } from '@/utils/basePath'
 import { useApi, getStoredToken } from '@/composables/useApi'
+import { dbManagerRequest } from '@/composables/useDbManagerApi'
 import { readJsonResponse } from '@/utils/readJsonResponse'
 
 const { updateAssetsVersion } = useApi()
@@ -411,18 +412,9 @@ const ensureFolderExists = async () => {
   try {
     // Call db_manager_api to ensure the folder exists
     // This creates the folder if it doesn't exist (without clearing contents)
-    const response = await fetch(`${getApiBaseUrl()}/db_manager_api.php`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        action: 'ensure_folder',
-        js_dir: uploadPath.value, // API parameter name is js_dir
-      }),
+    const result = await dbManagerRequest('ensure_folder', {
+      js_dir: uploadPath.value, // API parameter name is js_dir
     })
-
-    const result = await readJsonResponse(response, `${getApiBaseUrl()}/api.php`)
     if (!result.success) {
       throw new Error(result.message || 'Failed to ensure folder exists')
     }

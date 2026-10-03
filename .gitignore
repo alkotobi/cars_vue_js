@@ -44,6 +44,13 @@ dist_old/
 
 # Backup files
 backups/
+
+# Deployment-local database binding.
+# db_code.json names the database THIS deployment talks to and is written by
+# deploy/deploy.sh on the server, which also excludes it from the rsync. It is
+# per-machine state, not source, and the copy under public/ is only a local dev
+# default - so a root-level copy should never be committed.
+/db_code.json
 # Root-anchored: these are the local scratch migration folders, NOT
 # api/migrations/. Unanchored, 'mig*/' also swallowed api/migrations/, so every
 # migration added since 020 was silently ignored by git and never committed -
@@ -51,3 +58,17 @@ backups/
 /mig*/
 build/
 build*/
+
+# Per-machine provisioning config: which database new clients are built from, and
+# where the build is. Read only when /etc/cars-deploy.json is absent, so it is a
+# development convenience - but it holds registry credentials, which is why it lives
+# outside api/ rather than beside config.local.php.
+deploy/cars-deploy.local.json
+
+# Tenant folders (m/, nn/, nono/, ...) are deployment output: a built app plus a copy
+# of api/. That copy is functional - a standalone api/ needs its config.local.php to
+# connect to anything - and those files hold the database password. Root-anchored and
+# exactly one level deep, so it cannot reach api/config.local.php, api/migrations/ or
+# anything nested deeper. The credential is blocked from any tenant folder, including
+# one provisioned after this line was written.
+/*/api/*.local.php

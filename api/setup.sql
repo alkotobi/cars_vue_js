@@ -7,12 +7,19 @@
 -- ============================================
 
 -- Login table
+--
+-- api_token is the DB manager's own credential, separate from the tenant app's
+-- users.api_token: this table lives in the registry and guards host-level
+-- operations. Existing registries: run api/migrations/031_login_api_token.sql,
+-- which is idempotent.
 CREATE TABLE IF NOT EXISTS `login` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
   `user` varchar(255) DEFAULT NULL,
   `pass` text,
   `active` int DEFAULT NULL,
-  PRIMARY KEY (`id`)
+  `api_token` varchar(64) DEFAULT NULL COMMENT 'Token sent by the db-manager UI; checked server-side in db_manager_api.php',
+  PRIMARY KEY (`id`),
+  KEY `idx_login_api_token` (`api_token`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- Databases table

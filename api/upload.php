@@ -91,8 +91,59 @@ const UPLOAD_INLINE_TYPES = [
  * actions; they name directories this list does not contain and so are refused
  * for everyone else. An empty base_directory - the project root - is included
  * because that is where the shared branding files live.
+ *
+ * These are the directories a SINGLE-APP install has: the project root, its own
+ * `files`, and the historical names. A tenant's own pair (js_dir/files_dir) is NOT
+ * listed here any more - it did not scale, and every new client would have needed an
+ * entry, so a client called acme_cars could not upload anything and a name added
+ * for it would also be writable by every other tenant's users. upload_allowed_base()
+ * derives this deployment's own tenant directories from the registry instead, so
+ * the boundary holds for a hundred tenants without a hundred entries.
  */
 const UPLOAD_PUBLIC_ROOTS = ['', 'mig_files', 'mig', 'files', 'uploads'];
+
+/**
+ * Whether a non-admin may write into $baseDirectory, given this deployment's own
+ * tenant directories.
+ *
+ * Two rules on top of the static list:
+ *
+ *   - the request's OWN files_dir, from its registry row. app_db_files_dir()
+ *     resolves that row from db_code.json, which is derived from the request's
+ *     mount (api/lib/appdb.php app_request_mount()) and is not a parameter - so
+ *     this cannot be talked into naming another tenant's folder.
+ *   - the request's OWN js_dir, so the app folder can be written by an admin of
+ *     that app. It is the folder deploy/deploy.sh unpacks a build into, which is
+ *     why it has to be writable at all; non-admins still cannot use it.
+ *
+ * Note what is NOT derived from the registry: any OTHER tenant's directories. Only
+ * an admin may name them, which is the pre-existing rule and stays.
+ *
+ * @param string|null $filesDir this deployment's own files_dir, as a plain name
+ *        (app_db_files_dir()), or null when the row does not resolve
+ * @param array|null  $row      this deployment's registry row, for js_dir
+ */
+function upload_allowed_base(string $baseDirectory, ?string $filesDir, ?array $row = null): bool
+{
+    if (in_array($baseDirectory, UPLOAD_PUBLIC_ROOTS, true)) {
+        return true;
+    }
+
+    if ($filesDir !== null && $baseDirectory === trim($filesDir, '/')) {
+        return true;
+    }
+
+    // The app folder, but only the deployment's own: js_dir is recorded with a
+    // leading slash, so the name alone is trimmed here and compared as a directory.
+    if ($row !== null) {
+        $jsDir = trim((string) ($row['js_dir'] ?? ''), '/');
+        if ($jsDir !== '' && $baseDirectory === $jsDir) {
+            return true;
+        }
+    }
+
+    return false;
+}
 
 /**
  * Branding files the login page renders before anyone has authenticated.
@@ -242,6 +293,29 @@ function upload_verify_image(string $path): void
 
 $PROJECT_ROOT = dirname(__DIR__);
 
+// Which root a base_directory is resolved against.
+//
+// Two namespaces meet here. The registry records files_dir against the
+// DEPLOYMENT root, because a tenant's app folder and its uploads folder are
+// siblings (<webroot>/acme_cars + <webroot>/acme_cars_files) - and the browser
+// sends that value verbatim (src/composables/useApi.js). Every other entry in
+// UPLOAD_PUBLIC_ROOTS is named relative to the APP folder: '' is the app's own
+// documents/logo.
+$DEPLOYMENT_ROOT = app_deployment_root();
+
+/**
+ * The root that one base_directory has to be resolved against.
+ */
+function upload_base_root(string $baseDirectory, string $appRoot, string $deploymentRoot): string
+{
+    $filesDir = app_db_files_dir();
+    if ($filesDir === null) {
+        return $appRoot;
+    }
+
+    return trim($filesDir, '/') === $baseDirectory ? $deploymentRoot : $appRoot;
+}
+
 // ---------------------------------------------------------------------------
 // GET: serve a stored file
 // ---------------------------------------------------------------------------
@@ -257,7 +331,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $baseDirectory = upload_normalise_base($_GET['base_directory'] ?? 'mig_files');
     $requested = upload_normalise_folder($path);
 
-    $filePath = upload_resolve_within_root($PROJECT_ROOT, $baseDirectory . '/' . $requested);
+    $filePath = upload_resolve_within_root(
+        upload_base_root($baseDirectory, $PROJECT_ROOT, $DEPLOYMENT_ROOT),
+        $baseDirectory . '/' . $requested
+    );
     if ($filePath === '' || !is_file($filePath)) {
         http_response_code(404);
         echo json_encode(['success' => false, 'message' => 'File not found']);
@@ -340,15 +417,19 @@ try {
     $destinationFolder = upload_normalise_folder($_POST['destination_folder'] ?? 'uploads');
     $customFileName = isset($_POST['custom_filename']) ? trim($_POST['custom_filename']) : '';
 
-    // A non-admin writes only into the shared upload roots. Without this the
-    // extension allowlist would still stop a webshell, but any user could
-    // overwrite another tenant's documents or the app's branding files.
-    if (!$isAdmin && !in_array($baseDirectory, UPLOAD_PUBLIC_ROOTS, true)) {
+    // A non-admin writes only into the shared upload roots, plus this deployment's
+    // own tenant folders. Without this the extension allowlist would still stop a
+    // webshell, but any user could overwrite another tenant's documents or the app's
+    // branding files.
+    if (!$isAdmin && !upload_allowed_base($baseDirectory, app_db_files_dir(), app_db_row())) {
         throw new Exception('Not allowed to upload into this directory');
     }
 
     $relativeDirectory = $baseDirectory . ($destinationFolder !== '' ? '/' . $destinationFolder : '');
-    $realBasePath = upload_resolve_within_root($PROJECT_ROOT, $relativeDirectory);
+    $realBasePath = upload_resolve_within_root(
+        upload_base_root($baseDirectory, $PROJECT_ROOT, $DEPLOYMENT_ROOT),
+        $relativeDirectory
+    );
     if ($realBasePath === '' || !is_dir($realBasePath)) {
         throw new Exception('Invalid upload directory');
     }

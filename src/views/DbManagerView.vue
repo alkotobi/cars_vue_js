@@ -2,6 +2,9 @@
   <div class="db-manager">
     <!-- Show login if not authenticated -->
     <div v-if="!isLoggedIn" class="login-container">
+      <p v-if="sessionLostMessage" class="session-lost" role="alert">
+        {{ sessionLostMessage }}
+      </p>
       <LoginSignup @login-success="handleLoginSuccess" />
     </div>
 
@@ -39,23 +42,40 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import LoginSignup from '../components/db-manager/LoginSignup.vue'
 import DbManagerSidebar from '../components/db-manager/DbManagerSidebar.vue'
 import Databases from '../components/db-manager/Databases.vue'
 import UpdateDbStructure from '../components/db-manager/UpdateDbStructure.vue'
+import {
+  getDbManagerToken,
+  onDbManagerSessionLost,
+} from '../composables/useDbManagerApi.js'
 
 const isLoggedIn = ref(false)
 const activeItem = ref('')
 const sidebarCollapsed = ref(true)
 
+// Why the login form replaced the panels, if it did. Null otherwise, so a normal
+// sign-in does not greet the user with a stale warning.
+const sessionLostMessage = ref('')
+
+// A token in localStorage is not proof of a live session.
+//
+// This used to be `!!localStorage.getItem('db_manager_user')`, which only asked
+// whether a key existed. A token revoked server-side - signed out in another tab, or
+// api_token cleared by hand - left the key in place, so the panels kept rendering
+// and every one of their requests came back "Not authenticated", producing a shell
+// that looked logged in and did nothing. Reading the parsed token fixes the
+// corrupt-value half of that; the revoked-token half is handled by the listener
+// below, because only the server knows.
 const checkLoginStatus = () => {
-  const user = localStorage.getItem('db_manager_user')
-  isLoggedIn.value = !!user
+  isLoggedIn.value = !!getDbManagerToken()
 }
 
 const handleLoginSuccess = (userData) => {
   isLoggedIn.value = true
+  sessionLostMessage.value = ''
   console.log('Login successful:', userData)
 }
 
@@ -72,8 +92,29 @@ const handleSidebarToggle = (collapsed) => {
   sidebarCollapsed.value = collapsed
 }
 
+// The token was rejected mid-session. Drop back to the login form.
+//
+// useDbManagerApi.js has already cleared the stale credential by the time this runs,
+// so isLoggedIn cannot be re-derived from storage here - it has to be set directly.
+// Unmount cleanup matters because this component is behind a route guard: without it
+// a listener would outlive the view and keep writing to a ref nobody renders.
+let stopListening = null
+
 onMounted(() => {
   checkLoginStatus()
+  stopListening = onDbManagerSessionLost(() => {
+    isLoggedIn.value = false
+    activeItem.value = ''
+    sessionLostMessage.value =
+      'Your database manager session has ended. Please sign in again.'
+  })
+})
+
+onUnmounted(() => {
+  if (stopListening) {
+    stopListening()
+    stopListening = null
+  }
 })
 </script>
 
@@ -85,10 +126,26 @@ onMounted(() => {
 
 .login-container {
   display: flex;
+  /* Column so the session-lost banner stacks above the form. align-items stays at its
+     default `stretch` rather than being set to `center`: LoginSignup.vue's .auth-form
+     is width:100% inside a stretched parent, so centering it in a column would
+     shrink the card to its content width. */
+  flex-direction: column;
   justify-content: center;
-  align-items: center;
   min-height: 100vh;
   background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+}
+
+.session-lost {
+  max-width: 32rem;
+  margin: 0 auto;
+  padding: 0.75rem 1rem;
+  border: 1px solid #d9a441;
+  border-radius: 6px;
+  background: #fdf6e3;
+  color: #7a5a12;
+  text-align: center;
+  font-size: 0.9rem;
 }
 
 .manager-layout {

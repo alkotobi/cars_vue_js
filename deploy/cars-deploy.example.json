@@ -1,0 +1,107 @@
+{
+    "_comment": [
+        "Copy to /etc/cars-deploy.json, edit, then: chmod 640 /etc/cars-deploy.json",
+        "This file is read by the app as www-data AND by /usr/local/bin/cars-nginx-render as root.",
+        "The registry password has to be readable by both, so 640 root:www-data - not 600.",
+        "Everything except registry.pass can be changed later and takes effect on the next action."
+    ],
+    "api_dir": "/var/www/api",
+    "_shared_api": [
+        "true when api_dir is ONE copy shared by every client, which is this server's",
+        "arrangement: the same build and the same api/ serve /<folder>/ for all of them.",
+        "Leave it unset to let the server work it out from the filesystem (api_dir's",
+        "parent has no index.html). Set it explicitly when it matters, because a wrong",
+        "answer is quiet: each client gets a private api/ copy, and the next deploy",
+        "updates one of them."
+    ],
+    "shared_api": true,
+    "_api_dir": "Where the shared api/ lives. Its PARENT is the deployment root: /var/www.",
+    "webroot": "/var/www",
+    "_webroot": [
+        "The deployment root the rendered server block serves out of. The",
+        "renderer refuses to write a server block without it, and it is not",
+        "derivable from api_dir alone: api/ can sit beside the tenants (/var/www/api)",
+        "or inside one (/var/www/acme/api), and those need different roots."
+    ],
+    "canonical_build": "/var/www/cars-build",
+    "_canonical_build": [
+        "The one build every client's folder is copied from, on every deploy.",
+        "It must NOT be inside /var/www/api and must NOT be a tenant folder.",
+        "Keep it out of the nginx web root if you can: nothing should be able to fetch it."
+    ],
+    "template_database": "cars_template",
+    "_template_database": [
+        "The reference-only database every new client is built from.",
+        "It must have the schema and the reference rows (brands, roles, permissions,",
+        "the admin account) and NONE of the client data - 38 business tables that are",
+        "empty in a fresh build. Provisioning refuses a template that has any, so a",
+        "template built from a live tenant fails loudly instead of shipping one",
+        "client's dropdown options to the next.",
+        "Build one with:",
+        "  php api/lib/tenant-provision.php --build-template cars_template --seed-source <clean db>",
+        "Leave it unset only if you intend to pass seed_source per run."
+    ],
+    "web_group": "www-data",
+    "_web_group": "Group given write access to a new tenant's folders. Empty means do not chgrp.",
+    "php_socket": "/run/php/php8.3-fpm.sock",
+    "_php_socket": [
+        "ls /run/php/php*-fpm.sock - pick the one nginx actually fastcgi_pass's to.",
+        "This has to match the existing vhosts or only this file will work."
+    ],
+    "server_name": "163.245.214.125",
+    "_server_name": "The IP clients reach this on. One vhost serves every client by URL prefix.",
+    "cert_dir": "/etc/letsencrypt/live/163.245.214.125",
+    "_cert_dir": [
+        "Let's Encrypt live/ directory for server_name. The renderer refuses to write a",
+        "server block without it rather than emitting a path that does not exist.",
+        "For a bare IP this needs certbot >= 5.4 (short-lived IP certificates):",
+        "  certbot certonly --webroot -w /var/www -d 163.245.214.125"
+    ],
+    "default_server": true,
+    "_default_server": [
+        "true makes this the catch-all for its address and port. Required for a bare IP,",
+        "because a browser sends no SNI for an address, so the block cannot be matched by",
+        "name. If another vhost already holds that position, nginx -t fails with",
+        "\"duplicate default server\" - the render is rolled back and nothing changes.",
+        "Then either drop default_server from the other block or set this to false."
+    ],
+    "ipv6": true,
+    "_ipv6": [
+        "false omits the [::] listen lines. A kernel without IPv6 makes [::] a fatal bind",
+        "error, which would stop nginx starting for every site on the machine."
+    ],
+    "render_command": "/usr/local/bin/cars-nginx-render",
+    "_render_command": [
+        "The root-owned script the Provision screen runs through sudo. It is what the",
+        "sudoers rule names, and it must be the path in the sudoers file exactly."
+    ],
+    "render_php": "/usr/local/lib/cars/render-nginx-multitenant.php",
+    "_render_php": [
+        "The PHP that produces the config text, read by cars-nginx-render as root.",
+        "It lives OUTSIDE the web root on purpose. Root executes it, so if the web",
+        "server's user could write it, a file-write bug in the app would be a root",
+        "shell. Install it root-owned:",
+        "  sudo install -d -m 755 /usr/local/lib/cars",
+        "  sudo install -o root -g root -m 0444 deploy/render-nginx-multitenant.php \\",
+        "       /usr/local/lib/cars/",
+        "cars-nginx-render refuses to run it if it is not root-owned, or if it is",
+        "group- or world-writable."
+    ],
+    "render_output": "/etc/nginx/sites-available/cars-multitenant.conf",
+    "_render_output": [
+        "Where the rendered config is installed. Must be under /etc/nginx.",
+        "Enable it once with: ln -s /etc/nginx/sites-available/cars-multitenant.conf /etc/nginx/sites-enabled/",
+        "That symlink is the one-time step; nothing afterwards has to be done by hand."
+    ],
+    "registry": {
+        "_comment": [
+            "Credentials for the dbs table that lists the clients.",
+            "Needed here because the renderer runs under sudo, where the environment that",
+            "api/config.php reads from has been scrubbed - it cannot fall back to that."
+        ],
+        "host": "localhost",
+        "dbname": "merhab_databases",
+        "user": "cars_registry",
+        "pass": "CHANGE-ME"
+    }
+}

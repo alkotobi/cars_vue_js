@@ -95,6 +95,12 @@ function backup_mysqldump(string $dbName, string $targetPath, array $dbConfig, ?
  *
  * These scripts are operator tools that dump every table, so they require the
  * same role that can run SQL in the app. Exits the request when it does not hold.
+ *
+ * The `users` table is looked up in THIS DEPLOYMENT'S tenant database. Reading it
+ * from config.php's default instead meant the token of an admin who only exists in
+ * a tenant database was rejected, while an admin of the default database was
+ * accepted on a tenant's URL - the token check was authenticating against a
+ * different install than the one it granted access to.
  */
 function api_require_backup_admin(): void
 {
@@ -102,9 +108,12 @@ function api_require_backup_admin(): void
 
     require_once __DIR__ . '/config.php';
     require_once __DIR__ . '/auth.php';
+    require_once __DIR__ . '/appdb.php';
+
+    $dbname = app_db_name() ?? $db_config['dbname'];
 
     $pdo = new PDO(
-        "mysql:host={$db_config['host']};dbname={$db_config['dbname']}",
+        "mysql:host={$db_config['host']};dbname={$dbname}",
         $db_config['user'],
         $db_config['pass']
     );

@@ -1,0 +1,116 @@
+# Cars Management System — multi-tenant nginx configuration
+#
+# GENERATED FILE. Do not edit it by hand and do not edit it in the panel: every
+# change is overwritten the next time a client is provisioned or the app is
+# deployed. The source of truth is the `dbs` table; regenerate with
+#
+#   /usr/local/bin/cars-nginx-render        (as root)
+#
+# which is also what the Provision screen's "Apply nginx" button runs.
+#
+# Rendered __RENDERED_AT__
+# Server name  __SERVER_NAME__
+# API          __API_DIR__ (one shared copy, serving every tenant)
+# Web root     __WEBROOT__
+# Tenants      __TENANT_COUNT__
+#
+# How a tenant is addressed
+# ------------------------
+#   https://__SERVER_NAME__/<tenant>/            the app
+#   https://__SERVER_NAME__/<tenant>_files/       that tenant's uploads
+#   https://__SERVER_NAME__/<tenant>/api/*.php    the API for THAT tenant
+#
+# There is one api/ directory and one copy of the code. What makes a request
+# belong to a client is the URL prefix, which arrives in PHP as SCRIPT_NAME and
+# is what api/lib/appdb.php resolves the tenant from. Nothing else in the stack
+# decides which database a request touches.
+#
+# The alternative — a copy of api/ per tenant — was rejected deliberately: 30-odd
+# files that all have to be the same version, where a stale copy is not a visible
+# fault but a client silently running last month's authentication bug.
+
+# ---------------------------------------------------------------------------
+# :80 — ACME and the redirect
+# ---------------------------------------------------------------------------
+server {
+    listen 80__DEFAULT_SERVER__;
+__IPV6_LISTEN_80__
+    server_name __SERVER_NAME__;
+
+    # Certbot's webroot writes here. It has to be reachable over plain HTTP, and
+    # ^~ matters: it stops the dotfile deny below (which would 403 the challenge)
+    # and the catch-all from ever being consulted for this path.
+    location ^~ /.well-known/acme-challenge/ {
+        root __WEBROOT__;
+        default_type "text/plain";
+        allow all;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+# ---------------------------------------------------------------------------
+# :443
+# ---------------------------------------------------------------------------
+server {
+    listen 443 ssl http2__DEFAULT_SERVER__;
+__IPV6_LISTEN_443__
+    server_name __SERVER_NAME__;
+
+    ssl_certificate     __CERT_DIR__/fullchain.pem;
+    ssl_certificate_key __CERT_DIR__/privkey.pem;
+
+    # A bare IP is reached without SNI - a browser sends no server name for an
+    # address - so this block cannot be selected by name and has to be the
+    # default_server for its address and port. If another vhost on this machine
+    # already claims that position, nginx refuses to start with "duplicate default
+    # server"; drop `default_server` from the other block (or set
+    # "default_server": false in cars-deploy.json) and decide deliberately which
+    # one answers an unknown request.
+    #
+    # There is no equivalent trick for the Host header: a request naming some
+    # other domain still lands here, because the address matched first. The fix
+    # for that is a real domain per client, which this file does not model yet.
+
+    root __WEBROOT__;
+    index index.html;
+
+    # Must be >= php.ini post_max_size (110M) or PHP silently truncates the body
+    # and an upload "succeeds" as an empty file.
+    client_max_body_size 110M;
+
+    # ACME is also served here: certbot renews against whichever vhost answers,
+    # and a renewal that 404s is a certificate that quietly expires.
+    location ^~ /.well-known/acme-challenge/ {
+        root __WEBROOT__;
+        default_type "text/plain";
+        allow all;
+    }
+
+__TENANTS__
+
+    # The shared api/ is not an entry point of its own.
+    #
+    # Every API request has to name its tenant in the URL (/<tenant>/api/...), so
+    # a request to /api/... carries no tenant and would fall back to whatever the
+    # shared api/ considers the primary app - which on this server is not a tenant
+    # at all. Refusing it outright is the honest answer; serving it would mean
+    # guessing.
+    location = /api  { return 404; }
+    location /api/   { return 404; }
+
+    # Schema dumps disclose the entire database structure. PHP reads them from
+    # disk, never over HTTP, so refusing them costs nothing.
+    location ~* \.sql$ { deny all; }
+
+    # .env, .git, .htaccess, .htpasswd. Declared after the ACME ^~ block for the
+    # reason noted there.
+    location ~ /\. { deny all; }
+
+    # Anything not claimed above is a client that has not been provisioned. 404
+    # rather than a default site, so a typo in a URL cannot land on someone else's
+    # application.
+    location / { return 404; }
+}

@@ -31,6 +31,21 @@ function bs_escape($text) {
     return nl2br(htmlspecialchars((string)$text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'));
 }
 
+/**
+ * The database to preselect when the operator has not chosen one.
+ *
+ * This page deliberately offers every database in the registry - it is an operator
+ * tool - but the default used to be config.php's db_name, i.e. the PRIMARY app's
+ * database, on every tenant's copy of the page. Reached from a tenant URL it
+ * preselected somebody else's database and, if the operator pressed backup without
+ * looking, dumped that one. The deployment's own tenant is the safe default;
+ * anything else is still one click away and still admin-gated.
+ */
+function backup_default_db_name(array $dbConfig): string
+{
+    return app_db_name() ?? $dbConfig['dbname'];
+}
+
 // Function to get list of available databases
 function getAvailableDatabases() {
     try {
@@ -40,11 +55,11 @@ function getAvailableDatabases() {
         
         // Add default database from config
         $databases[] = [
-            'name' => $db_config['dbname'],
+            'name' => backup_default_db_name($db_config),
             'host' => $db_config['host'],
             'user' => $db_config['user'],
             'pass' => $db_config['pass'],
-            'label' => $db_config['dbname'] . ' (Default)'
+            'label' => backup_default_db_name($db_config) . ' (Default)'
         ];
         
         // Try to get databases from merhab_databases
@@ -61,8 +76,20 @@ function getAvailableDatabases() {
                 
                 $stmt = $managerConn->query("SELECT db_name, db_code FROM dbs WHERE is_created = 1 AND db_name IS NOT NULL AND db_name != ''");
                 $dbList = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                
+
+                // The deployment's own database is already in the list as the
+                // default, and the registry contains it too - without this the
+                // <select> offered the same database twice under two labels.
+                $seen = [];
+                foreach ($databases as $already) {
+                    $seen[$already['name']] = true;
+                }
+
                 foreach ($dbList as $db) {
+                    if (isset($seen[$db['db_name']])) {
+                        continue;
+                    }
+
                     // Use main config credentials for all databases
                     $databases[] = [
                         'name' => $db['db_name'],
@@ -82,11 +109,11 @@ function getAvailableDatabases() {
         // Fallback to default database only
         require_once 'config.php';
         return [[
-            'name' => $db_config['dbname'],
+            'name' => backup_default_db_name($db_config),
             'host' => $db_config['host'],
             'user' => $db_config['user'],
             'pass' => $db_config['pass'],
-            'label' => $db_config['dbname'] . ' (Default)'
+            'label' => backup_default_db_name($db_config) . ' (Default)'
         ]];
     }
 }
@@ -100,7 +127,7 @@ function createAutomaticBackup($selectedDbName = null) {
         $host = $db_config['host'];
         $username = $db_config['user'];
         $password = $db_config['pass'];
-        $dbname = $selectedDbName ? $selectedDbName : $db_config['dbname'];
+        $dbname = $selectedDbName ? $selectedDbName : backup_default_db_name($db_config);
         
         // Create backup directory
         $backup_dir = '../backups';
@@ -341,7 +368,7 @@ if (isset($_POST['create_backup'])) {
         require_once 'config.php';
         
         // Get selected database
-        $selectedDb = isset($_POST['database']) && !empty($_POST['database']) ? $_POST['database'] : $db_config['dbname'];
+        $selectedDb = isset($_POST['database']) && !empty($_POST['database']) ? $_POST['database'] : backup_default_db_name($db_config);
         
         // Create backup directory
         $backup_dir = '../backups';
@@ -555,7 +582,7 @@ if (file_exists($last_auto_backup_file)) {
         
         <?php
         $availableDatabases = getAvailableDatabases();
-        $selectedDatabase = isset($_POST['database']) ? $_POST['database'] : (isset($_GET['db']) ? $_GET['db'] : $db_config['dbname']);
+        $selectedDatabase = isset($_POST['database']) ? $_POST['database'] : (isset($_GET['db']) ? $_GET['db'] : backup_default_db_name($db_config));
         ?>
         
         <div style="text-align: center; margin-bottom: 20px;">

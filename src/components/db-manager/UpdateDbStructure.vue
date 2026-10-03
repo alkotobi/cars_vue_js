@@ -160,7 +160,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { getBasePath, resolveApiBaseUrl } from '@/utils/basePath'
-import { readJsonResponse } from '@/utils/readJsonResponse'
+import { dbManagerRequest } from '@/composables/useDbManagerApi'
 
 const updates = ref([])
 const loading = ref(false)
@@ -200,8 +200,7 @@ const fetchUpdates = async () => {
   loading.value = true
   error.value = ''
   try {
-    const response = await fetch(`${getApiBaseUrl()}/db_manager_api.php?action=get_db_updates`)
-    const result = await readJsonResponse(response, `${getApiBaseUrl()}/db_manager_api.php?action=get_db_updates`)
+    const result = await dbManagerRequest('get_db_updates')
 
     if (result.success) {
       updates.value = result.data || []
@@ -261,24 +260,13 @@ const saveUpdate = async () => {
 
   try {
     const action = editingUpdate.value ? 'update_db_update' : 'create_db_update'
-    const body = {
-      action,
-      ...formData.value,
-    }
+    const body = { ...formData.value }
 
     if (editingUpdate.value) {
       body.id = editingUpdate.value.id
     }
 
-    const response = await fetch(`${getApiBaseUrl()}/db_manager_api.php`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    })
-
-    const result = await readJsonResponse(response, `${getApiBaseUrl()}/db_manager_api.php`)
+    const result = await dbManagerRequest(action, body)
 
     if (result.success) {
       successMessage.value = result.message || 'Update saved successfully'
@@ -319,18 +307,9 @@ const deleteUpdate = async () => {
   successMessage.value = ''
 
   try {
-    const response = await fetch(`${getApiBaseUrl()}/db_manager_api.php`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        action: 'delete_db_update',
-        id: updateToDelete.value.id,
-      }),
+    const result = await dbManagerRequest('delete_db_update', {
+      id: updateToDelete.value.id,
     })
-
-    const result = await readJsonResponse(response, `${getApiBaseUrl()}/db_manager_api.php`)
 
     if (result.success) {
       successMessage.value = result.message || 'Update deleted successfully'

@@ -1,0 +1,43 @@
+# Sudo permission for the one root operation in client provisioning.
+#
+# Install as /etc/sudoers.d/cars-nginx, owned by root:root, mode 0440:
+#
+#   sudo install -o root -g root -m 0440 deploy/sudoers-cars-nginx.example /etc/sudoers.d/cars-nginx
+#   sudo visudo -c                      # verify. A malformed sudoers file breaks ALL sudo on the box.
+#
+# Why this is so narrow
+# --------------------
+# Provisioning runs as www-data, so it needs exactly one privileged thing: writing
+# an nginx config and reloading nginx. That is a root operation, and giving the web
+# user broader sudo would hand a remote code execution bug in the app a root shell.
+#
+# So the rule names one path, with no arguments and no shell:
+#
+#   - no arguments at all, because a rule that accepts arguments cannot be granted
+#     safely - anything a caller can pass, a caller can choose. cars-nginx-render
+#     refuses every argument, including --help, so the two agree;
+#   - the script takes its configuration from /etc/cars-deploy.json, which is
+#     root-owned and not writable by www-data;
+#   - no wildcard in the path, so this cannot be satisfied by a file the web user
+#     creates somewhere else;
+#   - NOPASSWD, because a web request that stops for a password prompt hangs until
+#     the PHP timeout and the operator sees nothing. This is safe to do without a
+#     password precisely because the command takes no arguments and reads only
+#     root-owned files.
+#
+# Two more things have to hold, and both are about this rule meaning what it says:
+#
+#   /usr/local/bin/cars-nginx-render          root-owned, not group/world-writable
+#   /usr/local/lib/cars/render-nginx-multitenant.php   same
+#   /etc/cars-deploy.json                     root-owned, readable by www-data
+#
+# A sudoers rule is only as strong as the thing it names. If the web user can write
+# either of those files, this rule hands it a root shell - which is the escalation
+# the narrow rule exists to prevent. cars-nginx-render checks its own ownership and
+# the renderer's, and refuses to run, but the sudoers rule is enforced by sudo, so
+# the files should be correct on disk rather than relying on that check.
+#
+# Check the web user is right: it is www-data on Ubuntu/Debian with Apache or
+# nginx, and nginx on RHEL-family distros.
+
+www-data ALL=(root) NOPASSWD: /usr/local/bin/cars-nginx-render

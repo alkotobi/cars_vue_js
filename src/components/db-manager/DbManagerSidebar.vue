@@ -46,6 +46,7 @@
 
 <script setup>
 import { ref, defineEmits, defineProps } from 'vue'
+import { dbManagerRequest, clearDbManagerToken } from '@/composables/useDbManagerApi'
 
 const props = defineProps({
   activeItem: {
@@ -67,9 +68,26 @@ const selectMenuItem = (item) => {
   emit('select-item', item)
 }
 
-const logout = () => {
-  localStorage.removeItem('db_manager_user')
-  emit('logout')
+// Sign out of the database manager.
+//
+// This revokes the token server-side before clearing local storage, because clearing
+// the copy in the browser is not the same as ending the session: the token in
+// login.api_token stays valid until the next sign-in overwrites it, so on a shared
+// machine the next person could still read it out of devtools.
+//
+// The local clear runs either way. A failed request must not leave a credential the
+// user asked to be rid of sitting in their browser, and the alternative - refusing to
+// log out locally because the server was unreachable - would strand them in a session
+// they cannot leave.
+const logout = async () => {
+  try {
+    await dbManagerRequest('logout')
+  } catch (err) {
+    console.error('DB-manager logout request failed:', err)
+  } finally {
+    clearDbManagerToken()
+    emit('logout')
+  }
 }
 </script>
 

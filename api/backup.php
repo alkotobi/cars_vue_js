@@ -36,9 +36,17 @@ ob_clean();
 try {
     require_once __DIR__ . '/config.php';
     require_once __DIR__ . '/lib/auth.php';
+    require_once __DIR__ . '/lib/appdb.php';
+
+    // This deployment's tenant, not config.php's default. The dump below is the
+    // whole database, so getting this wrong is a cross-tenant data leak: an admin
+    // of mig_27 asking for a backup used to be handed merhab_cars' users table,
+    // password hashes and live api_tokens. config.php stays as the fallback for an
+    // install with no db_code.json.
+    $dbname = app_db_name() ?? $db_config['dbname'];
 
     $pdo = new PDO(
-        "mysql:host={$db_config['host']};dbname={$db_config['dbname']}",
+        "mysql:host={$db_config['host']};dbname={$dbname}",
         $db_config['user'],
         $db_config['pass']
     );
@@ -51,7 +59,7 @@ try {
 
     // Filename is caller-influenced, so keep it to a safe character set rather
     // than reflecting it into the header verbatim.
-    $filename = $_GET['filename'] ?? ('merhab_cars_backup_' . date('Y-m-d_H-i-s') . '.sql');
+    $filename = $_GET['filename'] ?? ($dbname . '_backup_' . date('Y-m-d_H-i-s') . '.sql');
     $filename = preg_replace('/[^A-Za-z0-9._-]/', '_', (string)$filename);
 
     header('Content-Disposition: attachment; filename="' . $filename . '"');
@@ -59,7 +67,6 @@ try {
     header('Expires: Sat, 26 Jul 1997 05:00:00 GMT');
 
     $host = $db_config['host'];
-    $dbname = $db_config['dbname'];
     $username = $db_config['user'];
     $password = $db_config['pass'];
 

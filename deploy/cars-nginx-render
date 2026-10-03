@@ -1,0 +1,233 @@
+#!/usr/bin/env bash
+#
+# Install the multi-tenant nginx configuration and reload nginx.
+#
+# This is the ONLY part of client provisioning that needs root, and it is the
+# reason provisioning does not need SSH: everything else (database, schema,
+# folders, build) is done by the app as www-data, and this one command does the
+# part that cannot be - writing into /etc/nginx and signalling the master process.
+#
+# It is meant to be run by the Provision screen through a sudoers rule naming this
+# one path with no arguments:
+#
+#   www-data ALL=(root) NOPASSWD: /usr/local/bin/cars-nginx-render
+#
+# It takes no arguments at all, deliberately. A command that accepts arguments
+# cannot be granted safely in sudoers, and an argument is only ever something a
+# caller wanted to influence. Everything it needs comes from the root-owned
+# /etc/cars-deploy.json.
+#
+#   sudo /usr/local/bin/cars-nginx-render            install + reload
+#   sudo /usr/local/bin/cars-nginx-render --check    print the config, write nothing
+#
+# Safe to run with nothing provisioned: it installs a config with no client blocks.
+#
+# What "safe" means here, precisely:
+#
+#   1. the new config is rendered to a temporary file first, so a renderer crash
+#      never leaves a half-written file in sites-available;
+#   2. the previous config is kept as .bak;
+#   3. `nginx -t` runs with the new file in place, and on failure the .bak is put
+#      back. The running nginx keeps the configuration it loaded at start or last
+#      reload - it does not read the file again - so a failed test means no site on
+#      the machine is affected, not just this one;
+#   4. the reload is `systemctl reload`, not a restart, so in-flight requests are
+#      finished rather than dropped.
+#
+# Step 3 is the one that matters: nginx is a single process serving every site on
+# the box, including world-automobile.com, which has nothing to do with this file.
+
+set -euo pipefail
+
+CONFIG=/etc/cars-deploy.json
+OUTPUT=/etc/nginx/sites-available/cars-multitenant.conf
+RENDERER=/var/www/api/lib/render-nginx-multitenant.php   # overridden by config
+CHECK_ONLY=0
+
+die() { echo "cars-nginx-render: $*" >&2; exit 1; }
+
+# A sudoers rule is only as strong as the thing it names. Both this script and the
+# renderer it executes run as root, so if either is owned by, or writable by, the
+# web user then a file-write bug in the app is a root shell - which is exactly the
+# escalation the narrow sudoers rule exists to prevent.
+#
+# Checked here rather than left to the install step because the failure is invisible
+# until it matters, and because the check is cheap.
+require_root_owned() { # path what
+  local path=$1 what=$2 owner perms
+
+  if ! owner=$(stat -c %U "$path" 2>/dev/null || stat -f %Su "$path" 2>/dev/null); then
+    die "cannot stat $path ($what)"
+  fi
+  if ! perms=$(stat -c %a "$path" 2>/dev/null || stat -f %Lp "$path" 2>/dev/null); then
+    die "cannot read the mode of $path ($what)"
+  fi
+
+  if [ "$owner" != "root" ]; then
+    die "$path ($what) is owned by '$owner', not root. It is run as root, so that account would choose what root executes."
+  fi
+
+  # 0022 is "writable by group or other". Compared in octal, which is why the mode
+  # is read as a number rather than tested with a glob: a glob cannot express "any
+  # write bit", and "not 644" would also reject 640 and 600.
+  if [ "$((8#$perms & 0022))" -ne 0 ]; then
+    die "$path ($what) has mode $perms, so it is group- or world-writable. Run as root, it would let another account run its own code."
+  fi
+}
+
+for arg in "$@"; do
+  case "$arg" in
+    --check) CHECK_ONLY=1 ;;
+    *) die "unknown argument '$arg' (this command takes none; see the header comment)" ;;
+  esac
+done
+
+[ "$(id -u)" -eq 0 ] || die "must run as root"
+
+command -v nginx >/dev/null 2>&1 || die "nginx is not installed"
+[ -f "$CONFIG" ] || die "missing $CONFIG - copy deploy/cars-deploy.example.json and edit it"
+
+# The renderer path lives in the config too, so the script under /var/www/api and
+# the copy invoked here cannot drift apart. Captured before use so a failure inside
+# the php -r is reported by this script rather than surfacing later as "renderer not
+# found: " with an empty path.
+read -r RENDERER OUTPUT < <(php -r '
+$c = json_decode(file_get_contents("/etc/cars-deploy.json"), true);
+if (!is_array($c)) { fwrite(STDERR, "not valid JSON\n"); exit(1); }
+$r = $c["render_php"] ?? "";
+$o = $c["render_output"] ?? "";
+if ($r === "" || $o === "") { fwrite(STDERR, "render_php and render_output must both be set\n"); exit(1); }
+echo $r, " ", $o;
+') || true
+[ -n "$RENDERER" ] && [ -n "$OUTPUT" ] || die "could not read render_php / render_output from $CONFIG"
+
+[ -f "$RENDERER" ] || die "renderer not found: $RENDERER"
+case "$OUTPUT" in
+  /etc/nginx/*) ;;
+  *) die "refusing: render_output must be under /etc/nginx, got '$OUTPUT'" ;;
+esac
+
+# The config is read as root and decides what root does and where it writes, so it
+# has to be root-owned too - not just present.
+require_root_owned "$CONFIG" "config"
+require_root_owned "$RENDERER" "renderer"
+
+# And this script. Checking its own ownership is odd-looking, but the sudoers rule
+# names this exact path, so a writable copy of it IS a way to root.
+SELF=$(readlink -f "$0" 2>/dev/null || echo "$0")
+require_root_owned "$SELF" "this script"
+
+# Everything the renderer will READ, not just the renderer itself.
+#
+# This is the check that makes the other ones mean something. The renderer pulls in
+# the name-validator library from the app's own lib/ directory, and on this server
+# that file is served from the web root - so it is web-writable in exactly the setups
+# where the app is deployed by a non-root user. Root would then be require-ing a
+# file the web user can rewrite, which turns any file-write bug in the app into root
+# code execution, and no amount of hardening on the renderer itself prevents that.
+#
+# The renderer is asked which files it resolves rather than this script guessing, and
+# this script deliberately does not name any of them: a second list is one copy too
+# many, and the wrong one is worse than none - it would validate a path that is never
+# loaded while the loaded one goes unchecked, which reads in the output exactly like
+# safety.
+INCLUDES=$(php "$RENDERER" --print-includes) || die "renderer could not report its includes"
+[ -n "$INCLUDES" ] || die "renderer reported no includes to validate"
+echo "$INCLUDES" | while IFS= read -r inc; do
+  [ -n "$inc" ] || continue
+  require_root_owned "$inc" "renderer input"
+done
+
+# The X's have to be at the END of the template.
+#
+# `mktemp /tmp/cars-nginx.XXXXXX.conf` substitutes on GNU mktemp but NOT on BSD's,
+# which needs the X's last - so on a Mac that leaves the literal, predictable
+# /tmp/cars-nginx.XXXXXX.conf. This script runs as root, and a predictable temp path
+# that root writes through is an arbitrary-file-overwrite for anyone who can create
+# a symlink there. Ending the template in X's works on both, and the 600 below is
+# belt and braces for the same reason.
+TMP=$(mktemp "${TMPDIR:-/tmp}/cars-nginx.XXXXXXXX") || die "mktemp failed"
+chmod 600 "$TMP"
+cleanup() { rm -f "$TMP"; }
+trap cleanup EXIT
+
+# --check prints and stops. It is how a change is reviewed before it is installed,
+# and it needs no write access to /etc/nginx at all.
+if [ "$CHECK_ONLY" -eq 1 ]; then
+  php "$RENDERER" --config "$CONFIG" --out "$TMP"
+  cat "$TMP"
+  echo "cars-nginx-render: --check only, nothing installed" >&2
+  exit 0
+fi
+
+echo "cars-nginx-render: rendering from the dbs registry"
+php "$RENDERER" --config "$CONFIG" --out "$TMP" || die "rendering failed; nothing was changed"
+
+# An empty or truncated render. The renderer has already refused to leave a
+# placeholder in the output, so this only catches a render that produced no server
+# block at all - an empty file, or a template that lost its blocks.
+#
+# Note what this is NOT: it cannot tell "the dbs table is empty" from "the wrong
+# registry was read". Both render fine and both pass. That case is a warning below,
+# because it is indistinguishable from a correct first install.
+if ! grep -q '^server {' "$TMP"; then
+  die "the rendered config contains no server block; refusing to install it"
+fi
+
+# Counted here so the count is known before anything is installed.
+TENANTS=$(grep -c '^    # ---- ' "$TMP" || true)
+
+if [ "$TENANTS" -eq 0 ]; then
+  # Continuing is deliberate. The very first run of this script on a new server
+  # legitimately has no clients, and refusing would make the one-time setup
+  # impossible to complete through the same command. But on a server that already
+  # has clients, zero here means it read the wrong registry - and the symptom
+  # otherwise appears only as every tenant 404ing at once.
+  echo "cars-nginx-render: WARNING: no provisioned clients found in the registry." >&2
+  echo "cars-nginx-render:          If this server already has clients, check registry.dbname in $CONFIG;" >&2
+  echo "cars-nginx-render:          installing this will take all of them offline." >&2
+fi
+
+install -d -m 755 "$(dirname "$OUTPUT")"
+
+# The config currently in place is what a failed test has to put back, so it is
+# copied BEFORE the new file overwrites it. Taking the .bak afterwards would save a
+# copy of the new file and the restore below would be a no-op that looks like it
+# worked.
+if [ -f "$OUTPUT" ]; then
+  cp -p "$OUTPUT" "$OUTPUT.bak"
+fi
+
+install -m 644 "$TMP" "$OUTPUT"
+
+# A second unpredictable temp file for nginx's stderr: a fixed /tmp path written
+# by root has the same symlink problem as the rendered config above.
+TEST_ERR=$(mktemp "${TMPDIR:-/tmp}/cars-nginx-test.XXXXXXXX") || die "mktemp failed"
+
+if ! nginx -t 2>"$TEST_ERR"; then
+  if [ -f "$OUTPUT.bak" ]; then
+    cp -p "$OUTPUT.bak" "$OUTPUT"
+    echo "cars-nginx-render: nginx rejected the new config; the previous one has been restored" >&2
+  else
+    rm -f "$OUTPUT"
+    echo "cars-nginx-render: nginx rejected the new config and there was no previous one to restore; it has been removed" >&2
+  fi
+  echo "--- nginx -t ---" >&2
+  cat "$TEST_ERR" >&2
+  echo "--- the running server is unchanged ---" >&2
+  rm -f "$TEST_ERR"
+  exit 1
+fi
+rm -f "$TEST_ERR"
+
+if command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet nginx; then
+  systemctl reload nginx || die "nginx -t passed but the reload failed; the running config is still the old one"
+  RELOADED="systemctl reload nginx"
+elif [ -f /run/nginx.pid ]; then
+  nginx -s reload || die "nginx -t passed but the reload failed; the running config is still the old one"
+  RELOADED="nginx -s reload"
+else
+  die "nginx is not running, so nothing was reloaded. The config is installed and valid; start nginx and reload it"
+fi
+
+echo "cars-nginx-render: installed $OUTPUT ($TENANTS client(s)) and reloaded via $RELOADED"

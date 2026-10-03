@@ -2389,7 +2389,9 @@ CREATE TABLE IF NOT EXISTS `login` (
   `user` varchar(255) DEFAULT NULL,
   `pass` text DEFAULT NULL,
   `active` int(11) DEFAULT NULL,
-  PRIMARY KEY (`id`)
+  `api_token` varchar(64) DEFAULT NULL COMMENT 'Token sent by the db-manager UI; checked server-side in db_manager_api.php',
+  PRIMARY KEY (`id`),
+  KEY `idx_login_api_token` (`api_token`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------

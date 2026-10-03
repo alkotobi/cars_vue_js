@@ -148,13 +148,26 @@
             </td>
             <td class="actions-cell">
               <button
+                @click="openProvisionModal(db)"
+                :disabled="provisioning || (db.is_created == 1 && provisioningId !== db.id)"
+                class="btn-provision"
+                :title="
+                  db.is_created == 1
+                    ? 'Show what this client is missing, and re-apply the current build'
+                    : 'Set this client up: database, schema, reference data, folders and the build'
+                "
+              >
+                <i class="fas fa-rocket"></i>
+                {{ provisioning && provisioningId === db.id ? 'Working...' : 'Provision' }}
+              </button>
+              <button
                 @click="createTables(db)"
                 :disabled="db.is_created == 1 || creatingTables"
                 class="btn-create-tables"
                 :title="
                   db.is_created == 1
                     ? 'Already created'
-                    : 'Create tables, directories, and db_code.json'
+                    : 'Schema only, from setup.sql - no reference data and no admin account. Prefer Provision.'
                 "
               >
                 <i class="fas fa-database"></i>
@@ -331,6 +344,11 @@
             <strong>{{ databaseToCreateTables?.db_code }}</strong
             >:
           </p>
+          <p class="modal-note">
+            This will create the MySQL database
+            <strong>{{ databaseToCreateTables?.db_name }}</strong> if it does not exist yet, then
+            add the setup tables, triggers, directories, and db_code.json to it.
+          </p>
           <div class="form-group">
             <label for="version-input">Version:</label>
             <input
@@ -353,6 +371,169 @@
           >
             <i v-if="creatingTables" class="fas fa-spinner fa-spin"></i>
             {{ creatingTables ? 'Creating...' : 'Create' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Provision Modal -->
+    <!--
+      The screen that removes SSH from onboarding. It shows what is missing before it
+      offers to do anything, because the alternative - a button that fails with a
+      folder-permission error - is how an operator ends up guessing.
+
+      Server setup is listed separately from the client's own state, and it comes
+      first: an unconfigured server fails every client identically, so there is no
+      point diagnosing "webroot not writable" twenty times.
+    -->
+    <div v-if="showProvisionModal" class="modal-overlay" @click="closeProvisionModal">
+      <div class="modal-content modal-provision" @click.stop>
+        <div class="modal-header">
+          <h3>Provision {{ provisionTarget?.db_name }}</h3>
+        </div>
+
+        <div class="modal-body">
+          <div v-if="provisionLoading" class="provision-loading">
+            <i class="fas fa-spinner fa-spin"></i>
+            Checking what is missing...
+          </div>
+
+          <template v-else>
+            <!-- Server setup -->
+            <div class="provision-section">
+              <h4>
+                <i class="fas fa-server"></i>
+                Server setup
+                <span
+                  class="provision-verdict"
+                  :class="serverConfig?.ready ? 'verdict-ok' : 'verdict-bad'"
+                >
+                  {{ serverConfig?.ready ? 'ready to provision' : 'cannot provision' }}
+                </span>
+                <span
+                  class="provision-verdict"
+                  :class="serverConfig?.nginx_ready ? 'verdict-ok' : 'verdict-warn'"
+                >
+                  {{ serverConfig?.nginx_ready ? 'nginx ready' : 'nginx not set up' }}
+                </span>
+              </h4>
+              <ul class="provision-checks">
+                <li
+                  v-for="check in serverConfig?.checks || []"
+                  :key="check.name"
+                  :class="`needs-${check.needs}`"
+                >
+                  <i
+                    class="fas"
+                    :class="
+                      check.ok
+                        ? 'fa-check-circle verdict-ok'
+                        : check.needs === 'warn'
+                          ? 'fa-exclamation-triangle verdict-warn'
+                          : 'fa-exclamation-circle verdict-bad'
+                    "
+                  ></i>
+                  <span class="provision-check-name">{{ check.name }}</span>
+                  <code class="provision-check-detail">{{ check.detail }}</code>
+                </li>
+              </ul>
+              <p v-if="serverConfig && !serverConfig.ready" class="provision-hint">
+                Provisioning needs <strong>{{ serverConfig.unmet.join(', ') }}</strong> before it
+                can run. The rest of this list is either advisory, or only needed for the nginx step
+                below.
+              </p>
+              <p v-if="serverConfig && !serverConfig.nginx_ready" class="provision-hint">
+                The client itself can be set up without root, but it is not reachable until
+                <strong>{{ serverConfig.nginx_unmet.join(', ') }}</strong> is sorted out — the
+                one-time root steps in DEPLOYMENT.md §6A.
+              </p>
+            </div>
+
+            <!-- This client -->
+            <div class="provision-section">
+              <h4>
+                <i class="fas fa-diagram-project"></i>
+                This client
+                <span
+                  class="provision-verdict"
+                  :class="provisionStatus?.ready ? 'verdict-ok' : 'verdict-bad'"
+                >
+                  {{ provisionStatus?.ready ? 'complete' : 'incomplete' }}
+                </span>
+              </h4>
+              <p v-if="provisionStatus" class="provision-url">
+                Will be served at
+                <code>{{ serverOrigin }}{{ provisionStatus.plan.url_path }}</code>
+              </p>
+              <ul class="provision-checks">
+                <li v-for="check in provisionStatus?.checks || []" :key="check.name">
+                  <i
+                    class="fas"
+                    :class="
+                      check.ok ? 'fa-check-circle verdict-ok' : 'fa-exclamation-circle verdict-bad'
+                    "
+                  ></i>
+                  <span class="provision-check-name">{{ check.name }}</span>
+                  <code class="provision-check-detail">{{ check.detail }}</code>
+                </li>
+              </ul>
+              <p v-if="provisionStatus && !provisionStatus.ready" class="provision-hint">
+                Missing:
+                <strong>{{ provisionStatus.blocking.join(', ') }}</strong>
+              </p>
+            </div>
+
+            <!-- Log -->
+            <div v-if="provisionLog.length" class="provision-section">
+              <h4><i class="fas fa-terminal"></i> Output</h4>
+              <pre class="provision-log">{{ provisionLog.join('\n') }}</pre>
+            </div>
+          </template>
+        </div>
+
+        <div class="modal-actions">
+          <button @click="closeProvisionModal" class="btn-cancel" :disabled="provisioning">
+            Close
+          </button>
+
+          <!--
+            Nginx is a separate button from Provision on purpose. It is the only step
+            needing root, and it is the step with consequences outside this client, so
+            it is never fired as a side effect of setting a client up.
+          -->
+          <button
+            v-if="provisionStatus?.ready"
+            @click="applyNginx"
+            :disabled="applyingNginx || provisioning || !serverConfig?.nginx_ready"
+            class="btn-toolbar"
+          >
+            <i class="fas fa-server"></i>
+            {{ applyingNginx ? 'Applying...' : 'Apply nginx' }}
+          </button>
+
+          <!--
+            Not gated on provisionStatus.ready, unlike the nginx button. A client
+            provisioned without a build is a legitimate state - that is the whole point
+            of skipping the copy - so hiding the step that fixes it behind "everything
+            else is also missing" would leave no way back.
+          -->
+          <button
+            v-if="hasCanonicalBuild"
+            @click="deployApp"
+            :disabled="deploying || provisioning || !hasCanonicalBuild"
+            class="btn-toolbar"
+          >
+            <i class="fas fa-copy"></i>
+            {{ deploying ? 'Copying...' : 'Re-deploy build' }}
+          </button>
+
+          <button
+            @click="confirmProvision"
+            :disabled="provisioning || provisionLoading || !serverConfig?.ready"
+            class="btn-primary"
+          >
+            <i v-if="provisioning" class="fas fa-spinner fa-spin"></i>
+            {{ provisioning ? 'Provisioning...' : 'Provision' }}
           </button>
         </div>
       </div>
@@ -713,6 +894,7 @@ import { ref, computed, onMounted } from 'vue'
 import EditDbCodeJson from './EditDbCodeJson.vue'
 import { getBasePath, resolveApiBaseUrl } from '@/utils/basePath'
 import { getStoredToken } from '@/composables/useApi'
+import { dbManagerRequest, dbManagerRequestRaw } from '@/composables/useDbManagerApi'
 import { readJsonResponse } from '@/utils/readJsonResponse'
 
 const databases = ref([])
@@ -730,6 +912,175 @@ const creatingTablesId = ref(null)
 const showVersionModal = ref(false)
 const databaseToCreateTables = ref(null)
 const versionInput = ref('')
+
+// Provisioning
+//
+// Three requests, deliberately separate: deployment_config describes the machine,
+// tenant_status describes this client, and provision_tenant changes it. Keeping the
+// first two read-only is what lets the modal say what is missing instead of
+// discovering it by failing partway through.
+//
+// The log is shown raw. A provisioning run that stops at "duplicate column" is
+// diagnosable from the lines above it, and those lines only exist in the response -
+// the server's error_log is not something the person holding this screen can read.
+const showProvisionModal = ref(false)
+const provisionTarget = ref(null)
+const provisionStatus = ref(null)
+const serverConfig = ref(null)
+const provisionLog = ref([])
+const provisionLoading = ref(false)
+const provisioning = ref(false)
+const provisioningId = ref(null)
+const applyingNginx = ref(false)
+const deploying = ref(false)
+
+// Whether there is a build to copy from. Advisory rather than blocking, which is why it
+// is a computed and not part of serverConfig.ready: a client with no build in it is
+// still a client, and the file copy is its own button.
+const hasCanonicalBuild = computed(() =>
+  (serverConfig.value?.checks || []).some((check) => check.name === 'canonical build' && check.ok),
+)
+
+const serverOrigin = computed(() => (typeof window === 'undefined' ? '' : window.location.origin))
+
+const openProvisionModal = async (db) => {
+  provisionTarget.value = db
+  provisionStatus.value = null
+  serverConfig.value = null
+  provisionLog.value = []
+  provisionLoading.value = true
+  error.value = ''
+  successMessage.value = ''
+  showProvisionModal.value = true
+
+  try {
+    // Both are read-only, so they cannot interfere with each other.
+    const [config, status] = await Promise.all([
+      dbManagerRequest('deployment_config'),
+      dbManagerRequest('tenant_status', { db_name: db.db_name }),
+    ])
+
+    serverConfig.value = config.success ? config.data : null
+    if (status.success) {
+      provisionStatus.value = status.data
+    } else {
+      error.value = status.message || 'Could not read this client'
+    }
+  } catch (err) {
+    error.value = 'Could not reach the server to check this client'
+    console.error(err)
+  } finally {
+    provisionLoading.value = false
+  }
+}
+
+const closeProvisionModal = () => {
+  if (provisioning.value) {
+    return
+  }
+  showProvisionModal.value = false
+  provisionTarget.value = null
+  provisionStatus.value = null
+  provisionLog.value = []
+}
+
+const refreshProvisionStatus = async () => {
+  if (!provisionTarget.value) {
+    return
+  }
+  const status = await dbManagerRequest('tenant_status', {
+    db_name: provisionTarget.value.db_name,
+  })
+  if (status.success) {
+    provisionStatus.value = status.data
+  }
+}
+
+const confirmProvision = async () => {
+  if (!provisionTarget.value || provisioning.value) {
+    return
+  }
+
+  provisioning.value = true
+  provisioningId.value = provisionTarget.value.id
+  provisionLog.value = []
+  error.value = ''
+  successMessage.value = ''
+
+  try {
+    const result = await dbManagerRequest('provision_tenant', {
+      db_name: provisionTarget.value.db_name,
+    })
+
+    provisionLog.value = result?.data?.log || []
+
+    if (result.success) {
+      successMessage.value = result.message
+      await Promise.all([refreshProvisionStatus(), fetchDatabases()])
+    } else {
+      // A partial run is left in place rather than rolled back - the database and
+      // folders are correct, and the next run skips what is already done. So this is
+      // a message to read, not a state to clear, and the log stays on screen.
+      error.value = result.message || 'Provisioning failed'
+    }
+  } catch (err) {
+    error.value = 'Provisioning could not be started'
+    console.error(err)
+  } finally {
+    provisioning.value = false
+    provisioningId.value = null
+  }
+}
+
+const applyNginx = async () => {
+  if (applyingNginx.value) {
+    return
+  }
+  applyingNginx.value = true
+  error.value = ''
+  successMessage.value = ''
+
+  try {
+    const result = await dbManagerRequest('reload_nginx')
+    if (result.success) {
+      successMessage.value = result.message
+    } else {
+      error.value = result.message || 'nginx was not reloaded'
+    }
+  } catch (err) {
+    error.value = 'Could not run the nginx renderer'
+    console.error(err)
+  } finally {
+    applyingNginx.value = false
+  }
+}
+
+const deployApp = async () => {
+  if (deploying.value || !provisionTarget.value) {
+    return
+  }
+  deploying.value = true
+  error.value = ''
+  successMessage.value = ''
+
+  try {
+    const result = await dbManagerRequest('deploy_app_to_tenant', {
+      db_name: provisionTarget.value.db_name,
+    })
+    if (result.success) {
+      successMessage.value = result.message
+      provisionLog.value = result?.data?.log || provisionLog.value
+      await refreshProvisionStatus()
+    } else {
+      error.value = result.message || 'The build could not be copied'
+    }
+  } catch (err) {
+    error.value = 'Could not copy the build'
+    console.error(err)
+  } finally {
+    deploying.value = false
+  }
+}
 const selectedDatabases = ref([])
 const showUpdateVersionModal = ref(false)
 const newVersionInput = ref('')
@@ -812,8 +1163,7 @@ const fetchDatabases = async () => {
   loading.value = true
   error.value = ''
   try {
-    const response = await fetch(`${getApiBaseUrl()}/db_manager_api.php?action=get_databases`)
-    const result = await readJsonResponse(response, `${getApiBaseUrl()}/db_manager_api.php`)
+    const result = await dbManagerRequest('get_databases')
 
     if (result.success) {
       databases.value = result.data || []
@@ -903,15 +1253,10 @@ const saveDatabase = async () => {
       }
     })
 
-    const response = await fetch(`${getApiBaseUrl()}/db_manager_api.php`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(cleanPayload),
-    })
-
-    const result = await readJsonResponse(response, `${getApiBaseUrl()}/db_manager_api.php`)
+    // cleanPayload already carries `action`; the helper prepends its own, so drop it
+    // here rather than letting a duplicate key decide the value.
+    const { action, ...fields } = cleanPayload
+    const result = await dbManagerRequest(action, fields)
 
     if (result.success) {
       successMessage.value = editingDatabase.value
@@ -974,19 +1319,10 @@ const confirmCreateTables = async () => {
   successMessage.value = ''
 
   try {
-    const response = await fetch(`${getApiBaseUrl()}/db_manager_api.php`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        action: 'create_tables',
-        id: databaseToCreateTables.value.id,
-        version: parseInt(versionInput.value),
-      }),
+    const result = await dbManagerRequest('create_tables', {
+      id: databaseToCreateTables.value.id,
+      version: parseInt(versionInput.value),
     })
-
-    const result = await readJsonResponse(response, `${getApiBaseUrl()}/db_manager_api.php`)
 
     if (result.success) {
       successMessage.value = result.message || 'Tables created successfully'
@@ -1015,18 +1351,9 @@ const deleteDatabase = async () => {
   successMessage.value = ''
 
   try {
-    const response = await fetch(`${getApiBaseUrl()}/db_manager_api.php`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        action: 'delete_database',
-        id: databaseToDelete.value.id,
-      }),
+    const result = await dbManagerRequest('delete_database', {
+      id: databaseToDelete.value.id,
     })
-
-    const result = await readJsonResponse(response, `${getApiBaseUrl()}/db_manager_api.php`)
 
     if (result.success) {
       successMessage.value = 'Database deleted successfully'
@@ -1094,18 +1421,9 @@ const updateStructure = async () => {
   successMessage.value = ''
 
   try {
-    const response = await fetch(`${getApiBaseUrl()}/db_manager_api.php`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        action: 'update_structure',
-        database_ids: selectedDatabases.value,
-      }),
+    const result = await dbManagerRequest('update_structure', {
+      database_ids: selectedDatabases.value,
     })
-
-    const result = await readJsonResponse(response, `${getApiBaseUrl()}/db_manager_api.php`)
 
     if (result.success) {
       successMessage.value = result.message || 'Structure updated successfully'
@@ -1221,15 +1539,12 @@ const backupSelectedDatabases = async () => {
   successMessage.value = ''
 
   try {
-    const response = await fetch(`${getApiBaseUrl()}/db_manager_api.php`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        action: 'backup_databases',
-        database_ids: selectedDatabases.value,
-      }),
+    // Raw, not parsed: a successful backup is a .sql/.zip/.octet-stream body, so
+    // there is no envelope to read. The helper still attaches the token and still
+    // notices a JSON rejection, which is how a revoked session here drops back to
+    // the login form instead of silently failing a download.
+    const response = await dbManagerRequestRaw('backup_databases', {
+      database_ids: selectedDatabases.value,
     })
 
     const contentType = response.headers.get('Content-Type') || ''
@@ -1256,8 +1571,9 @@ const backupSelectedDatabases = async () => {
       return
     }
 
-    const result = await readJsonResponse(response, `${getApiBaseUrl()}/db_manager_api.php`)
-    error.value = result.message || 'Failed to create backup'
+    // Not a download, so the body is an error envelope and still unread.
+    const errorResult = await readJsonResponse(response, `${getApiBaseUrl()}/db_manager_api.php`)
+    error.value = errorResult.message || 'Failed to create backup'
   } catch (err) {
     error.value = 'An error occurred while creating the backup'
     console.error(err)
@@ -1277,19 +1593,10 @@ const confirmRunSql = async () => {
   runSqlResults.value = []
 
   try {
-    const response = await fetch(`${getApiBaseUrl()}/db_manager_api.php`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        action: 'run_sql',
-        database_ids: selectedDatabases.value,
-        sql: runSqlInput.value.trim(),
-      }),
+    const result = await dbManagerRequest('run_sql', {
+      database_ids: selectedDatabases.value,
+      sql: runSqlInput.value.trim(),
     })
-
-    const result = await readJsonResponse(response, `${getApiBaseUrl()}/db_manager_api.php`)
 
     if (result.success) {
       runSqlResults.value = result.data || []
@@ -1323,19 +1630,10 @@ const confirmUpdateVersion = async () => {
   successMessage.value = ''
 
   try {
-    const response = await fetch(`${getApiBaseUrl()}/db_manager_api.php`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        action: 'update_databases_version',
-        database_ids: selectedDatabases.value,
-        version: parseInt(newVersionInput.value),
-      }),
+    const result = await dbManagerRequest('update_databases_version', {
+      database_ids: selectedDatabases.value,
+      version: parseInt(newVersionInput.value),
     })
-
-    const result = await readJsonResponse(response, `${getApiBaseUrl()}/db_manager_api.php`)
 
     if (result.success) {
       successMessage.value =
@@ -1498,81 +1796,78 @@ const confirmUpdatePhp = async () => {
     protectedFiles.includes(file.name),
   )
 
-  // If protected files are being uploaded, check if they exist and ask for confirmation
-  if (protectedFilesToUpload.length > 0) {
+  // Ask before replacing files that already exist on the server.
+  //
+  // `names` is the list to warn about. Returns true to proceed, false to abort -
+  // and on abort it has already cleaned up the file selection and set `error`, so
+  // the caller only has to return.
+  const confirmProtectedOverwrite = (names) => {
+    if (names.length === 0) {
+      return true
+    }
+
+    const confirmMessage = `The following file(s) will replace existing files:\n\n${names.join(', ')}\n\nDo you want to continue?`
+    if (confirm(confirmMessage)) {
+      return true
+    }
+
+    // Cancelled: drop the protected files from the upload list.
+    selectedPhpFiles.value = selectedPhpFiles.value.filter(
+      (file) => !protectedFiles.includes(file.name),
+    )
+
+    if (selectedPhpFiles.value.length === 0) {
+      error.value = 'Upload cancelled - no files to upload'
+      return false
+    }
+
+    // Update file input if it exists
+    if (phpFileInput.value) {
+      const dataTransfer = new DataTransfer()
+      dataTransfer.items.add(...selectedPhpFiles.value)
+      phpFileInput.value.files = dataTransfer.files
+    }
+
+    return false
+  }
+
+  // Work out which of these files already exist, via db_manager_api.php.
+  //
+  // Fails safe, and that is the whole point. This used to filter on
+  // `checkResult.success && checkResult.data` and simply fall through when either
+  // was false - but "I could not find out" and "none of them exist" are different
+  // answers, and only the first is true whenever the request is refused, times
+  // out, or returns an error envelope. The old code therefore skipped the
+  // overwrite prompt entirely for config.php and db_manager_config.php precisely
+  // when the server could not answer, replacing them silently. Anything other than
+  // a positive "none of these exist" now warns about every candidate.
+  const findExistingProtectedFiles = async (files) => {
+    const fileNames = files.map((f) => f.name)
+
     try {
-      // Check which files actually exist on the server
-      const fileNames = protectedFilesToUpload.map((f) => f.name)
-      const checkResponse = await fetch(`${getApiBaseUrl()}/api.php`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'check_api_files_exist',
-          file_names: fileNames,
-        }),
+      const checkResult = await dbManagerRequest('check_api_files_exist', {
+        file_names: fileNames,
       })
 
-      const checkResult = await readJsonResponse(checkResponse, `${getApiBaseUrl()}/api.php`)
-
-      if (checkResult.success && checkResult.data) {
-        // Filter to only files that actually exist
-        const existingFiles = protectedFilesToUpload.filter(
-          (file) => checkResult.data[file.name] === true,
-        )
-
-        // Only show confirmation if files actually exist
-        if (existingFiles.length > 0) {
-          const existingFileNames = existingFiles.map((f) => f.name).join(', ')
-          const confirmMessage = `The following file(s) will replace existing files:\n\n${existingFileNames}\n\nDo you want to continue?`
-
-          if (!confirm(confirmMessage)) {
-            // User cancelled - remove protected files from upload list
-            selectedPhpFiles.value = selectedPhpFiles.value.filter(
-              (file) => !protectedFiles.includes(file.name),
-            )
-
-            // If no files left, show error and return
-            if (selectedPhpFiles.value.length === 0) {
-              error.value = 'Upload cancelled - no files to upload'
-              return
-            }
-
-            // Update file input if it exists
-            if (phpFileInput.value) {
-              const dataTransfer = new DataTransfer()
-              selectedPhpFiles.value.forEach((file) => dataTransfer.items.add(file))
-              phpFileInput.value.files = dataTransfer.files
-            }
-          }
-        }
+      if (!checkResult.success || typeof checkResult.data !== 'object' || !checkResult.data) {
+        console.error('Existence check refused:', checkResult.message || checkResult)
+        return fileNames
       }
+
+      // The server answered. Warn only about the ones it confirmed are there.
+      const existing = fileNames.filter((name) => checkResult.data[name] === true)
+      return existing
     } catch (err) {
-      // If check fails, show confirmation anyway for safety
       console.error('Error checking file existence:', err)
-      const fileNames = protectedFilesToUpload.map((f) => f.name).join(', ')
-      const confirmMessage = `The following file(s) will replace existing files:\n\n${fileNames}\n\nDo you want to continue?`
+      return fileNames
+    }
+  }
 
-      if (!confirm(confirmMessage)) {
-        // User cancelled - remove protected files from upload list
-        selectedPhpFiles.value = selectedPhpFiles.value.filter(
-          (file) => !protectedFiles.includes(file.name),
-        )
-
-        // If no files left, show error and return
-        if (selectedPhpFiles.value.length === 0) {
-          error.value = 'Upload cancelled - no files to upload'
-          return
-        }
-
-        // Update file input if it exists
-        if (phpFileInput.value) {
-          const dataTransfer = new DataTransfer()
-          selectedPhpFiles.value.forEach((file) => dataTransfer.items.add(file))
-          phpFileInput.value.files = dataTransfer.files
-        }
-      }
+  // If protected files are being uploaded, check if they exist and ask for confirmation
+  if (protectedFilesToUpload.length > 0) {
+    const existingNames = await findExistingProtectedFiles(protectedFilesToUpload)
+    if (!confirmProtectedOverwrite(existingNames)) {
+      return
     }
   }
 
@@ -1699,19 +1994,10 @@ const confirmUploadCode = async () => {
           uploadCodeResults.value[idx].progress = 0
         })
 
-        const prepareResponse = await fetch(`${getApiBaseUrl()}/db_manager_api.php`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            action: 'prepare_upload_folder',
-            database_id: firstDb.id,
-            js_dir: jsDir,
-          }),
+        const prepareResult = await dbManagerRequest('prepare_upload_folder', {
+          database_id: firstDb.id,
+          js_dir: jsDir,
         })
-
-        const prepareResult = await readJsonResponse(prepareResponse, `${getApiBaseUrl()}/db_manager_api.php`)
 
         if (!prepareResult.success) {
           const errorMsg = prepareResult.message || 'Failed to prepare folder'
@@ -1744,20 +2030,11 @@ const confirmUploadCode = async () => {
           if (isProtectedFile) {
             // Check if file already exists
             try {
-              const checkResponse = await fetch(`${getApiBaseUrl()}/db_manager_api.php`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  action: 'check_file_exists',
-                  database_id: firstDb.id,
-                  file_name: file.name,
-                  js_dir: jsDir,
-                }),
+              const checkResult = await dbManagerRequest('check_file_exists', {
+                database_id: firstDb.id,
+                file_name: file.name,
+                js_dir: jsDir,
               })
-
-              const checkResult = await readJsonResponse(checkResponse, `${getApiBaseUrl()}/db_manager_api.php`)
 
               if (checkResult.success && checkResult.data && checkResult.data.exists) {
                 shouldSkip = true
@@ -1813,7 +2090,10 @@ const confirmUploadCode = async () => {
             body: formData,
           })
 
-          const uploadResult = await readJsonResponse(uploadResponse, `${getApiBaseUrl()}/upload.php`)
+          const uploadResult = await readJsonResponse(
+            uploadResponse,
+            `${getApiBaseUrl()}/upload.php`,
+          )
 
           if (uploadResult.success) {
             uploadedFiles.push({
@@ -2083,13 +2363,140 @@ onMounted(() => {
   white-space: nowrap;
 }
 
+/* Provision modal
+   Distinct from the other modals: the content is a list of checks with two states,
+   so the styling is about making "which of these is wrong" readable at a glance
+   rather than about a form. Width is capped because a check's detail can be a path
+   or a JSON blob, and an uncapped modal turns that into a horizontal scrollbar. */
+.modal-provision {
+  max-width: 720px;
+  width: 92vw;
+}
+
+.provision-section {
+  margin-bottom: 1.25rem;
+}
+
+.provision-section h4 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+}
+
+.provision-verdict {
+  font-size: 0.75rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.provision-verdict.verdict-ok {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.provision-verdict.verdict-bad {
+  background: #fdecea;
+  color: #c62828;
+}
+
+.provision-verdict.verdict-warn {
+  background: #fff8e6;
+  color: #a15c00;
+}
+
+.verdict-warn {
+  color: #d08700;
+}
+
+/* Advisory rows are dimmed so the eye lands on what actually blocks the button. */
+.provision-checks li.needs-warn {
+  opacity: 0.75;
+}
+
+.provision-checks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.provision-checks li {
+  display: grid;
+  grid-template-columns: 1.1rem 11rem 1fr;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.2rem 0;
+  font-size: 0.85rem;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.provision-check-name {
+  color: #333;
+}
+
+.provision-check-detail {
+  color: #666;
+  font-size: 0.78rem;
+  word-break: break-all;
+}
+
+.provision-url {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+}
+
+.provision-hint {
+  margin: 0.5rem 0 0;
+  font-size: 0.8rem;
+  color: #a15c00;
+  background: #fff8e6;
+  border-left: 3px solid #ffcc66;
+  padding: 0.5rem 0.75rem;
+}
+
+.provision-log {
+  background: #1e1e1e;
+  color: #d6d6d6;
+  padding: 0.75rem;
+  border-radius: 4px;
+  max-height: 260px;
+  overflow-y: auto;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.provision-loading {
+  padding: 1rem 0;
+  color: #666;
+}
+
+.btn-provision {
+  background-color: #409eff;
+  color: white;
+  padding: 0.5rem 0.75rem;
+  min-width: 120px;
+}
+
+.btn-provision:hover:not(:disabled) {
+  background-color: #66b1ff;
+}
+
+.btn-provision:disabled {
+  background-color: #c0c4cc;
+  cursor: not-allowed;
+}
+
 .btn-create-tables {
   background-color: #67c23a;
   color: white;
   padding: 0.5rem 0.75rem;
   min-width: 120px;
 }
-
 .btn-create-tables:hover:not(:disabled) {
   background-color: #85ce61;
 }
@@ -2614,6 +3021,13 @@ onMounted(() => {
 .modal-body p {
   margin: 0.5rem 0;
   color: #606266;
+}
+
+.modal-body .modal-note {
+  margin: 0.75rem 0;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: #909399;
 }
 
 .warning-text {

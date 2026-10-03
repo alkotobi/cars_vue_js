@@ -177,6 +177,25 @@ if ! ssh -i "$SSH_KEY" "$SSH_TARGET" "test -f '$TARGET/api/config.local.php'"; t
   echo "      # then fill in the credentials for THIS client's database" >&2
 fi
 
+# The nginx renderer is executed as root and reads the name validator out of api/lib.
+# That file is inside the web root, so it is only safe while it stays root-owned and
+# unwritable by the web user - and a deploy that someone ran as www-data, or a manual
+# `chown -R www-data /var/www/api`, leaves it owned by the web user with nothing
+# complaining until the next Provision screen press refuses to render.
+#
+# Corrected rather than only reported: the required state is unambiguous (a PHP
+# library must not be web-writable), and refusing to finish the deploy over it would
+# leave the app updated with the renderer broken, which is the worse of the two.
+echo "==> protecting the root-executed library"
+ssh -i "$SSH_KEY" "$SSH_TARGET" '
+  f="$1/api/lib/tenant-provision.php"
+  [ -f "$f" ] || exit 0
+  before=$(stat -c "%U:%a" "$f" 2>/dev/null || stat -f "%Su:%Lp" "$f")
+  chown root:root "$f" && chmod 0644 "$f"
+  after=$(stat -c "%U:%a" "$f" 2>/dev/null || stat -f "%Su:%Lp" "$f")
+  [ "$before" = "$after" ] || echo "    fixed $f: $before -> $after (root executes this file)"
+' _ "$TARGET" || echo "    WARNING: could not check $TARGET/api/lib/tenant-provision.php ownership." >&2
+
 # --- post-deploy verification ---------------------------------------------------
 # Checks the pieces that are easy to get wrong and hard to notice: the SPA
 # fallback, the deny rules, and that the API is actually reachable.

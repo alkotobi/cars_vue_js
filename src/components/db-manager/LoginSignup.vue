@@ -105,7 +105,7 @@
 <script setup>
 import { ref, defineEmits } from 'vue'
 import { getBasePath, resolveApiBaseUrl } from '@/utils/basePath'
-import { readJsonResponse } from '@/utils/readJsonResponse'
+import { dbManagerRequest, setDbManagerSession } from '@/composables/useDbManagerApi'
 
 const emit = defineEmits(['login-success'])
 
@@ -155,25 +155,18 @@ const login = async () => {
     error.value = ''
     successMessage.value = ''
 
-    const response = await fetch(`${getApiBaseUrl()}/db_manager_api.php`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        action: 'login',
-        user: username.value,
-        pass: password.value,
-      }),
-    })
-
-    const result = await readJsonResponse(response, `${getApiBaseUrl()}/db_manager_api.php`)
+    // anonymous: there is no token yet, and a rejection here is a credential problem
+    // to show on this form - never a lost session.
+    const result = await dbManagerRequest(
+      'login',
+      { user: username.value, pass: password.value },
+      { anonymous: true },
+    )
 
     if (result.success) {
       successMessage.value = 'Login successful!'
-      // Store user info if needed
       if (result.data) {
-        localStorage.setItem('db_manager_user', JSON.stringify(result.data))
+        setDbManagerSession(result.data)
       }
       // Emit login success event
       emit('login-success', result.data)
@@ -216,19 +209,11 @@ const signup = async () => {
     error.value = ''
     successMessage.value = ''
 
-    const response = await fetch(`${getApiBaseUrl()}/db_manager_api.php`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        action: 'signup',
-        user: username.value,
-        pass: password.value,
-      }),
-    })
-
-    const result = await readJsonResponse(response, `${getApiBaseUrl()}/db_manager_api.php`)
+    const result = await dbManagerRequest(
+      'signup',
+      { user: username.value, pass: password.value },
+      { anonymous: true },
+    )
 
     if (result.success) {
       successMessage.value = 'Sign up successful! You can now login.'

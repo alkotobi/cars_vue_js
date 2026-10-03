@@ -129,6 +129,61 @@ Tables: `login` + `dbs`. Seed:
   ```
   (`db_code.json` on server = `{"db_code":"db_9a7f4e0b2fa8134e0ea0"}` — keep in sync!)
 
+#### Migration 031: `login.api_token`
+
+`db_manager_api.php` authenticates against this table's `api_token`, not the app's
+`users` table — the DB manager is a separate trust domain guarding host-level
+operations. `login` needs one more column:
+
+```bash
+mysql -u USER -p merhab_databases < api/migrations/031_login_api_token.sql
+```
+
+**Target the manager DB (`merhab_databases`), not `merhab_cars`** — this is the one
+migration in the set whose DB name differs from the others. Run it before deploying
+frontend code that logs into the DB manager, or every login attempt returns HTTP 500
+from the `UPDATE login SET api_token` in the login case. Existing installs need it;
+fresh installs get the column from `api/setup.sql`.
+
+Seeded rows have `api_token = NULL`, which is the correct signed-out state — the
+first successful login mints a token. To revoke a session by hand:
+
+```sql
+UPDATE login SET api_token = NULL WHERE username = 'admin';
+```
+
+#### What the Create button actually does
+
+Worth being explicit, because it is not what the label suggests and it is a
+common source of confusion:
+
+- **It does not run `api/migrations/*.sql`.** It replays `api/setup.sql` in full.
+  That is deliberate: a fresh tenant is built from one file rather than from 30-odd
+  migrations, so `setup.sql` has to stay in sync with the migration set on its own.
+  If `setup.sql` and the migrations disagree, the migrations are the truth for
+  existing databases and `setup.sql` is the truth for new ones.
+- **It creates the database.** `db_name` is free text from the create form, so the
+  button issues `CREATE DATABASE IF NOT EXISTS` before applying anything. Names are
+  restricted to letters, digits, spaces and `_ - $ .` (max 64): the PDO DSN is
+  semicolon-delimited, so an unvalidated `;` would silently truncate `dbname`.
+- **It does not provide the API.** The folder it builds holds the built assets and
+  `db_code.json` only. The API lives at `<folder>/api/` and `deploy/deploy.sh`
+  rsyncs it there; that is deliberate, because it is the step that has to leave
+  `*.local.php` behind. The frontend derives its API base as
+  `<origin><basePath>api` (`src/utils/basePath.js`), so a folder without `api/`
+  404s every call - the symptom is a wall of `POST <folder>/api/api.php 404` in the
+  console, not a PHP error.
+- **The version number is not validated.** The modal's value is written straight to
+  `versions`; nothing confirms `setup.sql` really corresponds to it. `db_updates` in
+  the manager DB is what drives later upgrades, and it ships empty, so Update
+  Structure has nothing to apply until migrations are registered there.
+- **A silently-dropped statement is the failure mode to watch for.** The statement
+  splitter used to keep only `CREATE TABLE` / `INSERT`, so the `ALTER TABLE` that
+  installs the `buy_details.id_car_name` foreign key was filtered out with no error
+  and the action still reported success — every fresh database came back missing the
+  constraint. `src/views/dbManagerAuth.spec.js` now asserts the keep-list covers every
+  construct `setup.sql` uses.
+
 ### 4.5 Invitations DB — just create, no schema needed.
 
 ---
@@ -281,6 +336,10 @@ cp deploy/out/nginx-cars.conf /etc/nginx/sites-available/default
 nginx -t && systemctl reload nginx
 ```
 
+For **several clients on one server** — one database and one folder each, sharing a
+single `api/` — see §6A below, which is the arrangement this server actually uses.
+The per-client script above is the single-app case.
+
 The script validates the folder name against a strict allowlist
 (`^[A-Za-z0-9_][A-Za-z0-9._-]*$`) and rejects anything that could terminate the token
 and inject a directive. This matters: the hardening rules below are the only thing
@@ -400,10 +459,127 @@ not mean the request is denied:
   
 ### Deploying on a raw IP
 
-`https://IP/...` needs a certificate with that IP as a SAN — Let's Encrypt does not
-issue for bare IPs, and the browser will warn otherwise. For an HTTP-only IP deploy,
-edit the rendered file: make the TLS block `listen 80;` only and drop the two
-`ssl_*` lines. The app itself is unaffected.
+`https://IP/...` needs a certificate with that IP as a SAN. Let's Encrypt does issue
+for bare IPs now, but only from certbot >= 5.4 — older clients ask for a `dns-01`
+challenge, which cannot be satisfied for an address, and fail with a message that
+reads like a network problem:
+
+```bash
+certbot --version          # must be >= 5.4
+sudo certbot certonly --standalone -d 163.245.214.125     # or --webroot with the ACME block
+sudo certbot install --cert-name 163.245.214.125 --nginx  # writes cert_dir/ and renews
+```
+
+`cert_dir` in the deployment config has to match the resulting
+`/etc/letsencrypt/live/<name>/`, or nginx starts and then fails every TLS handshake
+with a missing-certificate error. The rendered config ships the ACME `location`
+needed for `--webroot` renewal. For an HTTP-only deploy, make the TLS block
+`listen 80;` only and drop the two `ssl_*` lines; the app is unaffected either way.
+
+---
+
+## 6A. Many clients on one server: one database and one folder each
+
+The arrangement above is one app in one folder. This server hosts a *set* of them:
+`163.245.214.125/<folder>/`, each with its own database, its own upload folders, and
+its own `db_code.json` — while `api/` is **shared** by all of them, because there is
+one build and one set of credentials-free endpoints.
+
+Two consequences that are easy to get wrong:
+
+- **`api/` being shared is a fact about the filesystem, not an option.** The
+  provisioning library detects it (`tenant_has_shared_api()`: no `index.html` beside
+  `api/`) and falls back to per-tenant `api/` copies. On this server, if that probe
+  is wrong every client silently gets a private API and the next deploy updates only
+  one of them. Set `shared_api: true` in the config to state it outright rather than
+  relying on the probe.
+- **The folder in the URL is the tenant's identity.** `db_code.json` lives in the
+  tenant's folder and says which database that folder means, so the same `api/`
+  serves every client correctly. It is written at provisioning time and must never be
+  part of a build.
+
+### One-time root setup
+
+```bash
+# 1. The config. Start from the example and edit; it is the single source of truth.
+sudo install -o root -g root -m 0640 deploy/cars-deploy.example.json /etc/cars-deploy.json
+sudoedit /etc/cars-deploy.json     # template_database, webroot, php_socket, server_name,
+                                   # cert_dir, registry credentials
+
+# 2. The renderer, deliberately OUTSIDE the web root: root executes it.
+sudo install -d -o root -g root -m 0755 /usr/local/lib/cars
+sudo install -o root -g root -m 0644 deploy/render-nginx-multitenant.php /usr/local/lib/cars/
+sudo install -o root -g root -m 0644 deploy/nginx-multitenant.conf.template /usr/local/lib/cars/
+
+# 3. The wrapper the sudoers rule names.
+sudo install -o root -g root -m 0755 deploy/cars-nginx-render /usr/local/bin/cars-nginx-render
+
+# 4. The renderer reads the name validator from the app's own lib/. That file is
+#    served from the web root, so it has to be root-owned and unwritable — see below.
+sudo chown root:root /var/www/api/lib/tenant-provision.php
+sudo chmod 0644 /var/www/api/lib/tenant-provision.php
+
+# 5. The sudoers rule, then verify it: a malformed file breaks ALL sudo on the box.
+sudo install -o root -g root -m 0440 deploy/sudoers-cars-nginx.example /etc/sudoers.d/cars-nginx
+sudo visudo -c
+
+# 6. Enable the generated config. Once, by hand — it is generated from then on.
+sudo ln -s /etc/nginx/sites-available/cars-multitenant.conf /etc/nginx/sites-enabled/
+sudo cars-nginx-render --check        # review; installs nothing
+sudo cars-nginx-render                # install, `nginx -t`, reload
+```
+
+**Why step 4 is not optional.** `cars-nginx-render` runs as root and executes the
+renderer, and the renderer `require`s `api/lib/tenant-provision.php`. That file lives
+under `/var/www/api/` — the web root — so in any setup where the app is deployed by a
+non-root user, or where `api/lib/` ended up group-writable, the web user can rewrite
+a file that root then loads. That is a root shell, and no amount of hardening on the
+renderer prevents it. The wrapper now checks the ownership of everything the renderer
+reads (it asks the renderer which files, rather than keeping a second list that could
+drift) and refuses to run otherwise, so a missed `chown` shows up as a refused
+render rather than as a silent escalation. `deploy/deploy.sh` rsyncs `api/` as root
+and leaves modes alone, so it preserves this — but if you ever `chown -R www-data
+/var/www/api`, re-run step 4.
+
+### The template database
+
+Every client is built from one reference-only database: schema, the reference rows
+(brands, roles, permissions, defaults, shipping lines), and the admin account — and
+**no client data**. Build it once:
+
+```bash
+php api/lib/tenant-provision.php --build-template cars_template --seed-source <clean db>
+```
+
+It applies `setup.sql` (which already contains the reference INSERTs), applies the
+migrations, and then verifies the result across all 38 business tables before
+reporting `ok`. It refuses to run against an existing name without `--force`, because
+the usual `--seed-source` is a development database that also holds client data, and
+"rebuild the template" run against one of those is how one client's records become
+another client's dropdown options. `--seed-source` defaults to the database
+`api/config.php` names, which on this server is a live tenant — pass it explicitly.
+
+### Adding a client
+
+In the DB manager: **Provision** on the registry row. The dialog shows two lists
+first — what the *server* is missing (one-time root steps) and what *this client* is
+missing — and the Provision button stays disabled until the server list is clear,
+rather than failing halfway with a permissions error. It creates the database, applies
+the schema and migrations, copies the reference rows, sets the admin password to
+`123`, clears any copied session token, creates the upload folders, writes
+`db_code.json`, and copies the current build.
+
+**Apply nginx** is a separate button on purpose. It is the only step that needs root,
+and the only one whose effects reach past this client, so it is never fired as a side
+effect of setting a client up. It writes a new
+`/etc/nginx/sites-available/cars-multitenant.conf`, runs `nginx -t`, restores the
+previous file if the test fails, and reloads. The client list is generated from the
+`dbs` table, so **the config is only as current as the last render** — add or delete a
+client and the URL does not change until you re-run it. Deleting a client without
+re-rendering leaves their data reachable at a URL nobody remembers owning.
+
+`--check` prints exactly what would be installed, which is how a change gets reviewed
+before it reaches `/etc`.
 
 ---
 
@@ -490,6 +666,80 @@ max_input_time = 600
 > client-side `is_admin` flag bypasses every permission check in that file. See
 > [`SECURITY.md`](SECURITY.md) for the details, affected line numbers and remediation
 > order. Nothing there has been fixed yet.
+
+## 10. Two apps on one local dev server
+
+Locally one Vite server serves **both** the hot-reloading app and a second, prebuilt
+tenant app, each on its own database:
+
+| URL | Database | Uploads | HMR |
+| --- | --- | --- | --- |
+| `http://localhost:5173/cars` | `merhab_cars` | `files/` | yes |
+| `http://localhost:5173/mig_27/cars` | `mig_27` | `mig_27_files/` | no — prebuilt snapshot |
+
+How it works:
+
+- `vite.config.js` keeps a `FOLDER_MOUNTS` list. Each entry gets a plugin that serves
+  that folder's built `index.html` for **every** path under the mount (so client-side
+  routes survive a refresh), injects `<base href="/<mount>/">` so the hashed assets
+  resolve, and proxies `/<mount>/api` to `localhost:8000` **with the prefix intact** —
+  stripping it is what makes a mounted app talk to the wrong database.
+- The database is not configured in the app. `api/lib/appdb.php` reads
+  `<app folder>/db_code.json`, maps it through the `merhab_databases.dbs` row, and
+  connects to that row's `db_name` (and reads `files_dir` from the same row). So each
+  app folder needs its **own `api/` copy** — a symlink would resolve `db_code.json` to
+  the root app's and both would land on `merhab_cars`.
+- `mig_27/` and `mig_27_files/` are git-ignored. `mig_27/` is generated; never edit it.
+
+Working on it:
+
+```bash
+# One-time: create the mig_27 database, folders and app folder (idempotent).
+npm run mig27:setup
+
+# After editing anything in src/ — the tenant app is a build, not a live server.
+npm run mig27          # vite build + copy dist/ and api/ into mig_27/
+
+# After editing vite.config.js — config changes are not hot-reloaded.
+npm run dev            # restart
+```
+
+`npm run mig27:setup -- --force` drops and rebuilds `mig_27` from `api/setup.sql` plus
+the forward migrations in `api/migrations/`. It seeds only the rows a tenant cannot
+start without (admin account, roles, permissions, lookup rows), never business data.
+One migration, `031_login_api_token.sql`, targets `merhab_databases` rather than the
+tenant, and is applied there instead.
+
+Verifying the two are really separate:
+
+```bash
+curl -s http://localhost:5173/mig_27/ | grep '<base href="/mig_27/">'
+curl -s http://localhost:5173/mig_27/api/db_manager_api.php \
+  '?action=get_database_by_code&db_code=db_93036eb23669c0fd4c27'
+# → {"db_name":"mig_27","files_dir":"/mig_27_files","js_dir":"/mig_27"}
+
+# Log in through each app; the tokens must differ, and each lands in its own users table.
+curl -s -X POST http://localhost:5173/mig_27/api/api.php -H 'Content-Type: application/json' \
+  -d '{"action":"login","username":"admin","password":"123"}'
+```
+
+Gotchas that cost time here, all of which apply to production too:
+
+13. **`$PROJECT_ROOT` is the app folder, but `files_dir` is recorded against its
+    parent.** A tenant is deployed as `<root>/mig_27` (app) beside `<root>/mig_27_files`
+    (uploads), which is why the registry stores those two as siblings with a leading
+    slash. Reconstructing a path as `dirname(__DIR__) . '/' . files_dir` silently looks in
+    `<root>/mig_27/mig_27_files` and every upload fails with "Invalid upload directory".
+    `app_deployment_root()` is the one place that knows the difference.
+14. **A PHP variable read inside a function is not the global one.** `app_db_pdo()`
+    read `$db_config` without `global`, so host/user/pass arrived as `null` and PDO
+    failed with `Access denied for user ''@'localhost'` — an empty 500 from every
+    endpoint that authenticates through `appdb.php` (`upload.php`, `backup.php`,
+    `invitations.php`), on every deployment. The same applies to config files required
+    *inside* a function: `require` there assigns into the function's scope, so
+    `db_manager_config.php` is loaded at file scope instead.
+15. **`__DIR__` is the file's own directory, so depth matters.** In `api/lib/appdb.php`
+    the app folder is `dirname(__DIR__, 2)`; in `api/upload.php` it is `dirname(__DIR__)`.
 
 ## Supplier credibility: what it can and cannot tell you
 
