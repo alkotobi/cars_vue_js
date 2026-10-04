@@ -87,7 +87,15 @@ function backup_mysqldump(string $dbName, string $targetPath, array $dbConfig, ?
     $status = proc_close($process);
     @unlink($defaultsFile);
 
-    return $status === 0 && is_file($targetPath) && filesize($targetPath) > 0;
+    if ($status === 0 && is_file($targetPath) && filesize($targetPath) > 0) {
+        $content = @file_get_contents($targetPath);
+        if ($content !== false) {
+            $wrapped = "SET FOREIGN_KEY_CHECKS=0;\n\n" . $content . "\n\nSET FOREIGN_KEY_CHECKS=1;\n";
+            file_put_contents($targetPath, $wrapped);
+        }
+        return true;
+    }
+    return false;
 }
 
 /**

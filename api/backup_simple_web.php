@@ -180,6 +180,7 @@ function createAutomaticBackup($selectedDbName = null) {
             $backup_content .= "-- Database: $dbname\n";
             $backup_content .= "-- Host: $host\n";
             $backup_content .= "-- Backup type: Automatic\n\n";
+            $backup_content .= "SET FOREIGN_KEY_CHECKS=0;\n\n";
             
             foreach ($tables as $table) {
                 // Get table structure
@@ -209,6 +210,7 @@ function createAutomaticBackup($selectedDbName = null) {
                 }
             }
             
+            $backup_content .= "\nSET FOREIGN_KEY_CHECKS=1;\n";
             file_put_contents($filepath, $backup_content);
         }
         
@@ -453,6 +455,7 @@ if (isset($_POST['create_backup'])) {
                 }
             }
             
+            $backup_content .= "\nSET FOREIGN_KEY_CHECKS=1;\n";
             file_put_contents($filepath, $backup_content);
         }
         

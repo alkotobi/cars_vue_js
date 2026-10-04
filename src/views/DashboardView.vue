@@ -2,7 +2,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useEnhancedI18n } from '../composables/useI18n'
-import { useApi } from '../composables/useApi'
+import { useApi, getStoredToken } from '../composables/useApi'
 import { getBasePath, resolveApiBaseUrl } from '../utils/basePath'
 const router = useRouter()
 const { t } = useEnhancedI18n()
@@ -13,14 +13,7 @@ const { callApi } = useApi()
 // same way the API itself is. It was a hardcoded https://world-automobile.com/
 // cars/api/... link, which 404'd for every other client: different host or a
 // different folder name.
-const backupWebUrl = `${resolveApiBaseUrl({
-  override: import.meta.env?.VITE_API_BASE_URL,
-  protocol: window.location.protocol,
-  hostname: window.location.hostname,
-  port: window.location.port,
-  basePath: getBasePath(),
-  isDev: import.meta.env.DEV,
-})}/backup_simple_web.php`
+// Backup URL is now generated dynamically in handleBackupClick() to point to backup.php with token
 // Add loading and processing states
 const loading = ref(false)
 const isProcessing = ref({
@@ -31,6 +24,7 @@ const isProcessing = ref({
   rates: false,
   params: false,
   tasks: false,
+  backup: false,
 })
 const canManageUsers = computed(() => {
   console.log(user.value)
@@ -218,6 +212,35 @@ const getPriorityBadge = (task) => {
   return { text: task.priority_name, class: 'priority-low' }
 }
 
+const handleBackupClick = async () => {
+  if (isProcessing.value.backup) return
+  isProcessing.value.backup = true
+  try {
+    const token = getStoredToken()
+    const base = resolveApiBaseUrl({
+      override: import.meta.env?.VITE_API_BASE_URL,
+      protocol: window.location.protocol,
+      hostname: window.location.hostname,
+      port: window.location.port,
+      basePath: getBasePath(),
+      isDev: import.meta.env.DEV,
+    })
+    const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')
+    const filename = `backup_${ts}.sql`
+    const url = `${base}/backup.php?token=${encodeURIComponent(token || '')}&filename=${encodeURIComponent(filename)}`
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  } catch (e) {
+    console.error('Backup failed:', e)
+  } finally {
+    isProcessing.value.backup = false
+  }
+}
+
 const formatDate = (dateString) => {
   if (!dateString) return '-'
   return new Date(dateString).toLocaleDateString()
@@ -314,16 +337,17 @@ const formatDate = (dateString) => {
         <span>{{ t('dashboard.tasks') }}</span>
         <i v-if="isProcessing.tasks" class="fas fa-spinner fa-spin loading-indicator"></i>
       </button>
-      <a
+      <button
         v-if="isAdmin"
-        :href="backupWebUrl"
-        target="_blank"
+        @click="handleBackupClick"
         class="action-btn backup-web-btn"
-        style="text-decoration: none"
+        :disabled="isProcessing.backup"
+        :class="{ processing: isProcessing.backup }"
       >
-        <i class="fas fa-globe"></i>
-        <span>Backup Web Interface</span>
-      </a>
+        <i class="fas fa-download"></i>
+        <span>{{ t('dashboard.backup') }}</span>
+        <i v-if="isProcessing.backup" class="fas fa-spinner fa-spin loading-indicator"></i>
+      </button>
     </div>
 
     <!-- Pending Tasks Section -->

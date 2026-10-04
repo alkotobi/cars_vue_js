@@ -115,7 +115,9 @@ try {
 
             if ($return_var === 0 && $dump !== false && trim((string)$dump) !== '') {
                 $mysqldump_available = true;
+                echo "SET FOREIGN_KEY_CHECKS=0;\n\n";
                 echo $dump;
+                echo "\n\nSET FOREIGN_KEY_CHECKS=1;\n";
             }
         }
 
@@ -138,6 +140,7 @@ try {
         $backup .= "-- Generated on: " . date('Y-m-d H:i:s') . "\n";
         $backup .= "-- Database: $dbname\n";
         $backup .= "-- Backup method: PHP (mysqldump not available)\n\n";
+        $backup .= "SET FOREIGN_KEY_CHECKS=0;\n\n";
         
         foreach ($tables as $table) {
             // Get table structure
@@ -167,6 +170,7 @@ try {
             }
         }
         
+        $backup .= "\nSET FOREIGN_KEY_CHECKS=1;\n";
         echo $backup;
     }
     
