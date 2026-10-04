@@ -1,9 +1,7 @@
 import { ref } from 'vue'
 import { readJsonResponse } from '@/utils/readJsonResponse'
-import {
-  getBasePath as sharedGetBasePath,
-  resolveApiBaseUrl,
-} from '../utils/basePath'
+import { isSessionLost, reportSessionLost, sessionLostError } from './useSessionLost'
+import { getBasePath as sharedGetBasePath, resolveApiBaseUrl } from '../utils/basePath'
 
 // Get the current hostname and protocol
 const hostname = window.location.hostname
@@ -101,7 +99,7 @@ async function loadConfig() {
         throw new Error(
           response.status === 404
             ? `db_code.json not found at ${dbCodeUrl}. This file is per server and is not part ` +
-                `of the build - run: ./deploy/deploy.sh <folder> <host> <db_code>`
+              `of the build - run: ./deploy/deploy.sh <folder> <host> <db_code>`
             : `Failed to load db_code.json: ${response.status} ${response.statusText}`,
         )
       }
@@ -312,6 +310,25 @@ export const useApi = () => {
 
       const result = await readJsonResponse(response, API_URL)
       // Removed: console.log('API result:', result)
+
+      // The auth gate answers a rejected token with code 'not_authenticated' and
+      // HTTP 200, so there is no status to branch on and every caller was left to
+      // notice it by hand - which is why a dead session used to surface as a raw
+      // string or a native alert. Hand it to the one listener that opens the
+      // session-expired modal instead. The envelope is still returned untouched,
+      // so any call site that wants to render its own message still can.
+      //
+      // No check on requestToken: the server rejects a gated action sent with *no*
+      // token with the same code, so a signed-out tab reports through here too
+      // rather than depending on the router guard catching the next navigation.
+      //
+      // This sits after the retry block above on purpose: a 403/429 is retried,
+      // this is not, because re-sending a token the server has already refused
+      // three times only delays the same answer.
+      if (isSessionLost(result, data.action)) {
+        reportSessionLost(requestToken)
+      }
+
       return result
     } catch (err) {
       // Removed: console.error('API call error:', err)
@@ -396,6 +413,14 @@ export const useApi = () => {
 
       const result = await readJsonResponse(response, UPLOAD_URL)
       // Removed: console.log('Upload result:', result)
+
+      // upload.php authenticates through the same require_api_user() guard and so
+      // answers a dead token with the same { code: 'not_authenticated' } envelope.
+      // Without this, a document attached to an expired session failed as a bare
+      // "Upload failed" and the user never learned why.
+      if (isSessionLost(result)) {
+        reportSessionLost(uploadToken ?? null)
+      }
 
       if (!result.success) {
         throw new Error(result.message || 'Upload failed')
@@ -713,7 +738,12 @@ export const useApi = () => {
   const uploadCarFile = async (file, carId, categoryId, notes = null) => {
     const user = getCurrentUser()
     if (!user) {
-      throw new Error('User not authenticated')
+      // sessionLostError(), not new Error(...), in all ten of these guards below:
+      // it reports the loss so the modal opens, and carries `code` so a caller
+      // that translates apiErrorText()/colorErrorText() renders it in the reader's
+      // language. The bare Error this replaced leaked 'User not authenticated' and
+      // opened nothing.
+      throw sessionLostError()
     }
 
     // Upload file first
@@ -757,7 +787,7 @@ export const useApi = () => {
   const deleteCarFile = async (fileId) => {
     const user = getCurrentUser()
     if (!user) {
-      throw new Error('User not authenticated')
+      throw sessionLostError()
     }
 
     const result = await callApi({
@@ -779,7 +809,7 @@ export const useApi = () => {
   const checkoutPhysicalCopy = async (fileId, expectedReturnDate = null, notes = null) => {
     const user = getCurrentUser()
     if (!user) {
-      throw new Error('User not authenticated')
+      throw sessionLostError()
     }
 
     const result = await callApi({
@@ -802,7 +832,7 @@ export const useApi = () => {
   const checkinPhysicalCopy = async (fileId, notes = null) => {
     const user = getCurrentUser()
     if (!user) {
-      throw new Error('User not authenticated')
+      throw sessionLostError()
     }
 
     const result = await callApi({
@@ -829,7 +859,7 @@ export const useApi = () => {
   ) => {
     const user = getCurrentUser()
     if (!user) {
-      throw new Error('User not authenticated')
+      throw sessionLostError()
     }
 
     // Get file info to find current holder or uploader
@@ -871,7 +901,7 @@ export const useApi = () => {
   const getFileTransferHistory = async (fileId) => {
     const user = getCurrentUser()
     if (!user) {
-      throw new Error('User not authenticated')
+      throw sessionLostError()
     }
 
     const result = await callApi({
@@ -903,7 +933,7 @@ export const useApi = () => {
   const getPendingTransfers = async () => {
     const user = getCurrentUser()
     if (!user) {
-      throw new Error('User not authenticated')
+      throw sessionLostError()
     }
 
     const result = await callApi({
@@ -923,7 +953,7 @@ export const useApi = () => {
   const approveTransfer = async (transferId, notes = null) => {
     const user = getCurrentUser()
     if (!user) {
-      throw new Error('User not authenticated')
+      throw sessionLostError()
     }
 
     const result = await callApi({
@@ -945,7 +975,7 @@ export const useApi = () => {
   const rejectTransfer = async (transferId, notes = null) => {
     const user = getCurrentUser()
     if (!user) {
-      throw new Error('User not authenticated')
+      throw sessionLostError()
     }
 
     const result = await callApi({
@@ -1218,7 +1248,7 @@ export const useApi = () => {
   const rollbackCheckout = async (fileId, notes = null) => {
     const user = getCurrentUser()
     if (!user) {
-      throw new Error('User not authenticated')
+      throw sessionLostError()
     }
 
     const result = await callApi({
@@ -1306,9 +1336,20 @@ function apiFailure(result, fallbackMessage) {
 // to locale keys so raw English never reaches the UI. Unknown codes (DB-level
 // errors, unexpected failures) return '' so the caller falls back to its own
 // generic translated message and keeps the raw text in the console.
+//
+// colorErrorText() below is the same idea for the colours screen, and the reason the
+// two are separate is in its own comment: shared codes mean different things in
+// different places.
 export function apiErrorText(t, result) {
   const code = result?.code
   const keys = {
+    // The one code here that is not about the action. Every other key points into
+    // buy.detailsTable because that is where these codes mean something; a dead
+    // session means the same thing on every screen, so it reuses the modal's own
+    // wording rather than minting a near-duplicate string. Without this the caller
+    // falls back to its own key and blames the action - "error updating stock" - for
+    // what is an expired credential.
+    not_authenticated: 'sessionExpired.message',
     invalid_request: 'buy.detailsTable.invalidRequest',
     not_admin: 'buy.detailsTable.adminOnly',
     detail_locked: 'buy.detailsTable.detailLocked',
@@ -1389,5 +1430,36 @@ export function colorErrorText(t, result) {
       return t('colorsView.errors.inUseDetail', { count: result?.meta?.count || 0 })
     default:
       return t(key)
+  }
+}
+
+/**
+ * Translate a refused login into the reader's language, told apart by the code.
+ *
+ * The third of the three error-text translators, and the one that used not to exist:
+ * LoginView rendered every unsuccessful login as auth.invalidCredentials, so a dead
+ * database and a mistyped password produced the same words. That is not a rounding
+ * error - it names the wrong cause, so the reader resets a password that did not need
+ * resetting and never learns the server was down.
+ *
+ * Distinct from apiErrorText() and colorErrorText(), which also return '' for codes
+ * they do not know: those let the caller fall back to its own message, because the
+ * caller knows which action was being attempted. Here the caller is a login form with
+ * one button, so there is nothing to fall back to and an unknown code gets the generic
+ * login failure rather than a credential claim it has not earned.
+ *
+ * @param {Function} t vue-i18n translate
+ * @param {{code?: string}|Error|null} result the raw {success: false, code} payload
+ * @returns {string}
+ */
+export function loginErrorText(t, result) {
+  switch (result?.code) {
+    case 'invalid_credentials':
+      return t('auth.invalidCredentials')
+    // auth_connection() in api/actions/auth.php: a database that cannot be reached.
+    case 'db_unavailable':
+      return t('auth.serverUnavailable')
+    default:
+      return t('auth.loginError')
   }
 }

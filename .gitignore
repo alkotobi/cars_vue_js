@@ -72,3 +72,12 @@ deploy/cars-deploy.local.json
 # anything nested deeper. The credential is blocked from any tenant folder, including
 # one provisioned after this line was written.
 /*/api/*.local.php
+
+# This machine's own tenant folder: a built app plus a copy of api/ that holds the
+# database password, written by deploy/setup-mig-27.php. Output, not source, and it
+# reappears with the same contents every time the machine is provisioned. The names
+# track the registry row in merhab_databases.dbs - rename the database there and these
+# have to follow. Root-anchored, matching the /mig*/ reasoning above: a tenant named
+# e.g. "api" must not be able to swallow the real api/ tree.
+/merhab_cars/
+/merhab_cars_files/

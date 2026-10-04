@@ -206,12 +206,6 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
-      path: '/invitations',
-      name: 'invitations',
-      component: () => import('../views/InvitationsView.vue'),
-      meta: { requiresAuth: true },
-    },
-    {
       path: '/containers-ref',
       name: 'containers-ref',
       component: () => import('../views/ContainersRefView.vue'),

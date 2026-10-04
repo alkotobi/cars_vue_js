@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { resolveBasePath, resolveApiBaseUrl } from './basePath'
+import { readFileSync } from 'node:fs'
 
 // The app is deployed to /cars/ while /cars is also a route name. The original
 // implementation guessed the mount point from a list of known routes, matched
@@ -12,6 +13,27 @@ describe('resolveBasePath', () => {
 
   it('keeps an absolute production base unchanged', () => {
     expect(resolveBasePath('/cars/', 'https://host/cars/index.abc.js', false)).toBe('/cars/')
+  })
+
+  it('keeps the dev mount, so dev and production URLs are the same shape', () => {
+    // vite.config.js sets base to /cars/ for `vite serve` only. This is the assertion
+    // that makes the dev server's /cars/login and production's /cars/login the same
+    // URL: an absolute base wins over the isDev -> '/' branch below, because the
+    // server declared where it is mounted rather than the client guessing.
+    expect(resolveBasePath('/cars/', 'http://localhost:5173/src/utils/basePath.js', true)).toBe(
+      '/cars/',
+    )
+    // Any declared mount is honoured, not just this one - VITE_DEV_BASE is an escape
+    // hatch for anyone who wants dev back at the root.
+    expect(resolveBasePath('/mig_27/', 'http://localhost:5173/src/utils/basePath.js', true)).toBe(
+      '/mig_27/',
+    )
+  })
+
+  it('still falls back to root in dev when the base was left relative', () => {
+    // The isDev branch is not dead: it is what serves VITE_DEV_BASE=./, and it is the
+    // reason this module needs no changes at all for the new dev base.
+    expect(resolveBasePath('./', 'http://localhost:5173/src/utils/basePath.js', true)).toBe('/')
   })
 
   it('derives the mount dir from the module URL when the build base is relative', () => {
@@ -75,7 +97,13 @@ describe('resolveApiBaseUrl', () => {
     // This is the regression: the old code treated any 192.168.* host as local
     // and pointed at :8000, where a deployed server has nothing listening.
     expect(
-      resolveApiBaseUrl({ protocol: 'https:', hostname: '192.168.1.50', port: '', isDev: false, basePath: '/cars/' }),
+      resolveApiBaseUrl({
+        protocol: 'https:',
+        hostname: '192.168.1.50',
+        port: '',
+        isDev: false,
+        basePath: '/cars/',
+      }),
     ).toBe('https://192.168.1.50/cars/api')
   })
 
@@ -88,13 +116,25 @@ describe('resolveApiBaseUrl', () => {
   it('points dev at the PHP port instead of the Vite port', () => {
     // origin is :5173 in dev; concatenating :8000 onto it would be invalid.
     expect(
-      resolveApiBaseUrl({ protocol: 'http:', hostname: 'localhost', port: '5173', isDev: true, basePath: '/' }),
+      resolveApiBaseUrl({
+        protocol: 'http:',
+        hostname: 'localhost',
+        port: '5173',
+        isDev: true,
+        basePath: '/',
+      }),
     ).toBe('http://localhost:8000/api')
   })
 
   it('reaches the dev API from another device on the LAN', () => {
     expect(
-      resolveApiBaseUrl({ protocol: 'http:', hostname: '192.168.1.9', port: '5173', isDev: true, basePath: '/' }),
+      resolveApiBaseUrl({
+        protocol: 'http:',
+        hostname: '192.168.1.9',
+        port: '5173',
+        isDev: true,
+        basePath: '/',
+      }),
     ).toBe('http://192.168.1.9:8000/api')
   })
 
@@ -110,5 +150,36 @@ describe('resolveApiBaseUrl', () => {
       expect(url).toMatch(/\/api$/)
       expect(url).not.toMatch(/\/\/api$/)
     }
+  })
+})
+
+// The other half of this contract: what vite.config.js hands to resolveBasePath.
+//
+// The dev mount is only safe because the build still gets a RELATIVE base. One build
+// is deployed to every tenant and each is served from a differently named folder, so
+// an absolute /cars/ base baked into dist/ would emit asset URLs that only resolve on
+// the single server whose folder happens to be called cars - every other tenant would
+// get a blank page. That is the failure this pins.
+describe('vite.config.js keeps the dev mount off the production build', () => {
+  const CONFIG = readFileSync(new URL('../../vite.config.js', import.meta.url), 'utf8')
+
+  it('applies /cars/ to the dev server only', () => {
+    expect(CONFIG).toMatch(/base: command === 'serve' \? DEV_BASE : '\.\/'/)
+    // Keyed on Vite's `command`, never on NODE_ENV: NODE_ENV is not reliably set to
+    // 'production' while the config is being evaluated, and guessing it wrong here
+    // ships the absolute base to every tenant.
+    expect(CONFIG).toContain('defineConfig(({ command })')
+    expect(CONFIG).not.toMatch(/base:.*isProduction/)
+  })
+
+  it('allows a different dev mount without touching the build', () => {
+    expect(CONFIG).toMatch(/const DEV_BASE = process\.env\.VITE_DEV_BASE \?\? '\/cars\/'/)
+  })
+
+  it('leaves the tenant mounts to their own prebuilt bundles', () => {
+    // They are served by serveFolderMounts with <base> injected per mount, so they
+    // must not be made to depend on this config's base.
+    expect(CONFIG).toContain('serveFolderMounts')
+    expect(CONFIG).toMatch(/<base href="\$\{mount\}\/">/)
   })
 })

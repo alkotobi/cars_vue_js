@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useApi } from '../../composables/useApi'
 import { useEnhancedI18n } from '@/composables/useI18n'
+import { sessionErrorMessage } from '../../composables/useSessionLost'
 
 const { t } = useEnhancedI18n()
 const {
@@ -81,7 +82,7 @@ const loadMyPhysicalCopies = async () => {
     const copies = await getMyPhysicalCopies()
     myPhysicalCopies.value = copies || []
   } catch (err) {
-    error.value = err.message || 'Failed to load physical copies'
+    error.value = sessionErrorMessage(err, 'Failed to load physical copies')
     console.error('Load error:', err)
   } finally {
     loading.value = false
@@ -129,7 +130,7 @@ const loadAllPhysicalCopies = async () => {
       allPhysicalCopies.value = result.data || []
     }
   } catch (err) {
-    error.value = err.message || 'Failed to load all physical copies'
+    error.value = sessionErrorMessage(err, 'Failed to load all physical copies')
     console.error('Load error:', err)
   } finally {
     loading.value = false
@@ -167,7 +168,7 @@ const confirmCheckin = async () => {
     showCheckinModal.value = false
     await loadData()
   } catch (err) {
-    error.value = err.message || 'Failed to check in file'
+    error.value = sessionErrorMessage(err, 'Failed to check in file')
   } finally {
     loading.value = false
   }
@@ -192,7 +193,7 @@ const openTransferModal = async (file) => {
     availableUsers.value = users
     showTransferModal.value = true
   } catch (err) {
-    error.value = err.message || 'Failed to load users'
+    error.value = sessionErrorMessage(err, 'Failed to load users')
   }
 }
 
@@ -216,7 +217,7 @@ const confirmTransfer = async () => {
     showTransferModal.value = false
     await loadData()
   } catch (err) {
-    error.value = err.message || 'Failed to transfer file'
+    error.value = sessionErrorMessage(err, 'Failed to transfer file')
   } finally {
     loading.value = false
   }
@@ -236,7 +237,7 @@ const openHistoryModal = async (file) => {
     transferHistory.value = history || []
     showHistoryModal.value = true
   } catch (err) {
-    error.value = err.message || 'Failed to load transfer history'
+    error.value = sessionErrorMessage(err, 'Failed to load transfer history')
   } finally {
     loading.value = false
   }

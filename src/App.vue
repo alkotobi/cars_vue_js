@@ -7,6 +7,7 @@ import { onMounted, computed, ref } from 'vue'
 import { useApi } from './composables/useApi'
 import DatabaseVersionCheck from '@/components/DatabaseVersionCheck.vue'
 import I18nDebugPanel from '@/components/I18nDebugPanel.vue'
+import SessionExpiredModal from '@/components/SessionExpiredModal.vue'
 
 const { t } = useI18n()
 const { handleCookieVerification } = useApi()
@@ -69,6 +70,9 @@ onMounted(async () => {
       <RouterView />
     </main>
     <I18nDebugPanel />
+    <!-- Last in the tree, and it teleports to <body> anyway: one instance for the
+         whole app, so a dead session is reported the same way from every screen. -->
+    <SessionExpiredModal />
   </div>
 </template>
 

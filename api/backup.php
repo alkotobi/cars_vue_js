@@ -41,9 +41,19 @@ try {
     // This deployment's tenant, not config.php's default. The dump below is the
     // whole database, so getting this wrong is a cross-tenant data leak: an admin
     // of mig_27 asking for a backup used to be handed merhab_cars' users table,
-    // password hashes and live api_tokens. config.php stays as the fallback for an
-    // install with no db_code.json.
-    $dbname = app_db_name() ?? $db_config['dbname'];
+    // password hashes and live api_tokens.
+    //
+    // The config.php fallback that used to follow has gone with it. It could only
+    // ever produce that same leak one step later: config.php's db_name was a single
+    // fixed name, so an unresolved request backed up that one database whichever
+    // tenant was asked for. Refused instead.
+    $dbname = app_db_name() ?? $db_config['dbname'] ?? '';
+    if ($dbname === '') {
+        throw new RuntimeException(
+            'Cannot pick a database to back up: this request did not resolve to a tenant. '
+            . 'Set db_name in config.php, or reach the app through its tenant folder.'
+        );
+    }
 
     $pdo = new PDO(
         "mysql:host={$db_config['host']};dbname={$dbname}",

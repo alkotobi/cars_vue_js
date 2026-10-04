@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { readFileSync, existsSync, statSync } from 'node:fs'
+import { readFileSync, existsSync, statSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -33,6 +33,10 @@ const resolveMount = viteConfig.slice(
 const middleware = viteConfig.slice(
   viteConfig.indexOf('const serveFolderMounts'),
   viteConfig.indexOf('// Get environment'),
+)
+const rootHandler = viteConfig.slice(
+  viteConfig.indexOf('const serveNothingAtRoot'),
+  viteConfig.indexOf('export default defineConfig'),
 )
 
 describe('dev server tenant mounts', () => {
@@ -76,7 +80,9 @@ describe('dev server tenant mounts', () => {
     // returned true for db_code.json; statSync() on the missing api/ threw, and the
     // config - and the dev server with it - did not load.
     // The guard itself lives at module scope, next to folderMountFor().
-    expect(viteConfig).toMatch(/const isDirectory = \(path\) => existsSync\(path\) && statSync\(path\)\.isDirectory\(\)/)
+    expect(viteConfig).toMatch(
+      /const isDirectory = \(path\) => existsSync\(path\) && statSync\(path\)\.isDirectory\(\)/,
+    )
     expect(resolveMount).not.toMatch(/existsSync\([^)]*'db_code\.json'\)\) && statSync\(/)
   })
 
@@ -87,7 +93,7 @@ describe('dev server tenant mounts', () => {
     expect(resolveMount).toMatch(/if \(!\/\^\[a-z\]\[a-z0-9_\]\*\$\/\.test\(name\)\) return null/)
   })
 
-  it('proxies any mount\'s API by pattern, because the proxy table is also a snapshot', () => {
+  it("proxies any mount's API by pattern, because the proxy table is also a snapshot", () => {
     // One entry per client has the same defect: the table is built when the config
     // loads. The pattern also matches paths that are not mounts, and those are
     // forwarded to a PHP server with no such file, which answers 404.
@@ -111,10 +117,86 @@ describe('dev server tenant mounts', () => {
   })
 })
 
+describe('the dev server root', () => {
+  it('is registered as a plugin', () => {
+    expect(rootHandler).toMatch(/name: 'serve-nothing-at-root'/)
+    expect(viteConfig).toMatch(/^\s+serveNothingAtRoot,$/m)
+  })
+
+  it('answers exactly / and nothing else, and defers the rest', () => {
+    // Exact equality, not startsWith('/'). A prefix test here swallows every request
+    // on the server - the tenant mounts and /cars/ included - and the failure is a
+    // blank page at a URL that used to work, which points at the browser.
+    expect(rootHandler).toMatch(
+      /if \(pathname !== '\/' && pathname !== '\/index\.html'\) \{\s+next\(\)\s+return\s+\}/,
+    )
+  })
+
+  it('refuses rather than redirecting', () => {
+    // The bug was the redirect, not its destination: 302 -> /cars/ is what handed the
+    // browser a login form that could never authenticate. Redirecting somewhere else
+    // would reproduce it somewhere else.
+    expect(rootHandler).toMatch(/res\.statusCode = 404/)
+    expect(rootHandler).not.toMatch(/writeHead|Location|302/)
+  })
+
+  it('runs before Vite\'s internal base redirect', () => {
+    // Registered inside configureServer, not returned from it. A returned hook is a
+    // post hook: Vite installs the base redirect first, so / becomes a 302 to /cars/
+    // before this middleware is ever reached, and it reads as though it did nothing.
+    expect(rootHandler).toMatch(/configureServer\(server\) \{\s+server\.middlewares\.use\(/)
+    expect(rootHandler).not.toMatch(/configureServer\(server\) \{[\s\S]*return \(\) =>/)
+  })
+
+  it('serves no file in its place', () => {
+    // The webroot root is where a welcome page belongs, and index.html is the SPA
+    // shell the tenant bundles are built from. Reusing it would put the SPA back at /
+    // under another name - and it would still be the app that cannot authenticate.
+    expect(rootHandler).not.toMatch(/createReadStream|sendIndex|existsSync|readFileSync/)
+  })
+
+  it('answers the way production already does', () => {
+    // The premise behind the 404, asserted here because it is the part that decays:
+    // if a welcome page ever ships at the webroot root, dev should follow it instead.
+    // The rendered config has no `location = /`, so / falls through to
+    // `root __WEBROOT__; index index.html;` -> __WEBROOT__/index.html, and deploy.sh
+    // only writes into $WEBROOT/$FOLDER/.
+    const template = readFileSync(
+      new URL('../../deploy/nginx-app.conf.template', import.meta.url),
+      'utf8',
+    )
+    expect(template).toMatch(/root __WEBROOT__;/)
+    expect(template).not.toMatch(/^\s*location = \/\s*\{/m)
+
+    const deploy = readFileSync(new URL('../../deploy/deploy.sh', import.meta.url), 'utf8')
+    expect(deploy).toMatch(/^TARGET="\$WEBROOT\/\$FOLDER"$/m)
+
+    // Every rsync destination is a path inside the tenant folder. None of them is
+    // $WEBROOT itself, which is what makes __WEBROOT__/index.html a file that does
+    // not exist and the dev server's 404 the right answer to copy.
+    const destinations = [...deploy.matchAll(/\$SSH_TARGET:(\$TARGET[^"']*)/g)].map((m) => m[1])
+    expect(destinations.length).toBeGreaterThan(0)
+    for (const dest of destinations) {
+      expect(dest).toMatch(/^\$TARGET\/(\w+\/)?$/)
+    }
+    expect(deploy).not.toMatch(/\$SSH_TARGET:\$WEBROOT/)
+  })
+})
+
 describe('what that resolution finds in this checkout', () => {
   const isDirectory = (path) => existsSync(path) && statSync(path).isDirectory()
-  const mounts = ['m', 'mig_27', 'nono', 'nn'].filter(
-    (name) => existsSync(join(repoRoot, name, 'db_code.json')) && isDirectory(join(repoRoot, name, 'api')),
+  // Discovered the way vite.config.js's resolveFolderMount() does, rather than from a
+  // hardcoded list of client names. The list was ['m', 'mig_27', 'nono', 'nn'], so when
+  // those tenants were deleted and `merhab` was provisioned in their place it still
+  // matched nothing and the assertion below failed on an empty list - the spec had
+  // stopped describing this checkout and started describing a deleted one. Scanning
+  // for db_code.json + api/ is the condition tenant-provision.php actually satisfies,
+  // so a newly provisioned tenant is covered without editing this file.
+  const mounts = readdirSync(repoRoot).filter(
+    (name) =>
+      /^[a-z][a-z0-9_]*$/.test(name) &&
+      existsSync(join(repoRoot, name, 'db_code.json')) &&
+      isDirectory(join(repoRoot, name, 'api')),
   )
 
   it('covers every client that is actually provisioned here', () => {

@@ -56,7 +56,7 @@ if (!is_array($postData)) {
 // Resolve the real database name for this deployment, server-side.
 //
 // @return string|null null when there is no db_code.json or it does not resolve, in
-//         which case getDbConfig() falls back to config.php.
+//         which case getDbConfig() refuses the request rather than guessing.
 function resolveDbNameFromCode(): ?string
 {
     // app_db_code() reads db_code.json and validates the shape; app_db_name() walks
@@ -100,10 +100,31 @@ function getDbConfig() {
         return $resolved;
     }
 
-    // No db_code.json, or it does not resolve. Fall back to config.php rather than
-    // failing every request: a developer running against a single database should
-    // not need the per-server file that only a real deployment has.
-    return $resolved = $db_config;
+    // No db_code.json, or it does not resolve. Refused, with no fallback to
+    // config.php's db_name.
+    //
+    // The fallback used to exist for a developer running against a single database,
+    // but it named one specific database, and that name was merhab_cars - a live
+    // tenant with real users, password hashes and api_tokens. So a request that
+    // reached /api/api.php without resolving a db_code was not an error: it was a
+    // working session on somebody's data, returned with no indication that any of
+    // this had happened.
+    //
+    // Refusing unconditionally rather than only when db_name is empty is deliberate.
+    // config.php is exactly the file that gets edited to "just point this at the
+    // local database", and that edit is indistinguishable from the leak; there is no
+    // way to tell a developer's single-database setup from a tenant by reading the
+    // value. The single-app case does not need the fallback either - in that layout
+    // app_dir() resolves to the app's own folder and its db_code.json names the
+    // database, so the branch above still answers.
+    //
+    // The root app has no db_code.json precisely because it is not a tenant, so
+    // serving it at all is the mistake.
+    //
+    // Refused with the same code a lost connection uses, because that is what the
+    // client already handles, and its meaning is accurate: there is no database to
+    // serve this request from.
+    apiErrorDie('db_unavailable');
 }
 
 // Function to establish database connection

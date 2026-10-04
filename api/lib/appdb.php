@@ -8,8 +8,8 @@
 // resolveDbNameFromCode(); every standalone endpoint that needs to read the
 // `users` table - and therefore to authenticate anyone - has to agree with it.
 //
-// Three files got this wrong in different ways before this existed:
-// upload.php, backup.php and invitations.php each connected to $db_config['dbname']
+// Two files got this wrong in different ways before this existed:
+// upload.php and backup.php each connected to $db_config['dbname']
 // directly, so on a server whose db_code.json points at a different tenant they
 // looked for `users` in a database that does not have it and rejected every valid
 // token.
@@ -236,8 +236,11 @@ function app_db_row(): ?array
 /**
  * The tenant database name for this deployment.
  *
- * @return string|null null when db_code.json is absent or does not resolve, in
- *         which case callers should fall back to config.php's db_name.
+ * @return string|null null when db_code.json is absent or does not resolve. Callers
+ *         must refuse rather than substitute a configured database name: config.php
+ *         holds credentials and no database in a multi-tenant setup, and when it did
+ *         hold one that was a fixed name, so an unresolved request opened whichever
+ *         tenant that name happened to be.
  */
 function app_db_name(): ?string
 {
@@ -342,10 +345,30 @@ function app_db_pdo(): PDO
     // Without this `global`, $db_config is undefined inside the function: the
     // host, user and pass all arrive as null and PDO fails with "Access denied
     // for user ''@'localhost'". Every endpoint that authenticates through here
-    // (upload.php, backup.php, invitations.php) was returning that.
+    // (upload.php, backup.php) was returning that.
     global $db_config;
 
-    $dbname = app_db_name() ?? $db_config['dbname'];
+    // The config.php fallback that used to follow has gone with it, and this was
+    // the last caller still reaching for one.
+    //
+    // It is not a theoretical leak, it is the same leak api.php and backup.php
+    // were closed for, reached through the one path they do not cover: auth. Set
+    // db_name in config.php and a request to the repository root's upload.php
+    // authenticated against that database's users and api_tokens - verified by
+    // pointing the root at merhab_cars and getting "not_authenticated" (it
+    // connected and looked for a token) where a name that does not exist gives
+    // "Unknown database". The root is not a tenant and has no business
+    // authenticating anyone.
+    //
+    // app_db_name()'s own docblock already required this: callers must refuse
+    // rather than substitute a configured name.
+    $dbname = app_db_name() ?? '';
+    if ($dbname === '') {
+        throw new RuntimeException(
+            'Cannot authenticate: this request did not resolve to a tenant. '
+            . 'Set db_name in config.php, or reach the app through its tenant folder.'
+        );
+    }
 
     $pdo = new PDO(
         "mysql:host={$db_config['host']};dbname={$dbname}",
@@ -358,29 +381,18 @@ function app_db_pdo(): PDO
 }
 
 /**
- * Authenticate the caller as an admin, using the deployment's own `users` table.
- *
- * Ends the request when the token is missing, unknown, or not an admin.
+ * Authenticate the caller as any user, using the deployment's own `users` table.
  *
  * The token is a STRING, from the X-Api-Token header or the query string. It was
- * typed `array`, and both callers - upload.php's upload_require_user() and
- * invitations.php - pass a string, so every POST upload died on
+ * typed `array`, and the caller - upload.php's upload_require_user() - passes a
+ * string, so every POST upload died on
  * `TypeError: require_app_user(): Argument #1 ($token) must be of type array,
  * string given`: a 500 with an empty body, because upload.php turns errors into
  * JSON and this one happened before it could.
  *
- * @return array{id:int,username:string,role_id:int}
- */
-function require_app_admin($token): array
-{
-    require_once __DIR__ . '/auth.php';
-    return require_api_admin(app_db_pdo(), ['token' => is_string($token) ? $token : '']);
-}
-
-/**
- * Authenticate the caller as any user, using the deployment's own `users` table.
- *
- * See require_app_admin() for why the token is a string.
+ * There was an admin-only twin of this, require_app_admin(). It went with
+ * invitations.php, its only caller; require_api_admin() itself is untouched and is
+ * still reachable for anything that needs an admin check.
  *
  * @return array{id:int,username:string,role_id:int}
  */

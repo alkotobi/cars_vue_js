@@ -10,7 +10,7 @@
 //
 // The guards below prefer apiErrorDie() from api.php when it is loaded, so the
 // response shape stays identical there. Standalone endpoints (upload.php,
-// db_manager_api.php, invitations.php, ...) get the same JSON shape from
+// db_manager_api.php, ...) get the same JSON shape from
 // api_auth_fail() instead, which is why these helpers are usable outside api.php.
 
 /**

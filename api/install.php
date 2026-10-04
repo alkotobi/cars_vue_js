@@ -39,6 +39,19 @@ if ($installKey === '' || !is_string($providedKey) || !hash_equals($installKey, 
     exit;
 }
 
+// The installer creates the database, so it has to be told which one rather than
+// resolving it: nothing is deployed yet and there is no db_code.json to read. This is
+// the one place a database name belongs in configuration. Refuses rather than
+// interpolating an empty name into CREATE DATABASE, which is a syntax error that
+// says nothing about the real cause.
+if ($db_name === '') {
+    echo json_encode([
+        'success' => false,
+        'error' => 'Set db_name in api/config.local.php to the database to create, then run the installer again.'
+    ]);
+    exit;
+}
+
 try {
     $pdo = new PDO(
         "mysql:host=$db_host;charset=utf8",

@@ -6,6 +6,7 @@ import PhysicalCopyTracking from './PhysicalCopyTracking.vue'
 import CustomClearanceAgents from './CustomClearanceAgents.vue'
 import { useApi } from '../../composables/useApi'
 import { useEnhancedI18n } from '@/composables/useI18n'
+import { sessionErrorMessage } from '../../composables/useSessionLost'
 
 const { t } = useEnhancedI18n()
 const {
@@ -189,7 +190,7 @@ const loadData = async () => {
     const carFiles = await getCarFiles(props.car.id)
     files.value = carFiles
   } catch (err) {
-    error.value = err.message || 'Failed to load data'
+    error.value = sessionErrorMessage(err, 'Failed to load data')
   } finally {
     loading.value = false
   }
@@ -238,7 +239,7 @@ const handleApproveTransfer = async (transfer) => {
     await loadPendingTransfers()
     await loadData() // Reload files to update status
   } catch (err) {
-    error.value = err.message || 'Failed to approve transfer'
+    error.value = sessionErrorMessage(err, 'Failed to approve transfer')
   } finally {
     loading.value = false
   }
@@ -260,7 +261,7 @@ const handleRejectTransfer = async (transfer) => {
     success.value = 'Transfer rejected'
     await loadPendingTransfers()
   } catch (err) {
-    error.value = err.message || 'Failed to reject transfer'
+    error.value = sessionErrorMessage(err, 'Failed to reject transfer')
   } finally {
     loading.value = false
   }
@@ -309,7 +310,7 @@ const handleApproveAll = async () => {
     await loadPendingTransfers()
     await loadData() // Reload files to update status
   } catch (err) {
-    error.value = err.message || 'Failed to approve all transfers'
+    error.value = sessionErrorMessage(err, 'Failed to approve all transfers')
   } finally {
     loading.value = false
   }
@@ -358,7 +359,7 @@ const handleRejectAll = async () => {
     await loadPendingTransfers()
     await loadData() // Reload files to update status
   } catch (err) {
-    error.value = err.message || 'Failed to reject all transfers'
+    error.value = sessionErrorMessage(err, 'Failed to reject all transfers')
   } finally {
     loading.value = false
   }
@@ -533,7 +534,7 @@ const uploadFile = async (categoryId) => {
 
     emit('save', props.car)
   } catch (err) {
-    error.value = err.message || 'Failed to upload file'
+    error.value = sessionErrorMessage(err, 'Failed to upload file')
   } finally {
     isProcessing.value = false
   }
@@ -560,7 +561,7 @@ const handleDeleteFile = async (file) => {
     await loadData()
     emit('save', props.car)
   } catch (err) {
-    error.value = err.message || 'Failed to delete file'
+    error.value = sessionErrorMessage(err, 'Failed to delete file')
   } finally {
     loading.value = false
   }
@@ -746,7 +747,7 @@ const confirmCheckout = async () => {
       throw new Error(result.error || 'Failed to check out file')
     }
   } catch (err) {
-    error.value = err.message || err.error || 'Failed to check out file'
+    error.value = sessionErrorMessage(err, 'Failed to check out file')
   } finally {
     loading.value = false
   }
@@ -807,7 +808,7 @@ const confirmCheckin = async () => {
     showCheckinModal.value = false
     await loadData()
   } catch (err) {
-    error.value = err.message || 'Failed to check in file'
+    error.value = sessionErrorMessage(err, 'Failed to check in file')
   } finally {
     loading.value = false
   }
@@ -837,7 +838,7 @@ const openTransferModal = async (file) => {
     transferAvailableUsers.value = users
     showTransferModal.value = true
   } catch (err) {
-    error.value = err.message || 'Failed to load users'
+    error.value = sessionErrorMessage(err, 'Failed to load users')
   }
 }
 
@@ -863,7 +864,7 @@ const confirmTransfer = async () => {
     await loadPendingTransfers()
     await loadData()
   } catch (err) {
-    error.value = err.message || 'Failed to transfer file'
+    error.value = sessionErrorMessage(err, 'Failed to transfer file')
   } finally {
     loading.value = false
   }
@@ -920,7 +921,7 @@ const openBatchTransferModal = async () => {
     batchTransferAvailableUsers.value = users
     showBatchTransferModal.value = true
   } catch (err) {
-    error.value = err.message || 'Failed to load users'
+    error.value = sessionErrorMessage(err, 'Failed to load users')
   }
 }
 
@@ -998,7 +999,7 @@ const confirmBatchTransfer = async () => {
     await loadPendingTransfers()
     await loadData()
   } catch (err) {
-    error.value = err.message || 'Failed to perform batch transfer'
+    error.value = sessionErrorMessage(err, 'Failed to perform batch transfer')
   } finally {
     loading.value = false
   }
@@ -1169,7 +1170,7 @@ const confirmBatchCheckout = async () => {
     showBatchCheckoutModal.value = false
     await loadData()
   } catch (err) {
-    error.value = err.message || 'Failed to perform batch checkout'
+    error.value = sessionErrorMessage(err, 'Failed to perform batch checkout')
   } finally {
     loading.value = false
   }
@@ -1186,7 +1187,7 @@ const openHistoryModal = async (file) => {
     const history = await getFileTransferHistory(file.id)
     transferHistory.value = history || []
   } catch (err) {
-    error.value = err.message || 'Failed to load transfer history'
+    error.value = sessionErrorMessage(err, 'Failed to load transfer history')
   } finally {
     loading.value = false
   }
@@ -1253,7 +1254,7 @@ const saveCategory = async () => {
       await loadCategoriesForTable()
     }
   } catch (err) {
-    error.value = err.message || 'Failed to save category'
+    error.value = sessionErrorMessage(err, 'Failed to save category')
   } finally {
     loading.value = false
   }
@@ -1270,7 +1271,7 @@ const loadCategoriesForTable = async () => {
     const cats = await getCarFileCategories()
     categoriesForTable.value = cats || []
   } catch (err) {
-    error.value = err.message || 'Failed to load categories'
+    error.value = sessionErrorMessage(err, 'Failed to load categories')
   } finally {
     loadingCategories.value = false
   }
@@ -1295,7 +1296,7 @@ const handleDeleteCategory = async (category) => {
     await loadData()
     await loadCategoriesForTable()
   } catch (err) {
-    error.value = err.message || 'Failed to delete category'
+    error.value = sessionErrorMessage(err, 'Failed to delete category')
   } finally {
     loading.value = false
   }

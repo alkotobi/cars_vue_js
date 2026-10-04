@@ -11,7 +11,12 @@ return [
     'db_host' => '127.0.0.1',
     'db_user' => '',
     'db_pass' => '',
-    'db_name' => 'merhab_cars',
+    // Which database to create. Required only by api/install.php - every other
+    // request resolves its database per request from db_code.json and the
+    // merhab_databases registry, never from here. Leave empty otherwise: naming a
+    // live database here is how an unresolved request used to end up serving a real
+    // tenant's data.
+    'db_name' => '',
 
     // Required only to run api/install.php. There is deliberately no default: an
     // empty value makes the installer refuse, so forgetting to set it fails

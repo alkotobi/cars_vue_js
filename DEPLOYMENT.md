@@ -7,10 +7,22 @@ was executed and verified against production.
 > **Secrets live ONLY in server files.** DB passwords are in `api/config.local.php`,
 > which is git-ignored and never committed. `api/config.php` is a tracked loader
 > that resolves credentials from `config.local.php`, falling back to the
-> `DB_HOST` / `DB_USER` / `DB_PASS` / `DB_NAME` environment variables.
+> `DB_HOST` / `DB_USER` / `DB_PASS` environment variables.
 > (`merhab_root` — MariaDB user, hosts `localhost` + `127.0.0.1`). App + db-manager
 > admin login is `admin / 123`, stored as bcrypt in the DB. `db_code.json` →
 > `db_9a7f4e0b2fa8134e0ea0`. Do NOT paste credentials into chats/docs.
+>
+> **`db_name` must stay empty in `api/config.local.php`.** `DB_HOST`/`DB_USER`/
+> `DB_PASS` are connection settings and are needed; the database is not one of them.
+> Which database a request is served from is resolved per request from
+> `db_code.json` → the `dbs` table, and `api/api.php:getDbConfig()` **refuses**
+> (`db_unavailable`) anything that resolves to nothing. It used to fall back to
+> `db_name` instead, which meant a request arriving at a folder with no
+> `db_code.json` — the repository root, or any deployment path that is not a client
+> folder — quietly opened whichever single database that setting named. On this
+> machine that was `merhab_cars`: a live tenant with real users, password hashes and
+> `api_tokens`. `db_name` is now read only by `api/install.php`, which has to be told
+> which database to create and refuses without it.
 
 ---
 
@@ -20,7 +32,7 @@ was executed and verified against production.
 nginx :443 (world-automobile.com)          ← or a raw IP
   root /var/www/world-automobile.com
   └─ /<FOLDER>/  → Vue 3 SPA (dist build, SPA fallback to /<FOLDER>/index.html)
-      └─ /<FOLDER>/api/ → PHP (api.php, db_manager_api.php, invitations.php)
+      └─ /<FOLDER>/api/ → PHP (api.php, db_manager_api.php, upload.php, backup.php)
 ```
 
 `<FOLDER>` is supplied per client and may be any name. The app discovers it at
@@ -35,7 +47,8 @@ runtime, so one `dist/` serves every deployment:
 - **Router** — `createWebHistory(getBasePath())`, so deep links survive reloads.
 - **Only nginx is folder-specific** — generate it, don't hand-edit (§6).
 - **DB-manager** uses `api/db_manager_api.php` → DB `merhab_databases`.
-- **3 databases**: `merhab_cars` (app), `merhab_databases` (manager), `merhab_invitations`.
+- **2 databases**: `merhab_cars` (app), `merhab_databases` (manager). The third,
+  `merhab_invitations`, went with the invitations feature (§4.5).
 
 ---
 
@@ -87,8 +100,6 @@ GRANT ALL PRIVILEGES ON merhab_cars.*        TO 'merhab_root'@'localhost';
 GRANT ALL PRIVILEGES ON merhab_cars.*        TO 'merhab_root'@'127.0.0.1';
 GRANT ALL PRIVILEGES ON merhab_databases.*   TO 'merhab_root'@'localhost';
 GRANT ALL PRIVILEGES ON merhab_databases.*   TO 'merhab_root'@'127.0.0.1';
-GRANT ALL PRIVILEGES ON merhab_invitations.* TO 'merhab_root'@'localhost';
-GRANT ALL PRIVILEGES ON merhab_invitations.* TO 'merhab_root'@'127.0.0.1';
 FLUSH PRIVILEGES;
 ```
 
@@ -97,7 +108,6 @@ FLUSH PRIVILEGES;
 ```sql
 CREATE DATABASE IF NOT EXISTS merhab_cars        DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
 CREATE DATABASE IF NOT EXISTS merhab_databases   DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
-CREATE DATABASE IF NOT EXISTS merhab_invitations DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
 ```
 
 ### 4.3 App schema (MariaDB — REQUIRED fixes)
@@ -122,12 +132,29 @@ Then seed: `roles` (admin/user/SELLER), `users` (admin + `role_id` 1, password b
 
 Tables: `login` + `dbs`. Seed:
 - `login`: admin / 123 with same bcrypt hash as app users, `active=1`.
-- `dbs` MUST match the deployed `db_code.json`:
+- `dbs` MUST match the deployed `db_code.json`. For a tenant deployed as a sibling
+  folder beside a shared `api/` — what `deploy/setup-mig-27.php` provisions:
   ```sql
   INSERT INTO dbs (db_code, db_name, files_dir, js_dir, is_created)
-  VALUES ('db_9a7f4e0b2fa8134e0ea0', 'merhab_cars', 'files', '', 1);
+  VALUES ('db_9a7f4e0b2fa8134e0ea0', 'merhab_cars', '/merhab_cars_files', '/merhab_cars', 1);
   ```
   (`db_code.json` on server = `{"db_code":"db_9a7f4e0b2fa8134e0ea0"}` — keep in sync!)
+
+  **The leading slash on `files_dir` is load-bearing, not decoration.** It is the only
+  thing recording that the uploads are a *sibling* of the app folder
+  (`<webroot>/merhab_cars_files` beside `<webroot>/merhab_cars`) rather than a child
+  of it. `api/lib/appdb.php:app_deployment_root()` reads it to decide which of the
+  two to resolve against, and nothing else distinguishes the layouts on disk. Store it
+  without the slash and every upload path becomes
+  `<webroot>/merhab_cars/merhab_cars_files/…`, a directory nothing creates — uploads
+  appear to succeed and every stored file then 404s.
+
+  For a single-app install where the app folder is the webroot and uploads live
+  inside it, use `files_dir = 'files'` and `js_dir = ''` instead (no leading slash =
+  the app folder is its own deployment root).
+
+  `js_dir` is where the DB manager writes that client's `db_code.json`, so it has to
+  point at the deployed app folder — `/merhab_cars`, not `/`.
 
 #### Migration 031: `login.api_token`
 
@@ -184,7 +211,33 @@ common source of confusion:
   constraint. `src/views/dbManagerAuth.spec.js` now asserts the keep-list covers every
   construct `setup.sql` uses.
 
-### 4.5 Invitations DB — just create, no schema needed.
+### 4.5 Invitations — removed.
+
+The invitations feature is gone: `api/invitations.php`, `src/views/InvitationsView.vue`,
+`src/components/InvitationsTable.vue`, the `/invitations` route, its dashboard button and
+the `invitations.*` / `dashboard.invitations` strings in all four locale files. A fresh
+deployment needs none of it, and the third database is not part of the setup above.
+
+The `merhab_invitations` database itself is **not** dropped by that — it is left in place
+with its rows, so this is reversible. Drop it by hand once you are sure:
+
+```bash
+mysqldump -u root -p merhab_invitations > backups/merhab_invitations_$(date +%F).sql
+mysql -u root -p -e "DROP DATABASE merhab_invitations;"
+```
+
+**Already-deployed folders still carry the old file.** `deploy/deploy.sh` deliberately
+rsyncs *without* `--delete`, so `invitations.php` (and the stale `InvitationsView` chunk)
+survives in `<webroot>/<FOLDER>/api/` and keeps answering until removed by hand:
+
+```bash
+rm -f /var/www/<host>/<FOLDER>/api/invitations.php
+rm -f /var/www/<host>/<FOLDER>/InvitationsView.*.js /var/www/<host>/<FOLDER>/InvitationsView.*.css
+```
+
+Until then it is only reachable as an authenticated admin — `require_app_admin()` is gone
+from `api/lib/appdb.php` with its only caller, so a stale copy calls an undefined
+function and returns 500 rather than serving data.
 
 ---
 
@@ -734,8 +787,8 @@ Gotchas that cost time here, all of which apply to production too:
 14. **A PHP variable read inside a function is not the global one.** `app_db_pdo()`
     read `$db_config` without `global`, so host/user/pass arrived as `null` and PDO
     failed with `Access denied for user ''@'localhost'` — an empty 500 from every
-    endpoint that authenticates through `appdb.php` (`upload.php`, `backup.php`,
-    `invitations.php`), on every deployment. The same applies to config files required
+    endpoint that authenticates through `appdb.php` (`upload.php`, `backup.php`),
+    on every deployment. The same applies to config files required
     *inside* a function: `require` there assigns into the function's scope, so
     `db_manager_config.php` is loaded at file scope instead.
 15. **`__DIR__` is the file's own directory, so depth matters.** In `api/lib/appdb.php`

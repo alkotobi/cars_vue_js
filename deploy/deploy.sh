@@ -116,8 +116,24 @@ echo "    ok"
 # the client side, and shipping db_manager_config.local.php once is exactly what
 # happened: the db-manager then failed with "Access denied for user 'root'".
 # Listing the credential filenames individually is how that exclusion regressed.
-RSYNC_EXCLUDES=(--exclude 'db_code.json')
+RSYNC_EXCLUDES=(--exclude 'db_code.json' --exclude 'api')
 API_EXCLUDES=(--exclude '*.local.php')
+
+# --delete prunes hashed assets and files a build no longer produces, which is the
+# only way a removed feature actually leaves a deployed folder.
+#
+# It is safe here because of what the app folder does NOT contain. Uploads live in the
+# sibling <FOLDER>_files/, and per-server state is excluded above: db_code.json is
+# written after this rsync, and api/ holds the *.local.php credentials. Without the
+# api/ exclude, --delete would delete the directory that credentials live in - the
+# opposite of what RSYNC_EXCLUDES is for. Same excludes as
+# tenant_deploy_app() (api/lib/tenant-provision.php), which is the local equivalent of
+# this rsync and has to agree with it.
+#
+# Without it, a feature deleted from src/ stayed reachable on every deployed server:
+# removing the invitations feature left InvitationsView.*.js and invitations.php
+# sitting in each webroot forever, still served, still shipping to the browser.
+RSYNC_BUILD_FLAGS=(--delete --exclude '.DS_Store')
 
 assert_no_credentials() { # $1 = rsync dry-run output
   if printf '%s' "$1" | grep -q '\.local\.php'; then
@@ -134,7 +150,7 @@ if [ "$DRY_RUN" -eq 1 ]; then
   echo "==> DRY RUN: nothing will be written to $SSH_TARGET"
   echo
   echo "--- dist/ -> $TARGET/ ---"
-  DRY=$(rsync "${RSYNC_DRY_FLAGS[@]}" "${RSYNC_EXCLUDES[@]}" -e "$RSYNC_SSH" dist/ "$SSH_TARGET:$TARGET/" 2>&1 || true)
+  DRY=$(rsync "${RSYNC_DRY_FLAGS[@]}" "${RSYNC_BUILD_FLAGS[@]}" "${RSYNC_EXCLUDES[@]}" -e "$RSYNC_SSH" dist/ "$SSH_TARGET:$TARGET/" 2>&1 || true)
   printf '%s\n' "${DRY:-    (no changes)}"
   assert_no_credentials "$DRY"
 
@@ -155,7 +171,7 @@ fi
 echo "==> uploading to $SSH_TARGET:$TARGET/"
 ssh -i "$SSH_KEY" "$SSH_TARGET" "mkdir -p '$TARGET/api'"
 
-rsync -az "${RSYNC_EXCLUDES[@]}" -e "$RSYNC_SSH" dist/ "$SSH_TARGET:$TARGET/"
+rsync -az "${RSYNC_BUILD_FLAGS[@]}" "${RSYNC_EXCLUDES[@]}" -e "$RSYNC_SSH" dist/ "$SSH_TARGET:$TARGET/"
 
 # Re-assert against the real target before transferring, so a typo in the
 # exclude list is caught here rather than after the credentials have landed.

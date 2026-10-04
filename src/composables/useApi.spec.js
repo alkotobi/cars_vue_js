@@ -122,3 +122,117 @@ describe('useApi isLocalhost guards', () => {
     expect(undeclared).toEqual([])
   })
 })
+
+describe('loginErrorText tells a refused login apart by its cause', () => {
+  beforeEach(() => {
+    // useApi reads window while it initialises, so the dynamic import in the first
+    // case below needs one in place before it runs.
+    stubBrowser()
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.resetModules()
+  })
+
+  // LoginView used to render auth.invalidCredentials for every unsuccessful login, so
+  // a wrong password and an unreachable database produced the same sentence. The
+  // cost was not cosmetic: the message named the wrong cause, so the reader reset a
+  // password that did not need resetting and never learned the server was down.
+  const t = (key) => key
+
+  it('only calls bad credentials bad credentials', async () => {
+    const { loginErrorText } = await import('./useApi')
+
+    // api/actions/auth.php answers a wrong username AND a wrong password with this
+    // one code - it cannot tell them apart, and neither can the reader.
+    expect(loginErrorText(t, { success: false, code: 'invalid_credentials' })).toBe(
+      'auth.invalidCredentials',
+    )
+  })
+
+  it('names an unreachable database as such', async () => {
+    const { loginErrorText } = await import('./useApi')
+
+    expect(loginErrorText(t, { success: false, code: 'db_unavailable' })).toBe(
+      'auth.serverUnavailable',
+    )
+  })
+
+  it('never guesses credentials from a code it does not know', async () => {
+    const { loginErrorText } = await import('./useApi')
+
+    // The deliberate difference from apiErrorText()/colorErrorText(), which return ''
+    // for unknown codes so the caller can fall back to a message about its own
+    // action. A login form has one button and no action to name, so there is nothing
+    // to fall back to - but claiming bad credentials it cannot prove would be worse
+    // than a generic failure.
+    expect(loginErrorText(t, { success: false, code: 'brand_new_code' })).toBe('auth.loginError')
+    expect(loginErrorText(t, { success: false })).toBe('auth.loginError')
+    expect(loginErrorText(t, {})).toBe('auth.loginError')
+    expect(loginErrorText(t, null)).toBe('auth.loginError')
+    expect(loginErrorText(t, undefined)).toBe('auth.loginError')
+  })
+
+  it('is a named export, not a member of what useApi() returns', async () => {
+    const { loginErrorText, useApi } = await import('./useApi')
+
+    // This is the whole bug this case exists for. The three error translators are
+    // top-level exports of the module, sibling to useApi() rather than part of its
+    // return value, so `const { loginErrorText } = useApi()` destructures to undefined
+    // and every login died on "loginErrorText is not a function" - only once a
+    // password was actually wrong, because the success branch never calls it.
+    expect(typeof loginErrorText).toBe('function')
+
+    // Same trap, asserted against the real object rather than the source: the
+    // translators are absent from it, which is why they must be imported by name.
+    const api = useApi()
+    expect(api.loginErrorText).toBeUndefined()
+    expect(api.apiErrorText).toBeUndefined()
+    expect(api.colorErrorText).toBeUndefined()
+    // And the members that DO come off it, so the contrast is pinned rather than
+    // assumed.
+    expect(typeof api.callApi).toBe('function')
+  })
+
+  it('is imported by the login form as a named import', () => {
+    const loginView = readFileSync(new URL('../views/LoginView.vue', import.meta.url), 'utf8')
+
+    expect(loginView).toMatch(
+      /import\s*\{[^}]*\bloginErrorText\b[^}]*\}\s*from\s*'\.\.\/composables\/useApi'/,
+    )
+    // Belt and braces, and the assertion whose absence let the bug through: a
+    // `/useApi\(\)[\s\S]*loginErrorText/` style check is satisfied by the broken
+    // destructuring itself, because the symbol appears after the call it was wrongly
+    // pulled from. Matching the destructure directly is what actually constrains it.
+    expect(loginView).not.toMatch(/const\s*\{[^}]*\bloginErrorText\b[^}]*\}\s*=\s*useApi\(\)/)
+
+    expect(loginView).toContain('loginErrorText(t, result)')
+    // The old line must not survive anywhere on the failure branch.
+    expect(loginView).not.toMatch(/error\.value = t\('auth\.invalidCredentials'\)/)
+    // And the envelope is logged, because the copy above is only a summary of it.
+    expect(loginView).toContain("console.error('Login rejected:', result)")
+  })
+
+  it('has copy for the new code in every locale', async () => {
+    const { loginErrorText } = await import('./useApi')
+
+    // A key that exists only in en.json renders as the raw key string to every other
+    // reader, which is the exact failure this file exists to stop.
+    for (const locale of ['en', 'ar', 'fr', 'zh']) {
+      const messages = JSON.parse(
+        readFileSync(new URL(`../locales/${locale}.json`, import.meta.url), 'utf8'),
+      )
+      const translate = (key) => messages.auth?.[key.replace('auth.', '')]
+
+      expect(messages.auth.serverUnavailable).toBeTruthy()
+      expect(loginErrorText(translate, { code: 'db_unavailable' })).toBe(
+        messages.auth.serverUnavailable,
+      )
+      expect(loginErrorText(translate, { code: 'invalid_credentials' })).toBe(
+        messages.auth.invalidCredentials,
+      )
+      expect(loginErrorText(translate, { code: 'nope' })).toBe(messages.auth.loginError)
+    }
+  })
+})

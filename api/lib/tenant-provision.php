@@ -1375,9 +1375,13 @@ function tenant_provision(array $opts): array
         $webroot = (string) ($opts['webroot'] ?? '');
     }
 
-    // The template defaults to the database config.php names, which is the local
-    // development tenant; on the server it must be given explicitly.
-    $seedSource = $opts['seed_source'] ?? $appCreds['dbname'];
+    // Where the reference data is copied from. Deliberately NOT defaulted to
+    // $appCreds['dbname']: that used to be a live tenant on this machine, so a
+    // provisioning run with no seed source would quietly rebuild the new tenant from
+    // another client's data. Both callers (db_manager_api.php, deploy/setup-mig-27.php)
+    // read template_database from the server config and pass it in; when neither is
+    // set there is nothing safe to fall back to, so it is refused.
+    $seedSource = tenant_assert_valid_db_name((string) ($opts['seed_source'] ?? ''));
 
     $plan = tenant_plan([
         'db_name' => $dbName,
@@ -1703,7 +1707,9 @@ function tenant_build_template(array $opts): array
     $appCreds = $opts['app_creds'] ?? tenant_app_credentials();
     $registryCreds = $opts['registry_creds'] ?? tenant_registry_credentials();
     $dbName = tenant_assert_valid_db_name((string) ($opts['db_name'] ?? ''));
-    $source = tenant_assert_valid_db_name((string) ($opts['seed_source'] ?? $appCreds['dbname']));
+    // Refused rather than defaulted to $appCreds['dbname'], for the same reason as in
+    // tenant_provision() above: that name is a live tenant, not a template.
+    $source = tenant_assert_valid_db_name((string) ($opts['seed_source'] ?? ''));
 
     if ($source === $dbName) {
         throw new TenantProvisionError(

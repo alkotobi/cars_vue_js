@@ -110,7 +110,21 @@ function api_require_backup_admin(): void
     require_once __DIR__ . '/auth.php';
     require_once __DIR__ . '/appdb.php';
 
-    $dbname = app_db_name() ?? $db_config['dbname'];
+    // No fallback to config.php's db_name, and this is the one place it mattered
+    // most: this authenticates the caller. The fallback meant the token check ran
+    // against whatever one database config.php named, so an admin of that database
+    // was accepted on any tenant's URL and a real tenant admin was rejected - the
+    // check was granting access to an install the caller never authenticated against.
+    //
+    // An unresolved request cannot be authenticated at all, so it is refused rather
+    // than checked against a guess.
+    $dbname = app_db_name() ?? $db_config['dbname'] ?? '';
+    if ($dbname === '') {
+        throw new RuntimeException(
+            'Cannot authenticate this request: it did not resolve to a tenant. '
+            . 'Set db_name in config.php, or reach the app through its tenant folder.'
+        );
+    }
 
     $pdo = new PDO(
         "mysql:host={$db_config['host']};dbname={$dbname}",

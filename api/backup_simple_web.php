@@ -41,9 +41,19 @@ function bs_escape($text) {
  * looking, dumped that one. The deployment's own tenant is the safe default;
  * anything else is still one click away and still admin-gated.
  */
+// No fallback to $dbConfig['dbname']. That value is empty in a multi-tenant setup, and
+// falling back to it used to mean an unresolved request silently defaulted to whatever
+// one database the configuration named - a live tenant. Refused instead.
 function backup_default_db_name(array $dbConfig): string
 {
-    return app_db_name() ?? $dbConfig['dbname'];
+    $name = app_db_name() ?? $dbConfig['dbname'] ?? '';
+    if ($name === '') {
+        throw new RuntimeException(
+            'Cannot pick a database: this request did not resolve to a tenant. '
+            . 'Set db_name in config.php, or reach the app through its tenant folder.'
+        );
+    }
+    return $name;
 }
 
 // Function to get list of available databases
@@ -379,7 +389,7 @@ if (isset($_POST['create_backup'])) {
         // Generate filename with database name
         $timestamp = date('Y-m-d_H-i-s');
         $db_safe_name = preg_replace('/[^a-zA-Z0-9_-]/', '_', $selectedDb);
-        $filename = "merhab_cars_backup_{$db_safe_name}_{$timestamp}.sql";
+        $filename = "backup_{$db_safe_name}_{$timestamp}.sql";
         $filepath = $backup_dir . '/' . $filename;
         
         // Database connection

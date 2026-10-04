@@ -1,9 +1,10 @@
 <script setup>
 import { ref, watch, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useApi } from '../composables/useApi'
+import { useApi, loginErrorText } from '../composables/useApi'
 import { useEnhancedI18n } from '../composables/useI18n'
 import LanguageSwitcher from '../components/LanguageSwitcher.vue'
+import { armSessionLost } from '../composables/useSessionLost'
 import { resetToEnglish } from '../i18n'
 
 const router = useRouter()
@@ -73,6 +74,12 @@ const login = async () => {
 
       localStorage.setItem('user', JSON.stringify(userInfo))
 
+      // A fresh session has to be able to report a fresh loss. useSessionLost dedupes
+      // repeated reports by token, and a sign-out with no token at all dedupes under a
+      // sentinel - so without re-arming here, the *second* sign-out of a reader who had
+      // never held a token would be swallowed as a duplicate of the first.
+      armSessionLost()
+
       // Clear logo cache by updating assets version to force reload
       const STORAGE_KEY = 'assets_version'
       localStorage.setItem(STORAGE_KEY, Date.now().toString())
@@ -83,7 +90,11 @@ const login = async () => {
 
       router.push('/cars')
     } else {
-      error.value = t('auth.invalidCredentials')
+      error.value = loginErrorText(t, result)
+      // The raw envelope, because the copy above is a summary of it. A failed login
+      // was previously indistinguishable from a dead database here, which sent the
+      // reader - and whoever was helping them - after the credentials instead.
+      console.error('Login rejected:', result)
     }
   } catch (err) {
     error.value = t('auth.loginError')

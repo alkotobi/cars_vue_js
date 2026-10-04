@@ -5,6 +5,7 @@ import { useEnhancedI18n } from '@/composables/useI18n'
 import { useApi } from '../../composables/useApi'
 import { useInvoiceCompanyInfo } from '../../composables/useInvoiceCompanyInfo'
 import { useCrossDev } from '../../composables/useCrossDev'
+import { isSessionLostError, reportSessionLost } from '../../composables/useSessionLost'
 import VinEditForm from './VinEditForm.vue'
 import CarFilesManagement from './CarFilesManagement.vue'
 import CarPortsEditForm from './CarPortsEditForm.vue'
@@ -3305,7 +3306,10 @@ const togglePaymentConfirmed = async (car) => {
 
     // Get current user info for permission check
     if (!user.value || !user.value.id) {
-      alert(t('carStock.user_authentication_required'))
+      // The same "no local user" case as the transfer and checkout guards below, and
+      // the same treatment: this alert said only "User authentication required",
+      // which is the reader being told a fact they cannot act on.
+      reportSessionLost(null)
       return
     }
 
@@ -3586,7 +3590,10 @@ const handleTransfer = async () => {
     }
 
     if (!user.value || !user.value.id) {
-      alert(t('carStock.user_not_authenticated') || 'User not authenticated. Please log in again.')
+      // See the identical guard in handleCheckout: reportSessionLost(null) opens
+      // the session-expired modal instead of naming the problem in a native dialog
+      // the reader cannot act on.
+      reportSessionLost(null)
       return
     }
 
@@ -3759,6 +3766,13 @@ const confirmBatchTransfer = async () => {
         )
         results.push({ file: file.file_name, car: file.car_name })
       } catch (err) {
+        // A lost session fails identically for every remaining file, so stop
+        // instead of sending one doomed request per file, and say nothing here:
+        // the session-expired modal is already up and owns the message. Collected
+        // into `errors` it would reach the alert() below, and a native dialog
+        // renders above a teleported modal - so the reader would get a browser
+        // popup on top of the thing that is supposed to replace it.
+        if (isSessionLostError(err)) throw err
         errors.push({
           file: file.file_name,
           car: file.car_name,
@@ -3784,6 +3798,10 @@ const confirmBatchTransfer = async () => {
     batchTransferFiles.value = []
     fetchCarsStock()
   } catch (err) {
+    // Re-thrown by the per-file catch above when the session is gone. The modal is
+    // already showing and is not dismissable, so an alert() here would only stack a
+    // second, browser-chrome dialog on top of it. `finally` still runs.
+    if (isSessionLostError(err)) return
     alert(
       t('carStock.failed_to_perform_batch_transfer') ||
         'Failed to perform batch transfer: ' + err.message,
@@ -3809,7 +3827,11 @@ const handleCheckout = async () => {
     }
 
     if (!user.value || !user.value.id) {
-      alert(t('carStock.user_not_authenticated') || 'User not authenticated. Please log in again.')
+      // reportSessionLost(null), not alert(...): the native dialog named the problem
+      // and offered no way to act on it. The modal says what happened and leads to
+      // /login. This is the "no local user" half - a token the server rejects is
+      // reported for every call site at once, in callApi.
+      reportSessionLost(null)
       return
     }
 

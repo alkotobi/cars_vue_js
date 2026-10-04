@@ -44,9 +44,11 @@ require_once $repoRoot . '/api/db_manager_config.php';
 require_once $repoRoot . '/api/lib/tenant-provision.php';
 
 /**
- * The local development tenant. Same name for the database and the folder.
+ * The tenant used when --db is omitted: this machine's own app, which is also the
+ * database named in the root db_code.json. Overridable with --db, because a machine
+ * can hold more than one and this is only a convenience for the common case.
  */
-const DEFAULT_TENANT_DB = 'mig_27';
+const DEFAULT_TENANT_DB = 'merhab_cars';
 
 // ---------------------------------------------------------------------------
 // Output
@@ -139,7 +141,16 @@ $registryCreds = tenant_registry_credentials();
 // are siblings of api/, which is what app_deployment_root() works out from the
 // registry's leading slash on files_dir.
 $webroot = $sharedApi ? dirname((string) tenant_server_config()['api_dir']) : $repoRoot;
-$seedSource ??= $appCreds['dbname'];
+// Where a new tenant's reference data comes from. --seed-source wins, then the
+// template_database this machine is configured with, and only then the app database.
+//
+// The fallback matters less than it looks, because it used to be the only option and
+// is wrong the moment this machine is itself a live tenant: the app database is then
+// the tenant being provisioned, and tenant_plan() refuses it outright ("the seed
+// source cannot be the tenant database itself"). Reading template_database first is
+// what lets a plain invocation work on a machine whose own database is merhab_cars.
+$seedSource ??= (string) (tenant_server_config()['template_database'] ?: '');
+$seedSource = $seedSource !== '' ? $seedSource : $appCreds['dbname'];
 
 try {
     $dbName = tenant_assert_valid_db_name($dbName);

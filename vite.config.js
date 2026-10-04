@@ -260,7 +260,72 @@ const apiUrl = 'http://localhost:8000'
 // a 403 saying the request was "outside of Vite serving allow list". Neither pointed
 // at the dev server, and both were fixed by restarting it.
 
-export default defineConfig({
+// The dev server mounts the app where production mounts it: /cars/.
+//
+// The dev URL and the production URL were different shapes for the same page - dev
+// was at http://localhost:5173/login while production is
+// https://host/cars/login - so every deep link, every bookmark and every bug report
+// had to be translated between the two before anyone could follow it. `base` is what
+// the router and every asset URL derive from (src/utils/basePath.js), so setting it
+// here makes the dev server produce production-shaped URLs rather than the two being
+// kept in sync by hand.
+//
+// It applies to `vite serve` ONLY, which is why this is keyed on `command` and not on
+// NODE_ENV: the build has to stay relative, because one build is deployed to every
+// tenant and each is served from a differently named folder (mig_27, b, nn, ...).
+// An absolute /cars/ base would emit asset URLs that only resolve on the one server
+// whose folder happens to be called cars.
+//
+// The tenant mounts above are unaffected: they are served by serveFolderMounts from
+// their own prebuilt bundles, which already carry a relative base and get <base>
+// injected per mount.
+const DEV_BASE = process.env.VITE_DEV_BASE ?? '/cars/'
+
+// The root of the dev server is not an app, and must not become one.
+//
+// Setting `base` makes Vite redirect / to DEV_BASE, so http://127.0.0.1:5173/ answered
+// 302 to /cars/ and booted the root SPA. That SPA has no tenant - the repository root
+// carries no db_code.json - so every request it makes is refused with db_unavailable.
+// Its login form is a dead end that is indistinguishable from a working one right up
+// until a password is typed into it, which is worse than not offering the form.
+//
+// Production never had this bug, and the reason is worth keeping in mind before
+// "fixing" it by pointing the dev server at the root app again: the rendered nginx
+// config has no `location = /` at all, so / falls through to `root __WEBROOT__;` and
+// index index.html, i.e. __WEBROOT__/index.html. deploy.sh only ever rsyncs dist/ into
+// $WEBROOT/$FOLDER/ and api/ into $WEBROOT/$FOLDER/api/, so no file is ever written at
+// the webroot root and nginx answers 404. The dev server was the only place where /
+// was an app.
+//
+// So / is answered here, and answered the way production answers it. Registered in
+// configureServer directly rather than returned from it, because plugin middleware
+// added that way runs before Vite's internal ones - including the base redirect that
+// would otherwise win and 302 to /cars/ before this ever got a say.
+//
+// Nothing is served in its place. The webroot root is where a welcome page belongs,
+// and index.html cannot be that: it is the SPA shell that the tenant mounts are built
+// from, so reusing it here would put the SPA back at / under a different name. A
+// welcome page needs a name that is not taken, and choosing one is a decision to make
+// when there is a page to point at - not a reason to serve the shell instead.
+const serveNothingAtRoot = {
+  name: 'serve-nothing-at-root',
+
+  configureServer(server) {
+    server.middlewares.use((req, res, next) => {
+      // /index.html is the same request spelled out: production resolves it to
+      // __WEBROOT__/index.html and 404s, so it must not redirect here either.
+      const pathname = (req.url || '').split('?')[0]
+      if (pathname !== '/' && pathname !== '/index.html') {
+        next()
+        return
+      }
+      res.statusCode = 404
+      res.end()
+    })
+  },
+}
+
+export default defineConfig(({ command }) => ({
   // vue-plugin-vue-devtools is intentionally not loaded: importing it evaluates
   // @vue/devtools-kit at config load, which touches localStorage and throws
   // "localStorage.getItem is not a function" under the Node build, breaking
@@ -270,6 +335,7 @@ export default defineConfig({
     removeVendorPreload(),
     removeDbCode(),
     serveFolderMounts,
+    serveNothingAtRoot,
   ],
   test: {
     globals: true,
@@ -322,7 +388,7 @@ export default defineConfig({
       },
     },
   },
-  base: './',
+  base: command === 'serve' ? DEV_BASE : './',
   build: {
     rollupOptions: {
       output: {
@@ -371,4 +437,4 @@ export default defineConfig({
     sourcemap: process.env.VITE_SOURCEMAP === 'true',
     chunkSizeWarningLimit: 1000, // Increase warning limit to 1MB
   },
-})
+}))
