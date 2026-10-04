@@ -36,8 +36,26 @@ declare(strict_types=1);
 const CARS_NGINX_TEMPLATE_PATH = __DIR__ . '/nginx-multitenant.conf.template';
 
 if (!function_exists('tenant_assert_valid_db_name')) {
+    $carsNginxCandidates = [
+        __DIR__ . '/../api/lib/tenant-provision.php',
+        '/var/www/api/lib/tenant-provision.php',
+    ];
+
+    // A server that keeps api/ inside a tenant folder matches neither path above, so the
+    // configured api_dir is tried as well. cars-deploy.json is root-owned and not writable
+    // by the web server's user, and cars-nginx-render still requires_root_owned whatever is
+    // resolved here, so this adds a path to try rather than a way to choose one.
+    $carsNginxConfigPath = '/etc/cars-deploy.json';
+    if (is_readable($carsNginxConfigPath)) {
+        $carsNginxDecoded = json_decode((string) file_get_contents($carsNginxConfigPath), true);
+        if (is_array($carsNginxDecoded) && !empty($carsNginxDecoded['api_dir'])) {
+            $carsNginxCandidates[] = rtrim((string) $carsNginxDecoded['api_dir'], '/')
+                . '/lib/tenant-provision.php';
+        }
+    }
+
     $carsNginxLib = null;
-    foreach ([__DIR__ . '/../api/lib/tenant-provision.php', '/var/www/api/lib/tenant-provision.php'] as $candidate) {
+    foreach ($carsNginxCandidates as $candidate) {
         if (is_file($candidate)) {
             $carsNginxLib = $candidate;
             break;
@@ -46,7 +64,7 @@ if (!function_exists('tenant_assert_valid_db_name')) {
 
     if ($carsNginxLib === null) {
         fwrite(STDERR, "render-nginx: cannot find api/lib/tenant-provision.php, looked in:\n  "
-            . __DIR__ . "/../api/lib/tenant-provision.php\n  /var/www/api/lib/tenant-provision.php\n");
+            . implode("\n  ", $carsNginxCandidates) . "\n");
         exit(1);
     }
 

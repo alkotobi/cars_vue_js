@@ -405,6 +405,18 @@ describe('root-executed code, and what it reads', () => {
     expect(wrapper).toMatch(/renderer could not report its includes/)
   })
 
+  it('finds the library on a server that keeps api/ inside a tenant folder', () => {
+    // The two fixed candidates both assume /var/www/api. A server that deploys into
+    // <webroot>/<tenant>/api matches neither, and the renderer exits 1 - which looks
+    // exactly like a broken install rather than an unreachable path. api_dir is where
+    // that server says its api actually is, so it has to be part of the search.
+    expect(renderer).toMatch(/\$carsNginxDecoded\['api_dir'\]/)
+    expect(renderer).toMatch(/\/lib\/tenant-provision\.php/)
+    // And it must stay a path to try, not a path to trust: the wrapper's ownership
+    // check is what makes reading the config here safe.
+    expect(renderer).toMatch(/is_readable\(\$carsNginxConfigPath\)/)
+  })
+
   it('keeps the same rule for every file root loads: root-owned, not writable by others', () => {
     expect(wrapper).toMatch(/0022/)
     expect(wrapper).toMatch(/is owned by '\$owner', not root/)

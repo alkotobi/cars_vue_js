@@ -187,14 +187,28 @@ fi
 # library must not be web-writable), and refusing to finish the deploy over it would
 # leave the app updated with the renderer broken, which is the worse of the two.
 echo "==> protecting the root-executed library"
-ssh -i "$SSH_KEY" "$SSH_TARGET" '
+# The remote script goes in on stdin, because ssh concatenates a command and its
+# arguments into ONE string for the remote shell. The old form,
+# `ssh host '...' _ "$TARGET"`, therefore ran the script with $1 empty and then tried to
+# execute `_ /var/www/...` as a second command: $f became /api/lib/tenant-provision.php,
+# the -f test failed, and the step exited 0 having done nothing. No output, no warning,
+# and the file left owned by whatever rsync wrote - which is the local checkout's uid,
+# since rsync -a preserves it. `bash -s --` is what actually delivers the argument.
+ssh -i "$SSH_KEY" "$SSH_TARGET" bash -s -- "$TARGET" <<'REMOTE' || echo "    WARNING: could not check $TARGET/api/lib/tenant-provision.php ownership." >&2
   f="$1/api/lib/tenant-provision.php"
-  [ -f "$f" ] || exit 0
+  if [ ! -f "$f" ]; then
+    echo "    *** $f is missing - root would have nothing to execute"
+    exit 1
+  fi
   before=$(stat -c "%U:%a" "$f" 2>/dev/null || stat -f "%Su:%Lp" "$f")
-  chown root:root "$f" && chmod 0644 "$f"
+  chown root:root "$f" && chmod 0644 "$f" || { echo "    *** could not chown $f"; exit 1; }
   after=$(stat -c "%U:%a" "$f" 2>/dev/null || stat -f "%Su:%Lp" "$f")
   [ "$before" = "$after" ] || echo "    fixed $f: $before -> $after (root executes this file)"
-' _ "$TARGET" || echo "    WARNING: could not check $TARGET/api/lib/tenant-provision.php ownership." >&2
+  # Confirm the end state rather than the absence of an error message. A chown that
+  # fails on a server where the uid does not resolve reports nothing useful, and this
+  # file is the one input root loads.
+  [ "${after%%:*}" = "root" ] || { echo "    *** $f is '$after', not root-owned"; exit 1; }
+REMOTE
 
 # --- post-deploy verification ---------------------------------------------------
 # Checks the pieces that are easy to get wrong and hard to notice: the SPA
