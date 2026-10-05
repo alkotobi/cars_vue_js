@@ -16,18 +16,7 @@
 // Re-runnable: every step is idempotent, and the seed is skipped for any table that
 // already has rows, so this doubles as "rebuild the tenant from scratch".
 //
-// Why this copies api/ rather than symlinking it
-// -------------------------------------------------
-// A tenant folder is a complete deployment: built assets, db_code.json and its own
-// api/ (that is what deploy/deploy.sh rsyncs to a client server). The tenant's
-// database is chosen by api/lib/appdb.php from db_code.json in the folder holding
-// api/. PHP resolves symlinks in __DIR__, so a symlinked api/ would report the repo's
-// api/ as its location and read the ROOT db_code.json, sending the whole tenant app
-// to the root database. Hence a real copy, refreshed by --sync-only.
-//
-// On the server there is ONE shared /var/www/api/ instead, and the tenant's database
-// comes from the request's mount - the two layouts are both handled by
-// api/lib/appdb.php, and --shared-api here selects the server one.
+// Local dev setup; the server layout uses shared /var/www/api/ and tenant files/ only.
 //
 // Credentials come from api/config.local.php and api/db_manager_config.local.php -
 // never hardcoded, and passed to the mysql client via MYSQL_PWD so they do not land
@@ -182,15 +171,16 @@ try {
             'shared_api' => $sharedApi,
         ]);
 
-        echo "Tenant {$dbName}: re-copying the build only\n";
-        info('--sync-only: leaving the database and the folders alone');
+        echo "Re-copying the shared build only\n";
+        info('--sync-only: leaving every database and every tenant folder alone');
 
-        step('App copy');
+        step('Shared build');
         $buildSource = is_dir($repoRoot . '/dist') ? $repoRoot . '/dist' : '';
-        tenant_deploy_app($status['plan'], $buildSource, 'out');
+        tenant_deploy_app(['dist_folder' => $status['plan']['dist_folder']], $buildSource, 'out');
 
-        echo "\n\033[32mDone.\033[0m Build refreshed for {$dbName}.\n\n";
-        echo "  The tenant app is a prebuilt snapshot, so it has no HMR: run `npm run mig27`\n";
+        echo "\n\033[32mDone.\033[0m Build refreshed at {$status['plan']['dist_folder']}.\n\n";
+        echo "  One dist/ serves every tenant on this machine, so this updates all of them.\n";
+        echo "  The app is a prebuilt snapshot, so it has no HMR: run `npm run mig27`\n";
         echo "  after changing src/. Restart `npm run dev` if vite.config.js changed.\n";
         exit(0);
     }
@@ -225,7 +215,7 @@ try {
 }
 
 echo "\n\033[32mDone.\033[0m Independent apps, one dev server:\n\n";
-echo '  root app    http://localhost:5173/cars                      -> ' . $appCreds['dbname'] . " (db_code from /db_code.json)\n";
+echo '  root app    http://localhost:5173/cars                      -> ' . $appCreds['dbname'] . "\n";
 echo "  tenant app  http://localhost:5173/" . ltrim((string) $report['js_dir'], '/') . "/cars   -> {$report['db_name']} (uploads " . basename($report['files_dir']) . "/)\n\n";
 echo "  The tenant app is a prebuilt snapshot, so it has no HMR: run `npm run mig27`\n";
 echo "  after changing src/. Restart `npm run dev` if vite.config.js changed.\n";

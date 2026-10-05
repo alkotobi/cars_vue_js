@@ -66,24 +66,24 @@ describe('dev server tenant mounts', () => {
   })
 
   it('recognises a tenant the way the app does', () => {
-    // db_code.json is api/lib/appdb.php's test for "which database does this
-    // deployment serve" - present means provisioned. api/ is what the proxy needs to
-    // reach, because the dev server executes the tenant's PHP at
-    // /<mount>/api/... inside that folder.
-    expect(resolveMount).toMatch(/existsSync\(join\(root, name, 'db_code\.json'\)\)/)
-    expect(resolveMount).toMatch(/isDirectory\(join\(root, name, 'api'\)\)/)
+    // files/ is api/lib/appdb.php's test for "which tenant does this request serve"
+    // now that the database is named after the tenant folder: it is where that
+    // tenant's uploads live. db_code.json + api/ was the test while each tenant
+    // carried its own copy of the code, which is what the shared api/ removed.
+    expect(resolveMount).toMatch(/isDirectory\(join\(root, name, 'files'\)\)/)
+    expect(resolveMount).not.toMatch(/db_code\.json/)
   })
 
-  it('survives a folder with a db_code.json and no api/', () => {
-    // Not hypothetical: mig/ and mig1/ are in the repository root right now. An
-    // earlier version of this filter called statSync() straight after existsSync()
-    // returned true for db_code.json; statSync() on the missing api/ threw, and the
-    // config - and the dev server with it - did not load.
+  it('survives a folder with no files/ at all', () => {
+    // Not hypothetical: mig1/ and the repository root are both folders here without
+    // one. An earlier version of this filter called statSync() straight after
+    // existsSync() returned true for db_code.json; statSync() on the missing api/
+    // threw, and the config - and the dev server with it - did not load.
     // The guard itself lives at module scope, next to folderMountFor().
     expect(viteConfig).toMatch(
       /const isDirectory = \(path\) => existsSync\(path\) && statSync\(path\)\.isDirectory\(\)/,
     )
-    expect(resolveMount).not.toMatch(/existsSync\([^)]*'db_code\.json'\)\) && statSync\(/)
+    expect(resolveMount).not.toMatch(/existsSync\([^)]*'files'\)\) && statSync\(/)
   })
 
   it('validates the name before it reaches a path', () => {
@@ -97,7 +97,7 @@ describe('dev server tenant mounts', () => {
     // One entry per client has the same defect: the table is built when the config
     // loads. The pattern also matches paths that are not mounts, and those are
     // forwarded to a PHP server with no such file, which answers 404.
-    expect(viteConfig).toMatch(/'\^\/\[\^\/\]\+\/api': \{\n\s+target: apiUrl/)
+    expect(viteConfig).toMatch(/'\^\/\[\^\/\]\+\/api.*': \{\s*target: apiUrl/s)
     expect(viteConfig).not.toMatch(/\.\.\.Object\.fromEntries\(\s*FOLDER_MOUNTS/)
   })
 
@@ -160,26 +160,28 @@ describe('the dev server root', () => {
     // if a welcome page ever ships at the webroot root, dev should follow it instead.
     // The rendered config has no `location = /`, so / falls through to
     // `root __WEBROOT__; index index.html;` -> __WEBROOT__/index.html, and deploy.sh
-    // only writes into $WEBROOT/$FOLDER/.
+    // only ever writes into $WEBROOT/dist/ and $WEBROOT/api/ - never a file at the
+    // webroot root, and never into a client folder.
     const template = readFileSync(
-      new URL('../../deploy/nginx-app.conf.template', import.meta.url),
+      new URL('../../deploy/nginx-multitenant.conf.template', import.meta.url),
       'utf8',
     )
     expect(template).toMatch(/root __WEBROOT__;/)
-    expect(template).not.toMatch(/^\s*location = \/\s*\{/m)
+    expect(template).toMatch(/location \/ \{ return 404; \}/)
 
     const deploy = readFileSync(new URL('../../deploy/deploy.sh', import.meta.url), 'utf8')
-    expect(deploy).toMatch(/^TARGET="\$WEBROOT\/\$FOLDER"$/m)
+    expect(deploy).toMatch(/^DIST_TARGET="\$WEBROOT\/dist"$/m)
+    expect(deploy).toMatch(/^API_TARGET="\$WEBROOT\/api"$/m)
 
-    // Every rsync destination is a path inside the tenant folder. None of them is
-    // $WEBROOT itself, which is what makes __WEBROOT__/index.html a file that does
-    // not exist and the dev server's 404 the right answer to copy.
-    const destinations = [...deploy.matchAll(/\$SSH_TARGET:(\$TARGET[^"']*)/g)].map((m) => m[1])
+    // Every rsync destination is one of the two shared folders. None of them is
+    // $WEBROOT itself and none is a client folder, which is what makes
+    // __WEBROOT__/index.html a file that does not exist and the dev server's 404 the
+    // right answer to copy.
+    const destinations = [...deploy.matchAll(/\$SSH_TARGET:([^"'\s]+)/g)].map((m) => m[1])
     expect(destinations.length).toBeGreaterThan(0)
     for (const dest of destinations) {
-      expect(dest).toMatch(/^\$TARGET\/(\w+\/)?$/)
+      expect(dest).toMatch(/^\$(DIST|API)_TARGET\//)
     }
-    expect(deploy).not.toMatch(/\$SSH_TARGET:\$WEBROOT/)
   })
 })
 
@@ -190,13 +192,12 @@ describe('what that resolution finds in this checkout', () => {
   // those tenants were deleted and `merhab` was provisioned in their place it still
   // matched nothing and the assertion below failed on an empty list - the spec had
   // stopped describing this checkout and started describing a deleted one. Scanning
-  // for db_code.json + api/ is the condition tenant-provision.php actually satisfies,
-  // so a newly provisioned tenant is covered without editing this file.
+  // for files/ is the condition tenant-provision.php actually satisfies, so a newly
+  // provisioned tenant is covered without editing this file.
   const mounts = readdirSync(repoRoot).filter(
     (name) =>
       /^[a-z][a-z0-9_]*$/.test(name) &&
-      existsSync(join(repoRoot, name, 'db_code.json')) &&
-      isDirectory(join(repoRoot, name, 'api')),
+      isDirectory(join(repoRoot, name, 'files')),
   )
 
   it('covers every client that is actually provisioned here', () => {
@@ -205,15 +206,25 @@ describe('what that resolution finds in this checkout', () => {
     // different hat.
     expect(mounts.length).toBeGreaterThan(0)
     for (const name of mounts) {
-      expect(existsSync(join(repoRoot, name, 'index.html'))).toBe(true)
-      expect(existsSync(join(repoRoot, `${name}_files`))).toBe(true)
+      expect(isDirectory(join(repoRoot, name, 'files'))).toBe(true)
+    }
+  })
+
+  it('gives each tenant no copy of the code or the build', () => {
+    // The point of the shared layout. A tenant folder that grew an api/ or a set of
+    // hashed assets again would be serving its own copy of the application, and the
+    // next update would have to be applied to it separately - which is the drift this
+    // spec exists to make visible.
+    for (const name of mounts) {
+      expect(isDirectory(join(repoRoot, name, 'api'))).toBe(false)
+      expect(existsSync(join(repoRoot, name, 'db_code.json'))).toBe(false)
+      expect(existsSync(join(repoRoot, name, 'index.html'))).toBe(false)
     }
   })
 
   it("does not mistake Vite's own directories for clients", () => {
-    // public/ holds the root app's db_code.json and is in git, and dist/ has one
-    // stripped by removeDbCode(). Neither is a client, and mounting them would put a
-    // build folder and a source folder on the same footing as a tenant.
+    // dist/ holds a built index.html and api/ holds PHP, so a rule that keyed on
+    // either would mount a build folder and a source folder as if they were tenants.
     expect(mounts).not.toContain('public')
     expect(mounts).not.toContain('dist')
     expect(mounts).not.toContain('api')

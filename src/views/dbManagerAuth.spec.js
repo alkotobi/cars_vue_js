@@ -35,7 +35,6 @@ const DB_MANAGER_VIEW = readFileSync(new URL('./DbManagerView.vue', import.meta.
 const DB_MANAGER_CALLERS = [
   '../components/db-manager/Databases.vue',
   '../components/db-manager/UpdateDbStructure.vue',
-  '../components/db-manager/EditDbCodeJson.vue',
   '../components/params/GeneralSettingsForm.vue',
 ]
 

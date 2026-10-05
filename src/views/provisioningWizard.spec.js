@@ -118,13 +118,24 @@ describe('what blocks which button', () => {
   })
 
   it('does not block on a missing build, and leaves a way to add it later', () => {
-    // tenant_deploy_app() threw when there was no build to copy, so the run stopped at
-    // the last step with the client already half-written. Now the copy is skipped with
-    // a message - and the button that performs it must therefore not be hidden behind
-    // a fully-complete status, or there is no way back.
-    expect(LIB).toMatch(/app copy: skipped, no build to copy/)
+    // Provisioning reports the shared build but never writes it, so a client cannot be
+    // refused for something that is not part of setting up that client. The button that
+    // deploys the build must therefore not be hidden behind a fully-complete status, or
+    // there is no way back from a server whose dist/ is empty.
+    expect(LIB).toMatch(/\$step\('Shared build'\)/)
+    expect(LIB).not.toMatch(/tenant_deploy_app\(\$plan/)
     expect(DATABASES).toMatch(/v-if="hasCanonicalBuild"/)
     expect(DATABASES).not.toMatch(/v-if="provisionStatus\?\.ready"[\s\S]{0,120}@click="deployApp"/)
+  })
+
+  it('deploys the build to the one shared dist/, not to the selected client', () => {
+    // The copy is server-wide. Sending db_name, or disabling the button without a
+    // selected row, would both read as though a per-client build still existed - and the
+    // operator would be told a deployment did nothing for the client it was run against.
+    const body = functionBody('deployApp')
+    expect(body).not.toMatch(/db_name/)
+    expect(functionBody('deployApp')).not.toMatch(/provisionTarget/)
+    expect(DATABASES).not.toMatch(/:disabled="deploying \|\| provisioning \|\| !hasCanonicalBuild"/)
   })
 })
 

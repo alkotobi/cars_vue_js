@@ -5,9 +5,9 @@
     <meta charset="UTF-8">
       <!--
         The entry script below is referenced relatively ("./index.<hash>.js") and
-        this file ships no base element, because the app folder is per-client and
-        unknown at build time: one dist/ serves /cars/, /mig_26/ and any other
-        folder, and baking the name in would break the rest.
+        this file ships no base element, because the mount is per-client and unknown
+        at build time: one dist/ serves /cars/, /mig_26/ and any other tenant, and
+        baking the name in would break the rest.
 
         A relative URL resolves against the document, which is correct at depth 1
         only. On a deep link such as /cars/sell-bills/5 the browser would request
@@ -17,8 +17,9 @@
         page still returned 200.
 
         So nginx injects the base when serving this shell, via sub_filter on the
-        charset meta tag below (deploy/nginx-app.conf.template). That keeps one
-        build portable to any folder.
+        charset meta tag below (deploy/render-nginx-multitenant.php). That keeps one
+        build portable to any tenant. A subdomain mount gets no injection at all:
+        the app is already at the root of its host, so a base there would be wrong.
 
         CONSEQUENCE: the charset meta tag directly above is the anchor for that
         injection, and this file is what the rule matches. Removing or reformatting
@@ -79,77 +80,59 @@
           return url.toString()
         }
 
-        async function fetchDifferentCompanyUserLogo(user) {
-          if (!user || !user.path_logo || typeof user.path_logo !== 'string' || user.path_logo.trim() === '') return null
-          const basePath = getBasePath()
-          const apiBase = getApiBase()
+        // The token this build stores for api.php, or '' when nobody is signed in.
+        //
+        // api.php's query passthrough is behind the session gate, so every caller
+        // below has to carry it - and has to accept that it cannot answer at all
+        // before login. They all return null in that case, which is what the caller
+        // already does with a null: fall back to the shared default branding.
+        function apiToken() {
           try {
-            const dbCodeRes = await fetch(basePath + 'db_code.json')
-            const dbCodeData = await dbCodeRes.json()
-            if (!dbCodeData || !dbCodeData.db_code) return null
-            const dbRes = await fetch(apiBase + '/db_manager_api.php?action=get_database_by_code&db_code=' + encodeURIComponent(dbCodeData.db_code))
-            const dbResult = await dbRes.json()
-            if (!dbResult.success || !dbResult.data) return null
-            const filesDir = dbResult.data.files_dir || ''
-            return getFileUrl(user.path_logo, filesDir)
+            const user = JSON.parse(localStorage.getItem('user') || 'null')
+            return user && typeof user.token === 'string' ? user.token : ''
+          } catch (e) {
+            return ''
+          }
+        }
+
+        // One row out of `banks`, or null. No `dbname`: the server resolves the
+        // database from the URL this page was served on, so the client has nothing
+        // to name and sending a name would be claiming authority it does not have.
+        //
+        // This used to fetch <mount>db_code.json and hand that code to
+        // db_manager_api.php to learn which database and which uploads folder to
+        // use. Neither exists: the folder is the database, and the uploads folder is
+        // always `files/`. The two round trips are gone rather than re-pointed.
+        async function fetchBankRow(sql, params) {
+          const token = apiToken()
+          if (!token) return null
+          try {
+            const res = await fetch(getApiBase() + '/api.php', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ query: sql, params: params, token: token })
+            })
+            const result = await res.json()
+            if (result.success && result.data && result.data[0]) return result.data[0]
           } catch (e) {}
           return null
+        }
+
+        async function fetchDifferentCompanyUserLogo(user) {
+          if (!user || !user.path_logo || typeof user.path_logo !== 'string' || user.path_logo.trim() === '') return null
+          return getFileUrl(user.path_logo, 'files')
         }
 
         async function fetchUserBankCompanyName(user) {
           if (!user || !user.id_bank_account) return null
-          const basePath = getBasePath()
-          const apiBase = getApiBase()
-          try {
-            const dbCodeRes = await fetch(basePath + 'db_code.json')
-            const dbCodeData = await dbCodeRes.json()
-            if (!dbCodeData || !dbCodeData.db_code) return null
-            const dbRes = await fetch(apiBase + '/db_manager_api.php?action=get_database_by_code&db_code=' + encodeURIComponent(dbCodeData.db_code))
-            const dbResult = await dbRes.json()
-            if (!dbResult.success || !dbResult.data || !dbResult.data.db_name) return null
-            const apiRes = await fetch(apiBase + '/api.php', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                query: 'SELECT company_name FROM banks WHERE id = ?',
-                params: [user.id_bank_account],
-                dbname: dbResult.data.db_name
-              })
-            })
-            const apiResult = await apiRes.json()
-            if (apiResult.success && apiResult.data && apiResult.data[0] && apiResult.data[0].company_name) {
-              return apiResult.data[0].company_name
-            }
-          } catch (e) {}
-          return null
+          const bank = await fetchBankRow('SELECT company_name FROM banks WHERE id = ?', [user.id_bank_account])
+          return bank && bank.company_name ? bank.company_name : null
         }
 
         async function fetchActiveBankLogo() {
-          const basePath = getBasePath()
-          const apiBase = getApiBase()
-          try {
-            const dbCodeRes = await fetch(basePath + 'db_code.json')
-            const dbCodeData = await dbCodeRes.json()
-            if (!dbCodeData || !dbCodeData.db_code) return null
-            const dbRes = await fetch(apiBase + '/db_manager_api.php?action=get_database_by_code&db_code=' + encodeURIComponent(dbCodeData.db_code))
-            const dbResult = await dbRes.json()
-            if (!dbResult.success || !dbResult.data || !dbResult.data.db_name) return null
-            const apiRes = await fetch(apiBase + '/api.php', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                query: 'SELECT logo_path FROM banks WHERE is_active = 1 LIMIT 1',
-                params: [],
-                dbname: dbResult.data.db_name
-              })
-            })
-            const apiResult = await apiRes.json()
-            if (apiResult.success && apiResult.data && apiResult.data[0] && apiResult.data[0].logo_path) {
-              const filesDir = dbResult.data.files_dir || ''
-              return getFileUrl(apiResult.data[0].logo_path, filesDir)
-            }
-          } catch (e) {}
-          return null
+          const bank = await fetchBankRow('SELECT logo_path FROM banks WHERE is_active = 1 LIMIT 1', [])
+          if (!bank || !bank.logo_path) return null
+          return getFileUrl(bank.logo_path, 'files')
         }
 
         async function loadFavicon() {

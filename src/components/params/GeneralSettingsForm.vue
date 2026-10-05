@@ -260,38 +260,9 @@ const loadConfiguration = async () => {
   error.value = null
 
   try {
-    // Base path helper (shared, see utils/basePath.js)
-    const getBasePath = () => sharedGetBasePath()
-    const basePath = getBasePath()
-
-    // Load db_code.json to get db_code (for display purposes)
-    const dbCodeResponse = await fetch(`${basePath}db_code.json`)
-    if (!dbCodeResponse.ok) {
-      throw new Error('Failed to load db_code.json')
-    }
-    const dbCodeData = await readJsonResponse(dbCodeResponse, `${basePath}db_code.json`)
-
-    if (!dbCodeData.db_code) {
-      throw new Error('db_code not found in db_code.json')
-    }
-
-    dbCode.value = dbCodeData.db_code
-
-    // Upload path is the same folder as index.html (where db_code.json is located)
-    // Convert basePath to a relative path format for upload.php
-    // If basePath is '/mig/', we want to use 'mig' as the base_directory
-    // If basePath is '/', we want to use empty string (root)
-    let uploadDir = basePath
-    if (uploadDir.startsWith('/')) {
-      uploadDir = uploadDir.substring(1) // Remove leading slash
-    }
-    if (uploadDir.endsWith('/')) {
-      uploadDir = uploadDir.slice(0, -1) // Remove trailing slash
-    }
-    // If it's root, use empty string (files go to project root, same as index.html)
-    // upload.php will handle empty base_directory correctly
-
-    uploadPath.value = uploadDir || '' // Empty string for root
+    // Branding uploads go to the tenant's files/ folder (per-tenant)
+    // upload.php uses base_directory='files' for this tenant
+    uploadPath.value = 'files'
   } catch (err) {
     error.value = err.message || 'Failed to load configuration'
     console.error(err)
@@ -475,7 +446,7 @@ const uploadFiles = async () => {
       try {
         const formData = new FormData()
         formData.append('file', file)
-        formData.append('base_directory', uploadDir) // Upload to same folder as index.html
+        formData.append('base_directory', uploadPath.value || 'files') // Upload to tenant files/
         formData.append('destination_folder', '') // Upload to root of the directory
         formData.append('custom_filename', fileNames[fileType]) // Use exact filename (will replace if exists)
 

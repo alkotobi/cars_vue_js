@@ -9,20 +9,19 @@ was executed and verified against production.
 > that resolves credentials from `config.local.php`, falling back to the
 > `DB_HOST` / `DB_USER` / `DB_PASS` environment variables.
 > (`merhab_root` — MariaDB user, hosts `localhost` + `127.0.0.1`). App + db-manager
-> admin login is `admin / 123`, stored as bcrypt in the DB. `db_code.json` →
-> `db_9a7f4e0b2fa8134e0ea0`. Do NOT paste credentials into chats/docs.
+> admin login is `admin / 123`, stored as bcrypt in the DB. Do NOT paste credentials
+> into chats/docs.
 >
 > **`db_name` must stay empty in `api/config.local.php`.** `DB_HOST`/`DB_USER`/
 > `DB_PASS` are connection settings and are needed; the database is not one of them.
-> Which database a request is served from is resolved per request from
-> `db_code.json` → the `dbs` table, and `api/api.php:getDbConfig()` **refuses**
-> (`db_unavailable`) anything that resolves to nothing. It used to fall back to
-> `db_name` instead, which meant a request arriving at a folder with no
-> `db_code.json` — the repository root, or any deployment path that is not a client
-> folder — quietly opened whichever single database that setting named. On this
-> machine that was `merhab_cars`: a live tenant with real users, password hashes and
-> `api_tokens`. `db_name` is now read only by `api/install.php`, which has to be told
-> which database to create and refuses without it.
+> Which database a request is served from is resolved per request from the client in
+> the URL, and `api/api.php:getDbConfig()` **refuses** (`db_unavailable`) anything that
+> resolves to no client at all. It used to fall back to `db_name` instead, which meant
+> a request arriving with no client in it — the repository root, or any path that is
+> not a client folder — quietly opened whichever single database that setting named.
+> On this machine that was `merhab_cars`: a live tenant with real users, password
+> hashes and `api_tokens`. `db_name` is now read only by `api/install.php`, which has
+> to be told which database to create and refuses without it.
 
 ---
 
@@ -30,22 +29,47 @@ was executed and verified against production.
 
 ```
 nginx :443 (world-automobile.com)          ← or a raw IP
-  root /var/www/world-automobile.com
-  └─ /<FOLDER>/  → Vue 3 SPA (dist build, SPA fallback to /<FOLDER>/index.html)
-      └─ /<FOLDER>/api/ → PHP (api.php, db_manager_api.php, upload.php, backup.php)
+  root /var/www
+  ├─ /dist/      ONE build, shared by every client
+  ├─ /api/       ONE codebase, shared by every client
+  └─ /<CLIENT>/
+       ├─ /<CLIENT>/          → alias to /dist/, SPA fallback
+       ├─ /<CLIENT>/files/…   → that client's uploads, and nothing else
+       └─ /<CLIENT>/api/…     → alias to /api/, with CARDS_TENANT=<CLIENT>
 ```
 
-`<FOLDER>` is supplied per client and may be any name. The app discovers it at
-runtime, so one `dist/` serves every deployment:
+`<CLIENT>` is the client's **database name**, unchanged, and it is also its folder.
+One name identifies the database, the folder, the URL prefix and — with
+`base_domain` set — the subdomain. `api_valid_tenant()` (`api/lib/appdb.php`) accepts
+`^[a-z][a-z0-9_]{0,63}$` and refuses `api` and `dist`, which are the shared folders
+at the same level; the provisioning library enforces the identical set.
+
+A client folder holds `files/` and nothing else. There is no per-client build and no
+per-client `api/`, so a release is two rsyncs and every client moves together:
+
+```
+dist/ → /var/www/dist/     api/ → /var/www/api/
+```
+
+Two ways to serve the same client, both generated from the `dbs` registry:
+
+| Form | URL | Base injected |
+| --- | --- | --- |
+| Path | `https://host/<client>/…` | `<base href="/<client>/">` |
+| Subdomain | `https://<client>.host/…` | none — the app is already at the root |
 
   - **Mount point** — `src/utils/basePath.js` reads `import.meta.url`, not
-    `location.pathname` (see §8.4); Vite `base: './'`. The served HTML gets a
-    `<base href="/<FOLDER>/">` injected by nginx (§6.1) — the build ships none,
-    because the folder is per-client.
+    `location.pathname` (see §8.4); Vite `base: './'`. In path form the served HTML
+    gets a `<base>` injected by nginx (§6.1); in subdomain form it is not, because
+    there is no prefix to add.
 - **API base** — `resolveApiBaseUrl()` in the same file: `<origin><mount>api`, so
-  `https://host/<folder>/api`. Same rule in `index.html` for pre-boot fetches.
+  `https://host/<client>/api`. Same rule in `index.html` for pre-boot fetches.
 - **Router** — `createWebHistory(getBasePath())`, so deep links survive reloads.
-- **Only nginx is folder-specific** — generate it, don't hand-edit (§6).
+- **Which client is this?** `api/lib/appdb.php`. nginx sets `CARDS_TENANT` in each
+  location block, and that value wins over everything else. Failing that, the first
+  path segment; failing that, the first host label **compared against the configured
+  `base_domain`**, never guessed. `/api/api.php` at the webroot root names no client
+  and resolves to none, so it is refused rather than guessed at (§6).
 - **DB-manager** uses `api/db_manager_api.php` → DB `merhab_databases`.
 - **2 databases**: `merhab_cars` (app), `merhab_databases` (manager). The third,
   `merhab_invitations`, went with the invitations feature (§4.5).
@@ -132,29 +156,37 @@ Then seed: `roles` (admin/user/SELLER), `users` (admin + `role_id` 1, password b
 
 Tables: `login` + `dbs`. Seed:
 - `login`: admin / 123 with same bcrypt hash as app users, `active=1`.
-- `dbs` MUST match the deployed `db_code.json`. For a tenant deployed as a sibling
-  folder beside a shared `api/` — what `deploy/setup-mig-27.php` provisions:
+- `dbs` is the **client list** — the source the nginx config is generated from. One
+  row per client, keyed by its name, which is also its database name:
   ```sql
   INSERT INTO dbs (db_code, db_name, files_dir, js_dir, is_created)
-  VALUES ('db_9a7f4e0b2fa8134e0ea0', 'merhab_cars', '/merhab_cars_files', '/merhab_cars', 1);
+  VALUES (NULL, 'merhab_cars', '/merhab_cars/files', '/merhab_cars', 1);
   ```
-  (`db_code.json` on server = `{"db_code":"db_9a7f4e0b2fa8134e0ea0"}` — keep in sync!)
 
-  **The leading slash on `files_dir` is load-bearing, not decoration.** It is the only
-  thing recording that the uploads are a *sibling* of the app folder
-  (`<webroot>/merhab_cars_files` beside `<webroot>/merhab_cars`) rather than a child
-  of it. `api/lib/appdb.php:app_deployment_root()` reads it to decide which of the
-  two to resolve against, and nothing else distinguishes the layouts on disk. Store it
-  without the slash and every upload path becomes
-  `<webroot>/merhab_cars/merhab_cars_files/…`, a directory nothing creates — uploads
-  appear to succeed and every stored file then 404s.
+  **`db_name` must equal the folder and the URL prefix**, unchanged. It is used as
+  the MySQL database name, the folder under the webroot and the first URL segment,
+  and nothing normalises between them — that is the point. Lowercase letters, digits
+  and underscores only (`^[a-z][a-z0-9_]{0,63}$`); `api` and `dist` are refused
+  because they are the shared folders. A dash or a dot used to be normalised to an
+  underscore, which produced a folder `acme-motors` holding a database
+  `acme_motors` — two names for one client, and every rename, backup and support
+  question then needs the rule to connect them.
 
-  For a single-app install where the app folder is the webroot and uploads live
-  inside it, use `files_dir = 'files'` and `js_dir = ''` instead (no leading slash =
-  the app folder is its own deployment root).
+  **`files_dir` is the client's uploads inside its own folder**, and the recorded
+  value is not used to build paths — it is derived from the name and a row that
+  disagrees is reported as a mismatch the Provision screen can fix. Deriving it is
+  what removed the old sibling `<client>_files/` arrangement, where `files_dir` was
+  the only thing recording the layout and a leading slash silently dropped meant
+  uploads resolved to `<client>/<client>_files/…`: they appeared to succeed and every
+  stored file then 404'd.
 
-  `js_dir` is where the DB manager writes that client's `db_code.json`, so it has to
-  point at the deployed app folder — `/merhab_cars`, not `/`.
+  `js_dir` is the client's URL prefix, `/<client>` — not `/`, and not a path to
+  anything. It is recorded so the DB manager and the renderer agree on the URL, and
+  so a hand-edited row is caught rather than silently ignored.
+
+  `is_created = 1` is what makes the renderer emit a location block for the client. A
+  row without it is a draft: it has no database and no folder, so a block for it would
+  hand out a URL that 500s.
 
 #### Migration 031: `login.api_token`
 
@@ -190,16 +222,19 @@ common source of confusion:
   If `setup.sql` and the migrations disagree, the migrations are the truth for
   existing databases and `setup.sql` is the truth for new ones.
 - **It creates the database.** `db_name` is free text from the create form, so the
-  button issues `CREATE DATABASE IF NOT EXISTS` before applying anything. Names are
-  restricted to letters, digits, spaces and `_ - $ .` (max 64): the PDO DSN is
-  semicolon-delimited, so an unvalidated `;` would silently truncate `dbname`.
-- **It does not provide the API.** The folder it builds holds the built assets and
-  `db_code.json` only. The API lives at `<folder>/api/` and `deploy/deploy.sh`
-  rsyncs it there; that is deliberate, because it is the step that has to leave
-  `*.local.php` behind. The frontend derives its API base as
-  `<origin><basePath>api` (`src/utils/basePath.js`), so a folder without `api/`
-  404s every call - the symptom is a wall of `POST <folder>/api/api.php 404` in the
-  console, not a PHP error.
+  button issues `CREATE DATABASE IF NOT EXISTS` before applying anything. Names go
+  through `tenant_assert_valid_db_name()` first, which is the same check the runtime
+  resolver makes: lowercase letters, digits and underscores, starting with a letter,
+  at most 64 characters, and not `api` or `dist`. An unvalidated `;` would truncate
+  the PDO DSN's `dbname`, and a name `appdb.php` refuses would provision a client
+  whose own site cannot find its database.
+- **It does not provide the app.** The folder it builds holds `files/` and nothing
+  else. The build is `/var/www/dist/` and the API is `/var/www/api/`, both shared and
+  both deployed by `deploy/deploy.sh`. The frontend derives its API base as
+  `<origin><basePath>api` (`src/utils/basePath.js`) and nginx maps that to the shared
+  `api/`, so a client whose nginx block has not been rendered 404s every call — the
+  symptom is a wall of `POST <client>/api/api.php 404` in the console, not a PHP
+  error.
 - **The version number is not validated.** The modal's value is written straight to
   `versions`; nothing confirms `setup.sql` really corresponds to it. `db_updates` in
   the manager DB is what drives later upgrades, and it ships empty, so Update
@@ -243,26 +278,35 @@ function and returns 500 rather than serving data.
 
 ## 5. Build + deploy
 
-One command, per client. It builds, refuses a non-portable build, uploads, writes
-the per-server files, and verifies the result:
+One command, **per server** — not per client. It builds, refuses a non-portable build,
+uploads the two shared directories, checks the per-server credential file exists, and
+verifies the result:
 
   ```bash
-  ./deploy/deploy.sh <folder> <host> <db_code> [user@server] [webroot]
+  ./deploy/deploy.sh <host> [user@server] [webroot]
   # e.g.
-  ./deploy/deploy.sh cars world-automobile.com db_9a7f4e0b2fa8134e0ea0
+  ./deploy/deploy.sh world-automobile.com
+  ./deploy/deploy.sh world-automobile.com root@163.245.214.125 /var/www
 
   # ALWAYS preview first. Builds and verifies, lists every file that would be
   # transferred, asserts no *.local.php is in the list, and writes nothing.
-  ./deploy/deploy.sh cars world-automobile.com db_9a7f4e0b2fa8134e0ea0 --dry-run
+  ./deploy/deploy.sh world-automobile.com --dry-run
   ```
-  
-  `db_code` is **this client's** database. Everything else — the `dist/` build — is
-  shared between clients.
-  
+
+  There is no client argument, and that is the point: a release is `dist/` and `api/`
+  and nothing else. Every client on the server moves to the new version at once, and
+  there is no per-client rsync that can be run for some clients and forgotten for
+  others — which is how two clients ended up on different code with nothing in the
+  output saying so. Client folders are never written to by this script at all; they
+  hold only uploads.
+
   `--dry-run` matters because this script writes to a live server. A deployment once
   went out without being intended, and once shipped `db_manager_config.local.php`,
   breaking the db-manager with "Access denied for user 'root'". The flag may appear
   anywhere in the arguments and is never mistaken for a positional.
+
+  After deploying, re-render nginx **only if the client list changed** (§6A). A new
+  release does not change the URL layout, so this is not part of every deploy.
 
 <details>
 <summary>Manual equivalent</summary>
@@ -271,20 +315,26 @@ the per-server files, and verifies the result:
 npm ci && npm run build
 grep -rE 'world-automobile|localhost:8000' dist --include='*.js'   # must print nothing
 
-TARGET=/var/www/world-automobile.com/cars
-# --delete is deliberately NOT used. It would delete anything else in the folder
-# (client uploads, per-server config) that is not in dist/. Old hashed assets are
-# harmless; a wiped folder is not. Prune them deliberately instead:
-#   ssh $HOST "cd $TARGET && ls -dt index.*.js 2>/dev/null | tail -n +4 | xargs -r rm -f"
-  # db_code.json and EVERY *.local.php are PER SERVER and must be excluded, or this
-  # machine's database and credentials overwrite the client's. Do not enumerate the
-  # credential files by name -- a new one will be missed, and that is exactly how
-  # db_manager_config.local.php was shipped once.
-  rsync -az --exclude 'db_code.json'      -e "ssh -i ~/.ssh/cars_deploy" dist/ root@$HOST:$TARGET/
-  rsync -az --exclude '*.local.php'       -e "ssh -i ~/.ssh/cars_deploy" api/  root@$HOST:$TARGET/api/
-printf '{ "db_code": "%s" }\n' "$DB_CODE" | ssh -i ~/.ssh/cars_deploy root@$HOST \
-  "cat > $TARGET/db_code.json && chown www-data:www-data $TARGET/db_code.json"
+WEBROOT=/var/www
+SSH="ssh -i ~/.ssh/cars_deploy root@$HOST"
+
+  # --delete IS used on both, and is safe because neither destination holds anything
+  # that is not part of the deployment. Without it, a feature deleted from src/ stayed
+  # reachable on every server forever: removing the invitations feature left
+  # InvitationsView.*.js and invitations.php in each webroot, still served.
+  rsync -az --delete --exclude '.DS_Store'  -e "ssh -i ~/.ssh/cars_deploy" dist/ root@$HOST:$WEBROOT/dist/
+  # EVERY *.local.php is PER SERVER and must be excluded, or this machine's credentials
+  # overwrite the server's. Do not enumerate the credential files by name -- a new one
+  # will be missed, and that is exactly how db_manager_config.local.php was shipped
+  # once. --exclude also protects them from --delete, which never removes an excluded
+  # file from the destination.
+  rsync -az --exclude '*.local.php'        -e "ssh -i ~/.ssh/cars_deploy" api/  root@$HOST:$WEBROOT/api/
 ```
+
+Nothing is written into `<webroot>/<client>/`. A client folder holds `files/`, and a
+`--delete` that reached one would delete that client's invoices — which is exactly
+what the old per-client rsync had to guard against with an exclude, and what putting
+the build in its own folder makes unnecessary.
 
 </details>
 
@@ -292,10 +342,11 @@ printf '{ "db_code": "%s" }\n' "$DB_CODE" | ssh -i ~/.ssh/cars_deploy root@$HOST
 
 | File | Scope | Why |
 |---|---|---|
-| `dist/` (hashed assets) | **shared** | folder- and host-agnostic by construction |
-| `<folder>/db_code.json` | **per server** | names the DB this deployment talks to |
-| `api/config.local.php` | **per server** | DB password; git-ignored, never deployed |
-| nginx vhost | **per server** | the only place the folder name appears |
+| `dist/` (hashed assets) | **shared** | one build serves every client; folder- and host-agnostic by construction |
+| `api/` (the codebase) | **shared** | one set of endpoints, one set of credentials |
+| `api/config.local.php` | **per server** | registry DB password; git-ignored, never deployed |
+| `base_domain` in `api/config.php` | **per server** | the domain subdomain tenants are served on; empty means path form only |
+| nginx vhost | **per server** | generated from the `dbs` registry; the only place client names appear |
 
 `api/config.local.php` also holds the optional `ai_base_url` / `ai_api_key` /
 `ai_model` keys behind the supplier credibility button (any OpenAI-compatible
@@ -353,115 +404,132 @@ Free and shared models are rate-limited upstream, which surfaces as
 `ai_rate_limited` with a retry button; a key the provider refuses surfaces as
 `ai_auth_failed`, which is deliberately not retryable.
 
-`db_code.json` is fetched at runtime from `<mount>db_code.json`, so it is *not*
-compiled in. The `remove-db-code-json` Vite plugin deletes it from `dist/` on every
-build — the copy in `public/` is a local `npm run dev` default only. Without that, a
-stale `db_code` would point a new client at this machine's database. A `404` on
-`db_code.json` now reports the fix in the error text instead of a bare status.
+**There is no `db_code.json` any more.** The database is chosen by the URL: the
+client's name is its database name, resolved by `api/lib/appdb.php` from
+`CARDS_TENANT` (set by nginx), else the first path segment, else the host label
+compared against `base_domain`. Nothing is fetched at runtime and nothing is compiled
+in, so there is no file that can be stale, missing, or ship inside a build pointing a
+client at the wrong database. `deploy/deploy.sh` still fails if a
+`dist/db_code.json` appears, as a check that the file has not come back.
 
-`deploy/deploy.sh` enforces this: it fails the deploy if `dist/db_code.json` exists
-or if the build's *code* (comments stripped) contains a hardcoded host, a `:8000`
-dev port, a `192.168.*` guess, or an absolute URL containing the folder name.
+The client's name must be a valid tenant name (`^[a-z][a-z0-9_]{0,63}$`, not `api` or
+`dist`) — the screen, the provisioning library and the runtime resolver all enforce
+the same set, and a name they cannot agree on provisions a client whose own site
+cannot find its database.
 
-`db_code.json` must match the `dbs` row in the **manager** DB (see §4.4). It is
-resolved by PHP from `api/../<js_dir>/db_code.json`; an empty `js_dir` means the app
-root, which is what the app fetches from and what the deploy guide seeds.
+Writable dirs (created, owned by www-data), **per client, inside the client folder**:
+`<client>/files/` (subdirs buy_pi, sell_pi, documents, ids, payments_swift,
+banks_logos, letter_head, logo, uploads, chat_files).
 
-Writable dirs (created, owned by www-data):
-`files/` (subdirs buy_pi, sell_pi, documents, ids, payments_swift, banks_logos,
-letter_head, logo, uploads, chat_files), `backups/`, `mig_files/`.
-
-> `api/upload.php` default base dir is `mig_files`.
+> Nothing writes to a client folder except uploads. A `--delete` that reached one
+> would delete that client's documents, so `deploy/deploy.sh` never targets them.
 
 ---
 
 ## 6. nginx app block (PHP MUST be nested — key fix!)
 
-**The folder name is supplied per client and is not baked into the build.** The app
-resolves its own mount point at runtime, so a single `dist/` works under any folder.
-Only nginx needs to know the name — and it is generated, never hand-edited:
+**There is no per-client nginx config to write.** One generated file holds every
+client, both URL forms, and it is produced from the `dbs` registry — never hand-edited,
+because a hand-edited block is the state in which a deleted client's data stays
+reachable at a URL nobody remembers owning:
 
 ```bash
-./deploy/render-nginx.sh <folder> <domain_or_ip> [webroot] [php_sock] --write
-# e.g. ./deploy/render-nginx.sh cars world-automobile.com /var/www/world-automobile.com
-# writes deploy/out/nginx-cars.conf; review, then install:
-cp deploy/out/nginx-cars.conf /etc/nginx/sites-available/default
-nginx -t && systemctl reload nginx
+# as root, through the installed wrapper (see §6A for the one-time setup)
+/usr/local/bin/cars-nginx-render --check     # print what would be installed
+/usr/local/bin/cars-nginx-render --write     # install it, then nginx -t and reload
 ```
 
-For **several clients on one server** — one database and one folder each, sharing a
-single `api/` — see §6A below, which is the arrangement this server actually uses.
-The per-client script above is the single-app case.
-
-The script validates the folder name against a strict allowlist
-(`^[A-Za-z0-9_][A-Za-z0-9._-]*$`) and rejects anything that could terminate the token
-and inject a directive. This matters: the hardening rules below are the only thing
-between a public client and `install.php` / `drop_all_tables.sql`.
-
-Rendered output for `cars` (identical to the hand-written original, plus the `.sql` rule):
+For one client the render is the same as for ten, and the file looks like this (one
+`location` per client inside a single `server`, plus optional subdomain vhosts outside
+it):
 
 ```nginx
-location = /cars { return 301 /cars/; }        # no trailing slash -> blank page
-
-location = /cars/api/install.php        { deny all; }
-location = /cars/api/drop_all_tables.sql { deny all; }
-
-  location ^~ /cars/ {
-      # $uri/ is deliberately absent — see the note after this block.
-      try_files $uri /cars/index.html;
-
-      location = /cars/index.html {              # inject <base>, see §6.1
-          sub_filter_once on;
-          sub_filter_types text/html;
-          sub_filter '<meta charset="UTF-8">' '<base href="/cars/"><meta charset="UTF-8">';
-      }
-
-      location ~* \.sql$ { deny all; }           # schema dumps — MUST be nested
-    location ~ \.php$ {                        # nested — evaluated inside ^~
-        include snippets/fastcgi-php.conf;
-        fastcgi_pass unix:/run/php/php8.5-fpm.sock;
-        fastcgi_send_timeout 600;
-        fastcgi_read_timeout 600;
-    }
-
-    location ~ /\. { deny all; }               # hide .htaccess etc.
+# ---- merhab_cars ----
+location /merhab_cars/ {
+    alias /var/www/dist/;                          # the ONE build
+    try_files $uri /merhab_cars/index.html;
 }
+location = /merhab_cars/index.html {
+    alias /var/www/dist/index.html;
+    sub_filter_once on;
+    sub_filter '<meta charset="UTF-8">' '<base href="/merhab_cars/"><meta charset="UTF-8">';
+}
+location ^~ /merhab_cars/files/ {
+    root /var/www;                                 # → /var/www/merhab_cars/files/…
+    try_files $uri =404;                           # =404, not the SPA shell
+}
+location ~ ^/merhab_cars/api/(?<cars_api_merhab_cars_[0-9a-f]{8}>/.*\.php)$ {
+    set $cars_api_merhab_cars_[0-9a-f]{8} $1;
+    alias /var/www/api/$2;
+    include snippets/fastcgi-php.conf;
+    fastcgi_param CARDS_TENANT merhab_cars;        # the tenant, not a guess
+    fastcgi_pass unix:/run/php/php8.5-fpm.sock;
+}
+location ~ ^/merhab_cars/api/.*\.(sql|sh|env)$ { deny all; }
+location ~ ^/merhab_cars/files/.*\.php$       { deny all; }
 ```
 
-  Why the structure is what it is:
-  
-  - **`$uri/` is not in `try_files`.** Route paths can collide with real directories.
-    The route `cars` is `/cars`, and `/cars/cars/` is a real directory on the server
-    holding `logo.png` and `gml2.png`. With `$uri/`, nginx matched that directory, found
-    no `index.html` inside it, and returned **403 Forbidden** instead of the app. It
-    looks intermittent because client-side navigation never issues a request for the
-    URL — only a refresh or a pasted link reaches `try_files`. Dropping `$uri/` means
-    a path that is a directory but not a route falls through to the SPA and the router
-    decides. Static assets are matched by the first `$uri` test and are unaffected.
-  - **PHP nested inside `^~`.** A bare `location ^~ /cars/ { try_files … }` **swallows
-    `.php`** and serves the source as text (405 on POST). This is the failure that cost
-    the original deploy.
-- **The `.sql` deny must be nested too.** `^~` takes precedence over a regex location,
-  so a `~* \.sql$` rule declared at *server* level is never evaluated and the files are
-  served anyway. This was done by mistake on production: the rule was in the vhost and
-  all three dumps still returned **200**. Deny rules that appear correct and do nothing
-  are worse than none — the `.sql` rule sits inside the `^~` block.
-- **`location = /cars` 301s to `/cars/`.** Without the trailing slash the relative
-  base resolves to `/` and every asset 404s (blank page).
-- **What `.sql` blocks.** `export.sql`, `setup.sql`, `recreate_selection_tables.sql`
-  and `migrations/*.sql` were served as plain text — the full DB schema, public. No
-  feature regresses: `db_manager_api.php` reads `setup.sql` from disk via `__DIR__`,
-  and backups are generated and served by `backup.php`.
+  Two decisions in there are load-bearing and easy to undo by accident:
 
-After changing the vhost, **verify rather than assume** — a deny rule in the file does
-not mean the request is denied:
+  - **`alias`, not `root`, for the shared build.** `root` would resolve
+    `/merhab_cars/sell-bills/index.html` against the *document path*, miss every file
+    (the build is not under `/merhab_cars/` on disk), and hand back the shell for
+    every asset.
+  - **The build location is a plain prefix, NOT `^~`.** `^~` stops nginx considering
+    regex locations, so `/merhab_cars/api/*.php` would fall through to the SPA fallback
+    and return HTML for a POST — a MIME-type error in the browser console with nothing
+    in the access log to explain it.
+
+The renderer validates each client name against the same allowlist the app resolves
+(`^[a-z][a-z0-9_]{0,63}$`, plus a refusal of `api` and `dist`) and refuses to render at
+all on a name that could terminate an nginx token. This matters: the hardening rules
+are the only thing between a public client and `install.php` / `setup.sql`.
+
+The full per-block output, and why each rule is where it is:
+
+  - **A directory is not in `try_files`.** Route paths can collide with real
+    directories — `/cars/cars/` is a real directory holding `logo.png`. With `$uri/`,
+    nginx matched that directory, found no `index.html` inside it, and returned **403
+    Forbidden** instead of the app. It looks intermittent because client-side
+    navigation never issues a request for the URL — only a refresh or a pasted link
+    reaches `try_files`. Dropping it means a path that is a directory but not a route
+    falls through to the SPA and the router decides. Static assets are matched by the
+    first test and are unaffected.
+  - **The API is a regex location, and the build's is not `^~`.** `^~` beats regex
+    locations, so a `^~` build block would swallow `/cars/api/*.php` and return HTML
+    for a POST — a MIME error in the console with nothing in the access log. The API
+    location therefore uses a named capture, which also keeps the per-client variable
+    names distinct; nginx refuses to start on a duplicate variable, so two clients
+    would take every site on the machine down.
+  - **`CARDS_TENANT` is set, not derived.** `api/lib/appdb.php` trusts it above
+    everything else. The alternative — guessing the tenant from `SCRIPT_NAME` — broke
+    the moment the shared `api/` existed, because the script path has no client in it.
+  - **The `.sql` deny sits next to the API block, not at server level.** A
+    `~* \.sql$` rule at server level was in the vhost on production while all three
+    dumps still returned **200**, because the `^~` prefix meant the regex was never
+    evaluated. Deny rules that appear correct and do nothing are worse than none.
+  - **`/api` at the webroot root is 404.** A request there names no client, so serving
+    it would mean guessing which database it meant. Same reason `/` is 404: a client
+    that has not been provisioned has no folder to be served from.
+  - **What `.sql` blocks.** `export.sql`, `setup.sql`, `recreate_selection_tables.sql`
+    and `migrations/*.sql` were served as plain text — the full DB schema, public. No
+    feature regresses: `db_manager_api.php` reads `setup.sql` from disk via `__DIR__`,
+    and backups are generated and served by `backup.php`.
+
+After re-rendering, **verify rather than assume** — a deny rule in the file does not
+mean the request is denied:
 
   ```bash
+  C=cars   # any provisioned client
   for f in api/install.php api/setup.sql api/export.sql; do
-    printf '%-24s %s\n' "$f" "$(curl -s -o /dev/null -w '%{http_code}' https://host/cars/$f)"
+    printf '%-24s %s\n' "$f" "$(curl -s -o /dev/null -w '%{http_code}' https://host/$C/$f)"
   done   # every one must be 403/404
+
+  curl -s -o /dev/null -w '%{http_code}\n' https://host/api/api.php    # must be 404: no client named
+  curl -s -o /dev/null -w '%{http_code}\n' https://host/nosuchclient/  # must be 404
+  curl -s -o /dev/null -w '%{http_code}\n' https://host/$C/files/nope.png  # 404, not the shell
   ```
-  
+
   ### 6.1 The `<base>` injection (deep links)
   
   `index.html` references its entry script relatively (`./index.<hash>.js`) and ships
@@ -481,21 +549,28 @@ not mean the request is denied:
   work. The page returned 200 throughout, so it presented as a blank tab rather than
   an error, and no build or config change appeared to cause it.
   
-  nginx injects the base when serving the shell, so one `dist/` still serves any folder:
+  nginx injects the base when serving the shell, so one `dist/` still serves any
+  client:
   
   ```nginx
   location = /cars/index.html {
       sub_filter_once on;
-      sub_filter_types text/html;
       sub_filter '<meta charset="UTF-8">' '<base href="/cars/"><meta charset="UTF-8">';
   }
   ```
   
   Needs `ngx_http_sub_module` (stock Ubuntu/Debian: present). The anchor is
   `<meta charset>`, present in every build; `sub_filter_once` keeps it to the first
-  match so comment prose about `<base>` is untouched.
+  match so comment prose about `<base>` is untouched. `sub_filter_types` is not set:
+  its only purpose is to add to the default `text/html`, and naming it produced a
+  "duplicate MIME type" warning on every `nginx -t`.
   
-  **Consequence:** `index.html` is now load-bearing for this fix. Removing the
+  **Subdomain form gets no injection.** At `https://cars.example.com/` the app is
+  already at the root, so `<base href="/">` would be right and `<base href="/cars/">`
+  would 404 every asset. The renderer emits the `location = /index.html` block only
+  for the path form.
+
+  **Consequence:** `index.html` is load-bearing for this fix. Removing the
   `<meta charset>` anchor, or serving the app from a vhost without this block, breaks
   every deep link. If you ever see the MIME error, check for `<base>` in the served
   HTML first:
@@ -504,12 +579,14 @@ not mean the request is denied:
   curl -s https://host/cars/sell-bills/5 | grep -o '<base[^>]*>'   # must print one
   curl -s -o /dev/null -w '%{http_code} %{content_type}\n' \
     https://host/cars/index.<hash>.js                                  # must be application/javascript
+
+  # subdomain form: must print nothing
+  curl -s https://cars.example.com/sell-bills/5 | grep -o '<base[^>]*>'
   ```
   
   This also fixes the `index.html` bootstrap (`getApiBase()` resolves `./api` against
   the document). Without `<base>`, `/cars/cars/` produced a 404 for
   `/cars/cars/api/db_manager_api.php` because the real API is at `/cars/api/`.
-  
 ### Deploying on a raw IP
 
 `https://IP/...` needs a certificate with that IP as a SAN. Let's Encrypt does issue
@@ -533,23 +610,35 @@ needed for `--webroot` renewal. For an HTTP-only deploy, make the TLS block
 
 ## 6A. Many clients on one server: one database and one folder each
 
-The arrangement above is one app in one folder. This server hosts a *set* of them:
-`163.245.214.125/<folder>/`, each with its own database, its own upload folders, and
-its own `db_code.json` — while `api/` is **shared** by all of them, because there is
-one build and one set of credentials-free endpoints.
+This is the arrangement the server actually uses, and the only one (§6 is the same
+renderer with one client). `163.245.214.125/<client>/`, each client with its own
+database and its own `files/`, while `api/` and `dist/` are **shared**:
+
+```
+/var/www/api/                     one codebase
+/var/www/dist/                    one build
+/var/www/<client>/files/…         that client's uploads
+```
+
+What is deliberately **not** per client, and what each used to be:
+
+| Used to be | Now | Why |
+|---|---|---|
+| `<client>/api/` | `/var/www/api/` | one release updates every client; a missed copy was how two clients ran different code |
+| `<client>/` (the build) | `/var/www/dist/` | same reason, and a `--delete` here cannot reach uploads |
+| `<client>_files/` (sibling) | `<client>/files/` | the client folder is now the whole client, so a backup or a listing needs no naming rule |
+| `<client>/db_code.json` | the URL itself | nothing to keep in sync, and nothing to leak into a build |
 
 Two consequences that are easy to get wrong:
 
-- **`api/` being shared is a fact about the filesystem, not an option.** The
-  provisioning library detects it (`tenant_has_shared_api()`: no `index.html` beside
-  `api/`) and falls back to per-tenant `api/` copies. On this server, if that probe
-  is wrong every client silently gets a private API and the next deploy updates only
-  one of them. Set `shared_api: true` in the config to state it outright rather than
-  relying on the probe.
-- **The folder in the URL is the tenant's identity.** `db_code.json` lives in the
-  tenant's folder and says which database that folder means, so the same `api/`
-  serves every client correctly. It is written at provisioning time and must never be
-  part of a build.
+- **`api/` and `dist/` being shared is a fact about the filesystem, not an option.**
+  The provisioning library probes for it (`tenant_has_shared_api()`) and can be told
+  outright with `shared_api: true`. If that probe is wrong every client silently gets
+  a private API and the next deploy updates only one of them.
+- **The client's name in the URL is its identity, and it is the database name.**
+  Nothing is read from disk to decide which database a request means, so the same
+  `api/` serves every client correctly and there is no file that can be stale,
+  missing or copied.
 
 ### One-time root setup
 
@@ -619,8 +708,16 @@ first — what the *server* is missing (one-time root steps) and what *this clie
 missing — and the Provision button stays disabled until the server list is clear,
 rather than failing halfway with a permissions error. It creates the database, applies
 the schema and migrations, copies the reference rows, sets the admin password to
-`123`, clears any copied session token, creates the upload folders, writes
-`db_code.json`, and copies the current build.
+`123`, clears any copied session token, and creates the `files/` upload folders.
+
+It does **not** copy a build or write `db_code.json`: the folder name binds the
+database and `dist/` is shared, so there is nothing per client to write. The run
+reports whether the shared build is present instead of writing one — a client that is
+otherwise complete and 404s is now a legible state rather than a silent one.
+
+**Re-deploy build** on the same dialog copies the current build into the *shared*
+`dist/`, so it updates every client on the server. It is not gated on a selected row,
+because there is no per-client build to deploy.
 
 **Apply nginx** is a separate button on purpose. It is the only step that needs root,
 and the only one whose effects reach past this client, so it is never fired as a side
@@ -658,21 +755,22 @@ max_input_time = 600
 2. Never merge `setup.sql` verbatim into MariaDB (see §4.3).
 3. `execute_sql` / `executeQuery` only allow SELECT/INSERT/UPDATE/DELETE; DESCRIBE →
    "Invalid query type".
-4. Deep links work because nginx falls back to `/<folder>/index.html`; keep the `^~`
-   + nested `\.php$` structure or PHP breaks.
-5. **Never hardcode a hostname or folder in the app.** Five copies of an API-URL
+4. Deep links work because the build's location falls back to
+   `/<client>/index.html`; keep the plain-prefix build block and the regex API block
+   separate. Merging them under `^~` breaks PHP in a way that returns HTML for a POST
+   rather than an error (§6).
+5. **Never hardcode a hostname or client name in the app.** Five copies of an API-URL
    helper had drifted (`useApi`, `GeneralSettingsForm`, and three db-manager
    components); some omitted the mount point entirely, producing `https://host/api`
-   which 404s under any folder, and all treated any `192.168.*` host as a dev box,
+   which 404s under any client, and all treated any `192.168.*` host as a dev box,
    pointing at `:8000` where a deployed server has nothing listening. They all now
    call `resolveApiBaseUrl()`. Add new callers to that function, never a new copy —
    and run the `grep` in §5 after building.
-6. `db_code.json` is **per server**, never part of the build (see §5). It must match
-   the `dbs` row in the manager DB. An empty `js_dir` means the app root; the
-   db-manager's read/write actions used to reject an empty `js_dir` as "not
-   configured", which made the file uneditable in production — `resolveDbCodeJsonPath()`
-   in `db_manager_api.php` now treats empty as app root and still refuses any
-   `js_dir` that escapes it.
+6. **Never let a client name be normalised.** `acme-motors` → `acme_motors` is the
+   kind of convenience that produces a folder and a database that do not share a name,
+   so a rename, a backup or a support question cannot connect them without knowing the
+   rule. Refuse the name instead (see §4.4); `app_valid_tenant()` and
+   `tenant_assert_valid_db_name()` enforce the same set for the same reason.
 7. The portability gate strips `//` and `/* */` comments before scanning `dist/`. Both
    forms of comment contain the example hosts the source explains in prose, so a
    literal scan fails every legitimate build. When editing the gate, note that a naive
@@ -699,18 +797,32 @@ max_input_time = 600
   11. `rsync` prints **nothing** in dry-run without `-v`. A `--dry-run` built on plain
      `rsync -n` reported "(no changes)" for a 132-file deploy, which is worse than no
      dry-run at all. Always pass `-v` (and an `--out-format`) when previewing.
-  12. `deploy.sh` writes to a **live server**. Always run `--dry-run` first, and never
-     `rsync --delete`: the target folder holds client uploads and per-server config
-     that are not in `dist/`.
+  12. `deploy.sh` writes to a **live server**. Always run `--dry-run` first. It now uses
+     `rsync --delete`, which is safe *only* because the destinations are `dist/` and
+     `api/` and nothing else: the per-client rsync it replaced had to exclude `files/`
+     from `--delete`, and a typo in that exclude list deleted a client's invoices.
+     Never point either rsync at a client folder.
+ 13. **`alias` is not `root` for the shared build.** With `root`, `/<client>/sell-bills/index.<hash>.js`
+     resolves against the document path, the file is not there (the build is not under
+     `/<client>/` on disk), and every asset gets the HTML shell instead — a blank tab
+     with no error. The same applies to uploads in subdomain form, where the path is
+     `/files/…` but the folder is `<webroot>/<client>/files/`.
+ 14. **`CARDS_TENANT` beats everything, and everything else fails closed.** nginx sets
+     it per location block; `api/lib/appdb.php` trusts it first, then the first path
+     segment, then the host label *compared against the configured `base_domain`*. The
+     hostname is chosen by whoever sent the request, so a request to an unrelated host
+     must resolve to no client rather than to the first label it happens to have. That
+     is why `/api/api.php` at the webroot root is 404 and not a live tenant.
 
 ---
 
 ## 9. Rollback / safety
 
 - Vhost backup: `/etc/nginx/sites-available/default.bak.<timestamp>` (made before each change).
-- Per-client isolation: each client gets its own folder, its own nginx config, its own
-  `db_code.json` and its own DB credentials in `api/config.local.php`. The `dist/`
-  build is shared; nothing else is.
+- Per-client isolation: each client gets its own database and its own `files/`, and
+  nginx maps `/<client>/…` at that one client only. `api/`, `dist/` and
+  `api/config.local.php` are per server and shared by design — which means a release
+  is all-or-nothing across clients, and rolling one back rolls back all of them.
 - Full DB dumps: `mysqldump merhab_cars` → `api/backups/`.
 - `git push origin feature-from-e9dcfaf` → `github.com/ekotobi/cars_vue_js.git`.
 
@@ -720,70 +832,73 @@ max_input_time = 600
 > [`SECURITY.md`](SECURITY.md) for the details, affected line numbers and remediation
 > order. Nothing there has been fixed yet.
 
-## 10. Two apps on one local dev server
+## 10. Several clients on the local dev server
 
-Locally one Vite server serves **both** the hot-reloading app and a second, prebuilt
-tenant app, each on its own database:
+Locally one Vite server serves **every** provisioned client from the same build and the
+same `api/`, each on its own database:
 
-| URL | Database | Uploads | HMR |
-| --- | --- | --- | --- |
-| `http://localhost:5173/cars` | `merhab_cars` | `files/` | yes |
-| `http://localhost:5173/mig_27/cars` | `mig_27` | `mig_27_files/` | no — prebuilt snapshot |
+| URL | Database | Uploads |
+| --- | --- | --- |
+| `http://localhost:5173/merhab_cars/` | `merhab_cars` | `merhab_cars/files/` |
+| `http://localhost:5173/<other-client>/` | `<other-client>` | `<other-client>/files/` |
 
-How it works:
+Every client has HMR, because there is one build and one `api/` — the same arrangement
+production uses. What Vite cannot do on its own is route a client prefix, so:
 
-- `vite.config.js` keeps a `FOLDER_MOUNTS` list. Each entry gets a plugin that serves
-  that folder's built `index.html` for **every** path under the mount (so client-side
-  routes survive a refresh), injects `<base href="/<mount>/">` so the hashed assets
-  resolve, and proxies `/<mount>/api` to `localhost:8000` **with the prefix intact** —
-  stripping it is what makes a mounted app talk to the wrong database.
-- The database is not configured in the app. `api/lib/appdb.php` reads
-  `<app folder>/db_code.json`, maps it through the `merhab_databases.dbs` row, and
-  connects to that row's `db_name` (and reads `files_dir` from the same row). So each
-  app folder needs its **own `api/` copy** — a symlink would resolve `db_code.json` to
-  the root app's and both would land on `merhab_cars`.
-- `mig_27/` and `mig_27_files/` are git-ignored. `mig_27/` is generated; never edit it.
+- `vite.config.js` discovers the client mounts by scanning for directories that contain
+  `files/` — the condition `tenant-provision.php` satisfies, so a newly provisioned
+  client is covered without editing a list. Each mount serves the **shared** `dist/`
+  for every path under it (so client-side routes survive a refresh), injects
+  `<base href="/<mount>/">` so the hashed assets resolve, and proxies `/<mount>/api` to
+  `localhost:8000` **with the prefix intact** — stripping it is what makes a client
+  talk to the wrong database.
+- The root `/` answers **404**, never a redirect or an index. Production's rendered
+  config has `location / { return 404; }` for the same reason: a 302 to a client's
+  login page is a login form that cannot authenticate.
+- The database is not configured in the app. `api/lib/appdb.php` resolves the client
+  from `CARDS_TENANT` (set by the proxy), else the first path segment, and connects to
+  the database of that name. Nothing is read from the client's folder, so there is no
+  `db_code.json` for two clients to disagree about.
+- `<client>/` folders are git-ignored and hold only `files/`.
 
 Working on it:
 
 ```bash
-# One-time: create the mig_27 database, folders and app folder (idempotent).
+# One-time: create the client database and its files/ folder (idempotent).
 npm run mig27:setup
 
-# After editing anything in src/ — the tenant app is a build, not a live server.
-npm run mig27          # vite build + copy dist/ and api/ into mig_27/
-
-# After editing vite.config.js — config changes are not hot-reloaded.
+# src/ changes need nothing: every client is served from the one build.
+# vite.config.js changes are not hot-reloaded:
 npm run dev            # restart
 ```
 
-`npm run mig27:setup -- --force` drops and rebuilds `mig_27` from `api/setup.sql` plus
-the forward migrations in `api/migrations/`. It seeds only the rows a tenant cannot
+`npm run mig27:setup -- --force` drops and rebuilds the client from `api/setup.sql` plus
+the forward migrations in `api/migrations/`. It seeds only the rows a client cannot
 start without (admin account, roles, permissions, lookup rows), never business data.
 One migration, `031_login_api_token.sql`, targets `merhab_databases` rather than the
-tenant, and is applied there instead.
+client, and is applied there instead.
 
-Verifying the two are really separate:
+Verifying two clients are really separate:
 
 ```bash
-curl -s http://localhost:5173/mig_27/ | grep '<base href="/mig_27/">'
-curl -s http://localhost:5173/mig_27/api/db_manager_api.php \
+curl -s http://localhost:5173/<client>/ | grep '<base href="/<client>/">'
+curl -s http://localhost:5173/<client>/api/db_manager_api.php \
   '?action=get_database_by_code&db_code=db_93036eb23669c0fd4c27'
-# → {"db_name":"mig_27","files_dir":"/mig_27_files","js_dir":"/mig_27"}
+# → {"db_name":"<client>","files_dir":"/<client>/files","js_dir":"/<client>"}
 
-# Log in through each app; the tokens must differ, and each lands in its own users table.
-curl -s -X POST http://localhost:5173/mig_27/api/api.php -H 'Content-Type: application/json' \
+# Log in through each; the tokens must differ, and each lands in its own users table.
+curl -s -X POST http://localhost:5173/<client>/api/api.php -H 'Content-Type: application/json' \
   -d '{"action":"login","username":"admin","password":"123"}'
 ```
 
 Gotchas that cost time here, all of which apply to production too:
 
-13. **`$PROJECT_ROOT` is the app folder, but `files_dir` is recorded against its
-    parent.** A tenant is deployed as `<root>/mig_27` (app) beside `<root>/mig_27_files`
-    (uploads), which is why the registry stores those two as siblings with a leading
-    slash. Reconstructing a path as `dirname(__DIR__) . '/' . files_dir` silently looks in
-    `<root>/mig_27/mig_27_files` and every upload fails with "Invalid upload directory".
-    `app_deployment_root()` is the one place that knows the difference.
+13. **Never rebuild a path from `files_dir`.** The registry records it so the DB
+    manager and the renderer can agree, but the path comes from the client name and
+    `app_db_files_dir()`, which returns `files` — a name **relative to the client
+    folder**. Reconstructing it against the wrong base silently looks in
+    `<root>/<client>/<client>/files` and every upload fails with "Invalid upload
+    directory". `app_deployment_root()` is the one place that knows the base.
 14. **A PHP variable read inside a function is not the global one.** `app_db_pdo()`
     read `$db_config` without `global`, so host/user/pass arrived as `null` and PDO
     failed with `Access denied for user ''@'localhost'` — an empty 500 from every

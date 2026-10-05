@@ -1,47 +1,35 @@
 <?php
 // Resolve the database this deployment actually serves.
 //
-// config.php's db_name is only a default. A single build serves many clients, and
-// which tenant database a server talks to is decided at deploy time by the app
-// folder's db_code.json (see deploy/deploy.sh), which maps through the
-// merhab_databases registry's `dbs` table. api.php works this out in
-// resolveDbNameFromCode(); every standalone endpoint that needs to read the
-// `users` table - and therefore to authenticate anyone - has to agree with it.
+// Which database a request talks to is decided by the TENANT in the request, and
+// the tenant is its own name. There is no binding file and no registry lookup: the
+// folder is named after the database, so the name in the URL is the database name,
+// and api.php and every standalone endpoint that authenticates a caller (upload.php,
+// backup.php) resolve it the same way - through app_db_name() below.
 //
-// Two files got this wrong in different ways before this existed:
-// upload.php and backup.php each connected to $db_config['dbname']
-// directly, so on a server whose db_code.json points at a different tenant they
-// looked for `users` in a database that does not have it and rejected every valid
-// token.
+// Three things got this wrong before, each in its own file: db_code.json was the
+// original binding, then the folder the code sat in, then the merhab_databases
+// registry row. All three could disagree with each other and with the folder on
+// disk, and each disagreement opened a tenant that was not being asked for.
 //
-// The same registry row also names the tenant's upload folder (files_dir), which
-// app_db_files_dir() below resolves for the same reason: a stored path is only
-// meaningful next to the folder it was written into, and that folder is per
-// tenant.
-//
-// ## One shared api/ directory
-//
-// Every tenant used to get its own COPY of api/, and that copy is what identified
-// the tenant: the folder the code sat in decided which database it talked to. One
-// shared /var/www/api/ serving every tenant breaks that - the same file would be
-// every tenant's code - so the tenant now comes from the REQUEST instead:
-//
-//   /var/www/api/api.php                  -> the primary app        (mount '')
-//   /var/www/api/../acme_cars/api/api.php  -> SCRIPT_NAME '/acme_cars/api/api.php'
-//                                        -> mount 'acme_cars'
-//
-// With a shared api/ the mount is the tenant's folder name next to it, and the
-// layout is:
+// ## The layout
 //
 //   /var/www/
 //     api/                     one shared copy (this directory)
-//     acme_cars/               the tenant's build + db_code.json
-//     acme_cars_files/         the tenant's uploads
+//     dist/                    one shared build
+//     acme_cars/               the tenant's uploads, and nothing else
+//       files/
 //
-// app_request_mount() reads the mount, app_dir() turns it into the folder that
-// holds db_code.json, and everything downstream is unchanged. The per-tenant-copy
-// layout still works, because app_dir() also accepts the case where this very
-// directory sits inside the tenant's own folder.
+// ## Two ways to name the tenant
+//
+//   path        /acme_cars/api/api.php          -> SCRIPT_NAME
+//   subdomain   acme_cars.example.com/api/api.php -> Host, against base_domain
+//
+// Both are the same name, used unchanged as the database name. The webroot itself
+// (/api/api.php, example.com/api/api.php) resolves to nothing, and callers must
+// refuse rather than substitute a configured database - config.php holds connection
+// credentials and no database, and when it did hold one it was a fixed name, so an
+// unresolved request opened whichever tenant that name happened to be.
 
 require_once __DIR__ . '/../config.php';
 
@@ -55,53 +43,215 @@ if (is_file(__DIR__ . '/../db_manager_config.php')) {
 }
 
 /**
- * The tenant folder name this request is for, or '' for the primary app.
+ * Folder names at the webroot that are not tenants.
  *
- * Derived from SCRIPT_NAME, which nginx sets to the URL the request arrived on:
- * /acme_cars/api/api.php -> 'acme_cars'. That is the only per-tenant signal
- * available when every tenant shares one api/ directory, and it cannot be
- * spoofed: SCRIPT_NAME is set by nginx from the matched location, not from a
- * header or a query parameter.
- *
- * '' when there is no SCRIPT_NAME at all (CLI, cron) or when the request is for
- * /api/*.php directly, which is the primary app's own mount.
- *
- * The charset is the one deploy/render-nginx.sh accepts for a folder name, so a
- * mount that arrives here is always a name that could have been created in the
- * first place. Anything else is treated as no mount rather than passed on to a
- * filesystem path.
+ * Every tenant is a folder at the webroot, so the two namespaces share a level and
+ * 'api' and 'dist' would each be a legal tenant name. They are not: they are the
+ * shared code and the shared build, and a tenant called api would be unreachable
+ * (its location block would be shadowed) and would collide with the folder the
+ * whole installation runs from.
  */
-function app_request_mount(): string
+const APP_RESERVED_NAMES = ['api', 'dist'];
+
+/**
+ * What a tenant name may be, and nothing else.
+ *
+ * The name is used unchanged as a database name, an nginx location, a URL segment
+ * and a filesystem path, so the charset has to be the intersection of all four
+ * rather than the most permissive one. Lowercase only, because the folder, the URL
+ * and the database would then stop being the same string on a case-insensitive
+ * filesystem: two tenants differing only in case would share one folder.
+ *
+ * No dots and no dashes, which is the part that used to be relaxed. They were
+ * normalised to underscores so the name could be a MySQL identifier, and that
+ * normalisation is exactly what breaks the arrangement - a folder named
+ * acme-motors holding a database named acme_motors is two names, so a rename, a
+ * backup or a support question has to know the rule to connect them. Refusing the
+ * name is cheaper than encoding it.
+ *
+ * @return string|null the name unchanged, or null when it is not a tenant name
+ */
+function app_valid_tenant(string $name): ?string
 {
-    static $mount = false;
+    $name = trim($name);
 
-    if ($mount !== false) {
-        return $mount;
+    // 64 characters is MySQL's limit on a database name; longer than that is a
+    // database this app could not connect to even though it passed every other
+    // check, so it is refused here rather than at the point of failure.
+    if (preg_match('/^[a-z][a-z0-9_]{0,63}$/', $name) !== 1) {
+        return null;
     }
 
-    $scriptName = (string) ($_SERVER['SCRIPT_NAME'] ?? '');
-    $mount = '';
-
-    if (preg_match('#^/([A-Za-z0-9_][A-Za-z0-9._-]*)/api/#', $scriptName, $m) === 1) {
-        $mount = $m[1];
+    // 'api' and 'dist' are the shared folders, and they match the tenant pattern
+    // exactly. Without this, the root's own SCRIPT_NAME (/api/api.php) parses as a
+    // request for a tenant called api - so the webroot stops resolving to nothing
+    // and starts resolving to a database named api.
+    if (in_array($name, APP_RESERVED_NAMES, true)) {
+        return null;
     }
 
-    return $mount;
+    return $name;
 }
 
 /**
- * The app folder that identifies this deployment - the folder holding db_code.json.
+ * The base domain tenants are served on, or '' when it is not configured.
  *
- * Three layouts, all of which exist or have existed on real servers:
+ * Deliberately not guessed. The request's Host header is the only other signal, and
+ * it is chosen by whoever sent the request - so "the first label is the tenant"
+ * means a request to example.com resolves to a tenant called example, and a
+ * request to anything.example.net with the same shape resolves to that domain's
+ * labels. Comparing against a configured value turns "is this host mine?" into a
+ * question with a known answer, and every host that does not match is simply not a
+ * tenant.
  *
- *   shared api/        dirname(__DIR__) is the webroot, the tenant folder is a
- *                      sibling of it        -> webroot/<mount>
- *   per-tenant copy    this file already sits inside the tenant's own folder
- *                                                    -> dirname(__DIR__)
- *   primary app        no mount (mount === '')        -> dirname(__DIR__)
+ * Empty is a real answer, not a missing one: it means subdomain routing is off and
+ * only the path form works.
+ */
+function app_base_domain(): string
+{
+    static $domain = false;
+
+    if ($domain !== false) {
+        return $domain;
+    }
+
+    $fromEnv = getenv('CARS_BASE_DOMAIN');
+    $configured = (is_string($fromEnv) && $fromEnv !== '') ? $fromEnv : '';
+
+    if ($configured === '') {
+        global $db_config;
+        $configured = is_array($db_config) && isset($db_config['base_domain']) && is_string($db_config['base_domain'])
+            ? $db_config['base_domain']
+            : '';
+    }
+
+    $configured = strtolower(trim($configured, " \t\n\r\0\x0B."));
+    // A leading '*.' wildcard is how a certificate is usually issued for this; the
+    // name being compared against never carries it.
+    if (str_starts_with($configured, '*.')) {
+        $configured = substr($configured, 2);
+    }
+
+    return $domain = $configured;
+}
+
+/**
+ * The tenant this request is for, or '' when it is not a tenant request.
  *
- * The per-tenant copy is detected by the folder's own name matching the mount,
- * which is what keeps an existing deployment working without being redeployed.
+ * Three sources, in the order that survives a wrong answer:
+ *
+ *   1. CARTS_TENANT, set by the server's own location block. It is the only source
+ *      that is not chosen by the caller, so it is checked first and it wins: a
+ *      generated location block knows the tenant it was generated for, and no Host
+ *      header or URL can overrule it.
+ *   2. the Host header, as <tenant>.<base_domain>, and only when base_domain is
+ *      configured.
+ *   3. SCRIPT_NAME, as /<tenant>/api/...
+ *
+ * SCRIPT_NAME rather than REQUEST_URI, because it is what the web server matched
+ * the location block on, so it cannot be rewritten to look like a tenant the server
+ * did not route. REQUEST_URI is the raw request line and is not used for identity.
+ */
+function app_request_tenant(): string
+{
+    static $tenant = false;
+
+    if ($tenant !== false) {
+        return $tenant;
+    }
+
+    $tenant = '';
+
+    // Present-and-set is what makes this authoritative; absent or empty means the
+    // server did not name a tenant, so the other sources get their turn.
+    if (isset($_SERVER['CARDS_TENANT']) && is_string($_SERVER['CARDS_TENANT'])) {
+        $fromServer = trim($_SERVER['CARDS_TENANT']);
+        if ($fromServer !== '') {
+            $valid = app_valid_tenant($fromServer);
+            if ($valid !== null) {
+                return $tenant = $valid;
+            }
+            // A set-but-invalid value is not a reason to try something else: the
+            // server said which tenant this is and it is not one, so no other source
+            // may override that with a guess.
+            return $tenant = '';
+        }
+    }
+    // Fallback for dev proxy: allow X-Cards-Tenant header
+    if (isset($_SERVER['HTTP_X_CARDS_TENANT']) && is_string($_SERVER['HTTP_X_CARDS_TENANT'])) {
+        $fromHeader = trim($_SERVER['HTTP_X_CARDS_TENANT']);
+        if ($fromHeader !== '') {
+            $valid = app_valid_tenant($fromHeader);
+            if ($valid !== null) {
+                return $tenant = $valid;
+            }
+            return $tenant = '';
+        }
+    }
+
+    $baseDomain = app_base_domain();
+    if ($baseDomain !== '') {
+        $host = strtolower(trim((string) ($_SERVER['HTTP_HOST'] ?? '')));
+        $host = (string) preg_replace('/:\d+$/', '', $host);
+        if ($host !== '' && substr($host, -strlen('.' . $baseDomain)) === '.' . $baseDomain) {
+            $label = substr($host, 0, -strlen('.' . $baseDomain));
+            $valid = app_valid_tenant($label);
+            if ($valid !== null) {
+                return $tenant = $valid;
+            }
+            // The host IS ours but the label is not a tenant name, so this is a
+            // request to the bare domain with a stray prefix: not a tenant, and
+            // certainly not a reason to read a path segment instead.
+            return $tenant = '';
+        }
+        if ($host !== '' && $host !== $baseDomain && substr($host, -strlen('.' . $baseDomain)) !== '.' . $baseDomain) {
+            // Some other domain entirely. Not an error to report - it just is not
+            // this installation, and it must not reach a tenant.
+            return $tenant = '';
+        }
+    }
+
+    $scriptName = (string) ($_SERVER['SCRIPT_NAME'] ?? '');
+    if ($scriptName !== '' && preg_match('#^/([a-z][a-z0-9_]{0,63})/#', $scriptName, $m) === 1) {
+        $valid = app_valid_tenant($m[1]);
+        if ($valid !== null) {
+            $tenant = $valid;
+        }
+    }
+
+    return $tenant;
+}
+
+/**
+ * The name this deployment is reached under, for upload.php's documentation and for
+ * anything still calling it a mount. Same value as app_request_tenant(); the term
+ * only survived the cutover.
+ */
+function app_request_mount(): string
+{
+    return app_request_tenant();
+}
+
+/**
+ * The webroot: the folder that contains api/, dist/ and every tenant folder.
+ *
+ * This file is in api/lib, so api/ is one level up and the folder holding it is
+ * two. That folder is the webroot in this layout - the tenant folder is a child of
+ * it, named after the tenant - and it is also the root of the repository in local
+ * development, which is the same arrangement.
+ */
+function app_webroot(): string
+{
+    return dirname(__DIR__, 2);
+}
+
+/**
+ * The folder this request's tenant owns, or the webroot when there is no tenant.
+ *
+ * There is no per-tenant copy of the code to detect any more, so this is always
+ * webroot/<tenant>. The basename check is what keeps a tenant folder that contains
+ * api/ from pointing at itself, which is how the old per-tenant layout keeps
+ * working during the cutover instead of resolving to a folder that does not exist.
  */
 function app_dir(): string
 {
@@ -111,136 +261,28 @@ function app_dir(): string
         return $dir;
     }
 
-    // This file lives in api/lib, so the folder that CONTAINS api/ - the app folder
-    // for a single app, the webroot for a shared api/ - is two levels up. One level
-    // up is api/ itself, which is never the folder holding db_code.json.
-    $root = dirname(__DIR__, 2);
-    $mount = app_request_mount();
+    $root = app_webroot();
+    $tenant = app_request_tenant();
 
-    // '' means the primary app: api/ sits directly in its own folder. So does a
-    // per-tenant copy, which is the case where the folder's own name is the mount.
-    if ($mount === '' || basename($root) === $mount) {
+    if ($tenant === '' || basename($root) === $tenant) {
         return $dir = $root;
     }
 
-    // Shared api/: the tenant's folder is a sibling of api/, named after the mount.
-    return $dir = $root . '/' . $mount;
+    return $dir = $root . '/' . $tenant;
 }
 
 /**
- * The app folder's db_code.json value, or null if it is missing or malformed.
- */
-function app_db_code(): ?string
-{
-    static $code = false;
-
-    if ($code !== false) {
-        return $code;
-    }
-
-    $file = app_dir() . '/db_code.json';
-    if (!is_file($file)) {
-        return $code = null;
-    }
-
-    $data = json_decode((string) @file_get_contents($file), true);
-    $value = is_array($data) ? trim((string) ($data['db_code'] ?? '')) : '';
-
-    // Same whitelist api.php applies. db_code is used as a bind parameter, but a
-    // code that is not shaped like a code is a sign something is wrong upstream.
-    return $code = ($value !== '' && preg_match('/^db_[0-9a-f]+$/', $value)) ? $value : null;
-}
-
-/**
- * A PDO handle to the registry (merhab_databases), shared by the resolvers below.
+ * The tenant database name for this request.
  *
- * One connection, because app_db_name() and app_db_files_dir() are called from
- * the same request - often the same statement - and each would otherwise open
- * its own.
- */
-function app_registry_pdo(): PDO
-{
-    static $pdo = null;
-
-    if ($pdo !== null) {
-        return $pdo;
-    }
-
-    // Resolve through the registry rather than trusting the code as a name.
-    global $db_manager_config;
-
-    if (!isset($db_manager_config) || !is_array($db_manager_config)) {
-        throw new RuntimeException('db_manager_config.php did not define $db_manager_config');
-    }
-
-    $pdo = new PDO(
-        "mysql:host={$db_manager_config['host']};dbname={$db_manager_config['dbname']}",
-        $db_manager_config['user'],
-        $db_manager_config['pass'],
-        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
-    );
-
-    return $pdo;
-}
-
-/**
- * This deployment's registry row, or null when the code does not resolve.
+ * The tenant name, unchanged. That is the whole point of the layout: the folder is
+ * named after the database, so there is nothing to look up and nothing that can
+ * disagree with the folder on disk.
  *
- * The values come back as they were RECORDED, not normalised, because one piece of
- * information is carried by the shape and nothing else: a files_dir with a leading
- * slash means "the folder is a sibling of the app folder" (every tenant), while no
- * slash means "the folder is inside the app folder" (a single-app install). That
- * single bit is what tells app_deployment_root() which of the two layouts it is
- * looking at, and trimming it away here would make the two indistinguishable.
- * Callers that build a path use app_db_files_dir(), which normalises.
- *
- * @return array{db_name:string,files_dir:string,js_dir:string}|null
- */
-function app_db_row(): ?array
-{
-    static $row = false;
-
-    if ($row !== false) {
-        return $row;
-    }
-
-    $code = app_db_code();
-    if ($code === null) {
-        return $row = null;
-    }
-
-    try {
-        $stmt = app_registry_pdo()->prepare('SELECT db_name, files_dir, js_dir FROM dbs WHERE db_code = ?');
-        $stmt->execute([$code]);
-        $found = $stmt->fetch(PDO::FETCH_ASSOC);
-    } catch (Exception $e) {
-        error_log('app_db_row: ' . $e->getMessage());
-        return $row = null;
-    }
-
-    if (!$found || empty($found['db_name'])) {
-        return $row = null;
-    }
-
-    $slashToDirSep = static function ($value): string {
-        return str_replace('\\', '/', trim((string) $value));
-    };
-
-    return $row = [
-        'db_name' => (string) $found['db_name'],
-        'files_dir' => $slashToDirSep($found['files_dir'] ?? ''),
-        'js_dir' => $slashToDirSep($found['js_dir'] ?? ''),
-    ];
-}
-
-/**
- * The tenant database name for this deployment.
- *
- * @return string|null null when db_code.json is absent or does not resolve. Callers
- *         must refuse rather than substitute a configured database name: config.php
- *         holds credentials and no database in a multi-tenant setup, and when it did
- *         hold one that was a fixed name, so an unresolved request opened whichever
- *         tenant that name happened to be.
+ * @return string|null null when the request is not a tenant request. Callers must
+ *         refuse rather than substitute a configured database name - config.php
+ *         holds credentials and no database, and when it did hold one that was a
+ *         fixed name, so an unresolved request opened whichever tenant that name
+ *         happened to be.
  */
 function app_db_name(): ?string
 {
@@ -250,25 +292,24 @@ function app_db_name(): ?string
         return $resolved;
     }
 
-    $row = app_db_row();
+    $tenant = app_request_tenant();
 
-    return $resolved = ($row !== null ? $row['db_name'] : null);
+    return $resolved = ($tenant === '' ? null : $tenant);
 }
 
 /**
- * The upload folder for this deployment, relative to the project root.
+ * The tenant's upload folder, relative to the tenant's own folder.
  *
- * Needed wherever a stored path is turned back into a file on disk: replacing a
- * car file and deleting one both unlink the old file, and both used to look the
- * folder up with `SELECT js_dir FROM dbs LIMIT 1` against the TENANT connection.
- * That table is created by setup.sql but never written to - it is empty on every
- * install, merhab_cars included - so both branches silently fell back to
- * 'mig_files' and no deployment other than that one ever deleted anything. The
- * upload folder is per tenant, so it has to come from the registry, the same
- * place the browser reads it from (src/composables/useApi.js).
+ * Needed wherever a stored path is turned back into a file on disk: replacing a car
+ * file and deleting one both unlink the old file, and both used to look the folder
+ * up with `SELECT js_dir FROM dbs LIMIT 1` against the TENANT connection. That table
+ * is created by setup.sql but never written to, so both branches silently fell back
+ * to a fixed name and no deployment ever deleted anything.
  *
- * @return string|null null when it cannot be resolved; callers fall back to
- *         'mig_files', which is what they did before.
+ * Always 'files', so there is nothing per-tenant to resolve and nothing to get out
+ * of step with the folder. The browser sends the same value (src/composables/useApi.js).
+ *
+ * @return string|null null when the request is not a tenant request.
  */
 function app_db_files_dir(): ?string
 {
@@ -278,42 +319,20 @@ function app_db_files_dir(): ?string
         return $resolved;
     }
 
-    $row = app_db_row();
-
-    if ($row === null) {
+    if (app_request_tenant() === '') {
         return $resolved = null;
     }
 
-    // The registry form accepts a leading/trailing slash and a Windows separator,
-    // and this value is concatenated onto a filesystem path, so it is reduced to a
-    // plain relative name here. An empty value is legitimate - the deployment
-    // uploads into the project root - and is returned as-is.
-    return $resolved = trim($row['files_dir'], '/');
+    return $resolved = 'files';
 }
 
 /**
- * The folder that `files_dir` is recorded against.
+ * The folder a stored path is resolved against: the tenant's own folder.
  *
- * The registry stores a tenant's files_dir and js_dir as SIBLINGS, which is why
- * they carry a leading slash: a tenant is deployed as <webroot>/acme_cars (the app
- * folder, what js_dir names) next to <webroot>/acme_cars_files (its uploads). So
- * for a tenant the deployment root is the app folder's PARENT, while a single-app
- * install - no slash on files_dir, uploads inside the app folder - is its own root.
- *
- * That recorded shape is what distinguishes the layouts, because the two are
- * otherwise indistinguishable on disk:
- *
- *   /var/www/world-automobile.com/cars/api/api.php  + files_dir 'files'  -> app folder
- *   /var/www/world-automobile.com/cars/api/api.php  + files_dir '/c_files'
- *                                                          -> app folder's parent
- *   /var/www/api/api.php                            + files_dir 'files'  -> app folder
- *   /var/www/api/api.php                            + files_dir '/c_files'
- *                                                          -> app folder's parent
- *
- * The first two rows are the same layout with the same mount ('cars' from
- * SCRIPT_NAME), so the filesystem cannot tell them apart - only the registry can,
- * and app_dir() has already resolved WHICH tenant this request is by the time this
- * runs.
+ * Used to be two different answers - the app folder for a single-app install, its
+ * parent for a tenant whose uploads were a sibling - which meant the correct root
+ * had to be inferred from the shape of a recorded value. There is one layout now, so
+ * this is the folder and nothing else, and the guess is gone with it.
  */
 function app_deployment_root(): string
 {
@@ -323,16 +342,7 @@ function app_deployment_root(): string
         return $root;
     }
 
-    $appDir = app_dir();
-
-    // A leading slash on the RECORDED value is the sibling marker. app_db_files_dir()
-    // normalises it away for path building, so the row is read directly.
-    $row = app_db_row();
-    $recorded = $row === null ? '' : trim($row['files_dir']);
-
-    return $root = ($recorded !== '' && str_starts_with($recorded, '/'))
-        ? dirname($appDir)
-        : $appDir;
+    return $root = app_dir();
 }
 
 /**
@@ -365,8 +375,7 @@ function app_db_pdo(): PDO
     $dbname = app_db_name() ?? '';
     if ($dbname === '') {
         throw new RuntimeException(
-            'Cannot authenticate: this request did not resolve to a tenant. '
-            . 'Set db_name in config.php, or reach the app through its tenant folder.'
+            'Cannot authenticate: this request did not resolve to a tenant. Reach the app through its tenant path or tenant subdomain.'
         );
     }
 

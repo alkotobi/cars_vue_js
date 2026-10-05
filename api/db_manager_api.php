@@ -37,7 +37,7 @@ const DBM_DUMMY_HASH = '$2y$10$usesomesillystringfore7hnbRJHxXVLeakoG8K30oukPsA.
  * The unauthenticated surface of this file, and nothing else.
  *
  * get_database_by_code is called by loadConfig() at boot, before anyone has
- * logged in, to turn this server's db_code.json into a real database name and
+ * logged in, to turn this server's tenant config into a real database name and
  * files_dir. login and signup are the credential exchange itself.
  *
  * Everything else - run_sql, delete_database, backup_databases,
@@ -139,12 +139,12 @@ try {
     );
     $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     
-    // Resolve the on-disk path of db_code.json for a database row.
+    // Resolve the on-disk path of tenant config for a database row.
     //
-    // db_code.json is per server: it names the database this deployment talks
+    // tenant config is per server: it names the database this deployment talks
     // to, so it is written on the server rather than shipped in the build (see
     // deploy/deploy.sh). It lives in the app folder, which is where the app
-    // fetches it from (<mount>db_code.json). An empty js_dir therefore means
+    // fetches it from (<mount>tenant config). An empty js_dir therefore means
     // "the app root", not "unconfigured" — that is the default the deploy guide
     // seeds, and rejecting it made this file uneditable in production.
     // Returns null when the resolved path would escape the app root.
@@ -159,7 +159,7 @@ try {
         $jsDir = str_replace('\\', '/', $jsDir);
         $jsDir = trim($jsDir, '/');
 
-        $path = $base . ($jsDir !== '' ? $jsDir . '/' : '') . 'db_code.json';
+        $path = $base . ($jsDir !== '' ? $jsDir . '/' : '') . 'tenant config';
 
         // Defence in depth: never let a crafted js_dir write outside the app.
         $real = realpath($path);
@@ -265,10 +265,12 @@ try {
     //     unquoted nginx path, so accepting them here only moved the failure to
     //     provisioning time, where it looks like a server problem.
     //
-    // So the accepted set is what deploy/render-nginx.sh already accepted for a folder
-    // name, and it is the same pattern the provisioning library enforces
-    // (api/lib/tenant-provision.php). Delegating to it means the screen and the
-    // provisioning cannot disagree about what a legal client name is.
+    // So the accepted set is the one the provisioning library enforces
+    // (api/lib/tenant-provision.php), which is also what api/lib/appdb.php will
+    // resolve at runtime. Delegating to it means the screen, the provisioning and the
+    // request handler cannot disagree about what a legal client name is - a name the
+    // screen accepts and appdb.php refuses provisions a client whose own site cannot
+    // connect to its database.
     function dbm_validate_database_name(string $dbName) {
         if (!function_exists('tenant_assert_valid_db_name')) {
             return ['error' => 'Tenant provisioning library is missing (api/lib/tenant-provision.php).'];
@@ -361,13 +363,13 @@ try {
         return null;
     }
 
-    // Which registered database owns a folder, by reading the db_code.json in it.
+    // Which registered database owns a folder, by reading the tenant config in it.
     //
-    // The app folder names its database in db_code.json, so that file is the record
-    // of who a folder belongs to. Returns null when the folder holds no db_code.json
+    // The app folder names its database in tenant config, so that file is the record
+    // of who a folder belongs to. Returns null when the folder holds no tenant config
     // or names a database that is not registered.
     function dbm_folder_owner(string $folder) {
-        $file = rtrim($folder, '/') . '/db_code.json';
+        $file = rtrim($folder, '/') . '/tenant config';
         if (!is_file($file)) {
             return null;
         }
@@ -787,7 +789,7 @@ try {
     //
     // Public actions:
     //   get_database_by_code - loadConfig() calls it at boot, before anyone has
-    //     logged in, to turn this server's db_code.json into a real database name
+    //     logged in, to turn this server's tenant config into a real database name
     //     and files_dir. It reveals one registry row and nothing else.
     //   login / signup      - the credential exchange itself. Public by necessity.
     //     migrations/030_drop_adv_sql.sql removed an identical execute_sql action
@@ -1156,7 +1158,7 @@ try {
             //
             // The folders are named after the database (dbm_tenant_dirs), so a new name
             // is a different folder and a different URL - the old folder keeps serving
-            // the old URL with a db_code.json in it, and the row now describes neither.
+            // the old URL with a tenant config in it, and the row now describes neither.
             // Refuse it once anything exists on disk or in the database, and say what to
             // do instead.
             // The OLD name, not the new one: the question is whether this client is
@@ -1166,8 +1168,8 @@ try {
             if ((string) $existing['db_name'] !== $db_name && dbm_is_provisioned($conn, (string) $existing['db_name'])) {
                 $response['message'] = sprintf(
                     "'%s' has already been provisioned, so it cannot be renamed to '%s': the folders, the "
-                    . "URL and db_code.json are all named after the old one. Provision a new database instead, "
-                    . "or rename the %s/ and %s/ folders and rewrite db_code.json by hand.",
+                    . "URL and tenant config are all named after the old one. Provision a new database instead, "
+                    . "or rename the %s/ and %s/ folders and rewrite tenant config by hand.",
                     $existing['db_name'],
                     $db_name,
                     $existing['db_name'],
@@ -1257,7 +1259,7 @@ try {
                 break;
             }
             
-            // Get database info (including db_code, files_dir, and js_dir for directory and db_code.json creation)
+            // Get database info (including db_code, files_dir, and js_dir for directory and tenant config creation)
             $getStmt = $conn->prepare("SELECT id, db_name, db_code, files_dir, js_dir, is_created FROM dbs WHERE id = ?");
             $getStmt->execute([$id]);
             $dbInfo = $getStmt->fetch(PDO::FETCH_ASSOC);
@@ -1415,7 +1417,7 @@ try {
             // Update is_created flag
             $updateStmt = $conn->prepare("UPDATE dbs SET is_created = 1 WHERE id = ?");
             if ($updateStmt->execute([$id])) {
-                // Create db_code.json file if js_dir is configured
+                // Create tenant config file if js_dir is configured
                 $dbCodeJsonCreated = false;
                 $dbCodeJsonError = null;
                 
@@ -1428,7 +1430,7 @@ try {
                         
                         // Construct the full directory and file path
                         $dirPath = __DIR__ . '/../' . $jsDir;
-                        $filePath = $dirPath . '/db_code.json';
+                        $filePath = $dirPath . '/tenant config';
                         
                         // Get the real path for security check
                         $realBasePath = realpath(__DIR__ . '/../');
@@ -1476,13 +1478,13 @@ try {
                         // Write file (only if it doesn't exist)
                         if (!file_exists($filePath)) {
                             if (file_put_contents($filePath, $jsonString) === false) {
-                                throw new Exception('Failed to write db_code.json file');
+                                throw new Exception('Failed to write tenant config file');
                             }
                             $dbCodeJsonCreated = true;
                         }
                     } catch (Exception $e) {
                         $dbCodeJsonError = $e->getMessage();
-                        error_log('Failed to create db_code.json: ' . $dbCodeJsonError);
+                        error_log('Failed to create tenant config: ' . $dbCodeJsonError);
                     }
                 }
                 
@@ -1499,12 +1501,12 @@ try {
                     $response['message'] .= ' (directory errors: ' . implode('; ', $directoryErrors) . ')';
                 }
                 
-                // Add db_code.json creation status
+                // Add tenant config creation status
                 if ($dbCodeJsonCreated) {
-                    $response['message'] .= ', created db_code.json';
+                    $response['message'] .= ', created tenant config';
                 }
                 if ($dbCodeJsonError) {
-                    $response['message'] .= ' (note: db_code.json creation failed: ' . $dbCodeJsonError . ')';
+                    $response['message'] .= ' (note: tenant config creation failed: ' . $dbCodeJsonError . ')';
                 }
                 
                 // Add table creation errors if any
@@ -1548,7 +1550,7 @@ try {
 
         case 'provision_tenant':
             // The whole onboarding, from the browser: database, schema, reference
-            // data, folders, db_code.json and the build. This is the action that lets a
+            // data, folders, tenant config and the build. This is the action that lets a
             // new client be set up without shell access to the server.
             $provisionName = dbm_requested_db_name($conn, $inputData);
             $provisionCheck = dbm_validate_database_name($provisionName);
@@ -1580,7 +1582,6 @@ try {
                     'webroot' => dbm_deployment_root(),
                     'seed_source' => $seedSource,
                     'force' => !empty($inputData['force']),
-                    'deploy_app' => !array_key_exists('deploy_app', $inputData) || !empty($inputData['deploy_app']),
                     'shared_api' => dbm_has_shared_api(),
                     'log' => static function (string $line) use (&$provisionLog): void {
                         $provisionLog[] = $line;
@@ -1606,32 +1607,34 @@ try {
             break;
 
         case 'deploy_app_to_tenant':
-            // Re-copy the current build into one client's folder. Separate from
-            // provisioning because it is the action taken after every release, and it
-            // must not touch a database.
-            $deployName = dbm_requested_db_name($conn, $inputData);
-            $deployCheck = dbm_validate_database_name($deployName);
-            if (isset($deployCheck['error'])) {
-                $response['message'] = $deployCheck['error'];
-                break;
-            }
-
+            // Re-copy the current build into the ONE shared dist/, which is where
+            // every client on this server is served from. Separate from provisioning
+            // because it is the action taken after every release, and it must not
+            // touch a database.
+            //
+            // Server-wide, not per client: there is no per-client build to copy any
+            // more, so there is no client to name. A db_name is still accepted when
+            // sent - an older build of the UI sends one from the Provision screen -
+            // but it is not required and deliberately not used to choose a target,
+            // because the destination is the same dist/ either way.
             $deployLog = [];
             try {
                 $serverConfig = tenant_server_config();
-                $plan = tenant_plan([
-                    'db_name' => $deployName,
-                    'webroot' => dbm_deployment_root(),
-                    'shared_api' => dbm_has_shared_api(),
-                ]);
+                $distFolder = rtrim(str_replace('\\', '/', dbm_deployment_root()), '/') . '/' . TENANT_DIST_DIR_NAME;
 
-                tenant_deploy_app($plan, (string) $serverConfig['canonical_build'], static function (string $line) use (&$deployLog): void {
-                    $deployLog[] = $line;
-                });
+                tenant_deploy_app(
+                    ['dist_folder' => $distFolder],
+                    (string) $serverConfig['canonical_build'],
+                    static function (string $line) use (&$deployLog): void {
+                        $deployLog[] = $line;
+                    }
+                );
 
-                $response['success'] = true;
-                $response['message'] = sprintf('Deployed the current build to %s.', $plan['app_folder']);
-                $response['data'] = ['plan' => $plan, 'log' => $deployLog];
+                $response['message'] = sprintf(
+                    'Deployed the current build to the shared %s/. Every client on this server is served from it.',
+                    $distFolder
+                );
+                $response['data'] = ['dist_folder' => $distFolder, 'log' => $deployLog];
             } catch (Throwable $e) {
                 error_log('deploy_app_to_tenant: ' . $e->getMessage());
                 $response['message'] = $e->getMessage();
@@ -1729,7 +1732,7 @@ try {
             // with each other:
             //
             //   provision - provisioning runs as the web user and creates a database,
-            //               folders and db_code.json. It never needs root, so a
+            //               folders and tenant config. It never needs root, so a
             //               missing nginx setup must not stop it.
             //   nginx     - only this needs root, and it is the one step with effects
             //               beyond the client being set up.
@@ -2470,7 +2473,7 @@ try {
                 }
                 
                 // Protected files that should NOT be deleted
-                $protectedFiles = ['logo.png', 'letter_head.png', 'gml2.png', 'db_code.json'];
+                $protectedFiles = ['logo.png', 'logo_default.png', 'letter_head.png', 'letter_head_default.png', 'gml2.png', 'tenant config'];
                 
                 // Delete all contents (files and subdirectories) EXCEPT protected files
                 $iterator = new RecursiveIteratorIterator(
@@ -2524,7 +2527,7 @@ try {
             break;
             
         case 'read_db_code_json':
-            // Read db_code.json file from js_dir
+            // Read tenant config file from js_dir
             $databaseId = intval($inputData['database_id'] ?? 0);
             
             if ($databaseId <= 0) {
@@ -2596,7 +2599,7 @@ try {
                     
                     if (json_last_error() !== JSON_ERROR_NONE) {
                         error_log('[read_db_code_json] JSON decode error: ' . json_last_error_msg());
-                        throw new Exception('Invalid JSON in db_code.json: ' . json_last_error_msg());
+                        throw new Exception('Invalid JSON in tenant config: ' . json_last_error_msg());
                     }
                     
                     error_log('[read_db_code_json] Parsed JSON data: ' . json_encode($jsonData));
@@ -2630,7 +2633,7 @@ try {
             break;
             
         case 'write_db_code_json':
-            // Write db_code.json file to js_dir
+            // Write tenant config file to js_dir
             $databaseId = intval($inputData['database_id'] ?? 0);
             $jsonContent = $inputData['content'] ?? null;
             
@@ -2708,7 +2711,7 @@ try {
                 $response['success'] = true;
                 $response['message'] = 'File written successfully';
                 $response['data'] = [
-                    'path' => $jsDir . '/db_code.json'
+                    'path' => $jsDir . '/tenant config'
                 ];
             } catch (Exception $e) {
                 $response['message'] = 'Error writing file: ' . $e->getMessage();

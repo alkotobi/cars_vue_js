@@ -1,6 +1,9 @@
 <?php
-// Provision one client of the multi-tenant fleet: its database, its folders, its
-// db_code.json and its copy of the build.
+// Provision one client of the multi-tenant fleet: its database and its folder,
+// which holds its uploads. The database is named after the tenant and the folder is
+// named after the database, so the tenant's name is the only thing that identifies
+// it - there is no binding file to keep in step with it, and no per-tenant copy of
+// the code to drift out of date.
 //
 // ## Why this is a library and not a script
 //
@@ -53,14 +56,49 @@ class TenantProvisionError extends RuntimeException
  *
  * This is deliberately stricter than MySQL's rules for a database name, because
  * the name ends up in three other places that are not SQL: an nginx location, a
- * URL prefix, and a filesystem path that PHP builds by concatenation. The charset
- * is the one deploy/render-nginx.sh already accepted for a folder name, so a name
- * that passes here can be turned into a location block without further escaping.
+ * URL prefix, and a filesystem path that PHP builds by concatenation. Every one of
+ * those needs the name to be a single token, so the allowlist below is short.
  *
- * No leading dot or dash: those are how "." and ".." get in, and a name that
- * collides with a dotfile in /var/www is a folder that should not exist.
+ * The name is used unchanged everywhere: the database, the folder under the
+ * webroot, and the URL prefix. Dashes and dots were once accepted and normalised
+ * to underscores, which produced a folder named `acme-motors` holding a database
+ * named `acme_motors` - two names for one client, and every rename, backup and
+ * support question then has to know the rule to connect them. Lowercase only,
+ * because `Acme` and `acme` are two databases and one folder on a
+ * case-insensitive filesystem. api_valid_tenant() enforces exactly this, and the
+ * two have to agree: a name this accepts and that one rejects provisions a client
+ * whose site cannot resolve its own database.
  */
-const TENANT_DB_NAME_PATTERN = '/^[A-Za-z0-9_][A-Za-z0-9._-]*$/';
+const TENANT_DB_NAME_PATTERN = '/^[a-z][a-z0-9_]{0,63}$/';
+
+/**
+ * Webroot folder names that are not tenants, and so cannot be one.
+ *
+ * api/ is the shared code and dist/ the shared build. A client called either would
+ * have its folder shadowed by the thing it is served from, and its uploads would sit
+ * next to shared code. api_valid_tenant() refuses the same two names for the same
+ * reason; they are listed here rather than imported because this library runs as root
+ * on the server, where requiring a file inside the web root is exactly what must not
+ * happen.
+ */
+const TENANT_RESERVED_NAMES = ['api', 'dist'];
+
+/**
+ * The one build every tenant is served from, at the webroot beside the tenant
+ * folders. The counterpart to the shared api/: neither is per-tenant, and a tenant
+ * folder that held its own copy was the arrangement this replaced.
+ */
+const TENANT_DIST_DIR_NAME = 'dist';
+
+/**
+ * Every tenant's upload folder, relative to the tenant's own folder.
+ *
+ * One name for all of them, which is the point: api/lib/appdb.php resolves a
+ * request's upload folder as app_dir() . '/' . 'files' with no per-tenant
+ * configuration to read, and there is no longer a rule that could put one tenant's
+ * uploads in another tenant's folder.
+ */
+const TENANT_FILES_DIR_NAME = 'files';
 
 /**
  * Folders the app can upload into, relative to a tenant's files_dir.
@@ -252,15 +290,19 @@ function tenant_assert_valid_db_name(string $dbName): string
 
     if (preg_match(TENANT_DB_NAME_PATTERN, $dbName) !== 1) {
         throw new TenantProvisionError(
-            "'{$dbName}' cannot be used as a database name. Use letters, digits, "
-            . 'underscore, dot or dash, starting with a letter, digit or underscore '
-            . '(at most 64 characters) - it also names the folders under the webroot '
-            . 'and the URL prefix, so no slashes, spaces or dots-only names.'
+            "'{$dbName}' cannot be used as a client name. Use a lowercase letter, "
+            . 'then lowercase letters, digits or underscores, starting with the letter '
+            . '- it is the database name, the folder under the webroot and the URL '
+            . 'prefix all at once, so uppercase, dashes, dots and spaces are refused '
+            . 'rather than normalised into a name that no longer matches.'
         );
     }
 
-    if (strlen($dbName) > 64) {
-        throw new TenantProvisionError("'{$dbName}' is longer than MySQL's 64 character limit");
+    if (in_array($dbName, TENANT_RESERVED_NAMES, true)) {
+        throw new TenantProvisionError(
+            "'{$dbName}' is the shared {$dbName}/ folder at the webroot, so it cannot also be a client. "
+            . 'Choose another name.'
+        );
     }
 
     return $dbName;
@@ -282,13 +324,22 @@ function tenant_normalise_dir(string $dir): string
 /**
  * The upload folder name derived from a database name.
  *
- * Derived, never typed. A tenant's folders are a function of its database name, so
- * there is no way for the two to disagree - which is the failure that produces a
- * tenant whose uploads land in another tenant's folder.
+ * 'files', inside the tenant's own folder. It used to be <db>_files, a SIBLING of
+ * the tenant folder, which meant the uploads lived next to the app rather than in
+ * it - so the tenant's folder was never the whole tenant, and anything that treated
+ * it as such (a backup, an rsync of the tenant, a listing) had to know the naming
+ * rule too. One folder per tenant now holds everything that tenant owns.
+ *
+ * Derived, never typed: the same name on every tenant, so there is nothing to
+ * disagree with.
  */
 function tenant_files_dir_name(string $dbName): string
 {
-    return tenant_assert_valid_db_name($dbName) . '_files';
+    // Validated for the side effect of refusing a name that is not a tenant name.
+    // The return value does not depend on it any more.
+    tenant_assert_valid_db_name($dbName);
+
+    return TENANT_FILES_DIR_NAME;
 }
 
 /**
@@ -320,6 +371,8 @@ function tenant_plan(array $opts): array
         $webroot = dirname(__DIR__, 2);
     }
 
+    // Inside the tenant folder, not beside it: the tenant folder is the whole
+    // tenant now, so it holds both its app and its uploads.
     $filesDirName = tenant_files_dir_name($dbName);
     $seedSource = isset($opts['seed_source']) && $opts['seed_source'] !== null
         ? (string) $opts['seed_source']
@@ -361,16 +414,19 @@ function tenant_plan(array $opts): array
         'webroot' => $webroot,
         // Bare names for the filesystem, leading-slash forms for the registry.
         'app_folder' => $webroot . '/' . $dbName,
-        'files_folder' => $webroot . '/' . $filesDirName,
+        'files_folder' => $webroot . '/' . $dbName . '/' . $filesDirName,
         'js_dir' => '/' . $dbName,
-        'files_dir' => '/' . $filesDirName,
+        'files_dir' => '/' . $dbName . '/' . $filesDirName,
         'url_path' => '/' . $dbName . '/',
         'upload_subdirs' => TENANT_UPLOAD_SUBDIRS,
         'seed_tables' => TENANT_SEED_TABLES,
         'business_tables' => TENANT_BUSINESS_TABLES,
         'seed_source' => $seedSource,
         'app_version' => isset($opts['app_version']) ? (int) $opts['app_version'] : TENANT_APP_VERSION,
-        // With one shared api/ the tenant folder holds the build only.
+        // The one build every tenant is served from, beside the tenant folders and
+        // at the same level. nginx aliases it into each tenant's location block, so
+        // it is part of the plan rather than something a deploy decides later.
+        'dist_folder' => $webroot . '/' . TENANT_DIST_DIR_NAME,
         'shared_api' => !empty($opts['shared_api']),
         'migrations' => $migrations,
     ];
@@ -755,8 +811,11 @@ function tenant_mysql_apply_file(array $creds, string $database, string $file, s
 
 /**
  * The registry row is how a client is named before it exists: the DB manager
- * screen creates the row, and this reads it back. The row also carries the db_code
- * that ends up in the tenant's db_code.json.
+ * screen creates the row, and this reads it back.
+ *
+ * db_code is read but no longer used for anything: it wrote the tenant's db_code.json,
+ * which is gone. The column stays, so the table is not the thing that has to change
+ * during the cutover - but nothing reads it to pick a database.
  *
  * @return array{id:int,db_code:string,db_name:string,files_dir:string,js_dir:string}
  * @throws TenantProvisionError when there is no row for this database
@@ -1065,9 +1124,9 @@ function tenant_assert_tenant_empty(PDO $target, ?callable $log = null): void
  * The tenant's own copy of its registry row.
  *
  * Each tenant database carries a `dbs` table (setup.sql creates it). Nothing reads
- * it any more - api.php and api/lib/appdb.php resolve the upload folder through
- * merhab_databases, by db_code - but the row is written so the table is not a lie
- * about what this deployment is.
+ * it any more - api.php and api/lib/appdb.php resolve the tenant from the request
+ * itself, and the upload folder from the tenant folder's own name - but the row is
+ * written so the table is not a lie about what this deployment is.
  *
  * @param array<string,mixed> $tenant
  * @param callable(string):void|null $log
@@ -1170,7 +1229,7 @@ function tenant_ensure_dirs(array $plan, ?string $group = null, ?callable $log =
                 . ' ' . $webroot . ' && chmod g+w ' . $webroot
             );
         }
-        $log('folder: ' . basename($dir) . '/');
+        $log('folder: ' . $dir);
     }
 
     // upload.php resolves the destination folder and refuses anything that is not a
@@ -1182,7 +1241,8 @@ function tenant_ensure_dirs(array $plan, ?string $group = null, ?callable $log =
         }
         $created[] = $path;
     }
-    $log('folders: ' . count(TENANT_UPLOAD_SUBDIRS) . " upload subdirectories under " . basename((string) $plan['files_folder']) . '/');
+    $log('folders: ' . count(TENANT_UPLOAD_SUBDIRS) . ' upload subdirectories under '
+        . (string) $plan['files_folder'] . '/');
 
     // A setgid directory keeps the group on everything created inside it, so the
     // web user can write into the uploads without the folder being world-writable.
@@ -1197,45 +1257,105 @@ function tenant_ensure_dirs(array $plan, ?string $group = null, ?callable $log =
 }
 
 /**
- * db_code.json is the file that binds this folder to its database: the app fetches
- * it to find the upload folder, and api/lib/appdb.php reads it to pick the
- * database. Written here rather than shipped in the build for the same reason
- * deploy/deploy.sh writes it on the server - it is per tenant, the build is not.
+ * A tenant folder is bound to its database by its NAME, so it needs no binding
+ * file. db_code.json did that job once: it was fetched by the build to find the
+ * upload folder and read by api/lib/appdb.php to pick the database. With one shared
+ * api/ that is circular anyway - a per-tenant file read by shared code.
  *
- * @param array<string,mixed> $tenant
+ * So this deletes it instead of writing it. Provisioning is idempotent and is how
+ * a tenant is repaired, which makes this the right place to clear a stale copy: a
+ * leftover db_code.json in the folder is a second, disagreeing answer to "which
+ * database is this", and leaving it would mean the cutover was never finished.
+ *
  * @param array<string,mixed> $plan
  * @param callable(string):void|null $log
  */
-function tenant_write_db_code_json(array $tenant, array $plan, ?callable $log = null): void
+function tenant_remove_legacy_binding_files(array $plan, ?callable $log = null): void
 {
     $log ??= static function (string $line): void {
     };
 
-    if (trim((string) $tenant['db_code']) === '') {
-        throw new TenantProvisionError(
-            'the registry row for ' . $tenant['db_name'] . ' has no db_code, so the tenant folder could not'
-            . ' be bound to its database. Give the row a db_code of the form db_ followed by hex digits.'
-        );
+    foreach (['db_code.json'] as $name) {
+        $path = (string) $plan['app_folder'] . '/' . $name;
+        if (!is_file($path)) {
+            continue;
+        }
+        if (!unlink($path)) {
+            throw new TenantProvisionError('could not remove the legacy ' . $path);
+        }
+        $log('removed ' . $path . ' (a tenant folder is bound to its database by its name)');
     }
-
-    $path = (string) $plan['app_folder'] . '/db_code.json';
-    $json = json_encode(['db_code' => $tenant['db_code']], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-
-    if (file_put_contents($path, $json . "\n") === false) {
-        throw new TenantProvisionError('could not write ' . $path);
-    }
-
-    $log('wrote db_code.json -> ' . $tenant['db_code'] . " (database {$tenant['db_name']}, uploads " . basename((string) $plan['files_dir']) . '/)');
 }
 
 /**
- * Copy a built app into the tenant folder.
+ * Remove a per-tenant copy of the shared api/.
  *
- * The build is copied without --delete's reach into db_code.json, and in the local
- * two-app layout also into api/: that copy is what identifies the tenant when
- * there is no shared api/ (see api/lib/appdb.php). With a shared api/ neither is
- * copied - the tenant folder holds the build only, and nginx maps
- * /<tenant>/api/*.php to the one api/.
+ * An old deployment kept a full copy of the code in the tenant folder, as the way to
+ * identify the tenant: api/lib/appdb.php read it, and it did not exist for the shared
+ * api/. So the copy is not merely redundant - it is an older version of the code,
+ * sitting exactly where a request to /<tenant>/api/ used to find it, and leaving it
+ * means the cutover depends on which copy a request happens to reach.
+ *
+ * *.local.php is kept, deliberately. Those hold credentials, are not in the
+ * repository, and an operator may have copied them in; a migration is not the place
+ * to delete them. The folder is then reported as needing a manual delete rather than
+ * forced, so the leftover is visible instead of silent.
+ *
+ * @param array<string,mixed> $plan
+ * @param callable(string):void|null $log
+ */
+function tenant_remove_legacy_app_copy(array $plan, ?callable $log = null): void
+{
+    $log ??= static function (string $line): void {
+    };
+
+    $appCopy = (string) $plan['app_folder'] . '/api';
+    if (!is_dir($appCopy)) {
+        return;
+    }
+
+    $kept = [];
+    $iterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($appCopy, FilesystemIterator::SKIP_DOTS),
+        RecursiveIteratorIterator::CHILD_FIRST
+    );
+    foreach ($iterator as $item) {
+        if (preg_match('/\.local\.php$/i', $item->getFilename()) === 1) {
+            $kept[] = $item->getPathname();
+            continue;
+        }
+        if ($item->isDir()) {
+            @rmdir($item->getPathname());
+        } else {
+            @unlink($item->getPathname());
+        }
+    }
+
+    if (!@rmdir($appCopy)) {
+        throw new TenantProvisionError(
+            'could not remove the legacy ' . $appCopy . ' copy of the shared api/. Everything in it has been'
+            . ' deleted except ' . (count($kept) > 0 ? implode(', ', $kept) : 'nothing')
+            . '. Move the credential file(s) out of the way, then delete the folder by hand.'
+        );
+    }
+
+    $log('removed ' . $appCopy . ' (one shared api/ serves every tenant)');
+}
+
+/**
+ * Copy a built app into the one shared dist/ every tenant is served from.
+ *
+ * There is no per-tenant build any more. nginx aliases <webroot>/dist/ into every
+ * tenant's location block, so deploying a release is one rsync that updates every
+ * client at once - and there is nothing per-tenant left to exclude, because the
+ * tenant folders hold only their own files/ and this destination has none.
+ *
+ * The function keeps the name and the $plan argument it had when it wrote into a
+ * tenant folder, and takes the destination from $plan['dist_folder'], so its two
+ * callers (the DB manager's re-deploy action and the CLI's --sync-only) do not each
+ * have to reconstruct the webroot. Provisioning deliberately does NOT call it:
+ * adding a client must not re-copy a build, and it only reports whether the shared
+ * dist/ is present.
  *
  * @param array<string,mixed> $plan
  * @param callable(string):void|null $log
@@ -1260,38 +1380,30 @@ function tenant_deploy_app(array $plan, ?string $buildSource, ?callable $log = n
         );
     }
 
-    $target = (string) $plan['app_folder'];
+    $target = (string) ($plan['dist_folder'] ?? '');
 
-    // --delete prunes the old hashed assets, but must not reach db_code.json (which
-    // is written per tenant, above) or api/ (the local per-tenant copy, below).
+    // --delete prunes the old hashed assets, which is the only way a feature
+    // deleted from src/ stops being reachable on every deployed client.
+    //
+    // Safe here because of what dist/ does NOT contain. Uploads are in each
+    // <tenant>/files/ and credentials in api/*.local.php, neither of which is under
+    // this destination - and that is the whole argument for putting the build
+    // somewhere of its own instead of inside a tenant folder, where the same
+    // --delete would need files/ excluded and could delete a client's documents by
+    // accident.
     tenant_rsync(
         [
             '--archive',
             '--delete',
             '--exclude', '.DS_Store',
-            '--exclude', 'db_code.json',
-            '--exclude', 'api',
         ],
         [$buildSource . '/', $target . '/'],
         'build -> ' . basename($target) . '/',
         $log
     );
 
-    if (!empty($plan['shared_api'])) {
-        // One shared api/: nothing to copy per tenant. Logged, because "the tenant
-        // folder has no api/" is otherwise indistinguishable from a broken
-        // deployment - it is the expected state in this layout.
-        $log('shared api/, so no per-tenant api/ was written');
-    } else {
-        // No --delete on api/: a *.local.php holds credentials and must never be
-        // the thing that disappears because a build ran.
-        tenant_rsync(
-            ['--archive', '--exclude', '.DS_Store'],
-            [dirname(__DIR__) . '/', $target . '/api/'],
-            'api -> ' . basename($target) . '/api/',
-            $log
-        );
-    }
+    // No folder per client is written. One api/ and one dist/ serve them all; a
+    // client folder holds files/ and nothing else.
 }
 
 /**
@@ -1346,8 +1458,6 @@ function tenant_rsync(array $options, array $endpoints, string $label, ?callable
  *     webroot?:string,
  *     seed_source?:string|null,
  *     force?:bool,
- *     deploy_app?:bool,
- *     build_source?:string|null,
  *     shared_api?:bool,
  *     group?:string|null,
  *     log?:callable(string):void|null,
@@ -1465,33 +1575,30 @@ function tenant_provision(array $opts): array
     $group = array_key_exists('group', $opts) ? $opts['group'] : tenant_server_config()['web_group'];
     tenant_ensure_dirs($plan, $group === null ? '' : (string) $group, $log);
 
-    $step('db_code.json');
-    tenant_write_db_code_json($reconciled['row'], $plan, $log);
+    // Before the build lands: an old deployment's build and db_code.json are stale
+    // copies, and this step is what makes re-running provisioning a repair.
+    $step('Legacy copies');
+    tenant_remove_legacy_binding_files($plan, $log);
+    tenant_remove_legacy_app_copy($plan, $log);
 
-    if (array_key_exists('deploy_app', $opts) ? $opts['deploy_app'] : true) {
-        $step('App copy');
-        $buildSource = $opts['build_source'] ?? (string) tenant_server_config()['canonical_build'];
-        if ($buildSource === '' && is_dir(dirname(__DIR__, 2) . '/dist')) {
-            // Local development: the build is dist/ next to api/.
-            $buildSource = dirname(__DIR__, 2) . '/dist';
-        }
-
-        // No build is not a reason to refuse the client.
-        //
-        // This used to throw, which meant the whole run stopped at the last step: the
-        // database, folders and db_code.json were already written, so the operator was
-        // left with a half-built client AND an error, on a server where canonical_build
-        // had not been pointed at anything yet. The client is the thing being set up,
-        // and a client with no files in it yet is a normal intermediate state - the
-        // build gets copied by a separate step that the operator can run later.
-        if ($buildSource === '') {
-            $log('app copy: skipped, no build to copy. Set canonical_build in the server');
-            $log('           config, or run the "Re-deploy build" step on this client.');
-        } else {
-            tenant_deploy_app($plan, (string) $buildSource, $log);
-        }
+    // The shared build is not this step's business.
+    //
+    // It used to be: a build was rsynced into the client folder as the last step of
+    // provisioning, so every new client re-copied the whole release - and on a server
+    // where dist/ was empty, it also meant the run's success said nothing about
+    // whether the client would actually load. The build is now one folder beside the
+    // client folders, deployed once per release and shared by all of them, so
+    // provisioning a client neither needs it nor writes it. What it can still do is
+    // report whether the shared build is there, which is the thing an operator
+    // actually needs to know at this point.
+    $step('Shared build');
+    $distFolder = (string) $plan['dist_folder'];
+    if (is_file($distFolder . '/index.html')) {
+        $log('shared build: ' . $distFolder . ' - every client on this server is served from it');
     } else {
-        $log('app copy: skipped');
+        $log('shared build: NOT DEPLOYED. ' . $distFolder . '/index.html is missing, so this');
+        $log('               client will 404 until a build is deployed there. Set');
+        $log('               canonical_build in /etc/cars-deploy.json and use "Re-deploy build".');
     }
 
     return $report;
@@ -1611,8 +1718,18 @@ function tenant_status(array $opts): array
 
     // 3. Folders on disk.
     $add('app folder', is_dir($plan['app_folder']), is_dir($plan['app_folder']) ? $plan['app_folder'] : $plan['app_folder'] . ' does not exist yet');
-    $add('build', is_file($plan['app_folder'] . '/index.html'), is_file($plan['app_folder'] . '/index.html') ? 'index.html is there' : 'no index.html - the build has not been copied yet');
-    $add('db_code.json', is_file($plan['app_folder'] . '/db_code.json'), is_file($plan['app_folder'] . '/db_code.json') ? (string) @file_get_contents($plan['app_folder'] . '/db_code.json') : 'not written yet');
+    // The tenant folder holds uploads and nothing else. Assets come from the one
+    // shared dist/, so a build sitting in here is a leftover, not a missing step -
+    // reported as a problem to clear, the other way round from how it used to read.
+    $add('no build copy', !is_file($plan['app_folder'] . '/index.html'), is_file($plan['app_folder'] . '/index.html')
+        ? $plan['app_folder'] . '/index.html is there - the build is shared now, remove this copy'
+        : 'served from the shared build');
+    $add('no db_code.json', !is_file($plan['app_folder'] . '/db_code.json'), is_file($plan['app_folder'] . '/db_code.json')
+        ? $plan['app_folder'] . '/db_code.json is there - the folder name binds the database now, remove this file'
+        : 'the tenant name is the binding');
+    $add('no api copy', !is_dir($plan['app_folder'] . '/api'), is_dir($plan['app_folder'] . '/api')
+        ? $plan['app_folder'] . '/api is there - the api is shared now, remove this copy'
+        : 'served from the shared api');
 
     $filesFolder = is_dir($plan['files_folder']);
     $add('uploads folder', $filesFolder, $filesFolder ? $plan['files_folder'] : $plan['files_folder'] . ' does not exist yet');

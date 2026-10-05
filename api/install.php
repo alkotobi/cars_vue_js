@@ -4,9 +4,10 @@
 // This file used to be reachable by anyone, at any time, with a plain GET: it ran
 // the whole DDL set against the live database, and on an empty one seeded an
 // `admin` account with the password `123`. Nothing gated it in PHP - the only
-// protection was `deny all` for /api/install.php in deploy/nginx-app.conf.template,
-// so any deployment not using that exact rendered file (Apache, LiteSpeed) had it
-// open, and the app's whole role model reads the table this file rewrites.
+// protection was `deny all` for /api/install.php in the rendered nginx config
+// (deploy/nginx-multitenant.conf.template), so any deployment not using that exact
+// generated file (Apache, LiteSpeed) had it open, and the app's whole role model
+// reads the table this file rewrites.
 //
 // Two guards below: an explicit install key, and a refusal to touch a database
 // that already has a schema. Delete this file once the install succeeds.

@@ -11,14 +11,23 @@
 # Rendered __RENDERED_AT__
 # Server name  __SERVER_NAME__
 # API          __API_DIR__ (one shared copy, serving every tenant)
+# Build        __DIST_DIR__ (one shared copy, serving every tenant)
 # Web root     __WEBROOT__
 # Tenants      __TENANT_COUNT__
+# Subdomains   __SUBDOMAIN_STATE__
+#
+# On disk, once:
+#
+#   __WEBROOT__/api/            the code
+#   __WEBROOT__/dist/           the build
+#   __WEBROOT__/<tenant>/files/ that tenant's uploads, and nothing else
 #
 # How a tenant is addressed
 # ------------------------
-#   https://__SERVER_NAME__/<tenant>/            the app
-#   https://__SERVER_NAME__/<tenant>_files/       that tenant's uploads
-#   https://__SERVER_NAME__/<tenant>/api/*.php    the API for THAT tenant
+#   https://__SERVER_NAME__/<tenant>/                 the app
+#   https://__SERVER_NAME__/<tenant>/files/...        that tenant's uploads
+#   https://__SERVER_NAME__/<tenant>/api/*.php         the API for THAT tenant
+__SUBDOMAIN_DOC__
 #
 # There is one api/ directory and one copy of the code. What makes a request
 # belong to a client is the URL prefix, which arrives in PHP as SCRIPT_NAME and
@@ -90,7 +99,6 @@ __IPV6_LISTEN_443__
     }
 
 __TENANTS__
-
     # The shared api/ is not an entry point of its own.
     #
     # Every API request has to name its tenant in the URL (/<tenant>/api/...), so
@@ -114,3 +122,12 @@ __TENANTS__
     # application.
     location / { return 404; }
 }
+
+# ---------------------------------------------------------------------------
+# Tenant subdomains
+#
+# Whole server blocks, so they sit outside the one above: each names its own
+# server_name and carries the tenant in CARDS_TENANT. Empty unless base_domain
+# and "subdomains" are set in the server config.
+# ---------------------------------------------------------------------------
+__SUBDOMAIN_VHOSTS__

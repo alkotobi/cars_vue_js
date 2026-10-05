@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { readFileSync, existsSync, mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
+import { readFileSync, existsSync, statSync, mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -53,6 +53,17 @@ const exists = (path) => {
   }
 }
 
+// readFileSync cannot see a directory, so the tenant's files/ folder needs its own
+// check. A tenant is identified by that folder now, so a helper that only reports
+// files would make every tenant look unprovisioned.
+const isDirectory = (path) => {
+  try {
+    return statSync(path).isDirectory()
+  } catch {
+    return false
+  }
+}
+
 describe('the repository root is not a tenant', () => {
   it('has no db_code.json, which is what makes it a tenant to api.php', () => {
     // The per-tenant copy below is the one that must exist. Having it here instead
@@ -61,11 +72,12 @@ describe('the repository root is not a tenant', () => {
     expect(exists(join(root.pathname, 'db_code.json'))).toBe(false)
   })
 
-  it('has one tenant folder, which carries its own db_code.json', () => {
+  it('has one tenant folder, with files and no db_code.json', () => {
     // Present so the isolation below is a real separation rather than an empty one:
     // if the tenant folder disappeared the root would have nothing to leak into and
     // every test here would still pass.
-    expect(exists(join(root.pathname, 'merhab_cars', 'db_code.json'))).toBe(true)
+    expect(isDirectory(join(root.pathname, 'merhab_cars', 'files'))).toBe(true)
+    expect(exists(join(root.pathname, 'merhab_cars', 'db_code.json'))).toBe(false)
   })
 
   it('does not name a database in api/config.php', () => {
@@ -201,7 +213,7 @@ echo json_encode([
     const answer = probe('/merhab_cars/api/api.php', { withTenantFolder: true })
 
     expect(answer.db).toBe('merhab_cars')
-    expect(answer.files).toBe('merhab_cars_files')
+    expect(answer.files).toBe('files')
   })
 
   it('resolves the tenant uploads to the folder that exists', () => {
@@ -220,7 +232,7 @@ echo json_encode([
       withFilesFolder: true,
     })
 
-    expect(answer.uploads).toMatch(/\/merhab_cars_files$/)
+    expect(answer.uploads).toMatch(/\/merhab_cars\/files$/)
     expect(answer.uploadsExists).toBe(true)
   })
 

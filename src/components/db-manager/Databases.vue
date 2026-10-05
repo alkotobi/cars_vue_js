@@ -57,14 +57,7 @@
           <i class="fas fa-tag"></i>
           Update Version
         </button>
-        <button
-          @click="openUploadCodeModal"
-          class="btn-toolbar"
-          :disabled="selectedDatabases.length === 0"
-        >
-          <i class="fas fa-upload"></i>
-          Upload Code Files
-        </button>
+
         <button @click="openUpdatePhpModal" class="btn-toolbar">
           <i class="fas fa-file-code"></i>
           Update API Files
@@ -176,10 +169,7 @@
               <button @click="openEditModal(db)" class="btn-edit" title="Edit">
                 <i class="fas fa-edit"></i>
               </button>
-              <button @click="openJsonModal(db)" class="btn-json" title="Edit db_code.json">
-                <i class="fas fa-code"></i>
-                JSON
-              </button>
+
               <button @click="confirmDelete(db)" class="btn-delete" title="Delete">
                 <i class="fas fa-trash"></i>
               </button>
@@ -512,15 +502,17 @@
           </button>
 
           <!--
-            Not gated on provisionStatus.ready, unlike the nginx button. A client
-            provisioned without a build is a legitimate state - that is the whole point
-            of skipping the copy - so hiding the step that fixes it behind "everything
-            else is also missing" would leave no way back.
+            Not gated on provisionStatus.ready, unlike the nginx button, and not
+            gated on the selected row either: the build is copied into the ONE shared
+            dist/ that every client is served from, so this is a server-wide action
+            wearing a button that happens to sit in this dialog. Gating it on
+            anything client-specific would hide the only way to fix a missing build
+            for a client that is otherwise perfectly set up.
           -->
           <button
             v-if="hasCanonicalBuild"
             @click="deployApp"
-            :disabled="deploying || provisioning || !hasCanonicalBuild"
+            :disabled="deploying || provisioning"
             class="btn-toolbar"
           >
             <i class="fas fa-copy"></i>
@@ -650,14 +642,7 @@
       </div>
     </div>
 
-    <!-- Edit db_code.json Modal -->
-    <EditDbCodeJson
-      :show="showJsonModal"
-      :database="jsonEditingDatabase"
-      :api-base-url="getApiBaseUrl()"
-      @close="cancelJsonEdit"
-      @saved="handleJsonSaved"
-    />
+
 
     <!-- Update API Files Modal -->
     <div v-if="showUpdatePhpModal" class="modal-overlay" @click="cancelUpdatePhp">
@@ -754,144 +739,13 @@
       </div>
     </div>
 
-    <!-- Upload Code Files Modal -->
-    <div v-if="showUploadCodeModal" class="modal-overlay" @click="cancelUploadCode">
-      <div class="modal-content" @click.stop>
-        <div class="modal-header">
-          <h3>Upload Code Files</h3>
-        </div>
-        <div class="modal-body">
-          <p>
-            Upload code file(s) to <strong>{{ selectedDatabases.length }}</strong> selected
-            database(s).
-          </p>
-          <div class="form-group">
-            <label for="code-file-input">Select File(s) *</label>
-            <div
-              class="file-drop-zone"
-              :class="{ 'drag-over': isDragOver, 'has-files': selectedCodeFiles.length > 0 }"
-              @drop.prevent="handleFileDrop"
-              @dragover.prevent="isDragOver = true"
-              @dragenter.prevent="isDragOver = true"
-              @dragleave.prevent="isDragOver = false"
-            >
-              <input
-                id="code-file-input"
-                type="file"
-                ref="codeFileInput"
-                @change="handleFileSelect"
-                multiple
-                :disabled="uploadingCode"
-                class="file-input-hidden"
-              />
-              <div class="drop-zone-content">
-                <i class="fas fa-cloud-upload-alt"></i>
-                <p v-if="selectedCodeFiles.length === 0">
-                  <strong>Drag and drop files here</strong><br />
-                  or <span class="browse-link">browse</span> to select files
-                </p>
-                <p v-else>
-                  <strong>{{ selectedCodeFiles.length }} file(s) selected</strong><br />
-                  <span class="browse-link">Click to change files</span>
-                </p>
-              </div>
-            </div>
-            <div v-if="selectedCodeFiles.length > 0" class="selected-files">
-              <p><strong>Selected files:</strong></p>
-              <ul>
-                <li v-for="(file, index) in selectedCodeFiles" :key="index">
-                  {{ file.name }} ({{ formatFileSize(file.size) }})
-                </li>
-              </ul>
-            </div>
-          </div>
 
-          <!-- Upload Results -->
-          <div v-if="uploadCodeResults.length > 0" class="upload-results">
-            <h4>Progress:</h4>
-            <div
-              v-for="(result, index) in uploadCodeResults"
-              :key="index"
-              class="result-item"
-              :class="{
-                'result-error': result.error,
-                'result-success': !result.error && result.progress === 100,
-              }"
-            >
-              <div class="result-header">
-                <strong>{{ result.db_name }}</strong>
-                <span v-if="result.error" class="result-status error">Error</span>
-                <span v-else-if="result.progress === 100" class="result-status success"
-                  >Completed</span
-                >
-                <span v-else class="result-status progress">In Progress</span>
-              </div>
-
-              <!-- Progress Bar -->
-              <div v-if="!result.error" class="progress-container">
-                <div class="progress-bar">
-                  <div class="progress-fill" :style="{ width: (result.progress || 0) + '%' }"></div>
-                </div>
-                <span class="progress-text">{{ result.progress || 0 }}%</span>
-              </div>
-
-              <!-- Status Message -->
-              <div v-if="result.status" class="result-status-message">
-                {{ result.status }}
-              </div>
-
-              <!-- Error Message -->
-              <div v-if="result.error" class="result-message">
-                {{ result.error }}
-              </div>
-
-              <!-- Success Message with Files -->
-              <div v-else-if="result.files && result.files.length > 0" class="result-message">
-                <p>Uploaded {{ result.files.length }} file(s):</p>
-                <ul>
-                  <li v-for="(file, fileIndex) in result.files" :key="fileIndex">
-                    {{ file.name }} → {{ file.path }}
-                  </li>
-                </ul>
-              </div>
-
-              <!-- Skipped Files Message -->
-              <div
-                v-if="result.skipped && result.skipped.length > 0"
-                class="result-message"
-                style="margin-top: 0.5rem; color: #909399"
-              >
-                <p>Skipped {{ result.skipped.length }} protected file(s) (already exist):</p>
-                <ul>
-                  <li v-for="(file, fileIndex) in result.skipped" :key="fileIndex">
-                    {{ file.name }} - {{ file.reason }}
-                  </li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="modal-actions">
-          <button @click="cancelUploadCode" class="btn-cancel" :disabled="uploadingCode">
-            Cancel
-          </button>
-          <button
-            @click="confirmUploadCode"
-            :disabled="selectedCodeFiles.length === 0 || uploadingCode"
-            class="btn-primary"
-          >
-            <i v-if="uploadingCode" class="fas fa-spinner fa-spin"></i>
-            {{ uploadingCode ? 'Uploading...' : 'Upload' }}
-          </button>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import EditDbCodeJson from './EditDbCodeJson.vue'
+
 import { getBasePath, resolveApiBaseUrl } from '@/utils/basePath'
 import { getStoredToken } from '@/composables/useApi'
 import { dbManagerRequest, dbManagerRequestRaw } from '@/composables/useDbManagerApi'
@@ -996,6 +850,16 @@ const refreshProvisionStatus = async () => {
   }
 }
 
+// Re-reads the server-wide deployment checks. Deploying the shared build changes one
+// of them (whether the build is there), so the checklist on screen would otherwise
+// keep saying the build is missing straight after it was copied.
+const refreshServerConfig = async () => {
+  const config = await dbManagerRequest('deployment_config')
+  if (config.success) {
+    serverConfig.value = config.data
+  }
+}
+
 const confirmProvision = async () => {
   if (!provisionTarget.value || provisioning.value) {
     return
@@ -1055,8 +919,13 @@ const applyNginx = async () => {
   }
 }
 
+// Copies the build into the ONE shared dist/, so it affects every client on this
+// server rather than the one whose row is selected. No db_name is sent: the
+// destination is not per client any more, and sending one would read as though it
+// were. That is also why the button is not disabled by a missing selection - the
+// copy does not need a client to apply to.
 const deployApp = async () => {
-  if (deploying.value || !provisionTarget.value) {
+  if (deploying.value) {
     return
   }
   deploying.value = true
@@ -1064,13 +933,11 @@ const deployApp = async () => {
   successMessage.value = ''
 
   try {
-    const result = await dbManagerRequest('deploy_app_to_tenant', {
-      db_name: provisionTarget.value.db_name,
-    })
+    const result = await dbManagerRequest('deploy_app_to_tenant')
     if (result.success) {
       successMessage.value = result.message
       provisionLog.value = result?.data?.log || provisionLog.value
-      await refreshProvisionStatus()
+      await refreshServerConfig()
     } else {
       error.value = result.message || 'The build could not be copied'
     }
@@ -1092,43 +959,17 @@ const runSqlInput = ref('')
 const runningSql = ref(false)
 const runSqlResults = ref([])
 const backingUp = ref(false)
-const showUploadCodeModal = ref(false)
 const codeFileInput = ref(null)
 const selectedCodeFiles = ref([])
 const uploadingCode = ref(false)
 const uploadCodeResults = ref([])
 const isDragOver = ref(false)
-const showJsonModal = ref(false)
-const jsonEditingDatabase = ref(null)
 const showUpdatePhpModal = ref(false)
 const phpFileInput = ref(null)
 const selectedPhpFiles = ref([])
 const uploadingPhp = ref(false)
 const updatePhpResults = ref([])
 const isDragOverPhp = ref(false)
-
-// JSON file editing functionality
-const openJsonModal = (db) => {
-  if (!db.js_dir || db.js_dir.trim() === '') {
-    error.value = 'JS directory (js_dir) is not configured for this database'
-    return
-  }
-
-  jsonEditingDatabase.value = db
-  showJsonModal.value = true
-}
-
-const cancelJsonEdit = () => {
-  showJsonModal.value = false
-  jsonEditingDatabase.value = null
-}
-
-const handleJsonSaved = (message) => {
-  successMessage.value = message
-  setTimeout(() => {
-    successMessage.value = ''
-  }, 5000)
-}
 
 const formData = ref({
   db_code: '',
@@ -1683,46 +1524,7 @@ const formatUnixPath = (field) => {
   formData.value[field] = path
 }
 
-// Upload Code Files functionality
-const openUploadCodeModal = () => {
-  if (selectedDatabases.value.length === 0) {
-    error.value = 'Please select at least one database'
-    return
-  }
 
-  // Check if all selected databases have js_dir
-  const selectedDbs = databases.value.filter((db) => selectedDatabases.value.includes(db.id))
-  const withoutJsDir = selectedDbs.filter((db) => !db.js_dir || db.js_dir.trim() === '')
-  if (withoutJsDir.length > 0) {
-    error.value = 'All selected databases must have a JS directory (js_dir) configured'
-    return
-  }
-
-  selectedCodeFiles.value = []
-  uploadCodeResults.value = []
-  isDragOver.value = false
-  showUploadCodeModal.value = true
-}
-
-const handleFileSelect = (event) => {
-  const files = Array.from(event.target.files || [])
-  selectedCodeFiles.value = files
-  isDragOver.value = false
-}
-
-const handleFileDrop = (event) => {
-  isDragOver.value = false
-  const files = Array.from(event.dataTransfer.files || [])
-  if (files.length > 0) {
-    selectedCodeFiles.value = files
-    // Also update the file input element
-    if (codeFileInput.value) {
-      const dataTransfer = new DataTransfer()
-      files.forEach((file) => dataTransfer.items.add(file))
-      codeFileInput.value.files = dataTransfer.files
-    }
-  }
-}
 
 const formatFileSize = (bytes) => {
   if (bytes === 0) return '0 Bytes'
@@ -1938,224 +1740,6 @@ const confirmUpdatePhp = async () => {
     console.error(err)
   } finally {
     uploadingPhp.value = false
-  }
-}
-
-const confirmUploadCode = async () => {
-  if (uploadingCode.value) return // prevent double submission
-  if (selectedCodeFiles.value.length === 0) {
-    error.value = 'Please select at least one file'
-    return
-  }
-
-  uploadingCode.value = true
-  uploadCodeResults.value = []
-  error.value = ''
-
-  try {
-    const selectedDbs = databases.value.filter((db) => selectedDatabases.value.includes(db.id))
-
-    // Group databases by js_dir to avoid duplicate uploads
-    const dbGroupsByJsDir = {}
-    selectedDbs.forEach((db) => {
-      const jsDir = db.js_dir.trim()
-      if (!dbGroupsByJsDir[jsDir]) {
-        dbGroupsByJsDir[jsDir] = []
-      }
-      dbGroupsByJsDir[jsDir].push(db)
-    })
-
-    // Initialize results for all databases
-    selectedDbs.forEach((db) => {
-      uploadCodeResults.value.push({
-        db_name: db.db_name,
-        error: null,
-        files: [],
-        progress: 0,
-        status: 'preparing',
-        js_dir: db.js_dir.trim(),
-      })
-    })
-
-    // Process each unique js_dir
-    for (const [jsDir, dbGroup] of Object.entries(dbGroupsByJsDir)) {
-      // Find result indices for all databases in this group
-      const resultIndices = dbGroup.map((db) =>
-        uploadCodeResults.value.findIndex((r) => r.db_name === db.db_name),
-      )
-
-      // Use the first database in the group for the API call
-      const firstDb = dbGroup[0]
-
-      try {
-        // Step 1: Prepare folder (create if doesn't exist, clear if exists)
-        resultIndices.forEach((idx) => {
-          uploadCodeResults.value[idx].status = 'Preparing folder...'
-          uploadCodeResults.value[idx].progress = 0
-        })
-
-        const prepareResult = await dbManagerRequest('prepare_upload_folder', {
-          database_id: firstDb.id,
-          js_dir: jsDir,
-        })
-
-        if (!prepareResult.success) {
-          const errorMsg = prepareResult.message || 'Failed to prepare folder'
-          resultIndices.forEach((idx) => {
-            uploadCodeResults.value[idx].error = errorMsg
-            uploadCodeResults.value[idx].status = 'Error'
-          })
-          continue
-        }
-
-        // Step 2: Upload files with progress (only once per js_dir)
-        resultIndices.forEach((idx) => {
-          uploadCodeResults.value[idx].status = 'Uploading files...'
-        })
-
-        // Files to skip if they already exist
-        const protectedFiles = ['logo.png', 'letter_head.png', 'gml2.png', 'db_code.json']
-
-        const totalFiles = selectedCodeFiles.value.length
-        const uploadedFiles = []
-        const skippedFiles = []
-
-        for (let fileIndex = 0; fileIndex < selectedCodeFiles.value.length; fileIndex++) {
-          const file = selectedCodeFiles.value[fileIndex]
-
-          // Check if this is a protected file that should be skipped if it exists
-          const isProtectedFile = protectedFiles.includes(file.name)
-          let shouldSkip = false
-
-          if (isProtectedFile) {
-            // Check if file already exists
-            try {
-              const checkResult = await dbManagerRequest('check_file_exists', {
-                database_id: firstDb.id,
-                file_name: file.name,
-                js_dir: jsDir,
-              })
-
-              if (checkResult.success && checkResult.data && checkResult.data.exists) {
-                shouldSkip = true
-                skippedFiles.push({
-                  name: file.name,
-                  reason: 'File already exists and is protected',
-                })
-              }
-            } catch (err) {
-              // If check fails, proceed with upload (don't block on check errors)
-              console.warn('Failed to check if file exists:', err)
-            }
-          }
-
-          // Update progress for all databases in this group
-          const progress = Math.round(((fileIndex + 1) / totalFiles) * 100)
-          resultIndices.forEach((idx) => {
-            uploadCodeResults.value[idx].progress = progress
-            if (shouldSkip) {
-              uploadCodeResults.value[idx].status =
-                `Skipping ${fileIndex + 1}/${totalFiles}: ${file.name} (already exists)`
-            } else {
-              uploadCodeResults.value[idx].status =
-                `Uploading ${fileIndex + 1}/${totalFiles}: ${file.name}`
-            }
-          })
-
-          // Skip upload if file exists and is protected
-          if (shouldSkip) {
-            continue
-          }
-
-          const formData = new FormData()
-          formData.append('file', file)
-
-          // Use js_dir as base_directory, remove leading slash if present
-          let jsDirPath = jsDir
-          if (jsDirPath.startsWith('/')) {
-            jsDirPath = jsDirPath.substring(1)
-          }
-          formData.append('base_directory', jsDirPath)
-          formData.append('destination_folder', '') // Upload to root of js_dir
-          formData.append('custom_filename', file.name) // Keep original filename
-
-          // Authenticated write target - see the note on the `api` upload above.
-          const authToken = getStoredToken()
-          if (authToken) {
-            formData.append('token', authToken)
-          }
-
-          const uploadResponse = await fetch(`${getApiBaseUrl()}/upload.php`, {
-            method: 'POST',
-            body: formData,
-          })
-
-          const uploadResult = await readJsonResponse(
-            uploadResponse,
-            `${getApiBaseUrl()}/upload.php`,
-          )
-
-          if (uploadResult.success) {
-            uploadedFiles.push({
-              name: file.name,
-              path: uploadResult.file_path || 'Uploaded successfully',
-            })
-          } else {
-            const errorMsg = uploadResult.message || 'Upload failed'
-            resultIndices.forEach((idx) => {
-              uploadCodeResults.value[idx].error = errorMsg
-              uploadCodeResults.value[idx].status = 'Error'
-            })
-            break // Stop uploading other files for this js_dir if one fails
-          }
-        }
-
-        // Add skipped files info to results
-        if (skippedFiles.length > 0) {
-          resultIndices.forEach((idx) => {
-            if (!uploadCodeResults.value[idx].skipped) {
-              uploadCodeResults.value[idx].skipped = []
-            }
-            uploadCodeResults.value[idx].skipped.push(...skippedFiles)
-          })
-        }
-
-        // Mark all databases in this group as complete
-        if (
-          uploadedFiles.length > 0 &&
-          !resultIndices.some((idx) => uploadCodeResults.value[idx].error)
-        ) {
-          resultIndices.forEach((idx) => {
-            uploadCodeResults.value[idx].files = uploadedFiles
-            uploadCodeResults.value[idx].status = 'Completed'
-            uploadCodeResults.value[idx].progress = 100
-          })
-        }
-      } catch (err) {
-        const errorMsg = err.message || 'An error occurred during upload'
-        resultIndices.forEach((idx) => {
-          uploadCodeResults.value[idx].error = errorMsg
-          uploadCodeResults.value[idx].status = 'Error'
-        })
-      }
-    }
-
-    // Check if all uploads were successful
-    const allSuccessful = uploadCodeResults.value.every((r) => !r.error && r.files.length > 0)
-
-    if (allSuccessful) {
-      successMessage.value = 'All files uploaded successfully'
-      setTimeout(() => {
-        successMessage.value = ''
-        // Close the modal after successful upload
-        cancelUploadCode()
-      }, 2000)
-    }
-  } catch (err) {
-    error.value = 'An error occurred while uploading files'
-    console.error(err)
-  } finally {
-    uploadingCode.value = false
   }
 }
 

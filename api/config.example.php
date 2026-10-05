@@ -12,11 +12,25 @@ return [
     'db_user' => '',
     'db_pass' => '',
     // Which database to create. Required only by api/install.php - every other
-    // request resolves its database per request from db_code.json and the
-    // merhab_databases registry, never from here. Leave empty otherwise: naming a
-    // live database here is how an unresolved request used to end up serving a real
-    // tenant's data.
+    // request resolves its database from the tenant in the request, never from
+    // here. Leave empty otherwise: naming a live database here is how an unresolved
+    // request used to end up serving a real tenant's data.
     'db_name' => '',
+
+    // The bare domain tenants are served on, for the subdomain form
+    // (<tenant>.example.com). Empty means subdomain requests are not recognised at
+    // all and only the path form works.
+    //
+    // This has to be set, and cannot be guessed. The request's Host header is the
+    // only signal otherwise, and it is attacker-controlled: guessing the first label
+    // as the tenant means a request to example.com resolves to tenant "example" and
+    // connects to a database called example. Naming the domain this installation
+    // owns turns "is this host mine?" into a comparison against a configured value,
+    // and everything else is not a tenant. Empty is the safe answer: it fails the
+    // comparison for every host, so subdomain routing is simply off.
+    //
+    // May also come from the CARS_BASE_DOMAIN environment variable.
+    'base_domain' => '',
 
     // Required only to run api/install.php. There is deliberately no default: an
     // empty value makes the installer refuse, so forgetting to set it fails

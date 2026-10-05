@@ -1,4 +1,4 @@
-import { createReadStream, existsSync, readFileSync, rmSync, statSync } from 'node:fs'
+import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs'
 import { extname, join, normalize, resolve, sep } from 'node:path'
 import { fileURLToPath, URL } from 'node:url'
 
@@ -23,24 +23,10 @@ const removeVendorPreload = () => {
   }
 }
 
-// db_code.json is PER SERVER, not per build: it names the database a deployment
-// talks to. public/db_code.json exists so `npm run dev` works locally, but it
-// must never reach dist/ — deploying it would point every client at this
-// machine's database. deploy/deploy.sh writes the real one on the server and
-// fails the deploy if this file leaks into a build.
-const removeDbCode = () => {
-  return {
-    name: 'remove-db-code-json',
-    apply: 'build',
-    closeBundle() {
-      const target = fileURLToPath(new URL('./dist/db_code.json', import.meta.url))
-      if (existsSync(target)) {
-        rmSync(target)
-        this.warn('removed dist/db_code.json (per-server file, written by deploy/deploy.sh)')
-      }
-    },
-  }
-}
+// There is deliberately no plugin stripping db_code.json from the build any more:
+// the file is gone. It named the database a deployment talked to, and now the tenant
+// in the request does - so the build contains nothing per-server to leak, and
+// public/db_code.json was removed rather than filtered.
 
 // Content types for a prebuilt tenant folder. Deliberately explicit: this
 // middleware answers the request itself, so there is no transform pipeline to
@@ -68,37 +54,39 @@ const FOLDER_MOUNT_MIME = {
   '.eot': 'application/vnd.ms-fontobject',
 }
 
-// Serve a prebuilt app folder (a second tenant) as its own mount on the dev
-// server, e.g. http://localhost:5173/mig_27/ next to the root app on /.
+// Serve a tenant as its own mount on the dev server, e.g.
+// http://localhost:5173/merhab_cars/ next to the root app on /cars/.
 //
-// Each tenant folder holds its own build, its own db_code.json and its own copy
-// of api/ - that is the layout deploy/deploy.sh rsyncs to a client server, and
-// it is why the tenant's PHP resolves a different database (api/lib/appdb.php
-// reads <appfolder>/db_code.json). The dev server could not serve one:
+// A tenant folder holds its uploads and nothing else, so the three things a mount
+// has to serve come from two places:
 //
-//   - the folder's index.html went through vite's html pipeline, which rewrote
-//     the build's relative `./index.<hash>.js` to `/index.<hash>.js` - the root
-//     app's folder - and served its <link rel=stylesheet> as a JS module;
-//   - any path under the mount with no file behind it hit the SPA fallback and
-//     was answered with the ROOT index.html, so /mig_27/cars loaded the root app.
+//   /<tenant>/            the SHARED build in dist/
+//   /<tenant>/files/...   the tenant's own files/ folder
+//   /<tenant>/api/...     the SHARED api/, executed - see server.proxy
 //
-// So this middleware answers everything under the mount itself and calls next()
-// only for <mount>/api, which the proxy owns (PHP has to execute those). The
-// <base> tag is the same thing deploy/nginx-app.conf.template injects via
+// Vite cannot serve any of them on its own. Its html pipeline rewrote the build's
+// relative ./index.<hash>.js to /index.<hash>.js - the root app's folder - and its
+// SPA fallback answered any path with no file behind it using the ROOT index.html,
+// so /merhab_cars/cars loaded the root app. So this middleware answers the mount
+// itself and calls next() only for <mount>/api, which the proxy owns because PHP has
+// to execute those.
+//
+// The <base> tag is the same thing deploy/nginx-multitenant.conf.template injects via
 // sub_filter, and it is load-bearing: the built index.html references its chunk
 // relatively, which resolves to the right file at depth 1 only - without it every
-// deep link such as /mig_27/cars/sell-bills/5 asks for the chunk one level too
+// deep link such as /merhab_cars/cars/sell-bills/5 asks for the chunk one level too
 // high and comes back as this same HTML file.
-// One tenant folder, resolved. The name is validated before it reaches new URL(),
-// so a request path can never become part of a filesystem path unchecked.
 const folderMountFor = (name) => {
-  const folderRoot = fileURLToPath(new URL(`./${name}/`, import.meta.url)).replace(/[\\/]+$/, '')
+  const deploymentRoot = fileURLToPath(new URL('./dist/', import.meta.url)).replace(/[\\/]+$/, '')
+  const tenantRoot = fileURLToPath(new URL(`./${name}/`, import.meta.url)).replace(/[\\/]+$/, '')
   return {
     name,
     mount: `/${name}`,
-    folderRoot,
-    indexFile: join(folderRoot, 'index.html'),
-    isInside: (candidate) => candidate === folderRoot || candidate.startsWith(folderRoot + sep),
+    folderRoot: deploymentRoot,
+    tenantRoot,
+    indexFile: join(deploymentRoot, 'index.html'),
+    isInside: (candidate) =>
+      candidate === deploymentRoot || candidate.startsWith(deploymentRoot + sep),
   }
 }
 
@@ -118,11 +106,12 @@ const resolveFolderMount = (name) => {
   if (!/^[a-z][a-z0-9_]*$/.test(name)) return null
 
   const root = fileURLToPath(new URL('.', import.meta.url))
-  // db_code.json is api/lib/appdb.php's test for a provisioned deployment; api/ is
-  // what the API proxy below needs to reach. Both, because db_code.json alone also
-  // matches public/ (the root app's own copy, which is in git) and mig1/, a folder
-  // with neither a build nor an api/.
-  if (!existsSync(join(root, name, 'db_code.json')) || !isDirectory(join(root, name, 'api'))) return null
+  // files/ is what makes a folder a tenant: it is where that tenant's uploads live,
+  // and nothing else in this repository has one. It used to be a copy of api/ that
+  // decided which database the tenant talked to, so the test asked for a copy of the
+  // application per client - which is what the shared api/ removed.
+  if (isDirectory(join(root, name, 'api')) || isDirectory(join(root, name, 'dist'))) return null
+  if (!isDirectory(join(root, name, 'files'))) return null
 
   return folderMountFor(name)
 }
@@ -149,7 +138,13 @@ const serveFolderMounts = {
       }
       if (!tenant) return next()
 
-      const { mount, folderRoot, indexFile, isInside } = tenant
+      const { mount, folderRoot, tenantRoot, indexFile, isInside } = tenant
+      // The one route under the mount that is NOT the shared build: the tenant's own
+      // uploads. /<tenant>/files/cars/x.png has to come from <tenant>/files/, so it is
+      // answered here rather than looked for in dist/ - where it does not exist, and
+      // where it must not, since a file in the build folder is the same file for every
+      // tenant.
+      const filesPrefix = `${mount}/files`
 
       // Send the built index.html, with the mount injected as <base>.
       const sendIndex = () => {
@@ -187,8 +182,89 @@ const serveFolderMounts = {
       }
       if (!url.startsWith(`${mount}/`)) return next()
 
-      // The tenant's own API. Handled by server.proxy, which runs after this.
+      // The tenant's own API, executed by the shared api/. Handled by server.proxy,
+      // which runs after this and keeps the /<tenant> prefix, because that prefix is
+      // what tells app_db_name() which tenant the request is for.
       if (url === `${mount}/api` || url.startsWith(`${mount}/api/`)) return next()
+
+       if (url === filesPrefix || url.startsWith(`${filesPrefix}/`)) {
+         let filesRelative
+         try {
+           filesRelative = decodeURIComponent(url.slice(filesPrefix.length)).replace(/^\/+|\/+$/g, '')
+         } catch {
+           res.statusCode = 400
+           res.end('Bad request')
+           return
+         }
+         if (filesRelative === '' || filesRelative.includes('\0')) {
+           res.statusCode = 404
+           res.setHeader('Content-Type', 'text/plain; charset=utf-8')
+           res.end('Not found')
+           return
+         }
+
+         // Inside the tenant's OWN files/ folder. Containment is checked against
+         // tenantRoot, not folderRoot: a request path that escapes files/ must not
+         // land in the shared build or anywhere else, and normalise() alone is not
+         // what proves that - it is the prefix comparison.
+         const filesRoot = join(tenantRoot, 'files')
+         const fileTarget = resolve(filesRoot, normalize(filesRelative))
+         if (fileTarget !== filesRoot && !fileTarget.startsWith(filesRoot + sep)) {
+           res.statusCode = 403
+           res.end('Forbidden')
+           return
+         }
+
+         // No SPA fallback here, deliberately. A missing upload is a missing upload,
+         // and answering it with index.html would hand the browser an HTML file it
+         // would try to render as a logo.
+         if (existsSync(fileTarget) && statSync(fileTarget).isFile()) {
+           const fileType = FOLDER_MOUNT_MIME[extname(fileTarget).toLowerCase()]
+           if (!fileType) {
+             res.statusCode = 404
+             res.setHeader('Content-Type', 'text/plain; charset=utf-8')
+             res.end('Not found')
+             return
+           }
+           res.setHeader('Content-Type', fileType)
+           res.setHeader('Content-Length', statSync(fileTarget).size)
+           createReadStream(fileTarget).pipe(res)
+           return
+         }
+
+         res.statusCode = 404
+         res.setHeader('Content-Type', 'text/plain; charset=utf-8')
+         res.end('Not found')
+         return
+       }
+
+       // Branding assets: prefer tenant files/ first, then shared dist/
+       const brandRe = /^(logo|logo_default|letter_head|letter_head_default|gml2)\.png$/
+       let relBrand
+       try {
+         relBrand = decodeURIComponent(url.slice(mount.length + 1)).replace(/\/+$/, '')
+       } catch {
+         relBrand = ''
+       }
+       if (relBrand && brandRe.test(relBrand)) {
+         const brandFile = relBrand
+         const tenantBrand = join(tenantRoot, 'files', brandFile)
+         if (existsSync(tenantBrand) && statSync(tenantBrand).isFile()) {
+           const type = FOLDER_MOUNT_MIME['.png']
+           res.setHeader('Content-Type', type)
+           res.setHeader('Content-Length', statSync(tenantBrand).size)
+           createReadStream(tenantBrand).pipe(res)
+           return
+         }
+         const sharedBrand = join(folderRoot, brandFile)
+         if (existsSync(sharedBrand) && statSync(sharedBrand).isFile()) {
+           const type = FOLDER_MOUNT_MIME['.png']
+           res.setHeader('Content-Type', type)
+           res.setHeader('Content-Length', statSync(sharedBrand).size)
+           createReadStream(sharedBrand).pipe(res)
+           return
+         }
+       }
 
       let relative
       try {
@@ -284,17 +360,18 @@ const DEV_BASE = process.env.VITE_DEV_BASE ?? '/cars/'
 // The root of the dev server is not an app, and must not become one.
 //
 // Setting `base` makes Vite redirect / to DEV_BASE, so http://127.0.0.1:5173/ answered
-// 302 to /cars/ and booted the root SPA. That SPA has no tenant - the repository root
-// carries no db_code.json - so every request it makes is refused with db_unavailable.
+// 302 to /cars/ and booted the root SPA. That SPA has no tenant - a request at the
+// root resolves to no tenant, so every request it makes is refused with
+// db_unavailable.
 // Its login form is a dead end that is indistinguishable from a working one right up
 // until a password is typed into it, which is worse than not offering the form.
 //
 // Production never had this bug, and the reason is worth keeping in mind before
 // "fixing" it by pointing the dev server at the root app again: the rendered nginx
 // config has no `location = /` at all, so / falls through to `root __WEBROOT__;` and
-// index index.html, i.e. __WEBROOT__/index.html. deploy.sh only ever rsyncs dist/ into
-// $WEBROOT/$FOLDER/ and api/ into $WEBROOT/$FOLDER/api/, so no file is ever written at
-// the webroot root and nginx answers 404. The dev server was the only place where /
+// index index.html, i.e. __WEBROOT__/index.html. deploy.sh rsyncs the build into
+// $WEBROOT/dist/ and the code into $WEBROOT/api/, so no file is ever written at the
+// webroot root and nginx answers 404. The dev server was the only place where /
 // was an app.
 //
 // So / is answered here, and answered the way production answers it. Registered in
@@ -333,7 +410,6 @@ export default defineConfig(({ command }) => ({
   plugins: [
     vue(),
     removeVendorPreload(),
-    removeDbCode(),
     serveFolderMounts,
     serveNothingAtRoot,
   ],
@@ -369,23 +445,41 @@ export default defineConfig(({ command }) => ({
         changeOrigin: true,
         secure: isProduction,
       },
-      // Any folder mount's API: the api/ copy inside that folder, reached by the same
-      // path - no rewrite, because PHP resolves the tenant's database from its own
-      // location (dirname(__DIR__, 2) . '/db_code.json'), so the request has to keep
-      // the /<folder>/ prefix to hit that copy.
+      // A tenant's API: /<tenant>/api/... is executed by the ONE shared api/, reached
+      // by the same path - no rewrite, because the /<tenant> prefix is what tells
+      // app_db_name() which database to open. Rewriting it away would send every
+      // tenant's request to the webroot with no tenant, which resolves to nothing and
+      // is refused.
       //
       // A pattern rather than one entry per client, for the same reason the middleware
       // above resolves per request: a proxy table is built when the config loads, so a
       // client provisioned afterwards had no entry, and its api.php fell through to
       // Vite's static handling. The cost is that '^/[^/]+/api' also matches a path that
-      // is not a tenant mount - /src/api/..., say - and that request is forwarded to
-      // the PHP server, which has no such file and answers 404. The alternative is a
-      // list that is wrong by construction after the next provisioning run.
-      '^/[^/]+/api': {
+      // is not a tenant mount - /src/api/..., say - and that request is forwarded to the
+      // PHP server, which has no such file and answers 404. The alternative is a list
+      // that is wrong by construction after the next provisioning run.
+      '^/([^/]+)/api/(.*)$': {
         target: apiUrl,
         changeOrigin: true,
         secure: isProduction,
+        rewrite: (path) => {
+          const m = path.match(/^\/[^/]+\/api\/(.*)$/)
+          return '/api/' + (m ? m[1] : '')
+        },
+        configure: (proxy) => {
+          proxy.on('proxyReq', (proxyReq, req) => {
+            const m = req.url.match(/^\/([^/]+)\/api\//)
+            if (m) {
+              proxyReq.setHeader('X-Cards-Tenant', m[1])
+              proxyReq.setHeader('CARDS-TENANT', m[1])
+            }
+          })
+        },
       },
+      // Deliberately no '^/[^/]+/files' entry. A tenant's uploads are served from the
+      // filesystem by the middleware above, and proxying them to PHP instead would be
+      // a second path to the same bytes with different rules - one that only works
+      // locally and would not exist in production.
     },
   },
   base: command === 'serve' ? DEV_BASE : './',

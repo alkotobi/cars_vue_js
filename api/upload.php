@@ -92,38 +92,25 @@ const UPLOAD_INLINE_TYPES = [
  * for everyone else. An empty base_directory - the project root - is included
  * because that is where the shared branding files live.
  *
- * These are the directories a SINGLE-APP install has: the project root, its own
- * `files`, and the historical names. A tenant's own pair (js_dir/files_dir) is NOT
- * listed here any more - it did not scale, and every new client would have needed an
- * entry, so a client called acme_cars could not upload anything and a name added
- * for it would also be writable by every other tenant's users. upload_allowed_base()
- * derives this deployment's own tenant directories from the registry instead, so
- * the boundary holds for a hundred tenants without a hundred entries.
+ * 'files' is this request's OWN upload folder, which is inside the tenant's own
+ * folder. app_db_files_dir() resolves it from the request (api/lib/appdb.php), so
+ * it cannot be talked into naming another tenant's folder. The historical names are
+ * kept because a stored path may still point at one; they resolve inside the tenant
+ * folder too, so they are inert rather than a hole.
  */
 const UPLOAD_PUBLIC_ROOTS = ['', 'mig_files', 'mig', 'files', 'uploads'];
 
 /**
- * Whether a non-admin may write into $baseDirectory, given this deployment's own
- * tenant directories.
+ * Whether a non-admin may write into $baseDirectory.
  *
- * Two rules on top of the static list:
+ * The static list plus this request's own upload folder. There is no app folder to
+ * allow any more: the build is shared, so no tenant owns a folder a file could be
+ * dropped into, and nothing legitimate writes there.
  *
- *   - the request's OWN files_dir, from its registry row. app_db_files_dir()
- *     resolves that row from db_code.json, which is derived from the request's
- *     mount (api/lib/appdb.php app_request_mount()) and is not a parameter - so
- *     this cannot be talked into naming another tenant's folder.
- *   - the request's OWN js_dir, so the app folder can be written by an admin of
- *     that app. It is the folder deploy/deploy.sh unpacks a build into, which is
- *     why it has to be writable at all; non-admins still cannot use it.
- *
- * Note what is NOT derived from the registry: any OTHER tenant's directories. Only
- * an admin may name them, which is the pre-existing rule and stays.
- *
- * @param string|null $filesDir this deployment's own files_dir, as a plain name
- *        (app_db_files_dir()), or null when the row does not resolve
- * @param array|null  $row      this deployment's registry row, for js_dir
+ * @param string|null $filesDir this request's own upload folder, as a plain name
+ *        (app_db_files_dir()), or null when the request is not a tenant request
  */
-function upload_allowed_base(string $baseDirectory, ?string $filesDir, ?array $row = null): bool
+function upload_allowed_base(string $baseDirectory, ?string $filesDir): bool
 {
     if (in_array($baseDirectory, UPLOAD_PUBLIC_ROOTS, true)) {
         return true;
@@ -131,15 +118,6 @@ function upload_allowed_base(string $baseDirectory, ?string $filesDir, ?array $r
 
     if ($filesDir !== null && $baseDirectory === trim($filesDir, '/')) {
         return true;
-    }
-
-    // The app folder, but only the deployment's own: js_dir is recorded with a
-    // leading slash, so the name alone is trimmed here and compared as a directory.
-    if ($row !== null) {
-        $jsDir = trim((string) ($row['js_dir'] ?? ''), '/');
-        if ($jsDir !== '' && $baseDirectory === $jsDir) {
-            return true;
-        }
     }
 
     return false;
@@ -295,12 +273,14 @@ $PROJECT_ROOT = dirname(__DIR__);
 
 // Which root a base_directory is resolved against.
 //
-// Two namespaces meet here. The registry records files_dir against the
-// DEPLOYMENT root, because a tenant's app folder and its uploads folder are
-// siblings (<webroot>/acme_cars + <webroot>/acme_cars_files) - and the browser
-// sends that value verbatim (src/composables/useApi.js). Every other entry in
-// UPLOAD_PUBLIC_ROOTS is named relative to the APP folder: '' is the app's own
-// documents/logo.
+// One: the request's own tenant folder. There used to be a second, because a
+// tenant's uploads were a SIBLING of its app folder and files_dir was recorded
+// against the parent, so the resolver had to pick between two roots by comparing
+// base_directory with the recorded value. Both roots are the same folder now.
+//
+// The shared api/ is deliberately NOT a root. It used to be $PROJECT_ROOT, and a
+// non-admin writing into '' landed in the folder holding config.local.php - the
+// one directory no tenant owns and every tenant runs from.
 $DEPLOYMENT_ROOT = app_deployment_root();
 
 /**
@@ -308,12 +288,13 @@ $DEPLOYMENT_ROOT = app_deployment_root();
  */
 function upload_base_root(string $baseDirectory, string $appRoot, string $deploymentRoot): string
 {
-    $filesDir = app_db_files_dir();
-    if ($filesDir === null) {
+    // Not a tenant request: there is no folder of its own to write into, so every
+    // base_directory is refused rather than falling back to the shared api/.
+    if (app_db_files_dir() === null) {
         return $appRoot;
     }
 
-    return trim($filesDir, '/') === $baseDirectory ? $deploymentRoot : $appRoot;
+    return $deploymentRoot;
 }
 
 // ---------------------------------------------------------------------------
@@ -421,7 +402,7 @@ try {
     // own tenant folders. Without this the extension allowlist would still stop a
     // webshell, but any user could overwrite another tenant's documents or the app's
     // branding files.
-    if (!$isAdmin && !upload_allowed_base($baseDirectory, app_db_files_dir(), app_db_row())) {
+    if (!$isAdmin && !upload_allowed_base($baseDirectory, app_db_files_dir())) {
         throw new Exception('Not allowed to upload into this directory');
     }
 

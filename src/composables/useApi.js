@@ -47,10 +47,7 @@ const API_URL = `${API_BASE_URL}/api.php`
 const UPLOAD_URL = `${API_BASE_URL}/upload.php`
 const DB_MANAGER_API_URL = `${API_BASE_URL}/db_manager_api.php`
 
-// Promise to prevent concurrent loads (but no caching - always fetch fresh data)
-let config_promise = null
-
-// Store upload_path for getFileUrl (updated on each loadConfig call)
+// Store upload_path for getFileUrl (set on each loadConfig call)
 // This allows getFileUrl to work synchronously while using the correct base_directory
 let current_upload_path = null
 
@@ -70,123 +67,22 @@ export function getStoredToken() {
   }
 }
 
-// Function to load configuration from db_code.json
-// db_code.json is PER SERVER, not per build: it names the database this
-// deployment talks to, so it is fetched at runtime from <mount>db_code.json
-// rather than compiled in. That is what lets a single dist/ serve many clients,
-// each against its own database. deploy/deploy.sh writes it on the server and
-// excludes it from the rsync; the copy in public/ is a local development default
-// and is never deployed, since a stale one silently points a client at the
-// wrong database.
-// No caching - always fetches fresh data
+// The client used to be discovered at runtime: the build fetched db_code.json from
+// its own folder and asked db_manager_api.php which database that named. There is
+// no db_code.json any more and nothing to look it up with, because the client is
+// now the folder the app is served from and the server resolves the database from
+// the same URL. So both of these are constants, and the shape of the old answer is
+// kept only so the callers below do not all have to change at once.
+//
+// db_name is null because the browser genuinely does not know it, and must not
+// guess: it was only ever used to be sent back to the server, which resolves the
+// database itself now. The one caller that wanted a name (DatabaseVersionCheck)
+// gets null and checks the version through an endpoint instead.
+const UPLOAD_PATH = 'files'
+
 async function loadConfig() {
-  // Return existing promise if already loading (to prevent concurrent requests)
-  if (config_promise) {
-    return config_promise
-  }
-
-  // Start loading (always fetch fresh data)
-  config_promise = (async () => {
-    try {
-      // Get current base path (where index.html is located)
-      const currentBasePath = getBasePath()
-      // Load db_code.json from same folder as index.html (use base path)
-      const dbCodeUrl = `${currentBasePath}db_code.json`
-      const response = await fetch(dbCodeUrl)
-      if (!response.ok) {
-        // A 404 means the per-server file was never written. Name the fix
-        // instead of surfacing a bare status the operator cannot act on.
-        throw new Error(
-          response.status === 404
-            ? `db_code.json not found at ${dbCodeUrl}. This file is per server and is not part ` +
-              `of the build - run: ./deploy/deploy.sh <folder> <host> <db_code>`
-            : `Failed to load db_code.json: ${response.status} ${response.statusText}`,
-        )
-      }
-
-      // Check content type before parsing
-      const contentType = response.headers.get('content-type')
-      if (!contentType || !contentType.includes('application/json')) {
-        const text = await response.text()
-        throw new Error(
-          `db_code.json returned non-JSON response (Content-Type: ${contentType}). Check if the file exists at ${dbCodeUrl}`,
-        )
-      }
-
-      const data = await readJsonResponse(response, dbCodeUrl)
-
-      // Check if db_code exists
-      if (data.db_code) {
-        // Fetch database info from dbs table using db_code
-        try {
-          const dbResponse = await fetch(
-            `${DB_MANAGER_API_URL}?action=get_database_by_code&db_code=${encodeURIComponent(data.db_code)}`,
-          )
-          if (!dbResponse.ok) {
-            // Try to get error text for debugging
-            const errorText = await dbResponse.text()
-            throw new Error(
-              `Failed to fetch database info: ${dbResponse.status} ${dbResponse.statusText}`,
-            )
-          }
-          const contentType = dbResponse.headers.get('content-type')
-          if (!contentType || !contentType.includes('application/json')) {
-            const text = await dbResponse.text()
-            throw new Error(
-              `API returned non-JSON response. Check if ${DB_MANAGER_API_URL} exists.`,
-            )
-          }
-          const dbResult = await readJsonResponse(dbResponse, DB_MANAGER_API_URL)
-
-          if (dbResult.success && dbResult.data) {
-            // Use db_name and files_dir from dbs table
-            if (!dbResult.data.db_name) {
-              throw new Error(
-                `Database record found but db_name is missing for db_code: ${data.db_code}`,
-              )
-            }
-            // Return fresh data (no caching)
-            const config = {
-              db_name: dbResult.data.db_name,
-              upload_path: dbResult.data.files_dir || '', // Use files_dir from dbs table (can be null/empty)
-            }
-            // Update current_upload_path for getFileUrl
-            current_upload_path = config.upload_path
-            return config
-          } else {
-            throw new Error(`Database not found for db_code: ${data.db_code}`)
-          }
-        } catch (dbErr) {
-          throw dbErr
-        }
-      } else {
-        // No db_code, use db_name and uplod_path from JSON
-        if (!data.db_name || !data.uplod_path) {
-          throw new Error(
-            'Missing required configuration: db_name and uplod_path are required when db_code is not provided',
-          )
-        }
-
-        // Return fresh data (no caching)
-        const config = {
-          db_name: data.db_name,
-          upload_path: data.uplod_path,
-        }
-        // Update current_upload_path for getFileUrl
-        current_upload_path = config.upload_path
-        return config
-      }
-    } catch (err) {
-      // Fatal error - stop the website
-      throw new Error(
-        `FATAL ERROR: Cannot load database configuration. ${err.message}. Please check db_code.json file.`,
-      )
-    } finally {
-      config_promise = null
-    }
-  })()
-
-  return config_promise
+  current_upload_path = UPLOAD_PATH
+  return { db_name: null, upload_path: UPLOAD_PATH }
 }
 
 // Helper function to get database name
@@ -249,15 +145,25 @@ export const useApi = () => {
         await new Promise((resolve) => setTimeout(resolve, delay))
       }
 
-      // No dbname: the server picks its database from db_code.json now. It used to
-      // read one off this request, which let a caller aim the API's credentials at
-      // any database on the host. Sending it was never more than decoration.
+      // No dbname: the server picks the database from the URL the request arrived
+      // on. It used to read one off this request, which let a caller aim the API's
+      // credentials at any database on the host, and before that the build fetched
+      // db_code.json to name it. Sending it was never more than decoration.
       const requestData = {
         ...data,
         token: requestToken,
       }
 
       // Removed: console.log('API call to:', API_URL, 'with data:', requestData)
+
+      let tenantFromPath = ''
+      try {
+        const path = window.location.pathname
+        const m = path.match(/^\/([^/]+)/)
+        if (m && m[1] && !['api', 'dist', 'assets', 'files'].includes(m[1])) {
+          tenantFromPath = m[1]
+        }
+      } catch {}
 
       const response = await fetch(API_URL, {
         method: 'POST',
@@ -273,6 +179,10 @@ export const useApi = () => {
                 Accept: 'application/json, text/plain, */*',
                 'Accept-Language': 'en-US,en;q=0.9',
               }),
+          ...(tenantFromPath ? {
+            'X-Cards-Tenant': tenantFromPath,
+            'CARDS-TENANT': tenantFromPath,
+          } : {}),
         },
         body: JSON.stringify(requestData),
       })
@@ -354,7 +264,9 @@ export const useApi = () => {
       //   uploadUrl: UPLOAD_URL,
       // })
 
-      // Load upload path from db_code.json
+      // Always 'files': the folder a client owns, and the only one upload.php
+      // accepts as a base_directory. Sent explicitly because the server checks it
+      // against the resolved tenant rather than assuming.
       const uploadPath = await loadUploadPath()
 
       const formData = new FormData()
@@ -427,7 +339,7 @@ export const useApi = () => {
       }
 
       // Extract the actual file path from the server response
-      // Server returns: '/api/upload.php?path=documents/file.pdf&base_directory=mig_files'
+      // Server returns: '/api/upload.php?path=documents/file.pdf&base_directory=files'
       // We need to extract just the path part for storage
       let relativePath = result.file_path
 
@@ -517,9 +429,11 @@ export const useApi = () => {
       ? path.substring(5) // Remove '/api/'
       : path.replace(/^\/+/, '') // Remove leading slashes
 
-    // Use current_upload_path (from database) as base_directory
-    // This is updated whenever loadConfig() is called
-    const baseDirectory = current_upload_path || 'mig_files'
+    // Use current_upload_path as base_directory. It is 'files' for every client -
+    // the folder a tenant owns is always files/ - so the fallback matches rather
+    // than naming a layout that no longer exists (it was 'mig_files' and produced
+    // URLs the server has to reject).
+    const baseDirectory = current_upload_path || 'files'
 
     // Remove leading slash from baseDirectory if present (Unix path format)
     const cleanBaseDirectory = baseDirectory.startsWith('/')

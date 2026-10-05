@@ -65,19 +65,19 @@ build*/
 # outside api/ rather than beside config.local.php.
 deploy/cars-deploy.local.json
 
-# Tenant folders (m/, nn/, nono/, ...) are deployment output: a built app plus a copy
-# of api/. That copy is functional - a standalone api/ needs its config.local.php to
-# connect to anything - and those files hold the database password. Root-anchored and
-# exactly one level deep, so it cannot reach api/config.local.php, api/migrations/ or
-# anything nested deeper. The credential is blocked from any tenant folder, including
-# one provisioned after this line was written.
-/*/api/*.local.php
-
-# This machine's own tenant folder: a built app plus a copy of api/ that holds the
-# database password, written by deploy/setup-mig-27.php. Output, not source, and it
-# reappears with the same contents every time the machine is provisioned. The names
-# track the registry row in merhab_databases.dbs - rename the database there and these
-# have to follow. Root-anchored, matching the /mig*/ reasoning above: a tenant named
-# e.g. "api" must not be able to swallow the real api/ tree.
+# Tenant folders (merhab_cars/, mig1/, ...) are provisioning output. A tenant folder
+# holds only its uploads now - files/ - because the code is shared: one api/ and one
+# dist/ at the root, and a tenant is named by its folder rather than by a copy of the
+# application sitting beside it. Nothing under a tenant folder is source, and the
+# uploads are client data that must not reach git.
+#
+# Named explicitly rather than by pattern, because a pattern that covered every
+# one-level-deep directory would also cover api/, src/ and dist/. Root-anchored, so a
+# tenant named e.g. "api" still cannot swallow the real api/ tree. Note the root
+# app's own uploads in /files/ ARE tracked - that folder predates the tenant layout
+# and holds source-controlled documents, so it is deliberately not matched here.
 /merhab_cars/
+/mig1/
 /merhab_cars_files/
+/mig_files_2026/
+

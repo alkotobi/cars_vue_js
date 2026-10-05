@@ -121,7 +121,11 @@ function cars_nginx_tenants(PDO $registry): array
 
         $tenants[] = [
             'db_name' => $dbName,
+            // The tenant folder, named after the database. The build is NOT in it:
+            // that is the shared __WEBROOT__/dist/, and nginx aliases it in.
             'app_folder' => $dbName,
+            // uploads, inside that folder. Relative, because it is a path under the
+            // tenant folder rather than a sibling of it.
             'files_folder' => tenant_files_dir_name($dbName),
         ];
     }
@@ -132,41 +136,53 @@ function cars_nginx_tenants(PDO $registry): array
 /**
  * Refuse a set of tenants that would collide in the URL space.
  *
- * Two clients named `acme` and `acme_files` are both legal database names, and
- * `acme_files` is also the uploads folder of `acme`. The second client's whole
- * application would live inside the first client's upload directory: its
- * dist/ next to their invoices, and its uploads directory the same path the first
- * client's app is served from. Neither is recoverable by editing nginx, and the
- * data is already mixed by the time anyone notices.
+ * ## What can still collide
+ *
+ * Only the tenant folders themselves. Uploads moved inside the tenant folder, so
+ * there is no longer a `<client>_files` sibling for another client to be named
+ * after, and the whole collision class disappeared with it.
+ *
+ * What remains is a client named `api` or `dist`: those are the shared code and the
+ * shared build, at the same level, so a client called `dist` would have its folder
+ * aliased over by the build it is served from. And two names differing only in case
+ * collapse into one folder on a case-insensitive filesystem.
  *
  * @param list<array{db_name:string,app_folder:string,files_folder:string}> $tenants
  */
 function cars_nginx_assert_no_collisions(array $tenants): void
 {
-    $folders = [];
-    foreach ($tenants as $tenant) {
-        foreach (['app_folder', 'files_folder'] as $kind) {
-            $folder = (string) $tenant[$kind];
+    $seen = [];
 
-            // Case-insensitively, because a case-insensitive client or a future
-            // move to one would collapse the two paths into the same directory.
-            $key = strtolower($folder);
-            if (isset($folders[$key])) {
+    foreach ($tenants as $tenant) {
+        $folder = (string) $tenant['app_folder'];
+
+        foreach (['api', 'dist'] as $reserved) {
+            if (strtolower($folder) === $reserved) {
                 throw new TenantProvisionError(sprintf(
-                    'Refusing to render: %s (%s of %s) and %s (%s of %s) are the same URL path. A client named after '
-                    . "another client's uploads folder would have its app served from inside that folder. Rename one "
-                    . 'of them in the registry before provisioning either.',
+                    'Refusing to render: "%s" is a client, and %s is the shared %s/ directory at the same level. Its '
+                    . 'location block would be unreachable, and its uploads folder would sit next to shared code. '
+                    . 'Rename it in the registry.',
                     $folder,
-                    $kind,
-                    $tenant['db_name'],
-                    $folders[$key][0],
-                    $folders[$key][1],
-                    $folders[$key][2]
+                    $reserved,
+                    $reserved === 'api' ? 'code' : 'build'
                 ));
             }
-
-            $folders[$key] = [$folder, $kind, $tenant['db_name']];
         }
+
+        // Case-insensitively, because a case-insensitive client or a future move to
+        // one would collapse the two paths into the same directory - and both
+        // tenants' uploads would end up in one folder.
+        $key = strtolower($folder);
+        if (isset($seen[$key])) {
+            throw new TenantProvisionError(sprintf(
+                'Refusing to render: %s and %s are the same folder on a case-insensitive filesystem, so they would '
+                . 'share one uploads directory. Rename one of them in the registry.',
+                $folder,
+                $seen[$key]
+            ));
+        }
+
+        $seen[$key] = $folder;
     }
 }
 
@@ -185,7 +201,31 @@ function cars_nginx_render(array $config, array $tenants): string
     $phpSocket = trim((string) ($config['php_socket'] ?? ''));
     $certDir = rtrim(trim((string) ($config['cert_dir'] ?? '')), '/');
     $apiDir = rtrim(trim((string) ($config['api_dir'] ?? '')), '/');
+    // The shared build. Defaults to <webroot>/dist rather than being required,
+    // because that is where the layout puts it and a config that spells it out
+    // adds one more thing to keep in step with the directory that has to exist.
+    $distDir = rtrim(trim((string) ($config['dist_dir'] ?? '')), '/');
+    if ($distDir === '') {
+        $distDir = $webroot === '' ? '/dist' : $webroot . '/dist';
+    }
     $defaultServer = !empty($config['default_server']);
+
+    // Subdomains are opt-in, and off unless base_domain is a real domain.
+    //
+    // Off by default because the certificate is the blocker, not the routing: a
+    // wildcard cert covers *.example.com but not example.com, so enabling this
+    // without one produces a vhost that fails TLS and a client who cannot log in
+    // at all - worse than the path form, which works. base_domain is what makes
+    // it a real option rather than a wildcard against any Host that arrives.
+    $baseDomain = strtolower(rtrim(trim((string) ($config['base_domain'] ?? '')), '.'));
+    $subdomains = !empty($config['subdomains']) && $baseDomain !== '';
+    if ($subdomains && preg_match('/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/', $baseDomain) !== 1) {
+        throw new TenantProvisionError(sprintf(
+            'Refusing to render: base_domain "%s" is not a domain. Set it to the bare domain clients are served on '
+            . '(no scheme, no path), or turn subdomains off.',
+            $baseDomain
+        ));
+    }
     // Whether to bind [::] as well.
     //
     // Separate because a kernel without IPv6 makes `listen [::]:80` a fatal bind
@@ -221,7 +261,7 @@ function cars_nginx_render(array $config, array $tenants): string
     }
 
     // A server_name is pasted into the config verbatim, same as a folder name.
-    foreach ([$serverName, $webroot, $certDir, $apiDir, $phpSocket] as $value) {
+    foreach ([$serverName, $webroot, $certDir, $apiDir, $distDir, $phpSocket] as $value) {
         if (preg_match('/[\s;{}#\'"\\\\]/', $value) === 1) {
             throw new TenantProvisionError(
                 'Refusing to render: one of server_name, webroot, cert_dir, api_dir or php_socket contains a '
@@ -243,7 +283,24 @@ function cars_nginx_render(array $config, array $tenants): string
     usort($tenants, static fn (array $a, array $b): int => strcmp((string) $a['db_name'], (string) $b['db_name']));
 
     $template = (string) file_get_contents(CARS_NGINX_TEMPLATE);
-    $tenantBlocks = cars_nginx_tenant_blocks($tenants, $apiDir, $phpSocket);
+    $tenantBlocks = cars_nginx_tenant_blocks($tenants, $apiDir, $distDir, $webroot, $phpSocket);
+
+    $subdomainVhosts = '';
+    $subdomainDoc = '';
+    if ($subdomains) {
+        $subdomainVhosts = cars_nginx_subdomain_vhosts($tenants, $apiDir, $distDir, $webroot, $phpSocket, $baseDomain, $certDir);
+        $subdomainDoc = <<<DOC
+#
+#   https://<tenant>.{$baseDomain}/                the same app, the same tenant
+#   https://<tenant>.{$baseDomain}/files/...       the same uploads
+#   https://<tenant>.{$baseDomain}/api/*.php       the same API
+#
+# Both forms serve one tenant from one folder. The subdomain vhosts set
+# CARDS_TENANT, which api/lib/appdb.php reads first - so a request on
+# <tenant>.{$baseDomain} cannot be pointed at a different tenant by its URL, and
+# the Host header is never used to decide.
+DOC;
+    }
 
     $rendered = strtr($template, [
         '__RENDERED_AT__' => gmdate('Y-m-d\TH:i:s\Z'),
@@ -251,6 +308,7 @@ function cars_nginx_render(array $config, array $tenants): string
         '__WEBROOT__' => $webroot,
         '__CERT_DIR__' => $certDir,
         '__API_DIR__' => $apiDir,
+        '__DIST_DIR__' => $distDir,
         '__DEFAULT_SERVER__' => $default,
         // No trailing newline: the placeholder sits on its own line in the
         // template, which already supplies one.
@@ -258,6 +316,11 @@ function cars_nginx_render(array $config, array $tenants): string
         '__IPV6_LISTEN_443__' => $ipv6 ? '    listen [::]:443 ssl http2' . $default . ';' : '',
         '__TENANT_COUNT__' => (string) count($tenants),
         '__TENANTS__' => $tenantBlocks,
+        '__SUBDOMAIN_VHOSTS__' => $subdomainVhosts,
+        '__SUBDOMAIN_DOC__' => $subdomainDoc,
+        '__SUBDOMAIN_STATE__' => $subdomains
+            ? 'on, ' . $baseDomain
+            : 'off (set base_domain and "subdomains": true in the server config to enable)',
     ]);
 
     // A leftover placeholder means the template and this renderer have drifted
@@ -279,8 +342,13 @@ function cars_nginx_render(array $config, array $tenants): string
  *
  * @param list<array{db_name:string,app_folder:string,files_folder:string}> $tenants
  */
-function cars_nginx_tenant_blocks(array $tenants, string $apiDir, string $phpSocket): string
-{
+function cars_nginx_tenant_blocks(
+    array $tenants,
+    string $apiDir,
+    string $distDir,
+    string $webroot,
+    string $phpSocket
+): string {
     if ($tenants === []) {
         return "    # No clients are provisioned yet. Provisioning one adds its block here.\n";
     }
@@ -297,10 +365,12 @@ function cars_nginx_tenant_blocks(array $tenants, string $apiDir, string $phpSoc
         // variable - nginx refuses to start on it.
         //
         // The sanitised name alone is not enough: nginx variable names allow only
-        // [A-Za-z0-9_], so `acme-eu` and `acme_eu` would both sanitise to
-        // cars_api_acme_eu and the file would fail to load with two clients
-        // provisioned. The hash suffix keeps them apart, and sha1 keeps it stable so
-        // an unchanged registry still renders byte-identical text.
+        // [A-Za-z0-9_], so any name carrying a character outside that set collapses
+        // onto another name's variable - and nginx refuses to start on a duplicate
+        // one, taking the whole machine down. Tenant names are now restricted to
+        // [a-z0-9_] upstream, so this cannot happen through the app; a registry
+        // edited by hand can still get here, and a hash suffix costs nothing. sha1
+        // keeps it stable, so an unchanged registry still renders byte-identical text.
         $capture = 'cars_api_'
             . preg_replace('/[^A-Za-z0-9_]/', '_', $name)
             . '_' . substr(sha1($name), 0, 8);
@@ -328,19 +398,51 @@ function cars_nginx_tenant_blocks(array $tenants, string $apiDir, string $phpSoc
     # depth. Exact match, so it is chosen ahead of the prefix block below and of
     # every regex on the server.
     location = /{$app}/index.html {
+        alias {$distDir}/index.html;
         sub_filter_once on;
-        sub_filter_types text/html;
         sub_filter '<meta charset="UTF-8">' '<base href="/{$app}/"><meta charset="UTF-8">';
     }
 
+    # The tenant's uploads. Declared BEFORE the app prefix because it is a longer,
+    # more specific prefix, and nginx picks the longest matching one - so the two
+    # cannot shadow each other. It resolves inside the tenant's own folder, which
+    # is where the files are; nothing here reaches the shared build.
+    location /{$app}/{$files}/ {
+        location ~ \\.php\$ { deny all; }
+        location ~ /\\.     { deny all; }
+        add_header X-Content-Type-Options nosniff;
+        # =404, not the SPA: a missing upload is a missing upload, and answering it
+        # with index.html hands the browser HTML where it expects an image.
+        try_files \$uri =404;
+    }
+
+    # Branding assets: prefer tenant's own files/ first, then fall back to shared dist/
+    location ~ ^/{$app}/(logo|logo_default|letter_head|letter_head_default|gml2)\.png$ {
+        alias {$webroot}/{$name}/{$files}/\$1.png;
+        error_page 404 = @{$capture}_brand_shared;
+    }
+    location @{$capture}_brand_shared {
+        alias {$distDir}/\$1.png;
+    }
+
+    # The app. alias, not try_files against root: the build is the ONE dist/ shared
+    # by every tenant, so it is not under /{$app}/ on disk and the request path
+    # would miss every file. try_files is kept, so a deep link falls back to the
+    # shell.
+    #
     # Plain prefix, NOT ^~.
     #
     # ^~ stops nginx from ever considering this client's API location, which is a
     # regex - so /{$app}/api/*.php would fall through to the SPA fallback and hand
     # the browser HTML for a POST. That fails as a MIME-type error in the console
     # with nothing in the access log to explain it.
+    #
+    # A directory is deliberately NOT in the try_files list: a route can collide with
+    # a real directory, and matching the directory produced a 403 where the app
+    # should have rendered.
     location /{$app}/ {
-        try_files \$uri /{$app}/index.html;
+        alias {$distDir}/;
+        try_files \$uri \$uri/ /{$app}/index.html;
     }
 
     # This client's API. The file comes from the one shared api/, while SCRIPT_NAME
@@ -361,19 +463,135 @@ function cars_nginx_tenant_blocks(array $tenants, string $apiDir, string $phpSoc
         fastcgi_param SCRIPT_FILENAME {$apiDir}/\${$capture};
         fastcgi_param SCRIPT_NAME      /{$app}/api/\${$capture};
         fastcgi_param DOCUMENT_ROOT    {$apiDir};
+        # The tenant, named by the location block rather than parsed out of the URL.
+        # api/lib/appdb.php reads this first, before Host or SCRIPT_NAME, so a
+        # request cannot be aimed at a different tenant than the one this block was
+        # generated for.
+        fastcgi_param CARDS_TENANT     {$app};
         fastcgi_pass unix:{$phpSocket};
         fastcgi_send_timeout 600;
         fastcgi_read_timeout 600;
     }
 
-    # Uploads. Static files only. The nested .php deny is redundant here - there is
-    # no PHP location to reach - and is kept so that stays true if one is ever added.
+NGINX;
+    }
+
+    return implode('', $blocks);
+}
+
+/**
+ * One vhost per tenant on <tenant>.<baseDomain>.
+ *
+ * The same tenant as the path form, served from the same folder, with the prefix
+ * gone from the URL. Two consequences worth stating, because both are easy to get
+ * backwards:
+ *
+ *   - CARDS_TENANT is SET here rather than left to the Host header. It is what makes
+ *     a subdomain request resolve the same tenant as its path form, and it means a
+ *     tenant cannot be reached through another tenant's vhost.
+ *   - No <base> is injected. The app is at the root of this host, so its built-in
+ *     relative base is already correct, and injecting /<tenant>/ here would send
+ *     every asset request to a path that does not exist on this host.
+ *
+ * @param list<array{db_name:string,app_folder:string,files_folder:string}> $tenants
+ */
+function cars_nginx_subdomain_vhosts(
+    array $tenants,
+    string $apiDir,
+    string $distDir,
+    string $webroot,
+    string $phpSocket,
+    string $baseDomain,
+    string $certDir
+): string {
+    if ($tenants === []) {
+        return '';
+    }
+
+    $blocks = [];
+    foreach ($tenants as $tenant) {
+        $name = (string) $tenant['db_name'];
+        $files = (string) $tenant['files_folder'];
+        $host = $name . '.' . $baseDomain;
+        $capture = 'cars_sd_api_' . $name;
+
+        $blocks[] = <<<NGINX
+# ---- {$host} ----
+server {
+    listen 80;
+    server_name {$host};
+    return 301 https://\$host\$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name {$host};
+
+    # The same certificate directory as the parent domain. A wildcard certificate
+    # for {$baseDomain} covers this host, which is why subdomains are opt-in: without
+    # one, TLS fails here and the client cannot log in at all.
+    ssl_certificate     {$certDir}/fullchain.pem;
+    ssl_certificate_key {$certDir}/privkey.pem;
+
+    root {$webroot};
+    client_max_body_size 110M;
+
+    location ^~ /.well-known/acme-challenge/ {
+        root {$webroot};
+        default_type "text/plain";
+        allow all;
+    }
+
+    # The tenant's uploads, at /files/ on its own host.
+    #
+    # alias, not try_files against root: the uploads are in {$webroot}/{$name}/{$files}/,
+    # and on this host they are not at /files/ - so without the alias, every one of
+    # them 404s while the app keeps returning the URL it just wrote.
     location /{$files}/ {
+        alias {$webroot}/{$name}/{$files}/;
         location ~ \\.php\$ { deny all; }
         location ~ /\\.     { deny all; }
         add_header X-Content-Type-Options nosniff;
         try_files \$uri =404;
     }
+
+    # The API, from the one shared api/. SCRIPT_NAME has no prefix, so the tenant
+    # comes from CARDS_TENANT - which this vhost sets, not from the request.
+    location ~ ^/api/(?<{$capture}>[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*\\.php)\$ {
+        include fastcgi.conf;
+        fastcgi_param SCRIPT_FILENAME {$apiDir}/\${$capture};
+        fastcgi_param SCRIPT_NAME      /api/\${$capture};
+        fastcgi_param DOCUMENT_ROOT    {$apiDir};
+        fastcgi_param CARDS_TENANT     {$name};
+        fastcgi_pass unix:{$phpSocket};
+        fastcgi_send_timeout 600;
+        fastcgi_read_timeout 600;
+    }
+
+    # Branding assets: prefer tenant's own files/ first, then fall back to shared dist/
+    location ~ ^/(logo|logo_default|letter_head|letter_head_default|gml2)\.png$ {
+        alias {$webroot}/{$name}/{$files}/\$1.png;
+        error_page 404 = @{$capture}_brand_shared_sd;
+    }
+    location @{$capture}_brand_shared_sd {
+        alias {$distDir}/\$1.png;
+    }
+
+    # The build. No <base> injection: the app is at the root of this host.
+    location / {
+        alias {$distDir}/;
+        try_files \$uri \$uri/ /index.html;
+    }
+
+    # No <base> is injected, so index.html is served straight from the shared
+    # build. Declared so the SPA fallback above has a real target to name.
+    location = /index.html {
+        alias {$distDir}/index.html;
+    }
+
+    location ~* \\.sql\$ { deny all; }
+    location ~ /\\.      { deny all; }
+}
 
 NGINX;
     }

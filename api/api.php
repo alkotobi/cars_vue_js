@@ -59,10 +59,6 @@ if (!is_array($postData)) {
 //         which case getDbConfig() refuses the request rather than guessing.
 function resolveDbNameFromCode(): ?string
 {
-    // app_db_code() reads db_code.json and validates the shape; app_db_name() walks
-    // the merhab_databases registry for it. Both live in lib/appdb.php so that this
-    // file and every standalone endpoint resolve the same database - two code paths
-    // here would be two chances to disagree about which database is being served.
     return app_db_name();
 }
 

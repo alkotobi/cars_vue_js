@@ -51,6 +51,7 @@ const hasPhp = (() => {
 
 const BASE_CONFIG = {
   api_dir: '/var/www/api',
+  dist_dir: '/var/www/dist',
   php_socket: '/run/php/php8.3-fpm.sock',
   server_name: '163.245.214.125',
   cert_dir: '/etc/letsencrypt/live/163.245.214.125',
@@ -60,11 +61,12 @@ const BASE_CONFIG = {
 }
 
 // Builds the tenant rows the renderer derives from the registry itself, so the tests
-// are not guessing at the shape.
+// are not guessing at the shape. 'files' rather than <db>_files: uploads live inside
+// the tenant folder, and the folder is named after the database.
 const tenant = (dbName) => ({
   db_name: dbName,
   app_folder: dbName,
-  files_folder: `${dbName}_files`,
+  files_folder: 'files',
 })
 
 /** Renders via the real PHP and returns { ok, out, err }. */
@@ -135,8 +137,60 @@ describe.skipIf(!hasPhp)('the rendered nginx config', () => {
     expect(out).toContain('location = /acme {')
     expect(out).toContain('location = /acme/index.html {')
     expect(out).toContain('location /acme/ {')
-    expect(out).toContain('location /acme_files/ {')
+    // Inside the tenant folder, not beside it. A sibling <db>_files/ is what this
+    // replaced, and a tenant's app would then have been served from inside another
+    // tenant's upload directory.
+    expect(out).toContain('location /acme/files/ {')
+    expect(out).not.toContain('location /acme_files/ {')
     expect(out).toMatch(/location ~ \^\/acme\/api\/\(\?<cars_api_acme_[0-9a-f]{8}>/)
+  })
+
+  it('serves the app from the one shared build, not from the tenant folder', () => {
+    // The tenant folder holds files/ and nothing else, so try_files against root
+    // would miss every asset: the build is not under /acme/ on disk. alias is what
+    // makes one dist/ serve every tenant.
+    const { out } = render(BASE_CONFIG, [tenant('acme')])
+    expect(out).toContain('location /acme/ {')
+    expect(out).toContain('alias /var/www/dist/;')
+  })
+
+  it('names the tenant in CARDS_TENANT so the location block decides it', () => {
+    // The location block was generated for this tenant, so it can say so. Reading
+    // the tenant out of Host or the URL instead would let a request be aimed at a
+    // tenant other than the one this block was written for.
+    const { out } = render(BASE_CONFIG, [tenant('acme')])
+    expect(out).toContain('fastcgi_param CARDS_TENANT     acme')
+  })
+
+  it('leaves subdomains off unless a base domain is configured', () => {
+    // Off by default: the certificate is the blocker, not the routing, and a vhost
+    // for a host with no cert fails TLS rather than falling back.
+    const { out } = render(BASE_CONFIG, [tenant('acme')])
+    expect(out).not.toContain('server_name acme.')
+    expect(out).toMatch(/Subdomains\s+off/)
+  })
+
+  it('serves the same tenant on its subdomain when subdomains are on', () => {
+    const config = { ...BASE_CONFIG, base_domain: 'cars.example.com', subdomains: true }
+    const { out } = render(config, [tenant('acme')])
+    expect(out).toContain('server_name acme.cars.example.com;')
+    expect(out).toContain('location /files/ {')
+    // No <base> injection in the subdomain vhost: the app is at the root of its own
+    // host, so the build's relative base is already right and /acme/ would not
+    // exist there. Scoped to that vhost, because the path form still needs one.
+    const vhost = out.slice(out.indexOf('# ---- acme.cars.example.com ----'))
+    expect(vhost).not.toContain('<base href=')
+    // And the API still names the tenant, since SCRIPT_NAME no longer does.
+    expect(out).toContain('fastcgi_param CARDS_TENANT     acme')
+  })
+
+  it('refuses subdomains on a base domain that is not a domain', () => {
+    const { ok, err } = render(
+      { ...BASE_CONFIG, base_domain: 'not a domain', subdomains: true },
+      [tenant('acme')],
+    )
+    expect(ok).toBe(false)
+    expect(err).toContain('base_domain')
   })
 
   it('runs the API out of the one shared api/ while keeping the tenant in SCRIPT_NAME', () => {
@@ -196,9 +250,10 @@ describe.skipIf(!hasPhp)('the rendered nginx config', () => {
 
   it('gives every tenant a distinct nginx variable name', () => {
     // nginx fails to start on a duplicate variable, so two clients would take every
-    // site on the machine down. `acme-eu` and `acme_eu` both sanitise to
-    // cars_api_acme_eu - which is why the hash is there.
-    const { ok, out } = render(BASE_CONFIG, [tenant('acme-eu'), tenant('acme_eu')])
+    // site on the machine down. Client names are [a-z0-9_] now, so two of them
+    // cannot sanitise onto one variable - the hash is what makes that a fact about
+    // the renderer rather than an assumption about its input.
+    const { ok, out } = render(BASE_CONFIG, [tenant('acme'), tenant('acme_eu')])
     expect(ok).toBe(true)
     const names = [...out.matchAll(/\(\?<(\w+)>/g)].map((m) => m[1])
     expect(names).toHaveLength(2)
@@ -270,29 +325,38 @@ describe.skipIf(!hasPhp)('the rendered nginx config', () => {
 })
 
 describe.skipIf(!hasPhp)('tenant folder collisions', () => {
-  it('refuses a client named after another client\'s uploads folder', () => {
-    // Both names are legal database names. `beta_files` is also acme's uploads
-    // directory, so beta's entire application would live inside acme's upload
-    // folder: its dist/ next to their invoices, served from the path their app is
-    // served from. Neither is recoverable from nginx, and the data is already mixed
-    // by the time it is noticed.
-    const { ok, err } = checkCollisions([tenant('acme'), tenant('acme_files')])
+  it('refuses a client named api or dist, which are the shared folders', () => {
+    // Both are legal database names and both are folders at the webroot: api/ is the
+    // code and dist/ is the build. A client called dist would have its folder
+    // aliased over by the build it is served from, and its uploads would sit beside
+    // shared code. The registry is a table an operator edits by hand, so this has
+    // to be caught at render time.
+    const { ok, err } = checkCollisions([tenant('dist')])
     expect(ok).toBe(false)
-    expect(err).toContain('same URL path')
-    expect(err).toContain('acme')
+    expect(err).toContain('dist')
+
+    expect(checkCollisions([tenant('api')]).ok).toBe(false)
   })
 
-  it('refuses it regardless of case', () => {
-    // The collision is in the URL space, which a case-insensitive client or a move
-    // to a case-insensitive filesystem would collapse even though Linux does not.
-    expect(checkCollisions([tenant('acme'), tenant('ACME_FILES')]).ok).toBe(false)
+  it('refuses two clients that are one folder apart on a case-insensitive filesystem', () => {
+    // Linux does not collapse these, so this only bites on a move to macOS or a
+    // case-insensitive mount - where both tenants' uploads land in one directory.
+    // Catching it here is cheaper than discovering it there.
+    const { ok, err } = checkCollisions([tenant('acme'), tenant('ACME')])
+    expect(ok).toBe(false)
+    expect(err).toContain('same folder')
+  })
+
+  it('accepts a name that is only a sibling of a shared folder', () => {
+    // apifoo is not api: the location blocks all end in a slash, and the folders
+    // are distinct. Refusing these would make ordinary names unusable.
+    expect(checkCollisions([tenant('apifoo'), tenant('dist2')]).ok).toBe(true)
   })
 
   it('accepts names that merely share a prefix', () => {
     // acme and acme2 are different folders: the trailing slash on the location keeps
-    // /acme2/ from matching the /acme/ block. Refusing these would make ordinary
-    // names unusable.
-    expect(checkCollisions([tenant('acme'), tenant('acme2'), tenant('acme-eu')]).ok).toBe(true)
+    // /acme2/ from matching the /acme/ block.
+    expect(checkCollisions([tenant('acme'), tenant('acme2'), tenant('acme_eu')]).ok).toBe(true)
   })
 
   it('accepts a single client', () => {

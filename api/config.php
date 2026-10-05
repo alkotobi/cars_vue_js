@@ -7,8 +7,7 @@
 //   2. Environment variables: DB_HOST / DB_USER / DB_PASS
 //
 // db_name is deliberately absent from both. This file resolves CONNECTION settings;
-// which database to connect to is decided per request from db_code.json and the
-// merhab_databases registry (see lib/appdb.php). See the note at its definition
+// which database to connect to is decided per request from tenant name (see lib/appdb.php). See the note at its definition
 // below.
 //
 // To set up a machine: copy api/config.example.php to api/config.local.php
@@ -55,18 +54,24 @@ $db_pass = $resolveConfig('db_pass', 'DB_PASS');
 // (merhab_cars) was a live database rather than a placeholder. Empty means "no
 // database configured"; callers that must have one ask for it by name.
 // Empty is allowed and means "no database configured". It is not rejected here:
-// api/install.php and the provisioning CLI both load this file while working out
-// which database to use, and a throw at include time would take them down before they
-// could ask. Every consumer that actually needs a name checks for it and refuses
-// with a message naming the setting - api.php's getDbConfig() is the one on the
-// request path.
+
 $db_name = $resolveConfig('db_name', 'DB_NAME', '');
 
+// The bare domain tenants are served on, for <tenant>.<base_domain>. Empty means
+// subdomain requests are not recognised at all and only the path form works.
+//
+// No default, and it is read here rather than in appdb.php because it is a setting
+// like the others - and because it has to be a SETTING. Host is chosen by whoever
+// sends the request, so inferring the tenant from it means example.com resolves to
+// a tenant called "example". With this empty the comparison fails for every host, so
+// subdomain routing is off rather than wrong.
+$base_domain = $resolveConfig('base_domain', 'CARS_BASE_DOMAIN', '');
 
 // Create a config array that can be used by other files
 $db_config = [
     'host' => $db_host,
     'user' => $db_user,
     'pass' => $db_pass,
-    'dbname' => $db_name
+    'dbname' => $db_name,
+    'base_domain' => $base_domain,
 ];
