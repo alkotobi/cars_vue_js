@@ -292,6 +292,15 @@ export const useApi = () => {
         controller.abort()
       }, 30000) // 30 second timeout
 
+      let tenantFromPath = ''
+      try {
+        const path = window.location.pathname
+        const m = path.match(/^\/([^/]+)/)
+        if (m && m[1] && !['api', 'dist', 'assets', 'files'].includes(m[1])) {
+          tenantFromPath = m[1]
+        }
+      } catch {}
+
       const response = await fetch(UPLOAD_URL, {
         method: 'POST',
         headers: {
@@ -304,6 +313,10 @@ export const useApi = () => {
                 Accept: 'application/json, text/plain, */*',
                 'Accept-Language': 'en-US,en;q=0.9',
               }),
+          ...(tenantFromPath ? {
+            'X-Cards-Tenant': tenantFromPath,
+            'CARDS-TENANT': tenantFromPath,
+          } : {}),
         },
         body: formData,
         signal: controller.signal,
