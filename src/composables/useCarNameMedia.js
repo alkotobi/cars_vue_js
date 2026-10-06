@@ -12,6 +12,25 @@ import {
   formatDate
 } from '../lib/carNameMedia'
 
+/**
+ * The signed-in user's id, read from the same session key useApi writes.
+ *
+ * Returns null when there is no usable session rather than 0 or 1: the INSERT is
+ * NOT NULL on uploaded_by, and a wrong-but-valid id is worse than a failure because
+ * it silently attributes the file to the wrong person.
+ */
+function resolveCurrentUserId() {
+  try {
+    const raw = localStorage.getItem('user')
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    const id = Number(parsed?.id)
+    return Number.isInteger(id) && id > 0 ? id : null
+  } catch {
+    return null
+  }
+}
+
 export function useCarNameMedia({ carName, notify } = {}) {
   const media = ref([])
   const inactiveCount = ref(0)
@@ -75,6 +94,20 @@ export function useCarNameMedia({ carName, notify } = {}) {
     uploading.value = true
     let successCount = 0
     let failCount = 0
+    // uploaded_by was the literal 1. car_name_media.uploaded_by is a NOT NULL
+    // foreign key to users.id, so it only ever credited whoever happens to be user 1
+    // - and the gallery shows that name next to the file. It is resolved from the
+    // session like every other upload path in the app (see useApi.uploadCarFile).
+    const uploadedBy = resolveCurrentUserId()
+    if (uploadedBy === null) {
+      uploading.value = false
+      await notify?.(
+        'error',
+        'Cannot upload media',
+        'No signed-in user was found, so the upload could not be attributed. Please sign in again.'
+      )
+      return { success: false }
+    }
     for (const s of selected.value) {
       const f = s.file
       const ext = extensionOf(f.name)
@@ -82,16 +115,31 @@ export function useCarNameMedia({ carName, notify } = {}) {
       const suffix = uniqueSuffix()
       const safeName = f.name.replace(/[^A-Za-z0-9._-]/g, '_')
       const newName = `${suffix}.${ext || 'bin'}`
-      const uploadRes = await uploadFileRef?.(f, `uploads/car_names/${carName.id}/${newName}`)
+      // The filename is the THIRD argument (custom_filename) and the folder is the
+      // second. They were concatenated into the second here, so uploadFile treated
+      // the whole thing as a destination folder: it created
+      // files/uploads/car_names/<id>/<uuid>.png/ as a DIRECTORY and stored a
+      // server-named file inside it. The gallery then recorded a path that pointed
+      // at a folder, so nothing resolved.
+      const uploadRes = await uploadFileRef?.(f, `uploads/car_names/${carName.id}`, newName)
       if (!uploadRes?.success) {
         failCount++
         continue
       }
-      const pathRel = uploadRes.path
+      // uploadFile returns `relativePath`, not `path` - see useApi.js, which returns
+      // { ...result, relativePath }. Reading `path` gave undefined, which went into
+      // car_name_media.file_path as SQL NULL and every INSERT failed on the NOT NULL
+      // constraint. That is the failure that made this look like a no-op: the file
+      // was stored, the row was refused, and fetchMedia() then found nothing.
+      const pathRel = uploadRes.relativePath
+      if (!pathRel) {
+        failCount++
+        continue
+      }
       const insertRes = await safeApiRef?.({
-        query: `INSERT INTO car_name_media (car_name_id, file_path, file_name, file_type, media_type, uploaded_by, is_active)
-                VALUES (?, ?, ?, ?, ?, ?, 1)`,
-        params: [carName.id, pathRel, safeName, f.type || 'application/octet-stream', mtype, 1]
+        query: `INSERT INTO car_name_media (car_name_id, file_path, file_name, file_size, file_type, media_type, uploaded_by, is_active)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
+        params: [carName.id, pathRel, safeName, f.size || null, f.type || 'application/octet-stream', mtype, uploadedBy]
       })
       if (insertRes?.success) successCount++
       else failCount++

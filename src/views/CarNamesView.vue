@@ -59,6 +59,7 @@
     <CarNameMediaDialog
       v-if="mediaCarName"
       :car-name="mediaCarName"
+      :notify="notify"
       @close="closeMedia"
     />
     <MessageBox v-bind="msgBox" @confirm="onConfirm" @cancel="onCancel" @close="onClose" />

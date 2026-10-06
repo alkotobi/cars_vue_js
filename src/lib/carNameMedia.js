@@ -1,6 +1,10 @@
 export const MAX_MEDIA_BYTES = 100 * 1024 * 1024 // 100 MB
 
-export const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg']
+// No svg. upload.php's allowlist excludes it because an SVG served inline is
+// same-origin script, and rejecting it there is deliberate - so offering it here only
+// produced files the client accepted and the server refused. This list is meant to
+// match UPLOAD_CONTENT_TYPES in api/upload.php, not to advertise more than it stores.
+export const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp']
 
 export const VIDEO_EXTENSIONS = ['mp4', 'webm', 'avi', 'mov']
 

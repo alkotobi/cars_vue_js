@@ -5,7 +5,11 @@
       <button class="btn upload-btn" :disabled="uploading || selected.length===0" @click="doUpload">
         {{ uploading ? 'Uploading...' : `Upload Selected (${selected.length})` }}
       </button>
-      <small class="form-hint">Images: JPG, PNG, GIF, WEBP, SVG. Videos: MP4, WEBM, AVI, MOV. Max 100 MB each.</small>
+      <!-- No SVG, deliberately: upload.php's allowlist excludes it because an SVG
+           served inline is same-origin script. The hint used to advertise SVG, so
+           every SVG picked here was accepted by the client and then refused by the
+           server - one more silent upload. Listed types are the allowlist. -->
+      <small class="form-hint">Images: JPG, PNG, GIF, WEBP. Videos: MP4, WEBM, AVI, MOV. Max 100 MB each.</small>
     </div>
     <div v-if="rejected.length>0" class="rejected-files">
       <p><strong>Rejected files:</strong></p>
@@ -36,10 +40,18 @@ import { onMounted, onUnmounted } from 'vue'
 import BaseDialog from '../shared/BaseDialog.vue'
 import { useCarNameMedia } from '../../composables/useCarNameMedia'
 import { useSafeApi } from '../../composables/useSafeApi'
-import { useNotify } from '../../composables/useNotify'
-const props = defineProps({ carName: { type: Object, required: true } })
+// notify is a prop, not a second useNotify() call. This dialog used to build its own
+// instance, but useNotify's state is module-local to the instance and the <MessageBox>
+// that renders it lives in the parent (CarNamesView). A dialog-local instance therefore
+// had nowhere to be displayed: notify() set show = true on a ref no component was bound
+// to, and every failure below was swallowed with no message and no log. Passing the
+// parent's notify puts these errors back on screen.
+const props = defineProps({
+  carName: { type: Object, required: true },
+  notify: { type: Function, required: true },
+})
 const emit = defineEmits(['close'])
-const { notify } = useNotify()
+const notify = props.notify
 const { safeApi, uploadFile, getFileUrl } = useSafeApi()
 const mediaApi = useCarNameMedia({ carName: props.carName, notify })
 const m = mediaApi.withDeps({ safeApi, uploadFile, getFileUrl })
