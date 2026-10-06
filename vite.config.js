@@ -402,6 +402,46 @@ const serveNothingAtRoot = {
   },
 }
 
+// Name the tenant on every /<tenant>/api/ request, before Vite's proxy middleware runs.
+//
+// The shared api/ decides which database and which files folder a request belongs to
+// from the tenant in the path (see the proxy entry in server.proxy). In production
+// nginx passes that along as CARDS_TENANT, per location. The dev server has to do the
+// same, and it used to do it in a proxyReq listener that never fired - rewrite()
+// reassigns req.url to /api/<rest> before 'proxyReq' is emitted, so the listener read
+// a path whose tenant prefix was already gone.
+//
+// The failure was silent in a way that made it look like a data problem rather than a
+// routing one. With no tenant, app_db_files_dir() returns null, so upload.php resolved
+// the file against the webroot instead of the tenant folder: the upload succeeded and
+// the file really was on disk in <tenant>/files/, but every subsequent read 404'd
+// because it was looking in a folder where it had never been written. An <img src>
+// cannot send headers, so display broke for exactly the files the app had just stored.
+//
+// Middleware, not a proxy event, because this is the only hook that runs while
+// req.url still has the tenant in it. Plugin middleware registered here also runs
+// before Vite's internal ones, including the proxy - the same ordering note as
+// serveNothingAtRoot below.
+const nameTenantApiRequests = {
+  name: 'name-tenant-api-requests',
+  configureServer(server) {
+    server.middlewares.use((req, res, next) => {
+      const pathname = (req.url || '').split('?')[0]
+      const m = pathname.match(/^\/([^/]+)\/api\//)
+      if (m) {
+        // Overwrite rather than defer to an incoming header: the path is the dev
+        // server's own answer to which tenant this is, matching what nginx does per
+        // location in production. app_request_tenant() treats a set-but-invalid
+        // CARDS_TENANT as final instead of falling back to a guess, so letting a
+        // client's header override this would make the path meaningless.
+        req.headers['x-cards-tenant'] = m[1]
+        req.headers['cards-tenant'] = m[1]
+      }
+      next()
+    })
+  },
+}
+
 export default defineConfig(({ command }) => ({
   // vue-plugin-vue-devtools is intentionally not loaded: importing it evaluates
   // @vue/devtools-kit at config load, which touches localStorage and throws
@@ -412,6 +452,7 @@ export default defineConfig(({ command }) => ({
     removeVendorPreload(),
     serveFolderMounts,
     serveNothingAtRoot,
+    nameTenantApiRequests,
   ],
   test: {
     globals: true,
@@ -462,18 +503,19 @@ export default defineConfig(({ command }) => ({
         target: apiUrl,
         changeOrigin: true,
         secure: isProduction,
+        // The tenant is already on the request by the time this runs - see
+        // nameTenantApiRequests above. This only strips the prefix so the shared api/
+        // answers, which is why app_db_name() reads the tenant from a header and not
+        // from the path.
+        //
+        // The tenant used to be set in a proxyReq listener on this entry, reading
+        // req.url. That cannot work: rewrite() below runs first and is what reassigns
+        // req.url to /api/<rest>, so by the time 'proxyReq' is emitted the /<tenant>/
+        // prefix the match depended on is already gone. The listener therefore never
+        // fired, and every request reached PHP with no tenant.
         rewrite: (path) => {
           const m = path.match(/^\/[^/]+\/api\/(.*)$/)
           return '/api/' + (m ? m[1] : '')
-        },
-        configure: (proxy) => {
-          proxy.on('proxyReq', (proxyReq, req) => {
-            const m = req.url.match(/^\/([^/]+)\/api\//)
-            if (m) {
-              proxyReq.setHeader('X-Cards-Tenant', m[1])
-              proxyReq.setHeader('CARDS-TENANT', m[1])
-            }
-          })
         },
       },
       // Deliberately no '^/[^/]+/files' entry. A tenant's uploads are served from the
