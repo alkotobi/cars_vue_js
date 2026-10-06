@@ -235,6 +235,74 @@ function upload_resolve_within_root(string $projectRoot, string $relative): stri
 }
 
 /**
+ * The same containment check, but creating the destination when it is missing.
+ *
+ * POST only. The old endpoint mkdir'd both the base and the destination before
+ * checking them; the rewrite replaced that with a bare is_dir(), which is the
+ * safer half of the trade but breaks every folder the app does not ship - a new
+ * car's `files/cars/<id>/bl` does not exist until its first upload, so the upload
+ * was refused with "Invalid upload directory" for the folder it was supposed to
+ * be creating. The GET branch deliberately does not use this: serving must never
+ * have a side effect, so a missing file stays a 404.
+ *
+ * Containment is still proven before anything is written, and proven on the
+ * deepest ancestor that exists rather than on the final path: realpath() returns
+ * false for a path that does not exist yet, so the check has to walk down to the
+ * first component that resolves, confirm that is inside the root, and only then
+ * create the remainder. That is what stops a crafted relative path from walking
+ * out of the root and then having a directory made for it there.
+ *
+ * @return string the absolute destination path, or '' if it is outside the root
+ *         or cannot be created
+ */
+function upload_prepare_within_root(string $projectRoot, string $relative): string
+{
+    $root = rtrim(realpath($projectRoot) ?: $projectRoot, DIRECTORY_SEPARATOR);
+    if ($root === '') {
+        return '';
+    }
+
+    // A '..' is refused rather than collapsed. destination_folder is normalised
+    // before this runs, so a well-behaved caller never arrives with one; a
+    // crafted base_directory can. Collapsing it would still land inside the root,
+    // but it would create a directory nobody asked for on every attempt, so the
+    // path is thrown out instead and the caller gets "Invalid upload directory".
+    $segments = [];
+    foreach (explode('/', str_replace('\\', '/', $relative)) as $segment) {
+        if ($segment === '' || $segment === '.') {
+            continue;
+        }
+        if ($segment === '..') {
+            return '';
+        }
+        $segments[] = $segment;
+    }
+
+    // Walk down to the deepest component that already exists, proving each level
+    // is inside the root as we go.
+    $existing = $root;
+    $pending = $segments;
+    while ($pending !== []) {
+        $candidate = $existing . '/' . $pending[0];
+        if (!file_exists($candidate)) {
+            break;
+        }
+        $resolved = realpath($candidate);
+        if ($resolved === false || strpos($resolved, $root . DIRECTORY_SEPARATOR) !== 0) {
+            return '';
+        }
+        $existing = $resolved;
+        array_shift($pending);
+    }
+
+    if ($pending !== [] && !@mkdir($existing . '/' . implode('/', $pending), 0755, true) && !is_dir($existing . '/' . implode('/', $pending))) {
+        return '';
+    }
+
+    return upload_resolve_within_root($root, implode('/', $segments));
+}
+
+/**
  * Reject any filename that is not a plain name carrying an allowed extension.
  */
 function upload_validate_extension(string $fileName): string
@@ -407,7 +475,7 @@ try {
     }
 
     $relativeDirectory = $baseDirectory . ($destinationFolder !== '' ? '/' . $destinationFolder : '');
-    $realBasePath = upload_resolve_within_root(
+    $realBasePath = upload_prepare_within_root(
         upload_base_root($baseDirectory, $PROJECT_ROOT, $DEPLOYMENT_ROOT),
         $relativeDirectory
     );
