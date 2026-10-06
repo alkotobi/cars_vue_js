@@ -394,13 +394,10 @@ const getCurrentUser = () => {
 const loadInitialClientsData = async () => {
   isLoading.value = true
   try {
-    // First, let's check the table structure to see if NIN column exists
-    const structureResult = await callApi({
-      query: 'PRAGMA table_info(clients)',
-      params: [],
-    })
-    console.log('Clients table structure:', structureResult)
-
+    // The PRAGMA table_info() probe that used to run here is gone. It was SQLite
+    // syntax being sent to a MySQL server, so it threw a syntax error on every load,
+    // and the only thing it did was console.log the result - the query below selects
+    // c.nin directly and errors properly if the column is missing.
     const result = await callApi({
       query: `
         SELECT 

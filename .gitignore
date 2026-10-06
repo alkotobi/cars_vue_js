@@ -78,6 +78,8 @@ deploy/cars-deploy.local.json
 # and holds source-controlled documents, so it is deliberately not matched here.
 /merhab_cars/
 /mig1/
+/ali_cars/
+/maria_cars/
 /merhab_cars_files/
 /mig_files_2026/
 
