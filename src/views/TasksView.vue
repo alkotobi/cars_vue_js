@@ -399,9 +399,15 @@ const openTaskChat = guard('open-task-chat', async (task) => {
       }
     }
 
-    // Open chat with the group
-    const chatUrl = `${BASE_PATH}chat?group=${groupId}&task=${task.id}&taskName=${encodeURIComponent(task.title)}`
-    window.open(chatUrl, '_blank')
+    // Open chat with the group - use the global chat modal like other components
+    window.dispatchEvent(
+      new CustomEvent('open-chat-with-group', {
+        detail: {
+          groupId: groupId,
+          groupName: task.title,
+        },
+      })
+    )
   } catch (error) {
     console.error('Error opening task chat:', error)
     alert('Error opening chat for this task')
