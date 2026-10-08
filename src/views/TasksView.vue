@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { useApi } from '../composables/useApi'
+import { useApi, BASE_PATH } from '../composables/useApi'
 import { useSubmitGuard } from '../composables/useSubmitGuard'
 import TaskForm from '../components/car-stock/TaskForm.vue'
 
@@ -400,7 +400,7 @@ const openTaskChat = guard('open-task-chat', async (task) => {
     }
 
     // Open chat with the group
-    const chatUrl = `/mig/chat?group=${groupId}&task=${task.id}&taskName=${encodeURIComponent(task.title)}`
+    const chatUrl = `${BASE_PATH}chat?group=${groupId}&task=${task.id}&taskName=${encodeURIComponent(task.title)}`
     window.open(chatUrl, '_blank')
   } catch (error) {
     console.error('Error opening task chat:', error)
