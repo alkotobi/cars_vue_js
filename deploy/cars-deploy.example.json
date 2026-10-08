@@ -63,8 +63,24 @@
         "because a browser sends no SNI for an address, so the block cannot be matched by",
         "name. If another vhost already holds that position, nginx -t fails with",
         "\"duplicate default server\" - the render is rolled back and nothing changes.",
-        "Then either drop default_server from the other block or set this to false."
+        "Then either drop default_server from the other block or set this to false.",
+        "Mutually exclusive with ip_address: that vhost takes the slot instead."
     ],
+    "ip_address": "",
+    "_ip_address": [
+        "Set only when the server is reached BOTH by a domain and by a bare IP and the",
+        "same app must answer on both. Adds a second :443 vhost - same body, its own",
+        "server_name, own certificate, and the default_server slot (no SNI arrives for",
+        "an address) - so default_server must be false when this is set.",
+        "The certificate has to be a separate, short-lived (6-day) Let's Encrypt IP",
+        "certificate, because the classic profile carries DNS names only:",
+        "  certbot certonly --preferred-profile shortlived --webroot -w <webroot> \\",
+        "      --ip-address 163.245.214.125 --deploy-hook 'systemctl reload nginx'",
+        "Needs certbot >= 5.4; renewals run from the normal certbot.timer.",
+        "Leave empty on a single-name server: server_name/cert_dir already describe it."
+    ],
+    "ip_cert_dir": "",
+    "_ip_cert_dir": "Where certbot put the IP certificate. Defaults to /etc/letsencrypt/live/<ip_address>; set only if certbot named it differently.",
     "ipv6": true,
     "_ipv6": [
         "false omits the [::] listen lines. A kernel without IPv6 makes [::] a fatal bind",

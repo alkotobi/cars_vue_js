@@ -236,6 +236,36 @@ function cars_nginx_render(array $config, array $tenants): string
     $ipv6 = !array_key_exists('ipv6', $config) || !empty($config['ipv6']);
     $default = $defaultServer ? ' default_server' : '';
 
+    // Serving the same config on a bare IP as well as the domain is opt-in and
+    // needs a second vhost, because the two need different certificates: the
+    // domain's classic-profile certificate carries DNS identifiers only, while an
+    // IP has to come from the short-lived (6-day) IP profile. The second vhost
+    // claims default_server for 443 - browsers send no SNI for an address, so
+    // name matching never reaches it - which is exactly the slot the
+    // default_server setting would otherwise take, so having both is a
+    // contradiction rather than a preference.
+    $ipAddress = trim((string) ($config['ip_address'] ?? ''));
+    if ($ipAddress !== '' && filter_var($ipAddress, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false) {
+        throw new TenantProvisionError(sprintf(
+            'Refusing to render: ip_address "%s" is not an IPv4 address. It is written into server_name and a '
+            . 'listen directive verbatim, so it is validated rather than trusted.',
+            $ipAddress
+        ));
+    }
+    if ($ipAddress !== '' && $defaultServer) {
+        throw new TenantProvisionError(
+            'Refusing to render: ip_address and default_server are both set. The IP vhost takes the '
+            . 'default_server slot for 443 (an address is reached without SNI), so set "default_server": false.'
+        );
+    }
+    // Where certbot puts an IP-only certificate: /etc/letsencrypt/live/<ip>/.
+    // Overridable for the day certbot names it something else (-0001 suffixed
+    // lineages, a renamed directory) without a code change to match it.
+    $ipCertDir = rtrim(trim((string) ($config['ip_cert_dir'] ?? '')), '/');
+    if ($ipAddress !== '' && $ipCertDir === '') {
+        $ipCertDir = '/etc/letsencrypt/live/' . $ipAddress;
+    }
+
     // Refused rather than defaulted. Emitting a server block with a certificate
     // path that does not exist produces a config that fails `nginx -t` for a
     // reason that has nothing to do with the change being made, and emitting one
@@ -261,7 +291,7 @@ function cars_nginx_render(array $config, array $tenants): string
     }
 
     // A server_name is pasted into the config verbatim, same as a folder name.
-    foreach ([$serverName, $webroot, $certDir, $apiDir, $distDir, $phpSocket] as $value) {
+    foreach ([$serverName, $webroot, $certDir, $apiDir, $distDir, $phpSocket, $ipAddress, $ipCertDir] as $value) {
         if (preg_match('/[\s;{}#\'"\\\\]/', $value) === 1) {
             throw new TenantProvisionError(
                 'Refusing to render: one of server_name, webroot, cert_dir, api_dir or php_socket contains a '
@@ -283,6 +313,23 @@ function cars_nginx_render(array $config, array $tenants): string
     usort($tenants, static fn (array $a, array $b): int => strcmp((string) $a['db_name'], (string) $b['db_name']));
 
     $template = (string) file_get_contents(CARS_NGINX_TEMPLATE);
+
+    // The IP vhost is a full second server block in the template, between
+    // markers. With no ip_address configured the whole region goes - not just its
+    // listen lines: a block whose server_name and certificate paths substituted
+    // to nothing would be written as `server_name ;` and fail nginx -t for a
+    // reason no operator asked about. With one configured, only the markers go
+    // and the block renders like any other part of the template.
+    if ($ipAddress === '') {
+        $stripped = preg_replace('/__IP_VHOST_BEGIN__.*?__IP_VHOST_END__\n/s', '', $template);
+        if ($stripped === null) {
+            throw new TenantProvisionError('Refusing to render: could not strip the IP vhost region from the template.');
+        }
+        $template = $stripped;
+    } else {
+        $template = str_replace(['__IP_VHOST_BEGIN__', '__IP_VHOST_END__'], '', $template);
+    }
+
     $tenantBlocks = cars_nginx_tenant_blocks($tenants, $apiDir, $distDir, $webroot, $phpSocket);
 
     $subdomainVhosts = '';
@@ -316,6 +363,15 @@ DOC;
         '__IPV6_LISTEN_443__' => $ipv6 ? '    listen [::]:443 ssl http2' . $default . ';' : '',
         '__TENANT_COUNT__' => (string) count($tenants),
         '__TENANTS__' => $tenantBlocks,
+        // Empty strings when no IP is configured: __IP_ADDRESS__ still sits on the
+        // :80 server_name line (outside the stripped region), where a missing name
+        // is just one fewer token.
+        '__IP_ADDRESS__' => $ipAddress,
+        '__IP_CERT_DIR__' => $ipCertDir,
+        '__IPV6_LISTEN_443_IP__' => $ipv6 ? '    listen [::]:443 ssl http2 default_server;' : '',
+        '__IP_DOC__' => $ipAddress !== ''
+            ? "served on {$ipAddress} as well (its own certificate, the SNI-less default vhost)"
+            : 'not set ("ip_address" in the config adds a bare-IP vhost alongside the domain)',
         '__SUBDOMAIN_VHOSTS__' => $subdomainVhosts,
         '__SUBDOMAIN_DOC__' => $subdomainDoc,
         '__SUBDOMAIN_STATE__' => $subdomains
@@ -417,12 +473,24 @@ function cars_nginx_tenant_blocks(
     }
 
     # Branding assets: prefer tenant's own files/ first, then fall back to shared dist/
+    # The fallback is an internal redirect to an `internal` prefix location, not a
+    # named location: nginx rejects `alias` inside a named location (alias needs the
+    # request URI to strip, and a named location keeps the original URI).
     location ~ ^/{$app}/(logo|logo_default|letter_head|letter_head_default|gml2)\.png$ {
         alias {$webroot}/{$name}/{$files}/\$1.png;
-        error_page 404 = @{$capture}_brand_shared;
+        error_page 404 = /{$app}/_brand_shared/\$1.png;
     }
-    location @{$capture}_brand_shared {
-        alias {$distDir}/\$1.png;
+    location /{$app}/_brand_shared/ {
+        internal;
+        alias {$distDir}/;
+    }
+
+    # The contract terms an admin saves through the API. The API writes into the
+    # shared api/'s sibling public/ folder (api/../public = webroot/public), not
+    # into this tenant's folder, so serving the build's copy would show the terms
+    # from the release and a save would look like it did nothing.
+    location = /{$app}/contract_terms.json {
+        alias {$webroot}/public/contract_terms.json;
     }
 
     # The app. alias, not try_files against root: the build is the ONE dist/ shared
@@ -569,12 +637,15 @@ server {
     }
 
     # Branding assets: prefer tenant's own files/ first, then fall back to shared dist/
+    # Internal redirect to an `internal` prefix location: nginx rejects `alias`
+    # inside a named location.
     location ~ ^/(logo|logo_default|letter_head|letter_head_default|gml2)\.png$ {
         alias {$webroot}/{$name}/{$files}/\$1.png;
-        error_page 404 = @{$capture}_brand_shared_sd;
+        error_page 404 = /_brand_shared/\$1.png;
     }
-    location @{$capture}_brand_shared_sd {
-        alias {$distDir}/\$1.png;
+    location /_brand_shared/ {
+        internal;
+        alias {$distDir}/;
     }
 
     # The build. No <base> injection: the app is at the root of this host.

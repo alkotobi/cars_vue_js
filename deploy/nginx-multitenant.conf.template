@@ -15,6 +15,7 @@
 # Web root     __WEBROOT__
 # Tenants      __TENANT_COUNT__
 # Subdomains   __SUBDOMAIN_STATE__
+# IP address   __IP_DOC__
 #
 # On disk, once:
 #
@@ -44,7 +45,10 @@ __SUBDOMAIN_DOC__
 server {
     listen 80__DEFAULT_SERVER__;
 __IPV6_LISTEN_80__
-    server_name __SERVER_NAME__;
+    # The IP is named here as well, so http://<ip>/.well-known/acme-challenge/...
+    # lands on this challenge location instead of being redirected: HTTP-01 for
+    # the IP certificate has to answer over plain HTTP like any other.
+    server_name __SERVER_NAME__ __IP_ADDRESS__;
 
     # Certbot's webroot writes here. It has to be reachable over plain HTTP, and
     # ^~ matters: it stops the dotfile deny below (which would 403 the challenge)
@@ -71,17 +75,12 @@ __IPV6_LISTEN_443__
     ssl_certificate     __CERT_DIR__/fullchain.pem;
     ssl_certificate_key __CERT_DIR__/privkey.pem;
 
-    # A bare IP is reached without SNI - a browser sends no server name for an
-    # address - so this block cannot be selected by name and has to be the
-    # default_server for its address and port. If another vhost on this machine
-    # already claims that position, nginx refuses to start with "duplicate default
-    # server"; drop `default_server` from the other block (or set
-    # "default_server": false in cars-deploy.json) and decide deliberately which
-    # one answers an unknown request.
-    #
-    # There is no equivalent trick for the Host header: a request naming some
-    # other domain still lands here, because the address matched first. The fix
-    # for that is a real domain per client, which this file does not model yet.
+    # Whether this block is the default_server for its address and port is the
+    # default_server setting in cars-deploy.json: true for a server reached only
+    # by bare address (a browser sends no SNI for an IP, so a block cannot be
+    # selected by name), false when an ip_address vhost is declared below and
+    # that one owns the SNI-less slot instead. Two blocks claiming the same
+    # position is an nginx -t failure, which the renderer refuses up front.
 
     root __WEBROOT__;
     index index.html;
@@ -122,6 +121,62 @@ __TENANTS__
     # application.
     location / { return 404; }
 }
+__IP_VHOST_BEGIN__
+# ---------------------------------------------------------------------------
+# :443 — the bare-IP vhost
+#
+# A browser sends no SNI when the URL is an address, so nginx cannot pick a
+# block by name for those connections: they land on the default_server for the
+# port, which is why this block claims it. Connections that do carry SNI (the
+# domain, above) match server_name as usual and never reach this one.
+#
+# It needs its own certificate rather than the domain's: Let's Encrypt's classic
+# profile contains DNS identifiers only, so an IP has to be covered by a
+# short-lived (6-day) IP certificate in __IP_CERT_DIR__, renewed by the same
+# certbot.timer with a deploy-hook that reloads nginx. The body below is the
+# domain block's body verbatim - same tenants, same uploads, same API routing -
+# because the URL shape is identical; only the name and the certificate differ.
+# ---------------------------------------------------------------------------
+server {
+    listen 443 ssl http2 default_server;
+__IPV6_LISTEN_443_IP__
+    server_name __IP_ADDRESS__;
+
+    ssl_certificate     __IP_CERT_DIR__/fullchain.pem;
+    ssl_certificate_key __IP_CERT_DIR__/privkey.pem;
+
+    root __WEBROOT__;
+    index index.html;
+
+    # Must be >= php.ini post_max_size (110M) or PHP silently truncates the body
+    # and an upload "succeeds" as an empty file.
+    client_max_body_size 110M;
+
+    location ^~ /.well-known/acme-challenge/ {
+        root __WEBROOT__;
+        default_type "text/plain";
+        allow all;
+    }
+
+__TENANTS__
+    # The shared api/ is not an entry point of its own.
+    location = /api  { return 404; }
+    location /api/   { return 404; }
+
+    # Schema dumps disclose the entire database structure. PHP reads them from
+    # disk, never over HTTP, so refusing them costs nothing.
+    location ~* \.sql$ { deny all; }
+
+    # .env, .git, .htaccess, .htpasswd. Declared after the ACME ^~ block for the
+    # reason noted there.
+    location ~ /\. { deny all; }
+
+    # Anything not claimed above is a client that has not been provisioned. 404
+    # rather than a default site, so a typo in a URL cannot land on someone else's
+    # application.
+    location / { return 404; }
+}
+__IP_VHOST_END__
 
 # ---------------------------------------------------------------------------
 # Tenant subdomains
