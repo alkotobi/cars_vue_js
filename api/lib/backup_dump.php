@@ -114,7 +114,7 @@ function api_require_backup_admin(): void
 {
     $token = $_SERVER['HTTP_X_API_TOKEN'] ?? ($_GET['token'] ?? ($_POST['token'] ?? ''));
 
-    require_once __DIR__ . '/config.php';
+    require_once __DIR__ . '/../config.php';
     require_once __DIR__ . '/auth.php';
     require_once __DIR__ . '/appdb.php';
 
