@@ -2183,32 +2183,38 @@ const parseNotes = (notes) => {
   }
 }
 
-// Helper function to format notes for display (merges car notes with sell bill notes if available)
-const formatNotesDisplay = (carNotesJson, sellBillNotesJson = null) => {
-  // Parse car notes
-  const carNotesArray = parseNotes(carNotesJson)
+// Recursively extract note text from a (possibly nested) notes structure.
+// Some tenants store notes double-wrapped as [{ note: [{ note: "text" }] }],
+// while other rows are [{ note: "text" }] or plain strings. Values may also be
+// non-strings, so everything is coerced to a string to avoid .trim() throwing.
+const flattenNoteText = (notesJson) => {
+  const out = []
 
-  // Parse sell bill notes if provided
-  const sellBillNotesArray = sellBillNotesJson ? parseNotes(sellBillNotesJson) : []
-
-  // Merge car notes and sell bill notes
-  const allNotesArray = [...carNotesArray, ...sellBillNotesArray]
-
-  // Format all notes for display
-  let notesDisplay = '-'
-  if (allNotesArray.length > 0) {
-    notesDisplay = allNotesArray
-      .map((note) => note.note || '')
-      .filter((note) => note.trim() !== '') // Remove empty notes
-      .join('\n')
-
-    // If all notes were empty, set to '-'
-    if (!notesDisplay || notesDisplay.trim() === '') {
-      notesDisplay = '-'
+  const walk = (value) => {
+    if (value == null) return
+    if (Array.isArray(value)) {
+      value.forEach(walk)
+    } else if (typeof value === 'object') {
+      if ('note' in value) walk(value.note)
+    } else {
+      out.push(String(value))
     }
   }
 
-  return notesDisplay
+  walk(parseNotes(notesJson))
+  return out
+}
+
+// Helper function to format notes for display (merges car notes with sell bill notes if available)
+const formatNotesDisplay = (carNotesJson, sellBillNotesJson = null) => {
+  const allNotes = [
+    ...flattenNoteText(carNotesJson),
+    ...(sellBillNotesJson ? flattenNoteText(sellBillNotesJson) : []),
+  ]
+
+  const notesDisplay = allNotes.filter((note) => note.trim() !== '').join('\n')
+
+  return notesDisplay || '-'
 }
 
 // Save car notes function for NotesManagementModal
@@ -2952,8 +2958,12 @@ onMounted(async () => {
   }
   fetchDefaults()
   await loadInitialCarsData()
-  // Apply initial filtering after data is loaded
-  fetchCarsStock()
+  // Only run the in-memory filter pass if the initial load succeeded.
+  // fetchCarsStock() clears `error` at its start, so running it after a failed
+  // load hid the failure and rendered the misleading "No cars in stock" state.
+  if (!error.value) {
+    fetchCarsStock()
+  }
   // Add event listeners for teleport dropdown
   document.addEventListener('click', handleClickOutside)
   document.addEventListener('scroll', handleScroll, true)
