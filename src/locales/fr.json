@@ -1610,6 +1610,8 @@
     "failedToAddSupplier": "Échec de l'ajout du fournisseur",
     "addCarName": "Ajouter un nouveau nom de voiture",
     "carNamePlaceholder": "Nom de la voiture",
+    "carSize": "Taille",
+    "carSizeRequired": "Veuillez choisir voiture grande ou petite",
     "brand": "Marque",
     "selectBrand": "Sélectionner une marque",
     "failedToAddCarName": "Échec de l'ajout du nom de voiture",

@@ -19,7 +19,12 @@ const deletingPaymentId = ref(null)
 const user = ref(JSON.parse(localStorage.getItem('user')))
 
 // Add computed properties for permissions
-const isAdmin = computed(() => user.value?.role_id === 1)
+// Recording/editing/deleting supplier payments is gated on can_pay_purchases
+// (migration 037); admins bypass, like the app's other permission checks.
+const canPayPurchases = computed(() => {
+  if (user.value?.role_id === 1) return true
+  return user.value?.permissions?.some((p) => p.permission_name === 'can_pay_purchases')
+})
 
 // Form data
 const paymentForm = ref({
@@ -332,6 +337,7 @@ const validateForm = () => {
       <button 
         @click="handleAddPayment" 
         class="add-btn"
+        v-if="canPayPurchases"
         :disabled="showAddDialog || showEditDialog"
       >
         Add Payment
@@ -372,14 +378,14 @@ const validateForm = () => {
               <button 
                 @click="handleEditPayment(payment)" 
                 class="edit-btn"
-                v-if="isAdmin"
+                v-if="canPayPurchases"
               >
                 Edit
               </button>
               <button 
                 @click="handleDeletePayment(payment)" 
                 class="delete-btn"
-                v-if="isAdmin"
+                v-if="canPayPurchases"
                 :disabled="deletingPaymentId !== null"
               >
                 {{ deletingPaymentId === payment.id ? 'Deleting...' : 'Delete' }}

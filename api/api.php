@@ -516,8 +516,8 @@ if (isset($postData['action'])) {
 
                 $insertStmt = $conn->prepare(
                     'INSERT INTO cars_stock
-                     (id_buy_details, price_cell, notes, is_used_car, is_big_car, id_color)
-                     VALUES (?, ?, ?, ?, ?, ?)'
+                     (id_buy_details, price_cell, is_used_car, is_big_car, id_color)
+                     VALUES (?, ?, ?, ?, ?)'
                 );
 
                 foreach ($details as $detail) {
@@ -535,7 +535,6 @@ if (isset($postData['action'])) {
                         $insertStmt->execute([
                             $detail['id'],
                             $detail['price_sell'],
-                            $detail['notes'],
                             $detail['is_used_car'],
                             $detail['is_big_car'],
                             $detail['id_color'],
@@ -545,7 +544,7 @@ if (isset($postData['action'])) {
                             'id' => intval($conn->lastInsertId()),
                             'id_buy_details' => intval($detail['id']),
                             'price_cell' => $detail['price_sell'],
-                            'notes' => $detail['notes'],
+                            'notes' => null,
                             'is_used_car' => $detail['is_used_car'],
                             'is_big_car' => $detail['is_big_car'],
                             'id_color' => $detail['id_color'],
@@ -689,25 +688,27 @@ if (isset($postData['action'])) {
 
                 // Propagate the snapshot fields to this detail's cars, but only to the
                 // untouched ones. A committed car is mid-workflow downstream and must
-                // keep the price/notes it was actually purchased with.
+                // keep the price it was actually purchased with. cars_stock.notes holds
+                // the car's own JSON notes log, unrelated to buy_details.notes, so it is
+                // deliberately left untouched here.
                 $propagateStmt = $conn->prepare(
-                    'UPDATE cars_stock cs SET cs.price_cell = ?, cs.notes = ?, cs.is_used_car = ?, cs.is_big_car = ? WHERE cs.id_buy_details = ? AND NOT (' . isCommittedCarSql() . ')'
+                    'UPDATE cars_stock cs SET cs.price_cell = ?, cs.is_used_car = ?, cs.is_big_car = ? WHERE cs.id_buy_details = ? AND NOT (' . isCommittedCarSql() . ')'
                 );
-                $propagateStmt->execute([$priceSell, $notes, $isUsed, $isBig, $detailId]);
+                $propagateStmt->execute([$priceSell, $isUsed, $isBig, $detailId]);
 
                 $delta = $newQty - $currentCars;
 
                 if ($delta > 0) {
                     $insertStmt = $conn->prepare(
-                        'INSERT INTO cars_stock (id_buy_details, price_cell, notes, is_used_car, is_big_car, id_color) VALUES (?, ?, ?, ?, ?, ?)'
+                        'INSERT INTO cars_stock (id_buy_details, price_cell, is_used_car, is_big_car, id_color) VALUES (?, ?, ?, ?, ?)'
                     );
                     for ($i = 0; $i < $delta; $i++) {
-                        $insertStmt->execute([$detailId, $priceSell, $notes, $isUsed, $isBig, $detail['id_color']]);
+                        $insertStmt->execute([$detailId, $priceSell, $isUsed, $isBig, $detail['id_color']]);
                         $createdCars[] = [
                             'id' => intval($conn->lastInsertId()),
                             'id_buy_details' => $detailId,
                             'price_cell' => $priceSell,
-                            'notes' => $notes,
+                            'notes' => null,
                             'is_used_car' => $isUsed,
                             'is_big_car' => $isBig,
                             'id_color' => $detail['id_color'],

@@ -43,7 +43,7 @@ export function useBrands({ notify, onBrandsChanged } = {}) {
       error.value = ''
       const result = await safeApi({
         query: 'SELECT id, brand, logo_path FROM brands ORDER BY brand ASC',
-        params: []
+        params: [],
       })
       loading.value = false
       if (result.success) {
@@ -64,16 +64,25 @@ export function useBrands({ notify, onBrandsChanged } = {}) {
       if (logoFile) {
         const uploadResult = await uploadFile(logoFile)
         if (!uploadResult.success) {
-          await notify?.('error', 'Logo upload failed', uploadResult.error || 'Could not upload logo.')
+          await notify?.(
+            'error',
+            'Logo upload failed',
+            uploadResult.error || 'Could not upload logo.',
+          )
           return { success: false, error: uploadResult.error || 'Logo upload failed' }
         }
-        logoPath = uploadResult.path
+        // uploadFile returns `relativePath`, not `path` (see useApi.js, which
+        // returns { ...result, relativePath }). Reading `path` gave undefined, so
+        // the INSERT/UPDATE below always took the no-logo branch and stored NULL
+        // even though the image had been uploaded - the same bug fixed in
+        // useCarNameMedia.js.
+        logoPath = uploadResult.relativePath
       }
       const result = await safeApi({
         query: logoPath
           ? 'INSERT INTO brands (brand, logo_path) VALUES (?, ?)'
           : 'INSERT INTO brands (brand) VALUES (?)',
-        params: logoPath ? [brand.trim(), logoPath] : [brand.trim()]
+        params: logoPath ? [brand.trim(), logoPath] : [brand.trim()],
       })
       if (!result.success) {
         await notify?.('error', 'Failed to add brand', result.error || 'Unknown error')
@@ -94,21 +103,30 @@ export function useBrands({ notify, onBrandsChanged } = {}) {
       if (logoFile) {
         const uploadResult = await uploadFile(logoFile)
         if (!uploadResult.success) {
-          await notify?.('error', 'Logo upload failed', uploadResult.error || 'Could not upload logo.')
+          await notify?.(
+            'error',
+            'Logo upload failed',
+            uploadResult.error || 'Could not upload logo.',
+          )
           return { success: false, error: uploadResult.error || 'Logo upload failed' }
         }
-        logoPath = uploadResult.path
+        // uploadFile returns `relativePath`, not `path` (see useApi.js, which
+        // returns { ...result, relativePath }). Reading `path` gave undefined, so
+        // the INSERT/UPDATE below always took the no-logo branch and stored NULL
+        // even though the image had been uploaded - the same bug fixed in
+        // useCarNameMedia.js.
+        logoPath = uploadResult.relativePath
       }
       let result = await safeApi({
         query: logoPath
           ? 'UPDATE brands SET brand = ?, logo_path = ? WHERE id = ?'
           : 'UPDATE brands SET brand = ? WHERE id = ?',
-        params: logoPath ? [brand.trim(), logoPath, id] : [brand.trim(), id]
+        params: logoPath ? [brand.trim(), logoPath, id] : [brand.trim(), id],
       })
       if (!result.success && result.error && result.error.toLowerCase().includes('logo_path')) {
         const retryResult = await safeApi({
           query: 'UPDATE brands SET brand = ? WHERE id = ?',
-          params: [brand.trim(), id]
+          params: [brand.trim(), id],
         })
         if (retryResult.success) {
           if (logoPath && editingBrandLogoFile) {
@@ -116,7 +134,7 @@ export function useBrands({ notify, onBrandsChanged } = {}) {
               'warning',
               'Brand renamed without its logo',
               'The database has no logo_path column, so the uploaded logo was not saved.',
-              'Run api/migrations/012_add_brand_logos.sql to enable logo support.'
+              'Run api/migrations/012_add_brand_logos.sql to enable logo support.',
             )
           }
           await fetchBrands()
@@ -138,7 +156,7 @@ export function useBrands({ notify, onBrandsChanged } = {}) {
     const deleteBrand = async (brand) => {
       const usage = await safeApi({
         query: 'SELECT car_name FROM cars_names WHERE id_brand = ? ORDER BY car_name',
-        params: [brand.id]
+        params: [brand.id],
       })
       if (!usage.success) {
         await notify?.('error', 'Failed to check brand usage', usage.error || 'Unknown error')
@@ -151,7 +169,7 @@ export function useBrands({ notify, onBrandsChanged } = {}) {
           'error',
           'Cannot delete brand',
           `${brand.brand} is still assigned to ${names.length} car name${names.length === 1 ? '' : 's'}.`,
-          summary
+          summary,
         )
         return { success: false, blocked: true }
       }
@@ -160,7 +178,7 @@ export function useBrands({ notify, onBrandsChanged } = {}) {
         'Delete brand',
         `Are you sure you want to delete ${brand.brand}?`,
         'This action cannot be undone.',
-        'Delete'
+        'Delete',
       )
       if (!confirmed) return { success: false, cancelled: true }
       const del = await safeApi({ query: 'DELETE FROM brands WHERE id = ?', params: [brand.id] })

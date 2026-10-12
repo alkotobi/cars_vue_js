@@ -1670,6 +1670,8 @@
     "failedToAddSupplier": "فشل في إضافة المورد",
     "addCarName": "إضافة اسم سيارة جديد",
     "carNamePlaceholder": "اسم السيارة",
+    "carSize": "الحجم",
+    "carSizeRequired": "يرجى اختيار سيارة كبيرة أو صغيرة",
     "brand": "العلامة التجارية",
     "selectBrand": "اختر العلامة التجارية",
     "failedToAddCarName": "فشل في إضافة اسم السيارة",

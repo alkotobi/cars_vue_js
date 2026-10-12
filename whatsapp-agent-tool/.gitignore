@@ -1,0 +1,34 @@
+node_modules
+dist
+backups
+
+# Secrets
+.env
+
+# Local runtime state & client data (session profile, CDP, queues, reports,
+# autoreply output). Everything here is machine-local; never commit it.
+data/
+
+# Account registry (holds phone numbers) and per-account question/chat state
+profiles.json
+ai_questions.json
+unanswered_chats.json
+
+# Client pricing spreadsheet (holds client pricing data)
+car prices.csv
+
+# Compiled Go binaries
+go/bin/
+go/dbmig
+go/go/dbmig
+
+# Database backups and live/applied migration dumps (contain real data)
+db/backup-*/
+db/migrate-*/
+db/migrate-backup-*/
+db/*-live.sql
+db/sync-price-at-live.sql
+go/db/
+
+# Go migration: golden fixtures contain client data (chat phone numbers) — regenerate locally
+go/testdata/golden/

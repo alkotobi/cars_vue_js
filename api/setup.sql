@@ -149,7 +149,7 @@ CREATE TABLE IF NOT EXISTS `cars_names` (
   `car_name` varchar(255) DEFAULT NULL,
   `id_brand` int DEFAULT NULL,
   `notes` text,
-  `is_big_car` tinyint(1) DEFAULT '0',
+  `is_big_car` tinyint(1) NOT NULL,
   `cbm` decimal(10,0) DEFAULT NULL,
   `gw` decimal(10,0) DEFAULT NULL,
   PRIMARY KEY (`id`),
@@ -594,7 +594,10 @@ INSERT IGNORE INTO `permissions` (`permission_name`, `description`) VALUES
 ('can_c_sell_bill_payemts_alert', 'Can view sell bill payment alerts (unconfirmed, not paid, not fully paid)'),
 ('can_c_freight', 'Can view freight information'),
 ('can_c_fob_price', 'Can view FOB price information'),
-('can_c_cfr_prices', 'Can view CFR prices information');
+('can_c_cfr_prices', 'Can view CFR prices information'),
+('can_c_buy_price', 'Can view buy price information'),
+('can_c_suppliers', 'Can view suppliers information'),
+('can_pay_purchases', 'Can record payments to suppliers for buy bills');
 
 -- Priorities table
 CREATE TABLE IF NOT EXISTS `priorities` (
@@ -760,6 +763,67 @@ CREATE TABLE IF NOT EXISTS `supplier_credibility_checks` (
   CONSTRAINT `chk_credibility_red_flags_json` CHECK (JSON_VALID(`red_flags`)),
   CONSTRAINT `chk_credibility_score_range` CHECK (`score` BETWEEN 0 AND 100),
   CONSTRAINT `fk_credibility_supplier` FOREIGN KEY (`id_supplier`) REFERENCES `suppliers` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Inquiry tables (supplier quote requests), mirroring buy_bill / buy_details.
+-- Placed here, after cars_names and suppliers, so the inline foreign keys
+-- resolve (MySQL rejects a FK whose referenced table does not exist yet, errno
+-- 150 — the same ordering reason buy_details' FK is added later, see above).
+-- Existing databases get these via api/migrations/034_add_inquiry_tables.sql.
+CREATE TABLE IF NOT EXISTS `inquiry` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `id_supplier` int DEFAULT NULL,
+  `date_inquiry` datetime NOT NULL,
+  `amount` decimal(10,2) DEFAULT NULL,
+  `inquiry_ref` varchar(255) DEFAULT NULL,
+  `status` varchar(50) DEFAULT 'open',
+  `notes` text,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `inquiry_ref` (`inquiry_ref`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+CREATE TABLE IF NOT EXISTS `inquiry_details` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `id_inquiry` int NOT NULL,
+  `id_car_name` int DEFAULT NULL,
+  `id_color` int NOT NULL,
+  `QTY` int NOT NULL,
+  `year` int DEFAULT NULL,
+  `month` int DEFAULT NULL,
+  `is_used_car` tinyint(1) NOT NULL,
+  `is_big_car` tinyint(1) DEFAULT '0',
+  `target_price` decimal(10,2) NOT NULL,
+  `notes` text,
+  PRIMARY KEY (`id`),
+  KEY `idx_inquiry_details_id_inquiry` (`id_inquiry`),
+  KEY `idx_inquiry_details_id_car_name` (`id_car_name`),
+  CONSTRAINT `fk_inquiry_details_inquiry`
+    FOREIGN KEY (`id_inquiry`) REFERENCES `inquiry` (`id`)
+    ON DELETE CASCADE,
+  CONSTRAINT `fk_inquiry_details_car_name`
+    FOREIGN KEY (`id_car_name`) REFERENCES `cars_names` (`id`)
+    ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+-- Per-car customs clearance (DZD, TVN excluded). Points at cars_names, so the car
+-- is chosen from the catalog rather than stored as free text; is_big_car /
+-- is_used_car keep the big/used variants apart. Placed here, after cars_names, so
+-- the inline foreign key resolves. Existing databases get it via
+-- api/migrations/036_add_clearance_table.sql.
+CREATE TABLE IF NOT EXISTS `clearance` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `id_car_name` int NOT NULL,
+  `clearance_dza` decimal(15,2) NOT NULL COMMENT 'Customs clearance in DZD, TVN excluded',
+  `is_big_car` tinyint(1) NOT NULL DEFAULT 0,
+  `is_used_car` tinyint(1) NOT NULL DEFAULT 0,
+  `notes` text,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_clearance_car` (`id_car_name`, `is_big_car`, `is_used_car`),
+  KEY `idx_clearance_car` (`id_car_name`),
+  CONSTRAINT `fk_clearance_car`
+    FOREIGN KEY (`id_car_name`) REFERENCES `cars_names` (`id`)
+    ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Tasks table

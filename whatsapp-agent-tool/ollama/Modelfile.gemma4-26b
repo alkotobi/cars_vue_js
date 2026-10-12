@@ -1,0 +1,5 @@
+# Derived model used by opencode for the WhatsApp agent.
+# Base: `gemma4:26b` (fallback — fast MoE, strong multilingual + function calling).
+# Build:  ollama create gemma4:26b-ctx64 -f ollama/Modelfile.gemma4-26b
+FROM gemma4:26b
+PARAMETER num_ctx 65536

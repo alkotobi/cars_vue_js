@@ -146,6 +146,13 @@ const canPurchaseCars = computed(() => {
   return currentUser.value?.permissions?.some((p) => p.permission_name === 'can_purchase_cars')
 })
 
+const canViewSuppliers = computed(() => {
+  if (isAdmin.value) {
+    return true
+  }
+  return currentUser.value?.permissions?.some((p) => p.permission_name === 'can_c_suppliers')
+})
+
 const canSellCars = computed(() => {
   if (isAdmin.value) {
     return true
@@ -310,7 +317,7 @@ const DEEP_LINK_VIEWS = new Map([
   ['colors', () => canPurchaseCars.value],
   ['discharge-ports', () => canPurchaseCars.value],
   ['loading-ports', () => canPurchaseCars.value],
-  ['suppliers', () => canPurchaseCars.value],
+  ['suppliers', () => canViewSuppliers.value],
   ['warehouses', () => canPurchaseCars.value],
   ['containers', () => canPurchaseCars.value],
   ['clients', () => canSellCars.value],
@@ -531,7 +538,7 @@ watch(
           <i v-if="isProcessing.brokers" class="fas fa-spinner fa-spin loading-indicator"></i>
         </button>
         <button
-          v-if="canPurchaseCars"
+          v-if="canViewSuppliers"
           @click="navigateTo('suppliers')"
           :class="{ active: activeView === 'suppliers', processing: isProcessing.suppliers }"
           class="sidebar-btn"

@@ -611,7 +611,10 @@ try {
         ('can_c_car_stock', 'Can view and manage car stock inventory'),
         ('can_assign_to_tmp_clients', 'Can assign cars to temporary clients'),
         ('can_change_car_color', 'Can change car color'),
-        ('can_c_other_users_sells', 'Can create sales invoices for other users')
+        ('can_c_other_users_sells', 'Can create sales invoices for other users'),
+        ('can_c_buy_price', 'Can view buy price information'),
+        ('can_c_suppliers', 'Can view suppliers information'),
+        ('can_pay_purchases', 'Can record payments to suppliers for buy bills')
     ");
     $stmt->execute();
 

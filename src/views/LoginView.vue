@@ -88,7 +88,8 @@ const login = async () => {
       window.dispatchEvent(new CustomEvent('userLogin'))
       window.dispatchEvent(new CustomEvent('forceUpdateTasks'))
 
-      router.push('/cars')
+      await router.push('/cars')
+      return
     } else {
       error.value = loginErrorText(t, result)
       // The raw envelope, because the copy above is a summary of it. A failed login

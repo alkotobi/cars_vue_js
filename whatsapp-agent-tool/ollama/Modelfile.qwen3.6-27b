@@ -1,0 +1,7 @@
+# Derived model used by opencode for the WhatsApp agent.
+# Base: `qwen3.6:27b` (primary — Arabic/dialectal + tool calling).
+# Build:  ollama create qwen3.6:27b-ctx64 -f ollama/Modelfile.qwen3.6-27b
+# Reason for the -ctx64 tag: opencode needs a >= 64k context; Ollama defaults to
+# num_ctx 4096. Pinning it in the Modelfile guarantees it on any machine.
+FROM qwen3.6:27b
+PARAMETER num_ctx 65536

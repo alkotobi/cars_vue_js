@@ -33,7 +33,7 @@
     "_template_database": [
         "The reference-only database every new client is built from.",
         "It must have the schema and the reference rows (brands, roles, permissions,",
-        "the admin account) and NONE of the client data - 38 business tables that are",
+        "the admin account) and NONE of the client data - 40 business tables that are",
         "empty in a fresh build. Provisioning refuses a template that has any, so a",
         "template built from a live tenant fails loudly instead of shipping one",
         "client's dropdown options to the next.",

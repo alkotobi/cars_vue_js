@@ -95,6 +95,7 @@ const newCarName = ref({
   car_name: '',
   id_brand: null,
   notes: '',
+  is_big_car: '',
 })
 const showAddBrandDialog = ref(false)
 const newBrand = ref({
@@ -416,16 +417,21 @@ const addCarName = guard('add-car-name', async () => {
     error.value = t('carStockForm.carNameRequired') || 'Car name is required'
     return
   }
+  if (newCarName.value.is_big_car === '' || newCarName.value.is_big_car === null) {
+    error.value = t('carStockForm.carSizeRequired') || 'Please choose big or small car'
+    return
+  }
 
   const result = await callApi({
     query: `
-      INSERT INTO cars_names (car_name, id_brand, notes)
-      VALUES (?, ?, ?)
+      INSERT INTO cars_names (car_name, id_brand, notes, is_big_car)
+      VALUES (?, ?, ?, ?)
     `,
     params: [
       newCarName.value.car_name.trim(),
       newCarName.value.id_brand || null,
       newCarName.value.notes || null,
+      newCarName.value.is_big_car ? 1 : 0,
     ],
   })
 
@@ -446,6 +452,7 @@ const addCarName = guard('add-car-name', async () => {
       car_name: '',
       id_brand: null,
       notes: '',
+      is_big_car: '',
     }
     showAddCarNameDialog.value = false
     error.value = null
@@ -459,6 +466,7 @@ const openAddCarNameDialog = () => {
     car_name: '',
     id_brand: null,
     notes: '',
+    is_big_car: '',
   }
   showAddCarNameDialog.value = true
 }
@@ -469,6 +477,7 @@ const closeAddCarNameDialog = () => {
     car_name: '',
     id_brand: null,
     notes: '',
+    is_big_car: '',
   }
 }
 
@@ -1450,6 +1459,16 @@ onMounted(async () => {
         rows="3"
       ></textarea>
     </div>
+    <div class="form-group">
+      <label for="car_name_size"
+        >{{ t('carStockForm.carSize') || 'Car Size' }} <span class="required">*</span>:</label
+      >
+      <select id="car_name_size" v-model="newCarName.is_big_car" class="input-field">
+        <option disabled value="">Select big or small</option>
+        <option :value="0">Small car</option>
+        <option :value="1">Big car</option>
+      </select>
+    </div>
   </AddItemDialog>
 
   <!-- Add Brand Dialog -->
@@ -1495,6 +1514,10 @@ onMounted(async () => {
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
+}
+
+.required {
+  color: #ef4444;
 }
 
 .error {

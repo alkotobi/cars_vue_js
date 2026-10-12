@@ -143,6 +143,7 @@ const TENANT_SEED_TABLES = [
     'brands',
     'car_file_categories',
     'cars_names',
+    'clearance',
     'colors',
     'containers',
     'defaults',
@@ -199,6 +200,8 @@ const TENANT_BUSINESS_TABLES = [
     'car_selections',
     'cars_stock',
     'chat_groups',
+    // NOTE: 'clearance' is reference data seeded by migration 036, so it lives in
+    // TENANT_SEED_TABLES above, not here.
     'chat_last_read_message',
     'chat_messages',
     'chat_read_by',
@@ -206,6 +209,8 @@ const TENANT_BUSINESS_TABLES = [
     'clients',
     'custom_clearance_agents',
     'db_updates',
+    'inquiry',
+    'inquiry_details',
     'loaded_containers',
     'loading',
     'login',

@@ -1389,6 +1389,8 @@
     "failedToAddSupplier": "添加供应商失败",
     "addCarName": "添加新汽车名称",
     "carNamePlaceholder": "汽车名称",
+    "carSize": "尺寸",
+    "carSizeRequired": "请选择大车或小车",
     "brand": "品牌",
     "selectBrand": "选择品牌",
     "failedToAddCarName": "添加汽车名称失败",

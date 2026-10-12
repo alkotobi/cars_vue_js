@@ -694,7 +694,7 @@ php api/lib/tenant-provision.php --build-template cars_template --seed-source <c
 ```
 
 It applies `setup.sql` (which already contains the reference INSERTs), applies the
-migrations, and then verifies the result across all 38 business tables before
+migrations, and then verifies the result across all 40 business tables before
 reporting `ok`. It refuses to run against an existing name without `--force`, because
 the usual `--seed-source` is a development database that also holds client data, and
 "rebuild the template" run against one of those is how one client's records become
