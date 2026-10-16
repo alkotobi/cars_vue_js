@@ -2,6 +2,7 @@
 //
 //	whatsapp-tool quote --car "COOLRAY BATTLE" --mode retail-dza [--port ALGIERS] [--line CMA] [--list] [--options]
 //	whatsapp-tool freight [--port ALGIERS] [--line CMA]   # shipping rate per line to a port (no car needed)
+//	whatsapp-tool web <fetch <url> [--max-chars N] | list>   # read a page from the source allowlist (chat AI web reader)
 //	whatsapp-tool faq  <search ".." | list [--all] | add --q .. --a .. | update --id ..>
 //	whatsapp-tool stock [--car .. --color .. --vin .. --status .. --port .. --limit N --include-hidden] | creds | login
 //	whatsapp-tool suppliers [name] [--name ..] [--limit N]   # supplier list (cars app)
@@ -58,6 +59,8 @@ func main() {
 		cmdQuote(args[1:])
 	case "freight":
 		cmdFreight(args[1:])
+	case "web":
+		cmdWeb(args[1:])
 	case "price":
 		cmdPrice(args[1:])
 	case "faq":
@@ -104,7 +107,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, `usage: whatsapp-tool <quote|freight|price|faq|procurement|stock|suppliers|brands|car-names|inquiries|clearance|buy-payments|todo|group-perms|identity|profiles|pending|triage|keepalive|chat-poll|mcp> ...`)
+	fmt.Fprintln(os.Stderr, `usage: whatsapp-tool <quote|freight|web|price|faq|procurement|stock|suppliers|brands|car-names|inquiries|clearance|buy-payments|todo|group-perms|identity|profiles|pending|triage|keepalive|chat-poll|mcp> ...`)
 }
 
 // gateCommand refuses a bot-invoked command whose required capability the

@@ -171,7 +171,7 @@ func pollGroup(store CursorStore, aiUsername string, userID int64, g carshttp.Ch
 		return outcome, err
 	}
 
-	reply, err := Generate(BuildPrompt(g.Name, aiUsername, perms, hist, msgs), perms)
+	reply, usedWeb, err := Generate(BuildPrompt(g.Name, aiUsername, perms, hist, msgs), perms)
 	if err != nil {
 		// Nothing was posted, so retrying cannot duplicate a reply: leave the
 		// cursor where it is and try the same messages again next cycle.
@@ -189,7 +189,7 @@ func pollGroup(store CursorStore, aiUsername string, userID int64, g carshttp.Ch
 	// advance the cursor before posting to avoid re-answering them.
 	store.SetCursor(g.ID, newMax)
 
-	final := FinalizeReply(reply, config.C.Chatbot.MaxReplyChars)
+	final := FinalizeReply(reply, config.C.Chatbot.MaxReplyChars, usedWeb)
 	if final == "" {
 		outcome.skipped = len(msgs)
 		return outcome, nil

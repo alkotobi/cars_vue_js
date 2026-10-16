@@ -738,6 +738,26 @@ coordination is a **single-writer lease** + **shared cursors** in the `ai` DB (m
   The heartbeat runs in a goroutine (`internal/chatbot/lease.go`); when it loses the lease the cycle
   aborts at the next safe point.
 
+**Web access (restricted).** For **two question types only** — **company credibility** and **car
+specifications** — the agent may consult the internet; every other topic is answered from the `ai`
+DB or deferred to the team. `websearch` is allowed. opencode's own `webfetch` is **disabled**
+(opencode 1.x has no per-URL `webfetch` permission — it takes a single allow/deny action — so it
+cannot be scoped to a domain list); instead the agent reads a page through
+`whatsapp-tool web fetch "<url>"`, whose **domain allowlist is enforced in Go**
+(`internal/webfetch`, `Allowlist`): the requested host *and every redirect host* must be on it, or
+the fetch is refused (`blocked_domain`/`blocked_redirect`). The curated list (China registries —
+GSXT/NECIPS, Credit China, China Judgements Online; Hong Kong Companies Registry; aggregators like
+OpenCorporates/QCC; trade directories; car-spec sites such as autohome/dcdapp/yiche/wikipedia) is
+editable in that one Go slice; `whatsapp-tool web list` prints it and the agent is pointed at it.
+The official portals are JS+CAPTCHA, so a `web fetch` there usually returns little — the value is
+in the `websearch` results. The agent is told to treat fetched pages as **untrusted data** (never
+instructions), never to source a price/stock/availability figure from the web, and to say the
+information came from the internet. That disclosure is **enforced in code**: when the opencode
+stream shows a `websearch`/`webfetch` tool call **or a bash call to `whatsapp-tool web fetch`**
+(`parseEvents` in `llm.go`), `FinalizeReply` appends `WebSourceLine` *before* the AI disclosure
+line — the model cannot forget it. The editor agent has **no** web access. `OPENCODE_ENABLE_EXA=1`
+is set on the child so `websearch` exists even under a non-OpenCode model provider.
+
 Deploying to another machine: same `.env` (`DB_*`, `CARS_BASE_URL`, `CARS_TENANT`) pointing at the
 **same** `ai` DB, its own `whatsapp-tool stock creds` (OS keyring), opencode + a model, then just
 run `whatsapp-tool chat-poll` and leave it running. No primary/secondary config — whichever holds

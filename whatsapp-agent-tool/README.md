@@ -361,6 +361,7 @@ whatsapp-tool triage 10                    # batch unread triage -> data/triage.
 whatsapp-tool quote --car "COOLRAY BATTLE" --mode retail-dza   # pricing calculator (options excluded unless --options)
 whatsapp-tool price set-rate --value 253.4 # MySQL: write pricing (set-car/rate/freight/benefits/clearance)
 whatsapp-tool faq search "..."             # MySQL: look up a client FAQ
+whatsapp-tool web fetch "<url>"            # read a page from the chat-AI source allowlist (`web list` prints it)
 whatsapp-tool procurement quotations       # MySQL: supplier quotations per colour (see above)
 whatsapp-tool stock "LIVAN"                # cars app: read-only stock lookup (see above)
 whatsapp-tool identity                     # the assistant's code-generated name

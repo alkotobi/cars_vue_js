@@ -1,10 +1,14 @@
 // The opencode CLI as the reply generator. To keep the model honest we run it
 // in an isolated project dir (<workdir>) whose config disables the WhatsApp MCP
-// and whose agent allows exactly one tool: bash, restricted by permission
-// pattern to read-only `whatsapp-tool …` lookups (pricing/FAQ/stock). Text in,
-// text out — the model can quote the company DB but cannot touch anything else.
-// The files are mirrored from the repo's chatbot/ template at each start so the
-// prompt stays editable in-repo while the runtime dir stays out of it.
+// and whose agent allows only bash restricted by permission pattern to
+// read-only `whatsapp-tool …` lookups (pricing/FAQ/stock), the built-in
+// websearch tool, and `whatsapp-tool web fetch` — an allowlisted page reader
+// (internal/webfetch) for company credibility + car specs only. opencode's own
+// webfetch is disabled: 1.x cannot scope it to a domain list. Text in, text
+// out — the model can quote the company DB or a vetted public page but cannot
+// touch anything else. The files are mirrored from the repo's chatbot/ template
+// at each start so the prompt stays editable in-repo while the runtime dir stays
+// out of it.
 package chatbot
 
 import (
@@ -92,47 +96,68 @@ func ensureConfig() (string, error) {
 var modelLineRE = regexp.MustCompile(`"model"\s*:\s*"[^"]*"`)
 
 // Generate runs the tool-enabled opencode agent with the prompt and returns its
-// plain-text reply (the join of every text part it emitted). The child goes
-// through /bin/sh, not a direct exec: opencode's embedded server errors out
-// ("Unexpected server error") when the CLI is spawned straight by a non-shell
-// parent, while the same command through a shell always works. The prompt
-// rides in an env var so no shell quoting can mangle it (it contains newlines,
-// apostrophes and glob characters).
+// plain-text reply (the answer from its final step — see parseEvents) plus
+// whether the model consulted the web (websearch/webfetch) — the caller uses that
+// flag to stamp the mandatory source disclosure. The child goes through /bin/sh,
+// not a direct exec: opencode's embedded server errors out ("Unexpected server
+// error") when the CLI is spawned straight by a non-shell parent, while the
+// same command through a shell always works. The prompt rides in an env var so
+// no shell quoting can mangle it (it contains newlines, apostrophes and glob
+// characters).
 //
-// The local 27B model occasionally writes the tool invocation as its answer
-// text instead of calling the tool (e.g. it prints `whatsapp-tool stock "X"`).
-// That must never reach a client, so a reply that looks like a bare command is
-// retried once with an explicit nudge; if it is still a command we post the
-// safe holding message rather than leak it.
-func Generate(prompt string, perms Perms) (string, error) {
+// A reply is rejected (and never posted) when it is not a client-facing sentence:
+// either the model printed the tool invocation as its answer text (e.g.
+// `whatsapp-tool stock "X"`) or it ran tools but produced no final answer at all
+// (it narrated its plan and stopped). Either way it is retried once with an
+// explicit nudge; if it is still unusable we post the safe holding message rather
+// than leak the narration.
+func Generate(prompt string, perms Perms) (string, bool, error) {
 	work, err := ensureConfig()
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
 	bin := config.C.Chatbot.OpenCodeBin
 	if resolved, err := exec.LookPath(bin); err == nil {
 		bin = resolved
 	}
-	text, err := runOpenCode(work, bin, prompt, perms)
+	text, usedWeb, usedTool, err := runOpenCode(work, bin, prompt, perms)
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
-	if looksLikeToolDump(text) {
+	text = stripReasoningPrefix(text)
+	if badAnswer(text, usedTool) {
 		nudge := prompt + "\n\nIMPORTANT: invoke the whatsapp-tool command through your tool interface; " +
-			"NEVER print the command itself as your reply. Reply with the client-facing sentence only."
-		if text2, err2 := runOpenCode(work, bin, nudge, perms); err2 == nil && strings.TrimSpace(text2) != "" && !looksLikeToolDump(text2) {
-			return text2, nil
+			"NEVER print the command itself as your reply, and never describe what you are about to do. " +
+			"Reply with the client-facing sentence only."
+		if text2, web2, tool2, err2 := runOpenCode(work, bin, nudge, perms); err2 == nil {
+			if text2 = stripReasoningPrefix(text2); !badAnswer(text2, tool2) {
+				return strings.TrimSpace(text2), web2, nil
+			}
 		}
-		return DeferralReply, nil
+		return DeferralReply, false, nil
 	}
-	return text, nil
+	return text, usedWeb, nil
+}
+
+// badAnswer reports whether text cannot be posted to a client: it is empty after
+// the model used tools (it narrated a plan and stopped without answering), it is
+// a bare tool invocation rather than a sentence, or it is dominated by the
+// model's own reasoning rather than a reply.
+func badAnswer(text string, usedTool bool) bool {
+	if strings.TrimSpace(text) == "" {
+		return usedTool
+	}
+	return looksLikeToolDump(text) || looksLikeReasoning(text)
 }
 
 // runOpenCode executes one opencode generation under llmTimeout and returns the
-// joined text parts, or an error if it failed or produced no text. The group's
-// capabilities ride to the child in WBOT_PERMS (always set, possibly empty) and
-// pick the agent — this is the only place the bot's permissions are enforced.
-func runOpenCode(work, bin, prompt string, perms Perms) (string, error) {
+// final answer text, whether a web tool was used, and whether any tool ran, or
+// an error if it failed or produced nothing. An empty answer after a tool run is
+// NOT an error — the caller decides (see badAnswer); only a run with no text and
+// no tool activity is treated as a failure. The group's capabilities ride to the
+// child in WBOT_PERMS (always set, possibly empty) and pick the agent — this is
+// the only place the bot's permissions are enforced.
+func runOpenCode(work, bin, prompt string, perms Perms) (string, bool, bool, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), llmTimeout)
 	defer cancel()
 
@@ -144,7 +169,9 @@ func runOpenCode(work, bin, prompt string, perms Perms) (string, error) {
 	// The agent may run `whatsapp-tool …` lookups: point it at the repo's
 	// bin/ on PATH and let the CLI find .env via WA_ROOT_DIR (the workdir is
 	// outside the repo, so its own upward .env search would miss). WBOT_PERMS is
-	// always set so the CLI runs restricted for this group.
+	// always set so the CLI runs restricted for this group. OPENCODE_ENABLE_EXA
+	// turns on the built-in websearch tool even for non-OpenCode providers (it
+	// is harmless with the default big-pickle provider, which already has it).
 	repo := config.Root()
 	pathEnv := filepath.Join(repo, "bin") + string(os.PathListSeparator) + os.Getenv("PATH")
 	cmd.Env = append(os.Environ(),
@@ -153,27 +180,29 @@ func runOpenCode(work, bin, prompt string, perms Perms) (string, error) {
 		groupauth.EnvVar+"="+perms.EnvValue(),
 		"WA_ROOT_DIR="+repo,
 		"PATH="+pathEnv,
+		"OPENCODE_ENABLE_EXA=1",
 	)
 	var out, errb bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &errb
 
 	runErr := cmd.Run()
-	if text := extractTextEvents(out.Bytes()); text != "" {
-		return text, nil
+	text, usedWeb, usedTool := parseEvents(out.Bytes())
+	if text != "" || usedTool {
+		return text, usedWeb, usedTool, nil
 	}
 	if ctx.Err() == context.DeadlineExceeded {
-		return "", fmt.Errorf("chat: reply generation timed out after %s", llmTimeout)
+		return "", false, false, fmt.Errorf("chat: reply generation timed out after %s", llmTimeout)
 	}
 	// No text: opencode failed. Prefer the structured reason it printed (so a
 	// rate limit reads as such, not a bare "exit status 1").
 	if reason := apiErrorReason(out.Bytes()); reason != "" {
-		return "", fmt.Errorf("chat: opencode: %s", reason)
+		return "", false, false, fmt.Errorf("chat: opencode: %s", reason)
 	}
 	if runErr != nil {
-		return "", fmt.Errorf("chat: opencode failed: %v%s", runErr, tailStderr(errb.String()))
+		return "", false, false, fmt.Errorf("chat: opencode failed: %v%s", runErr, tailStderr(errb.String()))
 	}
-	return "", fmt.Errorf("chat: no text in opencode output%s", tailStderr(errb.String()))
+	return "", false, false, fmt.Errorf("chat: no text in opencode output%s", tailStderr(errb.String()))
 }
 
 // apiErrorReason extracts a short, speech-friendly reason from the `type:
@@ -234,12 +263,26 @@ func shQuote(s string) string {
 	return "'" + s + "'"
 }
 
-// extractTextEvents joins every `part.text` of `type == "text"` events from
-// opencode's --format json stream. A single reply usually lands as one text
-// event, but a multi-turn response can emit several — they are joined so the
-// caller always gets one message.
-func extractTextEvents(stdout []byte) string {
-	var parts []string
+// parseEvents scans opencode's --format json stream and returns the model's
+// FINAL answer text, whether it consulted the web anywhere in the run, and
+// whether it invoked any tool. The web flag is set by the built-in `websearch`
+// tool AND by any bash call to `whatsapp-tool web fetch …` (opencode's own
+// webfetch is disabled, so the allowlisted reader is reached through bash — see
+// internal/webfetch).
+//
+// Only the text emitted AFTER the last tool call is the answer. A model that
+// "thinks out loud" emits its planning as ordinary text parts between tool calls
+// (e.g. "The user is asking… Let me look it up."); joining every text part would
+// leak that narration to the client. So the text buffer is reset whenever a tool
+// is used, and a step that ends by calling tools (`reason:"tool-calls"`) never
+// contributes. The final step (`reason:"stop"`), or a tool-less reply, yields
+// the answer. Verified against opencode 1.19.0: step_start / step_finish frame
+// each step, {"type":"text","part":{"type":"text","text":"…"}} is text and
+// {"type":"tool_use","part":{"type":"tool","tool":"bash",…}} is a tool.
+func parseEvents(stdout []byte) (string, bool, bool) {
+	var cur strings.Builder
+	var final string
+	usedWeb, usedTool := false, false
 	for _, line := range bytes.Split(bytes.TrimSpace(stdout), []byte("\n")) {
 		if len(bytes.TrimSpace(line)) == 0 {
 			continue
@@ -249,16 +292,67 @@ func extractTextEvents(stdout []byte) string {
 			Part struct {
 				Type string `json:"type"`
 				Text string `json:"text"`
+				Tool string `json:"tool"`
+				// step-finish carries the step outcome ("tool-calls"/"stop").
+				Reason string `json:"reason"`
+				State  struct {
+					Input struct {
+						Command string `json:"command"`
+					} `json:"input"`
+				} `json:"state"`
 			} `json:"part"`
 		}
 		if err := json.Unmarshal(line, &ev); err != nil {
 			continue
 		}
-		if ev.Type == "text" && ev.Part.Type == "text" && strings.TrimSpace(ev.Part.Text) != "" {
-			parts = append(parts, ev.Part.Text)
+		switch {
+		case ev.Type == "step_start":
+			// A new step begins: discard any text not already accepted as final.
+			cur.Reset()
+		case ev.Type == "text" && ev.Part.Type == "text":
+			cur.WriteString(ev.Part.Text)
+		case ev.Part.Type == "tool":
+			usedTool = true
+			if isWebTool(ev.Part.Tool) || isWebFetchCommand(ev.Part.State.Input.Command) {
+				usedWeb = true
+			}
+			// Text before a tool call is planning, not the answer.
+			cur.Reset()
+		case ev.Type == "step_finish":
+			if reason := strings.TrimSpace(ev.Part.Reason); reason == "" || reason == "stop" {
+				if t := strings.TrimSpace(cur.String()); t != "" {
+					final = cur.String()
+				}
+			}
+			cur.Reset()
 		}
 	}
-	return strings.Join(parts, "")
+	if strings.TrimSpace(final) == "" {
+		return cur.String(), usedWeb, usedTool
+	}
+	return final, usedWeb, usedTool
+}
+
+// isWebTool reports whether an opencode tool name is one of the web tools the
+// chat agent may use — whose results must therefore be disclosed to the client.
+// (`webfetch` is disabled in the agent, but a stray attempt is still counted so
+// the disclosure can never be skipped.)
+func isWebTool(name string) bool {
+	switch strings.ToLower(strings.TrimSpace(name)) {
+	case "websearch", "webfetch":
+		return true
+	default:
+		return false
+	}
+}
+
+// isWebFetchCommand reports whether a bash command reads a page through the
+// allowlisted reader, i.e. contains `web fetch` (`whatsapp-tool web fetch …`).
+func isWebFetchCommand(cmd string) bool {
+	if cmd == "" {
+		return false
+	}
+	return strings.Contains(" "+strings.Join(strings.Fields(cmd), " ")+" ", " web fetch ")
 }
 
 func tailStderr(s string) string {

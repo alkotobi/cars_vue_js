@@ -14,7 +14,7 @@ func TestGenerateManual(t *testing.T) {
 	if os.Getenv("CHATBOT_LIVE") == "" {
 		t.Skip("set CHATBOT_LIVE=1 to run the live opencode generation smoke")
 	}
-	reply, err := Generate("Reply with exactly the word: bonjour", Perms{})
+	reply, _, err := Generate("Reply with exactly the word: bonjour", Perms{})
 	if err != nil {
 		t.Fatal(err)
 	}
