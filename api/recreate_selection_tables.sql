@@ -1645,8 +1645,8 @@ CREATE TABLE IF NOT EXISTS `chat_last_read_message` (
   `id_client` int(11) DEFAULT NULL,
   `id_last_read_message` int(11) DEFAULT NULL,
   PRIMARY KEY (`id`),
-  KEY `idx_group_user` (`id_group`,`id_user`),
-  KEY `idx_group_client` (`id_group`,`id_client`)
+  UNIQUE KEY `idx_group_user` (`id_group`,`id_user`),
+  UNIQUE KEY `idx_group_client` (`id_group`,`id_client`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 
 -- --------------------------------------------------------
@@ -1665,7 +1665,8 @@ CREATE TABLE IF NOT EXISTS `chat_messages` (
   `message` text DEFAULT NULL,
   `time` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
-  KEY `idx_message_from_client_id` (`message_from_client_id`)
+  KEY `idx_message_from_client_id` (`message_from_client_id`),
+  KEY `idx_chat_group_id` (`id_chat_group`,`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -1707,7 +1708,10 @@ CREATE TABLE IF NOT EXISTS `chat_users` (
   `id_chat_group` int(11) DEFAULT NULL,
   `is_active` tinyint(1) DEFAULT 1,
   PRIMARY KEY (`id`),
-  KEY `idx_id_client` (`id_client`)
+  KEY `idx_id_client` (`id_client`),
+  KEY `idx_chat_users_group_user` (`id_chat_group`,`id_user`),
+  KEY `idx_chat_users_user_active` (`id_user`,`is_active`),
+  KEY `idx_chat_users_group_client` (`id_chat_group`,`id_client`)
 ) ENGINE=InnoDB AUTO_INCREMENT=15 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --

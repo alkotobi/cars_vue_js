@@ -2083,6 +2083,8 @@
     "sending": "发送中...",
     "failedToSendMessage": "发送消息失败",
     "errorSendingMessage": "发送消息时出错",
+    "messageFailed": "未发送",
+    "resendMessage": "重试",
     "addEmoji": "添加表情符号",
     "attachFile": "附加文件",
     "recordVoiceMessage": "录制语音消息",

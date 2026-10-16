@@ -29,6 +29,38 @@ Rules:
    copying, then `php -l` and reload that server's PHP-FPM.
 5. **Verify and report.** After deploying, print the deployed file's `md5` on **each**
    server and confirm both match the local file.
+6. **Never let a deploy change upload-folder ownership.** Every tenant's upload tree
+   (`<webroot>/<tenant>/files/…`) must be owned by `www-data:www-data` and be group
+   writable (dirs `2775`, files `664`). A deploy that `rsync -a`'s from a Mac stamps
+   the folders with the local uid `501`/`staff`, and PHP-FPM (`www-data`) can no
+   longer write — the app then fails with **`Upload directory is not writable`**
+   (thrown at `api/upload.php` when `is_writable()` is false) on every client/id
+   upload. This already broke `merhab.com` (server 1, tenants `mig`/`mig_26`).
+   Deploy with `rsync -rlptD --no-owner --no-group …` (do **not** use `-a`/`-o`/`-g`),
+   or re-own the upload dirs after syncing:
+
+   ```bash
+   chown -R www-data:www-data /var/www/<root>/<tenant>/files
+   find /var/www/<root>/<tenant>/files -type d -exec chmod 2775 {} +
+   find /var/www/<root>/<tenant>/files -type f -exec chmod 664 {} +
+   ```
+
+   After any deploy, prove every tenant can write before calling it done:
+
+   ```bash
+   for d in $(find /var/www -type d -name files 2>/dev/null); do
+     sudo -u www-data test -w "$d" && echo "OK  $d" || echo "BAD $d"
+   done
+   ```
 
 Access uses the production `root` SSH credentials already used in this repo
 (see `DEPLOYMENT.md` and the existing tooling). Do not commit new secrets.
+
+## Known non-issues / leftovers (do not confuse with the bug above)
+
+- Server 1: `/var/www/html/files` is `root:root 755` — it is the non-tenant root,
+  not a tenant upload dir; no live request resolves there.
+- Server 2: `/var/www/world-automobile.com/test_tenant_files/` (legacy sibling
+  layout, `root:root`) and `/var/www/h.com/cars` (orphan copy, uid `501`) are not
+  referenced by any enabled nginx config. Leave them alone; they are not the
+  `Upload directory is not writable` cause.

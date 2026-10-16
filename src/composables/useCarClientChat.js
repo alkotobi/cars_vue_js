@@ -221,14 +221,13 @@ export function useCarClientChat() {
     if (userIds.length === 0) return
 
     try {
-      const insertQueries = userIds
-        .map(() => `INSERT INTO chat_users (id_user, id_chat_group, is_active) VALUES (?, ?, 1)`)
-        .join('; ')
-
+      // One multi-row INSERT. The `;-joined` form bound a single prepared
+      // statement, so all but the first row (or all of them) were dropped.
+      const values = userIds.map(() => '(?, ?, 1)').join(', ')
       const params = userIds.flatMap((userId) => [userId, groupId])
 
       await callApi({
-        query: insertQueries,
+        query: `INSERT INTO chat_users (id_user, id_chat_group, is_active) VALUES ${values}`,
         params: params,
         requiresAuth: false,
       })

@@ -2133,6 +2133,8 @@
     "sending": "جاري الإرسال...",
     "failedToSendMessage": "فشل إرسال الرسالة",
     "errorSendingMessage": "خطأ في إرسال الرسالة",
+    "messageFailed": "لم يتم الإرسال",
+    "resendMessage": "إعادة المحاولة",
     "addEmoji": "إضافة رمز تعبيري",
     "attachFile": "إرفاق ملف",
     "recordVoiceMessage": "تسجيل رسالة صوتية",

@@ -973,7 +973,10 @@ h2 {
 .mobile-nav-toggle {
   display: none;
   position: fixed;
-  top: 20px;
+  /* Anchor just below the fixed app header. AppHeader publishes its real
+     rendered height as --app-header-height (60px, or ~142px once the header
+     stacks at <=480px), so the hamburger is never hidden behind it. */
+  top: calc(var(--app-header-height, 60px) + 8px);
   left: 20px;
   z-index: 1020;
 }
@@ -1085,7 +1088,6 @@ h2 {
 
 @media (max-width: 480px) {
   .mobile-nav-toggle {
-    top: 16px;
     left: 16px;
   }
 
@@ -1173,7 +1175,10 @@ h2 {
 .mobile-nav-toggle {
   display: none;
   position: fixed;
-  top: 20px;
+  /* Anchor just below the fixed app header. AppHeader publishes its real
+     rendered height as --app-header-height (60px, or ~142px once the header
+     stacks at <=480px), so the hamburger is never hidden behind it. */
+  top: calc(var(--app-header-height, 60px) + 8px);
   left: 20px;
   z-index: 1020;
 }
@@ -1285,7 +1290,6 @@ h2 {
 
 @media (max-width: 480px) {
   .mobile-nav-toggle {
-    top: 16px;
     left: 16px;
   }
 

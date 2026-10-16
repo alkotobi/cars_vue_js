@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, watch, nextTick, computed } from 'vue'
+import { ref, onMounted, onUnmounted, watch, nextTick, computed } from 'vue'
 import { useApi } from '../../composables/useApi'
 import { useEnhancedI18n } from '../../composables/useI18n'
 import { getBasePath } from '../../utils/basePath'
@@ -28,7 +28,7 @@ const props = defineProps({
 
 const emit = defineEmits(['message-sent', 'new-messages-received', 'reset-triggered'])
 
-const { callApi, uploadFile, getFileUrl, loading, error } = useApi()
+const { callApi, uploadFile, getFileUrl, error } = useApi()
 const messages = ref([]) // Current group's messages
 const messagesByGroup = ref({}) // Store messages for each group: { groupId: [messages] }
 const newMessagesCountByGroup = ref({}) // Track new messages count per group: { groupId: count }
@@ -41,12 +41,43 @@ const messagesContainer = ref(null)
 const messageInputRef = ref(null)
 const fileInputRef = ref(null)
 
+// Coalesce the global "recompute badges" event. Several paths can fire it in one
+// burst (send -> reconcile, reset, group switch), and every listener (AppHeader)
+// runs a fresh COUNT query on each. Collapsing same-burst dispatches into one
+// keeps the header badge correct without re-querying once per event.
+let badgeUpdateQueued = false
+const requestBadgeUpdate = () => {
+  if (badgeUpdateQueued) return
+  badgeUpdateQueued = true
+  setTimeout(() => {
+    badgeUpdateQueued = false
+    window.dispatchEvent(new Event('forceUpdateBadge'))
+  }, 50)
+}
+
+// Shallow compare of two { groupId: count } maps. Replacing the reactive counts
+// object with an equal one would still re-render the whole sidebar group list, so
+// callers use this to skip the assignment when nothing changed.
+const sameCounts = (a, b) => {
+  const aKeys = Object.keys(a)
+  const bKeys = Object.keys(b)
+  if (aKeys.length !== bKeys.length) return false
+  for (const key of aKeys) {
+    if ((a[key] || 0) !== (b[key] || 0)) return false
+  }
+  return true
+}
+
 // Pagination state
 const messagesPerPage = 20
 const currentPage = ref(1)
 const hasMoreMessages = ref(true)
 const isLoadingMore = ref(false)
 const totalMessages = ref(0)
+// False until the first page for the current group has settled. Gates the empty
+// state so "No messages yet" cannot flash while a silent background fetch is
+// still in flight (there is no loading caption any more).
+const hasLoaded = ref(false)
 
 // File upload state
 const isUploading = ref(false)
@@ -772,6 +803,17 @@ const fetchMessages = async (groupId) => {
 
     addDebugInfo('fetchMessages_result', result)
 
+    // The user may have switched groups while this request was in flight. This
+    // response belongs to the previous group, so it must not clobber the view
+    // that is now on screen (the cache below is keyed by groupId and stays
+    // correct either way).
+    if (groupId !== props.groupId) {
+      return
+    }
+
+    // The first page for this group has settled; the empty state may now show.
+    hasLoaded.value = true
+
     if (result.success && result.data) {
       const newMessages = result.data.reverse() // Reverse to get chronological order
 
@@ -807,11 +849,207 @@ const fetchMessages = async (groupId) => {
     }
   } catch (err) {
     addError(`Error fetching messages: ${err.message}`)
+    if (groupId === props.groupId) {
+      hasLoaded.value = true
+    }
     if (currentPage.value === 1) {
       messages.value = []
       messagesByGroup.value[groupId] = []
     }
     hasMoreMessages.value = false
+  }
+}
+
+// --- Message list identity ---------------------------------------------------
+//
+// Every path that grows the message list goes through appendUniqueMessages, so a
+// row can only ever appear once. That is what stops the double-post: the send
+// response and the 10s poll both fetch the same just-created row, and previously
+// both pushed it.
+//
+// Ids are compared as numbers because the server hands back lastInsertId as a
+// string while polled ids arrive as JSON numbers - `"7" !== 7` is exactly how a
+// duplicate slipped past a naive check.
+
+let optimisticIdSeq = 0
+const nextOptimisticId = () => --optimisticIdSeq
+
+const numericId = (id) => {
+  const n = Number(id)
+  return Number.isFinite(n) ? n : null
+}
+
+const appendUniqueMessages = (groupId, incoming) => {
+  const isCurrent = groupId === props.groupId
+  const target = isCurrent ? messages.value : messagesByGroup.value[groupId] || []
+
+  const seen = new Set()
+  for (const m of target) {
+    const n = numericId(m.id)
+    if (n !== null) seen.add(n)
+  }
+
+  const added = []
+  for (const msg of incoming) {
+    const n = numericId(msg.id)
+    if (n !== null) {
+      if (seen.has(n)) continue
+      seen.add(n)
+    }
+    target.push(msg)
+    added.push(msg)
+  }
+
+  if (isCurrent) {
+    messages.value = [...target]
+    messagesByGroup.value[groupId] = [...messages.value]
+  } else {
+    messagesByGroup.value[groupId] = [...target]
+  }
+
+  return added
+}
+
+// Swap an optimistic placeholder for the row the server actually created. If a
+// poll already delivered that row, the placeholder is dropped instead, so the
+// send and the poll converge on exactly one message either way.
+const reconcileOptimistic = (groupId, tempId, realId) => {
+  const isCurrent = groupId === props.groupId
+  const target = isCurrent ? messages.value : messagesByGroup.value[groupId] || []
+  const idx = target.findIndex((m) => m.id === tempId)
+  if (idx === -1) return
+
+  const n = numericId(realId)
+  const alreadyHasReal =
+    n !== null && target.some((m, i) => i !== idx && numericId(m.id) === n)
+
+  if (alreadyHasReal) {
+    target.splice(idx, 1)
+  } else {
+    target[idx].id = n !== null ? n : target[idx].id
+    delete target[idx].pending
+  }
+
+  if (isCurrent) {
+    messages.value = [...target]
+    messagesByGroup.value[groupId] = [...messages.value]
+  } else {
+    messagesByGroup.value[groupId] = [...target]
+  }
+}
+
+// Flag an optimistic placeholder whose send failed, in place. Unlike the old
+// behaviour (which deleted the row and handed the text back to the input), the
+// row stays exactly where it is so the reader can see what failed and retry it.
+const markFailed = (groupId, tempId) => {
+  const isCurrent = groupId === props.groupId
+  const target = isCurrent ? messages.value : messagesByGroup.value[groupId] || []
+  const idx = target.findIndex((m) => m.id === tempId)
+  if (idx === -1) return
+  delete target[idx].pending
+  target[idx].failed = true
+  if (isCurrent) {
+    messages.value = [...target]
+    messagesByGroup.value[groupId] = [...messages.value]
+  } else {
+    messagesByGroup.value[groupId] = [...target]
+  }
+}
+
+// Build the INSERT for a plain text message, tailored to the sender mode. Shared
+// by the first attempt and by retries, so a resend writes exactly what the
+// original attempt would have.
+const buildInsert = (groupId, text) => {
+  if (isClientMode.value) {
+    return {
+      query: `
+        INSERT INTO chat_messages (id_chat_group, message_from_client_id, message, time) 
+        VALUES (?, ?, ?, UTC_TIMESTAMP())
+      `,
+      params: [groupId, currentClient.value.id, text],
+      requiresAuth: false,
+    }
+  }
+  return {
+    query: `
+      INSERT INTO chat_messages (id_chat_group, message_from_user_id, message, time) 
+      VALUES (?, ?, ?, UTC_TIMESTAMP())
+    `,
+    params: [groupId, currentUser.value.id, text],
+    requiresAuth: true,
+  }
+}
+
+// The row shown before the server has accepted the message: pending until the
+// send resolves, failed if it never does. The id is negative so it can never
+// collide with a real one.
+const buildOptimisticMessage = (groupId, text) => {
+  const tempId = nextOptimisticId()
+  if (isClientMode.value) {
+    return {
+      id: tempId,
+      id_chat_group: groupId,
+      message_from_client_id: currentClient.value.id,
+      message: text,
+      time: new Date().toISOString(),
+      sender_username: currentClient.value.name,
+      sender_role: 'Client',
+      sender_type: 'client',
+      pending: true,
+    }
+  }
+  return {
+    id: tempId,
+    id_chat_group: groupId,
+    message_from_user_id: currentUser.value.id,
+    message: text,
+    time: new Date().toISOString(),
+    sender_username: currentUser.value.username,
+    sender_role: currentUser.value.role_name,
+    sender_type: 'user',
+    pending: true,
+  }
+}
+
+// Number of sends currently in flight. Used only for the spinner: the input is
+// never disabled, because sends queue instead of blocking one another.
+let activeSends = 0
+
+// Send one already-rendered optimistic message. Used by both the first attempt
+// and by resendMessage. On success the placeholder becomes the real row; on
+// failure it is flagged failed and left in place for a retry.
+const deliverMessage = async (groupId, message) => {
+  activeSends += 1
+  isSending.value = true
+  try {
+    const result = await callApi(buildInsert(groupId, message.message))
+
+    if (result.success) {
+      reconcileOptimistic(groupId, message.id, result.lastInsertId)
+
+      // Emit event to parent
+      emit('message-sent', message)
+
+      // Dispatch global event to update header badge
+      requestBadgeUpdate()
+    } else {
+      markFailed(groupId, message.id)
+    }
+  } catch (err) {
+    console.error('Error sending message:', err)
+    markFailed(groupId, message.id)
+  } finally {
+    activeSends -= 1
+    isSending.value = activeSends > 0
+
+    // Focus the message input after sending is complete
+    setTimeout(() => {
+      requestAnimationFrame(() => {
+        if (messageInputRef.value) {
+          messageInputRef.value.focus()
+        }
+      })
+    }, 100)
   }
 }
 
@@ -826,106 +1064,62 @@ const sendMessage = async () => {
     }
   }
 
-  // Check if user/client is still an active member before sending
+  // Take this message's text and clear the box before any await, so a second
+  // Enter while this send is still in flight queues its own text rather than
+  // being swallowed or picking up the first send's text.
+  const groupId = props.groupId
+  const text = newMessage.value.trim()
+  newMessage.value = ''
+
+  // Verify membership before rendering an optimistic row, so a stale member
+  // never sees a bubble for a message that will not be sent.
   await checkMembership()
 
   if (!isActiveMember.value) {
     alert(t('chat.youHaveLeftThisGroup') || 'You have left this group and cannot send messages.')
-    // Clear message input
-    newMessage.value = ''
     // Trigger reset to deselect group
     emit('reset-triggered')
     return
   }
 
-  try {
-    isSending.value = true
+  // Show it immediately. The row is on screen before the request leaves, so the
+  // input is already free for the next message; the server id replaces the temp
+  // id on the response.
+  const optimisticMsg = buildOptimisticMessage(groupId, text)
+  appendUniqueMessages(groupId, [optimisticMsg])
 
-    let query, params, requiresAuth, newMsg
+  // Scroll to bottom after message is added
+  await nextTick()
+  await scrollToBottom()
 
-    if (isClientMode.value) {
-      // Client sending message
-      query = `
-        INSERT INTO chat_messages (id_chat_group, message_from_client_id, message, time) 
-        VALUES (?, ?, ?, UTC_TIMESTAMP())
-      `
-      params = [props.groupId, currentClient.value.id, newMessage.value.trim()]
-      requiresAuth = false
-    } else {
-      // User sending message
-      query = `
-        INSERT INTO chat_messages (id_chat_group, message_from_user_id, message, time) 
-        VALUES (?, ?, ?, UTC_TIMESTAMP())
-      `
-      params = [props.groupId, currentUser.value.id, newMessage.value.trim()]
-      requiresAuth = true
-    }
+  await deliverMessage(groupId, optimisticMsg)
+}
 
-    const result = await callApi({
-      query,
-      params,
-      requiresAuth,
-    })
-
-    if (result.success) {
-      // Add the new message to both current list and group cache
-      if (isClientMode.value) {
-        newMsg = {
-          id: result.lastInsertId,
-          id_chat_group: props.groupId,
-          message_from_client_id: currentClient.value.id,
-          message: newMessage.value.trim(),
-          time: new Date().toISOString(),
-          sender_username: currentClient.value.name,
-          sender_role: 'Client',
-          sender_type: 'client',
-        }
-      } else {
-        newMsg = {
-          id: result.lastInsertId,
-          id_chat_group: props.groupId,
-          message_from_user_id: currentUser.value.id,
-          message: newMessage.value.trim(),
-          time: new Date().toISOString(),
-          sender_username: currentUser.value.username,
-          sender_role: currentUser.value.role_name,
-          sender_type: 'user',
-        }
-      }
-
-      messages.value.push(newMsg)
-      messagesByGroup.value[props.groupId] = [...messages.value]
-      newMessage.value = ''
-
-      // Scroll to bottom after message is added
-      await nextTick()
-      await scrollToBottom()
-
-      // Emit event to parent
-      emit('message-sent', newMsg)
-
-      // Dispatch global event to update header badge
-      window.dispatchEvent(new Event('forceUpdateBadge'))
-    } else {
-      alert(t('chat.failedToSendMessage'))
-    }
-  } catch (err) {
-    console.error('Error sending message:', err)
-    alert(t('chat.errorSendingMessage'))
-  } finally {
-    isSending.value = false
-
-    // Focus the message input after sending is complete and textarea is enabled
-    setTimeout(() => {
-      requestAnimationFrame(() => {
-        if (messageInputRef.value) {
-          messageInputRef.value.focus()
-        } else {
-          // Removed: console.log('Message input ref not available for focus')
-        }
-      })
-    }, 100)
+// Re-send a message that failed. It keeps its place in the list; only its state
+// moves from failed back to pending while the retry is in flight.
+const resendMessage = async (message) => {
+  if (!message || message.failed !== true) {
+    return
   }
+
+  const groupId = message.id_chat_group ?? props.groupId
+  const isCurrent = groupId === props.groupId
+  const target = isCurrent ? messages.value : messagesByGroup.value[groupId] || []
+  const idx = target.findIndex((m) => m.id === message.id)
+  if (idx === -1) {
+    return
+  }
+
+  delete target[idx].failed
+  target[idx].pending = true
+  if (isCurrent) {
+    messages.value = [...target]
+    messagesByGroup.value[groupId] = [...messages.value]
+  } else {
+    messagesByGroup.value[groupId] = [...target]
+  }
+
+  await deliverMessage(groupId, target[idx])
 }
 
 const scrollToBottom = async () => {
@@ -979,13 +1173,19 @@ const scrollToBottom = async () => {
   }
 }
 
+// The server writes `time` as UTC_TIMESTAMP(), which arrives as
+// "YYYY-MM-DD HH:MM:SS" with no zone. `new Date()` would read that as local
+// time, shifting every message by the viewer's offset (and pushing late-evening
+// messages onto the wrong day separator). Detect the naive shape and force UTC.
+const parseServerTime = (timeString) => {
+  if (typeof timeString === 'string' && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/.test(timeString)) {
+    return new Date(timeString.replace(' ', 'T') + 'Z')
+  }
+  return new Date(timeString)
+}
+
 const formatTime = (timeString) => {
-  const date = new Date(timeString)
-  const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone
-  const timeZoneAbbr =
-    new Intl.DateTimeFormat('en', { timeZoneName: 'short' })
-      .formatToParts(date)
-      .find((part) => part.type === 'timeZoneName')?.value || ''
+  const date = parseServerTime(timeString)
 
   return date.toLocaleTimeString([], {
     hour: '2-digit',
@@ -995,7 +1195,7 @@ const formatTime = (timeString) => {
 }
 
 const formatDate = (timeString) => {
-  const date = new Date(timeString)
+  const date = parseServerTime(timeString)
   const today = new Date()
   const yesterday = new Date(today)
   yesterday.setDate(yesterday.getDate() - 1)
@@ -1010,7 +1210,7 @@ const formatDate = (timeString) => {
 }
 
 const getRelativeTime = (timeString) => {
-  const date = new Date(timeString)
+  const date = parseServerTime(timeString)
   const now = new Date()
   const diffInMinutes = Math.floor((now - date) / (1000 * 60))
 
@@ -1130,7 +1330,7 @@ const updateBulkMessageDates = async () => {
     for (const message of selectedMessagesList) {
       try {
         // Get original message time
-        const originalDate = new Date(message.time)
+        const originalDate = parseServerTime(message.time)
         const originalHours = originalDate.getHours()
         const originalMinutes = originalDate.getMinutes()
         const originalSeconds = originalDate.getSeconds()
@@ -1204,7 +1404,7 @@ const openDateEditor = (message) => {
   if (!canEditMessageDate(message)) return
   editingMessageId.value = message.id
   // Convert UTC time from database to local time for datetime-local input
-  const messageDate = new Date(message.time)
+  const messageDate = parseServerTime(message.time)
   // Format as YYYY-MM-DDTHH:mm for datetime-local input (in local timezone)
   const year = messageDate.getFullYear()
   const month = String(messageDate.getMonth() + 1).padStart(2, '0')
@@ -1375,27 +1575,24 @@ onMounted(async () => {
   // Fetch current user and initial messages
   getCurrentUser()
 
-  // If we have a groupId, check membership and load the first page of messages
+  // If we have a groupId, check membership and load the first page of messages.
+  // This is the single initial load path (the groupId watch is not immediate),
+  // so messages are not fetched twice on mount.
   if (props.groupId && props.groupId > 0) {
     await checkMembership()
     await fetchMessages(props.groupId)
   }
 
-  // Start polling for new messages (only for the current group)
-  // Set up activity listeners
-  setupActivityListeners()
-
-  // Initialize adaptive polling with active intervals (user just loaded the page)
-  const currentInterval = ACTIVE_INTERVALS.messages
-  refreshInterval = setInterval(async () => {
-    if (props.groupId && props.groupId > 0 && currentUser.value) {
-      try {
-        await fetchNewMessages(props.groupId)
-      } catch (err) {
-        console.error(`Timer: Error fetching new messages for group ${props.groupId}:`, err)
-      }
-    }
-  }, currentInterval)
+  // Set up activity listeners and adaptive polling (single source of truth).
+  // The hidden background engine (groupId 0) exists only to expose
+  // refreshUnreadCounts / getAllNewMessagesCounts to its parent: it has no
+  // messages to poll and no input to keep active, so it must not install the
+  // six document activity listeners or a message-poll timer.
+  if (props.groupId && props.groupId > 0) {
+    setupActivityListeners()
+    resetInactivityTimer()
+    restartMessagePolling()
+  }
 })
 
 // Clean up interval on unmount
@@ -1411,93 +1608,20 @@ const cleanup = () => {
   cleanupActivityListeners()
 }
 
+// Guarantee cleanup even when the parent doesn't call the exposed cleanup()
+// (e.g. when the component is unmounted by a v-if when deselecting a group).
+onUnmounted(cleanup)
+
 // Function to reset new message count for a specific group
 // This function properly handles both user messages and client messages:
 // - When a USER views messages (including client messages), it fetches MAX(id) which includes ALL messages
 // - The MAX(id) query returns the highest message ID regardless of sender type (user or client)
 // - This ensures client messages are properly marked as read when a user views them
 const resetNewMessageCount = async (groupId) => {
-  // Get the highest message ID from ALL messages in the group, not just loaded ones
-  // This ensures we mark all messages as read, even if pagination is used
-  // NOTE: MAX(id) includes both user messages (message_from_user_id) and client messages (message_from_client_id)
-  let lastReadMessageId = 0
-
-  if (currentUser.value && !isClientMode.value) {
-    try {
-      // Fetch the highest message ID directly from database for this group
-      // This query returns the MAX(id) regardless of whether the message is from a user or client
-      const maxIdResult = await callApi({
-        query: `
-          SELECT MAX(id) as max_id
-          FROM chat_messages
-          WHERE id_chat_group = ?
-        `,
-        params: [groupId],
-        requiresAuth: true,
-      })
-
-      if (maxIdResult.success && maxIdResult.data && maxIdResult.data.length > 0) {
-        lastReadMessageId = maxIdResult.data[0].max_id || 0
-      }
-    } catch (err) {
-      // Fallback to using loaded messages if database query fails
-      const currentMessages =
-        groupId === props.groupId && messages.value.length > 0
-          ? messages.value
-          : messagesByGroup.value[groupId] || []
-      lastReadMessageId =
-        currentMessages.length > 0 ? Math.max(...currentMessages.map((msg) => msg.id)) : 0
-    }
-  } else {
-    // For clients or if no user, use loaded messages
-    const currentMessages =
-      groupId === props.groupId && messages.value.length > 0
-        ? messages.value
-        : messagesByGroup.value[groupId] || []
-    lastReadMessageId =
-      currentMessages.length > 0 ? Math.max(...currentMessages.map((msg) => msg.id)) : 0
-  }
-
-  // Save the last read message ID to database (only for users, not clients)
-  // This saves the highest message ID (which may be from a client) as the last read position
-  // When counting unread messages later, messages with id > lastReadMessageId will be considered unread
-  if (currentUser.value && !isClientMode.value && lastReadMessageId > 0) {
-    try {
-      // First try to UPDATE existing record
-      const updateResult = await callApi({
-        query: `
-          UPDATE chat_last_read_message 
-          SET id_last_read_message = ? 
-          WHERE id_group = ? AND id_user = ? AND id_client IS NULL
-        `,
-        params: [lastReadMessageId, groupId, currentUser.value.id],
-        requiresAuth: true,
-      })
-
-      // If no rows were updated, INSERT a new record
-      if (updateResult.success && updateResult.data && updateResult.data.affectedRows === 0) {
-        const insertResult = await callApi({
-          query: `
-            INSERT INTO chat_last_read_message (id_group, id_user, id_last_read_message, id_client) 
-            VALUES (?, ?, ?, NULL)
-          `,
-          params: [groupId, currentUser.value.id, lastReadMessageId],
-          requiresAuth: true,
-        })
-
-        if (!insertResult.success) {
-          console.error(`Failed to insert last read message ID for group ${groupId}`, insertResult)
-        }
-      }
-    } catch (err) {
-      console.error('Error saving last read message ID:', err)
-    }
-  }
-
-  // Capture previous count before resetting
-  const previousCount = newMessagesCountByGroup.value[groupId] || 0
-
-  // Reset the count - FORCE IT TO 0
+  // Clear the badge FIRST, synchronously. This used to happen only after the
+  // MAX(id) read and the last-read upsert had both returned, so the badge stayed
+  // lit for two whole round trips after the user opened the group. Persisting the
+  // read position is a background concern and must not gate the UI.
   newMessagesCountByGroup.value[groupId] = 0
 
   // Also reset current count if this is the active group
@@ -1511,10 +1635,85 @@ const resetNewMessageCount = async (groupId) => {
   // Emit reset event to trigger parent update
   emit('reset-triggered', groupId)
 
-  // Also force an immediate update of the hidden component's counts
-  // by calling fetchAllGroupsMessages to recalculate unread counts
+  // Update the header badge now, before the DB writes below.
+  requestBadgeUpdate()
+
+  await persistLastRead(groupId)
+}
+
+// Persist "the reader has seen everything up to here" for a group, and refresh
+// the hidden engine's counts. Split out of resetNewMessageCount so the badge
+// clears before these round trips rather than after them.
+const persistLastRead = async (groupId) => {
+  // Only users persist a read position (clients have no such row).
+  if (!currentUser.value || isClientMode.value) {
+    // The hidden background instance (groupId 0) still needs its counts
+    // recomputed after a reset.
+    if (props.groupId === 0) {
+      await refreshUnreadCounts()
+    }
+    return
+  }
+
+  // Get the highest message ID from ALL messages in the group, not just loaded
+  // ones, so pagination doesn't leave recent messages unread.
+  // NOTE: MAX(id) includes both user messages (message_from_user_id) and client
+  // messages (message_from_client_id).
+  let lastReadMessageId = 0
+  try {
+    const maxIdResult = await callApi({
+      query: `
+        SELECT MAX(id) as max_id
+        FROM chat_messages
+        WHERE id_chat_group = ?
+      `,
+      params: [groupId],
+      requiresAuth: true,
+    })
+
+    if (maxIdResult.success && maxIdResult.data && maxIdResult.data.length > 0) {
+      lastReadMessageId = maxIdResult.data[0].max_id || 0
+    }
+  } catch (err) {
+    // Fallback to using loaded messages if database query fails
+    const currentMessages =
+      groupId === props.groupId && messages.value.length > 0
+        ? messages.value
+        : messagesByGroup.value[groupId] || []
+    lastReadMessageId =
+      currentMessages.length > 0 ? Math.max(...currentMessages.map((msg) => msg.id)) : 0
+  }
+
+  if (lastReadMessageId > 0) {
+    try {
+      // One atomic upsert. The old UPDATE-then-INSERT-when-affectedRows=0 pattern
+      // duplicated rows: MySQL reports rows *changed*, not matched, so re-saving
+      // the same last-read id returned 0 and inserted a second row for the same
+      // (id_group, id_user). uniq_group_user (id_group, id_user) now makes this
+      // impossible; GREATEST keeps the read position from moving backwards.
+      const upsertResult = await callApi({
+        query: `
+          INSERT INTO chat_last_read_message (id_group, id_user, id_last_read_message, id_client)
+          VALUES (?, ?, ?, NULL)
+          ON DUPLICATE KEY UPDATE
+            id_last_read_message = GREATEST(id_last_read_message, VALUES(id_last_read_message))
+        `,
+        params: [groupId, currentUser.value.id, lastReadMessageId],
+        requiresAuth: true,
+      })
+
+      if (!upsertResult.success) {
+        console.error(`Failed to save last read message ID for group ${groupId}`, upsertResult)
+      }
+    } catch (err) {
+      console.error('Error saving last read message ID:', err)
+    }
+  }
+
+  // Also force an immediate refresh of the hidden component's counts
+  // by recomputing unread counts (without downloading message bodies).
   if (props.groupId === 0) {
-    await fetchAllGroupsMessages()
+    await refreshUnreadCounts()
   }
 }
 
@@ -1563,8 +1762,8 @@ const fetchAllGroupsMessages = async () => {
       // Filter by id_client IS NULL to ensure we get the user's record, not a client's
       const lastReadResult = await callApi({
         query: `
-          SELECT id_last_read_message 
-          FROM chat_last_read_message 
+          SELECT MAX(id_last_read_message) AS id_last_read_message
+          FROM chat_last_read_message
           WHERE id_group = ? AND id_user = ? AND id_client IS NULL
         `,
         params: [group.id, currentUser.value.id],
@@ -1573,7 +1772,7 @@ const fetchAllGroupsMessages = async () => {
 
       const lastReadMessageId =
         lastReadResult.success && lastReadResult.data && lastReadResult.data.length > 0
-          ? lastReadResult.data[0].id_last_read_message
+          ? lastReadResult.data[0].id_last_read_message || 0
           : 0
 
       // Count unread messages (messages with ID > last_read_message_id and not from current user)
@@ -1639,6 +1838,83 @@ const fetchAllGroupsMessages = async () => {
     }
   } catch (err) {
     console.error('Error fetching all groups messages:', err)
+  }
+}
+
+// Refresh unread message counts for every group the user belongs to.
+// This is the lightweight counterpart of fetchAllGroupsMessages: it never
+// downloads message bodies, it only (re)computes the per-group unread counts.
+// Used by the hidden background instance to keep the sidebar badges live.
+const refreshUnreadCounts = async () => {
+  try {
+    if (isClientMode.value || !currentUser.value) {
+      return
+    }
+
+    // 1) All active groups this user is a member of (only the ids).
+    const groupsResult = await callApi({
+      query: `
+        SELECT DISTINCT cg.id
+        FROM chat_groups cg
+        INNER JOIN chat_users cu ON cg.id = cu.id_chat_group
+        WHERE cg.is_active = 1
+          AND cu.is_active = 1
+          AND cu.id_user = ?
+      `,
+      params: [currentUser.value.id],
+      requiresAuth: true,
+    })
+
+    if (!groupsResult.success || !groupsResult.data) {
+      return
+    }
+
+    // Start from zero for every member group so groups with no unread messages
+    // are correctly cleared (they won't appear in the aggregate query below).
+    const counts = {}
+    for (const group of groupsResult.data) {
+      counts[group.id] = 0
+    }
+
+    // 2) Unread counts for all member groups in a single aggregate query.
+    // Uses subqueries (not joins) so duplicate membership/last-read rows can
+    // never multiply the COUNT(*).
+    const unreadResult = await callApi({
+      query: `
+        SELECT cm.id_chat_group AS group_id, COUNT(*) AS unread_count
+        FROM chat_messages cm
+        WHERE cm.id_chat_group IN (
+            SELECT cu.id_chat_group
+            FROM chat_users cu
+            WHERE cu.id_user = ? AND cu.is_active = 1
+          )
+          AND cm.id > COALESCE(
+            (SELECT MAX(lr.id_last_read_message)
+             FROM chat_last_read_message lr
+             WHERE lr.id_group = cm.id_chat_group
+               AND lr.id_user = ?
+               AND lr.id_client IS NULL), 0)
+          AND (cm.message_from_user_id IS NULL OR cm.message_from_user_id != ?)
+        GROUP BY cm.id_chat_group
+      `,
+      params: [currentUser.value.id, currentUser.value.id, currentUser.value.id],
+      requiresAuth: true,
+    })
+
+    if (unreadResult.success && unreadResult.data) {
+      for (const row of unreadResult.data) {
+        counts[row.group_id] = parseInt(row.unread_count) || 0
+      }
+    }
+
+    // Replace the map only when something actually changed. Assigning an equal
+    // object would still be a new reference and re-render the sidebar group list
+    // on every poll tick even when no badge changed.
+    if (!sameCounts(newMessagesCountByGroup.value, counts)) {
+      newMessagesCountByGroup.value = counts
+    }
+  } catch (err) {
+    console.error('Error refreshing unread counts:', err)
   }
 }
 
@@ -1726,6 +2002,7 @@ const testNewMessagesCount = () => {
 defineExpose({
   cleanup,
   fetchAllGroupsMessages,
+  refreshUnreadCounts,
   getNewMessagesCount: (groupId) => {
     const count = newMessagesCountByGroup.value[groupId] || 0
     // Removed: console.log(`Exposed getNewMessagesCount for group ${groupId}:`, count)
@@ -1891,14 +2168,13 @@ const uploadFileToChat = async () => {
           }
         }
 
-        messages.value.push(newMsg)
-        messagesByGroup.value[props.groupId] = [...messages.value]
+        appendUniqueMessages(props.groupId, [newMsg])
 
         // Emit event to parent
         emit('message-sent', newMsg)
 
         // Dispatch global event to update header badge
-        window.dispatchEvent(new Event('forceUpdateBadge'))
+        requestBadgeUpdate()
 
         // Scroll to bottom after message is added
         await nextTick()
@@ -1958,6 +2234,7 @@ const formatFileSize = (bytes) => {
 }
 
 const getFileIcon = (fileType) => {
+  if (typeof fileType !== 'string') return '📎'
   if (fileType.startsWith('image/')) return '🖼️'
   if (fileType.startsWith('video/')) return '🎥'
   if (fileType.startsWith('audio/')) return '🎵'
@@ -1972,7 +2249,7 @@ const getFileIcon = (fileType) => {
 
 // Parse file message to extract file information
 const parseFileMessage = (message) => {
-  if (!message.startsWith('[FILE]')) return null
+  if (typeof message !== 'string' || !message.startsWith('[FILE]')) return null
 
   const fileData = message.substring(6) // Remove '[FILE]' prefix
   const parts = fileData.split('|')
@@ -1991,17 +2268,17 @@ const parseFileMessage = (message) => {
 
 // Check if message is a file message
 const isFileMessage = (message) => {
-  return message.startsWith('[FILE]')
+  return typeof message === 'string' && message.startsWith('[FILE]')
 }
 
 // Check if message is a voice message
 const isVoiceMessage = (message) => {
-  return message.startsWith('[VOICE]')
+  return typeof message === 'string' && message.startsWith('[VOICE]')
 }
 
 // Parse voice message to extract voice information
 const parseVoiceMessage = (message) => {
-  if (!message.startsWith('[VOICE]')) return null
+  if (typeof message !== 'string' || !message.startsWith('[VOICE]')) return null
 
   const voiceData = message.substring(7) // Remove '[VOICE]' prefix
   const parts = voiceData.split('|')
@@ -2021,17 +2298,17 @@ const parseVoiceMessage = (message) => {
 
 // Check if file is an image
 const isImageFile = (fileType) => {
-  return fileType.startsWith('image/')
+  return typeof fileType === 'string' && fileType.startsWith('image/')
 }
 
 // Check if file is a video
 const isVideoFile = (fileType) => {
-  return fileType.startsWith('video/')
+  return typeof fileType === 'string' && fileType.startsWith('video/')
 }
 
 // Check if file is an audio file
 const isAudioFile = (fileType) => {
-  return fileType.startsWith('audio/')
+  return typeof fileType === 'string' && fileType.startsWith('audio/')
 }
 
 // Get file URL for display
@@ -2218,14 +2495,13 @@ const sendVoiceMessage = async () => {
           }
         }
 
-        messages.value.push(newMsg)
-        messagesByGroup.value[props.groupId] = [...messages.value]
+        appendUniqueMessages(props.groupId, [newMsg])
 
         // Emit event to parent
         emit('message-sent', newMsg)
 
         // Dispatch global event to update header badge
-        window.dispatchEvent(new Event('forceUpdateBadge'))
+        requestBadgeUpdate()
 
         // Scroll to bottom after message is added
         await nextTick()
@@ -2297,12 +2573,17 @@ const loadMoreMessages = async () => {
 // Fetch only new messages for polling (doesn't affect pagination)
 const fetchNewMessages = async (groupId) => {
   try {
-    if (!currentUser.value) return
+    // In client mode there is no currentUser - the client identity is used instead.
+    if (isClientMode.value ? !currentClient.value : !currentUser.value) return
 
-    // Get the highest message ID from current messages
-    const currentMessages = messages.value
-    const currentHighestId =
-      currentMessages.length > 0 ? Math.max(...currentMessages.map((msg) => msg.id)) : 0
+    // Highest server-confirmed id. Optimistic placeholders (negative temp ids)
+    // are ignored so the poll still asks for the row the send created even while
+    // that send is still in flight.
+    const confirmedIds = messages.value
+      .filter((msg) => !msg.pending && !msg.failed)
+      .map((msg) => numericId(msg.id))
+      .filter((n) => n !== null)
+    const currentHighestId = confirmedIds.length > 0 ? Math.max(...confirmedIds) : 0
 
     const result = await callApi({
       query: `
@@ -2329,22 +2610,24 @@ const fetchNewMessages = async (groupId) => {
     })
 
     if (result.success && result.data && result.data.length > 0) {
-      // Add new messages to the end
-      messages.value.push(...result.data)
-      messagesByGroup.value[groupId] = [...messages.value]
+      // Deduped append: a row the send already reconciled is skipped here.
+      const added = appendUniqueMessages(groupId, result.data)
+      if (added.length === 0) return
 
       // Scroll to bottom for new messages
       await nextTick()
       await scrollToBottom()
 
-      addDebugInfo('newMessagesAdded', { count: result.data.length, groupId })
+      addDebugInfo('newMessagesAdded', { count: added.length, groupId })
     }
   } catch (err) {
     addError(`Error fetching new messages: ${err.message}`)
   }
 }
 
-// Watch for changes in selected group
+// Watch for changes in selected group.
+// Note: NOT immediate - the initial load is handled by onMounted so that the
+// current user is available and messages aren't fetched twice on mount.
 watch(
   () => props.groupId,
   async (newGroupId) => {
@@ -2353,6 +2636,20 @@ watch(
     if (newGroupId && newGroupId > 0) {
       currentPage.value = 1
       hasMoreMessages.value = true
+      // Paint from cache at once when we already have this group's messages, so
+      // switching groups is instant and the empty state never flashes. hasLoaded
+      // is set true by the cache; otherwise fetchMessages sets it when it settles.
+      const cached = messagesByGroup.value[newGroupId]
+      if (cached && cached.length > 0) {
+        messages.value = cached
+        hasLoaded.value = true
+      } else {
+        // Nothing cached: clear the previous group's rows rather than leave them
+        // under the new group's header. The blank loader (no caption) covers the
+        // gap until fetchMessages settles.
+        messages.value = []
+        hasLoaded.value = false
+      }
       // Check membership when group changes
       await checkMembership()
       // fetchMessages will call resetNewMessageCount when loading the first page
@@ -2373,7 +2670,6 @@ watch(
       isActiveMember.value = false
     }
   },
-  { immediate: true },
 )
 
 // Filtered messages based on search
@@ -2411,6 +2707,10 @@ const clearMessageSearch = () => {
 <template>
   <div class="chat-messages">
     <div class="messages-header">
+      <!-- Optional leading slot: desktop/modal pass nothing, the mobile
+           conversation injects its back button here so the header itself
+           becomes the mobile top bar. -->
+      <slot name="header-left" />
       <h3><i class="fas fa-comments"></i> {{ groupName }}</h3>
       <div class="group-info">
         <span class="timezone-info">
@@ -2445,6 +2745,7 @@ const clearMessageSearch = () => {
         >
           <i class="fas fa-times"></i>
         </button>
+        <slot name="header-right" />
       </div>
     </div>
 
@@ -2487,15 +2788,13 @@ const clearMessageSearch = () => {
         </button>
       </div>
 
-      <div v-if="loading && messages.length === 0" class="loading-messages">
-        <i class="fas fa-spinner fa-spin"></i> {{ t('chat.loadingMessages') }}
-      </div>
+      <div v-if="!hasLoaded && messages.length === 0" class="loading-messages"></div>
 
       <div v-else-if="error" class="error-messages">
         <i class="fas fa-exclamation-triangle"></i> {{ error }}
       </div>
 
-      <div v-else-if="messages.length === 0" class="no-messages">
+      <div v-else-if="hasLoaded && messages.length === 0" class="no-messages">
         <i class="fas fa-comment-slash"></i>
         <p>{{ t('chat.noMessagesYet') }}</p>
         <p class="sub-text">{{ t('chat.startConversation') }}</p>
@@ -2723,9 +3022,21 @@ const clearMessageSearch = () => {
               </div>
 
               <!-- Show regular text message if it's not a file or voice message -->
-              <div v-else>
+              <div v-else class="message-text">
                 {{ message.message }}
               </div>
+            </div>
+
+            <div v-if="message.failed" class="message-failed">
+              <i class="fas fa-exclamation-circle failed-icon"></i>
+              <span class="failed-label">{{ t('chat.messageFailed') }}</span>
+              <button class="resend-btn" type="button" @click="resendMessage(message)">
+                <i class="fas fa-redo"></i> {{ t('chat.resendMessage') }}
+              </button>
+            </div>
+
+            <div v-if="message.pending" class="message-sending">
+              <i class="fas fa-clock"></i> {{ t('chat.sending') }}
             </div>
 
             <div class="message-footer">
@@ -2772,7 +3083,8 @@ const clearMessageSearch = () => {
           @click="handleInputClick"
           :placeholder="isActiveMember ? t('chat.typeYourMessage') : t('chat.youHaveLeftThisGroup')"
           class="message-input"
-          :disabled="isSending || !isActiveMember"
+          dir="auto"
+          :disabled="!isActiveMember"
           rows="1"
           maxlength="1000"
           ref="messageInputRef"
@@ -2784,7 +3096,7 @@ const clearMessageSearch = () => {
               sendMessage()
             }
           "
-          :disabled="!newMessage.trim() || isSending || !isActiveMember"
+          :disabled="!newMessage.trim() || !isActiveMember"
           class="send-button"
           :title="!isActiveMember ? t('chat.youHaveLeftThisGroup') : ''"
         >
@@ -3515,6 +3827,11 @@ const clearMessageSearch = () => {
   white-space: pre-wrap;
 }
 
+.message-text {
+  unicode-bidi: plaintext;
+  text-align: start;
+}
+
 .message-footer {
   margin-top: 4px;
 }
@@ -3528,6 +3845,56 @@ const clearMessageSearch = () => {
 
 .own-message .sender-role {
   color: rgba(255, 255, 255, 0.7);
+}
+
+.message-failed {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(239, 68, 68, 0.3);
+  font-size: 0.78rem;
+  color: #ef4444;
+}
+
+.message-failed .failed-icon {
+  font-size: 0.9rem;
+}
+
+.message-failed .failed-label {
+  flex: 1;
+}
+
+.message-failed .resend-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid #ef4444;
+  background: transparent;
+  color: #ef4444;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.message-failed .resend-btn:hover {
+  background-color: #ef4444;
+  color: #ffffff;
+}
+
+.message-sending {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 6px;
+  font-size: 0.72rem;
+  opacity: 0.6;
 }
 
 .message-input-container {
@@ -3638,6 +4005,8 @@ const clearMessageSearch = () => {
   max-height: 120px;
   min-height: 44px;
   background-color: #ffffff;
+  unicode-bidi: plaintext;
+  text-align: start;
 }
 
 .message-input:focus {

@@ -134,16 +134,15 @@ export function useSelectionChat() {
 
       const groupId = groupResult.lastInsertId
 
-      // Add all users to the group
+      // Add all users to the group. One multi-row INSERT, not `;-joined`
+      // statements: the API binds a single prepared statement, so only the first
+      // of N joined statements (or none) ever ran.
       if (userIds.length > 0) {
-        const insertQueries = userIds
-          .map(() => 'INSERT INTO chat_users (id_user, id_chat_group, is_active) VALUES (?, ?, 1)')
-          .join('; ')
-
+        const values = userIds.map(() => '(?, ?, 1)').join(', ')
         const params = userIds.flatMap((userId) => [userId, groupId])
 
         const usersResult = await callApi({
-          query: insertQueries,
+          query: `INSERT INTO chat_users (id_user, id_chat_group, is_active) VALUES ${values}`,
           params: params,
           requiresAuth: true,
         })
@@ -228,16 +227,13 @@ export function useSelectionChat() {
         }
       }
 
-      // Add missing users
+      // Add missing users (one multi-row INSERT - see createGroupForSelection).
       if (missingUserIds.length > 0) {
-        const insertQueries = missingUserIds
-          .map(() => 'INSERT INTO chat_users (id_user, id_chat_group, is_active) VALUES (?, ?, 1)')
-          .join('; ')
-
+        const values = missingUserIds.map(() => '(?, ?, 1)').join(', ')
         const params = missingUserIds.flatMap((userId) => [userId, groupId])
 
         const result = await callApi({
-          query: insertQueries,
+          query: `INSERT INTO chat_users (id_user, id_chat_group, is_active) VALUES ${values}`,
           params: params,
           requiresAuth: true,
         })

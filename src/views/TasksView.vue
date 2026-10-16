@@ -374,16 +374,13 @@ const openTaskChat = guard('open-task-chat', async (task) => {
         const uniqueUsers = [...new Set(usersToAdd)]
 
         if (uniqueUsers.length > 0) {
-          const insertQueries = uniqueUsers
-            .map(
-              () => 'INSERT INTO chat_users (id_user, id_chat_group, is_active) VALUES (?, ?, 1)',
-            )
-            .join('; ')
-
+          // One multi-row INSERT. The API binds a single prepared statement, so
+          // the old `;-joined` statements after the first never ran.
+          const values = uniqueUsers.map(() => '(?, ?, 1)').join(', ')
           const params = uniqueUsers.flatMap((userId) => [userId, groupId])
 
           const addUsersResult = await callApi({
-            query: insertQueries,
+            query: `INSERT INTO chat_users (id_user, id_chat_group, is_active) VALUES ${values}`,
             params: params,
             requiresAuth: true,
           })

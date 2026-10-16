@@ -144,7 +144,12 @@ API_FLAGS=(--delete --exclude '*.local.php')
 DIST_FLAGS=(--delete --exclude '.DS_Store')
 
 assert_no_credentials() { # $1 = rsync dry-run output
-  if printf '%s' "$1" | grep -q '\.local\.php'; then
+  # Only the files being SENT matter: a credential reaching the server is the
+  # unrecoverable failure. Deletions are the opposite - they remove a file - and an
+  # old backup such as config.local.php.bak.20261008 is legitimately pruned by
+  # --delete, yet its name still contains ".local.php". Matching it would abort the
+  # deploy (after dist/ was already uploaded, before api/) for no reason.
+  if printf '%s' "$1" | grep -v '^deleting ' | grep -q '\.local\.php'; then
     die "a *.local.php credential file is in the transfer list - fix the --exclude"
   fi
 }
@@ -335,6 +340,34 @@ if command -v curl >/dev/null 2>&1; then
   fi
 else
   echo "    skipped (no curl on this machine)"
+fi
+
+# --- upload-folder ownership ----------------------------------------------------
+# This script never writes to a client folder, so it cannot itself create the
+# condition - but a deploy run by hand (rsync -a from a Mac preserves the local
+# uid 501/staff) leaves <client>/files/ owned by someone other than the web user,
+# and PHP-FPM then cannot write. Every client/id upload fails with "Upload
+# directory is not writable" (api/upload.php), which already broke merhab.com.
+# Report it here so it is caught at deploy time rather than by a user mid-task.
+echo "==> upload folders writable by the web user"
+UNWRITABLE=$(ssh -i "$SSH_KEY" "$SSH_TARGET" bash -s -- "$WEBROOT" <<'REMOTE' 2>/dev/null || true
+  webroot="$1"
+  for d in $(find "$webroot" -type d -name files 2>/dev/null); do
+    [ "$(dirname "$d")" = "$webroot" ] && continue
+    sudo -u www-data test -w "$d" 2>/dev/null && continue
+    echo "$d ($(stat -c '%U:%G %a' "$d" 2>/dev/null))"
+  done
+REMOTE
+)
+if [ -z "$UNWRITABLE" ]; then
+  echo "    ok  every <client>/files/ is writable by www-data"
+else
+  echo "    FAIL these upload folders are NOT writable by www-data:" >&2
+  printf '         %s\n' $UNWRITABLE >&2
+  echo "         fix (root, per folder above):" >&2
+  echo "           chown -R www-data:www-data <folder>" >&2
+  echo "           find <folder> -type d -exec chmod 2775 {} +" >&2
+  echo "           find <folder> -type f -exec chmod 664 {} +" >&2
 fi
 
 cat <<EOF

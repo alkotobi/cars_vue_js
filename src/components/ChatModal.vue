@@ -112,8 +112,8 @@ const initializeAllGroupsMessages = async () => {
     // Wait for the component to be mounted
     await new Promise((resolve) => setTimeout(resolve, 100))
 
-    if (chatMessagesRef.value?.fetchAllGroupsMessages) {
-      await chatMessagesRef.value.fetchAllGroupsMessages()
+    if (chatMessagesRef.value?.refreshUnreadCounts) {
+      await chatMessagesRef.value.refreshUnreadCounts()
 
       // Update counts after initialization
       setTimeout(() => {
@@ -122,8 +122,8 @@ const initializeAllGroupsMessages = async () => {
     } else {
       // Retry after a short delay
       setTimeout(async () => {
-        if (chatMessagesRef.value?.fetchAllGroupsMessages) {
-          await chatMessagesRef.value.fetchAllGroupsMessages()
+        if (chatMessagesRef.value?.refreshUnreadCounts) {
+          await chatMessagesRef.value.refreshUnreadCounts()
           updateNewMessageCounts()
         }
       }, 1000)
@@ -134,18 +134,25 @@ const initializeAllGroupsMessages = async () => {
 }
 
 // Function to update new message counts periodically (only for users)
-const updateNewMessageCounts = () => {
+const updateNewMessageCounts = async () => {
   if (props.clientId) {
     // Skip for clients - they don't need unread counts
     return
   }
-  
+
   try {
+    // Recompute the counts first; this used to only read the cached map, which
+    // the hidden engine never refreshed after init, so the sidebar badges sat
+    // stale until a group was opened.
+    if (chatMessagesRef.value?.refreshUnreadCounts) {
+      await chatMessagesRef.value.refreshUnreadCounts()
+    }
+
     if (chatMessagesRef.value?.getAllNewMessagesCounts) {
       const counts = chatMessagesRef.value.getAllNewMessagesCounts()
-      newMessagesCounts.value = counts
+      newMessagesCounts.value = { ...counts }
     }
-    
+
     // Refresh groups list to update sorting by latest message
     if (chatSidebarRef.value?.refreshGroups) {
       chatSidebarRef.value.refreshGroups()

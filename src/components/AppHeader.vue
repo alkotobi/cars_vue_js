@@ -16,9 +16,21 @@ const logoUrl = ref(null)
 const activeBank = ref(null)
 const userBank = ref(null)
 const showChatModal = ref(false)
+const isMobile = ref(false)
+let mobileMediaQuery = null
+const syncMobile = () => {
+  isMobile.value = mobileMediaQuery ? mobileMediaQuery.matches : false
+}
 const unreadMessageCount = ref(0)
 const chatMessagesRef = ref(null)
 const pendingTasksCount = ref(0)
+
+// The header is fixed, so any element that wants to sit *just below* it (e.g. the
+// CarsView mobile hamburger) needs to know its rendered height - which changes
+// between breakpoints (60px normally, ~142px once it stacks at <=480px). Publish
+// it as --app-header-height instead of hard-coding each breakpoint.
+const headerEl = ref(null)
+let headerResizeObserver = null
 
 // User activity tracking
 const isUserActive = ref(true)
@@ -268,17 +280,21 @@ const openChat = () => {
     return
   }
 
-  showChatModal.value = true
-  // Reset unread count when opening chat
-  unreadMessageCount.value = 0
-
-  // Reset unread counts for all groups
-  if (chatMessagesRef.value?.fetchAllGroupsMessages) {
-    setTimeout(async () => {
-      await chatMessagesRef.value.fetchAllGroupsMessages()
-      updateUnreadCount()
-    }, 100)
+  // On mobile the popup squeezes the desktop sidebar+conversation layout into a
+  // tiny box. Send mobile users to the dedicated /chat page instead, which has
+  // its own immersive list/conversation UI.
+  if (isMobile.value) {
+    if (router.currentRoute.value.name !== 'chat') {
+      router.push({ name: 'chat' })
+    }
+    return
   }
+
+  showChatModal.value = true
+  // Do NOT zero the badge here: opening the modal reads nothing. The count
+  // drops when a specific group is opened and its last-read marker is written
+  // (resetNewMessageCount -> forceUpdateBadge). Just recompute the real total.
+  setTimeout(updateUnreadCount, 100)
 }
 
 const closeChat = () => {
@@ -293,12 +309,18 @@ const pendingGroupSelection = ref(null)
 const handleOpenChatWithGroup = async (event) => {
   const { groupId, groupName } = event.detail
 
+  // On mobile go straight to the /chat page and let it open that group.
+  if (isMobile.value) {
+    router.push({ name: 'chat', query: { group: groupId } })
+    return
+  }
+
   // Store the group to select
   pendingGroupSelection.value = { id: groupId, name: groupName }
 
-  // Open the chat modal
+  // Open the chat modal. The badge clears once the target group is actually
+  // opened and marked read, not merely because the modal appeared.
   showChatModal.value = true
-  unreadMessageCount.value = 0
 }
 
 // Watch for chat modal opening and handle pending group selection
@@ -331,9 +353,11 @@ watch(showChatModal, async (isOpen) => {
 // Function to update unread message count
 const updateUnreadCount = async () => {
   try {
-    // Fetch all groups messages to update unread counts
-    if (chatMessagesRef.value?.fetchAllGroupsMessages) {
-      await chatMessagesRef.value.fetchAllGroupsMessages()
+    // Recompute unread counts only (a few COUNT queries). This used to call
+    // fetchAllGroupsMessages, which downloads every message body of every group
+    // every 10s just to read the counts.
+    if (chatMessagesRef.value?.refreshUnreadCounts) {
+      await chatMessagesRef.value.refreshUnreadCounts()
     }
 
     // Then get the updated counts
@@ -517,6 +541,13 @@ const loadLogo = async () => {
 
 // Initialize user on component mount
 onMounted(async () => {
+  if (typeof window !== 'undefined' && window.matchMedia) {
+    // Matches the chat page's own breakpoint (ChatView): up to tablet width the
+    // header's chat button opens the full /chat page rather than the desktop popup.
+    mobileMediaQuery = window.matchMedia('(max-width: 1024px)')
+    syncMobile()
+    mobileMediaQuery.addEventListener('change', syncMobile)
+  }
   await getUser()
   await fetchActiveBank()
   await fetchUserBank()
@@ -524,6 +555,21 @@ onMounted(async () => {
   await nextTick()
   loadLogo() // Load logo asynchronously
   watchUserChanges()
+
+  // Expose the header's real height to the rest of the app (see headerEl).
+  if (headerEl.value) {
+    const publishHeaderHeight = () => {
+      document.documentElement.style.setProperty(
+        '--app-header-height',
+        `${headerEl.value.offsetHeight}px`,
+      )
+    }
+    publishHeaderHeight()
+    if (typeof ResizeObserver !== 'undefined') {
+      headerResizeObserver = new ResizeObserver(publishHeaderHeight)
+      headerResizeObserver.observe(headerEl.value)
+    }
+  }
 
   // Watch for user changes to reload logo and user bank
   watch(
@@ -560,11 +606,8 @@ const initializeChatData = async () => {
   // Wait for the hidden ChatMessages component to be ready (reduced wait time)
   await new Promise((resolve) => setTimeout(resolve, 500))
 
-  // Initialize unread counts
-  if (chatMessagesRef.value?.fetchAllGroupsMessages) {
-    await chatMessagesRef.value.fetchAllGroupsMessages()
-    updateUnreadCount()
-  }
+  // Initialize unread counts (counts only, no message bodies)
+  await updateUnreadCount()
 }
 
 // Force refresh all data (called on login)
@@ -597,11 +640,20 @@ onUnmounted(() => {
 
   // Clean up activity listeners
   cleanupActivityListeners()
+
+  if (headerResizeObserver) {
+    headerResizeObserver.disconnect()
+    headerResizeObserver = null
+  }
+
+  if (mobileMediaQuery) {
+    mobileMediaQuery.removeEventListener('change', syncMobile)
+  }
 })
 </script>
 
 <template>
-  <header v-if="!isLoginPage" class="app-header">
+  <header v-if="!isLoginPage" ref="headerEl" class="app-header">
     <div class="header-content">
       <div class="header-left">
         <div class="logo-section">
@@ -1112,9 +1164,10 @@ onUnmounted(() => {
 
 /* Responsive adjustments for chat modal */
 @media (max-width: 768px) {
-  .chat-btn,
+  /* Keep the chat button available on phones (icon-only) so users can reach
+     /chat; only the tasks button is hidden to save header space. */
   .tasks-btn {
-    display: none !important;
+    display: none;
   }
 
   .chat-modal {

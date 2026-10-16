@@ -2059,6 +2059,8 @@
     "sending": "Envoi en cours...",
     "failedToSendMessage": "Échec de l'envoi du message",
     "errorSendingMessage": "Erreur lors de l'envoi du message",
+    "messageFailed": "Non envoyé",
+    "resendMessage": "Réessayer",
     "addEmoji": "Ajouter un emoji",
     "attachFile": "Joindre un fichier",
     "recordVoiceMessage": "Enregistrer un message vocal",

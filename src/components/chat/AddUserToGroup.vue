@@ -106,20 +106,16 @@ const addUsersToGroup = async () => {
     // Add all selected users to the group
     const selectedUserIds = Array.from(selectedUsers.value)
 
-    // Create multiple INSERT statements
-    const insertQueries = selectedUserIds
-      .map(() => 'INSERT INTO chat_users (id_user, id_chat_group, is_active) VALUES (?, ?, 1)')
-      .join('; ')
-
+    // One multi-row INSERT. The API binds a single prepared statement, so the
+    // old `;-joined` statements after the first never ran.
+    const values = selectedUserIds.map(() => '(?, ?, 1)').join(', ')
     const params = selectedUserIds.flatMap((userId) => [userId, props.groupId])
 
     const result = await callApi({
-      query: insertQueries,
+      query: `INSERT INTO chat_users (id_user, id_chat_group, is_active) VALUES ${values}`,
       params: params,
       requiresAuth: true,
     })
-
-    console.log('Add users result:', result)
 
     if (result.success) {
       emit('user-added')

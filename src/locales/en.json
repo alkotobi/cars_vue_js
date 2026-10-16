@@ -2188,6 +2188,8 @@
     "sending": "Sending...",
     "failedToSendMessage": "Failed to send message",
     "errorSendingMessage": "Error sending message",
+    "messageFailed": "Not sent",
+    "resendMessage": "Retry",
     "addEmoji": "Add emoji",
     "attachFile": "Attach file",
     "recordVoiceMessage": "Record voice message",

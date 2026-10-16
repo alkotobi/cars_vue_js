@@ -56,7 +56,6 @@ const fetchAllGroupsMessages = async () => {
 
 // Function to handle reset and force update counts
 const handleReset = async (groupId) => {
-  console.log('ChatMain: Reset triggered for group', groupId)
   // Call the parent's force update function
   if (props.onForceUpdateCounts) {
     await props.onForceUpdateCounts(groupId)
@@ -64,20 +63,14 @@ const handleReset = async (groupId) => {
 }
 
 const focusMessageInput = () => {
-  console.log('ChatMain: focusMessageInput called')
   if (chatMessagesRef.value?.focusMessageInput) {
     chatMessagesRef.value.focusMessageInput()
-  } else {
-    console.log('focusMessageInput method not available in ChatMessages')
   }
 }
 
 const scrollToBottom = async () => {
-  console.log('ChatMain: scrollToBottom called')
   if (chatMessagesRef.value?.scrollToBottom) {
     await chatMessagesRef.value.scrollToBottom()
-  } else {
-    console.log('scrollToBottom method not available in ChatMessages')
   }
 }
 

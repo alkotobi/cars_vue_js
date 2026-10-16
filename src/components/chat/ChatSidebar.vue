@@ -1,7 +1,7 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
-import { useApi } from '../../composables/useApi'
+import { onMounted } from 'vue'
 import { useEnhancedI18n } from '../../composables/useI18n'
+import { useChatGroups } from '../../composables/useChatGroups'
 import ChatUsersPopup from './ChatUsersPopup.vue'
 import AddGroup from './AddGroup.vue'
 
@@ -23,311 +23,60 @@ const props = defineProps({
   },
 })
 
-const { callApi, loading, error } = useApi()
-const chatGroups = ref([])
-const allChatGroups = ref([]) // Store all groups for filtering
-const selectedGroup = ref(null)
-const currentUser = ref(null)
-const currentClient = ref(null)
-const searchFilter = ref('')
-const isClientMode = computed(() => props.clientId !== null)
-
-// Popup state
-const showUsersPopup = ref(false)
-const selectedGroupForPopup = ref(null)
-const showAddGroupModal = ref(false)
-
 // Emit events to parent
 const emit = defineEmits(['group-selected'])
 
-onMounted(async () => {
-  await getCurrentUser()
-  await fetchChatGroups()
+// All group data/behaviour comes from the shared composable so the desktop
+// sidebar and the mobile list can never drift apart.
+const {
+  chatGroups,
+  selectedGroup,
+  searchFilter,
+  isClientMode,
+  showUsersPopup,
+  selectedGroupForPopup,
+  showAddGroupModal,
+  groupsReady,
+  loading,
+  error,
+  init,
+  fetchChatGroups,
+  selectGroup,
+  selectGroupById,
+  showUsers,
+  closeUsersPopup,
+  showAddGroup,
+  closeAddGroupModal,
+  handleGroupAdded,
+  handleSearchInput,
+  clearFilter,
+  leaveGroup,
+  canLeaveGroup,
+  getNewMessageCount,
+  refreshGroups,
+  getChatGroups,
+  whenReady,
+  isReady,
+} = useChatGroups(props, {
+  t,
+  onGroupSelected: (group) => emit('group-selected', group),
 })
 
-const getCurrentUser = () => {
-  if (isClientMode.value) {
-    // In client mode, set client info
-    currentClient.value = { id: props.clientId, name: props.clientName }
-    return
-  }
-  
-  try {
-    const userStr = localStorage.getItem('user')
-    if (userStr) {
-      currentUser.value = JSON.parse(userStr)
-    }
-  } catch (err) {
-    // Error getting current user - silently fail
-  }
-}
-
-const fetchChatGroups = async () => {
-  try {
-    if (isClientMode.value) {
-      if (!currentClient.value) {
-        return
-      }
-    } else {
-      if (!currentUser.value) {
-        return
-      }
-    }
-
-    let query, params, requiresAuth
-
-    if (isClientMode.value) {
-      // Client mode: fetch groups where client is a member
-      query = `
-        SELECT DISTINCT
-          cg.id, 
-          cg.name, 
-          cg.description, 
-          cg.id_user_owner,
-          cg.id_client_owner,
-          cg.is_active,
-          COALESCE(MAX(cm.time), '1970-01-01 00:00:00') as latest_message_time,
-          CONCAT_WS(', ',
-            NULLIF(GROUP_CONCAT(DISTINCT u.username ORDER BY u.username SEPARATOR ', '), ''),
-            NULLIF(GROUP_CONCAT(DISTINCT c.name ORDER BY c.name SEPARATOR ', '), '')
-          ) as user_names,
-          SUBSTRING_INDEX(
-            GROUP_CONCAT(DISTINCT cm.message ORDER BY cm.time DESC SEPARATOR ' '), 
-            ' ', 
-            100
-          ) as recent_messages
-        FROM chat_groups cg
-        INNER JOIN chat_users cu_member ON cg.id = cu_member.id_chat_group
-        LEFT JOIN chat_users cu ON cg.id = cu.id_chat_group AND cu.is_active = 1
-        LEFT JOIN users u ON cu.id_user = u.id
-        LEFT JOIN clients c ON cu.id_client = c.id
-        LEFT JOIN chat_messages cm ON cg.id = cm.id_chat_group
-        WHERE cg.is_active = 1 
-          AND cu_member.is_active = 1
-          AND cu_member.id_client = ?
-        GROUP BY cg.id, cg.name, cg.description, cg.id_user_owner, cg.id_client_owner, cg.is_active
-        ORDER BY latest_message_time DESC, cg.name ASC
-      `
-      params = [currentClient.value.id]
-      requiresAuth = false
-    } else {
-      // User mode: fetch groups where user is a member
-      query = `
-        SELECT DISTINCT
-          cg.id, 
-          cg.name, 
-          cg.description, 
-          cg.id_user_owner,
-          cg.id_client_owner,
-          cg.is_active,
-          COALESCE(MAX(cm.time), '1970-01-01 00:00:00') as latest_message_time,
-          CONCAT_WS(', ',
-            NULLIF(GROUP_CONCAT(DISTINCT u.username ORDER BY u.username SEPARATOR ', '), ''),
-            NULLIF(GROUP_CONCAT(DISTINCT c.name ORDER BY c.name SEPARATOR ', '), '')
-          ) as user_names,
-          SUBSTRING_INDEX(
-            GROUP_CONCAT(DISTINCT cm.message ORDER BY cm.time DESC SEPARATOR ' '), 
-            ' ', 
-            100
-          ) as recent_messages
-        FROM chat_groups cg
-        INNER JOIN chat_users cu_member ON cg.id = cu_member.id_chat_group
-        LEFT JOIN chat_users cu ON cg.id = cu.id_chat_group AND cu.is_active = 1
-        LEFT JOIN users u ON cu.id_user = u.id
-        LEFT JOIN clients c ON cu.id_client = c.id
-        LEFT JOIN chat_messages cm ON cg.id = cm.id_chat_group
-        WHERE cg.is_active = 1 
-          AND cu_member.is_active = 1
-          AND cu_member.id_user = ?
-        GROUP BY cg.id, cg.name, cg.description, cg.id_user_owner, cg.id_client_owner, cg.is_active
-        ORDER BY latest_message_time DESC, cg.name ASC
-      `
-      params = [currentUser.value.id]
-      requiresAuth = true
-    }
-
-    const result = await callApi({
-      query,
-      params,
-      requiresAuth,
-    })
-
-    if (result.success && result.data) {
-      allChatGroups.value = result.data
-      applyFilter()
-    } else {
-      allChatGroups.value = []
-      chatGroups.value = []
-    }
-  } catch (err) {
-    chatGroups.value = []
-  }
-}
-
-const selectGroup = async (group) => {
-  selectedGroup.value = group
-  emit('group-selected', group)
-}
-
-const showUsers = (group, event) => {
-  event.stopPropagation() // Prevent group selection
-  selectedGroupForPopup.value = group
-  showUsersPopup.value = true
-}
-
-const closeUsersPopup = () => {
-  showUsersPopup.value = false
-  selectedGroupForPopup.value = null
-}
-
-const showAddGroup = () => {
-  showAddGroupModal.value = true
-}
-
-const closeAddGroupModal = () => {
-  showAddGroupModal.value = false
-}
-
-const handleGroupAdded = () => {
-  // Refresh the groups list after adding a new group
-  fetchChatGroups()
-}
-
-const selectGroupById = async (groupId) => {
-  // Find the group in the current list
-  const group = chatGroups.value.find((g) => g.id == groupId)
-
-  if (group) {
-    selectGroup(group)
-    return group
-  } else {
-    // If group not found, refresh the list and try again
-    await fetchChatGroups()
-    const refreshedGroup = chatGroups.value.find((g) => g.id == groupId)
-    if (refreshedGroup) {
-      selectGroup(refreshedGroup)
-      return refreshedGroup
-    }
-  }
-
-  return null
-}
-
-const getNewMessageCount = (groupId) => {
-  const count = props.newMessagesCounts[groupId] || 0
-  return count
-}
-
-// Method to refresh groups (can be called from outside)
-const refreshGroups = async () => {
-  await fetchChatGroups()
-}
-
-// Filter groups based on search term
-const applyFilter = () => {
-  const searchTerm = searchFilter.value.trim().toLowerCase()
-  
-  if (!searchTerm) {
-    chatGroups.value = [...allChatGroups.value]
-    return
-  }
-
-  chatGroups.value = allChatGroups.value.filter((group) => {
-    // Search in name
-    const nameMatch = group.name?.toLowerCase().includes(searchTerm)
-    
-    // Search in description
-    const descriptionMatch = group.description?.toLowerCase().includes(searchTerm)
-    
-    // Search in user names
-    const userNamesMatch = group.user_names?.toLowerCase().includes(searchTerm)
-    
-    // Search in recent messages (limit to first 1000 chars to avoid performance issues)
-    const messagesMatch = group.recent_messages?.toLowerCase().includes(searchTerm)
-    
-    return nameMatch || descriptionMatch || userNamesMatch || messagesMatch
-  })
-}
-
-// Watch for search filter changes
-const handleSearchInput = () => {
-  applyFilter()
-}
-
-// Clear search filter
-const clearFilter = () => {
-  searchFilter.value = ''
-  applyFilter()
-}
-
-// Leave a group
-const leaveGroup = async (group, event) => {
-  event.stopPropagation() // Prevent group selection
-  
-  if (!currentUser.value || !currentUser.value.id) {
-    alert(t('chat.noCurrentUser') || 'No current user available')
-    return
-  }
-
-  // Check if user is the owner
-  if (group.id_user_owner === currentUser.value.id) {
-    if (!confirm(t('chat.confirmLeaveAsOwner') || `You are the owner of this group. Are you sure you want to leave? The group will remain active but you will no longer be a member.`)) {
-      return
-    }
-  } else {
-    if (!confirm(t('chat.confirmLeaveGroup', { groupName: group.name }) || `Are you sure you want to leave "${group.name}"?`)) {
-      return
-    }
-  }
-
-  try {
-    const result = await callApi({
-      query: `
-        UPDATE chat_users 
-        SET is_active = 0 
-        WHERE id_chat_group = ? AND id_user = ? AND is_active = 1
-      `,
-      params: [group.id, currentUser.value.id],
-      requiresAuth: true,
-    })
-
-    if (result.success) {
-      // If the user left the currently selected group, deselect it
-      if (selectedGroup.value && selectedGroup.value.id === group.id) {
-        selectedGroup.value = null
-        emit('group-selected', null)
-      }
-      
-      // Refresh groups to remove it from the list
-      await fetchChatGroups()
-      
-      alert(t('chat.leftGroupSuccess', { groupName: group.name }) || `You have left "${group.name}"`)
-    } else {
-      alert(t('chat.failedToLeaveGroup') || 'Failed to leave group')
-    }
-  } catch (err) {
-    alert(t('chat.errorLeavingGroup') || 'Error leaving group')
-  }
-}
-
-// Check if user can leave a group (not for clients)
-const canLeaveGroup = (group) => {
-  if (isClientMode.value) {
-    return false // Clients cannot leave groups
-  }
-  // Users can always leave groups they're members of
-  return true
-}
+onMounted(() => {
+  init()
+})
 
 // Expose methods to parent
 defineExpose({
   cleanup: () => {
     // Cleanup function if needed
   },
+  whenReady,
+  isReady,
   selectGroupById,
   refreshGroups,
   fetchChatGroups,
-  getChatGroups: () => chatGroups.value,
+  getChatGroups,
 })
 </script>
 
@@ -411,7 +160,10 @@ defineExpose({
           </tr>
         </tbody>
       </table>
-      <div v-if="loading" class="loading">
+      <!-- Only the very first load shows the caption. Keying it off `loading`
+           re-showed it on every 5s refresh; keying it off groupsReady paints once
+           and never blanks the list again. -->
+      <div v-if="!groupsReady" class="loading">
         <i class="fas fa-spinner fa-spin"></i> {{ t('chat.loadingGroups') }}
       </div>
       <div v-if="error" class="error"><i class="fas fa-exclamation-triangle"></i> {{ error }}</div>

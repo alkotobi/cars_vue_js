@@ -140,10 +140,6 @@ const createGroup = guard('create-group', async () => {
     // Create the final list: current user (owner) + selected users
     const finalUserIds = [currentUser.id, ...filteredUserIds]
 
-    console.log('Current user (owner):', currentUser.id)
-    console.log('Selected users (excluding owner):', filteredUserIds)
-    console.log('Final user list:', finalUserIds)
-
     // Create the chat group first
     const groupResult = await callApi({
       query: `
@@ -154,25 +150,20 @@ const createGroup = guard('create-group', async () => {
       requiresAuth: true,
     })
 
-    console.log('Create group result:', groupResult)
-
     if (groupResult.success && groupResult.lastInsertId) {
       const groupId = groupResult.lastInsertId
 
-      // Add all users to the group (owner + selected users)
-      const insertQueries = finalUserIds
-        .map(() => 'INSERT INTO chat_users (id_user, id_chat_group, is_active) VALUES (?, ?, 1)')
-        .join('; ')
-
+      // Add all users to the group (owner + selected users). One multi-row
+      // INSERT: the API binds a single prepared statement, so `;-joined`
+      // statements beyond the first never ran.
+      const values = finalUserIds.map(() => '(?, ?, 1)').join(', ')
       const params = finalUserIds.flatMap((userId) => [userId, groupId])
 
       const usersResult = await callApi({
-        query: insertQueries,
+        query: `INSERT INTO chat_users (id_user, id_chat_group, is_active) VALUES ${values}`,
         params: params,
         requiresAuth: true,
       })
-
-      console.log('Add users to group result:', usersResult)
 
       if (usersResult.success) {
         emit('group-added')

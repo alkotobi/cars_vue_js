@@ -15,8 +15,13 @@ const getBasePath = () => sharedGetBasePath()
 const BASE_PATH = getBasePath()
 
 // "Are we running against a local dev box?" Gates behaviour that must not apply
-// in production: the artificial request delay, the relaxed Accept headers, and
-// skipping cookie verification.
+// in production: the relaxed Accept headers and skipping cookie verification.
+//
+// It used to also gate a 500-1500ms artificial delay on every production call.
+// That delay was removed: it taxed every request app-wide (a chat send, a group
+// open and each poll each paid it) for a "human-like" traffic profile the
+// token-gated API does not need, and the 403/429 exponential-backoff retry below
+// already handles the throttling it was guarding against.
 //
 // This is derived from import.meta.env.DEV — the same signal resolveApiBaseUrl
 // uses — rather than from the hostname. The previous check treated any
@@ -138,12 +143,6 @@ export const useApi = () => {
       // An explicitly-passed token wins. `{...data, token: stored}` used to
       // overwrite it, which silently defeated the logout path above.
       const requestToken = data.token ?? storedToken
-
-      // Add a small random delay to make requests look more human-like (only on production)
-      if (retryCount === 0 && !isLocalhost) {
-        const delay = Math.random() * 1000 + 500 // 500-1500ms delay
-        await new Promise((resolve) => setTimeout(resolve, delay))
-      }
 
       // No dbname: the server picks the database from the URL the request arrived
       // on. It used to read one off this request, which let a caller aim the API's
