@@ -79,6 +79,14 @@ cost of running low.
    calculation"). This overrides the "always show the arithmetic" wording elsewhere (§0.7, §13)
    for the default case.
 
+15. **When quoting a client, always round the price UP.** Take the calculator's final figure and
+   round **up** (never down, never to the nearest) to the nearest **10,000 DZD** (and to the
+   nearest **100 USD** when quoting USD). E.g. 3,269,810 DZD → **3,270,000 DZD**; 12,903.75 USD →
+   **12,910 USD**. This applies **only to what the client is told** — the exact calculator value
+   is what I report to the user and what any breakdown shows (so a "how did you get that" answer
+   still shows the raw number, with the rounded client-facing price stated alongside). Never round
+   the stored data or the calculator inputs.
+
 ---
 
 ## 1. How the tools behave
@@ -274,6 +282,8 @@ whatsapp-tool quote --car "<name>" --mode <mode> [--port ALGIERS] [--line CMA] [
   `AMBIGUOUS`, re-run with the exact name.
 - Check the `formula` line matches what the client actually asked for (FOB vs CFR/landed is the
   classic trap).
+- **Rounding (STRICT, §0.15):** before telling a client a price, round it **up** to the nearest
+  10,000 DZD (100 USD if quoting USD). Exact value only in what I report / breakdowns.
 
 **Result statuses**
 
