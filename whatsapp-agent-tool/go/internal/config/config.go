@@ -226,7 +226,8 @@ func carsConfig() Cars {
 }
 
 // chatbotConfig reads the chat-poll tuning keys. Defaults keep the daemon polite:
-// 5s between cycles and an 800-char cap on generated replies.
+// 5s between cycles and a 2000-char cap on generated replies (room for a Markdown
+// table, which the app chat renders).
 func chatbotConfig() Chatbot {
 	interval := 5 * time.Second
 	if s := strings.TrimSpace(Env("CHAT_POLL_INTERVAL")); s != "" {
@@ -234,7 +235,7 @@ func chatbotConfig() Chatbot {
 			interval = time.Duration(n) * time.Second
 		}
 	}
-	maxChars := 800
+	maxChars := 2000
 	if s := strings.TrimSpace(Env("CHAT_MAX_REPLY_CHARS")); s != "" {
 		if n, err := strconv.ParseInt(s, 10, 64); err == nil && n > 0 {
 			maxChars = int(n)

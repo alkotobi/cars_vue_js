@@ -41,7 +41,7 @@ describe('renderMarkdown', () => {
       const out = renderMarkdown('<div><b>x</b></div> # Yep **no**')
       const tags = out.match(/<\/?[a-z][^>]*>/gi) || []
       const allowed =
-        /^<\/?(a|p|br|strong|em|del|code|pre|blockquote|hr|ul|ol|li|h[1-6]|img)(\s|>|\/)/i
+        /^<\/?(a|p|br|strong|em|del|code|pre|blockquote|hr|ul|ol|li|h[1-6]|img|div|table|thead|tbody|tr|th|td)(\s|>|\/)/i
       for (const tag of tags) expect(tag).toMatch(allowed)
     })
   })
@@ -105,6 +105,61 @@ describe('renderMarkdown', () => {
     it('renders unordered and ordered lists', () => {
       expect(renderMarkdown('- a\n- b')).toBe('<ul class="md-list"><li>a</li><li>b</li></ul>')
       expect(renderMarkdown('1. a\n2. b')).toBe('<ol class="md-list"><li>a</li><li>b</li></ol>')
+    })
+
+    it('renders a Markdown table with a header and body rows', () => {
+      const out = renderMarkdown(
+        '| Car | Price |\n| --- | --- |\n| LIVAN | 100 |\n| COOLRAY | 200 |',
+      )
+      expect(out).toBe(
+        '<div class="md-table-wrap"><table class="md-table">' +
+          '<thead><tr><th>Car</th><th>Price</th></tr></thead>' +
+          '<tbody><tr><td>LIVAN</td><td>100</td></tr>' +
+          '<tr><td>COOLRAY</td><td>200</td></tr></tbody>' +
+          '</table></div>',
+      )
+    })
+
+    it('applies column alignment from the delimiter row', () => {
+      const out = renderMarkdown('| a | b | c |\n| :-- | :-: | --: |\n| 1 | 2 | 3 |')
+      expect(out).toContain('<th class="md-align-left">a</th>')
+      expect(out).toContain('<th class="md-align-center">b</th>')
+      expect(out).toContain('<th class="md-align-right">c</th>')
+    })
+
+    it('renders a table with no body rows', () => {
+      const out = renderMarkdown('| h1 | h2 |\n| --- | --- |')
+      expect(out).toContain('<thead><tr><th>h1</th><th>h2</th></tr></thead>')
+      expect(out).not.toContain('<tbody>')
+    })
+
+    it('formats markup inside table cells', () => {
+      const out = renderMarkdown('| Car | Note |\n| --- | --- |\n| **LIVAN** | `x` |')
+      expect(out).toContain('<td><strong>LIVAN</strong></td>')
+      expect(out).toContain('<td><code class="md-code">x</code></td>')
+    })
+
+    it('does not treat pipe text without a delimiter row as a table', () => {
+      const out = renderMarkdown('a | b\nc | d')
+      expect(out).not.toContain('<table')
+      expect(out).toBe('<p class="md-p">a | b<br />c | d</p>')
+    })
+
+    it('does not treat a pipe row as a table when the column counts differ', () => {
+      const out = renderMarkdown('| a | b |\n| --- |\n| 1 | 2 |')
+      expect(out).not.toContain('<table')
+    })
+
+    it('stops a table at a blank line and keeps the following paragraph', () => {
+      const out = renderMarkdown('| a |\n| --- |\n| 1 |\n\nafter')
+      expect(out).toContain('<table class="md-table">')
+      expect(out).toContain('<p class="md-p">after</p>')
+    })
+
+    it('escapes HTML inside a table cell', () => {
+      const out = renderMarkdown('| a |\n| --- |\n| <b>x</b> |')
+      expect(out).toContain('&lt;b&gt;x&lt;/b&gt;')
+      expect(out).not.toContain('<b>')
     })
 
     it('renders links with the safe-target attributes', () => {

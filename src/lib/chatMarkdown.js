@@ -13,7 +13,8 @@
 // Every character is escaped before any parsing (escapeHtml, above), so `<` from
 // the user is already `&lt;` before any rule runs, and every tag this file emits
 // is one of a fixed, hand-written set (p, br, strong, em, code, pre, h1-h6, ul,
-// ol, li, blockquote, hr, a, img). There is no code path that can output a tag or
+// ol, li, blockquote, hr, a, img, div, table, thead, tbody, tr, th, td). There is
+// no code path that can output a tag or
 // attribute the author did not write here - so the XSS surface is not "did I
 // sanitise it right", it is "is this list of tags safe", which is answerable by
 // reading the file.
@@ -23,8 +24,10 @@
 //
 // Supported: headings, bold/italic (incl. ***x***), strikethrough, inline code,
 // fenced code blocks, bullet/numbered lists, blockquotes, horizontal rules,
-// links, autolinks, images (http/https only), hard line breaks.
-// Not supported (by design): raw HTML, tables, nested lists, footnotes.
+// pipe tables (with `:--`/`--:`/`:--:` alignment), links, autolinks, images
+// (http/https only), hard line breaks.
+// Not supported (by design): raw HTML, nested lists, footnotes, tables without
+// a delimiter row.
 
 import { escapeHtml } from '../utils/escapeHtml'
 
@@ -107,6 +110,73 @@ function inline(input) {
   text = text.replace(/(^|[^\w])_([^_\n]+)_(?![A-Za-z0-9])/g, '$1<em>$2</em>')
 
   return text.replace(/\u0000I(\d+)\u0000/g, (_, i) => stash[Number(i)])
+}
+
+// Split a `|`-separated table row into trimmed cells, or return null when the
+// line holds no pipe at all (so a bare `---` horizontal rule is never a table).
+function tableCells(line) {
+  const trimmed = line.trim()
+  if (!trimmed.includes('|')) return null
+  return trimmed
+    .replace(/^\|/, '')
+    .replace(/\|$/, '')
+    .split('|')
+    .map((cell) => cell.trim())
+}
+
+// `:--`, `--:` and `:--:` are the alignment markers of a delimiter cell.
+function tableAlign(delimCell) {
+  const left = delimCell.startsWith(':')
+  const right = delimCell.endsWith(':')
+  if (left && right) return 'center'
+  if (right) return 'right'
+  if (left) return 'left'
+  return ''
+}
+
+// Parse the Markdown table starting at lines[i], or null when there is none.
+// A table needs a header row immediately followed by a delimiter row (`---`,
+// `:--`, `--:`, `:--:`) with the same number of cells; body rows follow until a
+// blank line or a row with no pipe. `end` is the index after the last row.
+function parseTable(lines, i) {
+  const header = tableCells(lines[i])
+  if (!header || i + 1 >= lines.length) return null
+  const delim = tableCells(lines[i + 1])
+  if (!delim || delim.length !== header.length) return null
+  if (!delim.every((cell) => /^:?-+:?$/.test(cell))) return null
+  const align = delim.map(tableAlign)
+  const rows = []
+  let end = i + 2
+  while (end < lines.length && lines[end].trim() !== '') {
+    const cells = tableCells(lines[end])
+    if (!cells) break
+    while (cells.length < header.length) cells.push('')
+    rows.push(cells.slice(0, header.length))
+    end++
+  }
+  return { header, align, rows, end }
+}
+
+// Render a table parsed by parseTable. Cells go through inline() so bold, code
+// and links still work inside a cell; the wrapper lets a wide table scroll on a
+// phone instead of breaking the message column.
+function renderTable({ header, align, rows }) {
+  const attr = (a) => (a ? ` class="md-align-${a}"` : '')
+  const head = header.map((cell, c) => `<th${attr(align[c])}>${inline(cell)}</th>`).join('')
+  const body = rows
+    .map(
+      (row) =>
+        '<tr>' +
+        row.map((cell, c) => `<td${attr(align[c])}>${inline(cell)}</td>`).join('') +
+        '</tr>',
+    )
+    .join('')
+  return (
+    '<div class="md-table-wrap"><table class="md-table">' +
+    `<thead><tr>${head}</tr></thead>` +
+    (body ? `<tbody>${body}</tbody>` : '') +
+    '</table></div>'
+  )
 }
 
 // A line that opens a non-paragraph block, so a paragraph run stops before it.
@@ -208,8 +278,20 @@ export function renderMarkdown(input) {
       continue
     }
 
+    const table = parseTable(lines, i)
+    if (table) {
+      out.push(putBlock(renderTable(table)))
+      i = table.end
+      continue
+    }
+
     const para = []
-    while (i < lines.length && lines[i].trim() !== '' && !startsBlock(lines[i])) {
+    while (
+      i < lines.length &&
+      lines[i].trim() !== '' &&
+      !startsBlock(lines[i]) &&
+      !parseTable(lines, i)
+    ) {
       para.push(lines[i])
       i++
     }

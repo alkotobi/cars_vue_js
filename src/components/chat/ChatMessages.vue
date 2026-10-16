@@ -3920,6 +3920,39 @@ const clearMessageSearch = () => {
   padding: 0;
 }
 
+.message-text :deep(.md-table-wrap) {
+  margin: 6px 0;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.message-text :deep(.md-table) {
+  border-collapse: collapse;
+  font-size: 0.9em;
+  width: 100%;
+}
+
+.message-text :deep(.md-table th),
+.message-text :deep(.md-table td) {
+  padding: 4px 10px;
+  border: 1px solid rgba(127, 127, 127, 0.35);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.message-text :deep(.md-table th) {
+  background: rgba(127, 127, 127, 0.15);
+  font-weight: 600;
+}
+
+.message-text :deep(.md-table .md-align-center) {
+  text-align: center;
+}
+
+.message-text :deep(.md-table .md-align-right) {
+  text-align: right;
+}
+
 .message-text :deep(.md-link) {
   color: #2563eb;
   text-decoration: underline;

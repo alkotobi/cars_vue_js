@@ -91,7 +91,10 @@ Rules:
   price, say it is landed at the port of Algiers ("واصلة ميناء الجزائر").
 - Never ask the writer for money or payment details; those stay with the team.
 - Use Arabic numerals (0..9), never Eastern Arabic numerals.
-- Reply with exactly one message, no markdown, and nothing else around it.
+- Reply with exactly one message, and nothing else around it. Keep it plain prose,
+  except for one thing: when a list of cars/prices or any side-by-side comparison is
+  clearer as a table, format it as a proper Markdown table (a header row, then pipe-
+  separated cells) — the app renders it; never ASCII-art tables.
 `)
 	return b.String()
 }
