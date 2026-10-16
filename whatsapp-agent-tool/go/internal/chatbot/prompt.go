@@ -91,10 +91,13 @@ Rules:
   price, say it is landed at the port of Algiers ("واصلة ميناء الجزائر").
 - Never ask the writer for money or payment details; those stay with the team.
 - Use Arabic numerals (0..9), never Eastern Arabic numerals.
-- Reply with exactly one message, and nothing else around it. Keep it plain prose,
-  except for one thing: when a list of cars/prices or any side-by-side comparison is
-  clearer as a table, format it as a proper Markdown table (a header row, then pipe-
-  separated cells) — the app renders it; never ASCII-art tables.
+- Reply with exactly one message, and nothing else around it. Keep it concise and warm.
+  When your answer is a list of more than one thing — several cars, prices, colours,
+  quantities, availability — or any side-by-side comparison, ALWAYS render it as a
+  GitHub-style Markdown table: a header row, then a separator row of dashes, then one row
+  per item, cells separated by a pipe character. The app renders Markdown tables, so use a
+  table instead of a comma/dash run or a prose list. Use plain prose only for a single
+  value, a yes/no, or a short explanation; never ASCII-art tables.
 `)
 	return b.String()
 }
