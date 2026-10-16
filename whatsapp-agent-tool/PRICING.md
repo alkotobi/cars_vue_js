@@ -32,7 +32,7 @@ price?".
 - **To change anything you MUST use the write CLI** (you can no longer hand-edit the files):
 
   ```
-  whatsapp-tool price set-car --json '{"carId":"livan-man","name":"LIVAN MAN","size":"small","condition":"new","costUsd":7000,"loadingPort":"NANSHA","colors":["grey"],"options":[{"name":"spare tire"}],"notes":"102 grey"}' [--supplier "walle" --quotation 3]
+  whatsapp-tool price set-car --json '{"carId":"livan-man","name":"LIVAN MAN","size":"small","condition":"new","costUsd":7000,"loadingPort":"NANSHA","colors":["grey",{"name":"white","costUsd":7200}],"options":[{"name":"spare tire"}],"notes":"102 grey"}' [--supplier "walle" --quotation 3]
   whatsapp-tool price set-option --name "spare tire" --price 150
   whatsapp-tool price set-rate --value 253.4
   whatsapp-tool price set-benefits --wholesale 300 --retail 700
@@ -55,7 +55,10 @@ price?".
   - Fields: `carId`, `name`, `size` (`"big"` = 3 units per 40ft, `"small"` = 4), `condition`
     (`"new"`/`"used"`), `costUsd`, `supplierId` (who supplies the current `costUsd`; current suppliers: walle (1), jean
 fat boy (2), lio (7) — list with `procurement suppliers`), `loadingPort` (e.g. `NANSHA`, `SHANGHAI`), `colors`
-    (array of available colours, e.g. `["grey"]`; `[]` = unknown), `options`
+    (array of available colours, e.g. `["grey"]`; `[]` = unknown. An entry may carry a **per-colour
+    buy-cost override** when that colour costs more than the base: `{"name":"white","costUsd":7200}`
+    — the string form `"white"` means "no override, use `costUsd`". `quote` then prices the cheapest
+    colour by default and `--color <name>` prices a specific one), `options`
     (array of `{ name, priceUsd? }` — a car feature; omit `priceUsd` to use the default from
     `options`, set it to override per car (`0` = free/included); `[]` = none. Never invent a
     feature or a price — ask the boss), `timestamp`.
@@ -131,7 +134,11 @@ fat boy (2), lio (7) — list with `procurement suppliers`), `loadingPort` (e.g.
   (`allInRetailBenefitUsd`), not 700 —
   `allInDza = (costUsd + 1000 + freightPerUnitUsd + optionsUsd) × usdToDza + clearanceDza`
   (clearance added **after** conversion). Wholesale never includes Algerian fees.
-- **TVN** is never included (`tvnIncluded: false`) — say so if asked.
+- **TVN** is never included (`tvnIncluded: false`). The calculator only emits the TVN warning for a
+  price that **includes customs clearance** (`allin-dza`) — a retail/wholesale price carries no
+  clearance either, so repeating "no TVN" there is noise. The client-facing line
+  `السعر لا يشمل TVN` follows the same rule (`client-reply.md` §3.6): only on clearance-inclusive
+  prices, or when the client asks directly.
 - **Customs clearance question** → `clearance` table `clearanceDza` (DZA); no match/`carId: null` →
   ask the boss.
 - Centimes: **1 DZD = 100 centimes**; `248 مليون` = 248M centimes = 2.48M DZD. Always show the

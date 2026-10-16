@@ -10,7 +10,7 @@ import (
 const quoteLike = `{
   "status": "OK",
   "mode": "retail-dza",
-  "car": {"carId": "COOLRAY", "name": "COOLRAY BATTLE", "costUsd": 12000, "supplierId": 7, "colors": ["white"]},
+  "car": {"carId": "COOLRAY", "name": "COOLRAY BATTLE", "costUsd": 12000, "supplierId": 7, "colors": ["white"], "colorCosts": {"white": 12200}},
   "inputs": {"retailBenefitUsd": 700, "freight": {"myCostUsd": 2500, "freightBenefitUsd": 300}},
   "formula": "costUsd + retailBenefitUsd",
   "breakdown": [{"label": "supplier cost (cars)", "usd": 12000}],
@@ -47,6 +47,9 @@ func TestApplyHidesCostKeepsPrice(t *testing.T) {
 	car := got["car"].(map[string]any)
 	if _, ok := car["costUsd"]; ok {
 		t.Fatal("cost hidden: car.costUsd must be dropped")
+	}
+	if _, ok := car["colorCosts"]; ok {
+		t.Fatal("cost hidden: car.colorCosts must be dropped")
 	}
 	// Price MUST survive — the group still gets the final number.
 	price, ok := got["price"].(map[string]any)

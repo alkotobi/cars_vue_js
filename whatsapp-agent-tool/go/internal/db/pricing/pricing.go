@@ -15,17 +15,18 @@ type CarOption struct {
 }
 
 type Car struct {
-	CarId       string      `json:"carId"`
-	Name        string      `json:"name"`
-	Size        string      `json:"size"`      // "big" | "small"
-	Condition   string      `json:"condition"` // "new" | "used"
-	CostUsd     float64     `json:"costUsd"`
-	SupplierId  any         `json:"supplierId"`  // number | null — who supplies the current price
-	LoadingPort any         `json:"loadingPort"` // string | null
-	Colors      []string    `json:"colors"`
-	Options     []CarOption `json:"options"`
-	Notes       any         `json:"notes"`
-	Timestamp   *string     `json:"timestamp"`
+	CarId       string             `json:"carId"`
+	Name        string             `json:"name"`
+	Size        string             `json:"size"`      // "big" | "small"
+	Condition   string             `json:"condition"` // "new" | "used"
+	CostUsd     float64            `json:"costUsd"`
+	SupplierId  any                `json:"supplierId"`  // number | null — who supplies the current price
+	LoadingPort any                `json:"loadingPort"` // string | null
+	Colors      []string           `json:"colors"`
+	ColorCosts  map[string]float64 `json:"colorCosts,omitempty"` // per-colour buy cost override (USD)
+	Options     []CarOption        `json:"options"`
+	Notes       any                `json:"notes"`
+	Timestamp   *string            `json:"timestamp"`
 }
 
 type OptionDef struct {
@@ -133,7 +134,7 @@ func LoadCars() ([]Car, error) {
 	if err != nil {
 		return nil, err
 	}
-	colors, err := db.Query("SELECT car_ref, color FROM car_colors ORDER BY color")
+	colors, err := db.Query("SELECT car_ref, color, cost_usd FROM car_colors ORDER BY color")
 	if err != nil {
 		return nil, err
 	}
@@ -143,9 +144,17 @@ func LoadCars() ([]Car, error) {
 	}
 
 	colorsByCar := map[int64][]string{}
+	colorCostsByCar := map[int64]map[string]float64{}
 	for _, r := range colors {
 		ref := int64(num(r["car_ref"]))
-		colorsByCar[ref] = append(colorsByCar[ref], r["color"].(string))
+		name := r["color"].(string)
+		colorsByCar[ref] = append(colorsByCar[ref], name)
+		if r["cost_usd"] != nil {
+			if colorCostsByCar[ref] == nil {
+				colorCostsByCar[ref] = map[string]float64{}
+			}
+			colorCostsByCar[ref][name] = num(r["cost_usd"])
+		}
 	}
 	optionsByCar := map[int64][]CarOption{}
 	for _, r := range opts {
@@ -170,6 +179,7 @@ func LoadCars() ([]Car, error) {
 			SupplierId:  rawNull(c["supplier_id"]),
 			LoadingPort: rawNull(c["loading_port"]),
 			Colors:      colorsByCar[ref],
+			ColorCosts:  colorCostsByCar[ref],
 			Options:     optionsByCar[ref],
 			Notes:       rawNull(c["notes"]),
 			Timestamp:   db.ToIso(c["price_at"]),

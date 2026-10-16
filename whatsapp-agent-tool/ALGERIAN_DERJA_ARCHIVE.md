@@ -18,6 +18,7 @@ point here when something has been superseded.
 | 2026-10-06 | **User confirmed 9 items, promoted to §3:** لاكوت = a place in Algiers · دزير = **Algiers** (not Algeria) · البطاقة الرمادية = the car registration card ("grey card") · التصريح بالضياع = police-stamped declaration of a lost document · الطابلات = touch screen · كي راك = how are you · رَواي i5 = Roewe i5 · **"تدخل 2027" = the plate shows "27"** (we quote by plate year) · **"عنددي 300" = 300M centimes = 3,000,000 DZD**. |
 | 2026-10-06 | **Auto-reply round:** fetched the last 5 unread chats and replied to all 5 (documents-from-China, Coolray white/black + voice note, 3-year stock, Algiers address, voice-only chat). Added ~8 inferred words (مرحاب، أول بأول، من ولاية جنوبية، وبارك الله فيك مسبقا…) + 3 pending (المجمولة، `_3ans`، GAC GS3). New helper `src/autoreply.ts` (fetch/peek/send). |
 | 2026-10-08 | Trim: §5b rows already promoted to §3, the resolved open questions, both change logs and this history moved out of the live files (token hygiene). Everything below is kept verbatim. |
+| 2026-10-17 | **User confirmed (catalog vocabulary):** clients say **"MEDIUM"** for the trim our catalog calls **MID** (e.g. GAC GS3 MEDIUM → `GS3 MID`), and **`MAN` = manual** gearbox. Added to §3 and to `client-reply.md` §3.10 (name sanity). |
 
 ## 2. §5b rows already confirmed in §3 (kept for history)
 

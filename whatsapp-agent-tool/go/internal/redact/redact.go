@@ -21,7 +21,7 @@ import "encoding/json"
 // wants visible (clearance_dza, price_cell, freight, rate, cfr_da) are NOT here.
 var costKeys = map[string]bool{
 	// quote calculator internals + cost
-	"costUsd": true, "carCostUsd": true, "historyCostUsd": true,
+	"costUsd": true, "carCostUsd": true, "historyCostUsd": true, "colorCosts": true,
 	"wholesaleBenefitUsd": true, "retailBenefitUsd": true, "allInRetailBenefitUsd": true,
 	"myCostUsd": true, "freightBenefitUsd": true, "effectiveContainerUsd": true, "freightPerUnitUsd": true,
 	"inputs": true, "formula": true, "breakdown": true,

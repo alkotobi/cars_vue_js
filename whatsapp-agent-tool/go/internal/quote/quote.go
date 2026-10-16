@@ -1,6 +1,6 @@
 // Package quote is the Go twin of src/quote.ts — the deterministic pricing
 // calculator. The model never does §13 arithmetic itself; the CLI quotes these
-// numbers verbatim. Statuses: OK / MISSING / AMBIGUOUS / USAGE / LIST.
+// numbers verbatim. Statuses: OK / MISSING / AMBIGUOUS / BLOCKED / USAGE / LIST.
 //
 // Stale or expired inputs are NOT a hard stop: the calculator always quotes the
 // best available figure (cheapest applicable shipping line) and records the age
@@ -75,12 +75,13 @@ type Data struct {
 	Options  []dbp.OptionDef
 }
 
-// Args is the parsed CLI invocation (--car / --mode / --line / --list).
+// Args is the parsed CLI invocation (--car / --mode / --line / --port / --color / --list).
 type Args struct {
 	CarQuery       string
 	Mode           string // "" -> default retail-dza
 	Line           string
 	Port           string // requested discharge port; the cheapest valid line to it wins
+	Color          string // requested colour; "" -> the cheapest colour
 	List           bool
 	IncludeOptions bool // only when the client explicitly asks about options
 }
@@ -156,16 +157,17 @@ type resolvedOption struct {
 }
 
 type carInfo struct {
-	CarId       string           `json:"carId"`
-	Name        string           `json:"name"`
-	Size        string           `json:"size"`
-	Condition   string           `json:"condition"`
-	CostUsd     float64          `json:"costUsd"`
-	SupplierId  any              `json:"supplierId"`
-	LoadingPort any              `json:"loadingPort"`
-	Colors      []string         `json:"colors"`
-	Options     []resolvedOption `json:"options"`
-	Timestamp   any              `json:"timestamp"`
+	CarId       string             `json:"carId"`
+	Name        string             `json:"name"`
+	Size        string             `json:"size"`
+	Condition   string             `json:"condition"`
+	CostUsd     float64            `json:"costUsd"`
+	SupplierId  any                `json:"supplierId"`
+	LoadingPort any                `json:"loadingPort"`
+	Colors      []string           `json:"colors"`
+	ColorCosts  map[string]float64 `json:"colorCosts,omitempty"` // per-colour buy cost override (USD)
+	Options     []resolvedOption   `json:"options"`
+	Timestamp   any                `json:"timestamp"`
 }
 
 type pricePayload struct {
@@ -177,6 +179,8 @@ type pricePayload struct {
 type mainResult struct {
 	Status    string       `json:"status"`
 	Mode      string       `json:"mode"`
+	Color           string       `json:"color,omitempty"`           // colour this price is for
+	ColorIsCheapest *bool        `json:"colorIsCheapest,omitempty"` // true when Color is the cheapest colour
 	Car       carInfo      `json:"car"`
 	Inputs    inputPayload `json:"inputs"`
 	Formula   string       `json:"formula"`
@@ -226,11 +230,56 @@ type MissingCarResult struct {
 	Hint   string `json:"hint"`
 }
 
+// MissingColorResult is returned when --color names a colour the car does not
+// list. Never guess a colour price — offer the cheapest or a listed colour.
+type MissingColorResult struct {
+	Status string   `json:"status"`
+	Error  string   `json:"error"`
+	Colors []string `json:"colors"`
+	Hint   string   `json:"hint"`
+}
+
 type AmbiguousCarResult struct {
 	Status     string         `json:"status"`
 	Error      string         `json:"error"`
 	Candidates []candidateCar `json:"candidates"`
 	Hint       string         `json:"hint"`
+}
+
+// BlockedCarResult refuses a quote for a car whose cars.notes carry the
+// operator's block marker ("do not quote" / "BLOCKED"). Blocking happens
+// before any price is computed — a blocked price must never reach a client.
+type BlockedCarResult struct {
+	Status string `json:"status"`
+	Car    string `json:"car"`
+	Notes  string `json:"notes"`
+	Error  string `json:"error"`
+	Action string `json:"action"`
+}
+
+// colorCost returns a car's buy cost for a colour: the per-colour override in
+// car_colors when present, else the car's base cost.
+func colorCost(car dbp.Car, color string) float64 {
+	if c, ok := car.ColorCosts[color]; ok {
+		return c
+	}
+	return car.CostUsd
+}
+
+// IsBlockedNote reports whether a car's cars.notes mark it as blocked. The
+// operator stamps blocked cars with "do not quote" and/or an uppercase
+// "BLOCKED" marker (e.g. "KENT BLOCKED 2026-10-16 - not available, do not
+// quote"). A lowercase "kent blocked … reverted to jean price" note is NOT a
+// block — those cars were reverted to another supplier and stay quotable.
+func IsBlockedNote(notes any) bool {
+	s, ok := notes.(string)
+	if !ok || s == "" {
+		return false
+	}
+	if strings.Contains(strings.ToLower(s), "do not quote") {
+		return true
+	}
+	return strings.Contains(s, "BLOCKED")
 }
 
 type MissingOptionResult struct {
@@ -423,7 +472,64 @@ func Run(d *Data, a Args) *Result {
 	}
 
 	car := matchedCars[0]
+
+	// ---- blocked check (STRICT) — before any price is computed. A car whose
+	// cars.notes carry the operator's block marker ("do not quote" / uppercase
+	// "BLOCKED") is refused outright: its price must never be quoted or shared.
+	if note, ok := car.Notes.(string); ok && IsBlockedNote(car.Notes) {
+		return &Result{Payload: &BlockedCarResult{
+			Status: "BLOCKED",
+			Car:    car.Name,
+			Notes:  note,
+			Error:  car.Name + " is blocked by the operator — its price must NOT be quoted or shared with anyone.",
+			Action: "Never quote a blocked car. Offer a non-blocked alternative from the catalog, or say the car is not available.",
+		}}
+	}
+
 	checkFresh("cars", car.Timestamp, true)
+
+	// ---- colour: pick the requested colour, else the cheapest one.
+	// cars.cost_usd is the base cost; a colour may override it (car_colors.cost_usd).
+	// Default (fast answer, client-reply.md §3.2): quote the CHEAPEST colour;
+	// --color <name> quotes a specific one.
+	baseCost := car.CostUsd
+	effectiveCost := baseCost
+	color := ""
+	var colorIsCheapest *bool
+	if len(car.Colors) > 0 {
+		cheapest, cheapestCost := car.Colors[0], colorCost(car, car.Colors[0])
+		for _, c := range car.Colors[1:] {
+			if cc := colorCost(car, c); cc < cheapestCost {
+				cheapest, cheapestCost = c, cc
+			}
+		}
+		if a.Color == "" {
+			t := true
+			color, effectiveCost, colorIsCheapest = cheapest, cheapestCost, &t
+		} else {
+			found := ""
+			for _, c := range car.Colors {
+				if Norm(c) == Norm(a.Color) {
+					found = c
+					break
+				}
+			}
+			if found == "" {
+				return &Result{Payload: &MissingColorResult{
+					Status: "MISSING",
+					Error:  car.Name + ` has no colour "` + a.Color + `".`,
+					Colors: car.Colors,
+					Hint:   "Quote the cheapest colour by default; a colour not listed here has no price — never invent one.",
+				}}
+			}
+			color, effectiveCost = found, colorCost(car, found)
+			c := effectiveCost == cheapestCost
+			colorIsCheapest = &c
+		}
+	} else if a.Color != "" {
+		// The car lists no colours; accept the requested one at the base cost.
+		color = a.Color
+	}
 
 	// ---- options
 	// Rule: options are NEVER priced by default — they are added to the quote
@@ -696,18 +802,18 @@ func Run(d *Data, a Args) *Result {
 	computePrice := func(freightNote float64) (usd, dza float64) {
 		switch mode {
 		case "wholesale-fob":
-			return car.CostUsd + wholesaleBenefit + optionsUsd, math.NaN()
+			return effectiveCost + wholesaleBenefit + optionsUsd, math.NaN()
 		case "wholesale-cfr":
-			return car.CostUsd + wholesaleBenefit + freightNote + optionsUsd, math.NaN()
+			return effectiveCost + wholesaleBenefit + freightNote + optionsUsd, math.NaN()
 		case "retail-dza":
-			u := car.CostUsd + retailBenefit + freightNote + optionsUsd
+			u := effectiveCost + retailBenefit + freightNote + optionsUsd
 			return u, u * rate
 		case "retail-usd":
-			return car.CostUsd + retailBenefit + freightNote + optionsUsd, math.NaN()
+			return effectiveCost + retailBenefit + freightNote + optionsUsd, math.NaN()
 		case "retail-usd-fob":
-			return car.CostUsd + retailBenefit + optionsUsd, math.NaN()
+			return effectiveCost + retailBenefit + optionsUsd, math.NaN()
 		case "allin-dza":
-			u := car.CostUsd + allInBenefit + freightNote + optionsUsd
+			u := effectiveCost + allInBenefit + freightNote + optionsUsd
 			z := u * rate
 			if clearanceEntry != nil {
 				z += clearanceEntry.ClearanceDza
@@ -740,7 +846,10 @@ func Run(d *Data, a Args) *Result {
 	}
 
 	costNote := car.CarId
-	addUsd("supplier cost (cars)", car.CostUsd, costNote)
+	if effectiveCost != baseCost {
+		costNote = car.CarId + " · " + color
+	}
+	addUsd("supplier cost (cars)", effectiveCost, costNote)
 
 	formula := ""
 	priceUsd := math.NaN()
@@ -770,19 +879,19 @@ func Run(d *Data, a Args) *Result {
 	case "wholesale-fob":
 		addUsd("wholesale benefit (config)", wholesaleBenefit, "")
 		addOptions()
-		priceUsd = car.CostUsd + wholesaleBenefit + optionsUsd
+		priceUsd = effectiveCost + wholesaleBenefit + optionsUsd
 		formula = "costUsd + wholesaleBenefitUsd + optionsUsd   (FOB: goods at loading port, NO sea freight)"
 	case "wholesale-cfr":
 		addUsd("wholesale benefit (config)", wholesaleBenefit, "")
 		addUsd("freight per unit ((my cost + 300) / units)", freightNote, freightLine)
 		addOptions()
-		priceUsd = car.CostUsd + wholesaleBenefit + freightNote + optionsUsd
+		priceUsd = effectiveCost + wholesaleBenefit + freightNote + optionsUsd
 		formula = "costUsd + wholesaleBenefitUsd + freightPerUnitUsd + optionsUsd   (CFR / landed-style)"
 	case "retail-dza":
 		addUsd("retail benefit (config)", retailBenefit, "")
 		addUsd("freight per unit ((my cost + 300) / units)", freightNote, freightLine)
 		addOptions()
-		priceUsd = car.CostUsd + retailBenefit + freightNote + optionsUsd
+		priceUsd = effectiveCost + retailBenefit + freightNote + optionsUsd
 		addUsd("subtotal (USD)", priceUsd, "")
 		addDza("× rate "+formatUsd(rate)+" (config)", priceUsd*rate, "")
 		priceDza = priceUsd * rate
@@ -791,18 +900,18 @@ func Run(d *Data, a Args) *Result {
 		addUsd("retail benefit (config)", retailBenefit, "")
 		addUsd("freight per unit ((my cost + 300) / units)", freightNote, freightLine)
 		addOptions()
-		priceUsd = car.CostUsd + retailBenefit + freightNote + optionsUsd
+		priceUsd = effectiveCost + retailBenefit + freightNote + optionsUsd
 		formula = "costUsd + retailBenefitUsd + freightPerUnitUsd + optionsUsd   (only when the client explicitly asks USD)"
 	case "retail-usd-fob":
 		addUsd("retail benefit (config)", retailBenefit, "")
 		addOptions()
-		priceUsd = car.CostUsd + retailBenefit + optionsUsd
+		priceUsd = effectiveCost + retailBenefit + optionsUsd
 		formula = "costUsd + retailBenefitUsd + optionsUsd   (FOB retail, no freight — only if explicitly asked)"
 	case "allin-dza":
 		addUsd("all-in benefit (clearance)", allInBenefit, "not the usual 700 retail benefit")
 		addUsd("freight per unit ((my cost + 300) / units)", freightNote, freightLine)
 		addOptions()
-		priceUsd = car.CostUsd + allInBenefit + freightNote + optionsUsd
+		priceUsd = effectiveCost + allInBenefit + freightNote + optionsUsd
 		addUsd("subtotal (USD)", priceUsd, "")
 		converted := priceUsd * rate
 		addDza("× rate "+formatUsd(rate)+" (config)", converted, "")
@@ -863,15 +972,15 @@ func Run(d *Data, a Args) *Result {
 	if mode == "wholesale-fob" || mode == "wholesale-cfr" {
 		warnings = append(warnings, "Wholesale = full containers only, USD only, never DZA.")
 	}
-	if mode == "retail-dza" && !math.IsNaN(priceDza) {
-		if d.Custom.TvnIncluded {
-			warnings = append(warnings, "TVN is NOT included (see clearance).")
-		} else {
-			warnings = append(warnings, "TVN is NOT included (clearance tvnIncluded: false).")
-		}
-	}
+	// The TVN note belongs ONLY to a price that already carries customs
+	// clearance (all-in): a price without clearance excludes TVN as well, so
+	// repeating the line there is pure noise (client-reply.md §3.6).
 	if mode == "allin-dza" {
-		warnings = append(warnings, "TVN is NOT included — say so if the client asks.")
+		if d.Custom.TvnIncluded {
+			warnings = append(warnings, "TVN IS included (customs tvnIncluded: true).")
+		} else {
+			warnings = append(warnings, "TVN is NOT included — the price does include clearance; say so if the client asks.")
+		}
 	}
 
 	// Staleness / expiry is never a hard stop (operating rule, 2026-10-14): we
@@ -893,8 +1002,10 @@ func Run(d *Data, a Args) *Result {
 	}
 
 	res := &mainResult{
-		Status: status,
-		Mode:   mode,
+		Status:          status,
+		Mode:            mode,
+		Color:           color,
+		ColorIsCheapest: colorIsCheapest,
 		Car: carInfo{
 			CarId:       car.CarId,
 			Name:        car.Name,
@@ -904,6 +1015,7 @@ func Run(d *Data, a Args) *Result {
 			SupplierId:  car.SupplierId,
 			LoadingPort: car.LoadingPort,
 			Colors:      colors,
+			ColorCosts:  car.ColorCosts,
 			Options:     opts,
 			Timestamp:   car.Timestamp,
 		},

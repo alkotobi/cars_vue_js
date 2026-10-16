@@ -223,18 +223,21 @@ func TestPollGroupDropsReplyWhenLeaseLost(t *testing.T) {
 	}
 }
 
-func TestPollGroupSendErrorStillAdvancesCursor(t *testing.T) {
-	// Deliberate: the cursor moves before posting so a failed post is accepted
-	// as a miss rather than risking a duplicate answer every cycle.
+func TestPollGroupKeepsCursorWhenSendFails(t *testing.T) {
+	// A failed post must leave the cursor put: the shared store is a monotonic
+	// GREATEST upsert, so a cursor advanced before a failed post could never be
+	// moved back and the client's message would be dropped forever. Retrying
+	// risks a duplicate only if the process dies after a successful post.
 	tr := &fakeTransport{read: []Message{{ID: 11, Text: "hi"}}, sendErr: errors.New("write failed")}
 	store := newFakeStore(map[int64]int64{42: 10})
 	stubGenerate(t, "reply", nil)
 
-	if _, err := pollGroup(tr, store, "ai", 7, testGroup(), func() bool { return false }); err == nil {
-		t.Fatal("want send error")
+	_, err := pollGroup(tr, store, "ai", 7, testGroup(), func() bool { return false })
+	if err == nil || !strings.Contains(err.Error(), "post reply") {
+		t.Fatalf("err = %v, want a post-reply error", err)
 	}
-	if store.Cursor(42) != 11 {
-		t.Fatalf("cursor = %d, want 11 (advance-before-send)", store.Cursor(42))
+	if store.Cursor(42) != 10 {
+		t.Fatalf("cursor = %d, want unchanged 10 (so the messages are retried)", store.Cursor(42))
 	}
 }
 

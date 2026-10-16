@@ -61,9 +61,10 @@ CREATE TABLE IF NOT EXISTS cars (
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS car_colors (
-  id      BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  car_ref BIGINT UNSIGNED NOT NULL,
-  color   VARCHAR(40) NOT NULL,
+  id       BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  car_ref  BIGINT UNSIGNED NOT NULL,
+  color    VARCHAR(40) NOT NULL,
+  cost_usd DECIMAL(12,2) NULL,   -- per-colour buy cost override; NULL => cars.cost_usd
   UNIQUE KEY uq_car_color (car_ref, color),
   CONSTRAINT fk_car_colors_car FOREIGN KEY (car_ref) REFERENCES cars(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;

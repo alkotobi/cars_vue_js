@@ -736,9 +736,12 @@ coordination is a **single-writer lease** + **shared cursors** in the `ai` DB (m
   (`NOW(3)`), never the machine's, so clock skew cannot split the lock.
 - `chatbot_group_cursors` — the per-group last-answered message id, so a machine that takes over
   resumes at the right message instead of re-answering history. Writes are **monotonic**
-  (`GREATEST` upsert), so a stale writer can never move a cursor backwards. The legacy per-machine
-  `data/chatbot-state.json` is imported **once** when the shared store is still empty, so upgrading
-  does not re-answer history.
+  (`GREATEST` upsert), so a stale writer can never move a cursor backwards. Because it cannot be
+  moved back, the cursor is advanced **only after** the reply has been posted (`pollGroup`): a
+  failed post leaves it put and the same messages are retried next cycle, instead of being dropped
+  forever. The cost is a duplicate reply only if the process dies between a successful post and the
+  cursor flush. The legacy per-machine `data/chatbot-state.json` is imported **once** when the
+  shared store is still empty, so upgrading does not re-answer history.
 - Safety: the holder checks the lease again **before posting**; if it was lost mid-generation the
   reply is dropped and the cursor left put, so the new owner answers those messages exactly once.
   The heartbeat runs in a goroutine (`internal/channel/carsapp/chatbot/lease.go`); when it loses the lease the cycle
@@ -764,10 +767,15 @@ stream shows a `websearch`/`webfetch` tool call **or a bash call to `whatsapp-to
 line — the model cannot forget it. The editor agent has **no** web access. `OPENCODE_ENABLE_EXA=1`
 is set on the child so `websearch` exists even under a non-OpenCode model provider.
 
-**Shared client-reply rules — one source of truth.** The channel-agnostic reply rules the agent
-follows (tool usage incl. the stock flags, never-invent-a-price, freight, ALGIERS default, web
-restrictions, Markdown tables, mandatory language match, Arabic numerals, disclosure note) live in
-**one file**: `chatbot/rules/client-reply.md`. It is injected in two places, both automatic:
+**Client-reply rules — one source of truth (both channels).** `chatbot/rules/client-reply.md` is
+**the** file of rules about *how to reply to a client*, for the cars-app chat **and** for the
+WhatsApp agent: tool usage (incl. the stock flags), the price-question flow (retail price right
+away, wholesale only on request, cheapest-colour price without asking, a named colour via
+`--color`, never invent a price, round up,
+price-only, ALGIERS default, never ask the shipping line),
+freight answers, FAQ + holding reply, voice/call reply, web restrictions, Markdown tables,
+mandatory language match, Arabic numerals, disclosure/tone. It is injected in two places, both
+automatic:
 
 - **`BuildPrompt`** (`internal/channel/carsapp/chatbot/prompt.go`) reads it once per process (`sharedRules()`,
   `sync.Once`) and appends it after the cars-app framing (group, capabilities, history, incoming).
@@ -779,9 +787,14 @@ Editing a rule or a CLI flag is therefore a **single edit** to `client-reply.md`
 across `prompt.go`, `chatbot.md` and `chatbot-editor.md`. Two tests pin this
 (`TestSharedRulesSourceOfTruth`, and the injection assertions in `TestEnsureConfigInstallsAgents`);
 if the marker or the file goes missing, the tests fail and (at runtime) `sharedRules()` falls back
-to a short safe stub rather than answering unguided. `AGENTS.md` §13/§15 remains the operator
-manual for the WhatsApp path; where a rule is executable by the chat AI, `client-reply.md` is the
-source of truth.
+to a short safe stub rather than answering unguided.
+
+`AGENTS.md` no longer carries its own copy of the reply rules — it holds **process only**
+(pending scan, triage, question tracking, pricing/stock/procurement tool usage) and **links** to
+`client-reply.md` (§0 rules 7–15, §10, §11, §12, §13), plus the WhatsApp **channel literals** that
+must not reach the cars-app prompt: the exact Arabic AI-disclosure lines and the two exact Arabic
+sentences (holding reply, voice refusal — `prompt_test.go` pins that the disclosure line never
+appears in the prompt). WhatsApp-vs-cars-app differences live in `client-reply.md` §1's table.
 
 Deploying to another machine: same `.env` (`DB_*`, `CARS_BASE_URL`, `CARS_TENANT`) pointing at the
 **same** `ai` DB, its own `whatsapp-tool stock creds` (OS keyring), opencode + a model, then just

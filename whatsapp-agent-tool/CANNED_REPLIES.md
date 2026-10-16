@@ -71,17 +71,20 @@ Not available / must check:
 
 ## 3. "What is the price?"
 
+> Give the **retail** price straight away (no "retail or wholesale?" gate). Wholesale is offered,
+> not demanded. The figure is the **cheapest colour** — never ask the colour first; a colour the
+> client names is priced with `quote --color "<name>"` (the catalog knows a price per colour), and
+> only when it is not listed do you say you'll confirm it.
+
 ```
-باش نعطيك السعر الصحيح و ماشي بالتخمين، قولي بالضبط:
-🚘 الموديل؟  📅 أي سنة؟  ⛽ بنزين ولا ديزل؟  ⚙️ أي تجهيز؟
-السعر يتبدّل حسب الحالة و المواصفات. إذا وضحلي، نعطيك الثمن بالتفصيل:
-— واصلة لميناء الجزائر (الثمن يغطّي النقل حتى ميناء الجزائر)
-— بلا جمركة (الجمركة على حسابك)
-— و المصاريف الباقية: التسجيل، التأمين، و النقل من الميناء إلى مدينتك
-💰 و نعطيك الرقم بالدينار أيضاً، باش تاخذ الصورة واضحة.
+أهلاً و سهلاً يا أخي 🌹
+سعر <MODEL> اليوم واصلة ميناء الجزائر (بلا جمركة): <PRICE> 💰
+و إذا تحب كمية (حاوية كاملة)، عندنا سومة خاصة بالجملة — قولي و نعطيك إياها 🚢
+و إذا راك تحب لون معيّن، خبرني و نأكدلك التفاصيل 🤝
 ```
-Us-only reminder: we quote in **centimes** and show the arithmetic
-(`248 مليون سنتيم = 2.48 مليون دينار`).
+
+Us-only reminder: we quote in **centimes** and show the arithmetic only when asked
+(`248 مليون سنتيم = 2.48 مليون دينار`). Round **up** to the nearest 10,000 DZD.
 
 ## 4. "Register it as 2026 but import it as ‑3 years?"
 

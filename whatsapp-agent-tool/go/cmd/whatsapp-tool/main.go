@@ -1,6 +1,6 @@
 // whatsapp-tool — the Go twin of the npm CLIs. One static binary, subcommands.
 //
-//	whatsapp-tool quote --car "COOLRAY BATTLE" --mode retail-dza [--port ALGIERS] [--line CMA] [--list] [--options]
+//	whatsapp-tool quote --car "COOLRAY BATTLE" --mode retail-dza [--port ALGIERS] [--line CMA] [--color white] [--list] [--options]
 //	whatsapp-tool freight [--port ALGIERS] [--line CMA]   # shipping rate per line to a port (no car needed)
 //	whatsapp-tool web <fetch <url> [--max-chars N] | list>   # read a page from the source allowlist (chat AI web reader)
 //	whatsapp-tool faq  <search ".." | list [--all] | add --q .. --a .. | update --id ..>
@@ -201,7 +201,7 @@ func requiredPermission(cmd string, rest []string) string {
 			return groupauth.Edit
 		}
 	case "car-names":
-		if sub == "add" {
+		if sub == "add" || sub == "edit" {
 			return groupauth.Edit
 		}
 	case "inquiries":
@@ -409,15 +409,18 @@ func fail(status int, payload map[string]any) {
 // ---------------------------------------------------------------- quote
 
 type listCar struct {
-	CarId       string          `json:"carId"`
-	Name        string          `json:"name"`
-	Size        string          `json:"size"`
-	Condition   string          `json:"condition"`
-	CostUsd     float64         `json:"costUsd"`
-	SupplierId  any             `json:"supplierId"`
-	LoadingPort any             `json:"loadingPort"`
-	Colors      []string        `json:"colors"`
-	Options     []dbp.CarOption `json:"options"`
+	CarId       string             `json:"carId"`
+	Name        string             `json:"name"`
+	Size        string             `json:"size"`
+	Condition   string             `json:"condition"`
+	CostUsd     float64            `json:"costUsd"`
+	SupplierId  any                `json:"supplierId"`
+	LoadingPort any                `json:"loadingPort"`
+	Colors      []string           `json:"colors"`
+	ColorCosts  map[string]float64 `json:"colorCosts,omitempty"`
+	Options     []dbp.CarOption    `json:"options"`
+	Notes       any                `json:"notes,omitempty"`
+	Blocked     bool               `json:"blocked,omitempty"`
 }
 
 // listOut mirrors quote.ts' LIST payload — a struct (not a map) so the pretty
@@ -434,6 +437,7 @@ func cmdQuote(args []string) {
 	mode := flag(args, "mode")
 	line := flag(args, "line")
 	port := flag(args, "port")
+	color := flag(args, "color")
 	list := has(args, "list")
 	withOptions := has(args, "options")
 
@@ -458,7 +462,9 @@ func cmdQuote(args []string) {
 				opts = []dbp.CarOption{}
 			}
 			lc = append(lc, listCar{CarId: c.CarId, Name: c.Name, Size: c.Size, Condition: c.Condition,
-				CostUsd: c.CostUsd, SupplierId: c.SupplierId, LoadingPort: c.LoadingPort, Colors: colors, Options: opts})
+				CostUsd: c.CostUsd, SupplierId: c.SupplierId, LoadingPort: c.LoadingPort, Colors: colors,
+				ColorCosts: c.ColorCosts,
+				Options:    opts, Notes: c.Notes, Blocked: quote.IsBlockedNote(c.Notes)})
 		}
 		printJSON(&listOut{Status: "LIST", Note: "Catalog (latest entry per carId).", Modes: quote.Modes, Cars: lc})
 		return
@@ -468,7 +474,7 @@ func cmdQuote(args []string) {
 	if err != nil {
 		fail(1, map[string]any{"status": "ERROR", "error": err.Error()})
 	}
-	res := quote.Run(d, quote.Args{CarQuery: carQ, Mode: mode, Line: line, Port: port, List: false, IncludeOptions: withOptions})
+	res := quote.Run(d, quote.Args{CarQuery: carQ, Mode: mode, Line: line, Port: port, Color: color, List: false, IncludeOptions: withOptions})
 	printJSON(res.Payload)
 }
 
@@ -885,12 +891,19 @@ func cmdBrandAdd(args []string) {
 // cmdCarNames reads the cars app's cars_names table (read-only, fixed SELECT),
 // mirroring CarNamesView / useCarNames.js (joined to brands).
 // cmdCarNames reads the cars app's cars_names table (fixed SELECT), mirroring
-// CarNamesView.vue / useCarNames.js. The `add` subcommand instead creates a model
-// (cmdCarNameAdd), a deliberate write gated on can_purchase_cars.
+// CarNamesView.vue / useCarNames.js. The `add` subcommand creates a model
+// (cmdCarNameAdd), the `edit` subcommand updates notes (cmdCarNameEdit) — both
+// deliberate writes gated on can_purchase_cars.
 func cmdCarNames(args []string) {
-	if len(args) > 0 && args[0] == "add" {
-		cmdCarNameAdd(args[1:])
-		return
+	if len(args) > 0 {
+		switch args[0] {
+		case "add":
+			cmdCarNameAdd(args[1:])
+			return
+		case "edit":
+			cmdCarNameEdit(args[1:])
+			return
+		}
 	}
 
 	positionals := positionalArgs(args, map[string]bool{"--name": true, "--brand": true, "--limit": true})

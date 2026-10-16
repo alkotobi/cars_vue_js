@@ -67,6 +67,8 @@ translation.
 | البطاقة الرمادية | el-bate9a er-rmidia | **the car registration card in Algeria** ("grey card") | Clients ask for prices "بالبطاقة الرمادية" = the price that lets them register the car |
 | التصريح بالضياع | et-tasri7 bel-dhiya3 | **police declaration of a lost document** — when an official paper is lost you go to the police station and get a stamped declaration | Needed before re-issuing papers / for customs and paperwork |
 | الطابلات | et-tablat | **touch screen** (in a car) | "ما تتحكمش في المبرد عن طريق الطابلات" = the cooling can't be controlled from the touch screen |
+| مديم / MEDIUM | meydiyum | **MID** (the trim level) | Clients write "gac gs3 medium"; our model/catalog name is **MID** (GS3 MID). User confirmed 2026-10-17. `quote` on the client's word returns MISSING → map to the exact catalog name (`MID`) |
+| مان / MAN | man | **manual** (gearbox) | The `MAN` suffix in our car names = manual transmission. User confirmed 2026-10-17. MAN ≠ AUTO (different cars, different costs) |
 | كي راك | ki rak | **how are you** | "شيخ نور الدين كي راك" = how are you, Sheikh Nour Eddine |
 | رواي i5 | Roewe i5 | **Roewe i5** (the model the client transliterated as "rouoi i5") | client also asked MG5, Corolla without turbo, Sanguai |
 

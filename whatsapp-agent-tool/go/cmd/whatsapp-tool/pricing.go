@@ -285,7 +285,23 @@ func priceSetCar(args []string) ([]orderedPair, error) {
 				return nil, err
 			}
 			for _, col := range colors {
-				if _, _, err = db.TxExec(tx, "INSERT INTO car_colors (car_ref, color) VALUES (?,?)", carRef, str(col)); err != nil {
+				// A colour is a bare name ("white") or an object with a
+				// per-colour buy cost override ({"name":"white","costUsd":11300}).
+				name := str(col)
+				var colCost any = nil
+				if m, ok := col.(map[string]any); ok {
+					name = str(m["name"])
+					if name == "" {
+						name = str(m["color"])
+					}
+					if v, ok := m["costUsd"].(float64); ok {
+						colCost = v
+					}
+				}
+				if name == "" {
+					continue
+				}
+				if _, _, err = db.TxExec(tx, "INSERT INTO car_colors (car_ref, color, cost_usd) VALUES (?,?,?)", carRef, name, colCost); err != nil {
 					return nil, err
 				}
 			}

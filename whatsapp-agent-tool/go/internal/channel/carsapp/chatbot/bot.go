@@ -133,14 +133,15 @@ func PollOnce(t Transport) (Report, error) {
 }
 
 // pollGroup runs the read->think->post pipeline for one group. The cursor only
-// advances once the model has produced a reply (or legitimately returned
-// nothing): a generation failure, a permission rejection or a lookup error
-// leaves the cursor put so the same client message is retried on the next
-// cycle instead of being silently skipped forever. The reply is posted after
-// the cursor moves, so a failed post is accepted as a miss rather than risking
-// a duplicate. lost reports whether the lease was lost while generating — in
-// which case the reply is dropped and the cursor left put, so the new owner
-// answers the same messages exactly once.
+// advances once the reply has been posted (or the model legitimately returned
+// nothing): a generation failure, a permission rejection, a lookup error or a
+// failed post leaves the cursor put so the same client message is retried on
+// the next cycle instead of being silently skipped forever. Because the shared
+// cursor store is monotonic, advance-after-post is the only ordering that
+// cannot lose a message; its cost is a possible duplicate if the process dies
+// between the post and the cursor flush. lost reports whether the lease was
+// lost while generating — in which case the reply is dropped and the cursor
+// left put, so the new owner answers the same messages exactly once.
 func pollGroup(t Transport, store CursorStore, aiUsername string, userID int64, g Group, lost func() bool) (groupOutcome, error) {
 	var outcome groupOutcome
 
@@ -186,18 +187,25 @@ func pollGroup(t Transport, store CursorStore, aiUsername string, userID int64, 
 		return outcome, fmt.Errorf("lease lost during generation — reply dropped")
 	}
 
-	// The model produced a reply: the messages are now considered handled, so
-	// advance the cursor before posting to avoid re-answering them.
-	store.SetCursor(g.ID, newMax)
-
+	// The messages are only marked answered once the reply has actually landed:
+	// the cursor store is a monotonic GREATEST upsert, so a cursor advanced
+	// before a failed post can never be moved back and the client's messages
+	// would be dropped forever. The worst case here is instead a duplicate
+	// reply if the process dies between a successful post and the cursor flush.
 	final := FinalizeReply(reply, config.C.Chatbot.MaxReplyChars, usedWeb)
 	if final == "" {
+		// Nothing to send: the messages are handled all the same, so record
+		// them as such rather than re-reading them every cycle.
+		store.SetCursor(g.ID, newMax)
 		outcome.skipped = len(msgs)
 		return outcome, nil
 	}
 	if err := t.Send(g.ID, userID, final); err != nil {
+		// Post failed — the cursor stays put so the same messages are retried
+		// on the next cycle (the reply is not stored anywhere else).
 		return outcome, fmt.Errorf("post reply: %w", err)
 	}
+	store.SetCursor(g.ID, newMax)
 	outcome.replied = len(msgs)
 	return outcome, nil
 }

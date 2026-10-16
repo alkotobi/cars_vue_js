@@ -38,6 +38,7 @@ whatsapp-tool price set-rate --value 253.4            # cars / rate / freight / 
 whatsapp-tool faq search "هل يوجد تخفيض"               # client FAQ lookup
 whatsapp-tool quote --car "LIVAN MAN" --mode retail-dza     # never adds options by default
 whatsapp-tool quote --car "LIVAN MAN" --mode retail-dza --options   # only when the client asked
+whatsapp-tool quote --car "LIVAN MAN" --mode retail-dza --color white  # default = the cheapest colour
 ```
 
 Supplier quotations are shared in `ai` too — a **procurement system linked to the catalog** (each
