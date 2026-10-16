@@ -1,10 +1,13 @@
 package chatbot
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"whatsapp-agent-tool/internal/carshttp"
+	"whatsapp-agent-tool/internal/config"
 )
 
 func TestBuildPrompt(t *testing.T) {
@@ -21,10 +24,10 @@ func TestBuildPrompt(t *testing.T) {
 		`"Selection: LIVAN"`,
 		"<yacine> Admin", // history line
 		"<Ahmed> Client", // incoming line
-		"Algerian Derja/Arabic",
+		"exact language of the client's newest message",
 		"Arabic numerals",
-		"whatsapp-tool freight",         // shipping questions answered without a car
-		"WEB (restricted, last resort)", // web allowed only for the two topics
+		"whatsapp-tool freight",    // shipping questions answered without a car
+		"Web lookups — RESTRICTED", // web allowed only for the two topics
 		"credibility",
 	} {
 		if !strings.Contains(p, want) {
@@ -33,6 +36,33 @@ func TestBuildPrompt(t *testing.T) {
 	}
 	if strings.Contains(p, "هذا الرد مولد") {
 		t.Error("prompt must not contain the AI disclosure line (it is appended later by us)")
+	}
+}
+
+// TestSharedRulesSourceOfTruth is the drift guard for the shared client-reply
+// rules: it asserts the one rules file exists, carries the load-bearing rules
+// (incl. the stock date flags), and is exactly what BuildPrompt injects. If
+// someone re-hardcodes a rule into prompt.go or an agent file, this fails.
+func TestSharedRulesSourceOfTruth(t *testing.T) {
+	path := filepath.Join(config.Root(), "chatbot", "rules", "client-reply.md")
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("shared rules file missing: %v", err)
+	}
+	text := string(raw)
+	for _, want := range []string{
+		"whatsapp-tool stock",
+		"--this-month", // the stock date flag that started this
+		"--status sold",
+		"Web lookups — RESTRICTED",
+		"exact language of the client's newest message",
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("shared rules missing %q", want)
+		}
+	}
+	if got := sharedRules(); got != strings.TrimRight(text, "\n") {
+		t.Fatalf("sharedRules() must return the file verbatim; got %d bytes, file %d", len(got), len(text))
 	}
 }
 

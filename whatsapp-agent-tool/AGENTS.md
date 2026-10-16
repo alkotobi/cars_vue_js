@@ -249,6 +249,13 @@ When triggered:
 
 ## 13. Pricing — always via `whatsapp-tool quote`
 
+> **Executable client-reply rules live in one place.** The cars-app chat AI's channel-agnostic
+> reply rules (tool usage, never-invent-a-price, freight, ALGIERS default, web restrictions,
+> Markdown tables, language match, numerals, disclosure) are defined once in
+> [`chatbot/rules/client-reply.md`](./chatbot/rules/client-reply.md) and injected into both agent
+> personas and the prompt builder automatically. When a rule or a CLI flag changes, edit that file
+> (and the operator rules here only where they differ).
+
 All pricing data sits in the shared MySQL database **`ai`** (cars, options, benefits, freight,
 rate, clearance). Field-by-field schemas, the write CLI and the formulas live in
 [`PRICING.md`](./PRICING.md) — read it **only** when storing new numbers or when the calculator
@@ -741,7 +748,12 @@ cost:
 That closes the chain supplier → quotation → item → car → price, so the operator can always answer
 "who gives us this car's price and which quotation did it come from": `list-cars`/`quote` output
 carries `supplierId`; `quotations show` shows the prices per colour — the current `suppliers` are
-walle (1), jean fat boy (2), lio (7) on the existing catalog; list them with `procurement suppliers`.
+walle (1), jean fat boy (2), lio (7), kent (11) on the existing catalog; list them with `procurement suppliers`.
+kent (11, quotation 27, 2026-10-16) currently supplies: LIVAN MAN 6900, LIVAN AUTO 7700, GS3 MID 9050,
+GS3 FULL 10500, GS3 MID (R style) 11200 (special grey 11300), CHANGAN X5 BEYOND PRO 9750 and the new
+CHANGAN X5PLUS EXCELLENT PRO 10700 — all FOB, colours grey/white or "any". Same quotation also carries
+the kent **modified-spec** Coolrays (new catalog lines, kept apart from the international-spec ones):
+COOLRAY MAN (MODIFIED) 7700, COOLRAY L (MODIFIED) 10700, COOLRAY BATTLE (MODIFIED) 10900 / white 11000.
 
 **Documents — the paper trail.** Real supplier documents (proforma invoice, sales contract, …) are
 saved in the `documents` table and linked to the quotation(s) they back via `document_quotations`

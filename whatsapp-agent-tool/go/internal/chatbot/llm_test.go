@@ -273,4 +273,22 @@ func TestEnsureConfigInstallsAgents(t *testing.T) {
 	if !strings.Contains(string(editor), filepath.ToSlash(config.Root())+"/**/*.md") {
 		t.Fatalf("editor allowlist not anchored to repo docs (%s)", config.Root())
 	}
+
+	// Both agents must have the shared client-reply rules spliced in at the
+	// marker (chatbot/rules/client-reply.md), and the marker itself must be gone
+	// — a stale marker means injection silently failed and the agent would run
+	// without the pricing/web/table/language rules.
+	for _, name := range []string{"chatbot.md", "chatbot-editor.md"} {
+		body, err := os.ReadFile(filepath.Join(agentDir, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(body), sharedRulesMarker) {
+			t.Fatalf("%s still contains the %s marker (rules not injected)", name, sharedRulesMarker)
+		}
+		if !strings.Contains(string(body), "whatsapp-tool stock") ||
+			!strings.Contains(string(body), "exact language of the client's newest message") {
+			t.Fatalf("%s is missing the shared rules after injection", name)
+		}
+	}
 }

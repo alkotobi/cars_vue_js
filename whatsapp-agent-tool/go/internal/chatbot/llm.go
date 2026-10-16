@@ -66,11 +66,17 @@ func ensureConfig() (string, error) {
 	if err := copyFile(filepath.Join(src, "agent", "chatbot.md"), filepath.Join(agentDir, "chatbot.md")); err != nil {
 		return "", fmt.Errorf("chat: workdir agent: %w", err)
 	}
+	if err := injectSharedRules(filepath.Join(src, "rules", "client-reply.md"), filepath.Join(agentDir, "chatbot.md")); err != nil {
+		return "", fmt.Errorf("chat: inject rules into base agent: %w", err)
+	}
 	// The editor agent is the same sandbox plus targeted edit/write of repo docs;
 	// it is used only for groups granted can_give_edit_instruction (see perms.go).
 	// The docs dir is substituted so the allowlist glob is anchored to this repo.
 	if err := copyEditorAgent(filepath.Join(src, "agent", "chatbot-editor.md"), filepath.Join(agentDir, "chatbot-editor.md"), config.Root()); err != nil {
 		return "", fmt.Errorf("chat: workdir editor agent: %w", err)
+	}
+	if err := injectSharedRules(filepath.Join(src, "rules", "client-reply.md"), filepath.Join(agentDir, "chatbot-editor.md")); err != nil {
+		return "", fmt.Errorf("chat: inject rules into editor agent: %w", err)
 	}
 	// Remove the legacy agent/ dir from earlier builds — it did nothing and
 	// only confused readers. Never touches .opencode/.
@@ -375,6 +381,33 @@ func copyFile(src, dst string) error {
 		return err
 	}
 	return os.WriteFile(dst, raw, 0o644)
+}
+
+// sharedRulesMarker is the placeholder line in an agent file that
+// injectSharedRules replaces with the shared client-reply rules.
+const sharedRulesMarker = "<!-- shared-rules -->"
+
+// injectSharedRules splices the shared client-reply rules into an already-copied
+// agent file, replacing the sharedRulesMarker line. The rules live in ONE file
+// (chatbot/rules/client-reply.md) that both agent personas and BuildPrompt read,
+// so a rule/flag change is a single edit rather than a hand-copy in 3-4 places
+// (see REFACTOR.md). A missing marker or rules file is an error, not a silent
+// skip: without the rules the agent would answer clients unguided.
+func injectSharedRules(rulesSrc, agentDst string) error {
+	rules, err := os.ReadFile(rulesSrc)
+	if err != nil {
+		return fmt.Errorf("read shared rules %s: %w", rulesSrc, err)
+	}
+	raw, err := os.ReadFile(agentDst)
+	if err != nil {
+		return err
+	}
+	text := string(raw)
+	if !strings.Contains(text, sharedRulesMarker) {
+		return fmt.Errorf("agent %s is missing the %s marker", agentDst, sharedRulesMarker)
+	}
+	out := strings.Replace(text, sharedRulesMarker, strings.TrimRight(string(rules), "\n"), 1)
+	return os.WriteFile(agentDst, []byte(out), 0o644)
 }
 
 // copyEditorAgent copies the editor agent, substituting __DOCS_DIR__ with the

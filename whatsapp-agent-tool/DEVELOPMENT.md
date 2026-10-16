@@ -758,6 +758,25 @@ stream shows a `websearch`/`webfetch` tool call **or a bash call to `whatsapp-to
 line — the model cannot forget it. The editor agent has **no** web access. `OPENCODE_ENABLE_EXA=1`
 is set on the child so `websearch` exists even under a non-OpenCode model provider.
 
+**Shared client-reply rules — one source of truth.** The channel-agnostic reply rules the agent
+follows (tool usage incl. the stock flags, never-invent-a-price, freight, ALGIERS default, web
+restrictions, Markdown tables, mandatory language match, Arabic numerals, disclosure note) live in
+**one file**: `chatbot/rules/client-reply.md`. It is injected in two places, both automatic:
+
+- **`BuildPrompt`** (`internal/chatbot/prompt.go`) reads it once per process (`sharedRules()`,
+  `sync.Once`) and appends it after the cars-app framing (group, capabilities, history, incoming).
+- **`ensureConfig`** (`internal/chatbot/llm.go`) splices it into **both** agent personas at the
+  `<!-- shared-rules -->` marker, so `chatbot.md` and `chatbot-editor.md` carry only their
+  *differences* (frontmatter/permissions, intro, the editor's edit instructions, the todo block).
+
+Editing a rule or a CLI flag is therefore a **single edit** to `client-reply.md`, not a hand-copy
+across `prompt.go`, `chatbot.md` and `chatbot-editor.md`. Two tests pin this
+(`TestSharedRulesSourceOfTruth`, and the injection assertions in `TestEnsureConfigInstallsAgents`);
+if the marker or the file goes missing, the tests fail and (at runtime) `sharedRules()` falls back
+to a short safe stub rather than answering unguided. `AGENTS.md` §13/§15 remains the operator
+manual for the WhatsApp path; where a rule is executable by the chat AI, `client-reply.md` is the
+source of truth.
+
 Deploying to another machine: same `.env` (`DB_*`, `CARS_BASE_URL`, `CARS_TENANT`) pointing at the
 **same** `ai` DB, its own `whatsapp-tool stock creds` (OS keyring), opencode + a model, then just
 run `whatsapp-tool chat-poll` and leave it running. No primary/secondary config — whichever holds
