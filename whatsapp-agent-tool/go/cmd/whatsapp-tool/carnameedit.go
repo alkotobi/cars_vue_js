@@ -3,7 +3,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"whatsapp-agent-tool/internal/carshttp"
@@ -37,7 +36,5 @@ func cmdCarNameEdit(args []string) {
 	if err != nil {
 		carsFail(err)
 	}
-	var m map[string]any
-	_ = json.Unmarshal(row, &m)
 	ok(pair("action", "car-name-edit"), pair("id", id), pair("affectedRows", affected), pair("row", row))
 }
