@@ -396,6 +396,10 @@ go/cmd/whatsapp-tool/keepalive.go whatsapp-tool keepalive — start | status | s
 go/cmd/whatsapp-tool/chatpoll.go whatsapp-tool chat-poll — cars-app chat AI loop (polls, generates, replies)
 # channels (adapters) — internal/channel/<name>/
 go/internal/channel/carsapp/chatbot/          cars-app chat AI: cursor state, prompt build, opencode exec, poll orchestration
+go/internal/channel/carsapp/chatbot/bot.go    PollOnce(t Transport) — the loop (lease → read → think → post), pure coordination
+go/internal/channel/carsapp/chatbot/transport.go     Transport contract + Group/Message value types (the seam out of the core)
+go/internal/channel/carsapp/chatbot/transport_cars.go the ONLY carshttp-bound I/O: carsTransport (NewTransport)
+go/internal/channel/carsapp/chatbot/bot_test.go      loop tests: fake Transport/Store, cursor rules, lease-lost, seeding
 go/internal/channel/carsapp/chatbot/lease.go  single-writer lease heartbeat (renew on TTL/3, abort cycle if lost)
 go/internal/channel/whatsapp/mcp/mcp.go       MCP server: tools, schemas, stderr logging
 go/internal/channel/whatsapp/wa/browser.go    WhatsApp client: launch/login-state/open/send/read/markAsRead/session

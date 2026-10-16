@@ -31,7 +31,7 @@ func cmdChatPoll(args []string) {
 	alarmer := chatbot.NewAlarmer(config.C.Chatbot.AlertThrottle, config.C.Chatbot.AlarmCommand, config.C.Chatbot.AlarmVoice)
 
 	for {
-		rep, err := chatbot.PollOnce()
+		rep, err := chatbot.PollOnce(chatbot.NewTransport())
 
 		// Speak (throttled) whenever generation failed for any reason; --once
 		// runs stay silent so smoke tests / cron don't alarm.

@@ -1,6 +1,6 @@
 # REFACTOR.md — separating the reply domains (shared core + 2 channels)
 
-> Status: **Phase 1 ✅ and Phase 2 ✅ done.** Phase 3 is the agreed direction, not yet started.
+> Status: **Phases 1 ✅ 2 ✅ 3 ✅ done.**
 
 ## Context
 
@@ -65,22 +65,48 @@ procurement}` vs `db/{todo,chatbotstate,groupperms}`), i.e. *less* clarity for t
 seam is expressed by `internal/channel/*` being the only thing with a `channel/` parent — see the
 **§8 repo map**, which now labels `# channels (adapters)` vs `# shared core`.
 
-Known imperfection (Phase 3's job): the cars-app channel's **transport** (`carshttp/chat.go`)
-still lives in the core package because it shares the HTTP client with the read-side lookups.
+Known imperfection, **addressed in Phase 3 without moving the file**: the cars-app channel's
+transport (`carshttp/chat.go`) still lives in the core package because it shares the HTTP client
+with the read-side lookups — but `chatbot` now reaches it only through `Transport`
+(`transport_cars.go`), so the loop itself is transport-free.
 
-## Phase 3 — channel contract (scalability)
+## Phase 3 — the loop/transport split (scalability + tests) ✅
+
+`PollOnce` used to talk to `carshttp` directly, so the loop could not be driven by any other
+destination and could not be tested at all (`bot.go` had zero tests). It now coordinates and
+nothing else — every destination call goes through an injected **`Transport`**:
 
 ```go
-type Channel interface {
-    Name() string
-    Poll(ctx) ([]Inbound, error)
-    Send(ctx, Outbound) error
+// internal/channel/carsapp/chatbot/transport.go
+type Transport interface {
+    Identity() (int64, bool, error)             // who the channel's sender is
+    Groups(userID int64) ([]Group, error)       // what to listen to
+    Perms(groupID int64) (Perms, error)         // capabilities (cars-app: gperms row)
+    Read(groupID, afterID, excludeUserID int64) ([]Message, error)
+    History(groupID int64, limit int) ([]Message, error)
+    MaxID(groupID int64) (int64, error)         // first-time cursor seeding
+    Latest(groupID int64) (Message, bool, error)// seed: stale vs fresh window
+    Send(groupID, userID int64, text string) error
 }
 ```
 
-A shared **Responder** sits between: `Inbound → prompt(persona, channel) → Generate → Finalize →
-channel.Send`. cars-app already fits (chat-poll is read → think → post).
+- **`Message`/`Group` are the loop's own value types** (JSON tags match the cars-app row), so
+  `prompt.go` no longer imports `carshttp` — `formatMessage(m Message)` reads `m.Text`.
+- **`transport_cars.go` is the only file in the package that imports `carshttp`** — that is how the
+  "transport lives in the core" imperfection was addressed without moving `carshttp/chat.go`
+  (it shares the HTTP client with the read-side lookups).
+- **Strict parsing stays strict:** a malformed row in `Read` is an error, so the cursor does not
+  move and the messages are retried next cycle (never silently dropped). A `History` failure is
+  tolerated by `historyOf` — the reply still goes out with no context block.
+- **`generateFn = Generate`** is the test seam (same pattern as `sharedBackend`/`dataDir`): tests
+  drive the whole pipeline without spawning the opencode CLI.
+- **`bot_test.go`** (14 tests) pins the loop's behaviour: cursor advanced to the newest *answered*
+  id, unchanged on read/generate/lease-loss failures, advanced-before-send (a failed post is a
+  miss, not a duplicate), empty reply skipped, first-seen group seeded (`MaxID`/`Latest` +
+  `Chatbot.SeedWindow`) instead of answered, permissions threaded into the brain.
 
-**Autonomy differs per channel**: cars-app is a daemon; WhatsApp stays human-gated. The interface
-exposes read/send with **autonomy as a per-channel policy** — do not force WhatsApp into an
-autonomous loop.
+`cmd/whatsapp-tool/chatpoll.go` passes `chatbot.NewTransport()`. The WhatsApp channel still has no
+polling loop by design (human-gated, §Context), so `Transport` — not `Channel` with `Poll` — is the
+contract: **autonomy stays a per-channel policy**, and a second autonomous channel is a new
+`Transport` implementation plus its own driver, not a fork of the loop. A `Name()` on the transport
+was deliberately left out until a second implementation needs it.

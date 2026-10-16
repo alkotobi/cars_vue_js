@@ -12,10 +12,8 @@ import (
 	"os"
 	"time"
 
-	"whatsapp-agent-tool/internal/carshttp"
 	"whatsapp-agent-tool/internal/config"
 	"whatsapp-agent-tool/internal/db/chatbotstate"
-	"whatsapp-agent-tool/internal/db/groupperms"
 	"whatsapp-agent-tool/internal/keyringx"
 )
 
@@ -43,13 +41,21 @@ type groupOutcome struct {
 	skipped     int
 }
 
+// generateFn is the brain step of the pipeline (prompt in, reply out). It is a
+// variable for the same reason sharedBackend and dataDir are: tests drive the
+// loop without spawning the opencode CLI. Production always uses Generate.
+var generateFn = Generate
+
 // PollOnce runs exactly one pass: lease -> poll -> think -> post. Several machines
 // may run against one tenant, but only the lease holder does any work: a standby
 // returns a STANDBY report without touching the cars app. The holder renews the
 // lease on a heartbeat while it works, and never posts after losing it. It never
 // blocks for more than one reply generation (see llmTimeout) and returns a report
 // even when individual groups failed.
-func PollOnce() (Report, error) {
+//
+// All destination I/O goes through t (see Transport), so this function is pure
+// coordination and a second autonomous channel reuses it unchanged.
+func PollOnce(t Transport) (Report, error) {
 	rep := Report{Tenant: config.C.Cars.Tenant}
 	logger := log.New(os.Stderr, "chat-poll ", log.LstdFlags)
 
@@ -72,7 +78,7 @@ func PollOnce() (Report, error) {
 	keeper := startLeaseKeeper(rep.Tenant, owner, ttl, logger)
 	defer keeper.stop()
 
-	userID, ok, err := carshttp.UserIDOrLogin()
+	userID, ok, err := t.Identity()
 	if err != nil {
 		return rep, err
 	}
@@ -80,7 +86,7 @@ func PollOnce() (Report, error) {
 		return rep, fmt.Errorf("chat: the AI user's id is not resolvable — re-run: whatsapp-tool stock creds --username <user>")
 	}
 
-	groups, err := carshttp.MemberGroups(int64(userID))
+	groups, err := t.Groups(userID)
 	if err != nil {
 		return rep, err
 	}
@@ -102,7 +108,7 @@ func PollOnce() (Report, error) {
 			logger.Printf("lease lost — stopping cycle early")
 			break
 		}
-		outcome, err := pollGroup(store, aiUsername, int64(userID), g, keeper.Lost)
+		outcome, err := pollGroup(t, store, aiUsername, userID, g, keeper.Lost)
 		// Tally a group's contribution even when it errored (the cursor may
 		// already have advanced past its messages) so the report stays truthful.
 		rep.NewMessages += outcome.newMessages
@@ -135,43 +141,38 @@ func PollOnce() (Report, error) {
 // a duplicate. lost reports whether the lease was lost while generating — in
 // which case the reply is dropped and the cursor left put, so the new owner
 // answers the same messages exactly once.
-func pollGroup(store CursorStore, aiUsername string, userID int64, g carshttp.ChatGroup, lost func() bool) (groupOutcome, error) {
+func pollGroup(t Transport, store CursorStore, aiUsername string, userID int64, g Group, lost func() bool) (groupOutcome, error) {
 	var outcome groupOutcome
 
 	cursor := store.Cursor(g.ID)
 	if cursor == 0 {
-		return seedCursor(store, g)
+		return seedCursor(t, store, g)
 	}
 
-	incoming, err := carshttp.NewMessages(g.ID, cursor, userID)
+	incoming, err := t.Read(g.ID, cursor, userID)
 	if err != nil {
 		return outcome, err
 	}
 	if len(incoming) == 0 {
 		return outcome, nil
 	}
-	msgs := make([]carshttp.GroupMessage, 0, len(incoming))
+	msgs := incoming
 	newMax := cursor
-	for _, raw := range incoming {
-		m, err := carshttp.ParseGroupMessage(raw)
-		if err != nil {
-			return outcome, fmt.Errorf("parse incoming: %w", err)
-		}
+	for _, m := range msgs {
 		if m.ID > newMax {
 			newMax = m.ID
 		}
-		msgs = append(msgs, m)
 	}
 	outcome.newMessages = len(msgs)
 
-	hist := historyOf(g.ID)
+	hist := historyOf(t, g.ID)
 
-	perms, err := loadPerms(config.C.Cars.Tenant, g.ID)
+	perms, err := t.Perms(g.ID)
 	if err != nil {
 		return outcome, err
 	}
 
-	reply, usedWeb, err := Generate(BuildPrompt(g.Name, aiUsername, perms, hist, msgs), perms)
+	reply, usedWeb, err := generateFn(BuildPrompt(g.Name, aiUsername, perms, hist, msgs), perms)
 	if err != nil {
 		// Nothing was posted, so retrying cannot duplicate a reply: leave the
 		// cursor where it is and try the same messages again next cycle.
@@ -194,7 +195,7 @@ func pollGroup(store CursorStore, aiUsername string, userID int64, g carshttp.Ch
 		outcome.skipped = len(msgs)
 		return outcome, nil
 	}
-	if _, err := carshttp.PostUserMessage(g.ID, userID, final); err != nil {
+	if err := t.Send(g.ID, userID, final); err != nil {
 		return outcome, fmt.Errorf("post reply: %w", err)
 	}
 	outcome.replied = len(msgs)
@@ -208,9 +209,9 @@ func pollGroup(store CursorStore, aiUsername string, userID int64, g carshttp.Ch
 // cursor lands just before that message so the next cycle answers it, instead
 // of silently skipping a message someone wrote minutes ago. An empty group
 // stays at 0 and is re-checked until its first message arrives.
-func seedCursor(store CursorStore, g carshttp.ChatGroup) (groupOutcome, error) {
+func seedCursor(t Transport, store CursorStore, g Group) (groupOutcome, error) {
 	var outcome groupOutcome
-	maxID, err := carshttp.GroupMaxMessageID(g.ID)
+	maxID, err := t.MaxID(g.ID)
 	if err != nil {
 		return outcome, fmt.Errorf("seed cursor: %w", err)
 	}
@@ -218,7 +219,7 @@ func seedCursor(store CursorStore, g carshttp.ChatGroup) (groupOutcome, error) {
 		store.SetCursor(g.ID, 0)
 		return outcome, nil
 	}
-	fresh, err := latestIsFresh(g.ID)
+	fresh, err := latestIsFresh(t, g.ID)
 	if err != nil {
 		// A failed freshness probe must not start answering old history: fall
 		// back to the conservative seed-past-everything behaviour.
@@ -235,8 +236,8 @@ func seedCursor(store CursorStore, g carshttp.ChatGroup) (groupOutcome, error) {
 // latestIsFresh reports whether a group's newest message arrived within
 // SeedWindow. message time is stored by the app as UTC_TIMESTAMP(), so it is
 // parsed as UTC and compared against the current UTC time.
-func latestIsFresh(groupID int64) (bool, error) {
-	m, ok, err := carshttp.LatestMessage(groupID)
+func latestIsFresh(t Transport, groupID int64) (bool, error) {
+	m, ok, err := t.Latest(groupID)
 	if err != nil || !ok {
 		return false, err
 	}
@@ -257,29 +258,13 @@ func withinSeedWindow(at, now time.Time, window time.Duration) bool {
 	return now.Sub(at) <= window
 }
 
-// loadPerms reads the group's capabilities from the ai DB. A missing row is
-// fully restricted (all false), so an unconfigured group can never write or see
-// cost/suppliers — the safe default.
-func loadPerms(tenant string, groupID int64) (Perms, error) {
-	p, err := groupperms.Get(tenant, groupID)
-	if err != nil {
-		return Perms{}, fmt.Errorf("load group perms: %w", err)
-	}
-	return Perms{Edit: p.Edit, Suppliers: p.Suppliers, Cost: p.Cost}, nil
-}
-
-// historyOf fetches the group's recent context, accepting row-level failures
-// (the model still gets the client's new messages without it).
-func historyOf(groupID int64) []carshttp.GroupMessage {
-	raw, err := carshttp.GroupHistory(groupID, historyLimit)
-	if err != nil || len(raw) == 0 {
+// historyOf fetches the group's recent context. A transport failure is
+// tolerated (the model still gets the client's new messages without history);
+// only genuinely empty history returns nil.
+func historyOf(t Transport, groupID int64) []Message {
+	msgs, err := t.History(groupID, historyLimit)
+	if err != nil || len(msgs) == 0 {
 		return nil
 	}
-	out := make([]carshttp.GroupMessage, 0, len(raw))
-	for _, r := range raw {
-		if m, err := carshttp.ParseGroupMessage(r); err == nil {
-			out = append(out, m)
-		}
-	}
-	return out
+	return msgs
 }

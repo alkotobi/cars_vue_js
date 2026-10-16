@@ -6,16 +6,15 @@ import (
 	"strings"
 	"testing"
 
-	"whatsapp-agent-tool/internal/carshttp"
 	"whatsapp-agent-tool/internal/config"
 )
 
 func TestBuildPrompt(t *testing.T) {
-	history := []carshttp.GroupMessage{
-		{ID: 1, Time: "2026-10-13 09:00:00", SenderName: "yacine", SenderRole: "Admin", Message: "bonjour"},
+	history := []Message{
+		{ID: 1, Time: "2026-10-13 09:00:00", SenderName: "yacine", SenderRole: "Admin", Text: "bonjour"},
 	}
-	incoming := []carshttp.GroupMessage{
-		{ID: 2, Time: "2026-10-13 09:01:00", SenderName: "Ahmed", SenderRole: "Client", Message: "wesh كيفاش"},
+	incoming := []Message{
+		{ID: 2, Time: "2026-10-13 09:01:00", SenderName: "Ahmed", SenderRole: "Client", Text: "wesh كيفاش"},
 	}
 	p := BuildPrompt("Selection: LIVAN", "ai", Perms{}, history, incoming)
 

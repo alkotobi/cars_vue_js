@@ -13,7 +13,6 @@ import (
 	"sync"
 	"unicode/utf8"
 
-	"whatsapp-agent-tool/internal/carshttp"
 	"whatsapp-agent-tool/internal/config"
 )
 
@@ -39,7 +38,7 @@ const historyLimit = 12
 // messages (oldest first) from anyone except the AI account itself. perms tells
 // the model what this group is allowed to do, so it can phrase a short refusal
 // for a request it must hand to the team.
-func BuildPrompt(groupName, aiUsername string, perms Perms, history, incoming []carshttp.GroupMessage) string {
+func BuildPrompt(groupName, aiUsername string, perms Perms, history, incoming []Message) string {
 	var b strings.Builder
 	fmt.Fprintf(&b,
 		"You are the car-dealership assistant replying inside the dealer platform's chat "+
@@ -95,13 +94,13 @@ const fallbackRules = "Reply in the exact language of the client's newest messag
 	"Do NOT include your reasoning, chain-of-thought, or internal thoughts — output only the final client-facing answer."
 
 // formatMessage renders one row for the model.
-func formatMessage(m carshttp.GroupMessage) string {
+func formatMessage(m Message) string {
 	sender := strings.TrimSpace(m.SenderName)
 	role := strings.TrimSpace(m.SenderRole)
 	if role == "" || sender == "" {
 		sender = "unknown"
 	}
-	return fmt.Sprintf("%s <%s> %s:\n%s\n", m.Time, sender, role, m.Message)
+	return fmt.Sprintf("%s <%s> %s:\n%s\n", m.Time, sender, role, m.Text)
 }
 
 // capabilityLine tells the model, in one deterministic sentence, which
