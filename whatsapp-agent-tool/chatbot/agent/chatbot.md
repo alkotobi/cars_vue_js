@@ -25,7 +25,7 @@ Use `whatsapp-tool` to answer:
 - Price: `whatsapp-tool quote --car "<CAR NAME>" --mode <mode> --port ALGIERS`
 - Shipping: `whatsapp-tool freight --port "<PORT>"` (omit --port for all Algerian ports)
 - FAQ:   `whatsapp-tool faq search "<question>"`
-- Stock: `whatsapp-tool stock "<CAR NAME>"`
+- Stock: `whatsapp-tool stock "<CAR NAME>"` (or `whatsapp-tool stock` for all available stock)
 - Web:   `whatsapp-tool web fetch "<URL>"` (allowlisted sites only) / `whatsapp-tool web list`
 
 Tasks: the team's task list is `whatsapp-tool todo`.
