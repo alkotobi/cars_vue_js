@@ -1026,9 +1026,12 @@ h2 {
 
   .sidebar {
     position: fixed;
-    top: 0;
+    /* Sit below the fixed app header instead of under it, otherwise the first
+       buttons (and their labels) are hidden behind the header on phones.
+       --app-header-height is published by AppHeader (60px, ~142px <=480px). */
+    top: var(--app-header-height, 60px);
     left: -280px;
-    height: 100vh;
+    height: calc(100vh - var(--app-header-height, 60px));
     width: 280px;
     z-index: 1010;
     transition: left 0.3s ease;
@@ -1139,7 +1142,7 @@ h2 {
 /* Landscape orientation adjustments */
 @media (max-width: 768px) and (orientation: landscape) {
   .sidebar {
-    height: 100vh;
+    height: calc(100vh - var(--app-header-height, 60px));
     overflow-y: auto;
   }
 
@@ -1228,9 +1231,12 @@ h2 {
 
   .sidebar {
     position: fixed;
-    top: 0;
+    /* Sit below the fixed app header instead of under it, otherwise the first
+       buttons (and their labels) are hidden behind the header on phones.
+       --app-header-height is published by AppHeader (60px, ~142px <=480px). */
+    top: var(--app-header-height, 60px);
     left: -280px;
-    height: 100vh;
+    height: calc(100vh - var(--app-header-height, 60px));
     width: 280px;
     z-index: 1010;
     transition: left 0.3s ease;
@@ -1341,7 +1347,7 @@ h2 {
 /* Landscape orientation adjustments */
 @media (max-width: 768px) and (orientation: landscape) {
   .sidebar {
-    height: 100vh;
+    height: calc(100vh - var(--app-header-height, 60px));
     overflow-y: auto;
   }
 

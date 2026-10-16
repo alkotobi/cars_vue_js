@@ -1581,6 +1581,12 @@ onMounted(async () => {
   if (props.groupId && props.groupId > 0) {
     await checkMembership()
     await fetchMessages(props.groupId)
+    // Jump to the newest message on first paint. The groupId watch below already
+    // does this on a *switch*, but a freshly mounted ChatMessages receives its
+    // groupId as a prop before mount, so the watch never fires. That is the
+    // mobile conversation, which mounts one instance per opened group, and it
+    // left the view parked at the top until the user scrolled by hand.
+    await scrollToBottom()
   }
 
   // Set up activity listeners and adaptive polling (single source of truth).
