@@ -3,6 +3,7 @@ import { ref, onMounted, onUnmounted, watch, nextTick, computed } from 'vue'
 import { useApi } from '../../composables/useApi'
 import { useEnhancedI18n } from '../../composables/useI18n'
 import { getBasePath } from '../../utils/basePath'
+import { renderMarkdown } from '../../lib/chatMarkdown'
 
 const { t } = useEnhancedI18n()
 
@@ -27,6 +28,21 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['message-sent', 'new-messages-received', 'reset-triggered'])
+
+// Text messages are rendered as markdown (see lib/chatMarkdown.js, which escapes
+// before parsing and is the only thing that may feed v-html here). The result is
+// memoised because the list re-renders on every poll/new message and the same
+// bodies would otherwise be re-parsed each time.
+const markdownCache = new Map()
+const renderMessageMarkdown = (text) => {
+  const key = typeof text === 'string' ? text : ''
+  const cached = markdownCache.get(key)
+  if (cached !== undefined) return cached
+  const html = renderMarkdown(key)
+  if (markdownCache.size >= 500) markdownCache.clear()
+  markdownCache.set(key, html)
+  return html
+}
 
 const { callApi, uploadFile, getFileUrl, error } = useApi()
 const messages = ref([]) // Current group's messages
@@ -920,8 +936,7 @@ const reconcileOptimistic = (groupId, tempId, realId) => {
   if (idx === -1) return
 
   const n = numericId(realId)
-  const alreadyHasReal =
-    n !== null && target.some((m, i) => i !== idx && numericId(m.id) === n)
+  const alreadyHasReal = n !== null && target.some((m, i) => i !== idx && numericId(m.id) === n)
 
   if (alreadyHasReal) {
     target.splice(idx, 1)
@@ -2329,7 +2344,9 @@ const startRecording = async () => {
     if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
       // Report the address actually in use. The old message named a hardcoded
       // host+folder, which was wrong on every other client's deployment.
-      throw new Error(`Microphone access requires HTTPS. Please use ${window.location.origin}${getBasePath()}`)
+      throw new Error(
+        `Microphone access requires HTTPS. Please use ${window.location.origin}${getBasePath()}`,
+      )
     }
 
     // Check if MediaRecorder is supported
@@ -3028,9 +3045,11 @@ const clearMessageSearch = () => {
               </div>
 
               <!-- Show regular text message if it's not a file or voice message -->
-              <div v-else class="message-text">
-                {{ message.message }}
-              </div>
+              <div
+                v-else
+                class="message-text"
+                v-html="renderMessageMarkdown(message.message)"
+              ></div>
             </div>
 
             <div v-if="message.failed" class="message-failed">
@@ -3836,6 +3855,84 @@ const clearMessageSearch = () => {
 .message-text {
   unicode-bidi: plaintext;
   text-align: start;
+  /* The markdown renderer supplies its own block structure; the pre-wrap inherited
+     from .message-content would double every run of whitespace it kept. */
+  white-space: normal;
+}
+
+/* Markdown output (lib/chatMarkdown.js). :deep() is required because v-html adds
+   no scope attribute to the generated nodes. The .md-* classes exist for this. */
+.message-text :deep(.md-p) {
+  margin: 0 0 6px;
+}
+
+.message-text :deep(.md-p:last-child) {
+  margin-bottom: 0;
+}
+
+.message-text :deep(.md-h) {
+  margin: 8px 0 4px;
+  font-size: 1.05em;
+  line-height: 1.3;
+}
+
+.message-text :deep(.md-h:first-child) {
+  margin-top: 0;
+}
+
+.message-text :deep(.md-list) {
+  margin: 4px 0;
+  padding-left: 20px;
+}
+
+.message-text :deep(.md-quote) {
+  margin: 4px 0;
+  padding: 2px 10px;
+  border-left: 3px solid rgba(127, 127, 127, 0.5);
+}
+
+.message-text :deep(.md-hr) {
+  margin: 8px 0;
+  border: none;
+  border-top: 1px solid rgba(127, 127, 127, 0.4);
+}
+
+.message-text :deep(.md-code) {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.85em;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: rgba(127, 127, 127, 0.18);
+}
+
+.message-text :deep(.md-pre) {
+  margin: 6px 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgba(127, 127, 127, 0.18);
+  overflow-x: auto;
+}
+
+.message-text :deep(.md-pre code) {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.85em;
+  background: none;
+  padding: 0;
+}
+
+.message-text :deep(.md-link) {
+  color: #2563eb;
+  text-decoration: underline;
+}
+
+/* Own bubbles are white-on-cyan, so the default link blue has no contrast. */
+.own-message .message-text :deep(.md-link) {
+  color: #dbeafe;
+}
+
+.message-text :deep(.md-image) {
+  max-width: 100%;
+  border-radius: 6px;
 }
 
 .message-footer {
