@@ -3860,6 +3860,21 @@ const clearMessageSearch = () => {
   white-space: normal;
 }
 
+/* Each rendered block is its own paragraph, so each one must auto-detect its base
+   direction from its own first strong character — otherwise a mixed Arabic/Latin
+   message takes the direction of the whole bubble and the other-language runs
+   reorder (the classic bidi bug). plaintext == dir="auto". */
+.message-text :deep(.md-p),
+.message-text :deep(.md-h),
+.message-text :deep(.md-list),
+.message-text :deep(li),
+.message-text :deep(.md-quote),
+.message-text :deep(.md-table th),
+.message-text :deep(.md-table td) {
+  unicode-bidi: plaintext;
+  text-align: start;
+}
+
 /* Markdown output (lib/chatMarkdown.js). :deep() is required because v-html adds
    no scope attribute to the generated nodes. The .md-* classes exist for this. */
 .message-text :deep(.md-p) {
@@ -3882,13 +3897,13 @@ const clearMessageSearch = () => {
 
 .message-text :deep(.md-list) {
   margin: 4px 0;
-  padding-left: 20px;
+  padding-inline-start: 20px;
 }
 
 .message-text :deep(.md-quote) {
   margin: 4px 0;
   padding: 2px 10px;
-  border-left: 3px solid rgba(127, 127, 127, 0.5);
+  border-inline-start: 3px solid rgba(127, 127, 127, 0.5);
 }
 
 .message-text :deep(.md-hr) {
@@ -3936,7 +3951,6 @@ const clearMessageSearch = () => {
 .message-text :deep(.md-table td) {
   padding: 4px 10px;
   border: 1px solid rgba(127, 127, 127, 0.35);
-  text-align: left;
   white-space: nowrap;
 }
 
