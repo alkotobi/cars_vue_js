@@ -399,11 +399,18 @@ whatsapp-tool stock "LIVAN"                       # available cars matching the 
 whatsapp-tool stock --car "LIVAN" --color white --limit 20
 whatsapp-tool stock --vin "LW..." --status any    # any = available + sold
 whatsapp-tool stock --port "Alger" --include-hidden
+whatsapp-tool stock --status sold --this-month              # sold in the current month
+whatsapp-tool stock --status sold --since 2026-10-01 --until 2026-10-31   # sold in a date range
 ```
+
+`--status` is `available` (default), `sold` or `any`. The date filters (`--this-month`,
+`--since`/`--until`, `YYYY-MM-DD`, the **sell** date) apply only with `--status sold` and are
+rejected otherwise.
 
 Reading the JSON: `count` + `cars[]`; each row has `id`, `vin`, `car_name`, `color`, `status`
 (`Available`/`Sold`), `loading_port`/`discharge_port`, `warehouse_name`, `container_ref`,
-`buy_bill_ref`, `sell_bill_ref`, `client_name`. The **price columns are permission-scoped** and
+`buy_bill_ref`, `sell_bill_ref`, `sell_date`, `client_name`. The **price columns are
+permission-scoped** and
 appear only when the AI user's role has the matching permission (they are dropped from the output
 otherwise): `price_cell` (FOB, `can_c_fob_price`), `freight` (`can_c_freight`), `rate` + `cfr_da`
 (CFR, `can_c_cfr_prices`), `buy_price` (`can_c_buy_price`, the purchase cost from `buy_details`).

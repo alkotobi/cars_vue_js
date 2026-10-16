@@ -4,7 +4,7 @@
 //	whatsapp-tool freight [--port ALGIERS] [--line CMA]   # shipping rate per line to a port (no car needed)
 //	whatsapp-tool web <fetch <url> [--max-chars N] | list>   # read a page from the source allowlist (chat AI web reader)
 //	whatsapp-tool faq  <search ".." | list [--all] | add --q .. --a .. | update --id ..>
-//	whatsapp-tool stock [--car .. --color .. --vin .. --status .. --port .. --limit N --include-hidden] | creds | login
+//	whatsapp-tool stock [--car .. --color .. --vin .. --status .. --port .. --limit N --include-hidden] [--this-month | --since <YYYY-MM-DD> --until <YYYY-MM-DD> with --status sold] | creds | login
 //	whatsapp-tool suppliers [name] [--name ..] [--limit N]   # supplier list (cars app)
 //	whatsapp-tool suppliers add --name <name> [--contact ..] [--notes ..]   # create a supplier — writes
 //	whatsapp-tool brands [brand] [--brand ..] [--limit N]    # read-only brand list (cars app)
@@ -30,6 +30,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 
 	"whatsapp-agent-tool/internal/carshttp"
 	"whatsapp-agent-tool/internal/config"
@@ -670,7 +671,7 @@ func cmdStock(args []string) {
 		failErr("--status must be available | sold | any")
 	}
 
-	valueFlags := map[string]bool{"--status": true, "--car": true, "--color": true, "--vin": true, "--port": true, "--limit": true}
+	valueFlags := map[string]bool{"--status": true, "--car": true, "--color": true, "--vin": true, "--port": true, "--limit": true, "--since": true, "--until": true}
 	positionals := positionalArgs(args, valueFlags)
 
 	limit := 0
@@ -689,9 +690,23 @@ func cmdStock(args []string) {
 		Status:        statusFlag,
 		Limit:         limit,
 		IncludeHidden: has(args, "include-hidden"),
+		SoldThisMonth: has(args, "this-month"),
+		SoldSince:     flag(args, "since"),
+		SoldUntil:     flag(args, "until"),
 	}
 	if filters.Status == "" {
 		filters.Status = "available"
+	}
+	// Date filters only make sense for the sell date, i.e. --status sold.
+	if (filters.SoldThisMonth || filters.SoldSince != "" || filters.SoldUntil != "") && filters.Status != "sold" {
+		failErr("--this-month/--since/--until require --status sold")
+	}
+	for _, d := range []string{filters.SoldSince, filters.SoldUntil} {
+		if d != "" {
+			if _, err := time.Parse("2006-01-02", d); err != nil {
+				failErr("--since/--until must be YYYY-MM-DD")
+			}
+		}
 	}
 
 	// The stock-view permission (can_c_car_stock) mirrors CarStockTable.

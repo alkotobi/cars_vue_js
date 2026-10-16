@@ -17,6 +17,9 @@ type Filters struct {
 	Status        string `json:"status"`
 	Limit         int    `json:"limit,omitempty"`
 	IncludeHidden bool   `json:"includeHidden"`
+	SoldThisMonth bool   `json:"soldThisMonth,omitempty"`
+	SoldSince     string `json:"soldSince,omitempty"`
+	SoldUntil     string `json:"soldUntil,omitempty"`
 }
 
 const defaultLimit = 50
@@ -61,6 +64,7 @@ const stockSelect = `
     cs.export_lisence_ref,
     cs.buy_bill_ref,
     cs.sell_bill_ref,
+    cs.sell_date,
     cs.client_name,
     cs.is_big_car,
     cs.is_used_car,
@@ -80,6 +84,7 @@ const stockSelect = `
       cn.car_name, clr.color, clr.hexa,
       lp.loading_port, dp.discharge_port, w.warhouse_name AS warehouse_name,
       bb.bill_ref AS buy_bill_ref, sb.bill_ref AS sell_bill_ref,
+      sb.date_sell AS sell_date,
       bd.amount AS buy_price
     FROM cars_stock cs
     LEFT JOIN clients c ON cs.id_client = c.id
@@ -122,6 +127,17 @@ func BuildStockQuery(f Filters) (string, []any) {
 		conditions = append(conditions, "cs.status = 'Available'")
 	} else if f.Status == "sold" {
 		conditions = append(conditions, "cs.status = 'Sold'")
+		if f.SoldThisMonth {
+			conditions = append(conditions, "DATE_FORMAT(cs.sell_date, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')")
+		}
+		if f.SoldSince != "" {
+			conditions = append(conditions, "cs.sell_date >= ?")
+			params = append(params, f.SoldSince)
+		}
+		if f.SoldUntil != "" {
+			conditions = append(conditions, "cs.sell_date <= ?")
+			params = append(params, f.SoldUntil)
+		}
 	}
 
 	where := ""
