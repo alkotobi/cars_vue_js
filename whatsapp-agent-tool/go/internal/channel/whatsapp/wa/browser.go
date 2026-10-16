@@ -18,9 +18,9 @@ import (
 	"github.com/go-rod/rod/lib/proto"
 	"github.com/ysmood/gson"
 
+	"whatsapp-agent-tool/internal/channel/whatsapp/dom"
 	"whatsapp-agent-tool/internal/chrome"
 	"whatsapp-agent-tool/internal/config"
-	"whatsapp-agent-tool/internal/dom"
 )
 
 const defaultElementTimeout = 20 * time.Second

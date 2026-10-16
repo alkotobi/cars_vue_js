@@ -16,7 +16,7 @@ import (
 	"strconv"
 	"time"
 
-	"whatsapp-agent-tool/internal/chatbot"
+	"whatsapp-agent-tool/internal/channel/carsapp/chatbot"
 	"whatsapp-agent-tool/internal/config"
 )
 

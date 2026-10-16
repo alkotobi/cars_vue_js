@@ -230,7 +230,7 @@ To force a fresh QR: stop the server and delete `data/whatsapp-profile/`.
 
 ## Verify it works
 ```bash
-WA_SMOKE=1 go test -run TestSmokeLive ./internal/wa -v   # (from the go/ dir) attach + login state
+WA_SMOKE=1 go test -run TestSmokeLive ./internal/channel/whatsapp/wa -v   # (from the go/ dir) attach + login state
 ```
 
 ## Run the MCP server

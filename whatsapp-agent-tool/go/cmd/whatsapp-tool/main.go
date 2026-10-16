@@ -33,6 +33,8 @@ import (
 	"time"
 
 	"whatsapp-agent-tool/internal/carshttp"
+	toolmcp "whatsapp-agent-tool/internal/channel/whatsapp/mcp"
+	"whatsapp-agent-tool/internal/channel/whatsapp/wa"
 	"whatsapp-agent-tool/internal/config"
 	"whatsapp-agent-tool/internal/db"
 	"whatsapp-agent-tool/internal/db/faq"
@@ -41,11 +43,9 @@ import (
 	"whatsapp-agent-tool/internal/identity"
 	"whatsapp-agent-tool/internal/jsonx"
 	"whatsapp-agent-tool/internal/keyringx"
-	toolmcp "whatsapp-agent-tool/internal/mcp"
 	"whatsapp-agent-tool/internal/profiles"
 	"whatsapp-agent-tool/internal/quote"
 	"whatsapp-agent-tool/internal/redact"
-	"whatsapp-agent-tool/internal/wa"
 )
 
 func main() {

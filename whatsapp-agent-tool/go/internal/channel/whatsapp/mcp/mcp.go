@@ -17,10 +17,10 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 
+	"whatsapp-agent-tool/internal/channel/whatsapp/wa"
 	"whatsapp-agent-tool/internal/config"
 	"whatsapp-agent-tool/internal/identity"
 	"whatsapp-agent-tool/internal/jsonx"
-	"whatsapp-agent-tool/internal/wa"
 )
 
 // Server owns the MCP server and the WhatsApp driver.

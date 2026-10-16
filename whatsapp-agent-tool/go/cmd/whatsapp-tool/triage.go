@@ -16,11 +16,11 @@ import (
 	"strings"
 	"time"
 
-	"whatsapp-agent-tool/internal/dom"
+	"whatsapp-agent-tool/internal/channel/whatsapp/dom"
+	"whatsapp-agent-tool/internal/channel/whatsapp/wa"
 	"whatsapp-agent-tool/internal/jsonx"
 	"whatsapp-agent-tool/internal/statex"
 	"whatsapp-agent-tool/internal/timex"
-	"whatsapp-agent-tool/internal/wa"
 )
 
 func cmdTriage(cli wa.Client, args []string) {

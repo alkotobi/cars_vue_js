@@ -13,9 +13,9 @@ import (
 	"strings"
 	"time"
 
+	"whatsapp-agent-tool/internal/channel/whatsapp/wa"
 	"whatsapp-agent-tool/internal/chrome"
 	"whatsapp-agent-tool/internal/jsonx"
-	"whatsapp-agent-tool/internal/wa"
 )
 
 func cmdKeepalive(cli wa.Client, args []string) {

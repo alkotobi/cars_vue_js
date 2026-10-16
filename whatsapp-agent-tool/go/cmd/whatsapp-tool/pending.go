@@ -14,12 +14,12 @@ import (
 	"regexp"
 	"strings"
 
+	"whatsapp-agent-tool/internal/channel/whatsapp/wa"
 	"whatsapp-agent-tool/internal/config"
 	"whatsapp-agent-tool/internal/db/todo"
 	"whatsapp-agent-tool/internal/jsonx"
 	"whatsapp-agent-tool/internal/statex"
 	"whatsapp-agent-tool/internal/timex"
-	"whatsapp-agent-tool/internal/wa"
 )
 
 const pendingGroup = "ai questions"

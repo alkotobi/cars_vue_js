@@ -18,7 +18,7 @@ which is the slim operational manual.
 > | `npm run build` | `cd go && go build -o bin/whatsapp-tool ./cmd/whatsapp-tool` |
 > | `npm start` / `npm run dev` | `whatsapp-tool mcp` |
 > | `npm run link` | `WA_HEADLESS=0 whatsapp-tool keepalive start` (manual QR) |
-> | `npm run smoke` | `WA_SMOKE=1 go test -run TestSmokeLive ./internal/wa -v` (in `go/`) |
+> | `npm run smoke` | `WA_SMOKE=1 go test -run TestSmokeLive ./internal/channel/whatsapp/wa -v` (in `go/`) |
 > | `npm run pending`/`triage`/`quote`/`price`/`faq`/`stock`/`identity` | `whatsapp-tool <name> …` |
 > | `npm run keepalive[:status\|:stop]` | `whatsapp-tool keepalive start\|status\|stop` |
 > | `npm run profiles[:mark-reply\|:set-active]` | `whatsapp-tool profiles [mark-reply\|set-active] …` |
@@ -38,10 +38,10 @@ MCP client (opencode/Claude/Cline)
 go/cmd/whatsapp-tool/main.go   dispatch + stdio MCP server, all logs → stderr
    │
    ▼
-go/internal/wa/browser.go      WhatsApp client — one chat "open" at a time (STATEFUL)
+go/internal/channel/whatsapp/wa/browser.go  WhatsApp client — one chat "open" at a time (STATEFUL)
    │
    ▼
-go/internal/chrome/chrome.go   persistent Chrome: spawn detached + CDP attach
+go/internal/chrome/chrome.go                persistent Chrome: spawn detached + CDP attach
    ▼
 Google Chrome (real) — OWN user-data-dir:
    profile: data/whatsapp-profile/   ← QR login + IndexedDB auth live here
@@ -85,7 +85,7 @@ A **visible Chrome window** opens on the QR screen. On the phone:
 
 ```bash
 cd go
-WA_SMOKE=1 go test -run TestSmokeLive ./internal/wa -v   # attaches, prints login state + sample
+WA_SMOKE=1 go test -run TestSmokeLive ./internal/channel/whatsapp/wa -v   # attaches, prints login state + sample
 ```
 
 ---
@@ -157,7 +157,7 @@ than driving a foreign browser.
 
 ## 4. Tool reference
 
-Tools registered in `go/internal/mcp/mcp.go`. Outputs are compact JSON (pretty-print removed on large
+Tools registered in `go/internal/channel/whatsapp/mcp/mcp.go`. Outputs are compact JSON (pretty-print removed on large
 payloads to save agent tokens). `whatsapp_session_info` stays pretty (it is tiny).
 
 ### `whatsapp_is_logged_in`
@@ -219,7 +219,7 @@ Clicks the compose box, types with randomized per-key delay, presses `Enter`. Se
 ### `whatsapp_get_last_messages`
 `limit?: 1..50` (default **10**) → `{ messages: [{ from: "me"|"them", text, time? }] }`
 
-- `from` is derived from **bubble geometry + panel direction** (`isOutgoing()` in `go/internal/dom`),
+- `from` is derived from **bubble geometry + panel direction** (`isOutgoing()` in `go/internal/channel/whatsapp/dom`),
   not from the tail test id. See gotcha 8 — the tail markers are mirrored in the Arabic UI and were
   the cause of every message being attributed to the wrong person.
 - Text-only: attachments/system notices without `selectable-text` are skipped.
@@ -260,7 +260,7 @@ in `go/internal/identity`; also available as `whatsapp-tool identity [--reset]`.
 | Chrome won't start (profile in use) | another Chrome on the profile | close it; `whatsapp-tool keepalive stop` |
 | Empty texts / weird names | WhatsApp UI redesign | re-inspect the DOM, update selectors (§7) |
 
-Debug helper: `WA_SMOKE=1 go test -run TestSmokeLive ./internal/wa -v` prints login state, chats and
+Debug helper: `WA_SMOKE=1 go test -run TestSmokeLive ./internal/channel/whatsapp/wa -v` prints login state, chats and
 messages. For DOM archaeology, dump the `data-testid` set from inside a `Page.Eval` in the driver.
 
 ---
@@ -283,7 +283,7 @@ messages. For DOM archaeology, dump the `data-testid` set from inside a `Page.Ev
    Headless + (`qr`|`pin`) = surface the "not linked" error instead of waiting (link with a visible window).
 7. **Never define named helpers inside `page.evaluate`.** esbuild's `keepNames` injects
    `__name is not defined` in the page. Do DOM extraction in `evaluate`, then clean/parse the raw
-   strings in Go (`cleanText`, `lines`, `TIME_RE`, `chatNameFrom` in `go/internal/dom`).
+   strings in Go (`cleanText`, `lines`, `TIME_RE`, `chatNameFrom` in `go/internal/channel/whatsapp/dom`).
 8. **RTL/Arabic UI mirrors the tail markers.** In this account's Arabic UI, *your own* messages are
    the ones carrying `[data-testid="tail-in"]` and sitting on the **left**; `tail-out` is the other
    person. Mapping `tail-out → "me"` attributed every message to the wrong speaker. `getLastMessages`
@@ -294,7 +294,7 @@ messages. For DOM archaeology, dump the `data-testid` set from inside a `Page.Ev
 9. **All TS must live in `src/`.** `tsconfig.json` has `rootDir: "src"`; a root-level `.ts` file
    breaks `npm run build` with TS6059.
 10. **Verification = `go build ./...` + `go vet ./...` + `go test ./...` + the gated live smoke
-    (`WA_SMOKE=1 go test -run TestSmokeLive ./internal/wa -v`).** *(Historical: the Node era used
+    (`WA_SMOKE=1 go test -run TestSmokeLive ./internal/channel/whatsapp/wa -v`).** *(Historical: the Node era used
     `npx tsc --noEmit` + `npm run build` + `npm run smoke`.)*
 11. **The self-chat's display name collides with a contact.** The `message-yourself-row` entry in
     the sidebar is titled like a normal contact, so `open_chat` with that name can open the
@@ -394,26 +394,28 @@ go/cmd/whatsapp-tool/pending.go  whatsapp-tool pending — pending scan (trim+pr
 go/cmd/whatsapp-tool/triage.go   whatsapp-tool triage — batch unread triage (→ data/triage.json)
 go/cmd/whatsapp-tool/keepalive.go whatsapp-tool keepalive — start | status | stop
 go/cmd/whatsapp-tool/chatpoll.go whatsapp-tool chat-poll — cars-app chat AI loop (polls, generates, replies)
-go/internal/mcp/mcp.go         MCP server: tools, schemas, stderr logging
-go/internal/wa/browser.go      WhatsApp client: launch/login-state/open/send/read/markAsRead/session
-go/internal/wa/types.go        shared WhatsApp types (ChatInfo, Message, Transport, …)
-go/internal/dom/dom.go         pure string/DOM parsers + constants (cleanText, isOutgoing, …)
-go/internal/chrome/chrome.go   Chrome lifecycle: CDP port, detached spawn, attach, stop
-go/internal/statex/            hot state (ai_questions / unanswered_chats): load/trim/archive/promote
-go/internal/quote/             deterministic pricing calculator (§13 formulas in code; reads MySQL)
-go/internal/db/                MySQL pool + pricing/faq/procurement/todo loaders + writers
-go/internal/db/chatbotstate/   shared chat-AI state (migration 009): cursors + single-writer lease
-go/internal/db/todo/           task tables (migration 008): store/query/cascade/reminders/users
-go/cmd/whatsapp-tool/todo.go   whatsapp-tool todo — the task CLI (add/list/show/.../due/users)
-go/internal/config/            centralised env parsing + .env loader (DB_* / CARS_* / CHAT_*)
-go/internal/carshttp/          cars app HTTP client (login → token, OS-store cache, retry) + stock/chat SELECT
-go/internal/chatbot/           cars-app chat AI: cursor state, prompt build, opencode exec, poll orchestration
-go/internal/chatbot/lease.go   single-writer lease heartbeat (renew on TTL/3, abort cycle if lost)
-go/internal/keyringx/          OS-native credential store (Credential Manager/Keychain/Secret Service)
-go/internal/identity/          code-minted assistant identity (data/ai-identity.json)
-go/internal/profiles/          profiles.json registry: list/mark-reply/set-active
-go/internal/jsonx,timex/       ordered JSON (SetEscapeHTML=false) + ISO time helpers
-go/bin/whatsapp-tool           the built binary (referenced by opencode.json)
+# channels (adapters) — internal/channel/<name>/
+go/internal/channel/carsapp/chatbot/          cars-app chat AI: cursor state, prompt build, opencode exec, poll orchestration
+go/internal/channel/carsapp/chatbot/lease.go  single-writer lease heartbeat (renew on TTL/3, abort cycle if lost)
+go/internal/channel/whatsapp/mcp/mcp.go       MCP server: tools, schemas, stderr logging
+go/internal/channel/whatsapp/wa/browser.go    WhatsApp client: launch/login-state/open/send/read/markAsRead/session
+go/internal/channel/whatsapp/wa/types.go      shared WhatsApp types (ChatInfo, Message, Transport, …)
+go/internal/channel/whatsapp/dom/dom.go       pure string/DOM parsers + constants (cleanText, isOutgoing, …)
+# shared core — one copy of every capability both channels consume
+go/internal/chrome/chrome.go                  Chrome lifecycle: CDP port, detached spawn, attach, stop
+go/internal/statex/                           hot state (ai_questions / unanswered_chats): load/trim/archive/promote
+go/internal/quote/                            deterministic pricing calculator (§13 formulas in code; reads MySQL)
+go/internal/db/                               MySQL pool + pricing/faq/procurement/todo loaders + writers
+go/internal/db/chatbotstate/                  shared chat-AI state (migration 009): cursors + single-writer lease
+go/internal/db/todo/                          task tables (migration 008): store/query/cascade/reminders/users
+go/cmd/whatsapp-tool/todo.go                  whatsapp-tool todo — the task CLI (add/list/show/.../due/users)
+go/internal/config/                           centralised env parsing + .env loader (DB_* / CARS_* / CHAT_*)
+go/internal/carshttp/                         cars app HTTP client (login → token, OS-store cache, retry) + stock/chat SELECT
+go/internal/keyringx/                         OS-native credential store (Credential Manager/Keychain/Secret Service)
+go/internal/identity/                         code-minted assistant identity (data/ai-identity.json)
+go/internal/profiles/                         profiles.json registry: list/mark-reply/set-active
+go/internal/jsonx,timex/                      ordered JSON (SetEscapeHTML=false) + ISO time helpers
+go/bin/whatsapp-tool                          the built binary (referenced by opencode.json)
 AGENTS.md        operational manual — how to drive the tools day to day (read every session)
 DEVELOPMENT.md   this file — how the code works (read only when changing code)
 ALGERIAN_DERJA.md  living glossary: derja words + context + currency rules (READ before translating)
@@ -440,8 +442,8 @@ Each tool method calls `ensureInit()` first — never assume a page exists.
 
 ### Adding a tool
 
-1. Add a public method to the client in `go/internal/wa/browser.go` (it calls `Init()` first).
-2. Register it in `go/internal/mcp/mcp.go`: a tool schema, and a handler that `try`/`catch`-style
+1. Add a public method to the client in `go/internal/channel/whatsapp/wa/browser.go` (it calls `Init()` first).
+2. Register it in `go/internal/channel/whatsapp/mcp/mcp.go`: a tool schema, and a handler that `try`/`catch`-style
    returns `{ content: [{ type: "text", text }] }` / `isError: true`. Keep large payloads compact
    (`jsonx.Marshal`) — pretty JSON costs ~20% more tokens for zero information. Use `jsonx`, never
    `encoding/json` (it must not escape HTML; see `go/MIGRATION_GO.md` "Wire format").
@@ -735,7 +737,7 @@ coordination is a **single-writer lease** + **shared cursors** in the `ai` DB (m
   does not re-answer history.
 - Safety: the holder checks the lease again **before posting**; if it was lost mid-generation the
   reply is dropped and the cursor left put, so the new owner answers those messages exactly once.
-  The heartbeat runs in a goroutine (`internal/chatbot/lease.go`); when it loses the lease the cycle
+  The heartbeat runs in a goroutine (`internal/channel/carsapp/chatbot/lease.go`); when it loses the lease the cycle
   aborts at the next safe point.
 
 **Web access (restricted).** For **two question types only** — **company credibility** and **car
@@ -763,9 +765,9 @@ follows (tool usage incl. the stock flags, never-invent-a-price, freight, ALGIER
 restrictions, Markdown tables, mandatory language match, Arabic numerals, disclosure note) live in
 **one file**: `chatbot/rules/client-reply.md`. It is injected in two places, both automatic:
 
-- **`BuildPrompt`** (`internal/chatbot/prompt.go`) reads it once per process (`sharedRules()`,
+- **`BuildPrompt`** (`internal/channel/carsapp/chatbot/prompt.go`) reads it once per process (`sharedRules()`,
   `sync.Once`) and appends it after the cars-app framing (group, capabilities, history, incoming).
-- **`ensureConfig`** (`internal/chatbot/llm.go`) splices it into **both** agent personas at the
+- **`ensureConfig`** (`internal/channel/carsapp/chatbot/llm.go`) splices it into **both** agent personas at the
   `<!-- shared-rules -->` marker, so `chatbot.md` and `chatbot-editor.md` carry only their
   *differences* (frontmatter/permissions, intro, the editor's edit instructions, the todo block).
 
@@ -855,7 +857,7 @@ first thing to check when two instances feel slow is that each is on its own por
 ### File size & organization
 - **Keep files under 800 lines.** If a file approaches 800 lines, refactor into smaller, focused modules.
 - **Single responsibility:** Each module should do one thing well (e.g., chrome management, whatsapp client, state management, CLI commands).
-- **Group by domain:** Put related code in subdirectories (e.g., `go/internal/chrome/`, `go/internal/wa/`, `go/internal/statex/`, `go/internal/mcp/`) to avoid a flat, crowded tree.
+- **Group by domain:** Put related code in subdirectories (e.g. `go/internal/channel/whatsapp/{wa,mcp,dom}/`, `go/internal/channel/carsapp/chatbot/`, `go/internal/chrome/`, `go/internal/statex/`) to avoid a flat, crowded tree. **Adapters live under `internal/channel/<name>/`; shared capabilities stay directly under `internal/`** — see `REFACTOR.md`.
 - **Avoid god files:** Split large classes/functions into smaller units. Extract helpers, types, and constants into their own files.
 
 ### Scalability
