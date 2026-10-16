@@ -2202,6 +2202,8 @@
     "downloadAudio": "Download audio",
     "downloadFile": "Download file",
     "clickToDownload": "Click to download",
+    "copyMessage": "Copy message",
+    "messageCopied": "Copied",
     "enterSelectionMode": "Enter selection mode",
     "exitSelectionMode": "Exit selection mode",
     "selectionMode": "Selection Mode",

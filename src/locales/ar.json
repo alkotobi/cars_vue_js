@@ -2147,6 +2147,8 @@
     "downloadAudio": "تنزيل الصوت",
     "downloadFile": "تنزيل الملف",
     "clickToDownload": "انقر للتنزيل",
+    "copyMessage": "نسخ الرسالة",
+    "messageCopied": "تم النسخ",
     "enterSelectionMode": "دخول وضع التحديد",
     "exitSelectionMode": "الخروج من وضع التحديد",
     "selectionMode": "وضع التحديد",

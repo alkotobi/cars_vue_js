@@ -2097,6 +2097,8 @@
     "downloadAudio": "下载音频",
     "downloadFile": "下载文件",
     "clickToDownload": "点击下载",
+    "copyMessage": "复制消息",
+    "messageCopied": "已复制",
     "enterSelectionMode": "进入选择模式",
     "exitSelectionMode": "退出选择模式",
     "selectionMode": "选择模式",

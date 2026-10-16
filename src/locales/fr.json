@@ -2073,6 +2073,8 @@
     "downloadAudio": "Télécharger l'audio",
     "downloadFile": "Télécharger le fichier",
     "clickToDownload": "Cliquez pour télécharger",
+    "copyMessage": "Copier le message",
+    "messageCopied": "Copié",
     "enterSelectionMode": "Entrer en mode sélection",
     "exitSelectionMode": "Quitter le mode sélection",
     "selectionMode": "Mode Sélection",

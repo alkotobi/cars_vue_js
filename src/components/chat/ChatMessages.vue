@@ -56,6 +56,9 @@ const isSending = ref(false)
 const messagesContainer = ref(null)
 const messageInputRef = ref(null)
 const fileInputRef = ref(null)
+// Id of the message whose text was just copied, so the button can show a
+// transient check mark. Reset on a short timer (see copyMessage).
+const copiedMessageId = ref(null)
 
 // Coalesce the global "recompute badges" event. Several paths can fire it in one
 // burst (send -> reconcile, reset, group switch), and every listener (AppHeader)
@@ -2246,6 +2249,34 @@ const downloadFile = async (filePath, fileName) => {
   }
 }
 
+// Copy a message body to the clipboard. Prefers the async Clipboard API but
+// falls back to a hidden textarea on insecure contexts / older browsers.
+const copyMessage = async (message) => {
+  const text = message && message.message != null ? String(message.message) : ''
+  if (!text) return
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text)
+    } else {
+      const textarea = document.createElement('textarea')
+      textarea.value = text
+      textarea.setAttribute('readonly', '')
+      textarea.style.position = 'fixed'
+      textarea.style.opacity = '0'
+      document.body.appendChild(textarea)
+      textarea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textarea)
+    }
+    copiedMessageId.value = message.id
+    setTimeout(() => {
+      if (copiedMessageId.value === message.id) copiedMessageId.value = null
+    }, 1500)
+  } catch (err) {
+    console.error('Error copying message:', err)
+  }
+}
+
 const formatFileSize = (bytes) => {
   if (bytes === 0) return '0 Bytes'
   const k = 1024
@@ -2874,7 +2905,19 @@ const clearMessageSearch = () => {
               />
             </div>
             <div class="message-header">
-              <span class="sender-name">{{ message.sender_username }}</span>
+              <div class="sender-info">
+                <span class="sender-name">{{ message.sender_username }}</span>
+                <button
+                  class="copy-message-btn"
+                  type="button"
+                  :title="
+                    copiedMessageId === message.id ? t('chat.messageCopied') : t('chat.copyMessage')
+                  "
+                  @click.stop="copyMessage(message)"
+                >
+                  <i :class="copiedMessageId === message.id ? 'fas fa-check' : 'fas fa-copy'"></i>
+                </button>
+              </div>
               <div class="time-info">
                 <span class="relative-time">{{ getRelativeTime(message.time) }}</span>
                 <span class="absolute-time">{{ formatTime(message.time) }}</span>
@@ -3670,6 +3713,51 @@ const clearMessageSearch = () => {
 
 .own-message .sender-name {
   color: white;
+}
+
+.sender-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.copy-message-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.message-wrapper:hover .copy-message-btn,
+.copy-message-btn:focus-visible {
+  opacity: 0.7;
+}
+
+.copy-message-btn:hover {
+  opacity: 1;
+  background-color: rgba(0, 0, 0, 0.08);
+}
+
+.own-message .copy-message-btn:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+@media (hover: none) {
+  .copy-message-btn {
+    opacity: 0.7;
+  }
 }
 
 .time-info {
