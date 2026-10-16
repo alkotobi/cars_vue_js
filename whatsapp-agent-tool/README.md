@@ -116,6 +116,27 @@ whatsapp-tool buy-payments edit --id 3 --amount 60000 --date "2026-10-11 13:30:0
 whatsapp-tool buy-payments delete --id 3             # remove one
 ```
 
+## Tasks & reminders (`ai` database)
+
+A **todo** is a task for the logged-in WhatsApp account (owner = `WA_PROFILE`); todos can nest
+without limit as subtasks, carry a priority + optional deadline, and carry reminders. A parent is
+`done` only when every child is done or cancelled (a new open child reopens it). Reminders have no
+daemon — they surface in `whatsapp-tool todo due` and the `todosDue` block of the `pending` report.
+
+```
+whatsapp-tool todo add --title "call Sofia back" --priority high --due 2026-10-20 --requested-by "Sofia"
+whatsapp-tool todo add --title "collect VIN" --parent 12            # a subtask
+whatsapp-tool todo list                                             # open/urgent/due-soon first
+whatsapp-tool todo list --overdue --tree                            # nested view
+whatsapp-tool todo show 12                                          # todo + children + reminders + history
+whatsapp-tool todo done 13                                          # parent auto-completes when all kids resolve
+whatsapp-tool todo move 13 --parent 20                              # re-parent (cycle rejected)
+whatsapp-tool todo remind add 12 --at "2026-10-20 09:30" --note "before noon"
+whatsapp-tool todo due                                              # pending reminders now due
+whatsapp-tool todo remind sent 4                                    # mark one sent after acting
+whatsapp-tool todo delete 12                                        # removes the todo and its whole subtree
+```
+
 
 Later calls reuse the stored token (no re-login until the server rejects it). If the store is
 empty, the command prints `status: ERROR, code: missing_credentials` — the agent then asks you

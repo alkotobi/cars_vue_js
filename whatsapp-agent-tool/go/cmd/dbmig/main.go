@@ -25,7 +25,7 @@ func main() {
 
 	switch os.Args[1] {
 	case "inspect":
-		tables, err := db.Query("SELECT table_name FROM information_schema.tables WHERE table_schema = 'ai' ORDER BY table_name")
+		tables, err := db.Query("SELECT TABLE_NAME AS table_name FROM information_schema.tables WHERE table_schema = 'ai' ORDER BY TABLE_NAME")
 		if err != nil {
 			fatal(err)
 		}
@@ -46,7 +46,7 @@ func main() {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			fatal(err)
 		}
-		tables, err := db.Query("SELECT table_name FROM information_schema.tables WHERE table_schema = 'ai' ORDER BY table_name")
+		tables, err := db.Query("SELECT TABLE_NAME AS table_name FROM information_schema.tables WHERE table_schema = 'ai' ORDER BY TABLE_NAME")
 		if err != nil {
 			fatal(err)
 		}
@@ -123,7 +123,7 @@ func main() {
 		fmt.Printf("customs config updated, affected=%d value=%s\n", n, string(b))
 	case "verify":
 		dir := os.Args[2]
-		tables, err := db.Query("SELECT table_name FROM information_schema.tables WHERE table_schema = 'ai' ORDER BY table_name")
+		tables, err := db.Query("SELECT TABLE_NAME AS table_name FROM information_schema.tables WHERE table_schema = 'ai' ORDER BY TABLE_NAME")
 		if err != nil {
 			fatal(err)
 		}

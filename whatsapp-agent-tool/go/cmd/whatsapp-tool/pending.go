@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"whatsapp-agent-tool/internal/config"
+	"whatsapp-agent-tool/internal/db/todo"
 	"whatsapp-agent-tool/internal/jsonx"
 	"whatsapp-agent-tool/internal/statex"
 	"whatsapp-agent-tool/internal/timex"
@@ -59,6 +60,7 @@ func cmdPending(cli wa.Client, args []string) {
 	report.waiting = buildWaiting(cf)
 	report.toSendToGroup = buildToSend(qf)
 	report.openQuestions = countOpen(qf)
+	report.todosDue = buildTodosDue()
 
 	writePendingDump(&report, qf)
 	out := report.marshal()
@@ -78,6 +80,7 @@ type pendingReport struct {
 	dataReady     []*ordered
 	waiting       []*ordered
 	toSendToGroup []*ordered
+	todosDue      []*ordered
 	openQuestions int
 	fullDump      string
 }
@@ -95,6 +98,9 @@ func (r *pendingReport) marshal() *ordered {
 	}
 	if r.noteSet {
 		pairs = append(pairs, pair("note", r.note))
+	}
+	if len(r.todosDue) > 0 {
+		pairs = append(pairs, pair("todosDue", r.todosDue))
 	}
 	pairs = append(pairs,
 		pair("dataReady", r.dataReady),
@@ -146,6 +152,9 @@ func runPendingGroupScan(cli wa.Client, qf *statex.QuestionsFile, cf *statex.Cha
 	for _, m := range msgs {
 		if m.From != "them" {
 			continue // our own re-posts are not answers
+		}
+		if strings.Contains(m.Text, "AR:") && strings.Contains(m.Text, "هذا الرد مولد بالذكاء الاصطناعي") {
+			continue
 		}
 		if legacyAny.MatchString(m.Text) {
 			sawLegacy = true
@@ -258,6 +267,36 @@ func buildWaiting(cf statex.ChatsFile) []*ordered {
 	return out
 }
 
+// buildTodosDue surfaces this login's reminders that have come due (todo tables,
+// migration 008). It is the "reminder delivery" path — there is no daemon; the
+// due list rides the pending report every turn. Mark each one sent afterwards
+// with `whatsapp-tool todo remind sent <id>`.
+func buildTodosDue() []*ordered {
+	due, err := todo.Due("")
+	if err != nil {
+		return []*ordered{}
+	}
+	me := config.WAProfile()
+	out := []*ordered{}
+	for _, d := range due {
+		if d.Owner != me {
+			continue
+		}
+		out = append(out, &ordered{Pairs: []orderedPair{
+			pair("reminderId", d.ReminderID),
+			pair("todoId", d.TodoID),
+			pair("title", d.Title),
+			pair("priority", d.Priority),
+			pair("remindAt", nilOrStr(d.RemindAt)),
+			pair("dueAt", nilOrStr(d.DueAt)),
+			pair("requestedBy", nilOrStr(d.RequestedBy)),
+			pair("chatRef", nilOrStr(d.ChatRef)),
+			pair("note", nilOrStr(d.Note)),
+		}})
+	}
+	return out
+}
+
 func buildToSend(qf statex.QuestionsFile) []*ordered {
 	out := []*ordered{}
 	for _, q := range qf.Questions {
@@ -297,6 +336,7 @@ func writePendingDump(r *pendingReport, qf statex.QuestionsFile) {
 		pair("dataReady", r.dataReady),
 		pair("waiting", r.waiting),
 		pair("toSendToGroup", r.toSendToGroup),
+		pair("todosDue", r.todosDue),
 		pair("openQuestions", open),
 	}}
 	data, err := jsonx.MarshalIndent(dump, "", "  ")

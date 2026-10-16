@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // C is the package-level config, initialised once at import from the environment
@@ -27,10 +28,50 @@ type Cars struct {
 	APIToken string
 }
 
+// Chatbot configures the cars-app chat AI (`whatsapp-tool chat-poll`).
+type Chatbot struct {
+	// PollInterval is how long the daemon sleeps between two poll cycles.
+	PollInterval time.Duration
+	// MaxReplyChars caps a generated reply before the AI disclosure line is appended.
+	MaxReplyChars int
+	// OpenCodeBin is the opencode CLI binary (defaults to "opencode").
+	OpenCodeBin string
+	// Agent is the opencode agent used to generate replies. It is sandboxed:
+	// its only tool is bash restricted to read-only `whatsapp-tool` lookups.
+	Agent string
+	// Model optionally overrides the model pinned in the workdir config.
+	Model string
+	// WorkDir is the isolated opencode project the bot runs in. Empty = the
+	// default `$HOME/.whatsapp-tool/chatbot` (kept outside this repo so the
+	// repo's own AGENTS.md and whatsapp MCP config cannot leak into the reply).
+	WorkDir string
+	// AlertThrottle is the minimum gap between two failure alarms.
+	AlertThrottle time.Duration
+	// SeedWindow bounds how recent a newly-discovered group's newest message may
+	// be for the bot to answer it. A group first seen with only stale messages is
+	// seeded past them (its history is never answered); a group whose last
+	// message is fresh is treated as just started and that message is answered.
+	SeedWindow time.Duration
+	// LeaseTTL is how long the single-writer lease lasts between heartbeats. The
+	// active daemon renews it every TTL/3; a standby takes over once it expires,
+	// so this is also the failover window after the active machine dies.
+	LeaseTTL time.Duration
+	// LeaseOwner overrides the lease owner string (default host:pid:profile).
+	// Normally empty — set only to pin a friendly name for observability.
+	LeaseOwner string
+	// AlarmCommand is the program run on failure (default "beep" — macOS system
+	// alert beeps; set "say" for a TTS voice, or any other program).
+	AlarmCommand string
+	// AlarmVoice optionally selects a `say` voice (only used when AlarmCommand
+	// is "say").
+	AlarmVoice string
+}
+
 type Config struct {
 	RootDir          string
 	DB               DB
 	Cars             Cars
+	Chatbot          Chatbot
 	WAProfile        string
 	ProfileIsDefault bool
 }
@@ -184,6 +225,68 @@ func carsConfig() Cars {
 	}
 }
 
+// chatbotConfig reads the chat-poll tuning keys. Defaults keep the daemon polite:
+// 5s between cycles and an 800-char cap on generated replies.
+func chatbotConfig() Chatbot {
+	interval := 5 * time.Second
+	if s := strings.TrimSpace(Env("CHAT_POLL_INTERVAL")); s != "" {
+		if n, err := strconv.ParseInt(s, 10, 64); err == nil && n > 0 {
+			interval = time.Duration(n) * time.Second
+		}
+	}
+	maxChars := 800
+	if s := strings.TrimSpace(Env("CHAT_MAX_REPLY_CHARS")); s != "" {
+		if n, err := strconv.ParseInt(s, 10, 64); err == nil && n > 0 {
+			maxChars = int(n)
+		}
+	}
+	agent := "chatbot"
+	if s := strings.TrimSpace(Env("CHAT_AGENT")); s != "" {
+		agent = s
+	}
+	alertThrottle := 10 * time.Minute
+	if s := strings.TrimSpace(Env("CHAT_ALERT_THROTTLE")); s != "" {
+		if n, err := strconv.ParseInt(s, 10, 64); err == nil && n > 0 {
+			alertThrottle = time.Duration(n) * time.Second
+		}
+	}
+	seedWindow := 10 * time.Minute
+	if s := strings.TrimSpace(Env("CHAT_SEED_WINDOW")); s != "" {
+		if n, err := strconv.ParseInt(s, 10, 64); err == nil && n > 0 {
+			seedWindow = time.Duration(n) * time.Second
+		}
+	}
+	leaseTTL := 60 * time.Second
+	if s := strings.TrimSpace(Env("CHAT_LEASE_TTL")); s != "" {
+		if n, err := strconv.ParseInt(s, 10, 64); err == nil && n > 0 {
+			leaseTTL = time.Duration(n) * time.Second
+		}
+	}
+	return Chatbot{
+		PollInterval:  interval,
+		MaxReplyChars: maxChars,
+		OpenCodeBin:   firstNonEmpty(Env("OPENCODE_BIN"), "opencode"),
+		Agent:         agent,
+		Model:         strings.TrimSpace(Env("CHAT_MODEL")),
+		WorkDir:       strings.TrimSpace(Env("CHAT_WORKDIR")),
+		AlertThrottle: alertThrottle,
+		SeedWindow:    seedWindow,
+		LeaseTTL:      leaseTTL,
+		LeaseOwner:    strings.TrimSpace(Env("CHAT_LEASE_OWNER")),
+		AlarmCommand:  firstNonEmpty(Env("CHAT_ALARM_CMD"), "beep"),
+		AlarmVoice:    strings.TrimSpace(Env("CHAT_ALARM_VOICE")),
+	}
+}
+
+func firstNonEmpty(vals ...string) string {
+	for _, v := range vals {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
 func init() {
 	root := rootDir()
 	loadDotenv(root)
@@ -195,6 +298,7 @@ func init() {
 		RootDir:          root,
 		DB:               dbConfig(),
 		Cars:             carsConfig(),
+		Chatbot:          chatbotConfig(),
 		WAProfile:        waProfile,
 		ProfileIsDefault: Env("WA_PROFILE") == "",
 	}

@@ -84,8 +84,7 @@ func uploadOnce(token, fileName string, data []byte, destinationFolder string) (
 	req.Header.Set("X-Cards-Tenant", config.C.Cars.Tenant)
 	req.Header.Set("CARDS-TENANT", config.C.Cars.Tenant)
 
-	client := &http.Client{Timeout: requestTimeout}
-	res, err := client.Do(req)
+	res, err := httpClient.Do(req)
 	if err != nil {
 		return "", &ApiError{Code: "network_error", Message: "cannot reach " + endpoint + ": " + err.Error()}
 	}

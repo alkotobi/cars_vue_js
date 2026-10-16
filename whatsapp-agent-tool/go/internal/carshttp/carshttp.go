@@ -40,6 +40,15 @@ func (e *ApiError) Error() string {
 
 const requestTimeout = 20 * time.Second
 
+// httpClient is the shared API client. Keep-alives are OFF on purpose: a nil
+// Transport would fall back to http.DefaultTransport, whose pooled connections
+// the tenant's nginx closes while the chat-poll daemon sits idle between
+// cycles, so the next POST reuses a dead connection and fails with "EOF".
+var httpClient = &http.Client{
+	Timeout:   requestTimeout,
+	Transport: &http.Transport{DisableKeepAlives: true},
+}
+
 func assertConfigured() error {
 	if config.C.Cars.BaseURL == "" || config.C.Cars.Tenant == "" {
 		return &ApiError{Code: "not_configured", Message: "CARS_BASE_URL and CARS_TENANT must be set in .env"}
@@ -69,8 +78,7 @@ func postJSON(body map[string]any) (*apiResponse, error) {
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("X-Cards-Tenant", config.C.Cars.Tenant)
 	req.Header.Set("CARDS-TENANT", config.C.Cars.Tenant)
-	client := &http.Client{Timeout: requestTimeout}
-	res, err := client.Do(req)
+	res, err := httpClient.Do(req)
 	if err != nil {
 		return nil, &ApiError{Code: "network_error", Message: "cannot reach " + endpoint + ": " + err.Error()}
 	}

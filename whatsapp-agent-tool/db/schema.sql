@@ -355,6 +355,110 @@ CREATE TABLE IF NOT EXISTS faq (
   FULLTEXT KEY ft_faq (question, answer)
 ) ENGINE=InnoDB;
 
+-- ---------------------------------------------------------------- chat group permissions
+-- Per-group capabilities for the chat AI (see db/migrate-007). A group with no
+-- row is fully restricted; the operator manages rows with `whatsapp-tool group-perms`.
+CREATE TABLE IF NOT EXISTS chat_group_permissions (
+  id                        BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  tenant                    VARCHAR(64)      NOT NULL,
+  id_chat_group             BIGINT UNSIGNED  NOT NULL,
+  can_give_edit_instruction TINYINT(1)       NOT NULL DEFAULT 0,
+  can_c_suppliers_info      TINYINT(1)       NOT NULL DEFAULT 0,
+  can_c_cost                TINYINT(1)       NOT NULL DEFAULT 0,
+  updated_at                DATETIME(3)      NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  UNIQUE KEY uq_group_perm (tenant, id_chat_group)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ---------------------------------------------------------------- todos
+-- A todo is something a logged-in WhatsApp account must do (asked by a client /
+-- workmate). Todos form an unlimited tree (parent_id -> todos.id, CASCADE) owned
+-- by a WhatsApp login (todo_users.profile). A parent with children is 'done' iff
+-- every child is resolved (done OR cancelled) — recomputed in code
+-- (go/internal/db/todo/cascade.go), not by a trigger. Reminders are a child table;
+-- todo_status_history is append-only.
+CREATE TABLE IF NOT EXISTS todo_users (
+  id           BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  profile      VARCHAR(64)  NOT NULL,   -- WA_PROFILE slug (the login)
+  display_name VARCHAR(160) NULL,
+  number       VARCHAR(40)  NULL,
+  created_at   DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  updated_at   DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  UNIQUE KEY uq_todo_users_profile (profile)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS todos (
+  id           BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  parent_id    BIGINT UNSIGNED NULL,
+  owner_id     BIGINT UNSIGNED NOT NULL,
+  title        VARCHAR(255) NOT NULL,
+  description  TEXT NULL,
+  status       ENUM('open','done','cancelled') NOT NULL DEFAULT 'open',
+  priority     ENUM('low','normal','high','urgent') NOT NULL DEFAULT 'normal',
+  due_at       DATETIME(3) NULL,
+  requested_by VARCHAR(160) NULL,
+  chat_ref     VARCHAR(160) NULL,
+  done_at      DATETIME(3) NULL,
+  created_at   DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  updated_at   DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  KEY idx_todos_owner (owner_id, status),
+  KEY idx_todos_parent (parent_id),
+  KEY idx_todos_status (status),
+  KEY idx_todos_due (due_at),
+  KEY idx_todos_priority (priority),
+  CONSTRAINT fk_todos_parent FOREIGN KEY (parent_id) REFERENCES todos(id) ON DELETE CASCADE,
+  CONSTRAINT fk_todos_owner  FOREIGN KEY (owner_id)  REFERENCES todo_users(id) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS todo_reminders (
+  id         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  todo_id    BIGINT UNSIGNED NOT NULL,
+  remind_at  DATETIME(3) NOT NULL,
+  channel    ENUM('whatsapp','local') NOT NULL DEFAULT 'whatsapp',
+  status     ENUM('pending','sent','cancelled') NOT NULL DEFAULT 'pending',
+  sent_at    DATETIME(3) NULL,
+  note       VARCHAR(255) NULL,
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  KEY idx_todo_reminders_due (remind_at, status),
+  KEY idx_todo_reminders_todo (todo_id),
+  CONSTRAINT fk_todo_reminders_todo FOREIGN KEY (todo_id) REFERENCES todos(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS todo_status_history (
+  id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  todo_id     BIGINT UNSIGNED NOT NULL,
+  from_status ENUM('open','done','cancelled') NULL,
+  to_status   ENUM('open','done','cancelled') NOT NULL,
+  changed_by  VARCHAR(64) NULL,
+  auto        TINYINT(1) NOT NULL DEFAULT 0,
+  reason      VARCHAR(255) NULL,
+  changed_at  DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  KEY idx_todo_history_todo (todo_id, changed_at),
+  CONSTRAINT fk_todo_history_todo FOREIGN KEY (todo_id) REFERENCES todos(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ------------------------------------------------------ chatbot daemon state
+-- Shared state that lets several machines run `whatsapp-tool chat-poll` against
+-- one tenant with a single active writer (see db/migrate-009). The cursor is the
+-- per-group last-answered client message id (monotonic); the lease is the
+-- single-writer lock, all time checks on the DB clock (NOW(3)).
+CREATE TABLE IF NOT EXISTS chatbot_group_cursors (
+  id              BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  tenant          VARCHAR(64)     NOT NULL,
+  id_chat_group   BIGINT UNSIGNED NOT NULL,
+  last_message_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  updated_at      DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  UNIQUE KEY uq_chatbot_cursor (tenant, id_chat_group)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS chatbot_leases (
+  tenant       VARCHAR(64)  NOT NULL PRIMARY KEY,
+  owner        VARCHAR(190) NOT NULL,
+  acquired_at  DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  heartbeat_at DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  expires_at   DATETIME(3)  NOT NULL,
+  KEY idx_chatbot_lease_expires (expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 INSERT INTO schema_migrations (version) VALUES ('001_initial')
   ON DUPLICATE KEY UPDATE version = version;
 INSERT INTO schema_migrations (version) VALUES ('002_procurement_and_restructure')
@@ -364,4 +468,12 @@ INSERT INTO schema_migrations (version) VALUES ('003_prices_linked_to_suppliers'
 INSERT INTO schema_migrations (version) VALUES ('004_documents_linked_to_quotations')
   ON DUPLICATE KEY UPDATE version = version;
 INSERT INTO schema_migrations (version) VALUES ('005_supplier_payments_with_swifts')
+  ON DUPLICATE KEY UPDATE version = version;
+INSERT INTO schema_migrations (version) VALUES ('006_payment_quotations_many_to_many')
+  ON DUPLICATE KEY UPDATE version = version;
+INSERT INTO schema_migrations (version) VALUES ('007_chat_group_permissions')
+  ON DUPLICATE KEY UPDATE version = version;
+INSERT INTO schema_migrations (version) VALUES ('008_todos')
+  ON DUPLICATE KEY UPDATE version = version;
+INSERT INTO schema_migrations (version) VALUES ('009_chatbot_lease')
   ON DUPLICATE KEY UPDATE version = version;

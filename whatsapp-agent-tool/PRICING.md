@@ -1,9 +1,10 @@
 # Pricing data — schemas, formulas, maintenance
 
 **When to read this file:** only when (a) the boss gives you a new freight/rate/benefit/clearance
-number to store, or (b) `whatsapp-tool quote` returns `STALE` / `MISSING` and you need to know which
-file is involved. Day-to-day quoting does **not** need this file — `whatsapp-tool quote` does the math
-(AGENTS.md §13).
+number to store, or (b) `whatsapp-tool quote` returns `MISSING` (or `warnings`/`stale` flag old or
+expired data) and you need to know which table is involved. Day-to-day quoting does **not** need this
+file — `whatsapp-tool quote` does the math (AGENTS.md §13). Stale/expired data is no longer a hard
+stop: the calculator quotes the best available figure and flags it (2026-10-14).
 
 ## 0. Where the data lives (MySQL)
 
@@ -81,8 +82,11 @@ fat boy (2), lio (7) — list with `procurement suppliers`), `loadingPort` (e.g.
   `shipping_lines` lookups), `container40ftUsd`, `timestamp`, `etd` (vessel estimated time
   of departure), `validTo`, `freeTimeDays`. A quote is valid until **`validTo`, which is always
   `<= etd`**; if `validTo` is omitted, `etd` is used as the expiry. Always **+300 USD freight
-  benefit per container** on top of my cost. Keep 2 months; use the most recent **valid** quote
-  for the route/line.
+  benefit per container** on top of my cost. Keep 2 months; when several valid quotes exist the
+  calculator uses the **cheapest** one **to the requested discharge port** (`quote --port …`,
+  default **ALGIERS** when the client names none; a
+  newer quote only breaks a price tie) — the shipping line is never asked, `--line` is an
+  operator-only override.
 - `config` (key `rate`) — USD → DZD: `usdToDza`, `timestamp` (time series; newest `effective_at` wins).
 - `clearance` (+ `clearance_aliases`) and `config` (key `customs`) — customs clearance per car in **DZA**: `currency` (`"DZA"`),
   `tvnIncluded` (always `false`), `allInRetailBenefitUsd` (currently **1000**), `updatedAt`,
@@ -97,7 +101,7 @@ fat boy (2), lio (7) — list with `procurement suppliers`), `loadingPort` (e.g.
    (a new row in the time series); clearance → `set-clearance`; **car buy price → `set-car`
    (which appends the new price to `car_price_history` automatically)**.
 2. **Trim to 2 months** — old rows can be deleted; the loaders only ever use the latest/valid ones.
-3. **Most recent valid entry only** (by `effective_at`/`timestamp`; freight also must not be past `validTo`).
+3. **Most recent valid entry only** (by `effective_at`/`timestamp`); freight also must not be past `validTo`, and among valid quotes the **cheapest line to the requested port** wins (newest breaks a tie).
 4. **Weekly validity** — data older than **7 days** is not valid. Stale → ask the boss, never
    guess. If the boss says "continue using last week's data" → re-issue the last valid values with
    the matching `set-*` command (fresh timestamp), then proceed.

@@ -868,9 +868,10 @@ func (b *Browser) Close() error {
 func (b *Browser) close() error {
 	if b.transport == "cdp" {
 		fmt.Fprintln(os.Stderr, "[whatsapp-mcp] detaching from Chrome (the browser keeps running).")
-		if b.browser != nil {
-			_ = b.browser.Close()
-		}
+		// Do NOT call b.browser.Close(): rod's Close sends the CDP "Browser.close"
+		// command, which quits Chrome — killing the very browser this transport
+		// exists to keep alive. We only drop our connection; the OS closes the
+		// socket when this process exits and the detached Chrome survives.
 	} else if b.transport == "launch" {
 		if b.browser != nil {
 			_ = b.browser.Close()
@@ -1360,9 +1361,14 @@ func (b *Browser) setChatFilter(which string) (bool, *int) {
 }
 
 func (b *Browser) clickFilterButton(index int) {
+	// WhatsApp wraps each sidebar filter chip in a div[data-testid="filter-button"]
+	// (role="none"); the real control is an inner button[role="tab"]. Clicking the
+	// wrapper is a no-op (the filter never switches), so click the inner button.
 	_, _ = b.eval(`(i) => {
-      const b = document.querySelectorAll('[data-testid="filter-button"]')[i];
-      if (b) b.click();
+      const chip = document.querySelectorAll('[data-testid="filter-button"]')[i];
+      if (!chip) return false;
+      const btn = chip.querySelector('button[role="tab"]') || chip;
+      btn.click();
       return true;
     }`, index)
 }

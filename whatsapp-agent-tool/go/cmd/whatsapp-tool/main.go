@@ -1,6 +1,7 @@
 // whatsapp-tool — the Go twin of the npm CLIs. One static binary, subcommands.
 //
-//	whatsapp-tool quote --car "COOLRAY BATTLE" --mode retail-dza [--line CMA] [--list] [--options]
+//	whatsapp-tool quote --car "COOLRAY BATTLE" --mode retail-dza [--port ALGIERS] [--line CMA] [--list] [--options]
+//	whatsapp-tool freight [--port ALGIERS] [--line CMA]   # shipping rate per line to a port (no car needed)
 //	whatsapp-tool faq  <search ".." | list [--all] | add --q .. --a .. | update --id ..>
 //	whatsapp-tool stock [--car .. --color .. --vin .. --status .. --port .. --limit N --include-hidden] | creds | login
 //	whatsapp-tool suppliers [name] [--name ..] [--limit N]   # supplier list (cars app)
@@ -10,11 +11,14 @@
 //	whatsapp-tool car-names [name] [--name ..] [--brand ..] [--limit N]   # read-only car-name list (cars app)
 //	whatsapp-tool car-names add --name <model> --brand-id <id> (--big|--small) [--notes ..]   # create a car name — writes
 //	whatsapp-tool inquiries [list | create | add-car | cars <id> | delete <id>]   # supplier quote requests (cars app)
+//	whatsapp-tool buy-payments [--bill-id N | --supplier-id N | --id N] | add | edit | delete
+//	whatsapp-tool todo <add|list|show|done|reopen|cancel|edit|move|assign|delete|remind|due|users>   # tasks for the logged-in user
 //	whatsapp-tool identity [--reset]
 //	whatsapp-tool profiles [list|mark-reply <name>|set-active <name> <true|false>]
 //	whatsapp-tool pending [--state]   # trim + promote (+ group scan when browser is live)
 //	whatsapp-tool triage [N] [msgs] [--no-read]   # batch unread triage -> data/triage.json
 //	whatsapp-tool keepalive <start|status|stop>   # bring the shared Chrome up / report / kill
+//	whatsapp-tool chat-poll [--once] [--interval N]   # cars-app chat AI (polls, generates, replies)
 //	whatsapp-tool mcp              # stdio MCP server (Go twin of dist/index.js)
 package main
 
@@ -31,12 +35,14 @@ import (
 	"whatsapp-agent-tool/internal/db"
 	"whatsapp-agent-tool/internal/db/faq"
 	dbp "whatsapp-agent-tool/internal/db/pricing"
+	"whatsapp-agent-tool/internal/groupauth"
 	"whatsapp-agent-tool/internal/identity"
 	"whatsapp-agent-tool/internal/jsonx"
 	"whatsapp-agent-tool/internal/keyringx"
 	toolmcp "whatsapp-agent-tool/internal/mcp"
 	"whatsapp-agent-tool/internal/profiles"
 	"whatsapp-agent-tool/internal/quote"
+	"whatsapp-agent-tool/internal/redact"
 	"whatsapp-agent-tool/internal/wa"
 )
 
@@ -46,9 +52,12 @@ func main() {
 		usage()
 		os.Exit(1)
 	}
+	gateCommand(args[0], args[1:])
 	switch args[0] {
 	case "quote":
 		cmdQuote(args[1:])
+	case "freight":
+		cmdFreight(args[1:])
 	case "price":
 		cmdPrice(args[1:])
 	case "faq":
@@ -69,6 +78,10 @@ func main() {
 		cmdClearance(args[1:])
 	case "buy-payments":
 		cmdBuyPayments(args[1:])
+	case "todo":
+		cmdTodo(args[1:])
+	case "group-perms":
+		cmdGroupPerms(args[1:])
 	case "identity":
 		cmdIdentity(args[1:])
 	case "profiles":
@@ -79,6 +92,8 @@ func main() {
 		cmdTriage(wa.NewBrowser(), args[1:])
 	case "keepalive":
 		cmdKeepalive(wa.NewBrowser(), args[1:])
+	case "chat-poll":
+		cmdChatPoll(args[1:])
 	case "mcp":
 		cmdMCP()
 	default:
@@ -89,7 +104,123 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, `usage: whatsapp-tool <quote|price|faq|procurement|stock|suppliers|brands|car-names|inquiries|clearance|buy-payments|identity|profiles|pending|triage|keepalive|mcp> ...`)
+	fmt.Fprintln(os.Stderr, `usage: whatsapp-tool <quote|freight|price|faq|procurement|stock|suppliers|brands|car-names|inquiries|clearance|buy-payments|todo|group-perms|identity|profiles|pending|triage|keepalive|chat-poll|mcp> ...`)
+}
+
+// gateCommand refuses a bot-invoked command whose required capability the
+// group lacks (see internal/groupauth). It is a no-op unless WBOT_PERMS is set,
+// so the operator and the daemon are never constrained. Refusing the whole
+// command here — before any DB or network work — is the primary enforcement;
+// redaction in the print helpers covers the reads that ARE allowed.
+func gateCommand(cmd string, rest []string) {
+	if !groupauth.Restricted() {
+		return
+	}
+	need := requiredPermission(cmd, rest)
+	if need == "" || groupauth.Allow(need) {
+		return
+	}
+	failErr("forbidden: this chat group is not allowed to use `"+cmd+"` ("+need+")",
+		pair("code", "forbidden_permission"), pair("permission", need))
+}
+
+// requiredPermission maps a command (and its subcommands) to the single
+// capability it needs, or "" when the command is unrestricted. Writes require
+// can_give_edit_instruction; the two supplier-identity reads require
+// can_c_suppliers_info; everything cost-bearing is handled by redaction instead
+// of a hard refusal (a cost-restricted group still gets prices, not inputs).
+func requiredPermission(cmd string, rest []string) string {
+	sub, sub2 := "", ""
+	if len(rest) > 0 {
+		sub = rest[0]
+	}
+	if len(rest) > 1 {
+		sub2 = rest[1]
+	}
+	in := func(names ...string) bool {
+		for _, n := range names {
+			if sub == n {
+				return true
+			}
+		}
+		return false
+	}
+	// inSub2 matches the second-level subcommand (e.g. `procurement quotations
+	// create` → sub="quotations", sub2="create").
+	inSub2 := func(names ...string) bool {
+		for _, n := range names {
+			if sub2 == n {
+				return true
+			}
+		}
+		return false
+	}
+	switch cmd {
+	case "faq":
+		if in("add", "update") {
+			return groupauth.Edit
+		}
+	case "freight":
+		// Freight is a cost basis — the container rate and the per-car share.
+		return groupauth.Cost
+	case "price":
+		if strings.HasPrefix(sub, "set-") {
+			return groupauth.Edit
+		}
+	case "procurement":
+		switch sub {
+		case "suppliers":
+			if sub2 == "add" || sub2 == "update" {
+				return groupauth.Edit
+			}
+			return groupauth.Suppliers
+		case "quotations":
+			if inSub2("create", "add-item", "set-price", "set-status", "delete") {
+				return groupauth.Edit
+			}
+		case "documents":
+			if inSub2("create", "link", "unlink") {
+				return groupauth.Edit
+			}
+		case "payments":
+			if inSub2("create", "edit", "delete", "link", "unlink", "set-swift") {
+				return groupauth.Edit
+			}
+		}
+	case "suppliers":
+		if sub == "add" {
+			return groupauth.Edit
+		}
+		return groupauth.Suppliers
+	case "brands":
+		if sub == "add" {
+			return groupauth.Edit
+		}
+	case "car-names":
+		if sub == "add" {
+			return groupauth.Edit
+		}
+	case "inquiries":
+		if in("create", "add-car", "delete") {
+			return groupauth.Edit
+		}
+	case "clearance":
+		if sub == "set" {
+			return groupauth.Edit
+		}
+	case "buy-payments":
+		if in("add", "edit", "delete") {
+			return groupauth.Edit
+		}
+	case "todo":
+		if in("add", "edit", "done", "reopen", "cancel", "move", "assign", "delete") {
+			return groupauth.Edit
+		}
+		if sub == "remind" && inSub2("add", "rm", "sent") {
+			return groupauth.Edit
+		}
+	}
+	return ""
 }
 
 // cmdMCP runs the stdio MCP server (the Go twin of `node dist/index.js`). It
@@ -179,8 +310,12 @@ func requireCarsPermission(perm string) {
 }
 
 // printJSON prints with 2-space indent (quote + identity outputs — Node uses
-// JSON.stringify(payload, null, 2) for those).
+// JSON.stringify(payload, null, 2) for those). In a restricted (bot) context the
+// payload is first stripped of cost/supplier fields the group may not see.
 func printJSON(v any) {
+	if groupauth.Restricted() {
+		v = redact.Apply(v, groupauth.Allow(groupauth.Suppliers), groupauth.Allow(groupauth.Cost))
+	}
 	data, err := jsonx.MarshalIndent(v, "", "  ")
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -226,8 +361,12 @@ func (o *ordered) MarshalJSON() ([]byte, error) {
 
 func pair(key string, value any) orderedPair { return orderedPair{Key: key, Value: value} }
 
-// printCompact prints one compact JSON line (faq/stock/profiles outputs).
+// printCompact prints one compact JSON line (faq/stock/profiles outputs). In a
+// restricted (bot) context the payload is first stripped of cost/supplier fields.
 func printCompact(v any) {
+	if groupauth.Restricted() {
+		v = redact.Apply(v, groupauth.Allow(groupauth.Suppliers), groupauth.Allow(groupauth.Cost))
+	}
 	data, err := jsonx.Marshal(v)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -290,6 +429,7 @@ func cmdQuote(args []string) {
 	carQ := flag(args, "car")
 	mode := flag(args, "mode")
 	line := flag(args, "line")
+	port := flag(args, "port")
 	list := has(args, "list")
 	withOptions := has(args, "options")
 
@@ -324,8 +464,23 @@ func cmdQuote(args []string) {
 	if err != nil {
 		fail(1, map[string]any{"status": "ERROR", "error": err.Error()})
 	}
-	res := quote.Run(d, quote.Args{CarQuery: carQ, Mode: mode, Line: line, List: false, IncludeOptions: withOptions})
+	res := quote.Run(d, quote.Args{CarQuery: carQ, Mode: mode, Line: line, Port: port, List: false, IncludeOptions: withOptions})
 	printJSON(res.Payload)
+}
+
+// cmdFreight answers a general shipping question ("how much is shipping to
+// <port>") without needing a car. It reads the same freight table the quote
+// calculator uses. Port defaults to every port when none is given (or when the
+// name is the country, e.g. "Algeria").
+func cmdFreight(args []string) {
+	port := flag(args, "port")
+	line := flag(args, "line")
+
+	freight, err := dbp.LoadFreight()
+	if err != nil {
+		fail(1, map[string]any{"status": "ERROR", "error": err.Error()})
+	}
+	printJSON(quote.FreightList(&quote.Data{Freight: freight}, port, line))
 }
 
 func loadQuoteData() (*quote.Data, error) {

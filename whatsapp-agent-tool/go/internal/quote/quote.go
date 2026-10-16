@@ -1,6 +1,11 @@
 // Package quote is the Go twin of src/quote.ts — the deterministic pricing
 // calculator. The model never does §13 arithmetic itself; the CLI quotes these
-// numbers verbatim. Statuses: OK / STALE / MISSING / AMBIGUOUS / USAGE / LIST.
+// numbers verbatim. Statuses: OK / MISSING / AMBIGUOUS / USAGE / LIST.
+//
+// Stale or expired inputs are NOT a hard stop: the calculator always quotes the
+// best available figure (cheapest applicable shipping line) and records the age
+// in `stale` / `warnings` / per-line `expired` so the reply can mention it
+// (operating rule, 2026-10-14).
 package quote
 
 import (
@@ -75,6 +80,7 @@ type Args struct {
 	CarQuery       string
 	Mode           string // "" -> default retail-dza
 	Line           string
+	Port           string // requested discharge port; the cheapest valid line to it wins
 	List           bool
 	IncludeOptions bool // only when the client explicitly asks about options
 }
@@ -98,6 +104,26 @@ type freighterUsed struct {
 	Etd                   any     `json:"etd"`
 	ValidTo               any     `json:"validTo"`
 	Timestamp             string  `json:"timestamp"`
+}
+
+// linePrice is one shipping line's version of the quote: the freight (and thus
+// the price) differs per line. The cheapest applicable line is the headline
+// price; every applicable line gets an entry (expired ones flagged, not hidden).
+type linePrice struct {
+	ShippingLine      string  `json:"shippingLine"`
+	LoadingPort       string  `json:"loadingPort,omitempty"`
+	DischargePort     string  `json:"dischargePort,omitempty"`
+	Container40ftUsd  float64 `json:"container40ftUsd"`
+	FreightPerUnitUsd float64 `json:"freightPerUnitUsd"`
+	ValidTo           any     `json:"validTo"`
+	Etd               any     `json:"etd"`
+	QuotedAt          string  `json:"quotedAt,omitempty"`
+	Expired           bool    `json:"expired"`
+	Stale             bool    `json:"stale"`
+	Chosen            bool    `json:"chosen"`
+	Usd               any     `json:"usd,omitempty"`
+	Dza               any     `json:"dza,omitempty"`
+	DzaWords          any     `json:"dzaWords,omitempty"`
 }
 
 type clearanceUsed struct {
@@ -156,6 +182,7 @@ type mainResult struct {
 	Formula   string       `json:"formula"`
 	Breakdown []part       `json:"breakdown"`
 	Price     pricePayload `json:"price"`
+	Lines     []linePrice  `json:"lines,omitempty"`
 	Stale     []staleEntry `json:"stale"`
 	Warnings  []string     `json:"warnings"`
 	Action    string       `json:"action,omitempty"`
@@ -283,6 +310,18 @@ func str(v any) string {
 	return ""
 }
 
+// normPort upper-cases and strips everything but A–Z so "ALGIERS / ANNABA
+// (ALGERIA)" and "algiers" compare by substring.
+func normPort(s string) string {
+	var b strings.Builder
+	for _, r := range strings.ToUpper(s) {
+		if r >= 'A' && r <= 'Z' {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
+}
+
 // Run executes the calculator and returns the payload struct. The CLI marshals
 // with indent=2, exit 0 — `status` is the signal.
 func Run(d *Data, a Args) *Result {
@@ -313,18 +352,18 @@ func Run(d *Data, a Args) *Result {
 	usesRate := mode == "retail-dza" || mode == "allin-dza"
 	usesBenefits := mode != "clearance"
 
-	checkFresh := func(file string, ts *string, enforce bool) {
+	// Data older than the weekly window (rate / benefits / cars / freight) is no
+	// longer a hard stop — we still quote the best available figure and record
+	// the age so the reply can mention it (operating rule, 2026-10-14).
+	checkFresh := func(file string, ts *string, _ bool) {
 		d := ageDays(ts)
 		if d > maxAgeDays {
-			if enforce {
-				t := "unknown"
-				if ts != nil {
-					t = *ts
-				}
-				stale = append(stale, staleEntry{File: file, AgeDays: jsRound(d, 1), Timestamp: t})
-			} else {
-				warnings = append(warnings, file+" last updated "+fmtInt(math.Round(d))+" days ago (advisory only).")
+			t := "unknown"
+			if ts != nil {
+				t = *ts
 			}
+			stale = append(stale, staleEntry{File: file, AgeDays: jsRound(d, 1), Timestamp: t})
+			warnings = append(warnings, file+" is "+fmtInt(math.Round(d))+" days old (past the 7-day window) — quote it but say it may have changed.")
 		}
 	}
 
@@ -440,6 +479,8 @@ func Run(d *Data, a Args) *Result {
 
 	var freightPerUnitUsd *float64
 	var freightUsed *freighterUsed
+	var freightApplicable []dbp.FreightQuote
+	var chosenLine, chosenTs string
 
 	if needFreight {
 		var badValidity []dbp.FreightQuote
@@ -462,40 +503,27 @@ func Run(d *Data, a Args) *Result {
 			warnings = append(warnings, "freight: validTo must be <= etd — "+strings.Join(parts, ", ")+".")
 		}
 
-		var candidates []dbp.FreightQuote
-		var expired []dbp.FreightQuote
+		// Destination port defaults to ALGIERS when none is named (operating
+		// rule: quote it and say so in the reply). A named port always wins.
+		portFilter := a.Port
+		if portFilter == "" {
+			portFilter = "ALGIERS"
+			warnings = append(warnings, "No destination port given; defaulted to ALGIERS.")
+		}
+
+		// Keep every quote matching the requested line (if any) and port —
+		// expired ones included, so each shipping line still gets a price.
 		for _, f := range d.Freight.Freight {
-			if daysUntil(freightExpiry(f)) >= 0 {
-				candidates = append(candidates, f)
-			} else {
-				expired = append(expired, f)
+			if a.Line != "" && !strings.EqualFold(strings.TrimSpace(f.ShippingLine), strings.TrimSpace(a.Line)) {
+				continue
 			}
-		}
-		if len(expired) > 0 {
-			parts := make([]string, 0, len(expired))
-			for _, e := range expired {
-				exp := freightExpiry(e)
-				expS := "?"
-				if exp != nil {
-					expS = str(exp)
-				}
-				parts = append(parts, e.ShippingLine+" (validTo "+expS+")")
+			if portFilter != "" && !strings.Contains(normPort(f.DischargePort), normPort(portFilter)) {
+				continue
 			}
-			warnings = append(warnings, "Ignored expired freight quotes: "+strings.Join(parts, ", ")+".")
+			freightApplicable = append(freightApplicable, f)
 		}
 
-		if a.Line != "" {
-			wanted := strings.ToUpper(a.Line)
-			kept := candidates[:0]
-			for _, f := range candidates {
-				if strings.ToUpper(f.ShippingLine) == wanted {
-					kept = append(kept, f)
-				}
-			}
-			candidates = kept
-		}
-
-		if len(candidates) == 0 {
+		if len(freightApplicable) == 0 {
 			var list []freightValidity
 			for _, f := range d.Freight.Freight {
 				exp := freightExpiry(f)
@@ -505,38 +533,85 @@ func Run(d *Data, a Args) *Result {
 				}
 				list = append(list, freightValidity{Line: f.ShippingLine, ValidTo: expS, Expired: daysUntil(freightExpiry(f)) < 0})
 			}
-			msg := "No unexpired freight quote in freight."
+			msg := "No freight quote in freight."
 			if a.Line != "" {
-				msg = `No unexpired freight quote for line "` + a.Line + `".`
+				msg = `No freight quote for line "` + a.Line + `".`
+			} else if portFilter != "" {
+				msg = `No freight quote to port "` + portFilter + `".`
 			}
 			return &Result{Payload: &MissingFreightResult{
 				Status:  "MISSING",
 				Error:   msg,
 				ValidTo: list,
-				Hint:    "Ask the boss for a current freight cost. Do not guess one.",
+				Hint:    "Ask the boss for a freight cost for this port. Do not guess one.",
 			}}
 		}
 
-		sort.SliceStable(candidates, func(i, j int) bool {
-			ti, oki := timex.ParseIso(candidates[i].Timestamp)
-			tj, okj := timex.ParseIso(candidates[j].Timestamp)
-			if !oki || !okj {
-				return false
+		// Sort cheapest-first; a newer quote only breaks a price tie.
+		sortFreight := func(list []dbp.FreightQuote) {
+			sort.SliceStable(list, func(i, j int) bool {
+				if list[i].Container40ftUsd != list[j].Container40ftUsd {
+					return list[i].Container40ftUsd < list[j].Container40ftUsd
+				}
+				ti, oki := timex.ParseIso(list[i].Timestamp)
+				tj, okj := timex.ParseIso(list[j].Timestamp)
+				if !oki || !okj {
+					return false
+				}
+				return ti.After(tj)
+			})
+		}
+
+		var valid, expiredQ []dbp.FreightQuote
+		for _, f := range freightApplicable {
+			if daysUntil(freightExpiry(f)) >= 0 {
+				valid = append(valid, f)
+			} else {
+				expiredQ = append(expiredQ, f)
 			}
-			return ti.After(tj)
-		})
-		chosen := candidates[0]
-		if len(candidates) > 1 {
+		}
+		if len(expiredQ) > 0 {
+			parts := make([]string, 0, len(expiredQ))
+			for _, e := range expiredQ {
+				exp := freightExpiry(e)
+				expS := "?"
+				if exp != nil {
+					expS = str(exp)
+				}
+				parts = append(parts, e.ShippingLine+" (validTo "+expS+")")
+			}
+			warnings = append(warnings, "Expired freight quote(s) for "+portFilter+": "+strings.Join(parts, ", ")+".")
+		}
+
+		// Default policy: the cheapest line wins (never ask the client / boss
+		// which line). If every applicable line is already expired we still use
+		// the cheapest one and say so — never block the quote (§13, 2026-10-14).
+		allExpired := len(valid) == 0
+		pool := freightApplicable
+		if !allExpired {
+			pool = valid
+		}
+		sortFreight(pool)
+		chosen := pool[0]
+		if allExpired {
+			exp := freightExpiry(chosen)
+			expS := "unknown"
+			if exp != nil {
+				expS = str(exp)
+			}
+			warnings = append(warnings, "All "+portFilter+" freight quotes are expired; using the cheapest anyway ("+
+				chosen.ShippingLine+", validTo "+expS+") — the freight may have changed.")
+		} else if len(pool) > 1 {
 			var others []string
-			for _, c := range candidates[1:] {
+			for _, c := range pool[1:] {
 				others = append(others, c.ShippingLine+" "+formatNum(c.Container40ftUsd))
 			}
 			warnings = append(warnings,
-				fmtInt(float64(len(candidates)))+" valid freight quotes; used the most recent ("+chosen.ShippingLine+", "+chosen.Timestamp+"). "+
-					"Others: "+strings.Join(others, ", ")+". "+
-					"Pass --line to pick one.")
+				fmtInt(float64(len(pool)))+" applicable freight quotes; used the cheapest ("+chosen.ShippingLine+", "+formatNum(chosen.Container40ftUsd)+"). "+
+					"Others: "+strings.Join(others, ", ")+". See `lines` for a price per line; pass --line to override.")
 		}
 
+		chosenLine, chosenTs = chosen.ShippingLine, chosen.Timestamp
 		checkFresh("freight", &chosen.Timestamp, true)
 		containerUsd := chosen.Container40ftUsd + freightBenefitUsd
 		fpu := containerUsd / float64(unitsPerContainer)
@@ -614,6 +689,38 @@ func Run(d *Data, a Args) *Result {
 	retailBenefit := d.Benefits.RetailBenefitUsd
 	allInBenefit := d.Custom.AllInRetailBenefitUsd
 	rate := d.Rate.UsdToDza
+
+	// computePrice is the single source of truth for the price at a given
+	// per-unit freight cost — reused for the headline price and for every
+	// shipping line's price.
+	computePrice := func(freightNote float64) (usd, dza float64) {
+		switch mode {
+		case "wholesale-fob":
+			return car.CostUsd + wholesaleBenefit + optionsUsd, math.NaN()
+		case "wholesale-cfr":
+			return car.CostUsd + wholesaleBenefit + freightNote + optionsUsd, math.NaN()
+		case "retail-dza":
+			u := car.CostUsd + retailBenefit + freightNote + optionsUsd
+			return u, u * rate
+		case "retail-usd":
+			return car.CostUsd + retailBenefit + freightNote + optionsUsd, math.NaN()
+		case "retail-usd-fob":
+			return car.CostUsd + retailBenefit + optionsUsd, math.NaN()
+		case "allin-dza":
+			u := car.CostUsd + allInBenefit + freightNote + optionsUsd
+			z := u * rate
+			if clearanceEntry != nil {
+				z += clearanceEntry.ClearanceDza
+			}
+			return u, z
+		case "clearance":
+			if clearanceEntry != nil {
+				return math.NaN(), clearanceEntry.ClearanceDza
+			}
+			return math.NaN(), math.NaN()
+		}
+		return math.NaN(), math.NaN()
+	}
 
 	addUsd := func(label string, usd float64, note string) {
 		u := jsRound(usd, 2)
@@ -708,6 +815,51 @@ func Run(d *Data, a Args) *Result {
 		formula = "clearanceDza as stored in clearance"
 	}
 
+	priceUsd, priceDza = computePrice(freightNote)
+
+	// One price per applicable shipping line. The cheapest line is the
+	// headline `price` above; the others are shown so the operator can compare
+	// lines (and see which are expired / how old the quote is).
+	var lines []linePrice
+	if needFreight && len(freightApplicable) > 0 {
+		sorted := append([]dbp.FreightQuote(nil), freightApplicable...)
+		sort.SliceStable(sorted, func(i, j int) bool {
+			if sorted[i].Container40ftUsd != sorted[j].Container40ftUsd {
+				return sorted[i].Container40ftUsd < sorted[j].Container40ftUsd
+			}
+			ti, oki := timex.ParseIso(sorted[i].Timestamp)
+			tj, okj := timex.ParseIso(sorted[j].Timestamp)
+			if !oki || !okj {
+				return false
+			}
+			return ti.After(tj)
+		})
+		for _, q := range sorted {
+			cu := q.Container40ftUsd + freightBenefitUsd
+			qfpu := jsRound(cu/float64(unitsPerContainer), 2)
+			u, z := computePrice(qfpu)
+			lp := linePrice{
+				ShippingLine:      q.ShippingLine,
+				LoadingPort:       q.LoadingPort,
+				DischargePort:     q.DischargePort,
+				Container40ftUsd:  q.Container40ftUsd,
+				FreightPerUnitUsd: qfpu,
+				ValidTo:           q.ValidTo,
+				Etd:               q.Etd,
+				QuotedAt:          q.Timestamp,
+				Expired:           daysUntil(freightExpiry(q)) < 0,
+				Stale:             ageDays(&q.Timestamp) > maxAgeDays,
+				Chosen:            q.ShippingLine == chosenLine && q.Timestamp == chosenTs,
+				Usd:               nullableNum(u),
+				Dza:               nullableNum(z),
+			}
+			if !math.IsNaN(z) {
+				lp.DzaWords = dzaWords(z)
+			}
+			lines = append(lines, lp)
+		}
+	}
+
 	if mode == "wholesale-fob" || mode == "wholesale-cfr" {
 		warnings = append(warnings, "Wholesale = full containers only, USD only, never DZA.")
 	}
@@ -722,10 +874,10 @@ func Run(d *Data, a Args) *Result {
 		warnings = append(warnings, "TVN is NOT included — say so if the client asks.")
 	}
 
+	// Staleness / expiry is never a hard stop (operating rule, 2026-10-14): we
+	// quote the best available figure and flag it. `stale` lists what is old;
+	// the caller should mention it but still give the number.
 	status := "OK"
-	if len(stale) > 0 {
-		status = "STALE"
-	}
 
 	colors := car.Colors
 	if colors == nil {
@@ -771,6 +923,7 @@ func Run(d *Data, a Args) *Result {
 			Dza:      nullableNum(priceDza),
 			DzaWords: dzaWords(priceDza),
 		},
+		Lines:    lines,
 		Stale:    staleList,
 		Warnings: warnings,
 	}
@@ -778,8 +931,8 @@ func Run(d *Data, a Args) *Result {
 		a := allInBenefit
 		res.Inputs.AllInRetailBenefitUsd = &a
 	}
-	if status == "STALE" {
-		res.Action = "Do NOT quote these numbers. Ask the boss (سأطلب من المدير وأعود إليك + AI line) and log it in ai_questions.json."
+	if len(stale) > 0 || hasExpiredLine(lines) {
+		res.Action = "Quote the price, but mention the data is old/expired (may have changed) and offer to confirm with the team."
 	}
 	return &Result{Payload: res}
 }
@@ -789,6 +942,15 @@ func clearanceUsedFor(e *dbp.ClearanceEntry) *clearanceUsed {
 		return nil
 	}
 	return &clearanceUsed{CarId: e.CarId, Name: e.Name, ClearanceDza: e.ClearanceDza}
+}
+
+func hasExpiredLine(lines []linePrice) bool {
+	for _, l := range lines {
+		if l.Expired {
+			return true
+		}
+	}
+	return false
 }
 
 // nullableNum mirrors Node's `priceUsd != null ? round(...) : null`.

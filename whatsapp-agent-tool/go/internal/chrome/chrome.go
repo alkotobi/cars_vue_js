@@ -16,6 +16,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
@@ -86,11 +87,17 @@ func CdpPort() (int, error) {
 		return cachedPort, nil
 	}
 	if st := ReadState(); st != nil && st.Port != 0 {
-		if CdpAliveOn(st.Port, 500*time.Millisecond) {
-			// Trust the state-file port whenever it is alive with CDP, even if the
-			// recorded pid is stale (Chrome restarted in place on the same port).
-			// The free-port scan below can never DISCOVER an existing Chrome's port,
-			// so dropping a live one here would strand the whole account.
+		if CdpAliveOn(st.Port, 500*time.Millisecond) && StatePortBelongsToUs(st) {
+			// Reuse the state-file port only when the Chrome answering CDP on it is
+			// really OUR profile's browser (same user-data-dir). A live endpoint is
+			// not enough: another profile (profile switching, keepalive, a leftover
+			// session) may have claimed the port, and SpawnChrome reusing it would
+			// collide with that browser instead of attaching — which is how profiles
+			// ended up killing and relaunching each other. The free-port scan below
+			// can never DISCOVER an existing Chrome's port, so dropping a live one
+			// here would strand a genuinely restarted-in-place browser; ownership is
+			// still checked in that case (StatePortBelongsToUs goes to the OS) so we
+			// keep trusting the port only when it is provably ours.
 			cachedPort = st.Port
 			return cachedPort, nil
 		}
@@ -186,6 +193,72 @@ func PidAlive(pid int) bool {
 		return false
 	}
 	return syscall.Kill(pid, 0) == nil
+}
+
+// listeningPid returns the pid of the process LISTENING on local port (0 when
+// nothing listens or the OS query fails). Used to prove which profile owns a
+// CDP port before we reuse it.
+func listeningPid(port int) int {
+	out, err := exec.Command("lsof", "-nP", fmt.Sprintf("-iTCP:%d", port), "-sTCP:LISTEN", "-t").Output()
+	if err != nil {
+		return 0
+	}
+	for _, line := range strings.Split(string(out), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		if pid, err := strconv.Atoi(line); err == nil && pid > 0 {
+			return pid
+		}
+	}
+	return 0
+}
+
+// cmdlineContains reports whether the running process pid's command line
+// contains need (e.g. our --user-data-dir path). Only paths we can read are
+// supported; on an unknown platform it falls back to "the process is alive".
+func cmdlineContains(pid int, need string) bool {
+	if pid <= 0 {
+		return false
+	}
+	if need == "" {
+		return PidAlive(pid)
+	}
+	var cmd string
+	switch runtime.GOOS {
+	case "darwin", "freebsd", "openbsd", "netbsd":
+		out, err := exec.Command("ps", "-ww", "-p", strconv.Itoa(pid), "-o", "command=").Output()
+		if err != nil {
+			return false
+		}
+		cmd = string(out)
+	case "linux":
+		raw, err := os.ReadFile(fmt.Sprintf("/proc/%d/cmdline", pid))
+		if err != nil {
+			return false
+		}
+		cmd = strings.ReplaceAll(string(raw), "\x00", " ")
+	default:
+		return PidAlive(pid)
+	}
+	return strings.Contains(cmd, need)
+}
+
+// StatePortBelongsToUs reports whether the CDP endpoint on st.Port is this
+// profile's Chrome. A live recorded pid is verified against our user-data-dir;
+// a stale pid (Chrome restarted in place on the same port) is verified by
+// asking the OS who actually LISTENS on the port and checking that process
+// instead. When ownership cannot be proven we return false so the caller picks
+// a fresh free port rather than colliding with another profile's browser.
+func StatePortBelongsToUs(st *ChromeState) bool {
+	if st.Pid > 0 && PidAlive(st.Pid) {
+		return cmdlineContains(st.Pid, DataDir())
+	}
+	if p := listeningPid(st.Port); p > 0 {
+		return cmdlineContains(p, DataDir())
+	}
+	return false
 }
 
 // ProfileLockedByOther returns the pid of another Chrome holding the profile

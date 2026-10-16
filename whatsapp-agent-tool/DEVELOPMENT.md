@@ -176,7 +176,8 @@ One tool for all three listing strategies (merged in round 2 of the token/speed 
 - `mode: "newest"` — walks the sidebar the way a person does and collects the last N chats: wheels
   back to the newest chat first (results are the *last* N, not wherever the list was left),
   dedupes by name (gotcha 16), stops at `limit` / list end / 4 dry rounds / timeout.
-- `mode: "unread"` — clicks `[data-testid="filter-button"]`, collects with the same human-paced
+- `mode: "unread"` — clicks the Unread filter chip (the `button[role="tab"]` **inside** the chip's
+  `[data-testid="filter-button"]` wrapper — see gotcha 22), collects with the same human-paced
   scroll, **restores All in a `finally`** (even on throw), and returns `unreadTotal` = WhatsApp's
   own counter off the filter chip (Arabic-Indic digits parsed) — so "351 unread, newest 30" is
   distinguishable from "that's all of them".
@@ -347,9 +348,14 @@ messages. For DOM archaeology, dump the `data-testid` set from inside a `Page.Ev
     `get_chats` with `mode: "unread"` walk — or if any earlier tool call left the filter chip on "Unread" —
     searching for the group with `open_chat`/`openChat` can fail because the group is not in the
     filtered list. Before writing to `ai questions`, **restore the All filter first** — the
-    `restoreAllFilter()` method on `WhatsAppClient` does exactly that (click the
-    `[data-testid="filter-button"]` "All"/الكل chip and `waitForListSettled()`). The unread walker
-    restores All in its `finally`, but a process that died mid-walk leaves the unread filter active.
+    `restoreAllFilter()` method on `WhatsAppClient` does exactly that (click the "All"/الكل chip and
+    `waitForListSettled()`). The unread walker restores All in its `finally`, but a process that
+    died mid-walk leaves the unread filter active.
+23. **The sidebar filter chip is a wrapper; the click target is the inner button.** WhatsApp wraps
+    each chip in `<div data-testid="filter-button" role="none">…<button role="tab">label</button></div>`.
+    Clicking the `filter-button` div is a **no-op** — the list never switches (`filterLooksActive`
+    then fails and the walker bails with the misleading `data-testid="filter-button" not found`
+    note). Always click the chip's descendant `button[role="tab"]` (see `clickFilterButton`).
 
 ---
 
@@ -363,7 +369,7 @@ messages. For DOM archaeology, dump the `data-testid` set from inside a `Page.Ev
 | Chat name | `[data-testid="cell-frame-title"]` |
 | Chat preview/time | `[data-testid="cell-frame-secondary"]` |
 | Unread badge | `[data-testid="icon-unread-count"]` |
-| Sidebar filter chips | `[data-testid="filter-button"]` — All / Unread / Favorites / Groups |
+| Sidebar filter chips | `[data-testid="filter-button"]` wrapper — All / Unread / Favorites / Groups; click its inner `button[role="tab"]` (gotcha 23) |
 | Archived chats | `[data-testid="chatlist-panel-archived-button"]` (not walked by the sweeps) |
 | Search box | `[data-testid="chat-list-search-container"] input` / `[contenteditable="true"]` |
 | Conversation header title | `[data-testid="conversation-info-header-chat-title"]` |
@@ -382,11 +388,12 @@ Message actions menu (only if you must): hover bubble → `[aria-label*="خيا�
 ## 8. Repo map
 
 ```
-go/cmd/whatsapp-tool/main.go   dispatch: quote|price|faq|stock|identity|profiles|pending|triage|keepalive|mcp
+go/cmd/whatsapp-tool/main.go   dispatch: quote|price|faq|stock|identity|profiles|pending|triage|keepalive|chat-poll|mcp
 go/cmd/whatsapp-tool/pricing.go  whatsapp-tool price — the ONLY pricing write path (set-car/rate/freight/…)
 go/cmd/whatsapp-tool/pending.go  whatsapp-tool pending — pending scan (trim+promote+group scan+report)
 go/cmd/whatsapp-tool/triage.go   whatsapp-tool triage — batch unread triage (→ data/triage.json)
 go/cmd/whatsapp-tool/keepalive.go whatsapp-tool keepalive — start | status | stop
+go/cmd/whatsapp-tool/chatpoll.go whatsapp-tool chat-poll — cars-app chat AI loop (polls, generates, replies)
 go/internal/mcp/mcp.go         MCP server: tools, schemas, stderr logging
 go/internal/wa/browser.go      WhatsApp client: launch/login-state/open/send/read/markAsRead/session
 go/internal/wa/types.go        shared WhatsApp types (ChatInfo, Message, Transport, …)
@@ -394,9 +401,14 @@ go/internal/dom/dom.go         pure string/DOM parsers + constants (cleanText, i
 go/internal/chrome/chrome.go   Chrome lifecycle: CDP port, detached spawn, attach, stop
 go/internal/statex/            hot state (ai_questions / unanswered_chats): load/trim/archive/promote
 go/internal/quote/             deterministic pricing calculator (§13 formulas in code; reads MySQL)
-go/internal/db/                MySQL pool + pricing/faq loaders
-go/internal/config/            centralised env parsing + .env loader (DB_* / CARS_*)
-go/internal/carshttp/          cars app HTTP client (login → token, OS-store cache, retry) + stock SELECT
+go/internal/db/                MySQL pool + pricing/faq/procurement/todo loaders + writers
+go/internal/db/chatbotstate/   shared chat-AI state (migration 009): cursors + single-writer lease
+go/internal/db/todo/           task tables (migration 008): store/query/cascade/reminders/users
+go/cmd/whatsapp-tool/todo.go   whatsapp-tool todo — the task CLI (add/list/show/.../due/users)
+go/internal/config/            centralised env parsing + .env loader (DB_* / CARS_* / CHAT_*)
+go/internal/carshttp/          cars app HTTP client (login → token, OS-store cache, retry) + stock/chat SELECT
+go/internal/chatbot/           cars-app chat AI: cursor state, prompt build, opencode exec, poll orchestration
+go/internal/chatbot/lease.go   single-writer lease heartbeat (renew on TTL/3, abort cycle if lost)
 go/internal/keyringx/          OS-native credential store (Credential Manager/Keychain/Secret Service)
 go/internal/identity/          code-minted assistant identity (data/ai-identity.json)
 go/internal/profiles/          profiles.json registry: list/mark-reply/set-active
@@ -413,7 +425,7 @@ data/whatsapp-profile/     Chrome profile (session) — gitignored; per-profile 
 data/whatsapp-cdp.json     pid/port of the shared Chrome — gitignored; per-profile <name>-cdp.json when set
 profiles.json              account registry: id/name/number/description/active/linkedAt/lastAiReplyAt
 data/state-archive.json    archived answered questions + finished chats (keeps hot files tiny)
-db/schema.sql    shared MySQL schema (`ai` database): cars/options/config/freight/clearance/faq + procurement (suppliers/quotations/documents/payments)
+db/schema.sql    shared MySQL schema (`ai` database): cars/options/config/freight/clearance/faq + procurement (suppliers/quotations/documents/payments) + todos (todo_users/todos/todo_reminders/todo_status_history)
 .env.example     template for the DB_* + CARS_* vars — copy to .env (gitignored)
 data/pending.json  full pending report incl. the client's original message (rarely needed)
 data/triage.json   batch triage payload (one Read instead of 3 calls per chat)
@@ -546,6 +558,47 @@ answered from this command, never from the documents alone.
 
 Code: `go/internal/db/procurement` (loaders/writers) + `go/cmd/whatsapp-tool/procurement.go`.
 
+### Tasks & reminders — the ai database
+
+`whatsapp-tool todo ...` manages the ai DB's task tables (migration `008`): `todo_users`
+(a WhatsApp login — `profile` UNIQUE), `todos` (self-referencing `parent_id` = unlimited subtask
+tree, `owner_id` → `todo_users`, `status` open/done/cancelled, `priority` low/normal/high/urgent,
+nullable `due_at`), `todo_reminders` (`remind_at`, `channel`, `status` pending/sent/cancelled,
+`sent_at`) and the append-only `todo_status_history`. The **owner is the login**
+(`config.WAProfile()`; `EnsureUser` upserts it on first use), so todos are per-account — the CLI
+shows only the current login unless `--owner`/`--all`.
+
+**Cascade rule** (`cascade.go`, transactional): a child is *resolved* = done **or** cancelled; a
+parent with children is `done` iff every child is resolved (adding an open child under a done parent
+**reopens** it and its ancestors); a childless todo keeps its manual status. `move` re-derives both
+the old and the new ancestor chain and rejects a move under a descendant; `delete` cascades the
+subtree (FK) then recomputes the ex-parent. `SetStatus`/`Move`/`Create`/`Delete` write a
+`todo_status_history` row (`auto = 1` for cascade changes).
+
+**Reminders have no daemon**: `Due()` returns pending reminders whose `remind_at` has passed for
+still-open todos; it is surfaced as the `todosDue` block of the `pending` report
+(`cmd/whatsapp-tool/pending.go`) and by `todo due`. There is no scheduler process.
+
+All writes require `can_give_edit_instruction` (`requiredPermission` in `main.go`); the reads are
+open.
+
+- `whatsapp-tool todo add --title X [--parent N] [--desc ..] [--priority P] [--due D] [--requested-by ..] [--chat ..] [--owner <profile>]`
+- `whatsapp-tool todo list [--owner <profile>|--all] [--status S] [--priority P] [--overdue] [--due-before D] [--roots] [--parent N] [--limit N] [--tree]`
+- `whatsapp-tool todo show <id>` — todo + children + reminders + history
+- `whatsapp-tool todo done|reopen|cancel <id>`
+- `whatsapp-tool todo edit <id> [--title ..] [--desc ..] [--priority ..] [--due ..|--clear-due] [--requested-by ..] [--chat ..]`
+- `whatsapp-tool todo move <id> --parent <id|none>`
+- `whatsapp-tool todo assign <id> --owner <profile>`
+- `whatsapp-tool todo delete <id>` — removes the todo and its whole subtree
+- `whatsapp-tool todo remind add <id> --at "YYYY-MM-DD HH:MM" [--channel whatsapp|local] [--note ..]`
+- `whatsapp-tool todo remind list [--todo N] [--status pending|sent|cancelled] [--limit N]`
+- `whatsapp-tool todo remind rm <id>` / `todo remind sent <id>`
+- `whatsapp-tool todo due [--before D]`
+- `whatsapp-tool todo users`
+
+Code: `go/internal/db/todo` (`todo.go` types/consts, `users.go`, `store.go`, `query.go`,
+`cascade.go`, `reminders.go`, `parse.go`) + `go/cmd/whatsapp-tool/todo.go`.
+
 ## Car stock — the cars app (separate system)
 
 Live stock is **not** in the `ai` database. It lives in the **cars app**, and the tool reaches it
@@ -658,6 +711,37 @@ client chats never leave the machine), point opencode at local Ollama models:
 - Switch per session anytime with `/models`; the cloud provider stays configured as a fallback.
 - If tool calls drop out in a session, that is usually context pressure — increase `num_ctx`
   in the Modelfile and re-run `ollama create`.
+
+## Chat AI daemon (`chat-poll`) — one tenant, many machines
+
+`whatsapp-tool chat-poll` runs the **cars-app chat AI**: each cycle it lists the groups the AI user
+belongs to, reads every client message newer than the per-group cursor, generates one reply per
+group with the opencode CLI (see §9/Local AI), and posts it back as the AI user via the cars-app
+API. It never drives WhatsApp Web (that is the `whatsapp_*` path).
+
+**Several machines may run it against the same tenant; exactly one is active at a time.** The
+coordination is a **single-writer lease** + **shared cursors** in the `ai` DB (migration 009):
+
+- `chatbot_leases` — one row per tenant. The active daemon claims it (`owner = host:pid:profile`),
+  then renews `expires_at` on a heartbeat every `TTL/3` (`CHAT_LEASE_TTL`, default 60 s). A standby
+  calls `Acquire` each cycle; if the row is owned by a live peer it returns `status: "STANDBY"` and
+  does **no** network work. It claims the lease only once `expires_at` has passed — i.e. the holder
+  died / stopped renewing — so a crash fails over within ~TTL. All time checks use the **DB clock**
+  (`NOW(3)`), never the machine's, so clock skew cannot split the lock.
+- `chatbot_group_cursors` — the per-group last-answered message id, so a machine that takes over
+  resumes at the right message instead of re-answering history. Writes are **monotonic**
+  (`GREATEST` upsert), so a stale writer can never move a cursor backwards. The legacy per-machine
+  `data/chatbot-state.json` is imported **once** when the shared store is still empty, so upgrading
+  does not re-answer history.
+- Safety: the holder checks the lease again **before posting**; if it was lost mid-generation the
+  reply is dropped and the cursor left put, so the new owner answers those messages exactly once.
+  The heartbeat runs in a goroutine (`internal/chatbot/lease.go`); when it loses the lease the cycle
+  aborts at the next safe point.
+
+Deploying to another machine: same `.env` (`DB_*`, `CARS_BASE_URL`, `CARS_TENANT`) pointing at the
+**same** `ai` DB, its own `whatsapp-tool stock creds` (OS keyring), opencode + a model, then just
+run `whatsapp-tool chat-poll` and leave it running. No primary/secondary config — whichever holds
+the lease answers. `CHAT_LEASE_OWNER` only overrides the owner label (observability).
 
 ## 10. Multiple WhatsApp accounts (`WA_PROFILE`)
 

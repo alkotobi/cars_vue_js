@@ -27,7 +27,8 @@ cost of running low.
    to stderr. CLI commands write payloads to data files and print summaries only.
 6. **Never commit** `data/whatsapp-profile/` (session auth) — already gitignored.
 7. **Messages are Algerian Derja, prices are centimes.** Never report a translated price without
-   the arithmetic, never guess a dialect word (§10).
+   the arithmetic **when the arithmetic is asked for** (default is price-only, §0.14), never guess
+   a dialect word (§10).
 
 8. **Always use Arabic numerals (0123456789) when answering in Arabic.** Never use Eastern Arabic /
    Indic numerals (٠١٢٣٤٥٦٧٨٩) in any Arabic or Derja reply — this includes prices, quantities,
@@ -50,9 +51,33 @@ cost of running low.
    and only then the **cars app** (`whatsapp-tool stock` / `suppliers` / `brands` / `car-names` /
    `inquiries` / `clearance` / `buy-payments`). `ai` is the source of truth for pricing,
    procurement (suppliers, quotations, documents) and FAQs; the cars app is the operational/stock
-   system. Never answer from the cars app when the same question is answered by `ai`; fall back to
-   the cars app only when `ai` has no answer (or when the question is explicitly about stock /
-   availability).
+   system. Never answer from the cars app when the same question is answered by `ai`.
+
+12. **Default data source is the `ai` database — the cars-app tenant `mig_26` is opt-in.**
+   Answer every lookup from the shared **`ai`** DB. Do **not** query the cars app
+   (`whatsapp-tool stock` / `suppliers` / `brands` / `car-names` / `inquiries` / `clearance` /
+   `buy-payments`, which read the `mig_26` tenant) unless the user explicitly says **"find in
+   mig_26"** (or otherwise names mig_26) for that request. Never fall back to `mig_26` on your own.
+
+13. **Never guess a price. Ask the client for every detail needed to give an exact price before
+   quoting.** A price is only exact when the inputs that drive the formula are known — the
+   **color** (price can differ per color) and the **price basis** (**CFR** landed vs **FOB** vs
+   **TTC**/all-in, retail vs wholesale). If either is missing from the client's request, ask
+   (clear Arabic) and wait — do not quote a default, do not fold unknown costs in. Then run
+   `whatsapp-tool quote` with those exact inputs. Full flow in §13.
+   **Destination port defaults to ALGIERS.** When the client does not name a port, quote with
+   `--port ALGIERS` and **say so in the reply** (e.g. "واصلة ميناء الجزائر") — never assume silently.
+   A port the client names always wins.
+   **Shipping line is NEVER asked.** For the client's port the calculator auto-picks the
+   **cheapest valid freight quote** (`--port <ALGIERS|ANNABA|ORAN|…>`; a newer quote only breaks a
+   price tie). `--line` exists only as a manual override for the operator. Never ask the client or
+   the boss which line — just run `quote` with `--port` and no `--line`.
+
+14. **By default give the price only — do not show how it was calculated.** Quote the final
+   `price.usd` / `price.dza` / `price.dzaWords` as plain numbers. Show the arithmetic / breakdown
+   **only when the user or client explicitly asks** ("how did you get that", "show the
+   calculation"). This overrides the "always show the arithmetic" wording elsewhere (§0.7, §13)
+   for the default case.
 
 ---
 
@@ -96,6 +121,8 @@ account you are on. See README "Multiple WhatsApp accounts" / DEVELOPMENT.md §1
   messages (marks read unless `--no-read`), writes `data/triage.json`, prints a one-line summary.
 - `whatsapp-tool quote --car "<name>" --mode <mode>` — the **only** allowed way to compute a price
   (§13).
+- `whatsapp-tool freight [--port <PORT>] [--line <LINE>]` — shipping rates to a port (no car
+  needed); answers a general "how much is shipping to X" question (§13b).
 
 ---
 
@@ -220,14 +247,25 @@ rate, clearance). Field-by-field schemas, the write CLI and the formulas live in
 reports `STALE`/`MISSING`. **Never hand-edit the JSON files** — they are a frozen backup; every
 change goes through `whatsapp-tool price set-*`.
 
-**You never compute a price yourself.** Run the calculator and quote its number:
+**You never compute a price yourself.** Run the calculator and quote its number. But first, never
+guess: a price is only exact when the **color** and the **price basis** (**CFR** landed vs
+**FOB** vs **TTC**/all-in, retail vs wholesale) are known — if the client's request is missing
+either, ask (clear Arabic) and wait; do not quote a default. **The destination port defaults to
+ALGIERS** when the client does not name one: quote with `--port ALGIERS` and say so in the reply
+("واصلة ميناء الجزائر") — never assume silently. **By default give the price only** (final
+`price.usd` / `price.dza` / `price.dzaWords`); show the arithmetic / breakdown **only when the
+user or client explicitly asks** (§0.14).
 
 ```
-whatsapp-tool quote --car "<name>" --mode <mode> [--line CMA] [--options]
+whatsapp-tool quote --car "<name>" --mode <mode> [--port ALGIERS] [--line CMA] [--options]
 ```
 
 - modes: `wholesale-fob`, `wholesale-cfr`, `retail-dza` (default), `retail-usd`,
   `retail-usd-fob`, `allin-dza`, `clearance`. `--list` = the catalog.
+- **Shipping line (STRICT):** never ask which line. Pass the **`--port`** (ALGIERS, ANNABA, ORAN,
+  …; default **ALGIERS** when the client names none) and `quote` picks the **cheapest valid**
+  freight quote to that port automatically (a newer quote only breaks a price tie). `--line` is a
+  manual override for the operator only.
 - **Options rule (STRICT):** the calculator NEVER adds car options to a quote by
   default. Only re-run with `--options` when the **client explicitly asked** about
   specific options — never include them "just because the car has them". If you
@@ -241,22 +279,64 @@ whatsapp-tool quote --car "<name>" --mode <mode> [--line CMA] [--options]
 
 | status | what to do |
 |---|---|
-| `OK` | Quote it: `price.usd` / `price.dza` / `price.dzaWords`, showing the arithmetic (§0.7). |
-| `STALE` | Data > 7 days old or freight expired → **do not quote**. Reply `سأطلب من المدير وأعود إليك` + AI line, log it (§14), tell me it is stale. |
-| `MISSING` | A number is not in the files → same handling. Never guess. `carId: null` clearance → ask me. |
+| `OK` | Quote it: `price.usd` / `price.dza` / `price.dzaWords` — **price only by default**; show the arithmetic **only when asked** (§0.14). |
+| `MISSING` | A number is not in the files / no freight for that port → never guess. `carId: null` clearance → ask me. Reply `سأطلب من المدير وأعود إليك` + AI line, log it (§14). |
 | `AMBIGUOUS` | Several cars matched → re-run with the exact name (see above). |
+
+**No more `STALE` (changed 2026-10-14).** Data older than 7 days, and freight quotes that are
+expired, are **no longer a hard stop**: `quote` always returns `OK` with the best available figure
+(the **cheapest applicable shipping line**) and records the age in `stale`, in `warnings`, and per
+line in `lines[].expired` / `lines[].stale`. **Give the number anyway**, but add a short note that
+it may have changed (and offer to confirm with the team). `lines[]` carries one price per
+applicable shipping line (the cheapest is the headline `price`; each entry has `chosen`/`expired`/
+`stale`). Only `MISSING` (no figure at all / no freight to that port) and `AMBIGUOUS` still defer.
 
 **Inquiry flow (WhatsApp)**
 
 1. **First question**: retail or wholesale? (clear Arabic.) Wholesale → tell them: **full
    containers only, and USD only** (never DZA).
-2. No route/line stated and freight is needed → ask me (or pass `--line` if I already said one).
-3. When I give new freight/rate/benefit/clearance numbers → read `PRICING.md`, update the files
+2. **Collect every exact-price input before quoting** — ask the client (clear Arabic) and wait
+   until both are known: the **color** and the **price basis** (CFR/landed vs FOB vs TTC/all-in).
+   Never quote a default or assume a missing one (§0.13). **The destination port defaults to
+   ALGIERS** when the client names none — quote with `--port ALGIERS` and say so in the reply
+   ("واصلة ميناء الجزائر"); a port the client names wins. **Never ask about the shipping line** —
+   the calculator picks the cheapest valid line to the port automatically.
+3. Shipping line is auto-picked (cheapest valid **to the client's `--port`**); never ask the
+   client or me for one. `--line` is a manual override for the operator only.
+4. When I give new freight/rate/benefit/clearance numbers → read `PRICING.md`, update the files
    first, then quote.
-4. **TVN** never included: `لا، السعر لا يشمل TVN` + AI line.
-5. Customs clearance question → `--mode clearance`.
-6. §12 (voice/calls) applies before all of this; §11 reply rules apply (clear Arabic + AI
+5. **TVN** never included: `لا، السعر لا يشمل TVN` + AI line.
+6. Customs clearance question → `--mode clearance`.
+7. §12 (voice/calls) applies before all of this; §11 reply rules apply (clear Arabic + AI
    disclosure line).
+
+---
+
+## 13b. Shipping / freight rates — `whatsapp-tool freight`
+
+A **general shipping question** ("كم سعر الشحن إلى الجزائر", "how much is shipping to Oran") names
+a **port**, not a car, so `quote` cannot answer it. Use the read-only freight list instead:
+
+```
+whatsapp-tool freight [--port <ALGIERS|ANNABA|ORAN|BEJAIA|SKIKDA|MOSTAGANEM|GHAZAOUET|DJEN DJEN>] [--line <LINE>]
+```
+
+- **Omit `--port`** (or pass the country, e.g. `--port ALGERIA`) to list **every** Algerian port.
+  `--port ALGER` is read as `ALGIERS`. An unknown port name falls back to listing every port.
+- It returns, per shipping line, the best quote to the port, **cheapest first**: `container40ftUsd`
+  (our cost), `containerChargeUsd` (cost + the 300 USD freight benefit the price carries),
+  `perCarBigUsd` (charge ÷ 3) and `perCarSmallUsd` (charge ÷ 4), plus `etd`/`validTo` and an
+  `expired` flag. A line serving the port through a combined berth (e.g. "ALGIERS / ANNABA
+  (ALGERIA)") is folded onto the same line.
+- The cheapest **valid** line is the headline answer; if every line for that port is expired it
+  still returns the cheapest and flags `expired: true` — give the figure and note it may have
+  changed (never defer).
+- **Permission:** the container rate is our cost basis, so `freight` requires **`can_c_cost`**. A
+  cost-restricted group is refused (`status: ERROR, code: forbidden_permission`) and must defer the
+  shipping question to the team (or take a landed `quote` instead). Unlike `quote` there is no
+  redaction path — the whole payload is the cost figure.
+- **Never ask the client which shipping line** — the list is ordered cheapest-first; quote the top
+  valid line.
 
 ---
 
@@ -719,9 +799,46 @@ user for every obligatory field you don't already have, and wait.** Only a
 explicitly (it removes the items and prices too, cascade), same for `payments delete` (cascades to
 its swift row).
 
+## 17. Tasks & reminders — `whatsapp-tool todo` (the ai database)
+
+A **todo** is a thing a client or workmate asked **the logged-in user** (this WhatsApp account) to
+do. Todos live in the shared **`ai`** DB (tables `todo_users` / `todos` / `todo_reminders` /
+`todo_status_history`, migration `008`), belonging to the login (`WA_PROFILE`) — the owner is
+resolved from the session, never asked. There is **no todo screen**; this CLI is it.
+
+```
+whatsapp-tool todo add --title "..." [--parent N] [--desc ..] [--priority low|normal|high|urgent] [--due 2026-10-20] [--requested-by ..] [--chat ..] [--owner <profile>]
+whatsapp-tool todo list [--owner <profile> | --all] [--status open|done|cancelled] [--priority ..] [--overdue] [--due-before ..] [--roots] [--parent N] [--limit N] [--tree]
+whatsapp-tool todo show <id>
+whatsapp-tool todo done <id> | reopen <id> | cancel <id>
+whatsapp-tool todo edit <id> [--title ..] [--desc ..] [--priority ..] [--due .. | --clear-due] [--requested-by ..] [--chat ..]
+whatsapp-tool todo move <id> --parent <id|none>            # re-parent (rejected if it would cycle)
+whatsapp-tool todo assign <id> --owner <profile>           # hand a todo to another login
+whatsapp-tool todo delete <id>                             # removes the todo AND its whole subtree
+whatsapp-tool todo remind add <id> --at "2026-10-20 09:30" [--channel whatsapp|local] [--note ..]
+whatsapp-tool todo remind list [--todo N] [--status pending|sent|cancelled] [--limit N]
+whatsapp-tool todo remind rm <id> | sent <id>
+whatsapp-tool todo due [--before <date>]
+whatsapp-tool todo users
+```
+
+- **Priority** `low|normal|high|urgent` (default `normal`); **status** `open|done|cancelled`.
+- **Deadline** `--due` accepts a date (`2026-10-20`, treated as end-of-day) or a datetime
+  (`2026-10-20 09:30`). `--overdue` = open todos past their `due_at`; `--due-before` cuts at a date.
+- **Subtasks** nest without limit (`--parent N`). A parent with children auto-becomes `done` when
+  **all** its children are `done` or `cancelled`, and auto-**reopens** when a new open child is
+  added — cancelled counts as resolved. `--tree` nests the output by parent.
+- **Reminders** have no daemon: a due reminder (status `pending`, `remind_at` reached, todo still
+  open) shows up in `whatsapp-tool todo due` and as the **`todosDue`** block of the `pending` report
+  (§14b). After acting on one, mark it `whatsapp-tool todo remind sent <id>`.
+- **Permission:** every write (`add/edit/done/reopen/cancel/move/assign/delete/remind add|rm|sent`)
+  needs `can_give_edit_instruction`; the reads (`list/show/due/users/remind list`) are open.
+- Never invent a todo, an owner, or a reminder time — only record what the user gives you. Confirm
+  a `delete` first (it cascades the subtree).
+
 ## Strict rules
 
-**STRICT RULE: before any write/INSERT (cars-app `brands add`, `car-names add`, `suppliers add`, `inquiries create`/`add-car`, `clearance set`, `buy-payments add`/`edit`/`delete`, or any other create/update), you MUST ask the user for every OBLIGATORY field whose value you do not already have from the user, and wait for the answer. Never guess, invent, or let a required field take a hidden default. Required today: `car-names add` → name + `--brand-id` + `--big`/`--small`; `inquiries create` → supplier (date defaults to now); `inquiries add-car` → inquiry + car + `--color-id` + `--qty` + `--target-price` + `--used`/`--new`; `clearance set` → `--car-name-id` + `--dza` + `--big`/`--small` + `--used`/`--new`; `buy-payments add` → `--bill-id` + `--amount` + `--date` + `--swift`; `buy-payments edit` → `--id` + `--amount` + `--date`; `buy-payments delete` → `--id` (and confirm the deletion explicitly). Only after the user confirms every obligatory value do you post. Ask first, post second — always.**
+**STRICT RULE: before any write/INSERT (cars-app `brands add`, `car-names add`, `suppliers add`, `inquiries create`/`add-car`, `clearance set`, `buy-payments add`/`edit`/`delete`, or any other create/update), you MUST ask the user for every OBLIGATORY field whose value you do not already have from the user, and wait for the answer. Never guess, invent, or let a required field take a hidden default. Required today: `car-names add` → name + `--brand-id` + `--big`/`--small`; `inquiries create` → supplier (date defaults to now); `inquiries add-car` → inquiry + car + `--color-id` + `--qty` + `--target-price` + `--used`/`--new`; `clearance set` → `--car-name-id` + `--dza` + `--big`/`--small` + `--used`/`--new`; `buy-payments add` → `--bill-id` + `--amount` + `--date` + `--swift`; `buy-payments edit` → `--id` + `--amount` + `--date`; `buy-payments delete` → `--id` (and confirm the deletion explicitly); `todo add` → `--title` (parent/priority/due optional; `todo remind add` → todo id + `--at`; `todo delete` cascades the subtree — confirm it first). Only after the user confirms every obligatory value do you post. Ask first, post second — always.**
 
 **Strict rule: never delete any profile (from profiles.json, data/* for that profile, CDP state) without explicit confirmation from the user.**
 
