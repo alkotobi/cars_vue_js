@@ -732,9 +732,16 @@ func (b *Browser) getLastMessages(limit int) ([]Message, error) {
           const r = e.getBoundingClientRect();
           const st = e.querySelector('[data-testid="selectable-text"]');
           const mt = e.querySelector('[data-testid="msg-meta"]');
+          // Media/system rows carry no selectable text; detect them in the DOM
+          // so a voice note or a missed call is never dropped from the read.
+          const has = (sel) => !!e.querySelector(sel);
           return {
             text: st ? (st.innerText || "") : "",
             meta: mt ? (mt.innerText || "") : "",
+            audio: has('[data-testid="audio-player"],[data-testid="msg-audio"],[data-icon="audio-play"],[data-icon="audio-pause"],audio'),
+            image: has('[data-testid="image-thumb"],[data-testid="media-viewer"],img:not([data-testid*="emoji"])'),
+            video: has('video,[data-testid="video-player"],[data-icon="video-play"]'),
+            system: has('[data-testid="system-message"],[data-testid="message-system"],[data-testid="conversation-info-message"]'),
             tailOut: !!e.querySelector('[data-testid="tail-out"]'),
             tailIn: !!e.querySelector('[data-testid="tail-in"]'),
             bubbleCenter: r.x + r.width / 2,
@@ -756,8 +763,12 @@ func (b *Browser) getLastMessages(limit int) ([]Message, error) {
 	messages := make([]Message, 0, len(items))
 	for _, it := range items {
 		text := strings.TrimSpace(dom.CleanText(it.Get("text").Str()))
-		if text == "" {
-			continue
+		audio := it.Get("audio").Bool()
+		image := it.Get("image").Bool()
+		video := it.Get("video").Bool()
+		system := it.Get("system").Bool()
+		if text == "" && !audio && !image && !video && !system {
+			continue // neither text nor media — nothing to read
 		}
 		m := dom.RawMessage{
 			Text:         text,
@@ -772,17 +783,48 @@ func (b *Browser) getLastMessages(limit int) ([]Message, error) {
 			from = "me"
 		}
 		meta := strings.TrimSpace(dom.CleanText(m.Meta))
+		extra := dom.MessageExtra{HasAudio: &audio, HasImage: &image, HasVideo: &video, IsSystem: &system}
+		kind := dom.InferMessageType(text, &extra)
+		if kind == "audio" {
+			kind = "voice" // WhatsApp audio bubbles are voice notes (mic icon); audio files arrive as documents
+		}
+		if text == "" {
+			text = mediaPlaceholder(kind)
+		}
 		messages = append(messages, Message{
 			From: from,
 			Text: text,
 			Time: meta,
-			Type: MessageType(dom.InferMessageType(text, nil)),
+			Type: MessageType(kind),
 		})
 	}
 	if len(messages) > limit {
 		messages = messages[len(messages)-limit:]
 	}
 	return messages, nil
+}
+
+// mediaPlaceholder labels a bubble that carries no selectable text (voice note,
+// photo, call row) so reports and prompts still show what the message IS.
+func mediaPlaceholder(kind string) string {
+	switch kind {
+	case "voice":
+		return "[voice message]"
+	case "audio":
+		return "[audio]"
+	case "image":
+		return "[image]"
+	case "video":
+		return "[video]"
+	case "call":
+		return "[call]"
+	case "missed_call":
+		return "[missed call]"
+	case "system":
+		return "[system message]"
+	default:
+		return "[message]"
+	}
 }
 
 // MarkAsRead is a best-effort read receipt (open the header, then Escape).

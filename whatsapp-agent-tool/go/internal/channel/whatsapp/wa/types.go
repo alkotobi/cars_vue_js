@@ -4,6 +4,10 @@
 // (shapes mirror src/whatsapp/types.ts and the whatsapp_* tool payloads).
 package wa
 
+// AiDisclosureLine is appended to every outgoing client message on this
+// channel (AGENTS.md §0.9). The cars-app channel keeps its own copy.
+const AiDisclosureLine = "هذا الرد مولد بالذكاء الاصطناعي"
+
 // ChatInfo mirrors src/whatsapp/types.ts ChatInfo (screen rows).
 type ChatInfo struct {
 	Name        string `json:"name"`

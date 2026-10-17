@@ -179,11 +179,20 @@ type MessageExtra struct {
 	IsSystem *bool
 }
 
-// InferMessageType mirrors dom.ts inferMessageType.
+// InferMessageType mirrors dom.ts inferMessageType. Call rows are decided
+// BEFORE the system flag: a missed-call line is a system message, but the
+// channel rule (client-reply.md §6) keys on missed_call/call, so the more
+// specific type wins.
 func InferMessageType(text string, extra *MessageExtra) string {
 	t := strings.TrimSpace(text)
 	if t == "" && extra == nil {
 		return "unknown"
+	}
+	if callRe.MatchString(t) {
+		if missedRe.MatchString(t) {
+			return "missed_call"
+		}
+		return "call"
 	}
 	if extra != nil {
 		if extra.IsSystem != nil && *extra.IsSystem {
@@ -201,12 +210,6 @@ func InferMessageType(text string, extra *MessageExtra) string {
 		if extra.HasVideo != nil && *extra.HasVideo {
 			return "video"
 		}
-	}
-	if callRe.MatchString(t) {
-		if missedRe.MatchString(t) {
-			return "missed_call"
-		}
-		return "call"
 	}
 	if voiceRe.MatchString(t) {
 		return "voice"

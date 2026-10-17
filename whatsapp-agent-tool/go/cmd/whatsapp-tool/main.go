@@ -96,6 +96,8 @@ func main() {
 		cmdTriage(wa.NewBrowser(), args[1:])
 	case "keepalive":
 		cmdKeepalive(wa.NewBrowser(), args[1:])
+	case "voice-reply":
+		cmdVoiceReply(wa.NewBrowser(), args[1:])
 	case "chat-poll":
 		cmdChatPoll(args[1:])
 	case "mcp":
@@ -108,7 +110,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, `usage: whatsapp-tool <quote|freight|web|price|faq|procurement|stock|suppliers|brands|car-names|inquiries|clearance|buy-payments|todo|group-perms|identity|profiles|pending|triage|keepalive|chat-poll|mcp> ...`)
+	fmt.Fprintln(os.Stderr, `usage: whatsapp-tool <quote|freight|web|price|faq|procurement|stock|suppliers|brands|car-names|inquiries|clearance|buy-payments|todo|group-perms|identity|profiles|pending|triage|keepalive|voice-reply|chat-poll|mcp> ...`)
 }
 
 // gateCommand refuses a bot-invoked command whose required capability the
@@ -223,6 +225,9 @@ func requiredPermission(cmd string, rest []string) string {
 		if sub == "remind" && inSub2("add", "rm", "sent") {
 			return groupauth.Edit
 		}
+	case "voice-reply":
+		// Posts a client-facing message — same class as the other writes.
+		return groupauth.Edit
 	}
 	return ""
 }
@@ -518,7 +523,11 @@ func loadQuoteData() (*quote.Data, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &quote.Data{Benefits: benefits, Rate: rate, Custom: custom, Freight: freight, Cars: cars, Options: options}, nil
+	aliases, err := dbp.LoadAliases()
+	if err != nil {
+		return nil, err
+	}
+	return &quote.Data{Benefits: benefits, Rate: rate, Custom: custom, Freight: freight, Cars: cars, Options: options, Aliases: aliases}, nil
 }
 
 // ---------------------------------------------------------------- faq

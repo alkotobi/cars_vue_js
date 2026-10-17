@@ -16,6 +16,7 @@ import (
 	"whatsapp-agent-tool/internal/db"
 	dbp "whatsapp-agent-tool/internal/db/pricing"
 	proc "whatsapp-agent-tool/internal/db/procurement"
+	"whatsapp-agent-tool/internal/quote"
 )
 
 func jsonArg(args []string, name string) map[string]any {
@@ -74,7 +75,7 @@ func nowSql() string {
 
 func cmdPrice(args []string) {
 	if len(args) == 0 {
-		failErr("usage: whatsapp-tool price <list-cars|set-car|set-option|set-rate|set-benefits|set-freight|set-clearance|set-customs-config>")
+		failErr("usage: whatsapp-tool price <list-cars|set-car|set-option|set-rate|set-benefits|set-freight|set-clearance|set-customs-config|alias>")
 	}
 	var result []orderedPair
 	var err error
@@ -97,6 +98,8 @@ func cmdPrice(args []string) {
 		result, err = priceSetClearance(args[1:])
 	case "set-customs-config":
 		result, err = priceSetCustomsConfig(args[1:])
+	case "alias":
+		result, err = priceAlias(args[1:])
 	default:
 		failErr("unknown command \"" + args[0] + "\"")
 	}
@@ -564,6 +567,111 @@ func priceSetCustomsConfig(args []string) ([]orderedPair, error) {
 		return nil, err
 	}
 	return []orderedPair{pair("action", "set-customs-config"), pair("allInRetailBenefitUsd", allIn), pair("tvnIncluded", tvn)}, nil
+}
+
+// ---------------------------------------------------------------- alias
+
+// priceAlias manages car_aliases (migration 011): one client wording the
+// calculator doesn't know ("GAC GS3 MEDIUM") mapped to a catalog car_id
+// (gs3-mid). quote resolves the alias BEFORE its substring match and reports
+// it as `resolvedFrom` — never a silent remap (client-reply.md §3.10:
+// MEDIUM → MID, MAN = manual, confirmed 2026-10-17).
+func priceAlias(args []string) ([]orderedPair, error) {
+	if len(args) == 0 {
+		failErr("alias requires add|list|remove")
+	}
+	switch args[0] {
+	case "add":
+		return priceAliasAdd(args[1:])
+	case "list":
+		return priceAliasList()
+	case "remove":
+		return priceAliasRemove(args[1:])
+	default:
+		failErr("unknown alias command \"" + args[0] + "\" (add|list|remove)")
+	}
+	return nil, nil
+}
+
+func priceAliasAdd(args []string) ([]orderedPair, error) {
+	raw := strings.TrimSpace(flag(args, "alias"))
+	if raw == "" {
+		failErr("alias add requires --alias \"<client wording>\"")
+	}
+	carID := strings.TrimSpace(flag(args, "car"))
+	if carID == "" {
+		failErr("alias add requires --car <car_id> (list ids with: whatsapp-tool price list-cars)")
+	}
+	notes := strings.TrimSpace(flag(args, "notes"))
+	alias := quote.Norm(raw)
+	if alias == "" {
+		failErr("--alias normalises to an empty string")
+	}
+	found, err := db.QueryOne("SELECT car_id FROM cars WHERE car_id = ?", carID)
+	if err != nil {
+		return nil, err
+	}
+	if found == nil {
+		failErr("no car with car_id \"" + carID + "\" — list ids with: whatsapp-tool price list-cars")
+	}
+	err = db.WithTransaction(func(tx *sql.Tx) error {
+		_, _, err := db.TxExec(tx,
+			"INSERT INTO car_aliases (alias, car_id, notes) VALUES (?,?,?) "+
+				"ON DUPLICATE KEY UPDATE car_id=VALUES(car_id), notes=VALUES(notes)",
+			alias, carID, notes)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return []orderedPair{
+		pair("action", "alias-add"), pair("alias", alias), pair("from", raw),
+		pair("carId", carID), pair("notes", notes),
+	}, nil
+}
+
+func priceAliasList() ([]orderedPair, error) {
+	rows, err := db.Query("SELECT a.alias, a.car_id, COALESCE(a.notes, '') AS notes, COALESCE(c.name, '') AS car_name " +
+		"FROM car_aliases a LEFT JOIN cars c ON c.car_id = a.car_id ORDER BY a.alias")
+	if err != nil {
+		return nil, err
+	}
+	type row struct {
+		Alias   string `json:"alias"`
+		CarId   string `json:"carId"`
+		CarName string `json:"carName,omitempty"`
+		Notes   string `json:"notes,omitempty"`
+	}
+	list := make([]row, 0, len(rows))
+	for _, r := range rows {
+		list = append(list, row{Alias: str(r["alias"]), CarId: str(r["car_id"]),
+			CarName: str(r["car_name"]), Notes: str(r["notes"])})
+	}
+	return []orderedPair{pair("action", "alias-list"), pair("count", len(list)), pair("aliases", list)}, nil
+}
+
+func priceAliasRemove(args []string) ([]orderedPair, error) {
+	raw := strings.TrimSpace(flag(args, "alias"))
+	if raw == "" {
+		for _, a := range args {
+			if !strings.HasPrefix(a, "--") {
+				raw = a
+				break
+			}
+		}
+	}
+	if raw == "" {
+		failErr("alias remove requires the alias (or --alias \"<client wording>\")")
+	}
+	alias := quote.Norm(raw)
+	n, err := db.Execute("DELETE FROM car_aliases WHERE alias = ?", alias)
+	if err != nil {
+		return nil, err
+	}
+	if n == 0 {
+		failErr("no alias \"" + alias + "\" — list them with: whatsapp-tool price alias list")
+	}
+	return []orderedPair{pair("action", "alias-remove"), pair("alias", alias), pair("deleted", n)}, nil
 }
 
 // --------------------------------------------------------------- helpers

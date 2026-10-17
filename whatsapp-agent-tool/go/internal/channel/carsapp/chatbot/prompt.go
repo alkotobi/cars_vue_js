@@ -7,8 +7,11 @@ package chatbot
 import (
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"unicode/utf8"
@@ -141,12 +144,20 @@ func capabilityLine(p Perms) string {
 // and the AI disclosure line. Returns "" for a blank reply (caller then skips
 // posting). The source line is inserted BEFORE the AI line so the message always
 // ends with the AI disclosure.
+//
+// Two client-reply rules are enforced HERE instead of being trusted to the
+// model: Arabic-Indic digits become ASCII (§1/§8) and the ONE money figure in
+// the message is rounded UP to the client grid (§0.15: 10,000 DZD / 100 USD).
+// A message carrying more than one money figure is left untouched — a
+// breakdown's exact numbers must survive (§0.14/§3.8).
 func FinalizeReply(raw string, maxChars int, usedWeb bool) string {
 	text := strings.TrimSpace(raw)
 	text = stripCodeFences(text)
 	if text == "" {
 		return ""
 	}
+	text = normalizeDigits(text)
+	text = roundUpMoney(text)
 	if maxChars > 0 {
 		text = truncateRunes(text, maxChars)
 	}
@@ -154,6 +165,131 @@ func FinalizeReply(raw string, maxChars int, usedWeb bool) string {
 		return text + "\n" + WebSourceLine + "\n" + AiDisclosureLine
 	}
 	return text + "\n" + AiDisclosureLine
+}
+
+// normalizeDigits maps the Arabic-Indic (٠-٩) and Extended Arabic-Indic/Persian
+// (۰-۹) digit blocks onto ASCII 0-9 (client-reply.md §1/§8).
+func normalizeDigits(s string) string {
+	return digitReplacer.Replace(s)
+}
+
+var digitReplacer = strings.NewReplacer(
+	"٠", "0", "١", "1", "٢", "2", "٣", "3", "٤", "4",
+	"٥", "5", "٦", "6", "٧", "7", "٨", "8", "٩", "9",
+	"۰", "0", "۱", "1", "۲", "2", "۳", "3", "۴", "4",
+	"۵", "5", "۶", "6", "۷", "7", "۸", "8", "۹", "9",
+)
+
+// Money figures are a number anchored by a currency token — "2,801,020 دج",
+// "2 801 020 دينار", "$2,801,020", "2801020 usd". A bare number is never
+// touched (years, quantities, phone fragments).
+type moneyPattern struct {
+	re        *regexp.Regexp
+	numGroup  int // submatch group holding the number
+	suffixGrp int // submatch group holding a trailing currency token (0 = none)
+	dollar    bool
+	grid      float64
+}
+
+var moneyPatterns = []moneyPattern{
+	{re: regexp.MustCompile(`(?i)([0-9][0-9.,\x{00a0}\x{202f} ]{2,})\s*(دج|دينار|د\.ج|dzd)`), numGroup: 1, suffixGrp: 2, grid: 10000},
+	{re: regexp.MustCompile(`([$])\s*([0-9][0-9.,\x{00a0}\x{202f} ]{2,})`), numGroup: 2, dollar: true, grid: 100},
+	{re: regexp.MustCompile(`(?i)([0-9][0-9.,\x{00a0}\x{202f} ]{2,})\s*(usd|dollars?|us\$)`), numGroup: 1, suffixGrp: 2, grid: 100},
+}
+
+// roundUpMoney rewrites the single money figure in text up to its grid
+// (10,000 DZD / 100 USD, comma-grouped). Any message with zero — or two or
+// more — currency-anchored figures is left exactly as written: a breakdown's
+// numbers must survive (client-reply.md §0.14/§3.8).
+func roundUpMoney(text string) string {
+	type hit struct {
+		start, end int
+		val        float64
+		grid       float64
+		dollar     bool
+		suffix     string
+	}
+	anchors := 0
+	var hits []hit
+	for _, p := range moneyPatterns {
+		anchors += len(p.re.FindAllStringIndex(text, -1))
+		for _, m := range p.re.FindAllStringSubmatchIndex(text, -1) {
+			v, ok := parseMoneyNum(text[m[2*p.numGroup]:m[2*p.numGroup+1]])
+			if !ok {
+				continue
+			}
+			h := hit{start: m[0], end: m[1], val: v, grid: p.grid, dollar: p.dollar}
+			if p.suffixGrp > 0 {
+				h.suffix = text[m[2*p.suffixGrp]:m[2*p.suffixGrp+1]]
+			}
+			hits = append(hits, h)
+		}
+	}
+	if anchors != 1 || len(hits) != 1 {
+		return text
+	}
+	h := hits[0]
+	// The number class can swallow a trailing separator ("$2801020 ") — keep it.
+	end := h.end
+	for end > h.start && (text[end-1] == ' ' || text[end-1] == '\t') {
+		end--
+	}
+	grouped := formatGrouped(math.Ceil(h.val/h.grid) * h.grid)
+	switch {
+	case h.dollar:
+		return text[:h.start] + "$" + grouped + text[end:]
+	case h.suffix != "":
+		return text[:h.start] + grouped + " " + h.suffix + text[end:]
+	default:
+		return text[:h.start] + grouped + text[end:]
+	}
+}
+
+// parseMoneyNum reads a grouped figure as a number. The LAST separator decides:
+// a group of 3 digits after it is a thousands mark ("2,801,020" / "2.801.020"),
+// anything else is a decimal point ("2,801,020.25") — so a lone exact figure
+// can still be rounded up to the client grid.
+func parseMoneyNum(s string) (float64, bool) {
+	trimmed := strings.TrimSpace(s)
+	intPart, frac := trimmed, ""
+	if i := strings.LastIndexAny(trimmed, ",."); i >= 0 && len(trimmed)-i-1 != 3 {
+		intPart, frac = trimmed[:i], trimmed[i+1:]
+		if frac == "" {
+			return 0, false
+		}
+	}
+	strip := func(r rune) rune {
+		switch r {
+		case ',', '.', ' ', '\u00a0', '\u202f':
+			return -1
+		}
+		return r
+	}
+	clean := strings.Map(strip, intPart)
+	if frac != "" {
+		clean += "." + strings.Map(strip, frac)
+	}
+	if clean == "" || clean == "." {
+		return 0, false
+	}
+	v, err := strconv.ParseFloat(clean, 64)
+	if err != nil || v <= 0 {
+		return 0, false
+	}
+	return v, true
+}
+
+// formatGrouped renders an integer with thousands separators ("2,810,000").
+func formatGrouped(v float64) string {
+	s := strconv.FormatInt(int64(math.Round(v)), 10)
+	var b strings.Builder
+	for i, r := range s {
+		if i > 0 && (len(s)-i)%3 == 0 {
+			b.WriteByte(',')
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
 }
 
 // reasoningCues are the paragraph openers that mark a model's private planning

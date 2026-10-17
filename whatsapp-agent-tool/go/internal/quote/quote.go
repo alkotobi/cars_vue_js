@@ -73,6 +73,7 @@ type Data struct {
 	Freight  dbp.Freight
 	Cars     []dbp.Car
 	Options  []dbp.OptionDef
+	Aliases  []dbp.Alias // client-wording → car_id (car_aliases, migration 011)
 }
 
 // Args is the parsed CLI invocation (--car / --mode / --line / --port / --color / --list).
@@ -177,19 +178,20 @@ type pricePayload struct {
 }
 
 type mainResult struct {
-	Status    string       `json:"status"`
-	Mode      string       `json:"mode"`
+	Status          string       `json:"status"`
+	Mode            string       `json:"mode"`
 	Color           string       `json:"color,omitempty"`           // colour this price is for
 	ColorIsCheapest *bool        `json:"colorIsCheapest,omitempty"` // true when Color is the cheapest colour
-	Car       carInfo      `json:"car"`
-	Inputs    inputPayload `json:"inputs"`
-	Formula   string       `json:"formula"`
-	Breakdown []part       `json:"breakdown"`
-	Price     pricePayload `json:"price"`
-	Lines     []linePrice  `json:"lines,omitempty"`
-	Stale     []staleEntry `json:"stale"`
-	Warnings  []string     `json:"warnings"`
-	Action    string       `json:"action,omitempty"`
+	Car             carInfo      `json:"car"`
+	ResolvedFrom    string       `json:"resolvedFrom,omitempty"` // client wording resolved via car_aliases (never silent)
+	Inputs          inputPayload `json:"inputs"`
+	Formula         string       `json:"formula"`
+	Breakdown       []part       `json:"breakdown"`
+	Price           pricePayload `json:"price"`
+	Lines           []linePrice  `json:"lines,omitempty"`
+	Stale           []staleEntry `json:"stale"`
+	Warnings        []string     `json:"warnings"`
+	Action          string       `json:"action,omitempty"`
 }
 
 type candidateCar struct {
@@ -428,18 +430,41 @@ func Run(d *Data, a Args) *Result {
 	q := Norm(a.CarQuery)
 	catalog := d.Cars
 	var matches []dbp.Car
-	for _, c := range catalog {
-		id := Norm(c.CarId)
-		name := Norm(c.Name)
-		if id == q || name == q || strings.Contains(name, q) || strings.Contains(id, q) || strings.Contains(q, name) {
-			matches = append(matches, c)
+	// A client wording the operator mapped in car_aliases (migration 011) wins
+	// over the substring match — e.g. "GAC GS3 MEDIUM" → gs3-mid. Resolved
+	// aliases are reported as `resolvedFrom`, never remapped silently, so the
+	// reply can name the catalog car back to the client (client-reply.md §3.10).
+	resolvedFrom := ""
+	for _, al := range d.Aliases {
+		if Norm(al.Alias) != q {
+			continue
+		}
+		resolvedFrom = al.Alias
+		for _, c := range catalog {
+			if Norm(c.CarId) == Norm(al.CarID) {
+				matches = append(matches, c)
+			}
+		}
+		break
+	}
+	if resolvedFrom == "" {
+		for _, c := range catalog {
+			id := Norm(c.CarId)
+			name := Norm(c.Name)
+			if id == q || name == q || strings.Contains(name, q) || strings.Contains(id, q) || strings.Contains(q, name) {
+				matches = append(matches, c)
+			}
 		}
 	}
 
 	if len(matches) == 0 {
+		msg := `No car in cars matches "` + a.CarQuery + `" (FIVAN is read as LIVAN).`
+		if resolvedFrom != "" {
+			msg = `Alias "` + resolvedFrom + `" points at a car_id that is not in cars — fix it with: whatsapp-tool price alias add --alias "..." --car "<car_id>".`
+		}
 		return &Result{Payload: &MissingCarResult{
 			Status: "MISSING",
-			Error:  `No car in cars matches "` + a.CarQuery + `" (FIVAN is read as LIVAN).`,
+			Error:  msg,
 			Hint:   "Run with --list to see the catalog. Never quote a car that is not in it.",
 		}}
 	}
@@ -1019,6 +1044,7 @@ func Run(d *Data, a Args) *Result {
 			Options:     opts,
 			Timestamp:   car.Timestamp,
 		},
+		ResolvedFrom: resolvedFrom,
 		Inputs: inputPayload{
 			WholesaleBenefitUsd: wholesaleBenefit,
 			RetailBenefitUsd:    retailBenefit,

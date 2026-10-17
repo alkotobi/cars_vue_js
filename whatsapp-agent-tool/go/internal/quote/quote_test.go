@@ -276,3 +276,58 @@ func TestUnknownColourMissing(t *testing.T) {
 		t.Fatalf("want MISSING with 2 colours, got status=%q colors=%v", mc.Status, mc.Colors)
 	}
 }
+
+// aliasData is baseData + one car_aliases row + an applicable freight line.
+func aliasData() *Data {
+	d := baseData()
+	d.Aliases = []dbp.Alias{{Alias: "GAC COOLRAY BATTLE WHITE", CarID: "coolray-battle-white", Notes: "test"}}
+	d.Freight = dbp.Freight{Freight: []dbp.FreightQuote{{
+		ShippingLine: "CMA", DischargePort: "ALGIERS / ANNABA (ALGERIA)",
+		Container40ftUsd: 5196, ValidTo: dateIn(5 * 24 * time.Hour), Timestamp: isoAgo(24 * time.Hour),
+	}}}
+	return d
+}
+
+// An alias registered in car_aliases (migration 011) resolves a client wording
+// the catalog does not contain, and the result reports it as `resolvedFrom` —
+// never a silent remap (client-reply.md §3.10: MEDIUM → MID).
+func TestAliasResolvesClientWording(t *testing.T) {
+	m := runMain(t, aliasData(), Args{CarQuery: "gac coolray battle white", Mode: "retail-dza", Port: "ALGIERS"})
+	if m.Status != "OK" {
+		t.Fatalf("status = %q, want OK", m.Status)
+	}
+	if m.Car.CarId != "coolray-battle-white" {
+		t.Fatalf("car = %q, want coolray-battle-white (via alias)", m.Car.CarId)
+	}
+	if m.ResolvedFrom != "GAC COOLRAY BATTLE WHITE" {
+		t.Fatalf("resolvedFrom = %q, want the alias", m.ResolvedFrom)
+	}
+	if m.Price.Dza == nil {
+		t.Fatalf("price missing: %+v", m.Price)
+	}
+}
+
+// An alias whose car_id is not in the catalog is MISSING with a fix-it hint —
+// never an invented car.
+func TestAliasPointingAtUnknownCar(t *testing.T) {
+	d := aliasData()
+	d.Aliases = []dbp.Alias{{Alias: "GHOST", CarID: "not-in-catalog"}}
+	p := Run(d, Args{CarQuery: "GHOST", Mode: "retail-dza", Port: "ALGIERS"}).Payload
+	mc, ok := p.(*MissingCarResult)
+	if !ok {
+		t.Fatalf("want *MissingCarResult, got %T", p)
+	}
+	if !strings.Contains(mc.Error, "points at a car_id") {
+		t.Fatalf("error = %q, want the fix-it hint", mc.Error)
+	}
+}
+
+// A wording with no alias still falls through to the substring match, and an
+// unknown wording stays MISSING (no invented mapping).
+func TestUnknownWordingStaysMissing(t *testing.T) {
+	d := aliasData()
+	p := Run(d, Args{CarQuery: "GAC GS3 MEDIUM XTRIM", Mode: "retail-dza", Port: "ALGIERS"}).Payload
+	if _, ok := p.(*MissingCarResult); !ok {
+		t.Fatalf("want *MissingCarResult, got %T", p)
+	}
+}

@@ -95,6 +95,26 @@ func TestInferMessageType(t *testing.T) {
 			t.Fatalf("%q: got %s want %s", c.in, got, c.want)
 		}
 	}
+
+	// DOM flags (browser scrape): a media/system bubble has no text at all.
+	b := func(v bool) *bool { return &v }
+	extraCases := []struct {
+		in    string
+		extra MessageExtra
+		want  string
+	}{
+		{"", MessageExtra{HasAudio: b(true)}, "audio"},
+		{"0:17", MessageExtra{HasAudio: b(true)}, "audio"},
+		{"Missed call", MessageExtra{IsSystem: b(true)}, "missed_call"}, // call rows win over system
+		{"Ali changed the subject", MessageExtra{IsSystem: b(true)}, "system"},
+		{"", MessageExtra{HasImage: b(true)}, "image"},
+		{"", MessageExtra{HasVideo: b(true)}, "video"},
+	}
+	for _, c := range extraCases {
+		if got := InferMessageType(c.in, &c.extra); got != c.want {
+			t.Fatalf("%q +extra: got %s want %s", c.in, got, c.want)
+		}
+	}
 }
 
 func TestTrimPreviewNumber(t *testing.T) {

@@ -162,3 +162,28 @@ func TestLooksLikeReasoning(t *testing.T) {
 		t.Fatal("a normal reply must not be flagged")
 	}
 }
+
+// The digit and money rules are enforced by code, not by hoping the model
+// obeyed them (client-reply.md §1/§8: ASCII digits; §0.15: round the client
+// figure UP to 10,000 DZD / 100 USD; §0.14: a breakdown stays exact).
+func TestFinalizeReplyEnforcesDigitAndMoneyRules(t *testing.T) {
+	cases := []struct{ name, raw, want string }{
+		{"arabic digits and round up", "الثمن ٢٨٠١٠٢٠ دج", "الثمن 2,810,000 دج"},
+		{"space grouped on grid", "الثمن 2 810 000 دج", "الثمن 2,810,000 دج"},
+		{"lone exact figure rounds", "الثمن 2,801,020.25 دج", "الثمن 2,810,000 دج"},
+		{"usd grid", "The price is $2801020 for you", "The price is $2,801,100 for you"},
+		{"already on grid", "الثمن 2810000 دج", "الثمن 2,810,000 دج"},
+		{"breakdown untouched", "التكلفة 9,100 دج + الشحن 1,253.75 دج", "التكلفة 9,100 دج + الشحن 1,253.75 دج"},
+		{"no money figure", "مرحبا يا صاحبي", "مرحبا يا صاحبي"},
+		{"bare numbers untouched", "دخل 2027 و عندو 15 وحدة", "دخل 2027 و عندو 15 وحدة"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := FinalizeReply(tc.raw, 400, false)
+			want := tc.want + "\n" + AiDisclosureLine
+			if got != want {
+				t.Fatalf("got %q, want %q", got, want)
+			}
+		})
+	}
+}

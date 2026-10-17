@@ -200,6 +200,28 @@ func LoadOptions() ([]OptionDef, error) {
 	return out, nil
 }
 
+// Alias is one client-wording → catalog-car mapping (table car_aliases,
+// migration 011). Clients write trim names the calculator doesn't know
+// ("GAC GS3 MEDIUM" for gs3-mid); quote resolves the alias before its
+// substring match and reports it as `resolvedFrom`.
+type Alias struct {
+	Alias string `json:"alias"` // stored normalised (quote.Norm): uppercased, [^A-Z0-9] -> space
+	CarID string `json:"carId"` // cars.car_id it resolves to
+	Notes string `json:"notes,omitempty"`
+}
+
+func LoadAliases() ([]Alias, error) {
+	rows, err := db.Query("SELECT alias, car_id, COALESCE(notes, '') AS notes FROM car_aliases ORDER BY alias")
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Alias, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, Alias{Alias: s(r["alias"]), CarID: s(r["car_id"]), Notes: s(r["notes"])})
+	}
+	return out, nil
+}
+
 // InvariantIssue is one drift between the price cache (cars) and the
 // append-only history (car_price_history).
 type InvariantIssue struct {
