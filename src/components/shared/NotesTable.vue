@@ -5,9 +5,9 @@
         <i class="fas fa-sticky-note"></i>
         {{ t('sellBills.notes') }}
       </h4>
-      <button 
-        v-if="mode === 'edit'" 
-        @click="$emit('manage-notes')" 
+      <button
+        v-if="mode === 'edit'"
+        @click="$emit('manage-notes')"
         class="btn-manage-notes"
         type="button"
       >
@@ -15,12 +15,12 @@
         {{ t('sellBills.manage_notes') || 'Manage Notes' }}
       </button>
     </div>
-    
+
     <div v-if="notes.length === 0" class="no-notes">
       <i class="fas fa-inbox"></i>
       <p>{{ t('sellBills.no_notes') || 'No notes available' }}</p>
     </div>
-    
+
     <table v-else class="notes-table">
       <thead>
         <tr>
@@ -37,7 +37,7 @@
             <i class="fas fa-user"></i>
             {{ getUserName(note.id_user) }}
           </td>
-          <td class="note-text">{{ note.note || '-' }}</td>
+          <td class="note-text">{{ noteText(note) || '-' }}</td>
           <td class="note-timestamp">
             {{ formatTimestamp(note.timestamp) }}
           </td>
@@ -50,6 +50,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useEnhancedI18n } from '../../composables/useI18n'
+import { noteText } from '../../lib/notes'
 
 const { t } = useEnhancedI18n()
 
@@ -73,9 +74,9 @@ const emit = defineEmits(['manage-notes'])
 const getUserName = (userId) => {
   if (!userId) return t('sellBills.unknown') || 'Unknown'
   // Handle both string and number ID comparisons
-  const user = props.users.find(u => u.id == userId || u.id === userId)
+  const user = props.users.find((u) => u.id == userId || u.id === userId)
   if (!user) return `User ${userId}`
-  
+
   // Return username if available, otherwise show User ID
   return user.username || `User ${userId}`
 }
@@ -236,4 +237,3 @@ const formatTimestamp = (timestamp) => {
   font-size: 0.8125rem;
 }
 </style>
-

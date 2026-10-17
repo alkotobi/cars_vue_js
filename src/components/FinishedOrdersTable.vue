@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useApi } from '../composables/useApi'
+import { formatNotes } from '../lib/notes'
 
 const { callApi } = useApi()
 const finishedOrders = ref([])
@@ -134,7 +135,7 @@ function toggleSort(key) {
           <td>{{ car.client_name }}</td>
           <td>{{ car.date_send_documents }}</td>
           <td>{{ car.price_cell }}</td>
-          <td>{{ car.notes }}</td>
+          <td>{{ formatNotes(car.notes) || '-' }}</td>
         </tr>
       </tbody>
     </table>

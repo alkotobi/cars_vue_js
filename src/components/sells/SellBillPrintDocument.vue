@@ -6,6 +6,7 @@ import { useApi } from '../../composables/useApi'
 import { useInvoiceCompanyInfo } from '../../composables/useInvoiceCompanyInfo'
 import PrintReportHeader from './PrintReportHeader.vue'
 import { readJsonResponse } from '@/utils/readJsonResponse'
+import { formatNotes as formatNotesText } from '../../lib/notes'
 
 const { t } = useEnhancedI18n()
 
@@ -29,13 +30,13 @@ const {
 } = useInvoiceCompanyInfo()
 
 const headerContactItems = computed(() =>
-  getReportHeaderContactItems(selectedBank.value, company.value)
+  getReportHeaderContactItems(selectedBank.value, company.value),
 )
 
 // Sticky capture: once we have a logo we never clear it (CrossDev may clear localStorage or re-run and lose it)
 const logoUrlSticky = ref('')
-const effectiveLogoUrl = computed(() =>
-  letterHeadUrl.value || logoUrlSticky.value || getStoredPrintLogoDataUrl() || ''
+const effectiveLogoUrl = computed(
+  () => letterHeadUrl.value || logoUrlSticky.value || getStoredPrintLogoDataUrl() || '',
 )
 const loading = ref(true)
 const error = ref(null)
@@ -131,36 +132,11 @@ const fetchBillData = async () => {
     if (billResult.success && billResult.data.length > 0) {
       const bill = billResult.data[0]
 
-      // Parse notes JSON if it exists
+      // Extract note text (handles nested / double-encoded / plain-text notes).
       if (bill.notes) {
-        try {
-          let notesArray = []
-          if (typeof bill.notes === 'string' && bill.notes.trim().startsWith('[')) {
-            notesArray = JSON.parse(bill.notes)
-          } else if (Array.isArray(bill.notes)) {
-            notesArray = bill.notes
-          }
-
-          if (Array.isArray(notesArray) && notesArray.length > 0) {
-            // Format notes for printing (show all notes, each on a line, without user/date)
-            const formatted = notesArray
-              .map((note) => note.note || '')
-              .filter((note) => note.trim() !== '')
-              .join('\n')
-            if (formatted && formatted.trim() !== '') {
-              bill.notesFormatted = formatted
-              // Also keep latest note for simple display
-              bill.notes = notesArray[notesArray.length - 1].note || ''
-            } else {
-              // No valid notes found, clear both
-              bill.notesFormatted = ''
-              bill.notes = ''
-            }
-          }
-        } catch (e) {
-          // If parsing fails, treat as old format (plain text)
-          bill.notesFormatted = bill.notes
-        }
+        const formatted = formatNotesText(bill.notes)
+        bill.notesFormatted = formatted
+        bill.notes = formatted
       }
 
       billData.value = bill
@@ -298,35 +274,7 @@ const formatCarUpgrades = (carId) => {
 }
 
 // Format JSON notes - extract only note text without user/date
-const formatNotes = (notes) => {
-  if (!notes) return ''
-
-  try {
-    let notesArray = []
-    if (typeof notes === 'string' && notes.trim().startsWith('[')) {
-      notesArray = JSON.parse(notes)
-    } else if (Array.isArray(notes)) {
-      notesArray = notes
-    } else {
-      // Old format (plain text) - use as is if not empty
-      return notes.trim() || ''
-    }
-
-    if (Array.isArray(notesArray) && notesArray.length > 0) {
-      // Extract only the note text, filter empty notes, join with newlines
-      const formatted = notesArray
-        .map((note) => note.note || '')
-        .filter((note) => note.trim() !== '')
-        .join('\n')
-      return formatted || ''
-    }
-
-    return ''
-  } catch (e) {
-    // If parsing fails, treat as old format (plain text)
-    return notes.trim() || ''
-  }
-}
+const formatNotes = (notes) => formatNotesText(notes)
 
 // Check if notes have content
 const hasNotes = (notes) => {
@@ -650,13 +598,25 @@ onBeforeUnmount(() => {
     <table class="two-column-block">
       <tr>
         <td class="col-1">
-          <div class="info-group"><span class="bold-label">{{ t('sellBills.name') }}:</span> {{ billData?.broker_name }}</div>
-          <div class="info-group"><span class="bold-label">{{ t('sellBills.address') }}:</span> {{ billData?.broker_address }}</div>
-          <div class="info-group"><span class="bold-label">{{ t('sellBills.phone') }}:</span> {{ billData?.broker_phone }}</div>
+          <div class="info-group">
+            <span class="bold-label">{{ t('sellBills.name') }}:</span> {{ billData?.broker_name }}
+          </div>
+          <div class="info-group">
+            <span class="bold-label">{{ t('sellBills.address') }}:</span>
+            {{ billData?.broker_address }}
+          </div>
+          <div class="info-group">
+            <span class="bold-label">{{ t('sellBills.phone') }}:</span> {{ billData?.broker_phone }}
+          </div>
         </td>
         <td class="col-2">
-          <div class="meta-line"><strong>{{ t('sellBills.ci_no') }}:</strong> {{ billData ? billData.bill_ref : '' }}</div>
-          <div class="meta-line"><strong>{{ t('sellBills.date') }}:</strong> {{ billData ? formatDate(billData.date_sell) : '' }}</div>
+          <div class="meta-line">
+            <strong>{{ t('sellBills.ci_no') }}:</strong> {{ billData ? billData.bill_ref : '' }}
+          </div>
+          <div class="meta-line">
+            <strong>{{ t('sellBills.date') }}:</strong>
+            {{ billData ? formatDate(billData.date_sell) : '' }}
+          </div>
         </td>
       </tr>
     </table>

@@ -9,6 +9,7 @@ import SellBillPrintOption from './SellBillPrintOption.vue'
 import NotesTable from '../shared/NotesTable.vue'
 import NotesManagementModal from '../shared/NotesManagementModal.vue'
 import CarUpgradesModal from '../shared/CarUpgradesModal.vue'
+import { formatNotes } from '../../lib/notes'
 
 const { t } = useEnhancedI18n()
 const attrs = useAttrs()
@@ -118,7 +119,7 @@ const handleCurrencyChange = () => {
   // Recalculate the other currency when currency changes
   if (priceInput.value && editFormData.value.rate) {
     const upgrades = editCarUpgradesTotal.value || 0
-    
+
     if (selectedCurrency.value === 'USD') {
       // If switching to USD, convert current DZD to USD
       if (cfrDaInput.value) {
@@ -351,11 +352,11 @@ const saveCarNotes = async (notesJson, carId) => {
     params: [notesJson, carId],
     requiresAuth: true,
   })
-  
+
   if (!result.success) {
     throw new Error(result.error || 'Failed to save notes')
   }
-  
+
   // Update local notes
   if (notesJson) {
     editCarNotes.value = JSON.parse(notesJson)
@@ -485,7 +486,7 @@ const fetchCarsUpgrades = async () => {
   }
 
   try {
-    const carIds = cars.value.map(car => car.id)
+    const carIds = cars.value.map((car) => car.id)
     if (carIds.length === 0) return
 
     const result = await callApi({
@@ -548,7 +549,9 @@ const handleEditClientChange = async (clientId) => {
 
     if (result.success && result.data.length > 0) {
       if (!result.data[0].id_copy_path) {
-        error.value = t('sellBills.cannot_assign_client_no_id') || 'Cannot assign to this client because passport/ID card is not uploaded'
+        error.value =
+          t('sellBills.cannot_assign_client_no_id') ||
+          'Cannot assign to this client because passport/ID card is not uploaded'
         editFormData.value.id_client = null
       } else {
         error.value = null
@@ -622,32 +625,41 @@ const handleEdit = async (car) => {
             // Old format (plain text) - convert to JSON
             const userStr = localStorage.getItem('user')
             const currentUser = userStr ? JSON.parse(userStr) : null
-            notesArray = [{
-              id_user: currentUser?.id || null,
-              note: carData.notes,
-              timestamp: new Date().toISOString().slice(0, 19).replace('T', ' ')
-            }]
+            notesArray = [
+              {
+                id_user: currentUser?.id || null,
+                note: carData.notes,
+                timestamp: new Date().toISOString().slice(0, 19).replace('T', ' '),
+              },
+            ]
           }
           editCarNotes.value = Array.isArray(notesArray) ? notesArray : []
         } catch (e) {
           // If parsing fails, treat as old format (plain text)
           const userStr = localStorage.getItem('user')
           const currentUser = userStr ? JSON.parse(userStr) : null
-          editCarNotes.value = [{
-            id_user: currentUser?.id || null,
-            note: carData.notes,
-            timestamp: new Date().toISOString().slice(0, 19).replace('T', ' ')
-          }]
+          editCarNotes.value = [
+            {
+              id_user: currentUser?.id || null,
+              note: carData.notes,
+              timestamp: new Date().toISOString().slice(0, 19).replace('T', ' '),
+            },
+          ]
         }
       } else {
         editCarNotes.value = []
       }
-      
+
       // Store original notes to restore on cancel
       originalEditCarNotes.value = JSON.parse(JSON.stringify(editCarNotes.value))
 
       // Fetch necessary data for dropdowns and upgrades BEFORE calculating prices
-      await Promise.all([fetchClients(), fetchDischargePorts(), fetchAllUsers(), fetchEditCarUpgrades()])
+      await Promise.all([
+        fetchClients(),
+        fetchDischargePorts(),
+        fetchAllUsers(),
+        fetchEditCarUpgrades(),
+      ])
 
       // Set the price input value based on existing data (after upgrades are fetched)
       const upgrades = editCarUpgradesTotal.value || 0
@@ -723,7 +735,9 @@ const handleSaveEdit = async () => {
 
       if (clientCheck.success && clientCheck.data.length > 0) {
         if (!clientCheck.data[0].id_copy_path) {
-          error.value = t('sellBills.cannot_assign_client_no_id') || 'Cannot assign to this client because passport/ID card is not uploaded'
+          error.value =
+            t('sellBills.cannot_assign_client_no_id') ||
+            'Cannot assign to this client because passport/ID card is not uploaded'
           isProcessing.value = false
           return
         }
@@ -882,41 +896,13 @@ const fetchCarsByBillId = async (billId) => {
     })
 
     if (result.success) {
-      // Parse notes JSON and format for display
-      const carsData = (result.data || []).map((car) => {
-        // Parse notes JSON if it exists
-        let notesDisplay = 'N/A'
-        if (car.notes) {
-          try {
-            let notesArray = []
-            if (typeof car.notes === 'string' && car.notes.trim().startsWith('[')) {
-              notesArray = JSON.parse(car.notes)
-            } else if (Array.isArray(car.notes)) {
-              notesArray = car.notes
-            } else {
-              // Old format (plain text) - use as is
-              notesDisplay = car.notes
-            }
-            
-            if (Array.isArray(notesArray) && notesArray.length > 0) {
-              // Format all notes without username or timestamp
-              notesDisplay = notesArray.map((note) => {
-                return note.note || ''
-              }).join('\n')
-            }
-          } catch (e) {
-            // If parsing fails, treat as old format (plain text)
-            notesDisplay = car.notes
-          }
-        }
-        
-        return {
-          ...car,
-          notesDisplay: notesDisplay, // Add formatted display version
-        }
-      })
+      // Extract note text (handles nested / double-encoded / plain-text notes).
+      const carsData = (result.data || []).map((car) => ({
+        ...car,
+        notesDisplay: car.notes ? formatNotes(car.notes) || 'N/A' : 'N/A',
+      }))
+
       cars.value = carsData
-      
       // Fetch upgrades for all cars
       await fetchCarsUpgrades()
     } else {
@@ -934,10 +920,15 @@ const fetchCarsByBillId = async (billId) => {
 watch(
   () => editCarUpgradesTotal.value,
   () => {
-    if (showEditDialog.value && priceInput.value && editFormData.value.rate && editingCar.value?.id) {
+    if (
+      showEditDialog.value &&
+      priceInput.value &&
+      editFormData.value.rate &&
+      editingCar.value?.id
+    ) {
       recalculatePricesWithUpgrades()
     }
-  }
+  },
 )
 
 watch(
@@ -1261,150 +1252,151 @@ const formatDate = (dateString) => {
 
     <div v-else class="sell-bill-cars-data-wrap">
       <div class="sell-bill-cars-table-desktop">
-    <table class="cars-table">
-      <thead>
-        <tr>
-          <th><i class="fas fa-hashtag"></i> {{ t('sellBills.id') }}</th>
-          <th><i class="fas fa-car"></i> {{ t('sellBills.car') }}</th>
-          <th><i class="fas fa-user"></i> {{ t('sellBills.client') }}</th>
-          <th><i class="fas fa-shipping-fast"></i> {{ t('sellBills.container') }}</th>
-          <th><i class="fas fa-dollar-sign"></i> {{ t('sellBills.price') }}</th>
-          <th><i class="fas fa-ship"></i> {{ t('sellBills.freight') }}</th>
-          <th><i class="fas fa-calculator"></i> {{ t('sellBills.cfr') }}</th>
-          <th><i class="fas fa-sticky-note"></i> {{ t('sellBills.notes') }}</th>
-          <th><i class="fas fa-cog"></i> {{ t('sellBills.actions') }}</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="car in filteredCars" :key="car.id">
-          <td>{{ car.id }}</td>
-          <td class="car-cell">
-            <div class="car-name">{{ car.car_name }}</div>
-            <div class="car-vin" v-if="car.vin">{{ car.vin }}</div>
-            <div class="car-badges">
-              <span
-                v-if="car.color"
-                class="badge color-badge"
-                :style="{
-                  backgroundColor: car.hexa || '#000000',
-                  color: getTextColor(car.hexa || '#000000'),
-                }"
-              >
-                {{ car.color }}
-              </span>
-              <span
-                v-if="isAdmin"
-                class="badge assigned-date-badge"
-                :class="{ 'not-assigned': !car.date_assigned }"
-              >
-                <i class="fas fa-clock"></i>
-                {{
-                  car.date_assigned
-                    ? `${t('sellBills.timestamp')}: ${formatDate(car.date_assigned)}`
-                    : `${t('sellBills.timestamp')}: ${t('sellBills.not_set')}`
-                }}
-              </span>
-            </div>
-          </td>
-          <td>
-            <div class="client-info">
-              <div>{{ car.client_name || 'N/A' }}</div>
-              <div v-if="car.client_mobiles && car.client_mobiles !== 'please provide mobile'" class="client-mobile">
-                <i class="fas fa-phone"></i>
-                {{ car.client_mobiles }}
-              </div>
-            </div>
-          </td>
-          <td>
-            <span
-              :class="['container-badge', `container-badge-${getContainerStatus(car).status}`]"
-              :title="getContainerStatus(car).text"
-            >
-              <i class="fas fa-shipping-fast"></i>
-              {{ getContainerStatus(car).text }}
-            </span>
-          </td>
-          <td>{{ car.price_cell ? '$' + car.price_cell.toLocaleString() : 'N/A' }}</td>
-          <td>{{ car.freight ? '$' + car.freight.toLocaleString() : 'N/A' }}</td>
-          <td class="cfr-cell">
-            <div class="cfr-badges">
-              <span class="badge cfr-da-badge"
-                >{{ t('sellBills.da') }}: {{ calculateCFRDA(car) }}</span
-              >
-              <span class="badge cfr-usd-badge"
-                >{{ t('sellBills.usd') }}: {{ calculateCFRUSD(car) }}</span
-              >
-              <span class="badge cfr-rate-badge"
-                >{{ t('sellBills.rate') }}: {{ car.rate || 'N/A' }}</span
-              >
-              <span 
-                v-if="getCarUpgradesTotal(car.id) > 0" 
-                class="badge cfr-upgrades-badge clickable"
-                @click.stop="handleTableUpgradesClick(car)"
-                :title="t('carStock.upgrades') || 'Click to view upgrades'"
-              >
-                <i class="fas fa-wrench"></i> {{ t('carStock.upgrades') || 'Upgrades' }}: ${{ formatUpgradeValue(getCarUpgradesTotal(car.id)) }}
-              </span>
-            </div>
-          </td>
-          <td class="notes-cell">
-            <div class="notes-content">
-              <div style="white-space: pre-line; max-width: 300px">
-                {{ getTruncatedCarNotes(car.notesDisplay, car.id) }}
-              </div>
-              <button
-                v-if="isCarNotesTruncated(car.notesDisplay, car.id)"
-                @click.stop="toggleCarNotesExpansion(car.id)"
-                class="btn-show-full-notes"
-                type="button"
-              >
-                {{
-                  expandedCarNotes.has(car.id)
-                    ? t('sellBills.show_less') || 'Show Less'
-                    : t('sellBills.show_full') || 'Show Full'
-                }}
-              </button>
-            </div>
-          </td>
-          <td class="actions">
-            <button
-              @click="handleEdit(car)"
-              :disabled="isProcessing"
-              class="btn edit-btn"
-              :title="t('sellBills.edit_car')"
-            >
-              <i class="fas fa-edit"></i>
-            </button>
-            <button
-              @click="handlePrint(car)"
-              :disabled="isProcessing"
-              class="btn print-btn"
-              :title="t('sellBills.print_car_document')"
-            >
-              <i class="fas fa-print"></i>
-            </button>
-            <button
-              v-if="can_unassign_cars"
-              @click="handleUnassign(car.id)"
-              :disabled="isProcessing"
-              class="btn unassign-btn"
-              :title="t('sellBills.unassign_car')"
-            >
-              <i class="fas fa-unlink"></i>
-            </button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+        <table class="cars-table">
+          <thead>
+            <tr>
+              <th><i class="fas fa-hashtag"></i> {{ t('sellBills.id') }}</th>
+              <th><i class="fas fa-car"></i> {{ t('sellBills.car') }}</th>
+              <th><i class="fas fa-user"></i> {{ t('sellBills.client') }}</th>
+              <th><i class="fas fa-shipping-fast"></i> {{ t('sellBills.container') }}</th>
+              <th><i class="fas fa-dollar-sign"></i> {{ t('sellBills.price') }}</th>
+              <th><i class="fas fa-ship"></i> {{ t('sellBills.freight') }}</th>
+              <th><i class="fas fa-calculator"></i> {{ t('sellBills.cfr') }}</th>
+              <th><i class="fas fa-sticky-note"></i> {{ t('sellBills.notes') }}</th>
+              <th><i class="fas fa-cog"></i> {{ t('sellBills.actions') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="car in filteredCars" :key="car.id">
+              <td>{{ car.id }}</td>
+              <td class="car-cell">
+                <div class="car-name">{{ car.car_name }}</div>
+                <div class="car-vin" v-if="car.vin">{{ car.vin }}</div>
+                <div class="car-badges">
+                  <span
+                    v-if="car.color"
+                    class="badge color-badge"
+                    :style="{
+                      backgroundColor: car.hexa || '#000000',
+                      color: getTextColor(car.hexa || '#000000'),
+                    }"
+                  >
+                    {{ car.color }}
+                  </span>
+                  <span
+                    v-if="isAdmin"
+                    class="badge assigned-date-badge"
+                    :class="{ 'not-assigned': !car.date_assigned }"
+                  >
+                    <i class="fas fa-clock"></i>
+                    {{
+                      car.date_assigned
+                        ? `${t('sellBills.timestamp')}: ${formatDate(car.date_assigned)}`
+                        : `${t('sellBills.timestamp')}: ${t('sellBills.not_set')}`
+                    }}
+                  </span>
+                </div>
+              </td>
+              <td>
+                <div class="client-info">
+                  <div>{{ car.client_name || 'N/A' }}</div>
+                  <div
+                    v-if="car.client_mobiles && car.client_mobiles !== 'please provide mobile'"
+                    class="client-mobile"
+                  >
+                    <i class="fas fa-phone"></i>
+                    {{ car.client_mobiles }}
+                  </div>
+                </div>
+              </td>
+              <td>
+                <span
+                  :class="['container-badge', `container-badge-${getContainerStatus(car).status}`]"
+                  :title="getContainerStatus(car).text"
+                >
+                  <i class="fas fa-shipping-fast"></i>
+                  {{ getContainerStatus(car).text }}
+                </span>
+              </td>
+              <td>{{ car.price_cell ? '$' + car.price_cell.toLocaleString() : 'N/A' }}</td>
+              <td>{{ car.freight ? '$' + car.freight.toLocaleString() : 'N/A' }}</td>
+              <td class="cfr-cell">
+                <div class="cfr-badges">
+                  <span class="badge cfr-da-badge"
+                    >{{ t('sellBills.da') }}: {{ calculateCFRDA(car) }}</span
+                  >
+                  <span class="badge cfr-usd-badge"
+                    >{{ t('sellBills.usd') }}: {{ calculateCFRUSD(car) }}</span
+                  >
+                  <span class="badge cfr-rate-badge"
+                    >{{ t('sellBills.rate') }}: {{ car.rate || 'N/A' }}</span
+                  >
+                  <span
+                    v-if="getCarUpgradesTotal(car.id) > 0"
+                    class="badge cfr-upgrades-badge clickable"
+                    @click.stop="handleTableUpgradesClick(car)"
+                    :title="t('carStock.upgrades') || 'Click to view upgrades'"
+                  >
+                    <i class="fas fa-wrench"></i> {{ t('carStock.upgrades') || 'Upgrades' }}: ${{
+                      formatUpgradeValue(getCarUpgradesTotal(car.id))
+                    }}
+                  </span>
+                </div>
+              </td>
+              <td class="notes-cell">
+                <div class="notes-content">
+                  <div style="white-space: pre-line; max-width: 300px">
+                    {{ getTruncatedCarNotes(car.notesDisplay, car.id) }}
+                  </div>
+                  <button
+                    v-if="isCarNotesTruncated(car.notesDisplay, car.id)"
+                    @click.stop="toggleCarNotesExpansion(car.id)"
+                    class="btn-show-full-notes"
+                    type="button"
+                  >
+                    {{
+                      expandedCarNotes.has(car.id)
+                        ? t('sellBills.show_less') || 'Show Less'
+                        : t('sellBills.show_full') || 'Show Full'
+                    }}
+                  </button>
+                </div>
+              </td>
+              <td class="actions">
+                <button
+                  @click="handleEdit(car)"
+                  :disabled="isProcessing"
+                  class="btn edit-btn"
+                  :title="t('sellBills.edit_car')"
+                >
+                  <i class="fas fa-edit"></i>
+                </button>
+                <button
+                  @click="handlePrint(car)"
+                  :disabled="isProcessing"
+                  class="btn print-btn"
+                  :title="t('sellBills.print_car_document')"
+                >
+                  <i class="fas fa-print"></i>
+                </button>
+                <button
+                  v-if="can_unassign_cars"
+                  @click="handleUnassign(car.id)"
+                  :disabled="isProcessing"
+                  class="btn unassign-btn"
+                  :title="t('sellBills.unassign_car')"
+                >
+                  <i class="fas fa-unlink"></i>
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
       <!-- Mobile cards (shown only on mobile) -->
       <div class="sell-bill-cars-mobile-cards">
-        <div
-          v-for="car in filteredCars"
-          :key="car.id"
-          class="assigned-car-card"
-        >
+        <div v-for="car in filteredCars" :key="car.id" class="assigned-car-card">
           <div class="assigned-car-card-header">
             <span class="assigned-car-card-id">#{{ car.id }}</span>
             <span class="assigned-car-card-name">{{ car.car_name || 'N/A' }}</span>
@@ -1418,7 +1410,9 @@ const formatDate = (dateString) => {
             <span class="assigned-car-card-value">{{ car.client_name || '-' }}</span>
           </div>
           <div class="assigned-car-card-row" v-if="car.color">
-            <span class="assigned-car-card-label">{{ t('carStockPrintOptions.color') || t('sellBills.color') || 'Color' }}</span>
+            <span class="assigned-car-card-label">{{
+              t('carStockPrintOptions.color') || t('sellBills.color') || 'Color'
+            }}</span>
             <span
               class="assigned-car-card-value color-badge-inline"
               :style="{
@@ -1432,13 +1426,29 @@ const formatDate = (dateString) => {
           <div class="assigned-car-card-row">
             <span class="assigned-car-card-label">{{ t('sellBills.price') || 'FOB' }}</span>
             <span class="assigned-car-card-value">
-              {{ car.price_cell != null ? '$' + parseFloat(car.price_cell).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : (t('sellBills.not_set') || 'N/A') }}
+              {{
+                car.price_cell != null
+                  ? '$' +
+                    parseFloat(car.price_cell).toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })
+                  : t('sellBills.not_set') || 'N/A'
+              }}
             </span>
           </div>
           <div class="assigned-car-card-row">
             <span class="assigned-car-card-label">{{ t('sellBills.freight') || 'Freight' }}</span>
             <span class="assigned-car-card-value">
-              {{ car.freight != null && car.freight !== '' ? '$' + parseFloat(car.freight).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : (t('sellBills.not_set') || 'N/A') }}
+              {{
+                car.freight != null && car.freight !== ''
+                  ? '$' +
+                    parseFloat(car.freight).toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })
+                  : t('sellBills.not_set') || 'N/A'
+              }}
             </span>
           </div>
           <div class="assigned-car-card-row">
@@ -1447,7 +1457,9 @@ const formatDate = (dateString) => {
           </div>
           <div class="assigned-car-card-row">
             <span class="assigned-car-card-label">{{ t('sellBills.rate') || 'Rate' }}</span>
-            <span class="assigned-car-card-value">{{ car.rate != null && car.rate !== '' ? car.rate : (t('sellBills.not_set') || 'N/A') }}</span>
+            <span class="assigned-car-card-value">{{
+              car.rate != null && car.rate !== '' ? car.rate : t('sellBills.not_set') || 'N/A'
+            }}</span>
           </div>
           <div class="assigned-car-card-row">
             <span class="assigned-car-card-label">{{ t('sellBills.usd') || 'CFR USD' }}</span>
@@ -1455,7 +1467,11 @@ const formatDate = (dateString) => {
           </div>
           <div class="assigned-car-card-row">
             <span class="assigned-car-card-label">{{ t('sellBills.container') || 'Loading' }}</span>
-            <span class="assigned-car-card-value">{{ getContainerStatus(car).status === 'not-loaded' ? (t('sellBills.not_loaded') || 'Not Loaded') : getContainerStatus(car).text }}</span>
+            <span class="assigned-car-card-value">{{
+              getContainerStatus(car).status === 'not-loaded'
+                ? t('sellBills.not_loaded') || 'Not Loaded'
+                : getContainerStatus(car).text
+            }}</span>
           </div>
         </div>
       </div>
@@ -1563,7 +1579,8 @@ const formatDate = (dateString) => {
             <div class="form-group">
               <label>
                 <i class="fas fa-calculator"></i>
-                {{ selectedCurrency === 'USD' ? t('sellBills.price') : t('sellBills.cfr_da') }}: <span class="required">*</span>
+                {{ selectedCurrency === 'USD' ? t('sellBills.price') : t('sellBills.cfr_da') }}:
+                <span class="required">*</span>
               </label>
               <div class="input-with-info">
                 <input
@@ -1573,14 +1590,28 @@ const formatDate = (dateString) => {
                   min="0"
                   required
                   @input="handlePriceInputChange"
-                  :placeholder="selectedCurrency === 'USD' ? 'Enter price in USD' : 'Enter price in DZD'"
+                  :placeholder="
+                    selectedCurrency === 'USD' ? 'Enter price in USD' : 'Enter price in DZD'
+                  "
                 />
               </div>
-              <span class="info-text" v-if="selectedCurrency === 'USD' && editFormData.rate && priceInput">
-                Calculated DZD: {{ cfrDaInput ? parseFloat(cfrDaInput).toLocaleString() : 'N/A' }} DA
+              <span
+                class="info-text"
+                v-if="selectedCurrency === 'USD' && editFormData.rate && priceInput"
+              >
+                Calculated DZD:
+                {{ cfrDaInput ? parseFloat(cfrDaInput).toLocaleString() : 'N/A' }} DA
               </span>
-              <span class="info-text" v-else-if="selectedCurrency === 'DZD' && editFormData.rate && priceInput">
-                Calculated USD: {{ editFormData.price_cell ? '$' + parseFloat(editFormData.price_cell).toLocaleString() : 'N/A' }}
+              <span
+                class="info-text"
+                v-else-if="selectedCurrency === 'DZD' && editFormData.rate && priceInput"
+              >
+                Calculated USD:
+                {{
+                  editFormData.price_cell
+                    ? '$' + parseFloat(editFormData.price_cell).toLocaleString()
+                    : 'N/A'
+                }}
               </span>
             </div>
           </div>
@@ -1624,7 +1655,11 @@ const formatDate = (dateString) => {
                 {{ t('sellBills.notes') }}:
               </label>
               <div class="notes-section">
-                <NotesTable v-if="editCarNotes && editCarNotes.length > 0" :notes="editCarNotes" :users="allUsers" />
+                <NotesTable
+                  v-if="editCarNotes && editCarNotes.length > 0"
+                  :notes="editCarNotes"
+                  :users="allUsers"
+                />
                 <button
                   type="button"
                   @click="handleManageEditNotes"
@@ -1658,11 +1693,13 @@ const formatDate = (dateString) => {
                   <div v-if="editCarUpgrades.length > 0" class="upgrades-total-display">
                     <span class="upgrades-count">
                       <i class="fas fa-list"></i>
-                      {{ editCarUpgrades.length }} {{ t('carUpgrades.total_upgrades') || 'upgrades' }}
+                      {{ editCarUpgrades.length }}
+                      {{ t('carUpgrades.total_upgrades') || 'upgrades' }}
                     </span>
                     <span class="upgrades-total">
                       <i class="fas fa-calculator"></i>
-                      {{ t('carUpgrades.total_amount') || 'Total' }}: {{ formatUpgradeValue(editCarUpgradesTotal) }}
+                      {{ t('carUpgrades.total_amount') || 'Total' }}:
+                      {{ formatUpgradeValue(editCarUpgradesTotal) }}
                     </span>
                   </div>
                 </div>
@@ -1736,7 +1773,11 @@ const formatDate = (dateString) => {
     <CarUpgradesModal
       :show="showTableUpgradesModal"
       :carId="selectedCarForUpgrades?.id"
-      :title="selectedCarForUpgrades ? `${t('carStock.upgrades') || 'Upgrades'} - ${selectedCarForUpgrades.car_name}` : ''"
+      :title="
+        selectedCarForUpgrades
+          ? `${t('carStock.upgrades') || 'Upgrades'} - ${selectedCarForUpgrades.car_name}`
+          : ''
+      "
       :users="allUsers"
       @close="closeTableUpgradesModal"
     />

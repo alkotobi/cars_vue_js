@@ -7,6 +7,7 @@ import { useInvoiceCompanyInfo } from '../../composables/useInvoiceCompanyInfo'
 import { useCrossDev } from '../../composables/useCrossDev'
 import { useRouter, useRoute } from 'vue-router'
 import SellBillPrintOption from './SellBillPrintOption.vue'
+import { formatNotes } from '../../lib/notes'
 
 const { t } = useEnhancedI18n()
 const props = defineProps({
@@ -354,33 +355,8 @@ const fetchSellBills = async () => {
 
     if (result.success) {
       allSellBills.value = result.data.map((bill) => {
-        // Parse notes JSON if it exists
-        let notesDisplay = 'N/A'
-        if (bill.notes) {
-          try {
-            let notesArray = []
-            if (typeof bill.notes === 'string' && bill.notes.trim().startsWith('[')) {
-              notesArray = JSON.parse(bill.notes)
-            } else if (Array.isArray(bill.notes)) {
-              notesArray = bill.notes
-            } else {
-              // Old format (plain text) - use as is
-              notesDisplay = bill.notes
-            }
-
-            if (Array.isArray(notesArray) && notesArray.length > 0) {
-              // Format all notes without username or timestamp
-              notesDisplay = notesArray
-                .map((note) => {
-                  return note.note || ''
-                })
-                .join('\n')
-            }
-          } catch (e) {
-            // If parsing fails, treat as old format (plain text)
-            notesDisplay = bill.notes
-          }
-        }
+        // Extract note text (handles nested / double-encoded / plain-text notes).
+        const notesDisplay = bill.notes ? formatNotes(bill.notes) || 'N/A' : 'N/A'
 
         return {
           ...bill,
@@ -528,29 +504,7 @@ const handlePrint = (id) => {
 }
 
 /** Format car notes for display (same as SellBillPrintDocument). */
-const formatNotesForExport = (notes) => {
-  if (!notes) return ''
-  try {
-    let notesArray = []
-    if (typeof notes === 'string' && notes.trim().startsWith('[')) {
-      notesArray = JSON.parse(notes)
-    } else if (Array.isArray(notes)) {
-      notesArray = notes
-    } else {
-      return (notes && notes.trim()) || ''
-    }
-    if (Array.isArray(notesArray) && notesArray.length > 0) {
-      const formatted = notesArray
-        .map((n) => (n && n.note ? n.note : typeof n === 'string' ? n : ''))
-        .filter((n) => n && String(n).trim() !== '')
-        .join('\n')
-      return formatted || ''
-    }
-    return ''
-  } catch {
-    return (notes && String(notes).trim()) || ''
-  }
-}
+const formatNotesForExport = (notes) => formatNotes(notes)
 
 /** Export sell bill as Excel invoice (CrossDev only). Data matches SellBillPrintDocument. */
 const exportBillToExcel = async (billId) => {
@@ -615,7 +569,9 @@ const exportBillToExcel = async (billId) => {
         }),
       ])
       if (totalsRes.success) {
-        totalsRes.data.forEach((r) => upgradesTotalsMap.set(r.id_car, parseFloat(r.total_upgrades) || 0))
+        totalsRes.data.forEach((r) =>
+          upgradesTotalsMap.set(r.id_car, parseFloat(r.total_upgrades) || 0),
+        )
       }
       if (detailsRes.success) {
         detailsRes.data.forEach((r) => {
@@ -626,8 +582,10 @@ const exportBillToExcel = async (billId) => {
       }
     }
 
-    const formatMoney = (n) => Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-    const formatDateStr = (d) => new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+    const formatMoney = (n) =>
+      Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    const formatDateStr = (d) =>
+      new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
 
     // Format upgrades for display (same as SellBillPrintDocument formatCarUpgrades)
     const formatCarUpgradesForExport = (carId) => {
@@ -699,7 +657,10 @@ const exportBillToExcel = async (billId) => {
       ref: bill.bill_ref || `BILL-${billId}`,
       date: formatDateStr(bill.date_sell),
       client: {
-        name: bill.broker_name || [...new Set(cars.map((c) => c.client_name).filter(Boolean))].join(', ') || 'Client',
+        name:
+          bill.broker_name ||
+          [...new Set(cars.map((c) => c.client_name).filter(Boolean))].join(', ') ||
+          'Client',
         mobile: bill.broker_phone || '',
         address: bill.broker_address || '',
       },
@@ -1091,34 +1052,7 @@ const formatCarUpgradesForBatch = (upgrades) => {
 }
 
 // Format JSON notes - extract only note text without user/date
-const formatNotesForBatch = (notes) => {
-  if (!notes) return 'N/A'
-
-  try {
-    let notesArray = []
-    if (typeof notes === 'string' && notes.trim().startsWith('[')) {
-      notesArray = JSON.parse(notes)
-    } else if (Array.isArray(notes)) {
-      notesArray = notes
-    } else {
-      // Old format (plain text) - use as is
-      return notes
-    }
-
-    if (Array.isArray(notesArray) && notesArray.length > 0) {
-      // Extract only the note text, filter empty notes, join with newlines
-      return notesArray
-        .map((note) => note.note || '')
-        .filter((note) => note.trim() !== '')
-        .join('\n')
-    }
-
-    return 'N/A'
-  } catch (e) {
-    // If parsing fails, treat as old format (plain text)
-    return notes
-  }
-}
+const formatNotesForBatch = (notes) => formatNotes(notes) || 'N/A'
 
 const generateBatchPrintReport = async (billsData) => {
   // Load company logo for header (same as xlsx invoice)
@@ -1137,7 +1071,7 @@ const generateBatchPrintReport = async (billsData) => {
     letterHeadUrl.value || '',
     bank?.company_name || '',
     bank?.company_address || '',
-    contactItems
+    contactItems,
   )
 
   // Pre-translate all strings
@@ -1552,7 +1486,8 @@ const generateBatchPrintReport = async (billsData) => {
   `
 
   if (hasCrossDev()) {
-    const printScript = '<script>window.onload=function(){setTimeout(function(){window.print();},500);}<' + '/script>'
+    const printScript =
+      '<script>window.onload=function(){setTimeout(function(){window.print();},500);}<' + '/script>'
     const htmlWithPrint = html.replace('</body>', printScript + '</body>')
     await openWindowWithHtml(htmlWithPrint, {
       title: translations.batchPrintTitle,
@@ -1965,222 +1900,228 @@ const togglePaymentConfirmed = async (bill) => {
 
     <div v-else>
       <div class="table-container sell-bills-table-desktop">
-      <table class="sell-bills-table">
-        <thead>
-          <tr>
-            <th class="checkbox-column">
-              <input
-                type="checkbox"
-                :checked="allVisibleSelected"
-                @change="toggleSelectAllVisible"
-                :title="t('sellBills.select_all_visible')"
-                class="select-all-checkbox"
-              />
-            </th>
-            <th @click="handleSort('id')" class="sortable">
-              <i class="fas fa-hashtag"></i> {{ t('sellBills.id') }}
-              <i
-                v-if="sortConfig.field === 'id'"
-                :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
-              ></i>
-            </th>
-            <th @click="handleSort('bill_ref')" class="sortable">
-              <i class="fas fa-barcode"></i> {{ t('sellBills.reference') }}
-              <i
-                v-if="sortConfig.field === 'bill_ref'"
-                :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
-              ></i>
-            </th>
-            <th @click="handleSort('date_sell')" class="sortable">
-              <i class="fas fa-calendar"></i> {{ t('sellBills.date') }}
-              <i
-                v-if="sortConfig.field === 'date_sell'"
-                :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
-              ></i>
-            </th>
-            <th @click="handleSort('broker_name')" class="sortable">
-              <i class="fas fa-user-tie"></i> {{ t('sellBills.name') }}
-              <i
-                v-if="sortConfig.field === 'broker_name'"
-                :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
-              ></i>
-            </th>
-            <th @click="handleSort('created_by')" class="sortable">
-              <i class="fas fa-user"></i> {{ t('sellBills.created_by') }}
-              <i
-                v-if="sortConfig.field === 'created_by'"
-                :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
-              ></i>
-            </th>
-            <th @click="handleSort('notes')" class="sortable">
-              <i class="fas fa-sticky-note"></i> {{ t('sellBills.notes') }}
-              <i
-                v-if="sortConfig.field === 'notes'"
-                :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
-              ></i>
-            </th>
-            <th><i class="fas fa-money-bill-wave"></i> {{ t('sellBills.payment_status') }}</th>
-            <th><i class="fas fa-check-circle"></i> {{ t('sellBills.payment_confirmed') }}</th>
-            <th><i class="fas fa-shipping-fast"></i> {{ t('sellBills.loading_status') }}</th>
-            <th><i class="fas fa-cog"></i> {{ t('sellBills.actions') }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="bill in sortedAndLimitedBills"
-            :key="bill.id"
-            @click="selectBill(bill)"
-            :class="{
-              selected: selectedBillId === bill.id,
-              'multi-selected': isBillSelected(bill.id),
-            }"
-          >
-            <td class="checkbox-column" @click.stop>
-              <input
-                type="checkbox"
-                :checked="isBillSelected(bill.id)"
-                @change="(e) => toggleBillSelection(bill.id, e)"
-                class="row-checkbox"
-              />
-            </td>
-            <td>{{ bill.id }}</td>
-            <td>{{ bill.bill_ref || 'N/A' }}</td>
-            <td>
-              <div class="date-badges">
-                <span class="badge sell-date-badge">
-                  <i class="fas fa-calendar"></i>
-                  {{ t('sellBills.sell') }} {{ new Date(bill.date_sell).toLocaleDateString() }}
+        <table class="sell-bills-table">
+          <thead>
+            <tr>
+              <th class="checkbox-column">
+                <input
+                  type="checkbox"
+                  :checked="allVisibleSelected"
+                  @change="toggleSelectAllVisible"
+                  :title="t('sellBills.select_all_visible')"
+                  class="select-all-checkbox"
+                />
+              </th>
+              <th @click="handleSort('id')" class="sortable">
+                <i class="fas fa-hashtag"></i> {{ t('sellBills.id') }}
+                <i
+                  v-if="sortConfig.field === 'id'"
+                  :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
+                ></i>
+              </th>
+              <th @click="handleSort('bill_ref')" class="sortable">
+                <i class="fas fa-barcode"></i> {{ t('sellBills.reference') }}
+                <i
+                  v-if="sortConfig.field === 'bill_ref'"
+                  :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
+                ></i>
+              </th>
+              <th @click="handleSort('date_sell')" class="sortable">
+                <i class="fas fa-calendar"></i> {{ t('sellBills.date') }}
+                <i
+                  v-if="sortConfig.field === 'date_sell'"
+                  :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
+                ></i>
+              </th>
+              <th @click="handleSort('broker_name')" class="sortable">
+                <i class="fas fa-user-tie"></i> {{ t('sellBills.name') }}
+                <i
+                  v-if="sortConfig.field === 'broker_name'"
+                  :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
+                ></i>
+              </th>
+              <th @click="handleSort('created_by')" class="sortable">
+                <i class="fas fa-user"></i> {{ t('sellBills.created_by') }}
+                <i
+                  v-if="sortConfig.field === 'created_by'"
+                  :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
+                ></i>
+              </th>
+              <th @click="handleSort('notes')" class="sortable">
+                <i class="fas fa-sticky-note"></i> {{ t('sellBills.notes') }}
+                <i
+                  v-if="sortConfig.field === 'notes'"
+                  :class="['fas', sortConfig.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down']"
+                ></i>
+              </th>
+              <th><i class="fas fa-money-bill-wave"></i> {{ t('sellBills.payment_status') }}</th>
+              <th><i class="fas fa-check-circle"></i> {{ t('sellBills.payment_confirmed') }}</th>
+              <th><i class="fas fa-shipping-fast"></i> {{ t('sellBills.loading_status') }}</th>
+              <th><i class="fas fa-cog"></i> {{ t('sellBills.actions') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="bill in sortedAndLimitedBills"
+              :key="bill.id"
+              @click="selectBill(bill)"
+              :class="{
+                selected: selectedBillId === bill.id,
+                'multi-selected': isBillSelected(bill.id),
+              }"
+            >
+              <td class="checkbox-column" @click.stop>
+                <input
+                  type="checkbox"
+                  :checked="isBillSelected(bill.id)"
+                  @change="(e) => toggleBillSelection(bill.id, e)"
+                  class="row-checkbox"
+                />
+              </td>
+              <td>{{ bill.id }}</td>
+              <td>{{ bill.bill_ref || 'N/A' }}</td>
+              <td>
+                <div class="date-badges">
+                  <span class="badge sell-date-badge">
+                    <i class="fas fa-calendar"></i>
+                    {{ t('sellBills.sell') }} {{ new Date(bill.date_sell).toLocaleDateString() }}
+                  </span>
+                  <span v-if="isAdmin" class="badge created-date-badge">
+                    <i class="fas fa-clock"></i>
+                    {{ t('sellBills.created') }}
+                    {{
+                      bill.time_created ? new Date(bill.time_created).toLocaleDateString() : 'N/A'
+                    }}
+                  </span>
+                </div>
+              </td>
+              <td>
+                <div class="broker-info">
+                  <div>{{ bill.broker_name || 'N/A' }}</div>
+                  <div
+                    v-if="bill.broker_mobiles && bill.broker_mobiles !== 'please provide mobile'"
+                    class="broker-mobile"
+                  >
+                    <i class="fas fa-phone"></i>
+                    {{ bill.broker_mobiles }}
+                  </div>
+                </div>
+              </td>
+              <td>{{ bill.created_by || 'N/A' }}</td>
+              <td class="notes-cell" :title="bill.notesDisplay || 'N/A'">
+                <div class="notes-content">
+                  <div style="white-space: pre-line; max-width: 300px">
+                    {{ getTruncatedNotes(bill.notesDisplay, bill.id) }}
+                  </div>
+                  <button
+                    v-if="isNotesTruncated(bill.notesDisplay, bill.id)"
+                    @click.stop="toggleNotesExpansion(bill.id)"
+                    class="btn-show-full-notes"
+                    type="button"
+                  >
+                    {{
+                      expandedNotes.has(bill.id)
+                        ? t('sellBills.show_less') || 'Show Less'
+                        : t('sellBills.show_full') || 'Show Full'
+                    }}
+                  </button>
+                </div>
+              </td>
+              <td>
+                <span
+                  :class="['payment-badge', `payment-${getPaymentStatus(bill).status}`]"
+                  :title="`${t('sellBills.total')} $${bill.total_cfr.toFixed(2)} | ${t('sellBills.paid_amount')} $${bill.total_paid.toFixed(2)}`"
+                >
+                  {{ getPaymentStatus(bill).text }}
                 </span>
-                <span v-if="isAdmin" class="badge created-date-badge">
-                  <i class="fas fa-clock"></i>
-                  {{ t('sellBills.created') }}
-                  {{ bill.time_created ? new Date(bill.time_created).toLocaleDateString() : 'N/A' }}
+              </td>
+              <td>
+                <div class="payment-confirmed-container">
+                  <button
+                    @click.stop="
+                      can_confirm_payment && isBillFullyPaid(bill)
+                        ? togglePaymentConfirmed(bill)
+                        : null
+                    "
+                    :disabled="isProcessing || !can_confirm_payment || !isBillFullyPaid(bill)"
+                    :class="[
+                      'payment-confirmed-btn',
+                      bill.payment_confirmed ? 'confirmed' : 'not-confirmed',
+                      !can_confirm_payment || !isBillFullyPaid(bill) ? 'read-only' : '',
+                    ]"
+                    :title="getPaymentConfirmButtonTitle(bill)"
+                  >
+                    <i
+                      :class="bill.payment_confirmed ? 'fas fa-check-circle' : 'far fa-circle'"
+                    ></i>
+                    {{
+                      bill.payment_confirmed
+                        ? t('sellBills.confirmed')
+                        : t('sellBills.not_confirmed')
+                    }}
+                  </button>
+                  <div v-if="bill.payment_confirmed" class="confirmed-by">
+                    <i class="fas fa-user"></i>
+                    {{ bill.confirmed_by_username || user?.username || 'Unknown' }}
+                  </div>
+                </div>
+              </td>
+              <td>
+                <span
+                  :class="['loading-badge', `loading-${getLoadingStatus(bill).status}`]"
+                  :title="`${bill.loaded_cars} ${t('sellBills.vehicles_loaded', { total: bill.total_cars })}`"
+                >
+                  {{ getLoadingStatus(bill).text }}
                 </span>
-              </div>
-            </td>
-            <td>
-              <div class="broker-info">
-                <div>{{ bill.broker_name || 'N/A' }}</div>
-                <div
-                  v-if="bill.broker_mobiles && bill.broker_mobiles !== 'please provide mobile'"
-                  class="broker-mobile"
-                >
-                  <i class="fas fa-phone"></i>
-                  {{ bill.broker_mobiles }}
-                </div>
-              </div>
-            </td>
-            <td>{{ bill.created_by || 'N/A' }}</td>
-            <td class="notes-cell" :title="bill.notesDisplay || 'N/A'">
-              <div class="notes-content">
-                <div style="white-space: pre-line; max-width: 300px">
-                  {{ getTruncatedNotes(bill.notesDisplay, bill.id) }}
-                </div>
+              </td>
+              <td class="actions">
                 <button
-                  v-if="isNotesTruncated(bill.notesDisplay, bill.id)"
-                  @click.stop="toggleNotesExpansion(bill.id)"
-                  class="btn-show-full-notes"
-                  type="button"
+                  v-if="can_edit_sell_bill"
+                  @click.stop="handleEdit(bill)"
+                  :disabled="isProcessing"
+                  class="btn edit-btn"
+                  :title="t('sellBills.edit_bill')"
                 >
-                  {{
-                    expandedNotes.has(bill.id)
-                      ? t('sellBills.show_less') || 'Show Less'
-                      : t('sellBills.show_full') || 'Show Full'
-                  }}
+                  <i class="fas fa-edit"></i>
                 </button>
-              </div>
-            </td>
-            <td>
-              <span
-                :class="['payment-badge', `payment-${getPaymentStatus(bill).status}`]"
-                :title="`${t('sellBills.total')} $${bill.total_cfr.toFixed(2)} | ${t('sellBills.paid_amount')} $${bill.total_paid.toFixed(2)}`"
-              >
-                {{ getPaymentStatus(bill).text }}
-              </span>
-            </td>
-            <td>
-              <div class="payment-confirmed-container">
                 <button
-                  @click.stop="
-                    can_confirm_payment && isBillFullyPaid(bill)
-                      ? togglePaymentConfirmed(bill)
-                      : null
-                  "
-                  :disabled="isProcessing || !can_confirm_payment || !isBillFullyPaid(bill)"
-                  :class="[
-                    'payment-confirmed-btn',
-                    bill.payment_confirmed ? 'confirmed' : 'not-confirmed',
-                    !can_confirm_payment || !isBillFullyPaid(bill) ? 'read-only' : '',
-                  ]"
-                  :title="getPaymentConfirmButtonTitle(bill)"
+                  v-if="can_delete_sell_bill"
+                  @click.stop="handleDelete(bill.id)"
+                  :disabled="isProcessing"
+                  class="btn delete-btn"
+                  :title="t('sellBills.delete_bill')"
                 >
-                  <i :class="bill.payment_confirmed ? 'fas fa-check-circle' : 'far fa-circle'"></i>
-                  {{
-                    bill.payment_confirmed ? t('sellBills.confirmed') : t('sellBills.not_confirmed')
-                  }}
+                  <i class="fas fa-trash-alt"></i>
                 </button>
-                <div v-if="bill.payment_confirmed" class="confirmed-by">
-                  <i class="fas fa-user"></i>
-                  {{ bill.confirmed_by_username || user?.username || 'Unknown' }}
-                </div>
-              </div>
-            </td>
-            <td>
-              <span
-                :class="['loading-badge', `loading-${getLoadingStatus(bill).status}`]"
-                :title="`${bill.loaded_cars} ${t('sellBills.vehicles_loaded', { total: bill.total_cars })}`"
-              >
-                {{ getLoadingStatus(bill).text }}
-              </span>
-            </td>
-            <td class="actions">
-              <button
-                v-if="can_edit_sell_bill"
-                @click.stop="handleEdit(bill)"
-                :disabled="isProcessing"
-                class="btn edit-btn"
-                :title="t('sellBills.edit_bill')"
-              >
-                <i class="fas fa-edit"></i>
-              </button>
-              <button
-                v-if="can_delete_sell_bill"
-                @click.stop="handleDelete(bill.id)"
-                :disabled="isProcessing"
-                class="btn delete-btn"
-                :title="t('sellBills.delete_bill')"
-              >
-                <i class="fas fa-trash-alt"></i>
-              </button>
-              <button
-                @click.stop="handlePrint(bill.id)"
-                :disabled="isProcessing"
-                class="btn print-btn"
-                :title="t('sellBills.print_bill')"
-              >
-                <i class="fas fa-print"></i>
-              </button>
-              <button
-                v-if="can_c_sell_payments"
-                @click.stop="handlePayments(bill.id)"
-                :disabled="isProcessing"
-                class="btn payment-btn"
-                :title="t('sellBills.view_payments')"
-              >
-                <i class="fas fa-money-bill-wave"></i>
-              </button>
-              <button
-                @click.stop="handleTask(bill)"
-                :disabled="isProcessing"
-                class="btn task-btn"
-                :title="t('sellBills.add_new_task')"
-              >
-                <i class="fas fa-tasks"></i>
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+                <button
+                  @click.stop="handlePrint(bill.id)"
+                  :disabled="isProcessing"
+                  class="btn print-btn"
+                  :title="t('sellBills.print_bill')"
+                >
+                  <i class="fas fa-print"></i>
+                </button>
+                <button
+                  v-if="can_c_sell_payments"
+                  @click.stop="handlePayments(bill.id)"
+                  :disabled="isProcessing"
+                  class="btn payment-btn"
+                  :title="t('sellBills.view_payments')"
+                >
+                  <i class="fas fa-money-bill-wave"></i>
+                </button>
+                <button
+                  @click.stop="handleTask(bill)"
+                  :disabled="isProcessing"
+                  class="btn task-btn"
+                  :title="t('sellBills.add_new_task')"
+                >
+                  <i class="fas fa-tasks"></i>
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
       <!-- Mobile cards (shown only on mobile) -->
@@ -2198,7 +2139,9 @@ const togglePaymentConfirmed = async (bill) => {
           </div>
           <div class="sell-bill-card-row">
             <span class="sell-bill-card-label">{{ t('sellBills.date') }}</span>
-            <span class="sell-bill-card-value">{{ new Date(bill.date_sell).toLocaleDateString() }}</span>
+            <span class="sell-bill-card-value">{{
+              new Date(bill.date_sell).toLocaleDateString()
+            }}</span>
           </div>
           <div class="sell-bill-card-row">
             <span class="sell-bill-card-label">{{ t('sellBills.name') }}</span>

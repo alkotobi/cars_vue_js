@@ -3,6 +3,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useEnhancedI18n } from '../composables/useI18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useApi } from '../composables/useApi'
+import { formatNotes } from '../lib/notes'
 
 const { t } = useEnhancedI18n()
 const route = useRoute()
@@ -210,7 +211,7 @@ onMounted(fetchData)
                 {{ t('sellBills.no_id') }}
               </span>
             </td>
-            <td>{{ car.notes || 'N/A' }}</td>
+            <td>{{ formatNotes(car.notes) || 'N/A' }}</td>
           </tr>
         </tbody>
       </table>

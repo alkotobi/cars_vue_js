@@ -7,6 +7,7 @@ import 'element-plus/dist/index.css'
 import NotesTable from './NotesTable.vue'
 import NotesManagementModal from './NotesManagementModal.vue'
 import AddBrokerDialog from './AddBrokerDialog.vue'
+import { noteText } from '../../lib/notes'
 
 const { t } = useEnhancedI18n()
 const props = defineProps({
@@ -70,7 +71,7 @@ watch(
       // Parse notes JSON if it exists
       let notesArray = []
       let currentNote = ''
-      
+
       if (newData.notes) {
         try {
           // Try to parse as JSON (new format)
@@ -80,28 +81,34 @@ watch(
             notesArray = newData.notes
           } else {
             // Old format (plain text) - convert to JSON array
-            notesArray = [{
-              id_user: null,
-              note: newData.notes,
-              timestamp: newData.time_created || new Date().toISOString().slice(0, 19).replace('T', ' ')
-            }]
+            notesArray = [
+              {
+                id_user: null,
+                note: newData.notes,
+                timestamp:
+                  newData.time_created || new Date().toISOString().slice(0, 19).replace('T', ' '),
+              },
+            ]
           }
-          
+
           // Get the latest note for display
           if (notesArray.length > 0) {
-            currentNote = notesArray[notesArray.length - 1].note || ''
+            currentNote = noteText(notesArray[notesArray.length - 1])
           }
         } catch (e) {
           // If parsing fails, treat as old format (plain text)
           currentNote = newData.notes
-          notesArray = [{
-            id_user: null,
-            note: newData.notes,
-            timestamp: newData.time_created || new Date().toISOString().slice(0, 19).replace('T', ' ')
-          }]
+          notesArray = [
+            {
+              id_user: null,
+              note: newData.notes,
+              timestamp:
+                newData.time_created || new Date().toISOString().slice(0, 19).replace('T', ' '),
+            },
+          ]
         }
       }
-      
+
       formData.value = {
         ...newData,
         notes: currentNote,
@@ -253,15 +260,16 @@ const saveBill = async () => {
     let result
 
     if (props.mode === 'add') {
-
       // Prepare notes JSON for new bill
       let notesJson = null
       if (formData.value.notes && formData.value.notes.trim() !== '') {
-        const notesArray = [{
-          id_user: user.value?.id || null,
-          note: formData.value.notes.trim(),
-          timestamp: new Date().toISOString().slice(0, 19).replace('T', ' ')
-        }]
+        const notesArray = [
+          {
+            id_user: user.value?.id || null,
+            note: formData.value.notes.trim(),
+            timestamp: new Date().toISOString().slice(0, 19).replace('T', ' '),
+          },
+        ]
         notesJson = JSON.stringify(notesArray)
       }
 
@@ -295,7 +303,6 @@ const saveBill = async () => {
           .replace(/\//g, '')
         const billId = result.lastInsertId.toString().padStart(3, '0')
         const billRef = `${username}${userId}${dateStr}${billId}`
-
 
         // Update the bill with the generated bill_ref
         const updateResult = await callApi({
@@ -341,17 +348,17 @@ const saveBill = async () => {
       // When editing, preserve the original id_user (don't update it)
       // id_user should represent the original creator of the sell bill
       // Track who edited the bill in the edited_by JSON column
-      
+
       // Get current edited_by and notes data
       const currentBillResult = await callApi({
         query: 'SELECT edited_by, notes, id_user FROM sell_bill WHERE id = ?',
         params: [formData.value.id],
         requiresAuth: true,
       })
-      
+
       let editedByArray = []
       let notesArray = formData.value.notesArray || []
-      
+
       if (currentBillResult.success && currentBillResult.data.length > 0) {
         // Parse edited_by JSON
         const currentEditedBy = currentBillResult.data[0].edited_by
@@ -360,7 +367,7 @@ const saveBill = async () => {
         } catch (e) {
           editedByArray = []
         }
-        
+
         // Parse notes JSON if not already parsed
         if (notesArray.length === 0) {
           const currentNotes = currentBillResult.data[0].notes
@@ -377,14 +384,14 @@ const saveBill = async () => {
           }
         }
       }
-      
+
       // For edit mode, notes are managed through the modal
       // Only add a new note if notes were changed via the form (for backward compatibility)
       // In practice, notes should be managed through the modal
       const currentNoteText = formData.value.notes?.trim() || ''
       const lastNote = notesArray.length > 0 ? notesArray[notesArray.length - 1] : null
       const lastNoteText = lastNote?.note?.trim() || ''
-      
+
       // Use the notesArray from formData if it exists (updated via modal)
       if (formData.value.notesArray && formData.value.notesArray.length > 0) {
         notesArray = formData.value.notesArray
@@ -393,28 +400,29 @@ const saveBill = async () => {
         notesArray.push({
           id_user: user.value?.id || null,
           note: currentNoteText,
-          timestamp: new Date().toISOString().slice(0, 19).replace('T', ' ')
+          timestamp: new Date().toISOString().slice(0, 19).replace('T', ' '),
         })
       }
-      
+
       // Add new edit entry
       const newEditEntry = {
         id_user: user.value?.id || null,
-        timestamp: new Date().toISOString().slice(0, 19).replace('T', ' ')
+        timestamp: new Date().toISOString().slice(0, 19).replace('T', ' '),
       }
       editedByArray.push(newEditEntry)
-      
+
       // Convert to JSON strings
       const editedByJson = JSON.stringify(editedByArray)
       const notesJson = notesArray.length > 0 ? JSON.stringify(notesArray) : null
-      
+
       // Build UPDATE query - include id_user if admin is editing
       let updateQuery
       let updateParams
-      
+
       if (isAdmin.value) {
         // Admin can update id_user (created by)
-        updateQuery = 'UPDATE sell_bill SET id_broker = ?, date_sell = ?, notes = ?, id_user = ?, is_batch_sell = ?, payment_confirmed = ?, edited_by = ? WHERE id = ?'
+        updateQuery =
+          'UPDATE sell_bill SET id_broker = ?, date_sell = ?, notes = ?, id_user = ?, is_batch_sell = ?, payment_confirmed = ?, edited_by = ? WHERE id = ?'
         updateParams = [
           formData.value.id_broker || null,
           formData.value.date_sell,
@@ -427,7 +435,8 @@ const saveBill = async () => {
         ]
       } else {
         // Non-admin cannot update id_user
-        updateQuery = 'UPDATE sell_bill SET id_broker = ?, date_sell = ?, notes = ?, is_batch_sell = ?, payment_confirmed = ?, edited_by = ? WHERE id = ?'
+        updateQuery =
+          'UPDATE sell_bill SET id_broker = ?, date_sell = ?, notes = ?, is_batch_sell = ?, payment_confirmed = ?, edited_by = ? WHERE id = ?'
         updateParams = [
           formData.value.id_broker || null,
           formData.value.date_sell,
@@ -438,7 +447,7 @@ const saveBill = async () => {
           formData.value.id,
         ]
       }
-      
+
       result = await callApi({
         query: updateQuery,
         params: updateParams,
@@ -466,7 +475,7 @@ const handleNotesUpdated = (updatedNotes) => {
   formData.value.notesArray = updatedNotes
   // Update the latest note for display compatibility
   if (updatedNotes.length > 0) {
-    formData.value.notes = updatedNotes[updatedNotes.length - 1].note || ''
+    formData.value.notes = noteText(updatedNotes[updatedNotes.length - 1])
   } else {
     formData.value.notes = ''
   }
@@ -615,7 +624,9 @@ onMounted(() => {
             </div>
           </el-option>
         </el-select>
-        <small class="help-text">{{ t('sellBills.created_by_help') || 'Original creator (admin can change)' }}</small>
+        <small class="help-text">{{
+          t('sellBills.created_by_help') || 'Original creator (admin can change)'
+        }}</small>
       </div>
 
       <div class="form-group">
@@ -641,7 +652,7 @@ onMounted(() => {
           @manage-notes="showNotesModal = true"
         />
       </div>
-      
+
       <!-- Notes Textarea (for new bills only) -->
       <div v-if="mode === 'add'" class="form-group">
         <label for="notes">
@@ -656,7 +667,7 @@ onMounted(() => {
           rows="4"
         ></textarea>
       </div>
-      
+
       <!-- Notes Management Modal -->
       <NotesManagementModal
         v-if="mode === 'edit' && formData.id"
@@ -690,7 +701,9 @@ onMounted(() => {
             v-model="formData.payment_confirmed"
             class="form-checkbox"
           />
-          <label for="payment_confirmed" class="checkbox-label">{{ t('sellBills.payment_confirmed') }}</label>
+          <label for="payment_confirmed" class="checkbox-label">{{
+            t('sellBills.payment_confirmed')
+          }}</label>
         </div>
       </div>
 

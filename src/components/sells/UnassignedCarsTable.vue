@@ -3,6 +3,7 @@ import { ref, onMounted, computed, useAttrs } from 'vue'
 import { useEnhancedI18n } from '../../composables/useI18n'
 import { useApi } from '../../composables/useApi'
 import CarAssignmentForm from './CarAssignmentForm.vue'
+import { formatNotes } from '../../lib/notes'
 
 const { t } = useEnhancedI18n()
 const attrs = useAttrs()
@@ -144,39 +145,11 @@ const fetchUnassignedCars = async () => {
     })
 
     if (result.success) {
-      // Parse notes JSON and format for display
-      const carsData = (result.data || []).map((car) => {
-        // Parse notes JSON if it exists
-        let notesDisplay = 'N/A'
-        if (car.notes) {
-          try {
-            let notesArray = []
-            if (typeof car.notes === 'string' && car.notes.trim().startsWith('[')) {
-              notesArray = JSON.parse(car.notes)
-            } else if (Array.isArray(car.notes)) {
-              notesArray = car.notes
-            } else {
-              // Old format (plain text) - use as is
-              notesDisplay = car.notes
-            }
-            
-            if (Array.isArray(notesArray) && notesArray.length > 0) {
-              // Format all notes without username or timestamp
-              notesDisplay = notesArray.map((note) => {
-                return note.note || ''
-              }).join('\n')
-            }
-          } catch (e) {
-            // If parsing fails, treat as old format (plain text)
-            notesDisplay = car.notes
-          }
-        }
-        
-        return {
-          ...car,
-          notesDisplay: notesDisplay, // Add formatted display version
-        }
-      })
+      // Extract note text (handles nested / double-encoded / plain-text notes).
+      const carsData = (result.data || []).map((car) => ({
+        ...car,
+        notesDisplay: car.notes ? formatNotes(car.notes) || 'N/A' : 'N/A',
+      }))
       allUnassignedCars.value = carsData
       applyFilters() // Apply filters to the fetched data
     } else {

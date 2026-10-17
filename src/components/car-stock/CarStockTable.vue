@@ -31,6 +31,7 @@ import SendSelectionForm from './SendSelectionForm.vue'
 import ShowSelectionsModal from './ShowSelectionsModal.vue'
 import NotesTable from '../shared/NotesTable.vue'
 import NotesManagementModal from '../shared/NotesManagementModal.vue'
+import { formatNotes } from '../../lib/notes'
 import CarUpgradesModal from '../shared/CarUpgradesModal.vue'
 import CarStockForm from './CarStockForm.vue'
 
@@ -171,12 +172,8 @@ const {
   getUsersForTransfer,
   getCustomClearanceAgents,
 } = useApi()
-const {
-  getCompanyLogoUrl,
-  getBankForCompany,
-  getReportHeaderContactItems,
-  buildLetterheadHtml,
-} = useInvoiceCompanyInfo()
+const { getCompanyLogoUrl, getBankForCompany, getReportHeaderContactItems, buildLetterheadHtml } =
+  useInvoiceCompanyInfo()
 const { hasCrossDev, openWindowWithHtml } = useCrossDev()
 const letterHeadUrl = ref(null)
 const cars = ref([])
@@ -740,7 +737,7 @@ const printReport = async (reportData) => {
     letterHeadUrl.value || '',
     bank?.company_name || '',
     bank?.company_address || '',
-    contactItems
+    contactItems,
   )
 
   // Create the HTML content for the report
@@ -831,7 +828,8 @@ const printReport = async (reportData) => {
 
   if (hasCrossDev()) {
     // CrossDev: open native window with HTML (window.open doesn't work in app)
-    const printScript = '<script>window.onload=function(){setTimeout(function(){window.print();},500);}<' + '/script>'
+    const printScript =
+      '<script>window.onload=function(){setTimeout(function(){window.print();},500);}<' + '/script>'
     const htmlWithPrint = reportHTML.replace('</body>', printScript + '</body>')
     await openWindowWithHtml(htmlWithPrint, {
       title,
@@ -2153,69 +2151,11 @@ const handleUpgradeAdded = () => {
   }
 }
 
-// Helper function to parse notes (car or sell bill)
-const parseNotes = (notes) => {
-  if (!notes) return []
-  try {
-    if (typeof notes === 'string' && notes.trim().startsWith('[')) {
-      return JSON.parse(notes)
-    } else if (Array.isArray(notes)) {
-      return notes
-    } else {
-      // Old format (plain text) - convert to array format
-      return [
-        {
-          id_user: null,
-          note: notes,
-          timestamp: null,
-        },
-      ]
-    }
-  } catch (e) {
-    // If parsing fails, treat as old format (plain text)
-    return [
-      {
-        id_user: null,
-        note: notes,
-        timestamp: null,
-      },
-    ]
-  }
-}
-
-// Recursively extract note text from a (possibly nested) notes structure.
-// Some tenants store notes double-wrapped as [{ note: [{ note: "text" }] }],
-// while other rows are [{ note: "text" }] or plain strings. Values may also be
-// non-strings, so everything is coerced to a string to avoid .trim() throwing.
-const flattenNoteText = (notesJson) => {
-  const out = []
-
-  const walk = (value) => {
-    if (value == null) return
-    if (Array.isArray(value)) {
-      value.forEach(walk)
-    } else if (typeof value === 'object') {
-      if ('note' in value) walk(value.note)
-    } else {
-      out.push(String(value))
-    }
-  }
-
-  walk(parseNotes(notesJson))
-  return out
-}
-
-// Helper function to format notes for display (merges car notes with sell bill notes if available)
-const formatNotesDisplay = (carNotesJson, sellBillNotesJson = null) => {
-  const allNotes = [
-    ...flattenNoteText(carNotesJson),
-    ...(sellBillNotesJson ? flattenNoteText(sellBillNotesJson) : []),
-  ]
-
-  const notesDisplay = allNotes.filter((note) => note.trim() !== '').join('\n')
-
-  return notesDisplay || '-'
-}
+// Format notes for display (merges car notes with sell bill notes if available).
+// Delegates to lib/notes so nested / double-encoded / plain-text notes all render
+// as text instead of raw JSON.
+const formatNotesDisplay = (carNotesJson, sellBillNotesJson = null) =>
+  formatNotes(carNotesJson, sellBillNotesJson) || '-'
 
 // Save car notes function for NotesManagementModal
 const saveCarNotes = async (notesJson, carId) => {
@@ -4262,42 +4202,42 @@ const closeBatchCheckoutModal = () => {
       <!-- Toolbar (hidden on mobile) -->
       <div class="car-stock-toolbar-wrapper">
         <CarStockToolbar
-        :selected-cars="selectedCars"
-        :total-cars="sortedCars.length"
-        :can-change-color="can_change_car_color"
-        :can-hide-car="can_hide_car"
-        :can-purchase-cars="can_purchase_cars"
-        :is-admin="user?.role_id === 1"
-        :is-combine-mode="isCombineMode"
-        @print-selected="handlePrintSelected"
-        @loading-order="handleLoadingOrderFromToolbar"
-        @vin="handleVinFromToolbar"
-        @ports="handlePortsFromToolbar"
-        @warehouse="handleWarehouseFromToolbar"
-        @notes="handleNotesFromToolbar"
-        @task="handleTaskFromToolbar"
-        @color="handleColorFromToolbar"
-        @export-license="handleExportLicenseFromToolbar"
-        @cfr-da="handleCfrDaFromToolbar"
-        @benefit="handleBenefitFromToolbar"
-        @mark-delivered="handleMarkDelivered"
-        @refresh="handleRefresh"
-        @delete-cars="handleDeleteCars"
-        @toggle-hidden="handleToggleHidden"
-        @combine-by-buy-ref="handleCombineByBuyRef"
-        @combine-by-container="handleCombineByContainer"
-        @uncombine="handleUncombine"
-        @save-selection="handleSaveSelection"
-        @send-selection="handleSendSelection"
-        @show-selections="handleShowSelections"
-        @transfer="handleTransfer"
-        @checkout="handleCheckout"
-        @add-upgrades="handleAddUpgradesFromToolbar"
-        @mark-upgrades-done="handleMarkUpgradesDoneFromToolbar"
-        @new-car-shipping-only="handleNewCarShippingOnly"
-        @new-car-used="handleNewCarUsed"
-        @new-car-new="handleNewCarNew"
-      />
+          :selected-cars="selectedCars"
+          :total-cars="sortedCars.length"
+          :can-change-color="can_change_car_color"
+          :can-hide-car="can_hide_car"
+          :can-purchase-cars="can_purchase_cars"
+          :is-admin="user?.role_id === 1"
+          :is-combine-mode="isCombineMode"
+          @print-selected="handlePrintSelected"
+          @loading-order="handleLoadingOrderFromToolbar"
+          @vin="handleVinFromToolbar"
+          @ports="handlePortsFromToolbar"
+          @warehouse="handleWarehouseFromToolbar"
+          @notes="handleNotesFromToolbar"
+          @task="handleTaskFromToolbar"
+          @color="handleColorFromToolbar"
+          @export-license="handleExportLicenseFromToolbar"
+          @cfr-da="handleCfrDaFromToolbar"
+          @benefit="handleBenefitFromToolbar"
+          @mark-delivered="handleMarkDelivered"
+          @refresh="handleRefresh"
+          @delete-cars="handleDeleteCars"
+          @toggle-hidden="handleToggleHidden"
+          @combine-by-buy-ref="handleCombineByBuyRef"
+          @combine-by-container="handleCombineByContainer"
+          @uncombine="handleUncombine"
+          @save-selection="handleSaveSelection"
+          @send-selection="handleSendSelection"
+          @show-selections="handleShowSelections"
+          @transfer="handleTransfer"
+          @checkout="handleCheckout"
+          @add-upgrades="handleAddUpgradesFromToolbar"
+          @mark-upgrades-done="handleMarkUpgradesDoneFromToolbar"
+          @new-car-shipping-only="handleNewCarShippingOnly"
+          @new-car-used="handleNewCarUsed"
+          @new-car-new="handleNewCarNew"
+        />
       </div>
 
       <div class="table-container" :class="{ 'processing-combine': isProcessing.combine }">
@@ -4509,7 +4449,10 @@ const closeBatchCheckoutModal = () => {
               <td>
                 <div class="client-info">
                   <div>{{ car.client_name || '-' }}</div>
-                  <div v-if="car.client_mobiles && car.client_mobiles !== 'please provide mobile'" class="info-badge badge-client-mobile">
+                  <div
+                    v-if="car.client_mobiles && car.client_mobiles !== 'please provide mobile'"
+                    class="info-badge badge-client-mobile"
+                  >
                     <i class="fas fa-phone"></i>
                     {{ car.client_mobiles }}
                   </div>
@@ -4902,10 +4845,16 @@ const closeBatchCheckoutModal = () => {
           </div>
           <div class="card-row">
             <span class="card-label">{{ t('carStock.clientMobile') || 'Client mobile' }}</span>
-            <span class="card-value">{{ (car.client_mobiles && car.client_mobiles !== 'please provide mobile') ? car.client_mobiles : '-' }}</span>
+            <span class="card-value">{{
+              car.client_mobiles && car.client_mobiles !== 'please provide mobile'
+                ? car.client_mobiles
+                : '-'
+            }}</span>
           </div>
           <div class="card-row">
-            <span class="card-label">{{ t('carStockPrintOptions.carName') || t('carStock.car_details') }}</span>
+            <span class="card-label">{{
+              t('carStockPrintOptions.carName') || t('carStock.car_details')
+            }}</span>
             <span class="card-value card-name">{{ car.car_name || '-' }}</span>
           </div>
           <div class="card-row">
@@ -4928,11 +4877,15 @@ const closeBatchCheckoutModal = () => {
             <span class="card-value">{{ car.vin || '-' }}</span>
           </div>
           <div class="card-row">
-            <span class="card-label">{{ t('carStockPrintOptions.containerRef') || 'Container No' }}</span>
+            <span class="card-label">{{
+              t('carStockPrintOptions.containerRef') || 'Container No'
+            }}</span>
             <span class="card-value">{{ car.container_ref || '-' }}</span>
           </div>
           <div class="card-row">
-            <span class="card-label">{{ t('carStockPrintOptions.dischargePort') || 'Discharge Port' }}</span>
+            <span class="card-label">{{
+              t('carStockPrintOptions.dischargePort') || 'Discharge Port'
+            }}</span>
             <span class="card-value">{{ car.discharge_port || '-' }}</span>
           </div>
           <div class="card-row">

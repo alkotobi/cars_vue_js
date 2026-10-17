@@ -3,6 +3,7 @@ import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
 import { getBasePath as sharedGetBasePath } from '../../utils/basePath'
 import { useEnhancedI18n } from '../../composables/useI18n'
 import { useApi } from '../../composables/useApi'
+import { formatNotes } from '../../lib/notes'
 import { useInvoiceCompanyInfo } from '../../composables/useInvoiceCompanyInfo'
 import PrintReportHeader from './PrintReportHeader.vue'
 import { readJsonResponse } from '@/utils/readJsonResponse'
@@ -32,13 +33,13 @@ const {
 } = useInvoiceCompanyInfo()
 
 const headerContactItems = computed(() =>
-  getReportHeaderContactItems(selectedBank.value, company.value)
+  getReportHeaderContactItems(selectedBank.value, company.value),
 )
 
 // Sticky capture: once we have a logo we never clear it (CrossDev may clear localStorage or re-run and lose it)
 const logoUrlSticky = ref('')
-const effectiveLogoUrl = computed(() =>
-  letterHeadUrl.value || logoUrlSticky.value || getStoredPrintLogoDataUrl() || ''
+const effectiveLogoUrl = computed(
+  () => letterHeadUrl.value || logoUrlSticky.value || getStoredPrintLogoDataUrl() || '',
 )
 
 const loading = ref(true)
@@ -55,7 +56,7 @@ const carUpgradesDetails = ref([]) // Store upgrades details for the car
 
 // Computed property to filter visible terms
 const visibleTerms = computed(() => {
-  return contractTerms.value.filter(term => term.visible !== false)
+  return contractTerms.value.filter((term) => term.visible !== false)
 })
 const banks = ref([])
 const selectedBank = ref(null)
@@ -127,47 +128,17 @@ const fetchCarData = async () => {
 
     if (carResult.success && carResult.data.length > 0) {
       carData.value = carResult.data[0]
-      
+
       // Fetch upgrades for the car
       await fetchCarUpgrades()
-      
-      // Parse notes JSON if it exists
-      let notesFormatted = carData.value.bill_notes || ''
-      let notes = carData.value.bill_notes || ''
-      if (carData.value.bill_notes) {
-        try {
-          let notesArray = []
-          if (typeof carData.value.bill_notes === 'string' && carData.value.bill_notes.trim().startsWith('[')) {
-            notesArray = JSON.parse(carData.value.bill_notes)
-          } else if (Array.isArray(carData.value.bill_notes)) {
-            notesArray = carData.value.bill_notes
-          }
-          
-          if (Array.isArray(notesArray) && notesArray.length > 0) {
-            // Format notes for printing (show all notes, each on a line, without user/date)
-            const formatted = notesArray.map(note => note.note || '').filter(note => note.trim() !== '').join('\n')
-            if (formatted && formatted.trim() !== '') {
-              notesFormatted = formatted
-            // Also keep latest note for simple display
-            notes = notesArray[notesArray.length - 1].note || ''
-            } else {
-              // No valid notes found, clear both
-              notesFormatted = ''
-              notes = ''
-            }
-          }
-        } catch (e) {
-          // If parsing fails, treat as old format (plain text)
-          notesFormatted = carData.value.bill_notes
-          notes = carData.value.bill_notes
-        }
-      }
-      
+
+      // Extract note text (handles nested / double-encoded / plain-text notes).
+      const notesFormatted = carData.value.bill_notes ? formatNotes(carData.value.bill_notes) : ''
       billData.value = {
         id: carData.value.id_sell,
         bill_ref: carData.value.bill_ref,
         date_sell: carData.value.date_sell,
-        notes: notes,
+        notes: notesFormatted,
         notesFormatted: notesFormatted,
         broker_name: carData.value.broker_name,
         broker_address: carData.value.broker_address,
@@ -225,9 +196,9 @@ const fetchCarUpgrades = async () => {
     }
 
     if (detailsResult.success) {
-      carUpgradesDetails.value = detailsResult.data.map(row => ({
+      carUpgradesDetails.value = detailsResult.data.map((row) => ({
         description: row.description || 'N/A',
-        value: parseFloat(row.value) || 0
+        value: parseFloat(row.value) || 0,
       }))
     } else {
       carUpgradesDetails.value = []
@@ -242,41 +213,18 @@ const fetchCarUpgrades = async () => {
 // Format upgrades details as string for display
 const formatCarUpgrades = () => {
   if (carUpgradesDetails.value.length === 0) return ''
-  
-  return carUpgradesDetails.value.map(upgrade => {
-    const desc = upgrade.description || 'N/A'
-    const value = upgrade.value || 0
-    return `${desc}: $${value.toFixed(2)}`
-  }).join(', ')
+
+  return carUpgradesDetails.value
+    .map((upgrade) => {
+      const desc = upgrade.description || 'N/A'
+      const value = upgrade.value || 0
+      return `${desc}: $${value.toFixed(2)}`
+    })
+    .join(', ')
 }
 
 // Format JSON notes - extract only note text without user/date
-const formatCarNotes = (notes) => {
-  if (!notes) return ''
-  
-  try {
-    let notesArray = []
-    if (typeof notes === 'string' && notes.trim().startsWith('[')) {
-      notesArray = JSON.parse(notes)
-    } else if (Array.isArray(notes)) {
-      notesArray = notes
-    } else {
-      // Old format (plain text) - use as is if not empty
-      return notes.trim() || ''
-    }
-    
-    if (Array.isArray(notesArray) && notesArray.length > 0) {
-      // Extract only the note text, filter empty notes, join with newlines
-      const formatted = notesArray.map(note => note.note || '').filter(note => note.trim() !== '').join('\n')
-      return formatted || ''
-    }
-    
-    return ''
-  } catch (e) {
-    // If parsing fails, treat as old format (plain text)
-    return notes.trim() || ''
-  }
-}
+const formatCarNotes = (notes) => formatNotes(notes)
 
 // Check if notes have content
 const hasCarNotes = (notes) => {
@@ -286,18 +234,19 @@ const hasCarNotes = (notes) => {
 
 // Get merged notes (bill notes + car notes)
 const getMergedNotes = () => {
-  const billNotes = billData.value?.notesFormatted && billData.value.notesFormatted.trim() !== ''
-    ? billData.value.notesFormatted
-    : (billData.value?.notes && billData.value.notes.trim() !== '' && billData.value.notes !== '-'
-      ? billData.value.notes
-      : '')
-  
+  const billNotes =
+    billData.value?.notesFormatted && billData.value.notesFormatted.trim() !== ''
+      ? billData.value.notesFormatted
+      : billData.value?.notes && billData.value.notes.trim() !== '' && billData.value.notes !== '-'
+        ? billData.value.notes
+        : ''
+
   const carNotes = hasCarNotes(carData.value?.notes) ? formatCarNotes(carData.value.notes) : ''
-  
+
   const notes = []
   if (billNotes) notes.push(billNotes)
   if (carNotes) notes.push(carNotes)
-  
+
   return notes.join('\n\n')
 }
 
@@ -322,7 +271,10 @@ const calculateCarPrice = () => {
   let myPrice
   if (props.options.paymentTerms.toLowerCase() === 'cfr') {
     // CFR USD = price_cell + upgrades + freight
-    myPrice = (parseFloat(carData.value.price_cell) || 0) + upgrades + (parseFloat(carData.value.freight) || 0)
+    myPrice =
+      (parseFloat(carData.value.price_cell) || 0) +
+      upgrades +
+      (parseFloat(carData.value.freight) || 0)
   } else {
     // FOB USD = price_cell + upgrades
     myPrice = (parseFloat(carData.value.price_cell) || 0) + upgrades
@@ -436,16 +388,17 @@ const getFreightAndRateValues = () => {
 const replaceTermPlaceholders = (text) => {
   if (!text) return text
   const { freightText, rateText } = getFreightAndRateValues()
-  
+
   // Wrap numeric values with LTR markers to preserve direction in RTL text
   // Using Left-to-Right Mark (LRM) and Right-to-Left Mark (RLM) for proper bidirectional text
   const ltrIsolate = '\u2066' // Left-to-Right Isolate
-  const popIsolate = '\u2069'  // Pop Directional Isolate
-  
+  const popIsolate = '\u2069' // Pop Directional Isolate
+
   // Wrap freight and rate values to preserve LTR direction
-  const wrappedFreight = freightText !== 'N/A' ? `${ltrIsolate}${freightText}${popIsolate}` : freightText
+  const wrappedFreight =
+    freightText !== 'N/A' ? `${ltrIsolate}${freightText}${popIsolate}` : freightText
   const wrappedRate = rateText !== 'N/A' ? `${ltrIsolate}${rateText}${popIsolate}` : rateText
-  
+
   return text.replace(/{FREIGHT}/g, wrappedFreight).replace(/{RATE}/g, wrappedRate)
 }
 
@@ -507,13 +460,27 @@ onBeforeUnmount(() => {
       <table class="two-column-block">
         <tr>
           <td class="col-1">
-            <div class="info-group"><span class="bold-label">{{ t('sellBills.name') }}:</span> {{ carData.client_name }}</div>
-            <div class="info-group"><span class="bold-label">{{ t('sellBills.address') }}:</span> {{ billData.broker_address }}</div>
-            <div class="info-group"><span class="bold-label">{{ t('sellBills.phone') }}:</span> {{ billData.broker_phone }}</div>
+            <div class="info-group">
+              <span class="bold-label">{{ t('sellBills.name') }}:</span> {{ carData.client_name }}
+            </div>
+            <div class="info-group">
+              <span class="bold-label">{{ t('sellBills.address') }}:</span>
+              {{ billData.broker_address }}
+            </div>
+            <div class="info-group">
+              <span class="bold-label">{{ t('sellBills.phone') }}:</span>
+              {{ billData.broker_phone }}
+            </div>
           </td>
           <td class="col-2">
-            <div class="meta-line"><strong>{{ t('sellBills.ci_no') }}:</strong> {{ billData ? billData.bill_ref + '-' + carData.id : '' }}</div>
-            <div class="meta-line"><strong>{{ t('sellBills.date') }}:</strong> {{ billData ? formatDate(billData.date_sell) : '' }}</div>
+            <div class="meta-line">
+              <strong>{{ t('sellBills.ci_no') }}:</strong>
+              {{ billData ? billData.bill_ref + '-' + carData.id : '' }}
+            </div>
+            <div class="meta-line">
+              <strong>{{ t('sellBills.date') }}:</strong>
+              {{ billData ? formatDate(billData.date_sell) : '' }}
+            </div>
           </td>
         </tr>
       </table>
@@ -565,7 +532,10 @@ onBeforeUnmount(() => {
       </div>
 
       <!-- Payment & Bank Information -->
-      <div class="section payment-bank-section" :style="{ fontSize: (options.tableFontSize || 12) + 'pt' }">
+      <div
+        class="section payment-bank-section"
+        :style="{ fontSize: (options.tableFontSize || 12) + 'pt' }"
+      >
         <div class="payment-bank-details">
           <div class="payment-info">
             <div class="info-row">
@@ -607,10 +577,14 @@ onBeforeUnmount(() => {
       </div>
 
       <!-- Notes Section -->
-      <div class="section notes-section" v-if="hasAnyNotes()" :style="{ fontSize: (options.tableFontSize || 12) + 'pt' }">
+      <div
+        class="section notes-section"
+        v-if="hasAnyNotes()"
+        :style="{ fontSize: (options.tableFontSize || 12) + 'pt' }"
+      >
         <h3 class="section-title">Notes</h3>
-          <div class="notes-content">
-          <p style="white-space: pre-line;">{{ getMergedNotes() }}</p>
+        <div class="notes-content">
+          <p style="white-space: pre-line">{{ getMergedNotes() }}</p>
         </div>
       </div>
 
@@ -626,8 +600,8 @@ onBeforeUnmount(() => {
           <div class="terms-list">
             <div v-for="(term, index) in visibleTerms" :key="term.id" class="term-item">
               <template v-for="(value, key) in term" :key="key">
-                <p 
-                  v-if="key !== 'id' && key !== 'visible' && enabledLanguages[key] === true" 
+                <p
+                  v-if="key !== 'id' && key !== 'visible' && enabledLanguages[key] === true"
                   :class="key"
                   :style="{ fontSize: (options.termsFontSize || 11) + 'pt' }"
                 >
@@ -966,20 +940,20 @@ onBeforeUnmount(() => {
 }
 
 .term-item p.english,
-.term-item p[class*="english"] {
+.term-item p[class*='english'] {
   font-weight: normal;
   color: #000;
 }
 
 .term-item p.chinese,
-.term-item p[class*="chinese"] {
+.term-item p[class*='chinese'] {
   font-weight: normal;
   color: #000;
   margin-top: 8px;
 }
 
 /* Support for any other language classes */
-.term-item p:not(.english):not([class*="english"]):not(.chinese):not([class*="chinese"]) {
+.term-item p:not(.english):not([class*='english']):not(.chinese):not([class*='chinese']) {
   font-weight: normal;
   color: #000;
   margin-top: 8px;
