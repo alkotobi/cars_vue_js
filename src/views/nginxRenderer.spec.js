@@ -422,7 +422,7 @@ describe('the root-owned pieces', () => {
 
   it('documents the TLS position instead of assuming a domain', () => {
     // Hard-wrapped in the template, so match a phrase that survives the wrap.
-    expect(template).toMatch(/A bare IP is reached without SNI/)
+    expect(template).toMatch(/A browser sends no SNI when the URL is an address/)
     expect(config._cert_dir.join(' ')).toContain('certbot >= 5.4')
   })
 })
